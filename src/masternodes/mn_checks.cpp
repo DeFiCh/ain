@@ -2454,31 +2454,31 @@ public:
         if (!res)
             return res;
 
-        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+        if (mnview.GetLoanTokens(obj.vaultId))
         {
-            for (int i = 0; i < 2; i++) {
-                // check collaterals for active and next price
-                bool useNextPrice = i > 0, requireLivePrice = mnview.VaultHasLoan(obj.vaultId) ? true : false;
-                auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-                if (!collateralsLoans)
-                    return std::move(collateralsLoans);
+            if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+            {
+                for (int i = 0; i < 2; i++) {
+                    // check collaterals for active and next price
+                    bool useNextPrice = i > 0, requireLivePrice = true;
+                    auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+                    if (!collateralsLoans)
+                        return std::move(collateralsLoans);
 
-                uint64_t totalDFI = 0;
-                for (auto& col : collateralsLoans.val->collaterals)
-                    if (col.nTokenId == DCT_ID{0})
-                        totalDFI += col.nValue;
+                    uint64_t totalDFI = 0;
+                    for (auto& col : collateralsLoans.val->collaterals)
+                        if (col.nTokenId == DCT_ID{0})
+                            totalDFI += col.nValue;
 
-                if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                    return Res::Err("At least 50%% of the vault must be in DFI");
+                    if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                        return Res::Err("At least 50%% of the vault must be in DFI");
 
-                auto scheme = mnview.GetLoanScheme(vault->schemeId);
-                if (collateralsLoans.val->ratio() < scheme->ratio)
-                    return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+                    auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                    if (collateralsLoans.val->ratio() < scheme->ratio)
+                        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+                }
             }
-        }
-        else
-        {
-            if (mnview.GetLoanTokens(obj.vaultId))
+            else
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
         }
 

@@ -332,12 +332,6 @@ void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBala
     ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
 }
 
-bool CLoanView::VaultHasLoan(const CVaultId& vaultId)
-{
-    auto it = LowerBound<LoanTokenAmount>(vaultId);
-    return (it.Valid() && it.Key() == vaultId);
-}
-
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
 {
     Write(LoanLiquidationPenalty::prefix(), penalty);
