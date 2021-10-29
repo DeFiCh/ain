@@ -12,8 +12,9 @@ impl RefreshOraclesCmd {
         for oracle in list_oracles {
             let oracle_data = client.get_oracle(&oracle)?;
             let token = &oracle_data.price_feeds[0].token;
-            let amount = oracle_data.token_prices[0].amount as f32;
-            client.set_oracle_data(&oracle_data.oracleid, token, amount)?;
+            if let Some(amount) = oracle_data.token_prices.get(0) {
+                client.set_oracle_data(&oracle_data.oracleid, token, amount.amount as f32)?;
+            }
         }
         Ok(())
     }

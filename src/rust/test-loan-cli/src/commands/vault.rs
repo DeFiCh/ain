@@ -21,8 +21,12 @@ impl CreateVaultCmd {
         println!("Creating vauts for address : {}...", owner_address);
         for loan_scheme in list_loan_schemes {
             for _ in 0..self.number {
-                let tx = client.create_vault(&owner_address, &loan_scheme.id)?;
-                client.await_n_confirmations(&tx, 1)?;
+                match client.create_vault(&owner_address, &loan_scheme.id) {
+                    Ok(tx) => {
+                        client.await_n_confirmations(&tx, 1)?;
+                    }
+                    Err(e) => eprintln!("{}", e),
+                }
             }
         }
         let list_vaults = client.list_vaults(Some(&owner_address))?;

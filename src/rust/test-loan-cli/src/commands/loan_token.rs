@@ -27,7 +27,7 @@ impl CreateCollateralTokenCmd {
         client.create_oracle(token, value)?;
         println!("Appointed oracle {}/USD.", token);
 
-        client.set_collateral_tokens(&[&token])?;
+        client.set_collateral_tokens(&token)?;
         println!("Created loan token {}.", token);
         client.create_pool_pair((&token, "dUSD"))?;
         println!("Created poolpair {}-dUSD.", token);
