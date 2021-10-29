@@ -15,6 +15,7 @@
 #include <core_io.h>
 #include <index/txindex.h>
 #include <logging.h>
+#include <masternodes/govvariables/oracle_block_interval.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <txmempool.h>
@@ -826,6 +827,27 @@ public:
         });
         return found;
     }
+
+    void storeGovVars(const CGovernanceHeightMessage& obj) const {
+
+        // Retrieve any stored GovVariables at startHeight
+        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+
+        // Remove any pre-existing entry
+        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+            if ((*it)->GetName() == obj.govVar->GetName()) {
+                it = storedGovVars.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        // Add GovVariable to set for storage
+        storedGovVars.insert(obj.govVar);
+
+        // Store GovVariable set by height
+        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+    }
 };
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor
@@ -1328,6 +1350,15 @@ public:
             if (!result) {
                 return Res::Err("%s: %s", var->GetName(), result.msg);
             }
+            // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+            if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                const auto diff = height % mnview.GetIntervalBlock();
+                if (diff != 0) {
+                    // Store as pending change
+                    storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
+                    continue;
+                }
+            }
             auto res = var->Apply(mnview, height);
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
@@ -1349,8 +1380,9 @@ public:
             return Res::Err("startHeight must be above the current block height");
         }
 
-        // Retrieve any stored GovVariables at startHeight
-        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+        if (obj.govVar->GetName() == "ORACLE_BLOCK_INTERVAL") {
+            return Res::Err("%s: %s", obj.govVar->GetName(), "Cannot set via setgovheight.");
+        }
 
         // Validate GovVariables before storing
         auto result = obj.govVar->Validate(mnview);
@@ -1358,20 +1390,8 @@ public:
             return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
         }
 
-        // Remove any pre-existing entry
-        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
-            if ((*it)->GetName() == obj.govVar->GetName()) {
-                it = storedGovVars.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        // Add GovVariable to set for storage
-        storedGovVars.insert(obj.govVar);
-
-        // Store GovVariable set by height
-        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+        // Store pending Gov var change
+        storeGovVars(obj);
 
         return Res::Ok();
     }
