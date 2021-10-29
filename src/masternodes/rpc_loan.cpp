@@ -1277,7 +1277,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     defaultsObj.pushKV("minoraclesperprice", minLiveOracles);
     defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
 
-
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
     ret.pushKV("currentpriceblock", (int)priceBlocks.first);
     ret.pushKV("nextpriceblock", (int)priceBlocks.second);
