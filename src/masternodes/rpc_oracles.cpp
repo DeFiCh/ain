@@ -4,6 +4,8 @@
 
 #include <masternodes/mn_rpc.h>
 
+extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
+extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
 namespace oraclefields {
     constexpr auto Alive = "live";
@@ -66,7 +68,7 @@ namespace {
 }
 
 UniValue appointoracle(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"appointoracle",
                "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
@@ -118,7 +120,6 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode
     CScript script = DecodeScript(request.params[0].get_str());
@@ -165,21 +166,13 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAppointOracleMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue updateoracle(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateoracle",
                "\nCreates (and submits to local node and network) a `update oracle transaction`, \n"
@@ -233,7 +226,6 @@ UniValue updateoracle(const JSONRPCRequest& request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode oracleid
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
@@ -289,21 +281,13 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdateOracleAppointMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"removeoracle",
                "\nRemoves oracle, \n"
@@ -339,7 +323,6 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode
     CRemoveOracleAppointMessage msg{};
@@ -379,21 +362,13 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CRemoveOracleAppointMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue setoracledata(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setoracledata",
                "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
@@ -453,7 +428,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
@@ -461,98 +435,110 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // decode timestamp
     int64_t timestamp = request.params[1].get_int64();
 
-    if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
-    }
-
     // decode prices
     auto const & prices = request.params[2];
 
     CMutableTransaction rawTx{};
     CTransactionRef optAuthTx;
 
-    // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-
-        auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
-            if (!value.exists(oraclefields::Currency)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
-            }
-            if (!value.exists(oraclefields::TokenAmount)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
-            }
-
-            auto currency = value[oraclefields::Currency].getValStr();
-            auto tokenAmount = value[oraclefields::TokenAmount].getValStr();
-            auto amounts = ParseTokenAmount(tokenAmount);
-            if (!amounts.ok) {
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, amounts.msg);
-            }
-
-            return std::make_pair(currency, *amounts.val);
-        };
-
-        CTokenPrices tokenPrices;
-
-        for (const auto &value : prices.get_array().getValues()) {
-            std::string currency;
-            std::pair<CAmount, std::string> tokenAmount;
-            std::tie(currency, tokenAmount) = parseDataItem(value);
-            tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
+    auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
+        if (!value.exists(oraclefields::Currency)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+        }
+        if (!value.exists(oraclefields::TokenAmount)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
         }
 
-        CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
+        auto currency = value[oraclefields::Currency].getValStr();
+        auto tokenAmount = value[oraclefields::TokenAmount].getValStr();
+        auto amounts = ParseTokenAmount(tokenAmount);
+        if (!amounts.ok) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, amounts.msg);
+        }
 
+        return std::make_pair(currency, *amounts.val);
+    };
+
+    CTokenPrices tokenPrices;
+
+    for (const auto &value : prices.get_array().getValues()) {
+        std::string currency;
+        std::pair<CAmount, std::string> tokenAmount;
+        std::tie(currency, tokenAmount) = parseDataItem(value);
+        tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
+    }
+
+    CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
+
+    int targetHeight;
+    CScript oracleAddress;
+    {
+        LOCK(cs_main);
         // check if tx parameters are valid
-
-        auto oracleRes = mnview.GetOracleData(oracleId);
+        auto oracleRes = pcustomcsview->GetOracleData(oracleId);
         if (!oracleRes.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
+        oracleAddress = oracleRes.val->oracleAddress;
 
-        // encode
-        CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-        markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
-                       << msg;
-
-        CScript scriptMeta;
-        scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-
-        int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-        const auto txVersion = GetTransactionVersion(targetHeight);
-        rawTx = CMutableTransaction(txVersion);
-        rawTx.vout.emplace_back(0, scriptMeta);
-
-        UniValue const &txInputs = request.params[3];
-
-        std::set<CScript> auths;
-        auths.insert({oracleRes.val->oracleAddress});
-
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
-
-        CCoinControl coinControl;
-
-        // Set change to auth address if there's only one auth address
-        if (auths.size() == 1) {
-            CTxDestination dest;
-            ExtractDestination(*auths.cbegin(), dest);
-            if (IsValidDestination(dest)) {
-                coinControl.destChange = dest;
-            }
-        }
-
-        fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CSetOracleDataMessage{}, coins);
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
+    // timestamp is checked at consensus level
+    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
+        if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
+        }
+    }
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
+                    << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    rawTx = CMutableTransaction(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[3];
+
+    std::set<CScript> auths{oracleAddress};
+
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+bool diffInHour(int64_t time1, int64_t time2) {
+    constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
+    return std::abs(time1 - time2) < SECONDS_PER_HOUR;
+}
+
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
+    auto FCHeight = Params().GetConsensus().FortCanningHeight;
+    auto fixedBlocks = mnview.GetIntervalBlock();
+    auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight - FCHeight) % fixedBlocks));
+    auto activePriceBlock = nextPriceBlock - fixedBlocks;
+    return {activePriceBlock, nextPriceBlock};
 }
 
 namespace {
@@ -561,11 +547,6 @@ namespace {
         pair.pushKV(oraclefields::Token, priceFeed.first);
         pair.pushKV(oraclefields::Currency, priceFeed.second);
         return pair;
-    }
-
-    bool diffInHour(int64_t time1, int64_t time2) {
-        constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
-        return std::abs(time1 - time2) < SECONDS_PER_HOUR;
     }
 
     UniValue OracleToJSON(const COracleId& oracleId, const COracle& oracle) {
@@ -604,11 +585,9 @@ namespace {
 }
 
 UniValue getoracledata(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getoracledata",
-               "\nReturns oracle data in json form.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns oracle data in json form.\n",
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
                },
@@ -626,14 +605,6 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot create transactions while still in Initial Block Download");
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
-
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
@@ -649,11 +620,9 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 }
 
 UniValue listoracles(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listoracles",
-               "\nReturns list of oracle ids." +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns list of oracle ids.\n",
                {
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -687,11 +656,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
                },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot create transactions while still in Initial Block Download");
-    }
-
     // parse pagination
     COracleId start = {};
     bool including_start = true;
@@ -717,8 +681,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
         }
     }
 
-    pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
     LOCK(cs_main);
 
     UniValue value(UniValue::VARR);
@@ -733,11 +695,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
 }
 
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listlatestrawprices",
-               "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns latest raw price updates through all the oracles for specified token and currency , \n",
                 {
                    {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
                         "request in json-form, containing currency and token names",
@@ -809,14 +769,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -855,46 +810,55 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     return result;
 }
 
-namespace {
-    CAmount GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
-        arith_uint256 weightedSum = 0;
-        uint64_t numLiveOracles = 0, sumWeights = 0;
-        view.ForEachOracle([&](const COracleId&, COracle oracle) {
-            if (!oracle.SupportsPair(token, currency)) {
-                return true;
+ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
+    // DUSD-USD always returns 1.00000000
+    if (token == "DUSD" && currency == "USD") {
+        return ResVal<CAmount>(COIN, Res::Ok());
+    }
+    arith_uint256 weightedSum = 0;
+    uint64_t numLiveOracles = 0, sumWeights = 0;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        if (!oracle.SupportsPair(token, currency)) {
+            return true;
+        }
+        for (const auto& tokenPrice : oracle.tokenPrices) {
+            if (token != tokenPrice.first) {
+                continue;
             }
-            for (const auto& tokenPrice : oracle.tokenPrices) {
-                if (token != tokenPrice.first) {
+            for (const auto& price : tokenPrice.second) {
+                if (currency != price.first) {
                     continue;
                 }
-                for (const auto& price : tokenPrice.second) {
-                    if (currency != price.first) {
-                        continue;
-                    }
-                    const auto& pricePair = price.second;
-                    auto amount = pricePair.first;
-                    auto timestamp = pricePair.second;
-                    if (!diffInHour(timestamp, lastBlockTime)) {
-                        continue;
-                    }
-                    ++numLiveOracles;
-                    sumWeights += oracle.weightage;
-                    weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
+                const auto& pricePair = price.second;
+                auto amount = pricePair.first;
+                auto timestamp = pricePair.second;
+                if (!diffInHour(timestamp, lastBlockTime)) {
+                    continue;
                 }
+                ++numLiveOracles;
+                sumWeights += oracle.weightage;
+                weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
             }
-            return true;
-        });
-
-        if (numLiveOracles == 0) {
-            throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
         }
+        return true;
+    });
 
-        if (sumWeights == 0) {
-            throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
-        }
+    static const auto minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
 
-        return (weightedSum / arith_uint256(sumWeights)).GetLow64();
+    if (numLiveOracles < minimumLiveOracles) {
+        return Res::Err("no live oracles for specified request");
     }
+
+    if (sumWeights == 0) {
+        return Res::Err("all live oracles which meet specified request, have zero weight");
+    }
+
+    ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+    LogPrint(BCLog::LOAN, "%s(): %s/%s=%lld\n", __func__, token, currency, *res.val);
+    return res;
+}
+
+namespace {
 
     UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
@@ -937,12 +901,12 @@ namespace {
             const auto& currency = tokenCurrency.second;
             item.pushKV(oraclefields::Token, token);
             item.pushKV(oraclefields::Currency, currency);
-            try {
-                auto price = GetAggregatePrice(view, token, currency, lastBlockTime);
-                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(price));
+            auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
+            if (aggregatePrice) {
+                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
                 item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
-            } catch (const UniValue& error) {
-                item.pushKV(oraclefields::ValidityFlag, error["message"]);
+            } else {
+                item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
             }
             result.push_back(item);
             limit--;
@@ -954,12 +918,10 @@ namespace {
 } // namespace
 
 UniValue getprice(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getprice",
                "\nCalculates aggregated price, \n"
-               "The only argument is a json-form request containing token and currency names." +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "The only argument is a json-form request containing token and currency names.\n",
                {
                        {"request", RPCArg::Type::OBJ, RPCArg::Optional::NO,
                         "request in json-form, containing currency and token names, both are mandatory",
@@ -983,24 +945,19 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
-    return ValueFromAmount(result);
+    if (!result)
+        throw JSONRPCError(RPC_MISC_ERROR, result.msg);
+    return ValueFromAmount(*result.val);
 }
 
 UniValue listprices(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listprices",
-               "\nCalculates aggregated prices for all supported pairs (token, currency), \n"
-                + HelpRequiringPassphrase(pwallet) + "\n",
+               "\nCalculates aggregated prices for all supported pairs (token, currency), \n",
                {
                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -1048,30 +1005,146 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
+UniValue getfixedintervalprice(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfixedintervalprice",
+                "Get fixed interval price for a given pair.\n",
+                {
+                    {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                },
+                RPCResult{
+                       "\"json\"          (string) json-object having following fields:\n"
+                       "                  `activePrice` - current price used for loan calculations\n"
+                       "                  `nextPrice` - next price to be assigned to pair.\n"
+                       "                  `nextPriceBlock` - height of nextPrice.\n"
+                       "                  `activePriceBlock` - height of activePrice.\n"
+                       "                  `timestamp` - timestamp of active price.\n"
+                       "                  `isLive` - price liveness, within parameters"
+                       "                   Possible reasons for a price result to not be live:"
+                       "                   1. Not sufficient live oracles.\n"
+                       "                   2. Deviation is over the limit to be considered stable.\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
+                },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameter, argument fixedIntervalPriceId must be non-null");
+
+    auto fixedIntervalStr = request.params[0].getValStr();
+    UniValue objPrice{UniValue::VOBJ};
+    objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
+    auto pairId = DecodePriceFeedUni(objPrice);
+
+    LOCK(cs_main);
+    LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
+    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    if(!fixedPrice)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
+
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+
+    objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
+    objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
+    objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
+    objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
+    objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
+    objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
+    return objPrice;
+}
+
+UniValue listfixedintervalprices(const JSONRPCRequest& request) {
+    RPCHelpMan{"listfixedintervalprices",
+                "Get all fixed interval prices.\n",
+                {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                              "Optional first key to iterate from, in lexicographical order."
+                              "Typically it's set to last ID from previous request."},
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                              "Maximum number of fixed interval prices to return, 100 by default"},
+                        },
+                    },
+                },
+                RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "                  `activePrice` - current price used for loan calculations\n"
+                       "                  `nextPrice` - next price to be assigned to pair.\n"
+                       "                  `timestamp` - timestamp of active price.\n"
+                       "                  `isLive` - price liveness, within parameters"
+                       "                   Possible reasons for a price result to not be live:"
+                       "                   1. Not sufficient live oracles.\n"
+                       "                   2. Deviation is over the limit to be considered stable.\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("listfixedintervalprices", R"('{""}')")
+                },
+    }.Check(request);
+
+    size_t limit = 100;
+    CTokenCurrencyPair start{};
+    {
+        if (request.params.size() > 0) {
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                auto priceFeedId = paginationObj["start"].getValStr();
+                start = DecodePriceFeedString(priceFeedId);
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    LOCK(cs_main);
+
+
+    UniValue listPrice{UniValue::VARR};
+    pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+        UniValue obj{UniValue::VOBJ};
+        obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
+        obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
+        obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
+        obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
+        obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
+        listPrice.push_back(obj);
+        limit--;
+        return limit != 0;
+    }, start);
+    return listPrice;
+}
+
+
+
+
+
 static const CRPCCommand commands[] =
 {
-//  category        name                     actor (function)        params
-//  -------------   ---------------------    --------------------    ----------
-    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid", "inputs"}},
-    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
-    {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-    {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
-    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
-    {"oracles",     "getprice",              &getprice,               {"request"}},
-    {"oracles",     "listprices",            &listprices,             {"pagination"}},
+//  category        name                       actor (function)           params
+//  -------------   ---------------------      --------------------       ----------
+    {"oracles",     "appointoracle",           &appointoracle,            {"address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "removeoracle",            &removeoracle,             {"oracleid", "inputs"}},
+    {"oracles",     "updateoracle",            &updateoracle,             {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "setoracledata",           &setoracledata,            {"oracleid", "timestamp", "prices", "inputs"}},
+    {"oracles",     "getoracledata",           &getoracledata,            {"oracleid"}},
+    {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
+    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
+    {"oracles",     "getprice",                &getprice,                 {"request"}},
+    {"oracles",     "listprices",              &listprices,               {"pagination"}},
+    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
+    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

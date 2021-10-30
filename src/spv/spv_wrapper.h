@@ -169,7 +169,9 @@ public:
     // Bitcoin HTLC calls
     UniValue GetHTLCReceived(const std::string &addr);
     std::string GetHTLCSeed(uint8_t* md20);
-    UniValue CreateHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+    std::pair<std::string, std::string> PrepareHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+    std::pair<std::string, std::string> CreateHTLCTransaction(CWallet* const pwallet, const std::vector<std::pair<HTLCDetails, CScript>>& scriptDetails, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+    UniValue RefundAllHTLC(CWallet* const pwallet, const char *destinationAddress, uint64_t feeRate);
 
     // Get and set DB version
     int GetDBVersion();

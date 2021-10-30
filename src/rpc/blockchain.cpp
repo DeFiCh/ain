@@ -597,6 +597,7 @@ static UniValue clearmempool(const JSONRPCRequest& request)
     for (const uint256& hash : vtxid)
         removed.push_back(hash.ToString());
 
+    LOCK(cs_main);
     mempool.clear();
 
     return removed;
@@ -1359,6 +1360,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "dakotacrescent", consensusParams.DakotaCrescentHeight);
     BuriedForkDescPushBack(softforks, "eunos", consensusParams.EunosHeight);
     BuriedForkDescPushBack(softforks, "eunospaya", consensusParams.EunosPayaHeight);
+    BuriedForkDescPushBack(softforks, "fortcanning", consensusParams.FortCanningHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

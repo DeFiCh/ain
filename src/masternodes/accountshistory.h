@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <flushablestorage.h>
+#include <masternodes/auctionhistory.h>
 #include <masternodes/masternodes.h>
 #include <script/script.h>
 #include <uint256.h>
@@ -60,10 +61,11 @@ public:
     void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 
     // tags
-    struct ByAccountHistoryKey { static const unsigned char prefix; };
+    struct ByAccountHistoryKey { static constexpr uint8_t prefix() { return 'h'; } };
 };
 
 class CAccountHistoryStorage : public CAccountsHistoryView
+                             , public CAuctionHistoryView
 {
 public:
     CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
@@ -107,6 +109,7 @@ public:
     CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubFeeBurn(CScript const & owner);
     bool Flush();
 };
 

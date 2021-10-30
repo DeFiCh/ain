@@ -470,6 +470,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-eunosheight", "Eunos fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-eunospayaheight", "EunosPaya fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningheight", "Fort Canning fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
@@ -1070,7 +1071,8 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    fCheckpointsEnabled = gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED);
+    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
+        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())
@@ -1996,30 +1998,43 @@ bool AppInitMain(InitInterfaces& interfaces)
                 continue;
             }
 
-            auto const rewardAddressStr = gArgs.GetArg("-rewardaddress", "");
-            CTxDestination const rewardAddress = rewardAddressStr.empty() ? CNoDestination{} :
-                                                    DecodeDestination(rewardAddressStr, chainparams);
-            if (IsValidDestination(rewardAddress)) {
-                coinbaseScript = GetScriptForDestination(rewardAddress);
-                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", rewardAddressStr);
-            } else {
-                // determine coinbase script for minting thread
-                CTxDestination ownerDest;
-                auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
-                if (optMasternodeID) {
-                    auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
-                    assert(nodePtr); // this should not happen if MN was found by operator's id
-                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
-                }
-                if (IsValidDestination(ownerDest)) {
-                    coinbaseScript = GetScriptForDestination(ownerDest);
-                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
-                } else {
-                    LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            // determine coinbase script for minting thread
+            auto const customRewardAddressStr = gArgs.GetArg("-rewardaddress", "");
+            CTxDestination const customRewardDest = customRewardAddressStr.empty() ?
+                CNoDestination{} :
+                DecodeDestination(customRewardAddressStr, chainparams);
+
+            CTxDestination ownerDest;
+            CTxDestination rewardDest;
+            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
+            if (optMasternodeID) {
+                auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
+                assert(nodePtr); // this should not happen if MN was found by operator's id
+                ownerDest = nodePtr->ownerType == PKHashType ?
+                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                if (nodePtr->rewardAddressType != 0) {
+                    rewardDest = nodePtr->rewardAddressType == PKHashType ?
+                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
                 }
             }
 
+            if (IsValidDestination(rewardDest)) {
+                coinbaseScript = GetScriptForDestination(rewardDest);
+                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(rewardDest));
+            }
+            else if (IsValidDestination(customRewardDest)) {
+                coinbaseScript = GetScriptForDestination(customRewardDest);
+                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", customRewardAddressStr);
+            }
+            else if (IsValidDestination(ownerDest)) {
+                coinbaseScript = GetScriptForDestination(ownerDest);
+                LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
+            }
+            else {
+                LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            }
             stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;
         }

@@ -74,10 +74,9 @@ help() {
 # ----------- Direct builds ---------------
 
 
-build() {
+build_prepare() {
     local target=${1:-"x86_64-pc-linux-gnu"}
     local extra_conf_opts=${EXTRA_CONF_ARGS:-}
-    local extra_make_args=${EXTRA_MAKE_ARGS:--j $(nproc)}
     local extra_make_depends_args=${EXTRA_MAKE_DEPENDS_ARGS:--j $(nproc)}
 
     echo "> build: ${target}"
@@ -88,6 +87,12 @@ build() {
     ./autogen.sh
     # XREF: #make-configure
     ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
+}
+
+build() {
+    local extra_make_args=${EXTRA_MAKE_ARGS:--j $(nproc)}
+
+    build_prepare "$@"
     make ${extra_make_args}
 }
 

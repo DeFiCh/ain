@@ -1945,7 +1945,7 @@ void BRPeerManagerRescanFromBlockNumber(BRPeerManager *manager, uint32_t blockNu
     if (manager->isConnected) {
         BRMerkleBlock *block = _BRPeerManagerLookupBlockFromBlockNumber(manager, blockNumber);
 
-        // If there was no block, find the preceeding hardcoded checkpoint.
+        // If there was no block, find the preceding hardcoded checkpoint.
         if (NULL == block) {
             for (size_t i = manager->params->checkpointsCount; i > 0; i--) {
                 if (i - 1 == 0 || manager->params->checkpoints[i - 1].height < blockNumber) {

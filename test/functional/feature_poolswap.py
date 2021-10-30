@@ -14,6 +14,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
+    disconnect_nodes,
     assert_raises_rpc_error,
 )
 
@@ -27,10 +28,10 @@ class PoolPairTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',]]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163',],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163',]]
 
 
     def run_test(self):
@@ -291,6 +292,57 @@ class PoolPairTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        # Test fort canning max price change
+        disconnect_nodes(self.nodes[0], 1)
+        disconnect_nodes(self.nodes[0], 2)
+        print(self.nodes[0].getconnectioncount())
+        destination = self.nodes[0].getnewaddress("", "legacy")
+        swap_from = 200
+        coin = 100000000
+
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": swap_from,
+            "to": destination,
+            "tokenTo": symbolSILVER
+        })
+        self.nodes[0].generate(1)
+
+        silver_received = self.nodes[0].getaccount(destination, {}, True)[idSilver]
+        silver_per_gold = round((swap_from * coin) / (silver_received * coin), 8)
+
+        # Reset swap and try again with max price set to expected amount
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": swap_from,
+            "to": destination,
+            "tokenTo": symbolSILVER,
+            "maxPrice": silver_per_gold,
+        })
+        self.nodes[0].generate(1)
+
+        # Reset swap and try again with max price set to one Satoshi below
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        try:
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolGOLD,
+                "amountFrom": swap_from,
+                "to": destination,
+                "tokenTo": symbolSILVER,
+                "maxPrice": silver_per_gold - Decimal('0.00000001'),
+            })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Price is higher than indicated" in errorString)
+
         # REVERTING:
         #========================
         print ("Reverting...")
@@ -299,6 +351,8 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[3].generate(30)
 
         connect_nodes_bi(self.nodes, 0, 3)
+        connect_nodes_bi(self.nodes, 1, 3)
+        connect_nodes_bi(self.nodes, 2, 3)
         self.sync_blocks()
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
 

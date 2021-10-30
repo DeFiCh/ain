@@ -239,7 +239,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         coinbaseTx.vout.resize(2);
 
         // Explicitly set miner reward
-        coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+        if (nHeight >= consensus.FortCanningHeight) {
+            coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+        } else {
+            coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+        }
 
         // Community payment always expected
         coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -726,7 +730,18 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+                if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
+                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
+                    );
+                }
+                else {
+                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
+                        CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress))
+                    );
+                }
             } else {
                 scriptPubKey = args.coinbaseScript;
             }
@@ -956,6 +971,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
                 // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+                LOCK(cs_main);
                 mempool.clear();
             }
 

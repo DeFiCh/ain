@@ -659,7 +659,7 @@ int BRTransactionIsSigned(const BRTransaction *tx)
 // adds signatures to any inputs with NULL signatures that can be signed with any keys
 // forkId is 0 for bitcoin, 0x40 for b-cash, 0x4f for b-gold
 // returns true if tx is signed
-int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount, HTLCScriptType htlcType, const uint8_t* seed, const uint8_t *redeemScript)
+int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount, HTLCScriptType htlcType, const uint8_t* seed)
 {
     UInt160 pkh[keysCount];
     size_t i, j;
@@ -694,7 +694,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
         size_t elemsCount = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), input->script, input->scriptLen);
         uint8_t pubKey[BRKeyPubKey(&keys[j], NULL, 0)];
         size_t pkLen = BRKeyPubKey(&keys[j], pubKey, sizeof(pubKey));
-        uint8_t sig[73], script[1 + sizeof(sig) + 1 + (seed ? seed[0] + (htlcType == ScriptTypeSeller ? 1 /* OP_1 */ : 0) + 1 /* pushdata */ + redeemScript[0]: sizeof(pubKey))];
+        uint8_t sig[73], script[1 + sizeof(sig) + 1 + (seed ? seed[0] + (htlcType == ScriptTypeSeller ? 1 /* OP_1 */ : 0) + 1 /* pushdata */ + input->scriptLen /* length */ + input->script[0] : sizeof(pubKey))];
         size_t sigLen, scriptLen;
         UInt256 md = UINT256_ZERO;
         
@@ -747,7 +747,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
             }
 
             // Add redeemscript
-            scriptLen += BRScriptPushData(&script[scriptLen], sizeof(script) - scriptLen, &redeemScript[1], redeemScript[0]);
+            scriptLen += BRScriptPushData(&script[scriptLen], sizeof(script) - scriptLen, input->script, input->scriptLen);
 
             BRTxInputSetSignature(input, script, scriptLen);
             BRTxInputSetWitness(input, script, 0);

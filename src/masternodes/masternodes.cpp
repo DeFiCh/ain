@@ -20,40 +20,14 @@
 #include <functional>
 #include <unordered_map>
 
-/// @attention make sure that it does not overlap with those in tokens.cpp !!!
-// Prefixes for the 'custom chainstate database' (enhancedcs/)
-const unsigned char DB_MASTERNODES = 'M';     // main masternodes table
-const unsigned char DB_MN_OPERATORS = 'o';    // masternodes' operators index
-const unsigned char DB_MN_OWNERS = 'w';       // masternodes' owners index
-const unsigned char DB_MN_STAKER = 'X';       // masternodes' last staked block time
-const unsigned char DB_MN_SUBNODE = 'Z';      // subnode's last staked block time
-const unsigned char DB_MN_TIMELOCK = 'K';
-const unsigned char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
-const unsigned char DB_MN_VERSION = 'D';
-const unsigned char DB_MN_ANCHOR_REWARD = 'r';
-const unsigned char DB_MN_ANCHOR_CONFIRM = 'x';
-const unsigned char DB_MN_CURRENT_TEAM = 't';
-const unsigned char DB_MN_FOUNDERS_DEBT = 'd';
-const unsigned char DB_MN_AUTH_TEAM = 'v';
-const unsigned char DB_MN_CONFIRM_TEAM = 'V';
-
-const unsigned char CMasternodesView::ID      ::prefix = DB_MASTERNODES;
-const unsigned char CMasternodesView::Operator::prefix = DB_MN_OPERATORS;
-const unsigned char CMasternodesView::Owner   ::prefix = DB_MN_OWNERS;
-const unsigned char CMasternodesView::Staker  ::prefix = DB_MN_STAKER;
-const unsigned char CMasternodesView::SubNode ::prefix = DB_MN_SUBNODE;
-const unsigned char CMasternodesView::Timelock::prefix = DB_MN_TIMELOCK;
-const unsigned char CAnchorRewardsView::BtcTx ::prefix = DB_MN_ANCHOR_REWARD;
-const unsigned char CAnchorConfirmsView::BtcTx::prefix = DB_MN_ANCHOR_CONFIRM;
-const unsigned char CTeamView::AuthTeam       ::prefix = DB_MN_AUTH_TEAM;
-const unsigned char CTeamView::ConfirmTeam    ::prefix = DB_MN_CONFIRM_TEAM;
-
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
 int GetMnActivationDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosHeight) {
+    // Restore previous activation delay on testnet after FC
+    if (height < Params().GetConsensus().EunosHeight ||
+    (Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= Params().GetConsensus().FortCanningHeight)) {
         return Params().GetConsensus().mn.activationDelay;
     }
 
@@ -62,7 +36,9 @@ int GetMnActivationDelay(int height)
 
 int GetMnResignDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosHeight) {
+    // Restore previous activation delay on testnet after FC
+    if (height < Params().GetConsensus().EunosHeight ||
+    (Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= Params().GetConsensus().FortCanningHeight)) {
         return Params().GetConsensus().mn.resignDelay;
     }
 
@@ -100,9 +76,11 @@ CMasternode::CMasternode()
     , ownerType(0)
     , operatorAuthAddress()
     , operatorType(0)
+    , rewardAddress()
+    , rewardAddressType(0)
     , creationHeight(0)
     , resignHeight(-1)
-    , unusedVariable(-1)
+    , version(-1)
     , resignTx()
     , banTx()
 {
@@ -121,7 +99,7 @@ CMasternode::State CMasternode::GetState(int height) const
         // Special case for genesis block
         int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {
-                return State::ENABLED;
+            return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
@@ -129,7 +107,7 @@ CMasternode::State CMasternode::GetState(int height) const
     if (resignHeight != -1) { // pre-resigned or resigned
         int resignDelay = height < EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
         if (height < resignHeight + resignDelay) {
-                return State::PRE_RESIGNED;
+            return State::PRE_RESIGNED;
         }
         return State::RESIGNED;
     }
@@ -182,9 +160,11 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.ownerAuthAddress == b.ownerAuthAddress &&
             a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
+            a.rewardAddress == b.rewardAddress &&
+            a.rewardAddressType == b.rewardAddressType &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
-            a.unusedVariable == b.unusedVariable &&
+            a.version == b.version &&
             a.resignTx == b.resignTx &&
             a.banTx == b.banTx
             );
@@ -230,24 +210,20 @@ void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CL
     ForEach<ID, uint256, CMasternode>(callback, start);
 }
 
-void CMasternodesView::IncrementMintedBy(const CKeyID & minter)
+void CMasternodesView::IncrementMintedBy(const uint256& nodeId)
 {
-    auto nodeId = GetMasternodeIdByOperator(minter);
-    assert(nodeId);
-    auto node = GetMasternode(*nodeId);
+    auto node = GetMasternode(nodeId);
     assert(node);
     ++node->mintedBlocks;
-    WriteBy<ID>(*nodeId, *node);
+    WriteBy<ID>(nodeId, *node);
 }
 
-void CMasternodesView::DecrementMintedBy(const CKeyID & minter)
+void CMasternodesView::DecrementMintedBy(const uint256& nodeId)
 {
-    auto nodeId = GetMasternodeIdByOperator(minter);
-    assert(nodeId);
-    auto node = GetMasternode(*nodeId);
+    auto node = GetMasternode(nodeId);
     assert(node);
     --node->mintedBlocks;
-    WriteBy<ID>(*nodeId, *node);
+    WriteBy<ID>(nodeId, *node);
 }
 
 boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
@@ -347,6 +323,77 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
     return Res::Ok();
 }
 
+Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("masternode %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    // If old masternode update foor new serialisatioono
+    if (node->version < CMasternode::VERSION0) {
+        node->version = CMasternode::VERSION0;
+    }
+
+    // Set new reward address
+    node->rewardAddressType = rewardAddressType;
+    node->rewardAddress = rewardAddress;
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
+Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("masternode %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    node->rewardAddressType = 0;
+    node->rewardAddress.SetNull();
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
+Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
+    // auth already checked!
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("node %s does not exists", nodeId.ToString());
+    }
+
+    const auto state = node->GetState(height);
+    if (state != CMasternode::ENABLED) {
+        return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+    }
+
+    if (operatorType == node->operatorType && operatorAuthAddress == node->operatorAuthAddress) {
+        return Res::Err("The new operator is same as existing operator");
+    }
+
+    // Remove old record
+    EraseBy<Operator>(node->operatorAuthAddress);
+
+    node->operatorType = operatorType;
+    node->operatorAuthAddress = operatorAuthAddress;
+
+    // Overwrite and create new record
+    WriteBy<ID>(nodeId, *node);
+    WriteBy<Operator>(node->operatorAuthAddress, nodeId);
+
+    return Res::Ok();
+}
+
 void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);
@@ -409,8 +456,11 @@ std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID & minte
     for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
         ForEachSubNode([&](const SubNodeBlockTimeKey &key, int64_t blockTime)
         {
-            if (key.masternodeID == nodeId)
-            {
+            if (height >= Params().GetConsensus().FortCanningHeight) {
+                if (key.masternodeID == nodeId && key.subnode == i) {
+                    times[i] = blockTime;
+                }
+            } else if (key.masternodeID == nodeId) {
                 times[i] = blockTime;
             }
 
@@ -529,14 +579,14 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const 
 int CLastHeightView::GetLastHeight() const
 {
     int result;
-    if (Read(DB_MN_HEIGHT, result))
+    if (Read(Height::prefix(), result))
         return result;
     return 0;
 }
 
 void CLastHeightView::SetLastHeight(int height)
 {
-    Write(DB_MN_HEIGHT, height);
+    Write(Height::prefix(), height);
 }
 
 /*
@@ -545,7 +595,7 @@ void CLastHeightView::SetLastHeight(int height)
 CAmount CFoundationsDebtView::GetFoundationsDebt() const
 {
     CAmount debt(0);
-    if(Read(DB_MN_FOUNDERS_DEBT, debt))
+    if(Read(Debt::prefix(), debt))
         assert(debt >= 0);
     return debt;
 }
@@ -553,7 +603,7 @@ CAmount CFoundationsDebtView::GetFoundationsDebt() const
 void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
 {
     assert(debt >= 0);
-    Write(DB_MN_FOUNDERS_DEBT, debt);
+    Write(Debt::prefix(), debt);
 }
 
 
@@ -562,13 +612,13 @@ void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
  */
 void CTeamView::SetTeam(const CTeamView::CTeam & newTeam)
 {
-    Write(DB_MN_CURRENT_TEAM, newTeam);
+    Write(CurrentTeam::prefix(), newTeam);
 }
 
 CTeamView::CTeam CTeamView::GetCurrentTeam() const
 {
     CTeam team;
-    if (Read(DB_MN_CURRENT_TEAM, team) && team.size() > 0)
+    if (Read(CurrentTeam::prefix(), team) && team.size() > 0)
         return team;
 
     return Params().GetGenesisTeam();
@@ -673,14 +723,14 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 int CCustomCSView::GetDbVersion() const
 {
     int version;
-    if (Read(DB_MN_VERSION, version))
+    if (Read(DbVersion::prefix(), version))
         return version;
     return 0;
 }
 
 void CCustomCSView::SetDbVersion(int version)
 {
-    Write(DB_MN_VERSION, version);
+    Write(DbVersion::prefix(), version);
 }
 
 CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
@@ -845,6 +895,95 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     });
 
     return UpdateBalancesHeight(owner, targetHeight);
+}
+
+double CCollateralLoans::calcRatio(uint64_t maxRatio) const
+{
+    return !totalLoans ? double(maxRatio) : double(totalCollaterals) / totalLoans;
+}
+
+uint32_t CCollateralLoans::ratio() const
+{
+    constexpr auto maxRatio = std::numeric_limits<uint32_t>::max();
+    auto ratio = calcRatio(maxRatio) * 100;
+    return ratio > maxRatio ? maxRatio : uint32_t(lround(ratio));
+}
+
+CAmount CCollateralLoans::precisionRatio() const
+{
+    constexpr auto maxRatio = std::numeric_limits<CAmount>::max();
+    auto ratio = calcRatio(maxRatio);
+    const auto precision = COIN * 100;
+    return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
+}
+
+ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+{
+    auto vault = GetVault(vaultId);
+    if (!vault || vault->isUnderLiquidation) {
+        return Res::Err("Vault is under liquidation");
+    }
+
+    CCollateralLoans ret{};
+
+    if (auto loanTokens = GetLoanTokens(vaultId)) {
+        for (const auto& loan : loanTokens->balances) {
+            auto token = GetLoanSetLoanTokenByID(loan.first);
+            if (!token)
+                return Res::Err("Loan token with id (%s) does not exist!", loan.first.ToString());
+            auto rate = GetInterestRate(vaultId, loan.first);
+            if (!rate)
+                return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+            if (rate->height > height)
+                return Res::Err("Trying to read loans in the past");
+            LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
+            auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
+            if (!priceFeed)
+                return std::move(priceFeed);
+            if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
+                return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            auto price = priceFeed.val->priceRecord[int(useNextPrice)];
+            if (price <= 0)
+                return Res::Err("Negative price (%s/%s)", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
+            auto value = loan.second + TotalInterest(*rate, height);
+            auto amount = MultiplyAmounts(price, value);
+            if (price > COIN && amount < value)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
+            auto prevLoans = ret.totalLoans;
+            ret.totalLoans += amount;
+            if (prevLoans > ret.totalLoans)
+                return Res::Err("Exceed maximum loans");
+            ret.loans.push_back({loan.first, amount});
+        }
+    }
+
+    for (const auto& col : collaterals.balances) {
+        auto collToken = HasLoanSetCollateralToken({col.first, height});
+        if (!collToken)
+            return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
+        LogPrint(BCLog::ORACLE,"\t\t%s()->for_collaterals->id(%s)->", __func__, collToken->idToken.ToString()); /* Continued */
+        auto priceFeed = GetFixedIntervalPrice(collToken->fixedIntervalPriceId);
+        if (!priceFeed)
+            return std::move(priceFeed);
+        if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
+            return Res::Err("No live fixed prices for %s/%s", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
+        auto price = priceFeed.val->priceRecord[int(useNextPrice)];
+        if (price <= 0)
+            return Res::Err("Negative price (%s/%s)", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
+        auto amount = MultiplyAmounts(price, col.second);
+        if (price > COIN && amount < col.second)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));
+        amount = MultiplyAmounts(collToken->factor, amount);
+        auto prevCollaterals = ret.totalCollaterals;
+        ret.totalCollaterals += amount;
+        if (prevCollaterals > ret.totalCollaterals)
+            return Res::Err("Exceed maximum collateral");
+        ret.collaterals.push_back({col.first, amount});
+    }
+
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  __func__, ret.totalCollaterals, ret.totalLoans, ret.ratio());
+    return ResVal<CCollateralLoans>(ret, Res::Ok());
 }
 
 uint256 CCustomCSView::MerkleRoot() {
