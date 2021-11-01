@@ -3137,47 +3137,63 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         }
         auto vault = view.GetVault(vaultId);
         assert(vault);
+        
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch(vaultId, i);
             assert(batch);
+
             if (auto bid = view.GetAuctionBid(vaultId, i)) {
+                auto bidOwner = bid->first;
+                auto bidTokenAmount = bid->second;
+
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
-                assert(bid->second.nValue >= penaltyAmount);
+                assert(bidTokenAmount.nValue >= penaltyAmount);
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
                 assert(amountToBurn > 0);
+
                 CScript tmpAddress(vaultId.begin(), vaultId.end());
-                view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
-                SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
-                view.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
+
+                SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
+
                 for (const auto& col : batch->collaterals.balances) {
-                    view.AddBalance(bid->first, {col.first, col.second});
+                    auto tokenId = col.first;
+                    auto tokenAmount = col.second;
+                    view.AddBalance(bidOwner, {tokenId, tokenAmount});
                 }
-                auto amountToFill = bid->second.nValue - penaltyAmount;
+
+                auto amountToFill = bidTokenAmount.nValue - penaltyAmount;
                 if (amountToFill > 0) {
                     // return the rest as collateral to vault via DEX to DFI
-                    auto res = view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToFill});
-                    auto tokenAmount = view.GetBalance(tmpAddress, bid->second.nTokenId);
-                    res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
-                    tokenAmount = view.GetBalance(tmpAddress, DCT_ID{0});
-                    view.SubBalance(tmpAddress, tokenAmount);
-                    view.AddVaultCollateral(vaultId, tokenAmount);
+                    auto res = view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
+                    auto amount = view.GetBalance(tmpAddress, bidTokenAmount.nTokenId);
+                    res = SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    amount = view.GetBalance(tmpAddress, DCT_ID{0});
+                    view.SubBalance(tmpAddress, amount);
+                    view.AddVaultCollateral(vaultId, amount);
                 }
+
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
                 }
+
                 if (paccountHistoryDB) {
-                    AuctionHistoryKey key{data.liquidationHeight, bid->first, vaultId, i};
-                    AuctionHistoryValue value{bid->second, batch->collaterals.balances};
+                    AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
+                    AuctionHistoryValue value{bidTokenAmount, batch->collaterals.balances};
                     paccountHistoryDB->WriteAuctionHistory(key, value);
                 }
+
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
                 view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, batch->loanAmount.nValue);
                 for (const auto& col : batch->collaterals.balances) {
-                    view.AddVaultCollateral(vaultId, {col.first, col.second});
+                    auto tokenId = col.first;
+                    auto tokenAmount = col.second;
+                    view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
                 }
             }
         }
