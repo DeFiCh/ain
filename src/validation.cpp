@@ -3176,7 +3176,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                if (auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
                 }
 

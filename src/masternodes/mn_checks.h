@@ -82,20 +82,20 @@ enum class CustomTxType : uint8_t
     ICXCloseOrder       = '6',
     ICXCloseOffer       = '7',
     // Loans
-    LoanSetCollateralToken = 'c',
-    LoanSetLoanToken = 'g',
-    LoanUpdateLoanToken = 'x',
-    LoanScheme         = 'L',
-    DefaultLoanScheme  = 'd',
-    DestroyLoanScheme  = 'D',
-    Vault              = 'V',
-    CloseVault         = 'e',
-    UpdateVault        = 'v',
-    DepositToVault     = 'S',
-    WithdrawFromVault  = 'J',
-    LoanTakeLoan       = 'X',
-    LoanPaybackLoan    = 'H',
-    AuctionBid         = 'I'
+    SetLoanCollateralToken = 'c',
+    SetLoanToken           = 'g',
+    UpdateLoanToken        = 'x',
+    LoanScheme             = 'L',
+    DefaultLoanScheme      = 'd',
+    DestroyLoanScheme      = 'D',
+    Vault                  = 'V',
+    CloseVault             = 'e',
+    UpdateVault            = 'v',
+    DepositToVault         = 'S',
+    WithdrawFromVault      = 'J',
+    TakeLoan               = 'X',
+    PaybackLoan            = 'H',
+    AuctionBid             = 'I'
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -134,9 +134,9 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
-        case CustomTxType::LoanSetCollateralToken:
-        case CustomTxType::LoanSetLoanToken:
-        case CustomTxType::LoanUpdateLoanToken:
+        case CustomTxType::SetLoanCollateralToken:
+        case CustomTxType::SetLoanToken:
+        case CustomTxType::UpdateLoanToken:
         case CustomTxType::LoanScheme:
         case CustomTxType::DefaultLoanScheme:
         case CustomTxType::DestroyLoanScheme:
@@ -145,8 +145,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateVault:
         case CustomTxType::DepositToVault:
         case CustomTxType::WithdrawFromVault:
-        case CustomTxType::LoanTakeLoan:
-        case CustomTxType::LoanPaybackLoan:
+        case CustomTxType::TakeLoan:
+        case CustomTxType::PaybackLoan:
         case CustomTxType::AuctionBid:
         case CustomTxType::Reject:
         case CustomTxType::None:

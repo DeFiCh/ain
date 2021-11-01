@@ -974,7 +974,7 @@ Res PopulateLoansData(CCustomCSView *view, CCollateralLoans& result, CVaultId co
         auto loanTokenId = loan.first;
         auto loanTokenAmount = loan.second;
 
-        auto token = view->GetLoanSetLoanTokenByID(loanTokenId);
+        auto token = view->GetLoanTokenByID(loanTokenId);
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
@@ -1017,7 +1017,7 @@ Res PopulateCollateralData(CCustomCSView *view, CCollateralLoans& result, CVault
         auto tokenId = col.first;
         auto tokenAmount = col.second;
 
-        auto token = view->HasLoanSetCollateralToken({tokenId, height});
+        auto token = view->HasLoanCollateralToken({tokenId, height});
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
         

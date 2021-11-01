@@ -260,17 +260,17 @@ public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
-    std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
-    Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    Res LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
-    void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
-    std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
+    std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
+    Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
+    Res UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
+    void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
+    std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanSetLoanToken(uint256 const & txid) const;
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanSetLoanTokenByID(DCT_ID const & id) const;
-    Res LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
-    Res LoanUpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
-    void ForEachLoanSetLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
+    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
+    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
+    Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
     Res StoreDefaultLoanScheme(const std::string& loanSchemeID);

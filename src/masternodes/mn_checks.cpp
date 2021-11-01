@@ -60,9 +60,9 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
-        case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
-        case CustomTxType::LoanSetLoanToken:    return "LoanSetLoanToken";
-        case CustomTxType::LoanUpdateLoanToken: return "LoanUpdateLoanToken";
+        case CustomTxType::SetLoanCollateralToken: return "SetLoanCollateralToken";
+        case CustomTxType::SetLoanToken:        return "SetLoanToken";
+        case CustomTxType::UpdateLoanToken:     return "UpdateLoanToken";
         case CustomTxType::LoanScheme:          return "LoanScheme";
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
@@ -71,8 +71,8 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
-        case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
-        case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
+        case CustomTxType::TakeLoan:            return "TakeLoan";
+        case CustomTxType::PaybackLoan:         return "PaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
@@ -155,9 +155,9 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
-        case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
-        case CustomTxType::LoanSetLoanToken:        return CLoanSetLoanTokenMessage{};
-        case CustomTxType::LoanUpdateLoanToken:     return CLoanUpdateLoanTokenMessage{};
+        case CustomTxType::SetLoanCollateralToken:  return CLoanSetCollateralTokenMessage{};
+        case CustomTxType::SetLoanToken:            return CLoanSetLoanTokenMessage{};
+        case CustomTxType::UpdateLoanToken:         return CLoanUpdateLoanTokenMessage{};
         case CustomTxType::LoanScheme:              return CLoanSchemeMessage{};
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
@@ -166,8 +166,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
-        case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
-        case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
+        case CustomTxType::TakeLoan:                return CLoanTakeLoanMessage{};
+        case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
@@ -2036,7 +2036,7 @@ public:
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
-        return mnview.LoanCreateSetCollateralToken(collToken);
+        return mnview.CreateLoanCollateralToken(collToken);
     }
 
     Res operator()(const CLoanSetLoanTokenMessage& obj) const {
@@ -2082,7 +2082,7 @@ public:
             return std::move(tokenId);
         }
 
-        return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
+        return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }
 
     Res operator()(const CLoanUpdateLoanTokenMessage& obj) const {
@@ -2094,7 +2094,7 @@ public:
             return Res::Err("tx not from foundation member!");
         }
 
-        auto loanToken = mnview.GetLoanSetLoanToken(obj.tokenTx);
+        auto loanToken = mnview.GetLoanToken(obj.tokenTx);
         if (!loanToken)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
@@ -2123,7 +2123,7 @@ public:
         if (!res)
             return res;
 
-        return mnview.LoanUpdateLoanToken(*loanToken, pair->first);
+        return mnview.UpdateLoanToken(*loanToken, pair->first);
     }
 
     Res operator()(const CLoanSchemeMessage& obj) const {
@@ -2538,7 +2538,7 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
-            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
@@ -2625,7 +2625,7 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
-            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
@@ -3510,14 +3510,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
         for (const auto collateral : collaterals->balances)
-            if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
+            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto loan : loans->balances)
-            if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
