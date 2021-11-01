@@ -328,6 +328,10 @@ inline void CheckPrefix()
     CheckPrefix<T2, TN...>();
 }
 
+Res PopulateLoansData(CCustomCSView* view, CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+Res PopulateCollateralData(CCustomCSView* view, CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+ResVal<CAmount> GetValidatedIntervalPrice(CCustomCSView* view, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
+
 class CCustomCSView
         : public CMasternodesView
         , public CLastHeightView
