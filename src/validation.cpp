@@ -2161,9 +2161,11 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
     auto totalCollaterals = collLoan.totalCollaterals;
     auto totalLoans = collLoan.totalLoans;
+
     auto maxCollaterals = totalCollaterals;
     auto maxCollBalances = collBalances;
     auto maxLoans = totalLoans;
+
     auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
         CAuctionBatch batch{};
         batch.loanAmount = loanAmount;
@@ -2175,6 +2177,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
         }
         return batch;
     };
+
     std::vector<CAuctionBatch> batches;
     for (const auto& loan : collLoan.loans) {
         auto maxLoanValue = loanBalances.at(loan.nTokenId);
@@ -3073,7 +3076,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // Get the interest rate for each loan token in the vault, find
             // the interest value and move it to the totals. (Removing it from the
             // vault), while also stopping the vault from accumulating interest
-            // further.
+            // further. (WIP: Putting the interest back in now)
             CBalances totalInterest;
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
@@ -3088,6 +3091,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+                // FIX: Putting this back in now for collateral calc.
                 loan.second += subInterest;
             }
             
