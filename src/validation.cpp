@@ -2189,13 +2189,13 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
                 loanValue = std::min(loanValue, maxLoanValue);
                 auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
-                auto collateralChunk = DivideAmounts((chunks >= chunk) ? chunk : chunks,  DivideAmounts(totalCollaterals, collateralChunkValue));
+                auto collateralChunk = DivideAmounts((chunks >= chunk) ? chunk : chunks, DivideAmounts(totalCollaterals, collateralChunkValue));
                 batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
                 maxLoanValue -= loanValue;
             }
         } else {
             auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
-            batches.push_back(CreateAuctionBatch(loanAmount, DivideAmounts(totalCollaterals, collateralChunkValue)));
+            batches.push_back(CreateAuctionBatch(loanAmount, DivideAmounts(collateralChunkValue, totalCollaterals)));
         }
         currentMaxLoans -= loanChunk;
         currentMaxCollaterals -= collateralChunkValue;
