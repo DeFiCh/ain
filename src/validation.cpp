@@ -3048,6 +3048,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
         LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
+        
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
@@ -3059,29 +3060,48 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
             if (scheme->ratio <= collateral.val->ratio()) {
+                // All good, within ratio, nothing more to do. 
                 return true;
             }
 
+            // Time to liquidate vault.
             vault->isUnderLiquidation = true;
             cache.StoreVault(vaultId, *vault);
             auto loanTokens = cache.GetLoanTokens(vaultId);
             assert(loanTokens);
+
+            // Get the interest rate for each loan token in the vault, find
+            // the interest value and move it to the totals. (Removing it from the
+            // vault), while also stopping the vault from accumulating interest
+            // further.
             CBalances totalInterest;
             for (auto& loan : loanTokens->balances) {
-                auto rate = cache.GetInterestRate(vaultId, loan.first);
+                auto tokenId = loan.first;
+                auto tokenValue = loan.second;
+                auto rate = cache.GetInterestRate(vaultId, tokenId);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
-                totalInterest.Add({loan.first, subInterest});
-                cache.SubLoanToken(vaultId, {loan.first, loan.second});
+                totalInterest.Add({tokenId, subInterest});
+
+                // Remove the interests from the vault and the storage respectively  
+                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
+                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 loan.second += subInterest;
             }
+            
+            // Remove the collaterals out of the vault.
+            // (Prep to get the auction batches instead)
             for (const auto& col : collaterals.balances) {
-                cache.SubVaultCollateral(vaultId, {col.first, col.second});
+                auto tokenId = col.first;
+                auto tokenValue = col.second;
+                cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
             }
+
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
+
+            // Now, let's add the remaining amounts and store the batch.
             for (auto i = 0u; i < batches.size(); i++) {
                 auto& batch = batches[i];
                 auto tokenId = batch.loanAmount.nTokenId;
@@ -3093,6 +3113,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 }
                 cache.StoreAuctionBatch(vaultId, i, batch);
             }
+
+            // All done. Ready to save the overall auction. 
             cache.StoreAuction(vaultId, CAuctionData{
                                             uint32_t(batches.size()),
                                             pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
