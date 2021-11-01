@@ -193,7 +193,7 @@ class AuctionsTest (DefiTestFramework):
         assert_equal(vault2["state"], "active")
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
-        assert_equal(vault2["informativeRatio"], Decimal("264.70111158"))
+        assert_equal(vault2["informativeRatio"], Decimal("264.70111132"))
         self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,

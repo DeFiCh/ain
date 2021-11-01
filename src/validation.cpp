@@ -3067,7 +3067,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto loanTokens = cache.GetLoanTokens(vaultId);
             assert(loanTokens);
             CBalances totalInterest;
-            for (const auto& loan : loanTokens->balances) {
+            for (auto& loan : loanTokens->balances) {
                 auto rate = cache.GetInterestRate(vaultId, loan.first);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
@@ -3076,6 +3076,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 cache.SubLoanToken(vaultId, {loan.first, loan.second});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
+                loan.second += subInterest;
             }
             for (const auto& col : collaterals.balances) {
                 cache.SubVaultCollateral(vaultId, {col.first, col.second});
@@ -3089,7 +3090,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     auto balance = loanTokens->balances[tokenId];
                     auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
                     batch.loanInterest = MultiplyAmounts(interestPart, interest);
-                    batch.loanAmount.Add(batch.loanInterest);
                 }
                 cache.StoreAuctionBatch(vaultId, i, batch);
             }
