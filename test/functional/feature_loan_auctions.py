@@ -367,12 +367,12 @@ class AuctionsTest (DefiTestFramework):
         # Take TSLA loan
         self.nodes[0].takeloan({
                 'vaultId': vaultId6,
-                'amounts': "100@TSLA"})
+                'amounts': "172@TSLA"})
 
         # Take GOOGL loan
         self.nodes[0].takeloan({
                 'vaultId': vaultId6,
-                'amounts': "100@GOOGL"})
+                'amounts': "18@GOOGL"})
         self.nodes[0].generate(1)
 
         oracle1_prices = [{"currency": "USD", "tokenAmount": "330@TSLA"}, {"currency": "USD", "tokenAmount": "330@GOOGL"}, {"currency": "USD", "tokenAmount": "220@DFI"}, {"currency": "USD", "tokenAmount": "220@BTC"}]

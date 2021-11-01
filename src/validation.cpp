@@ -2195,7 +2195,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
             }
         } else {
             auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
-            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunkValue));
+            batches.push_back(CreateAuctionBatch(loanAmount, DivideAmounts(totalCollaterals, collateralChunkValue)));
         }
         currentMaxLoans -= loanChunk;
         currentMaxCollaterals -= collateralChunkValue;
