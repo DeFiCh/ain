@@ -2162,9 +2162,9 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     auto totalCollaterals = collLoan.totalCollaterals;
     auto totalLoans = collLoan.totalLoans;
 
-    auto maxCollaterals = totalCollaterals;
+    auto currentMaxCollaterals = totalCollaterals;
     auto maxCollBalances = collBalances;
-    auto maxLoans = totalLoans;
+    auto currentMaxLoans = totalLoans;
 
     auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
         CAuctionBatch batch{};
@@ -2181,23 +2181,24 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     std::vector<CAuctionBatch> batches;
     for (const auto& loan : collLoan.loans) {
         auto maxLoanValue = loanBalances.at(loan.nTokenId);
-        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
-        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
-        if (collateralChunk > batchThreshold) {
-            auto chunk = DivideAmounts(batchThreshold, collateralChunk);
+        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), currentMaxLoans);
+        auto collateralChunkValue = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), currentMaxCollaterals);
+        if (collateralChunkValue > batchThreshold) {
+            auto chunk = DivideAmounts(batchThreshold, collateralChunkValue);
             auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
                 loanValue = std::min(loanValue, maxLoanValue);
                 auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
-                batches.push_back(CreateAuctionBatch(loanAmount, chunk));
+                auto collateralChunk = DivideAmounts((chunks >= chunk) ? chunk : chunks,  DivideAmounts(totalCollaterals, collateralChunkValue));
+                batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
                 maxLoanValue -= loanValue;
             }
         } else {
             auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
-            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
+            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunkValue));
         }
-        maxLoans -= loanChunk;
-        maxCollaterals -= collateralChunk;
+        currentMaxLoans -= loanChunk;
+        currentMaxCollaterals -= collateralChunkValue;
     }
     return batches;
 }
@@ -3051,7 +3052,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
         LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
-        
+
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
@@ -3063,7 +3064,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
             if (scheme->ratio <= collateral.val->ratio()) {
-                // All good, within ratio, nothing more to do. 
+                // All good, within ratio, nothing more to do.
                 return true;
             }
 
@@ -3087,14 +3088,14 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
-                // Remove the interests from the vault and the storage respectively  
+                // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 // FIX: Putting this back in now for collateral calc.
                 loan.second += subInterest;
             }
-            
+
             // Remove the collaterals out of the vault.
             // (Prep to get the auction batches instead)
             for (const auto& col : collaterals.balances) {
@@ -3118,7 +3119,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 cache.StoreAuctionBatch(vaultId, i, batch);
             }
 
-            // All done. Ready to save the overall auction. 
+            // All done. Ready to save the overall auction.
             cache.StoreAuction(vaultId, CAuctionData{
                                             uint32_t(batches.size()),
                                             pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
