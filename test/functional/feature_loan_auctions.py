@@ -198,6 +198,7 @@ class AuctionsTest (DefiTestFramework):
         # Case 1
         # Create loan schemes
         self.nodes[0].createloanscheme(200, 1, 'LOAN200')
+        self.nodes[0].createloanscheme(120, 5, 'LOAN120')
         self.nodes[0].generate(1)
 
         # Create vault
@@ -433,13 +434,48 @@ class AuctionsTest (DefiTestFramework):
             assert_equal(len(batch['collaterals']), 2)
 
         # Case 7 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71
+        # Loan value should end up greater than collateral value
         # Reset prices
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update
 
-        vaultId7 = self.nodes[0].createvault(account, 'LOAN200')
+        vaultId7 = self.nodes[0].createvault(account, 'LOAN120')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId7, account, '100@DFI')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId7,
+                'amounts': "80@TSLA"})
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "129@TSLA"}, {"currency": "USD", "tokenAmount": "71@DFI"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+        vault7 = self.nodes[0].getvault(vaultId7)
+
+        batches = vault7['batches']
+        assert_equal(len(batches), 1)
+
+        loan_amount = batches[0]["loan"].split("@")[0]
+        loan_value = float(loan_amount) * 129 # TSLA USD value
+        collateral_amount = batches[0]["collaterals"][0].split("@")[0]
+        collateral_value = float(collateral_amount) * 71 # DFI USD value
+        assert(loan_value > collateral_value)
+
+        # Case 8 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71. Multi tokens
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+
+        vaultId7 = self.nodes[0].createvault(account, 'LOAN120')
         self.nodes[0].generate(1)
 
         self.nodes[0].deposittovault(vaultId7, account, '100@DFI')
@@ -451,20 +487,34 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].takeloan({
                 'vaultId': vaultId7,
                 'amounts': "100@TSLA"})
+        # Take GOOGL loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId7,
+                'amounts': "60@GOOGL"})
         self.nodes[0].generate(1)
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "129@TSLA"}, {"currency": "USD", "tokenAmount": "71@DFI"}, {"currency": "USD", "tokenAmount": "71@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "129@TSLA"}, {"currency": "USD", "tokenAmount": "129@GOOGL"}, {"currency": "USD", "tokenAmount": "71@DFI"}, {"currency": "USD", "tokenAmount": "71@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
         vault7 = self.nodes[0].getvault(vaultId7)
 
-        batches = vault7['batches']
         assert_equal(len(batches), 2)
         for batch in batches:
             assert_equal(len(batch['collaterals']), 2)
+        loan_amount_TSLA = batches[0]["loan"].split("@")[0]
+        loan_value = float(loan_amount_TSLA) * 129 # TSLA USD value
+        collateral_amount = float(batches[0]["collaterals"][0].split("@")[0]) + float(batches[0]["collaterals"][1].split("@")[0])
+        collateral_value = collateral_amount * 71 # collaterals USD value
+        assert(loan_value > collateral_value)
 
-        # Case 8 Auction with dust amount
+        loan_amount_GOOGL = batches[1]["loan"].split("@")[0]
+        loan_value = float(loan_amount_GOOGL) * 129 # GOOGL USD value
+        collateral_amount = float(batches[1]["collaterals"][0].split("@")[0]) + float(batches[1]["collaterals"][1].split("@")[0])
+        collateral_value = float(collateral_amount) * 71 # DFI USD value
+        assert(loan_value > collateral_value)
+
+        # Case 9 Auction with dust amount
         # Reset prices
         oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@TWTR"}, {"currency": "USD", "tokenAmount": "100@MSFT"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
