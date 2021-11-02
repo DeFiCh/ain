@@ -503,16 +503,16 @@ class AuctionsTest (DefiTestFramework):
         for batch in batches:
             assert_equal(len(batch['collaterals']), 2)
         loan_amount_TSLA = batches[0]["loan"].split("@")[0]
-        loan_value = float(loan_amount_TSLA) * 129 # TSLA USD value
+        loan_value_TSLA = float(loan_amount_TSLA) * 129 # TSLA USD value
         collateral_amount = float(batches[0]["collaterals"][0].split("@")[0]) + float(batches[0]["collaterals"][1].split("@")[0])
         collateral_value = collateral_amount * 71 # collaterals USD value
-        assert(loan_value > collateral_value)
+        assert(loan_value_TSLA > collateral_value)
 
         loan_amount_GOOGL = batches[1]["loan"].split("@")[0]
-        loan_value = float(loan_amount_GOOGL) * 129 # GOOGL USD value
+        loan_value_GOOGL = float(loan_amount_GOOGL) * 129 # GOOGL USD value
         collateral_amount = float(batches[1]["collaterals"][0].split("@")[0]) + float(batches[1]["collaterals"][1].split("@")[0])
-        collateral_value = float(collateral_amount) * 71 # DFI USD value
-        assert(loan_value > collateral_value)
+        collateral_value = float(collateral_amount) * 71 # collaterals USD value
+        assert(loan_value_GOOGL > collateral_value)
 
         # Case 9 Auction with dust amount
         # Reset prices
