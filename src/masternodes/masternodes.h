@@ -328,10 +328,6 @@ inline void CheckPrefix()
     CheckPrefix<T2, TN...>();
 }
 
-Res PopulateLoansData(CCustomCSView* view, CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
-Res PopulateCollateralData(CCustomCSView* view, CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
-ResVal<CAmount> GetValidatedIntervalPrice(CCustomCSView* view, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
-
 class CCustomCSView
         : public CMasternodesView
         , public CLastHeightView
@@ -380,6 +376,11 @@ class CCustomCSView
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
+private:
+    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+    ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
+
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;

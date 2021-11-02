@@ -926,11 +926,11 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     }
 
     CCollateralLoans result{};
-    auto res = PopulateLoansData(this, result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
     if (!res.ok)
         return std::move(res);
         
-    res = PopulateCollateralData(this, result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
+    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
     if (!res.ok)
         return std::move(res);
 
@@ -939,17 +939,17 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     return ResVal<CCollateralLoans>(result, Res::Ok());
 }
 
-ResVal<CAmount> GetValidatedIntervalPrice(CCustomCSView *view, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice) {
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice) {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
     
     LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
 
-    auto priceFeed = view->GetFixedIntervalPrice(priceFeedId);
+    auto priceFeed = GetFixedIntervalPrice(priceFeedId);
     if (!priceFeed)
         return std::move(priceFeed);
     
-    if (requireLivePrice && !priceFeed.val->isLive(view->GetPriceDeviation())) {
+    if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation())) {
         return Res::Err("No live fixed prices for %s/%s", tokenSymbol, currency);
     }
 
@@ -961,12 +961,9 @@ ResVal<CAmount> GetValidatedIntervalPrice(CCustomCSView *view, CTokenCurrencyPai
     return ResVal<CAmount>(price, Res::Ok());
 }
 
-Res PopulateLoansData(CCustomCSView *view, CCollateralLoans& result, CVaultId const& vaultId, 
+Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, 
     uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice) {
-    if (!view)
-        return Res::Err("Unexpected call without chain state");
-    
-    auto loanTokens = view->GetLoanTokens(vaultId);
+    auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
         return Res::Ok();
 
@@ -974,17 +971,17 @@ Res PopulateLoansData(CCustomCSView *view, CCollateralLoans& result, CVaultId co
         auto loanTokenId = loan.first;
         auto loanTokenAmount = loan.second;
 
-        auto token = view->GetLoanTokenByID(loanTokenId);
+        auto token = GetLoanTokenByID(loanTokenId);
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = view->GetInterestRate(vaultId, loanTokenId);
+        auto rate = GetInterestRate(vaultId, loanTokenId);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        auto priceResult = GetValidatedIntervalPrice(view, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!priceResult.ok)
             return std::move(priceResult);
         auto price = priceResult.val.get();
@@ -1008,20 +1005,17 @@ Res PopulateLoansData(CCustomCSView *view, CCollateralLoans& result, CVaultId co
     return Res::Ok();
 }
 
-Res PopulateCollateralData(CCustomCSView *view, CCollateralLoans& result, CVaultId const& vaultId,
+Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId,
      CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice) {
-    if (!view)
-        return Res::Err("Unexpected call without chain state");
-
     for (const auto& col : collaterals.balances) {
         auto tokenId = col.first;
         auto tokenAmount = col.second;
 
-        auto token = view->HasLoanCollateralToken({tokenId, height});
+        auto token = HasLoanCollateralToken({tokenId, height});
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
         
-        auto priceResult = GetValidatedIntervalPrice(view, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!priceResult.ok)
             return std::move(priceResult);
         auto price = priceResult.val.get();
