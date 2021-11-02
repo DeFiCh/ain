@@ -431,7 +431,7 @@ class AuctionsTest (DefiTestFramework):
         assert_equal(len(batches), 9)
         for batch in batches:
             assert_equal(len(batch['collaterals']), 2)
-        
+
         # Case 7 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71
         # Reset prices
         oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
