@@ -2,7 +2,6 @@ use crate::Client;
 extern crate serde;
 
 use anyhow::Result;
-use serde::Deserializer;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -64,17 +63,8 @@ pub struct VaultData {
     pub interest_amounts: Vec<String>,
     pub collateral_value: f64,
     pub loan_value: f64,
-    #[serde(deserialize_with = "ok_or_default")]
     pub interest_value: f64,
-    pub current_ratio: f64,
-}
-
-fn ok_or_default<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-where
-    T: Deserialize<'de> + Default,
-    D: Deserializer<'de>,
-{
-    Ok(Deserialize::deserialize(deserializer).unwrap_or_default())
+    pub collateral_ratio: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
