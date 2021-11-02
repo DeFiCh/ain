@@ -2203,9 +2203,17 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     // return precision loss balanced
     for (auto& collateral : maxCollBalances) {
         auto it = batches.begin();
+        auto lastValue = collateral.second;
         while (collateral.second > 0) {
             if (it == batches.end()) {
                 it = batches.begin();
+                if (lastValue == collateral.second) {
+                    // we fail to update any batch
+                    // extreme small collateral going to first batch
+                    it->collaterals.Add({collateral.first, collateral.second});
+                    break;
+                }
+                lastValue = collateral.second;
             }
             if (it->collaterals.balances.count(collateral.first) > 0) {
                 it->collaterals.Add({collateral.first, 1});
@@ -3092,7 +3100,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // the interest value and move it to the totals, removing it from the
             // vault, while also stopping the vault from accumulating interest
             // further. Note, however, it's added back so that it's accurate
-            // for auction calculations. 
+            // for auction calculations.
             CBalances totalInterest;
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
@@ -3110,7 +3118,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // Putting this back in now for auction calculations.
                 loan.second += subInterest;
             }
-            
+
             // Remove the collaterals out of the vault.
             // (Prep to get the auction batches instead)
             for (const auto& col : collaterals.balances) {
@@ -3134,8 +3142,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 cache.StoreAuctionBatch(vaultId, i, batch);
             }
 
-            // All done. Ready to save the overall auction. 
-
+            // All done. Ready to save the overall auction.
             cache.StoreAuction(vaultId, CAuctionData{
                                             uint32_t(batches.size()),
                                             pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
@@ -3153,7 +3160,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         }
         auto vault = view.GetVault(vaultId);
         assert(vault);
-        
+
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch(vaultId, i);
             assert(batch);
