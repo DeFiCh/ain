@@ -3063,20 +3063,19 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
             if (scheme->ratio <= collateral.val->ratio()) {
-                // All good, within ratio, nothing more to do. 
                 return true;
             }
 
-            // Time to liquidate vault.
             vault->isUnderLiquidation = true;
             cache.StoreVault(vaultId, *vault);
             auto loanTokens = cache.GetLoanTokens(vaultId);
             assert(loanTokens);
 
             // Get the interest rate for each loan token in the vault, find
-            // the interest value and move it to the totals. (Removing it from the
-            // vault), while also stopping the vault from accumulating interest
-            // further. (WIP: Putting the interest back in now)
+            // the interest value and move it to the totals, removing it from the
+            // vault, while also stopping the vault from accumulating interest
+            // further. Note, however, it's added back so that it's accurate
+            // for auction calculations. 
             CBalances totalInterest;
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
@@ -3091,7 +3090,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
-                // FIX: Putting this back in now for collateral calc.
+                // Putting this back in now for auction calculations.
                 loan.second += subInterest;
             }
             
