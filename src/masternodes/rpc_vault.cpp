@@ -137,7 +137,7 @@ namespace {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
-            collateralRatio = int(rate.val->ratio());            
+            collateralRatio = int(rate.val->ratio());
         }
 
         UniValue loanBalances{UniValue::VARR};
@@ -387,6 +387,10 @@ UniValue listvaults(const JSONRPCRequest& request) {
                                 "state", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                 "Wether the vault is under a given state. (default = 'unknown')"
                             },
+                            {
+                                "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "Flag for verbose list (default = false), otherwise only ids, ownerAddress, loanSchemeIds and state are listed"
+                            }
                         },
                     },
                     {
@@ -428,6 +432,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
     CScript ownerAddress = {};
     std::string loanSchemeId;
     VaultState state{VaultState::Unknown};
+    bool verbose{false};
     if (request.params.size() > 0) {
         UniValue optionsObj = request.params[0].get_obj();
         if (!optionsObj["ownerAddress"].isNull()) {
@@ -438,6 +443,9 @@ UniValue listvaults(const JSONRPCRequest& request) {
         }
         if (!optionsObj["state"].isNull()) {
             state = StringToVaultState(optionsObj["state"].getValStr());
+        }
+        if (!optionsObj["verbose"].isNull()) {
+            verbose = optionsObj["verbose"].getBool();
         }
     }
 
@@ -475,16 +483,19 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
             return false;
         }
-
         auto vaultState = GetVaultState(vaultId, data);
 
         if ((loanSchemeId.empty() || loanSchemeId == data.schemeId)
         && (state == VaultState::Unknown || state == vaultState)) {
             UniValue vaultObj{UniValue::VOBJ};
-            vaultObj.pushKV("vaultId", vaultId.GetHex());
-            vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
-            vaultObj.pushKV("loanSchemeId", data.schemeId);
-            vaultObj.pushKV("state", VaultStateToString(vaultState));
+            if(!verbose){
+                vaultObj.pushKV("vaultId", vaultId.GetHex());
+                vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
+                vaultObj.pushKV("loanSchemeId", data.schemeId);
+                vaultObj.pushKV("state", VaultStateToString(vaultState));
+            } else {
+                vaultObj = VaultToJSON(vaultId, data);
+            }
             valueArr.push_back(vaultObj);
             limit--;
         }
