@@ -381,8 +381,10 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
         vault6 = self.nodes[0].getvault(vaultId6)
 
-        print(vault6)
-        assert_equal(len(vault6['batches'][5]['collaterals']), 2)
+        batches = vault6['batches']
+        assert_equal(len(batches), 9)
+        for batch in batches:
+            assert_equal(len(batch['collaterals']), 2)
 
 if __name__ == '__main__':
     AuctionsTest().main()

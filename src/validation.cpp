@@ -2159,12 +2159,12 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
 {
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
-    auto totalCollaterals = collLoan.totalCollaterals;
-    auto totalLoans = collLoan.totalLoans;
+    auto totalCollateralsValue = collLoan.totalCollaterals;
+    auto totalLoansValue = collLoan.totalLoans;
 
-    auto currentMaxCollaterals = totalCollaterals;
+    auto maxCollateralsValue = totalCollateralsValue;
+    auto maxLoansValue = totalLoansValue;
     auto maxCollBalances = collBalances;
-    auto currentMaxLoans = totalLoans;
 
     auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
         CAuctionBatch batch{};
@@ -2180,27 +2180,25 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
 
     std::vector<CAuctionBatch> batches;
     for (const auto& loan : collLoan.loans) {
-        auto maxLoanValue = loanBalances.at(loan.nTokenId);
-        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), currentMaxLoans);
-        auto collateralChunkValue = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), currentMaxCollaterals);
+        auto maxLoanAmount = loanBalances.at(loan.nTokenId);
+        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoansValue)), maxLoansValue);
+        auto collateralChunkValue = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollateralsValue)), maxCollateralsValue);
         if (collateralChunkValue > batchThreshold) {
             auto chunk = DivideAmounts(batchThreshold, collateralChunkValue);
-            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
+            auto loanAmount = MultiplyAmounts(maxLoanAmount, chunk);
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
                 chunk = std::min(chunk, chunks);
-                loanValue = std::min(loanValue, maxLoanValue);
-                auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
-                auto collateralChunk = MultiplyAmounts(chunk, DivideAmounts(collateralChunkValue, totalCollaterals));
-                batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
-                maxLoanValue -= loanValue;
+                loanAmount = std::min(loanAmount, maxLoanAmount);
+                auto collateralChunk = MultiplyAmounts(chunk, loanChunk);
+                batches.push_back(CreateAuctionBatch({loan.nTokenId, loanAmount}, collateralChunk));
+                maxLoanAmount -= loanAmount;
             }
         } else {
-            auto collateralChunk = DivideAmounts(collateralChunkValue, totalCollaterals);
-            auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
-            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
+            auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanAmount};
+            batches.push_back(CreateAuctionBatch(loanAmount, loanChunk));
         }
-        currentMaxLoans -= loanChunk;
-        currentMaxCollaterals -= collateralChunkValue;
+        maxLoansValue -= loan.nValue;
+        maxCollateralsValue -= collateralChunkValue;
     }
     return batches;
 }
