@@ -95,14 +95,6 @@ class DepositToVaultTest (DefiTestFramework):
         vaultId1 = self.nodes[0].createvault(ownerAddress1) # default loan scheme
         self.nodes[0].generate(1)
 
-        # Try make first deposit other than DFI breaking 50% DFI ondition
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '1@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI thus first deposit must be DFI" in errorString)
-
-
         # Insufficient funds
         try:
             self.nodes[0].deposittovault(vaultId1, accountDFI, '101@DFI')
@@ -133,34 +125,8 @@ class DepositToVaultTest (DefiTestFramework):
         acDFI = self.nodes[0].getaccount(accountDFI)
         assert_equal(acDFI, ['99.30000000@DFI'])
 
-        # Check vault contains at least 50% DFI
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '0.701@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI" in errorString)
-
-        # Collateral amounts are the same so deposit was not done
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['10.00000000@BTC'])
-
         # Correct deposittovault
         self.nodes[1].deposittovault(vaultId1, accountBTC, '0.6@BTC')
-        self.nodes[1].generate(1)
-
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['9.40000000@BTC'])
-
-        # try to deposit mor BTC breaking 50% DFI condition
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '0.2@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI" in errorString)
         self.nodes[1].generate(1)
 
         vault1 = self.nodes[1].getvault(vaultId1)
