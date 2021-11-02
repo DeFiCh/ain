@@ -917,73 +917,123 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, 
+    uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
         return Res::Err("Vault is under liquidation");
     }
 
-    CCollateralLoans ret{};
+    CCollateralLoans result{};
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
+    if (!res.ok)
+        return std::move(res);
+        
+    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
+    if (!res.ok)
+        return std::move(res);
 
-    if (auto loanTokens = GetLoanTokens(vaultId)) {
-        for (const auto& loan : loanTokens->balances) {
-            auto token = GetLoanSetLoanTokenByID(loan.first);
-            if (!token)
-                return Res::Err("Loan token with id (%s) does not exist!", loan.first.ToString());
-            auto rate = GetInterestRate(vaultId, loan.first);
-            if (!rate)
-                return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
-            if (rate->height > height)
-                return Res::Err("Trying to read loans in the past");
-            LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
-            auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
-            if (!priceFeed)
-                return std::move(priceFeed);
-            if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
-                return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-            auto price = priceFeed.val->priceRecord[int(useNextPrice)];
-            if (price <= 0)
-                return Res::Err("Negative price (%s/%s)", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
-            auto value = loan.second + TotalInterest(*rate, height);
-            auto amount = MultiplyAmounts(price, value);
-            if (price > COIN && amount < value)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
-            auto prevLoans = ret.totalLoans;
-            ret.totalLoans += amount;
-            if (prevLoans > ret.totalLoans)
-                return Res::Err("Exceed maximum loans");
-            ret.loans.push_back({loan.first, amount});
-        }
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  
+        __func__, result.totalCollaterals, result.totalLoans, result.ratio());
+    return ResVal<CCollateralLoans>(result, Res::Ok());
+}
+
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice) {
+    auto tokenSymbol = priceFeedId.first;
+    auto currency = priceFeedId.second;
+    
+    LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
+
+    auto priceFeed = GetFixedIntervalPrice(priceFeedId);
+    if (!priceFeed)
+        return std::move(priceFeed);
+    
+    if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation())) {
+        return Res::Err("No live fixed prices for %s/%s", tokenSymbol, currency);
     }
 
+    auto priceRecordIndex = useNextPrice ? 1 : 0;
+    auto price = priceFeed.val->priceRecord[priceRecordIndex];
+    if (price <= 0)
+        return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
+
+    return ResVal<CAmount>(price, Res::Ok());
+}
+
+Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, 
+    uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice) {
+    auto loanTokens = GetLoanTokens(vaultId);
+    if (!loanTokens)
+        return Res::Ok();
+
+    for (const auto& loan : loanTokens->balances) {
+        auto loanTokenId = loan.first;
+        auto loanTokenAmount = loan.second;
+
+        auto token = GetLoanTokenByID(loanTokenId);
+        if (!token)
+            return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
+
+        auto rate = GetInterestRate(vaultId, loanTokenId);
+        if (!rate)
+            return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+        if (rate->height > height)
+            return Res::Err("Trying to read loans in the past");
+
+        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!priceResult.ok)
+            return std::move(priceResult);
+        auto price = priceResult.val.get();
+
+        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
+        
+        auto value = loanTokenAmount + TotalInterest(*rate, height);
+        auto amountInCurrency = MultiplyAmounts(price, value);
+        
+        if (price > COIN && amountInCurrency < value)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
+
+        auto prevLoans = result.totalLoans;
+        result.totalLoans += amountInCurrency;
+        
+        if (prevLoans > result.totalLoans)
+            return Res::Err("Exceeded maximum loans");
+
+        result.loans.push_back({loanTokenId, amountInCurrency});
+    }
+    return Res::Ok();
+}
+
+Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId,
+     CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice) {
     for (const auto& col : collaterals.balances) {
-        auto collToken = HasLoanSetCollateralToken({col.first, height});
-        if (!collToken)
-            return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
-        LogPrint(BCLog::ORACLE,"\t\t%s()->for_collaterals->id(%s)->", __func__, collToken->idToken.ToString()); /* Continued */
-        auto priceFeed = GetFixedIntervalPrice(collToken->fixedIntervalPriceId);
-        if (!priceFeed)
-            return std::move(priceFeed);
-        if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
-            return Res::Err("No live fixed prices for %s/%s", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
-        auto price = priceFeed.val->priceRecord[int(useNextPrice)];
-        if (price <= 0)
-            return Res::Err("Negative price (%s/%s)", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
-        auto amount = MultiplyAmounts(price, col.second);
-        if (price > COIN && amount < col.second)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));
-        amount = MultiplyAmounts(collToken->factor, amount);
-        auto prevCollaterals = ret.totalCollaterals;
-        ret.totalCollaterals += amount;
-        if (prevCollaterals > ret.totalCollaterals)
-            return Res::Err("Exceed maximum collateral");
-        ret.collaterals.push_back({col.first, amount});
-    }
+        auto tokenId = col.first;
+        auto tokenAmount = col.second;
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  __func__, ret.totalCollaterals, ret.totalLoans, ret.ratio());
-    return ResVal<CCollateralLoans>(ret, Res::Ok());
+        auto token = HasLoanCollateralToken({tokenId, height});
+        if (!token)
+            return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
+        
+        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!priceResult.ok)
+            return std::move(priceResult);
+        auto price = priceResult.val.get();
+
+        auto amountInCurrency = MultiplyAmounts(price, tokenAmount);
+        if (price > COIN && amountInCurrency < tokenAmount)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(tokenAmount), GetDecimaleString(price));
+
+        amountInCurrency = MultiplyAmounts(token->factor, amountInCurrency);
+
+        auto prevCollaterals = result.totalCollaterals;
+        result.totalCollaterals += amountInCurrency;
+        if (prevCollaterals > result.totalCollaterals)
+            return Res::Err("Exceeded maximum collateral");
+
+        result.collaterals.push_back({tokenId, amountInCurrency});
+    }
+    return Res::Ok();
 }
 
 uint256 CCustomCSView::MerkleRoot() {

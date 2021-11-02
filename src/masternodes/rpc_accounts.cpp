@@ -1743,7 +1743,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         // withdraw burn
-        if (value.category == uint8_t(CustomTxType::LoanPaybackLoan)) {
+        if (value.category == uint8_t(CustomTxType::PaybackLoan)) {
             for (auto const & diff : value.diff) {
                 paybackFee += diff.second;
             }
