@@ -220,7 +220,6 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].utxostoaccount({accountDFI: "100@" + symbolDFI})
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
@@ -232,7 +231,14 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
+
+        self.nodes[0].setloantoken({
+                            'symbol': "TSLA",
+                            'name': "Tesla Token",
+                            'fixedIntervalPriceId': "TSLA/USD",
+                            'mintable': True,
+                            'interest': 2})
+        self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
@@ -246,12 +252,6 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].generate(7)
         self.sync_blocks()
-        # Try make first deposit other than DFI breaking 50% DFI ondition
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '1@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI thus first deposit must be DFI" in errorString)
 
         # Insufficient funds
         try:
@@ -274,71 +274,48 @@ class VaultTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Vault <76a9148080dad765cbfd1c38f95e88592e24e43fb642828a948b2a457a8ba8ac> not found" in errorString)
 
+        # Deposittovault
+        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.7@BTC')
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        vault1 = self.nodes[1].getvault(vaultId1)
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@BTC'])
+        acBTC = self.nodes[1].getaccount(accountBTC)
+        assert_equal(acBTC, ['9.30000000@BTC'])
+
+        # Try and take loan with only BTC in vault
+        try:
+            self.nodes[0].takeloan({
+                    'vaultId': vaultId1,
+                    'amounts': "0.1@TSLA"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("At least 50% of the vault must be in DFI when taking a loan" in errorString)
+
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.7@DFI')
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.70000000@BTC'])
         acDFI = self.nodes[0].getaccount(accountDFI)
         assert_equal(acDFI, ['99.30000000@DFI'])
 
-        # Check vault contains at least 50% DFI
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '0.701@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI" in errorString)
-        self.nodes[1].generate(1)
-        # Collateral amounts are the same so deposit was not done
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['10.00000000@BTC'])
-
-        # Correct deposittovault
-        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.6@BTC')
-        self.nodes[1].generate(1)
-
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['9.40000000@BTC'])
-        # try to deposit mor BTC breaking 50% DFI condition
-        try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '0.2@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI" in errorString)
-        self.nodes[1].generate(1)
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['9.40000000@BTC'])
-
-        # Deposit without breacking 50% DFI condition
-        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.1@BTC')
-        self.nodes[1].generate(1)
-
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'],['0.70000000@DFI', '0.70000000@BTC'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['9.30000000@BTC'])
-        self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla Token",
-                            'fixedIntervalPriceId': "TSLA/USD",
-                            'mintable': True,
-                            'interest': 2})
-
-        self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.3@DFI')
         self.nodes[0].generate(1)
-        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.3@BTC')
+        self.sync_blocks()
 
-        self.nodes[0].generate(1)
+        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.3@BTC')
         self.nodes[1].generate(1)
         self.sync_blocks()
+
+        vault1 = self.nodes[1].getvault(vaultId1)
+        assert_equal(vault1['collateralAmounts'],['1.00000000@DFI', '1.00000000@BTC'])
+        acBTC = self.nodes[1].getaccount(accountBTC)
+        assert_equal(acBTC, ['9.00000000@BTC'])
+        acDFI = self.nodes[0].getaccount(accountDFI)
+        assert_equal(acDFI, ['99.00000000@DFI'])
 
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
@@ -364,6 +341,13 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['interestValue'],Decimal('0.00000047'))
         assert_equal(vault1['interestAmounts'],['0.00000047@TSLA'])
 
+        # Try and withdraw all DFI after loan has been taken
+        try:
+            self.nodes[0].withdrawfromvault(vaultId1, accountDFI, "1@DFI")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("At least 50% of the vault must be in DFI" in errorString)
+
         params = {'loanSchemeId':'LOAN000A'}
         self.nodes[0].updatevault(vaultId1, params)
         self.nodes[0].generate(1)
@@ -378,7 +362,7 @@ class VaultTest (DefiTestFramework):
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
-        self.nodes[0].generate(9)
+        self.nodes[0].generate(11)
         self.sync_blocks()
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['state'], "inLiquidation")
