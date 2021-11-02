@@ -125,20 +125,9 @@ class DepositToVaultTest (DefiTestFramework):
         acDFI = self.nodes[0].getaccount(accountDFI)
         assert_equal(acDFI, ['99.30000000@DFI'])
 
-        # Collateral amounts are the same so deposit was not done
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['10.00000000@BTC'])
-
         # Correct deposittovault
         self.nodes[1].deposittovault(vaultId1, accountBTC, '0.6@BTC')
         self.nodes[1].generate(1)
-
-        vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
-        acBTC = self.nodes[1].getaccount(accountBTC)
-        assert_equal(acBTC, ['9.40000000@BTC'])
 
         vault1 = self.nodes[1].getvault(vaultId1)
         assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
