@@ -56,12 +56,12 @@ class AuctionsTest (DefiTestFramework):
 
         # setup oracle
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}, {"currency": "USD", "token": "GOOGL"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
         # feed oracle
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(6)
@@ -81,14 +81,21 @@ class AuctionsTest (DefiTestFramework):
                             'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
+        self.nodes[0].setloantoken({
+                            'symbol': "GOOGL",
+                            'name': "Google",
+                            'fixedIntervalPriceId': "GOOGL/USD",
+                            'mintable': True,
+                            'interest': 1})
         self.nodes[0].generate(6) # let active price update
 
         idDFI = list(self.nodes[0].gettoken("DFI").keys())[0]
         iddUSD = list(self.nodes[0].gettoken("DUSD").keys())[0]
         idTSLA = list(self.nodes[0].gettoken("TSLA").keys())[0]
+        idGOOGL = list(self.nodes[0].gettoken("GOOGL").keys())[0]
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
 
-        # create pool USDT-DFI
+        # create pool DUSD-TSLA
         self.nodes[0].createpoolpair({
             "tokenA": iddUSD,
             "tokenB": idTSLA,
@@ -99,14 +106,17 @@ class AuctionsTest (DefiTestFramework):
         }, [])
         self.nodes[0].generate(1)
 
-        self.nodes[0].minttokens("3000@TSLA")
-        self.nodes[0].minttokens("3500@DUSD")
-        self.nodes[0].generate(1)
-        self.nodes[0].addpoolliquidity({
-            account: ["1000@DUSD", "1000@TSLA"]
-        }, account, [])
-        self.nodes[0].generate(1)
+        # create pool DUSD-GOOGL
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idGOOGL,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-GOOGL",
+        }, [])
 
+        # create pool DUSD-DFI
         self.nodes[0].createpoolpair({
             "tokenA": iddUSD,
             "tokenB": idDFI,
@@ -115,13 +125,30 @@ class AuctionsTest (DefiTestFramework):
             "ownerAddress": poolOwner,
             "pairSymbol": "DUSD-DFI",
         }, [])
-
-        self.nodes[0].minttokens("3000@DUSD")
         self.nodes[0].generate(1)
+
+        # Mint tokens
+        self.nodes[0].minttokens("3000@TSLA")
+        self.nodes[0].minttokens("3000@GOOGL")
+        self.nodes[0].minttokens("6500@DUSD")
+        self.nodes[0].generate(1)
+
+        # Add liquidity to DUSD-TSLA
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@TSLA"]
+        }, account, [])
+
+        # Add liquidity to DUSD-GOOGL
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@GOOGL"]
+        }, account, [])
+
+        # Add liquidity to DUSD-DFI
         self.nodes[0].addpoolliquidity({
             account: ["1000@DUSD", "1000@DFI"]
         }, account, [])
         self.nodes[0].generate(1)
+
         # Case 1
         # Create loan schemes
         self.nodes[0].createloanscheme(200, 1, 'LOAN200')
@@ -186,14 +213,14 @@ class AuctionsTest (DefiTestFramework):
 
         self.nodes[0].placeauctionbid(vaultId2, 0, account, "59.41@TSLA")
 
-        self.nodes[0].generate(34) # let auction end
+        self.nodes[0].generate(35) # let auction end
 
         interest = self.nodes[0].getinterest('LOAN200', "TSLA")
         vault2 = self.nodes[0].getvault(vaultId2)
         assert_equal(vault2["state"], "active")
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
-        assert_equal(vault2["informativeRatio"], Decimal("264.70111158"))
+        assert_equal(vault2["informativeRatio"], Decimal("264.70081509"))
         self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,
@@ -322,6 +349,42 @@ class AuctionsTest (DefiTestFramework):
 
         vault5 = self.nodes[0].getvault(vaultId5)
         assert_equal(len(vault5["batches"]), 4)
+
+        # Case 7 Test multi loans
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+        vaultId6 = self.nodes[0].createvault(account, 'LOAN200')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId6, account, '200@DFI')
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId6, account, '200@BTC')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId6,
+                'amounts': "172@TSLA"})
+
+        # Take GOOGL loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId6,
+                'amounts': "18@GOOGL"})
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "330@TSLA"}, {"currency": "USD", "tokenAmount": "330@GOOGL"}, {"currency": "USD", "tokenAmount": "220@DFI"}, {"currency": "USD", "tokenAmount": "220@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+        vault6 = self.nodes[0].getvault(vaultId6)
+
+        batches = vault6['batches']
+        assert_equal(len(batches), 9)
+        for batch in batches:
+            assert_equal(len(batch['collaterals']), 2)
 
 if __name__ == '__main__':
     AuctionsTest().main()
