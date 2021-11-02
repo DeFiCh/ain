@@ -142,7 +142,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LoanSetCollateralToken)
+    metadata << static_cast<unsigned char>(CustomTxType::SetLoanCollateralToken)
              << collToken;
 
     CScript scriptMeta;
@@ -207,7 +207,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
 
     CollateralTokenKey start{idToken, height};
 
-    auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
+    auto collToken = pcustomcsview->HasLoanCollateralToken(start);
     if (collToken && collToken->factor)
     {
         ret.pushKVs(setCollateralTokenToJSON(*collToken));
@@ -259,9 +259,9 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
     CollateralTokenKey start{DCT_ID{0}, height};
     if (all)
     {
-        pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
+        pcustomcsview->ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
         {
-            auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
+            auto collToken = pcustomcsview->GetLoanCollateralToken(collTokenTx);
             if (collToken)
                 ret.push_back(setCollateralTokenToJSON(*collToken));
 
@@ -271,12 +271,12 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return (ret);
     }
 
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
+    pcustomcsview->ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
     {
         if ((key.height > height || currentToken == key.id)) return true;
 
         currentToken = key.id;
-        auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
+        auto collToken = pcustomcsview->GetLoanCollateralToken(collTokenTx);
         if (collToken)
         {
             ret.push_back(setCollateralTokenToJSON(*collToken));
@@ -366,7 +366,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LoanSetLoanToken)
+    metadata << static_cast<unsigned char>(CustomTxType::SetLoanToken)
              << loanToken;
 
     CScript scriptMeta;
@@ -465,7 +465,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
-        loanToken = pcustomcsview->GetLoanSetLoanTokenByID(id);
+        loanToken = pcustomcsview->GetLoanTokenByID(id);
         if (!loanToken) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
         }
@@ -489,7 +489,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->interest = AmountFromValue(metaObj["interest"]);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LoanUpdateLoanToken)
+    metadata << static_cast<unsigned char>(CustomTxType::UpdateLoanToken)
              << static_cast<CLoanSetLoanToken>(*loanToken) << loanToken->creationTx;
 
     CScript scriptMeta;
@@ -537,7 +537,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+    pcustomcsview->ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.push_back(setLoanTokenToJSON(loanToken,key));
         return true;
     });
@@ -575,7 +575,7 @@ UniValue getloantoken(const JSONRPCRequest& request)
     if (!token)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
 
-    auto loanToken = pcustomcsview->GetLoanSetLoanTokenByID(idToken);
+    auto loanToken = pcustomcsview->GetLoanTokenByID(idToken);
     if (!loanToken) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
     }
@@ -1083,7 +1083,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LoanTakeLoan)
+    metadata << static_cast<unsigned char>(CustomTxType::TakeLoan)
              << takeLoan;
 
     CScript scriptMeta;
@@ -1195,7 +1195,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LoanPaybackLoan)
+    metadata << static_cast<unsigned char>(CustomTxType::PaybackLoan)
              << loanPayback;
 
     CScript scriptMeta;

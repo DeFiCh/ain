@@ -149,7 +149,7 @@ namespace {
             CAmount totalInterests{0};
 
             for (const auto& loan : loanTokens->balances) {
-                auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
+                auto token = pcustomcsview->GetLoanTokenByID(loan.first);
                 if (!token) continue;
                 auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                 if (!rate) continue;

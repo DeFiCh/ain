@@ -2,7 +2,7 @@
 #include <chainparams.h>
 #include <masternodes/loan.h>
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
+std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
 {
     auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
     if (collToken)
@@ -10,10 +10,10 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCol
     return {};
 }
 
-Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken)
+Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken)
 {
     //this should not happen, but for sure
-    if (GetLoanSetCollateralToken(collToken.creationTx))
+    if (GetLoanCollateralToken(collToken.creationTx))
         return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
     if (collToken.factor > COIN)
         return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
@@ -28,7 +28,7 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
     return Res::Ok();
 }
 
-Res CLoanView::LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
+Res CLoanView::UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
 {
     if (collateralToken.factor > COIN)
         return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
@@ -41,28 +41,28 @@ Res CLoanView::LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & col
     return Res::Ok();
 }
 
-void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start)
+void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start)
 {
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCollateralToken(CollateralTokenKey const & key)
+std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
     if (it.Valid() && it.Key().id == key.id)
-        return GetLoanSetCollateralToken(it.Value());
+        return GetLoanCollateralToken(it.Value());
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanSetLoanToken(uint256 const & txid) const
+std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
-        return GetLoanSetLoanTokenByID(*id);
+        return GetLoanTokenByID(*id);
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanSetLoanTokenByID(DCT_ID const & id) const
+std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
 {
     auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
     if (loanToken)
@@ -70,10 +70,10 @@ std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanSetLoanToken
     return {};
 }
 
-Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
+Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
     //this should not happen, but for sure
-    if (GetLoanSetLoanTokenByID(id))
+    if (GetLoanTokenByID(id))
         return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
 
     if (loanToken.interest < 0)
@@ -85,7 +85,7 @@ Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID 
     return Res::Ok();
 }
 
-Res CLoanView::LoanUpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
+Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
     if (loanToken.interest < 0)
         return Res::Err("interest rate cannot be less than 0!");
@@ -95,7 +95,7 @@ Res CLoanView::LoanUpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_
     return Res::Ok();
 }
 
-void CLoanView::ForEachLoanSetLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start)
+void CLoanView::ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start)
 {
     ForEach<LoanSetLoanTokenKey, DCT_ID, CLoanSetLoanTokenImpl>(callback, start);
 }
@@ -220,7 +220,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     if (!scheme) {
         return Res::Err("No such scheme id %s", loanSchemeID);
     }
-    auto token = GetLoanSetLoanTokenByID(id);
+    auto token = GetLoanTokenByID(id);
     if (!token) {
         return Res::Err("No such loan token id %s", id.ToString());
     }
@@ -248,7 +248,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (!scheme) {
         return Res::Err("No such scheme id %s", loanSchemeID);
     }
-    auto token = GetLoanSetLoanTokenByID(id);
+    auto token = GetLoanTokenByID(id);
     if (!token) {
         return Res::Err("No such loan token id %s", id.ToString());
     }
@@ -295,7 +295,7 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId)
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanSetLoanTokenByID(amount.nTokenId)) {
+    if (!GetLoanTokenByID(amount.nTokenId)) {
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
     }
     CBalances amounts;
@@ -312,7 +312,7 @@ Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 
 Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanSetLoanTokenByID(amount.nTokenId)) {
+    if (!GetLoanTokenByID(amount.nTokenId)) {
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
     }
     auto amounts = GetLoanTokens(vaultId);
