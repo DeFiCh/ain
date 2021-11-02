@@ -2200,15 +2200,18 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
         maxLoansValue -= loan.nValue;
         maxCollateralsValue -= collateralChunkValue;
     }
-    // return res collateral to last batch
-    for (const auto& collateral : maxCollBalances) {
-        if (collateral.second) {
-            auto it = std::find_if(batches.rbegin(), batches.rend(), [&](const CAuctionBatch& batch) {
-                return batch.collaterals.balances.count(collateral.first) > 0;
-            });
-            if (it != batches.rend()) {
-                it->collaterals.Add({collateral.first, collateral.second});
+    // return precision loss balanced
+    for (auto& collateral : maxCollBalances) {
+        auto it = batches.begin();
+        while (collateral.second > 0) {
+            if (it == batches.end()) {
+                it = batches.begin();
             }
+            if (it->collaterals.balances.count(collateral.first) > 0) {
+                it->collaterals.Add({collateral.first, 1});
+                --collateral.second;
+            }
+            ++it;
         }
     }
     return batches;
