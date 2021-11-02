@@ -430,8 +430,20 @@ class AuctionsTest (DefiTestFramework):
 
         batches = vault6['batches']
         assert_equal(len(batches), 9)
+
+        collateralDFI = Decimal('0')
+        collateralBTC = Decimal('0')
         for batch in batches:
-            assert_equal(len(batch['collaterals']), 2)
+            collaterals = batch['collaterals']
+            assert_equal(len(collaterals), 2)
+            DFI = Decimal(collaterals[0].replace('@DFI', ''))
+            BTC = Decimal(collaterals[1].replace('@BTC', ''))
+            assert(DFI * Decimal('220') + BTC * Decimal('220') < 10000)
+            collateralDFI += DFI
+            collateralBTC += BTC
+
+        assert_equal(collateralDFI, Decimal('200.00000000'))
+        assert_equal(collateralBTC, Decimal('200.00000000'))
 
         # Case 7 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71
         # Loan value should end up greater than collateral value
