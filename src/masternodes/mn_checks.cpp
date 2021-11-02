@@ -2439,14 +2439,6 @@ public:
         if (!collateralsLoans)
             return std::move(collateralsLoans);
 
-        uint64_t totalDFI = 0;
-        for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
-
-        if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-            return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
-
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
             return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
@@ -2483,6 +2475,7 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
+                const auto scheme = mnview.GetLoanScheme(vault->schemeId);
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
@@ -2499,7 +2492,6 @@ public:
                     if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
                         return Res::Err("At least 50%% of the vault must be in DFI");
 
-                    auto scheme = mnview.GetLoanScheme(vault->schemeId);
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
@@ -2594,6 +2586,15 @@ public:
             auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
+
+            uint64_t totalDFI = 0;
+            for (auto& col : collateralsLoans.val->collaterals)
+                if (col.nTokenId == DCT_ID{0})
+                    totalDFI += col.nValue;
+
+            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                return Res::Err("At least 50%% of the vault must be in DFI when taking a loan");
+
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
         }
