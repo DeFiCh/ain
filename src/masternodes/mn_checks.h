@@ -87,7 +87,7 @@ enum class CustomTxType : uint8_t
     LoanTakeLoan          = 'F',
     AuctionBid            = 'I',
     // On-Chain-Gov
-    CreateCfp             = 'e',
+    CreateCfp             = 'P',
     CreateVoc             = 'E',
     Vote                  = 'O',
 };
