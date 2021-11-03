@@ -2555,6 +2555,9 @@ public:
             for (int i = 0; i < 2; i++) {
                 // check active and next price
                 auto price = priceFeed.val->priceRecord[int(i > 0)];
+                if (price <= 0)
+                    return Res::Err("Negative price (%s/%s)", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
+
                 auto amount = MultiplyAmounts(price, kv.second);
                 if (price > COIN && amount < kv.second)
                     return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
