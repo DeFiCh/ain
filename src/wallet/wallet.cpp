@@ -2894,6 +2894,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
         }
     }
 
+    if (lockUnspents) {
+        for (const auto& coin : coinControl.m_linkedCoins) {
+            LockCoin(coin.first);
+        }
+    }
+
     return true;
 }
 

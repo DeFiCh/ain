@@ -137,6 +137,9 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
             pwallet.AddLockedCoin(txin.prevout);
         }
     }
+    for (const auto& coin : coinControl.m_linkedCoins) {
+        pwallet.AddLockedCoin(coin.first);
+    }
     return mtx;
 }
 
