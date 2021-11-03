@@ -104,21 +104,6 @@ static ResVal<CBalances> MintedTokens(CTransaction const & tx, uint32_t mintingO
     return {balances, Res::Ok()};
 }
 
-CPubKey GetPubkeyFromScriptSig(CScript const & scriptSig)
-{
-    opcodetype opcode;
-    std::vector<unsigned char> data;
-    CScript::const_iterator pc = scriptSig.begin();
-    // Signature first, then pubkey. I think, that in all cases it will be OP_PUSHDATA1, but...
-    if (!scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)
-    || !scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
-        return CPubKey();
-    }
-    return CPubKey(data);
-}
-
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType)
     {
