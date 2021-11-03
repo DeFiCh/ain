@@ -169,8 +169,8 @@ class PriceUpdateTest (DefiTestFramework):
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
         assert_equal(fixedPrice['activePrice'], Decimal(15.00000000))
         assert_equal(fixedPrice['nextPrice'], Decimal(15.00000000))
-        assert_equal(fixedPrice['activePriceBlock'], 325)
-        assert_equal(fixedPrice['nextPriceBlock'], 331)
+        assert_equal(fixedPrice['activePriceBlock'], 324)
+        assert_equal(fixedPrice['nextPriceBlock'], 330)
 
         oracle2_prices = [
             {"currency": "USD", "tokenAmount": "15@TSLA"},
@@ -287,15 +287,15 @@ class PriceUpdateTest (DefiTestFramework):
         assert_equal(fixedPrice['isLive'], False)
         assert_equal(fixedPrice['activePrice'], Decimal('22.50000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
-        assert_equal(fixedPrice['nextPriceBlock'], 349)
-        assert_equal(fixedPrice['activePriceBlock'], 343)
+        assert_equal(fixedPrice['nextPriceBlock'], 348)
+        assert_equal(fixedPrice['activePriceBlock'], 342)
         self.nodes[0].generate(6)
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
         assert_equal(fixedPrice['isLive'], True)
         assert_equal(fixedPrice['activePrice'], Decimal('57.50000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
-        assert_equal(fixedPrice['nextPriceBlock'], 355)
-        assert_equal(fixedPrice['activePriceBlock'], 349)
+        assert_equal(fixedPrice['nextPriceBlock'], 354)
+        assert_equal(fixedPrice['activePriceBlock'], 348)
 
         fixedPriceList = self.nodes[0].listfixedintervalprices()
         assert_equal(len(fixedPriceList), 3)
