@@ -1357,7 +1357,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
     for (const auto& item : wallets) {
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
-                htlcAddresses.insert(*boost::get<ScriptHash>(&entry.first));
+                htlcAddresses.insert(std::get<ScriptHash>(entry.first));
             }
         }
     }

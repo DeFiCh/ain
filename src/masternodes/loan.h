@@ -279,22 +279,22 @@ public:
     Res EraseLoanScheme(const std::string& loanSchemeID);
     void EraseDelayedLoanScheme(const std::string& loanSchemeID, uint64_t height);
     void EraseDelayedDestroyScheme(const std::string& loanSchemeID);
-    boost::optional<std::string> GetDefaultLoanScheme();
-    boost::optional<CLoanSchemeData> GetLoanScheme(const std::string& loanSchemeID);
-    boost::optional<uint64_t> GetDestroyLoanScheme(const std::string& loanSchemeID);
+    std::optional<std::string> GetDefaultLoanScheme();
+    std::optional<CLoanSchemeData> GetLoanScheme(const std::string& loanSchemeID);
+    std::optional<uint64_t> GetDestroyLoanScheme(const std::string& loanSchemeID);
     void ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback);
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     Res DeleteInterest(const CVaultId& vaultId);
-    boost::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
+    std::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
-    boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
+    std::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);

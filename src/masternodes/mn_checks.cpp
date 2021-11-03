@@ -3376,7 +3376,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
@@ -3401,7 +3401,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         currentID = poolIDs[i];
 
         // Use single swap pool if already found
-        boost::optional<CPoolPair> pool;
+        std::optional<CPoolPair> pool;
         if (poolPair) {
             pool = poolPair->second;
         }

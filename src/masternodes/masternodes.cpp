@@ -987,7 +987,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (!priceResult)
             return std::move(priceResult);
 
-        auto price = priceResult.val.get();
+        auto price = priceResult.val.value();
 
         LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
@@ -1023,7 +1023,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!priceResult)
             return std::move(priceResult);
 
-        auto price = priceResult.val.get();
+        auto price = priceResult.val.value();
 
         auto amountInCurrency = MultiplyAmounts(price, tokenAmount);
         if (price > COIN && amountInCurrency < tokenAmount)
