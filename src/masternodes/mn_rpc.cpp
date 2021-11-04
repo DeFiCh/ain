@@ -283,9 +283,7 @@ static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CT
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
-    cctl.m_avoid_address_reuse = false;
     cctl.m_min_depth = 1;
-    cctl.m_max_depth = 999999999;
     cctl.matchDestination = auth;
     cctl.m_tokenFilter = {DCT_ID{0}};
 
