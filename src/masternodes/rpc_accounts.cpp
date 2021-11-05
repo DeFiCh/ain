@@ -929,6 +929,8 @@ public:
                 if (IsPoolShare) {
                     if (view.GetBalance(owner, balance.first).nValue == 0) {
                         view.DelShare(balance.first, owner);
+                    } else {
+                        view.SetShare(balance.first, owner, 0);
                     }
                 }
             }
@@ -1077,7 +1079,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     CScript lastOwner;
     auto count = limit;
-    auto lastHeight = maxBlockHeight;
+    auto lastHeight = maxBlockHeight + 1;
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!isMatchOwner(key.owner)) {
@@ -1125,7 +1127,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (lastOwner != key.owner) {
             view.Discard();
             lastOwner = key.owner;
-            lastHeight = maxBlockHeight;
+            lastHeight = maxBlockHeight + 1;
         }
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
@@ -1138,6 +1140,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (!noRewards && count && lastHeight > workingHeight) {
+            accountRecord && ++workingHeight;
             onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
