@@ -1018,6 +1018,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
             }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
+            }
         }
         if (!optionsObj["limit"].isNull()) {
             limit = (uint32_t) optionsObj["limit"].get_int64();
@@ -1267,6 +1270,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                 // Will search for type ::None if txtype not found.
                 txType = CustomTxCodeToType(str[0]);
                 txTypeSearch = true;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
             }
         }
 
@@ -1414,6 +1419,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
+            }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
             }
         }
     }
