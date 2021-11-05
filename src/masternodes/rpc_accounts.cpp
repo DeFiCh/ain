@@ -1802,6 +1802,30 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue listcustomtxtypes(const JSONRPCRequest& request) {
+    RPCHelpMan{"listcustomtxtypes",
+               "\nList all available custom transaction types.\n",
+               {
+               },
+               RPCResult{
+                       "{\"ICXCreateOrder\": \"1\", \"ICXMakeOffer\": \"2\", ...}     (object) List of custom transaction types { [name]: single letter representation }\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listcustomtxtypes", "")
+                       + HelpExampleRpc("listcustomtxtypes", "")
+               },
+    }.Check(request);
+
+    UniValue typeObj(UniValue::VOBJ);
+    for (auto i = 0; i < std::numeric_limits<uint8_t>::max(); i++) {
+        auto type = CustomTxCodeToType(i);
+        if (type != CustomTxType::None && type != CustomTxType::Reject) {
+            typeObj.pushKV(ToString(type), std::string(1, i));
+        }
+    }
+    return typeObj;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -1819,6 +1843,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
+    {"accounts",    "listcustomtxtypes",     &listcustomtxtypes,     {}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
