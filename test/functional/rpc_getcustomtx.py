@@ -355,10 +355,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         mn_txid = self.nodes[0].createmasternode(collateral, '', [], 'TENYEARTIMELOCK')
         self.nodes[0].generate(1)
 
-        # Get block hash and height of update tx
-        blockheight = self.nodes[0].getblockcount()
-        blockhash = self.nodes[0].getblockhash(blockheight)
-
         # Get custom TX
         result = self.nodes[1].getcustomtx(mn_txid)
         self.check_result(result)
@@ -721,7 +717,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
-         # Get custom TX
+        # Get custom TX
         result = self.nodes[1].getcustomtx(payback_loan_tx)
         self.check_result(result)
         assert_equal(result['type'], "PaybackLoan")
@@ -733,7 +729,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         vault_withdraw_tx = self.nodes[0].withdrawfromvault(create_vault_tx, new_vault_owner, '0.5@DFI')
         self.nodes[0].generate(1)
 
-         # Get custom TX
+        # Get custom TX
         result = self.nodes[1].getcustomtx(vault_withdraw_tx)
         self.check_result(result)
         assert_equal(result['type'], "WithdrawFromVault")
@@ -745,7 +741,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         vault_close_tx = self.nodes[0].closevault(create_vault_tx, new_vault_owner)
         self.nodes[0].generate(1)
 
-         # Get custom TX
+        # Get custom TX
         result = self.nodes[1].getcustomtx(vault_close_tx)
         self.check_result(result)
         assert_equal(result['type'], "CloseVault")
@@ -766,7 +762,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         auction_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, '7.1@TSLA')
         self.nodes[0].generate(1)
 
-         # Get custom TX
+        # Get custom TX
         result = self.nodes[1].getcustomtx(auction_tx)
         self.check_result(result)
         assert_equal(result['type'], "AuctionBid")
