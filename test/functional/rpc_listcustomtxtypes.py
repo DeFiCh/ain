@@ -6,6 +6,7 @@
 """Test listaccounthistory RPC."""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 
 from test_framework.util import (
     assert_equal,
@@ -44,7 +45,6 @@ class RPClistCustomTxTypes(DefiTestFramework):
         self.nodes[0].generate(1)
 
         tx_list = self.nodes[0].listcustomtxtypes()
-        print("tx_list", tx_list)
 
         list_history = self.nodes[0].listaccounthistory("mine", {"txtype": tx_list["MintToken"]})
         assert_equal(len(list_history), 1)
@@ -58,6 +58,25 @@ class RPClistCustomTxTypes(DefiTestFramework):
         list_history_count_mint = self.nodes[0].accounthistorycount("mine", {"txtype": tx_list["MintToken"]})
         assert(list_history_count_mint < list_history_count)
         assert_equal(list_history_count_mint, 1)
+
+        invalid_tx_type = "wrong"
+        assert not (invalid_tx_type in tx_list.values())
+
+        # should fail with invalid custom tx type
+        try:
+            self.nodes[0].listaccounthistory("mine", {"txtype": invalid_tx_type})
+        except JSONRPCException as e:
+            assert_equal(e.error['message'], "Invalid tx type (wrong)")
+
+        try:
+            self.nodes[0].listburnhistory({"txtype": invalid_tx_type})
+        except JSONRPCException as e:
+            assert_equal(e.error['message'], "Invalid tx type (wrong)")
+
+        try:
+            self.nodes[0].accounthistorycount("mine", {"txtype": invalid_tx_type})
+        except JSONRPCException as e:
+            assert_equal(e.error['message'], "Invalid tx type (wrong)")
 
 if __name__ == '__main__':
     RPClistCustomTxTypes().main ()
