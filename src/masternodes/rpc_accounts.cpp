@@ -1044,7 +1044,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         filter = ISMINE_SPENDABLE;
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
-        isMine = IsMineCached(*pwallet, account) & ISMINE_ALL;
         isMatchOwner = [&account](CScript const & owner) {
             return owner == account;
         };
@@ -1065,7 +1064,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview), view(mnview);
+    CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
@@ -1159,7 +1158,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
 
-    if (!noRewards) {
+    if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
         paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
             if (startKey.blockHeight > key.blockHeight) {
@@ -1168,10 +1167,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (!isMatchOwner(key.owner)) {
                 return false;
             }
-            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
-                return true;
-            }
-            CScopeAccountReverter(mnview, key.owner, value.diff);
+            CScopeAccountReverter(view, key.owner, value.diff);
             return true;
         }, {account, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
     }
