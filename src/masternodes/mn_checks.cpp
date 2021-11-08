@@ -104,21 +104,6 @@ static ResVal<CBalances> MintedTokens(CTransaction const & tx, uint32_t mintingO
     return {balances, Res::Ok()};
 }
 
-CPubKey GetPubkeyFromScriptSig(CScript const & scriptSig)
-{
-    opcodetype opcode;
-    std::vector<unsigned char> data;
-    CScript::const_iterator pc = scriptSig.begin();
-    // Signature first, then pubkey. I think, that in all cases it will be OP_PUSHDATA1, but...
-    if (!scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)
-    || !scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
-        return CPubKey();
-    }
-    return CPubKey(data);
-}
-
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType)
     {
@@ -2011,11 +1996,12 @@ public:
             return Res::Err("tx not from foundation member!");
 
         auto token = mnview.GetToken(collToken.idToken);
-        if(!token)
+        if (!token)
             return Res::Err("token %s does not exist!", collToken.idToken.ToString());
 
         if (!collToken.activateAfterBlock)
             collToken.activateAfterBlock = height;
+
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
@@ -2024,16 +2010,18 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+
         LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
-        if(!price)
+        if (!price)
             return Res::Err(price.msg);
 
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
+
         LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-        if(!resSetFixedPrice)
+        if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
         return mnview.CreateLoanCollateralToken(collToken);
@@ -2052,14 +2040,17 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+
         auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
-        if(!nextPrice)
+        if (!nextPrice)
             return Res::Err(nextPrice.msg);
+
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
+
         LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-        if(!resSetFixedPrice)
+        if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
         if (!HasFoundationAuth())
@@ -2078,9 +2069,8 @@ public:
         token.creationHeight = height;
 
         auto tokenId = mnview.CreateToken(token, false);
-        if (!tokenId) {
+        if (!tokenId)
             return std::move(tokenId);
-        }
 
         return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }
@@ -2090,9 +2080,8 @@ public:
         if (!res)
             return res;
 
-        if (!HasFoundationAuth()) {
+        if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
-        }
 
         auto loanToken = mnview.GetLoanToken(obj.tokenTx);
         if (!loanToken)
@@ -2100,6 +2089,7 @@ public:
 
         if (obj.mintable != loanToken->mintable)
             loanToken->mintable = obj.mintable;
+
         if (obj.interest != loanToken->interest)
             loanToken->interest = obj.interest;
 
@@ -2108,14 +2098,18 @@ public:
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
         if (obj.symbol != pair->second.symbol)
-            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
+            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
         if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
             if (!oraclePriceFeed(obj.fixedIntervalPriceId))
                 return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
             loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
+
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
@@ -2388,8 +2382,8 @@ public:
         if (vault->schemeId != obj.schemeId)
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
                 for (int i = 0; i < 2; i++) {
-                    bool useNextPrice = i > 0, requireLivePrice = true;
                     LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
+                    bool useNextPrice = i > 0, requireLivePrice = true;
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
@@ -2434,6 +2428,7 @@ public:
 
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
         LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
@@ -2544,13 +2539,16 @@ public:
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
+
+            auto tokenCurrency = loanToken->fixedIntervalPriceId;
+
             LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
-            auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            auto priceFeed = mnview.GetFixedIntervalPrice(tokenCurrency);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
             if (!priceFeed.val->isLive(mnview.GetPriceDeviation()))
-                return Res::Err("No live fixed prices for %s/%s", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
+                return Res::Err("No live fixed prices for %s/%s", tokenCurrency.first, tokenCurrency.second);
 
             for (int i = 0; i < 2; i++) {
                 // check active and next price
@@ -2657,6 +2655,7 @@ public:
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
+
             LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
