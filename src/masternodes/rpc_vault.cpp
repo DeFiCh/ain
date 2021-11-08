@@ -466,9 +466,6 @@ UniValue listvaults(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -480,6 +477,11 @@ UniValue listvaults(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
             return false;
         }
@@ -1006,9 +1008,6 @@ UniValue listauctions(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                vaultId = ArithToUint256(UintToArith256(vaultId) + arith_uint256{1});
-            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -1019,6 +1018,11 @@ UniValue listauctions(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         valueArr.push_back(AuctionToJSON(vaultId, data));
         return --limit != 0;
     }, height, vaultId);
@@ -1026,7 +1030,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
     return valueArr;
 }
 
-UniValue auctoinhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
+UniValue auctionhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("winner", ScriptToString(key.owner));
@@ -1134,7 +1138,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        ret.push_back(auctoinhistoryToJSON(key, valueLazy.get()));
+        ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
 
         return --limit != 0;
     }, start);
