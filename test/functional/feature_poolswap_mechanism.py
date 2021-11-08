@@ -298,11 +298,11 @@ class PoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        g1 = self.nodes[0].getgov("LP_SPLITS")[0]
+        g1 = self.nodes[0].getgov("LP_SPLITS")
         for i in range(self.COUNT_POOLS):
             assert_equal(g1['LP_SPLITS'][str(i + 1)], 1 / self.COUNT_POOLS)
 
-        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")[0]
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal(self.LP_DAILY_DFI_REWARD)} )
         print("Set governance variables")
 
@@ -333,7 +333,7 @@ class PoolSwapTest (DefiTestFramework):
 
         assert(self.nodes[0].getblockcount() == 120) # eunos
 
-        self.LP_DAILY_DFI_REWARD = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")[0]['LP_DAILY_DFI_REWARD']
+        self.LP_DAILY_DFI_REWARD = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")['LP_DAILY_DFI_REWARD']
         assert_equal(self.LP_DAILY_DFI_REWARD, Decimal('14843.90592000')) # 144 blocks a day times 103.08268000
 
         print("Swapping tokens after eunos height...")
@@ -347,7 +347,7 @@ class PoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.LP_DAILY_LOAN_TOKEN_REWARD = self.nodes[0].getgov("LP_DAILY_LOAN_TOKEN_REWARD")[0]['LP_DAILY_LOAN_TOKEN_REWARD']
+        self.LP_DAILY_LOAN_TOKEN_REWARD = self.nodes[0].getgov("LP_DAILY_LOAN_TOKEN_REWARD")['LP_DAILY_LOAN_TOKEN_REWARD']
         assert_equal(self.LP_DAILY_LOAN_TOKEN_REWARD, Decimal('14394.79756800'))
 
         print("Swapping tokens after FortCanning height...")
