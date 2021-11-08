@@ -342,10 +342,10 @@ class AnchorRewardsTest (DefiTestFramework):
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('6.30000000')) # 2 more blocks on this chain
 
         self.nodes[1].generate(1)
+        self.sync_all()
 
         # Reward after
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.10000000'))
-        self.sync_all()
 
         wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 0, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
