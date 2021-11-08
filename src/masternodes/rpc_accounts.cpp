@@ -1123,7 +1123,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         // starting new account
-        if (lastOwner != key.owner) {
+        if (account.empty() && lastOwner != key.owner) {
             view.Discard();
             lastOwner = key.owner;
             lastHeight = maxBlockHeight + 1;
