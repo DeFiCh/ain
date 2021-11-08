@@ -1030,7 +1030,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
     return valueArr;
 }
 
-UniValue auctoinhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
+UniValue auctionhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("winner", ScriptToString(key.owner));
@@ -1138,7 +1138,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        ret.push_back(auctoinhistoryToJSON(key, valueLazy.get()));
+        ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
 
         return --limit != 0;
     }, start);
