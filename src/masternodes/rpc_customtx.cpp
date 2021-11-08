@@ -348,12 +348,17 @@ public:
         rpcInfo.pushKV("symbol", obj.symbol);
         rpcInfo.pushKV("name", obj.name);
         rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
+        rpcInfo.pushKV("mintable", obj.mintable);
+        rpcInfo.pushKV("interest", ValueFromAmount(obj.interest));
     }
 
     void operator()(const CLoanUpdateLoanTokenMessage& obj) const {
+        rpcInfo.pushKV("id", obj.tokenTx.ToString());
+        rpcInfo.pushKV("symbol", obj.symbol);
+        rpcInfo.pushKV("name", obj.name);
         rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
         rpcInfo.pushKV("mintable", obj.mintable);
-        rpcInfo.pushKV("interest", obj.interest);
+        rpcInfo.pushKV("interest", ValueFromAmount(obj.interest));
     }
 
     void operator()(const CLoanSchemeMessage& obj) const {

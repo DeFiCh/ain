@@ -681,8 +681,10 @@ public:
         if (token.IsPoolShare()) {
             return Res::Err("can't mint LPS token %s!", id.ToString());
         }
+
+        static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
         // may be different logic with LPS, so, dedicated check:
-        if (!token.IsMintable()) {
+        if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
             return Res::Err("token %s is not mintable!", id.ToString());
         }
 
