@@ -10,7 +10,7 @@
 
 bool COracle::SupportsPair(const std::string& token, const std::string& currency) const
 {
-    return availablePairs.count(std::make_pair(token, currency)) > 0;
+    return availablePairs.find(std::make_pair(token, currency)) != availablePairs.end();
 }
 
 Res COracle::SetTokenPrice(const std::string& token, const std::string& currency, CAmount amount, int64_t timestamp)
