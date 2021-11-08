@@ -137,6 +137,9 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
             pwallet.AddLockedCoin(txin.prevout);
         }
     }
+    for (const auto& coin : coinControl.m_linkedCoins) {
+        pwallet.AddLockedCoin(coin.first);
+    }
     return mtx;
 }
 
@@ -280,9 +283,7 @@ static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CT
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
-    cctl.m_avoid_address_reuse = false;
     cctl.m_min_depth = 1;
-    cctl.m_max_depth = 999999999;
     cctl.matchDestination = auth;
     cctl.m_tokenFilter = {DCT_ID{0}};
 
