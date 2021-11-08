@@ -668,9 +668,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
             if (!paginationObj["limit"].isNull()){
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
@@ -685,6 +682,11 @@ UniValue listoracles(const JSONRPCRequest &request) {
     UniValue value(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         value.push_back(id.GetHex());
         limit--;
         return limit != 0;
@@ -752,9 +754,6 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
             if (!paginationObj["limit"].isNull()){
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
@@ -774,6 +773,11 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         if (tokenPair && !oracle.SupportsPair(tokenPair->first, tokenPair->second)) {
             return true;
         }

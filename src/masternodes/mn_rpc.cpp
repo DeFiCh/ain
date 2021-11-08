@@ -635,7 +635,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                         "Variable name"},
                },
                RPCResult{
-                       "[{id:{...}},{height:{...},...}]     (array) Json object with variable information\n"
+                       "{id:{...}}     (array) Json object with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("getgov", "LP_SPLITS")
@@ -646,26 +646,13 @@ UniValue getgov(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto name = request.params[0].getValStr();
-
-    UniValue result(UniValue::VARR);
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
-        result.push_back(ret);
-    } else {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
+        return ret;
     }
-
-    // Get and add any pending changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
-    for (const auto& items : pending[name]) {
-        UniValue ret(UniValue::VOBJ);
-        ret.pushKV(std::to_string(items.first),items.second->Export());
-        result.push_back(ret);
-    }
-
-    return result;
+    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
 UniValue listgovs(const JSONRPCRequest& request) {
