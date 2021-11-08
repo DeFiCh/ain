@@ -60,9 +60,9 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
-        case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
-        case CustomTxType::LoanSetLoanToken:    return "LoanSetLoanToken";
-        case CustomTxType::LoanUpdateLoanToken: return "LoanUpdateLoanToken";
+        case CustomTxType::SetLoanCollateralToken: return "SetLoanCollateralToken";
+        case CustomTxType::SetLoanToken:        return "SetLoanToken";
+        case CustomTxType::UpdateLoanToken:     return "UpdateLoanToken";
         case CustomTxType::LoanScheme:          return "LoanScheme";
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
@@ -71,8 +71,8 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
-        case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
-        case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
+        case CustomTxType::TakeLoan:            return "TakeLoan";
+        case CustomTxType::PaybackLoan:         return "PaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
@@ -102,21 +102,6 @@ static ResVal<CBalances> MintedTokens(CTransaction const & tx, uint32_t mintingO
         }
     }
     return {balances, Res::Ok()};
-}
-
-CPubKey GetPubkeyFromScriptSig(CScript const & scriptSig)
-{
-    opcodetype opcode;
-    std::vector<unsigned char> data;
-    CScript::const_iterator pc = scriptSig.begin();
-    // Signature first, then pubkey. I think, that in all cases it will be OP_PUSHDATA1, but...
-    if (!scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)
-    || !scriptSig.GetOp(pc, opcode, data)
-    || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
-        return CPubKey();
-    }
-    return CPubKey(data);
 }
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
@@ -155,9 +140,9 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
-        case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
-        case CustomTxType::LoanSetLoanToken:        return CLoanSetLoanTokenMessage{};
-        case CustomTxType::LoanUpdateLoanToken:     return CLoanUpdateLoanTokenMessage{};
+        case CustomTxType::SetLoanCollateralToken:  return CLoanSetCollateralTokenMessage{};
+        case CustomTxType::SetLoanToken:            return CLoanSetLoanTokenMessage{};
+        case CustomTxType::UpdateLoanToken:         return CLoanUpdateLoanTokenMessage{};
         case CustomTxType::LoanScheme:              return CLoanSchemeMessage{};
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
@@ -166,8 +151,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
-        case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
-        case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
+        case CustomTxType::TakeLoan:                return CLoanTakeLoanMessage{};
+        case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
@@ -696,8 +681,10 @@ public:
         if (token.IsPoolShare()) {
             return Res::Err("can't mint LPS token %s!", id.ToString());
         }
+
+        static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
         // may be different logic with LPS, so, dedicated check:
-        if (!token.IsMintable()) {
+        if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
             return Res::Err("token %s is not mintable!", id.ToString());
         }
 
@@ -2011,11 +1998,12 @@ public:
             return Res::Err("tx not from foundation member!");
 
         auto token = mnview.GetToken(collToken.idToken);
-        if(!token)
+        if (!token)
             return Res::Err("token %s does not exist!", collToken.idToken.ToString());
 
         if (!collToken.activateAfterBlock)
             collToken.activateAfterBlock = height;
+
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
@@ -2024,19 +2012,21 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+
         LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
-        if(!price)
+        if (!price)
             return Res::Err(price.msg);
 
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
+
         LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-        if(!resSetFixedPrice)
+        if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
-        return mnview.LoanCreateSetCollateralToken(collToken);
+        return mnview.CreateLoanCollateralToken(collToken);
     }
 
     Res operator()(const CLoanSetLoanTokenMessage& obj) const {
@@ -2052,14 +2042,17 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+
         auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
-        if(!nextPrice)
+        if (!nextPrice)
             return Res::Err(nextPrice.msg);
+
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
+
         LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-        if(!resSetFixedPrice)
+        if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
         if (!HasFoundationAuth())
@@ -2078,11 +2071,10 @@ public:
         token.creationHeight = height;
 
         auto tokenId = mnview.CreateToken(token, false);
-        if (!tokenId) {
+        if (!tokenId)
             return std::move(tokenId);
-        }
 
-        return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
+        return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }
 
     Res operator()(const CLoanUpdateLoanTokenMessage& obj) const {
@@ -2090,16 +2082,16 @@ public:
         if (!res)
             return res;
 
-        if (!HasFoundationAuth()) {
+        if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
-        }
 
-        auto loanToken = mnview.GetLoanSetLoanToken(obj.tokenTx);
+        auto loanToken = mnview.GetLoanToken(obj.tokenTx);
         if (!loanToken)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
         if (obj.mintable != loanToken->mintable)
             loanToken->mintable = obj.mintable;
+
         if (obj.interest != loanToken->interest)
             loanToken->interest = obj.interest;
 
@@ -2108,14 +2100,18 @@ public:
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
         if (obj.symbol != pair->second.symbol)
-            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
+            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+
         if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
             if (!oraclePriceFeed(obj.fixedIntervalPriceId))
                 return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
             loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
+
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
@@ -2123,7 +2119,7 @@ public:
         if (!res)
             return res;
 
-        return mnview.LoanUpdateLoanToken(*loanToken, pair->first);
+        return mnview.UpdateLoanToken(*loanToken, pair->first);
     }
 
     Res operator()(const CLoanSchemeMessage& obj) const {
@@ -2388,8 +2384,8 @@ public:
         if (vault->schemeId != obj.schemeId)
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
                 for (int i = 0; i < 2; i++) {
-                    bool useNextPrice = i > 0, requireLivePrice = true;
                     LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
+                    bool useNextPrice = i > 0, requireLivePrice = true;
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
@@ -2434,18 +2430,11 @@ public:
 
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
         LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
-
-        uint64_t totalDFI = 0;
-        for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
-
-        if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-            return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2483,6 +2472,7 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
+                const auto scheme = mnview.GetLoanScheme(vault->schemeId);
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
@@ -2499,7 +2489,6 @@ public:
                     if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
                         return Res::Err("At least 50%% of the vault must be in DFI");
 
-                    auto scheme = mnview.GetLoanScheme(vault->schemeId);
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
@@ -2538,7 +2527,7 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
-            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
@@ -2552,13 +2541,16 @@ public:
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
+
+            auto tokenCurrency = loanToken->fixedIntervalPriceId;
+
             LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
-            auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            auto priceFeed = mnview.GetFixedIntervalPrice(tokenCurrency);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
             if (!priceFeed.val->isLive(mnview.GetPriceDeviation()))
-                return Res::Err("No live fixed prices for %s/%s", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
+                return Res::Err("No live fixed prices for %s/%s", tokenCurrency.first, tokenCurrency.second);
 
             for (int i = 0; i < 2; i++) {
                 // check active and next price
@@ -2594,6 +2586,15 @@ public:
             auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
+
+            uint64_t totalDFI = 0;
+            for (auto& col : collateralsLoans.val->collaterals)
+                if (col.nTokenId == DCT_ID{0})
+                    totalDFI += col.nValue;
+
+            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                return Res::Err("At least 50%% of the vault must be in DFI when taking a loan");
+
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
         }
@@ -2625,7 +2626,7 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
-            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
@@ -2656,6 +2657,7 @@ public:
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
+
             LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
@@ -3510,14 +3512,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
         for (const auto collateral : collaterals->balances)
-            if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
+            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto loan : loans->balances)
-            if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;

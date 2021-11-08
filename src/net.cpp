@@ -573,15 +573,10 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes, bool& complete
 
         // absorb network data
         int handled;
-        if (!msg.in_data) {
+        if (!msg.in_data)
             handled = msg.readHeader(pch, nBytes);
-            // NOTE: for compatibility with current working nodes, remove after Dakota
-            if (memcmp(msg.hdr.pchMessageStart, Params().MessageStart(), CMessageHeader::MESSAGE_START_SIZE) == 0) {
-                memcpy(msg.hdr.pchMessageStart, Params().MessageStartPostAMK(), CMessageHeader::MESSAGE_START_SIZE);
-            }
-        } else {
+        else
             handled = msg.readData(pch, nBytes);
-        }
 
         if (handled < 0)
             return false;

@@ -56,12 +56,12 @@ class AuctionsTest (DefiTestFramework):
 
         # setup oracle
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}, {"currency": "USD", "token": "GOOGL"}, {"currency": "USD", "token": "TWTR"}, {"currency": "USD", "token": "MSFT"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
         # feed oracle
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@TWTR"}, {"currency": "USD", "tokenAmount": "100@MSFT"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(6)
@@ -81,14 +81,35 @@ class AuctionsTest (DefiTestFramework):
                             'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
+        self.nodes[0].setloantoken({
+                            'symbol': "GOOGL",
+                            'name': "Google",
+                            'fixedIntervalPriceId': "GOOGL/USD",
+                            'mintable': True,
+                            'interest': 1})
+        self.nodes[0].setloantoken({
+                            'symbol': "TWTR",
+                            'name': "Twitter",
+                            'fixedIntervalPriceId': "TWTR/USD",
+                            'mintable': True,
+                            'interest': 1})
+        self.nodes[0].setloantoken({
+                            'symbol': "MSFT",
+                            'name': "Microsoft",
+                            'fixedIntervalPriceId': "MSFT/USD",
+                            'mintable': True,
+                            'interest': 1})
         self.nodes[0].generate(6) # let active price update
 
         idDFI = list(self.nodes[0].gettoken("DFI").keys())[0]
         iddUSD = list(self.nodes[0].gettoken("DUSD").keys())[0]
         idTSLA = list(self.nodes[0].gettoken("TSLA").keys())[0]
+        idGOOGL = list(self.nodes[0].gettoken("GOOGL").keys())[0]
+        idTWTR = list(self.nodes[0].gettoken("TWTR").keys())[0]
+        idMSFT = list(self.nodes[0].gettoken("MSFT").keys())[0]
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
 
-        # create pool USDT-DFI
+        # create pool DUSD-TSLA
         self.nodes[0].createpoolpair({
             "tokenA": iddUSD,
             "tokenB": idTSLA,
@@ -99,14 +120,37 @@ class AuctionsTest (DefiTestFramework):
         }, [])
         self.nodes[0].generate(1)
 
-        self.nodes[0].minttokens("3000@TSLA")
-        self.nodes[0].minttokens("3500@DUSD")
-        self.nodes[0].generate(1)
-        self.nodes[0].addpoolliquidity({
-            account: ["1000@DUSD", "1000@TSLA"]
-        }, account, [])
-        self.nodes[0].generate(1)
+        # create pool DUSD-GOOGL
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idGOOGL,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-GOOGL",
+        }, [])
 
+        # create pool DUSD-TWTR
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idTWTR,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-TWTR",
+        }, [])
+
+        # create pool DUSD-MSFT
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idMSFT,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-MSFT",
+        }, [])
+
+        # create pool DUSD-DFI
         self.nodes[0].createpoolpair({
             "tokenA": iddUSD,
             "tokenB": idDFI,
@@ -115,16 +159,46 @@ class AuctionsTest (DefiTestFramework):
             "ownerAddress": poolOwner,
             "pairSymbol": "DUSD-DFI",
         }, [])
-
-        self.nodes[0].minttokens("3000@DUSD")
         self.nodes[0].generate(1)
+
+        # Mint tokens
+        self.nodes[0].minttokens("3000@TSLA")
+        self.nodes[0].minttokens("3000@GOOGL")
+        self.nodes[0].minttokens("3000@TWTR")
+        self.nodes[0].minttokens("3000@MSFT")
+        self.nodes[0].minttokens("6500@DUSD")
+        self.nodes[0].generate(1)
+
+        # Add liquidity to DUSD-TSLA
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@TSLA"]
+        }, account, [])
+
+        # Add liquidity to DUSD-GOOGL
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@GOOGL"]
+        }, account, [])
+
+        # Add liquidity to DUSD-TWTR
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@TWTR"]
+        }, account, [])
+
+        # Add liquidity to DUSD-MSFT
+        self.nodes[0].addpoolliquidity({
+            account: ["1000@DUSD", "1000@MSFT"]
+        }, account, [])
+
+        # Add liquidity to DUSD-DFI
         self.nodes[0].addpoolliquidity({
             account: ["1000@DUSD", "1000@DFI"]
         }, account, [])
         self.nodes[0].generate(1)
+
         # Case 1
         # Create loan schemes
         self.nodes[0].createloanscheme(200, 1, 'LOAN200')
+        self.nodes[0].createloanscheme(120, 5, 'LOAN120')
         self.nodes[0].generate(1)
 
         # Create vault
@@ -186,14 +260,14 @@ class AuctionsTest (DefiTestFramework):
 
         self.nodes[0].placeauctionbid(vaultId2, 0, account, "59.41@TSLA")
 
-        self.nodes[0].generate(34) # let auction end
+        self.nodes[0].generate(35) # let auction end
 
         interest = self.nodes[0].getinterest('LOAN200', "TSLA")
         vault2 = self.nodes[0].getvault(vaultId2)
         assert_equal(vault2["state"], "active")
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
-        assert_equal(vault2["informativeRatio"], Decimal("264.70111158"))
+        assert_equal(vault2["informativeRatio"], Decimal("264.70081509"))
         self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,
@@ -322,6 +396,188 @@ class AuctionsTest (DefiTestFramework):
 
         vault5 = self.nodes[0].getvault(vaultId5)
         assert_equal(len(vault5["batches"]), 4)
+
+        # Case 6 Test two loan token
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+        vaultId6 = self.nodes[0].createvault(account, 'LOAN200')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId6, account, '200@DFI')
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId6, account, '200@BTC')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId6,
+                'amounts': "172@TSLA"})
+
+        # Take GOOGL loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId6,
+                'amounts': "18@GOOGL"})
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "330@TSLA"}, {"currency": "USD", "tokenAmount": "330@GOOGL"}, {"currency": "USD", "tokenAmount": "220@DFI"}, {"currency": "USD", "tokenAmount": "220@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+        vault6 = self.nodes[0].getvault(vaultId6)
+
+        batches = vault6['batches']
+        assert_equal(len(batches), 9)
+
+        collateralDFI = Decimal('0')
+        collateralBTC = Decimal('0')
+        for batch in batches:
+            collaterals = batch['collaterals']
+            assert_equal(len(collaterals), 2)
+            DFI = Decimal(collaterals[0].replace('@DFI', ''))
+            BTC = Decimal(collaterals[1].replace('@BTC', ''))
+            assert(DFI * Decimal('220') + BTC * Decimal('220') < 10000)
+            collateralDFI += DFI
+            collateralBTC += BTC
+
+        assert_equal(collateralDFI, Decimal('200.00000000'))
+        assert_equal(collateralBTC, Decimal('200.00000000'))
+
+        # Case 7 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71
+        # Loan value should end up greater than collateral value
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@DFI"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+
+        vaultId7 = self.nodes[0].createvault(account, 'LOAN120')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId7, account, '100@DFI')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId7,
+                'amounts': "80@TSLA"})
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "129@TSLA"}, {"currency": "USD", "tokenAmount": "71@DFI"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+        vault7 = self.nodes[0].getvault(vaultId7)
+
+        batches = vault7['batches']
+        assert_equal(len(batches), 1)
+
+        loan_amount = batches[0]["loan"].split("@")[0]
+        loan_value = float(loan_amount) * 129 # TSLA USD value
+        collateral_amount = batches[0]["collaterals"][0].split("@")[0]
+        collateral_value = float(collateral_amount) * 71 # DFI USD value
+        assert(loan_value > collateral_value)
+
+        # Case 8 With max possible oracle deviation. Loantoken value 100 -> 129 && collateral value 100 -> 71. Multi tokens
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+
+        vaultId7 = self.nodes[0].createvault(account, 'LOAN120')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId7, account, '100@DFI')
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId7, account, '100@BTC')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId7,
+                'amounts': "100@TSLA"})
+        # Take GOOGL loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId7,
+                'amounts': "60@GOOGL"})
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "129@TSLA"}, {"currency": "USD", "tokenAmount": "129@GOOGL"}, {"currency": "USD", "tokenAmount": "71@DFI"}, {"currency": "USD", "tokenAmount": "71@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+        vault7 = self.nodes[0].getvault(vaultId7)
+
+        batches = vault7['batches']
+        assert_equal(len(batches), 2)
+        for batch in batches:
+            assert_equal(len(batch['collaterals']), 2)
+        loan_amount_TSLA = batches[0]["loan"].split("@")[0]
+        loan_value_TSLA = float(loan_amount_TSLA) * 129 # TSLA USD value
+        collateral_amount = float(batches[0]["collaterals"][0].split("@")[0]) + float(batches[0]["collaterals"][1].split("@")[0])
+        collateral_value = collateral_amount * 71 # collaterals USD value
+        assert(loan_value_TSLA > collateral_value)
+
+        loan_amount_GOOGL = batches[1]["loan"].split("@")[0]
+        loan_value_GOOGL = float(loan_amount_GOOGL) * 129 # GOOGL USD value
+        collateral_amount = float(batches[1]["collaterals"][0].split("@")[0]) + float(batches[1]["collaterals"][1].split("@")[0])
+        collateral_value = float(collateral_amount) * 71 # collaterals USD value
+        assert(loan_value_GOOGL > collateral_value)
+
+        # Case 9 Auction with dust amount
+        # Reset prices
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "100@TSLA"}, {"currency": "USD", "tokenAmount": "100@GOOGL"}, {"currency": "USD", "tokenAmount": "100@TWTR"}, {"currency": "USD", "tokenAmount": "100@MSFT"}, {"currency": "USD", "tokenAmount": "100@DFI"}, {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update
+
+        vaultId8 = self.nodes[0].createvault(account, 'LOAN200')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId8, account, '100@DFI')
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId8, account, '100@BTC')
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId8,
+                'amounts': "25@TSLA"})
+
+        # Take GOOGL loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId8,
+                'amounts': "25@GOOGL"})
+
+        # Take TWTR loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId8,
+                'amounts': "25@TWTR"})
+
+        # Take MSFT loan
+        self.nodes[0].takeloan({
+                'vaultId': vaultId8,
+                'amounts': "25@MSFT"})
+        self.nodes[0].generate(1)
+
+        vault8 = self.nodes[0].getvault(vaultId8)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "300@TSLA"}, {"currency": "USD", "tokenAmount": "300@GOOGL"}, {"currency": "USD", "tokenAmount": "300@TWTR"}, {"currency": "USD", "tokenAmount": "300@MSFT"}, {"currency": "USD", "tokenAmount": "200.0001@DFI"}, {"currency": "USD", "tokenAmount": "200.0001@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(12) # let price update and trigger liquidation of vault
+
+        vault8 = self.nodes[0].getvault(vaultId8)
+        batches = vault8['batches']
+        assert_equal(len(batches), 8)
+        batches = sorted(batches, key=lambda k: k['loan'])
+        assert_equal(batches[0]["loan"], '0.00001251@GOOGL')
+        assert_equal(batches[1]["loan"], '0.00001251@MSFT')
+        assert_equal(batches[2]["loan"], '0.00001251@TSLA')
+        assert_equal(batches[3]["loan"], '0.00001251@TWTR')
 
 if __name__ == '__main__':
     AuctionsTest().main()
