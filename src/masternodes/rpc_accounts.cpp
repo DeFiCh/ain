@@ -1816,7 +1816,7 @@ UniValue listcustomtxtypes(const JSONRPCRequest& request) {
                {
                },
                RPCResult{
-                       "{\"ICXCreateOrder\": \"1\", \"ICXMakeOffer\": \"2\", ...}     (object) List of custom transaction types { [name]: single letter representation }\n"
+                       "{\"1\": \"ICXCreateOrder\", \"2\": \"ICXMakeOffer\", ...}     (object) List of custom transaction types { [single letter representation]: custom transaction type name}\n"
                },
                RPCExamples{
                        HelpExampleCli("listcustomtxtypes", "")
@@ -1828,7 +1828,7 @@ UniValue listcustomtxtypes(const JSONRPCRequest& request) {
     for (auto i = 0; i < std::numeric_limits<uint8_t>::max(); i++) {
         auto type = CustomTxCodeToType(i);
         if (type != CustomTxType::None && type != CustomTxType::Reject) {
-            typeObj.pushKV(ToString(type), std::string(1, i));
+            typeObj.pushKV(std::string(1, i), ToString(type));
         }
     }
     return typeObj;

@@ -45,22 +45,27 @@ class RPClistCustomTxTypes(DefiTestFramework):
         self.nodes[0].generate(1)
 
         tx_list = self.nodes[0].listcustomtxtypes()
+        for (key, value) in tx_list.items():
+            if value == "MintToken":
+                mint_token_tx_key = key
+            if value == "CreateToken":
+                create_token_tx_key = key
 
-        list_history = self.nodes[0].listaccounthistory("mine", {"txtype": tx_list["MintToken"]})
+        list_history = self.nodes[0].listaccounthistory("mine", {"txtype": mint_token_tx_key})
         assert_equal(len(list_history), 1)
         assert_equal(list_history[0]["type"], "MintToken")
 
-        burn_history = self.nodes[0].listburnhistory({"txtype": tx_list["CreateToken"]})
+        burn_history = self.nodes[0].listburnhistory({"txtype": create_token_tx_key})
         assert_equal(len(burn_history), 1)
         assert_equal(burn_history[0]["type"], "CreateToken")
 
         list_history_count = self.nodes[0].accounthistorycount()
-        list_history_count_mint = self.nodes[0].accounthistorycount("mine", {"txtype": tx_list["MintToken"]})
+        list_history_count_mint = self.nodes[0].accounthistorycount("mine", {"txtype": mint_token_tx_key})
         assert(list_history_count_mint < list_history_count)
         assert_equal(list_history_count_mint, 1)
 
         invalid_tx_type = "wrong"
-        assert not (invalid_tx_type in tx_list.values())
+        assert not (invalid_tx_type in tx_list.keys())
 
         # should fail with invalid custom tx type
         try:
