@@ -221,12 +221,21 @@ class WalletTest(DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 3)
         self.sync_all()
 
+        # jsonformat checks
+        uspObject = self.nodes[1].listunspent(query_options={'jsonformat': 'object'})
+        assert type(uspObject) is dict
+        uspList = self.nodes[1].listunspent(query_options={'jsonformat': 'list'})
+        assert type(uspList) is list
+        uspDefault = self.nodes[1].listunspent(query_options={'jsonformat': 'list'})
+        assert type(uspDefault) is list
+
         # check if we can list zero value tx as available coins
         # 1. create raw_tx
         # 2. hex-changed one output to 0.0
         # 3. sign and send
         # 4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent(query_options={'minimumAmount': '49.998'})[0]
+
         inputs = [{"txid": usp['txid'], "vout": usp['vout']}]
         outputs = {self.nodes[1].getnewaddress(): 49.998, self.nodes[0].getnewaddress(): 11.11}
 

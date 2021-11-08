@@ -2869,6 +2869,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                             {"maximumCount", RPCArg::Type::NUM, /* default */ "unlimited", "Maximum number of UTXOs"},
                             {"minimumSumAmount", RPCArg::Type::AMOUNT, /* default */ "unlimited", "Minimum sum value of all UTXOs in " + CURRENCY_UNIT + ""},
                             {"tokenId", RPCArg::Type::STR, /* default */ "all", "Filter by token (id/symbol/creationTx)"},
+                            {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                         },
                         "query_options"},
                 },
@@ -2944,6 +2945,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     CAmount nMinimumSumAmount = MAX_MONEY;
     uint64_t nMaximumCount = 0;
     int nOnlyTokensId = -1; /// @todo tokens set default to 0 or -1 ???
+    std::string jsonFormat{"list"};
 
     if (!request.params[4].isNull()) {
         const UniValue& options = request.params[4].get_obj();
@@ -2968,13 +2970,20 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid token id: ") + options["tokenId"].getValStr());
             }
         }
+        if(options.exists("jsonformat")) {
+            jsonFormat = options["jsonformat"].getValStr();
+            if (jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        }
     }
 
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    UniValue results(UniValue::VARR);
+    UniValue resultList(UniValue::VARR);
+    UniValue resultObject{UniValue::VOBJ};
+
     std::vector<COutput> vecOutputs;
     {
         CCoinControl cctl;
@@ -3057,10 +3066,13 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
         if (avoid_reuse) entry.pushKV("reused", reused);
         entry.pushKV("safe", out.fSafe);
-        results.push_back(entry);
+        if( jsonFormat == "object" ){
+            resultObject.pushKV(out.tx->GetHash().GetHex(), entry);
+    }
+        resultList.push_back(entry);
     }
 
-    return results;
+    return jsonFormat == "list" ? resultList : resultObject;
 }
 
 void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)

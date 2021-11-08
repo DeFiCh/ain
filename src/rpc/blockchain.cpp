@@ -1118,7 +1118,7 @@ UniValue gettxout(const JSONRPCRequest& request)
                 },
                 RPCExamples{
             "\nGet unspent transactions\n"
-            + HelpExampleCli("listunspent", "") +
+            + HelpExampleCli("gettxout", "") +
             "\nView the details\n"
             + HelpExampleCli("gettxout", "\"txid\" 1") +
             "\nAs a JSON-RPC call\n"
