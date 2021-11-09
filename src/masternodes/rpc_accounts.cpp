@@ -115,6 +115,9 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
         auto beginHeight = std::max(*height, begin);
         view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
+                if (amount.nValue == 0) {
+                    return;
+                }
                 onReward(height, poolId, type, amount);
                 // prior Eunos account balance includes rewards
                 // thus we don't need to increment it by first one
