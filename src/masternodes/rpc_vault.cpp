@@ -521,8 +521,6 @@ UniValue getvault(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
@@ -585,9 +583,6 @@ UniValue updatevault(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
-
     int targetHeight;
     CVaultMessage vault;
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
@@ -611,11 +606,6 @@ UniValue updatevault(const JSONRPCRequest& request) {
         vault.schemeId
     };
 
-    if (request.params[1].isNull()){
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 2 must be non-null and expected as object at least with one of"
-                           "{\"ownerAddress\",\"loanSchemeId\"}");
-    }
     UniValue params = request.params[1].get_obj();
     if (params["ownerAddress"].isNull() && params["loanSchemeId"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "At least ownerAddress OR loanSchemeId must be set");
@@ -711,9 +701,6 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
-
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto from = DecodeScript(request.params[1].get_str());
@@ -796,9 +783,6 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot withdrawfromvault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-
-    if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
 
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
