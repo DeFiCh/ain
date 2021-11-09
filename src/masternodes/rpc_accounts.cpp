@@ -1081,7 +1081,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     CScript lastOwner;
     auto count = limit;
-    auto lastHeight = maxBlockHeight + 1;
+    auto lastHeight = maxBlockHeight;
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!isMatchOwner(key.owner)) {
@@ -1129,7 +1129,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (account.empty() && lastOwner != key.owner) {
             view.Discard();
             lastOwner = key.owner;
-            lastHeight = maxBlockHeight + 1;
+            lastHeight = maxBlockHeight;
         }
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
@@ -1142,7 +1142,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (!noRewards && count && lastHeight > workingHeight) {
-            accountRecord && ++workingHeight;
             onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
