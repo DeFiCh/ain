@@ -3495,14 +3495,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
 
-    auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
-    if (!pooldUSDDFI)
-        return Res::Err("Cannot find pool pair DUSD-DFI!");
-
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {
         return poolSwap.ExecuteSwap(mnview, {});
     }
+
+    auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
+    if (!pooldUSDDFI)
+        return Res::Err("Cannot find pool pair DUSD-DFI!");
 
     auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
     if (!poolTokendUSD)
