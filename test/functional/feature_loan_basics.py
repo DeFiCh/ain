@@ -26,9 +26,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
-        self.nodes[0].generate(25)
+        self.nodes[0].generate(50)
         self.sync_blocks()
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(110)
         self.sync_blocks()
 
         account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -49,47 +49,17 @@ class LoanTakeLoanTest (DefiTestFramework):
             "symbol": symbolBTC,
             "name": "BTC token",
             "isDAT": True,
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+            "collateralAddress": account0
         })
 
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        self.nodes[0].createtoken({
-            "symbol": symboldUSD,
-            "name": "Theter USD",
-            "isDAT": True,
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
-        })
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
         idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
-        iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
 
-        self.nodes[0].minttokens("10000@"+ symboldUSD)
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        poolOwner = self.nodes[0].getnewaddress("", "legacy")
-
-        # create pool USDT-DFI
-        self.nodes[0].createpoolpair({
-            "tokenA": iddUSD,
-            "tokenB": idDFI,
-            "commission": Decimal('0.002'),
-            "status": True,
-            "ownerAddress": poolOwner,
-            "pairSymbol": "DUSD-DFI",
-        }, [])
-
-        self.nodes[0].utxostoaccount({account0: "1000@" + symbolDFI})
+        self.nodes[0].utxostoaccount({account0: "2000@" + symbolDFI})
         self.nodes[1].utxostoaccount({account1: "100@" + symbolDFI})
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds1 = [{"currency": "USD", "token": "DFI"},
@@ -110,13 +80,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        # transfer
-        self.nodes[0].addpoolliquidity({
-            account0: ["300@" + symboldUSD, "100@" + symbolDFI]
-        }, account0, [])
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 1,
@@ -126,6 +89,9 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'token': idBTC,
                                     'factor': 1,
                                     'fixedIntervalPriceId': "BTC/USD"})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
@@ -141,21 +107,72 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'mintable': True,
                                     'interest': 2})
 
+        self.nodes[0].setloantoken({
+                                    'symbol': symboldUSD,
+                                    'name': "DUSD stable token",
+                                    'fixedIntervalPriceId': "DUSD/USD",
+                                    'mintable': True,
+                                    'interest': 1})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         self.nodes[0].createloanscheme(150, 5, 'LOAN150')
 
-        self.nodes[0].generate(7)
+        self.nodes[0].generate(5)
         self.sync_blocks()
+
+        iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
 
         loans = self.nodes[0].getloaninfo()
         assert_equal(loans['totals']['schemes'], 1)
         assert_equal(loans['totals']['collateralTokens'], 2)
-        assert_equal(loans['totals']['loanTokens'], 2)
+        assert_equal(loans['totals']['loanTokens'], 3)
 
         loanTokens = self.nodes[0].listloantokens()
 
-        assert_equal(len(loanTokens), 2)
+        assert_equal(len(loanTokens), 3)
         idTSLA = list(self.nodes[0].getloantoken(symbolTSLA)["token"])[0]
         idGOOGL = list(self.nodes[0].getloantoken(symbolGOOGL)["token"])[0]
+
+        vaultId1 = self.nodes[0].createvault( account0, 'LOAN150')
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].deposittovault(vaultId1, account0, "400@DFI")
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId1,
+                    'amounts': "2000@" + symboldUSD})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        poolOwner = self.nodes[0].getnewaddress("", "legacy")
+
+        # create pool DUSD-DFI
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idDFI,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-DFI",
+        }, [])
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # transfer
+        self.nodes[0].addpoolliquidity({
+            account0: ["300@" + symboldUSD, "100@" + symbolDFI]
+        }, account0, [])
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         vaultId = self.nodes[0].createvault( account0, 'LOAN150')
         self.nodes[0].generate(1)
@@ -271,9 +288,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         loans = self.nodes[0].getloaninfo()
         assert_equal(loans['totals']['schemes'], 1)
         assert_equal(loans['totals']['collateralTokens'], 2)
-        assert_equal(loans['totals']['loanTokens'], 2)
+        assert_equal(loans['totals']['loanTokens'], 3)
 
-        vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
+        vaultId2 = self.nodes[1].createvault( account1, 'LOAN150')
 
         self.nodes[1].generate(2)
         self.sync_blocks()
@@ -288,7 +305,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(interest['totalInterest'], Decimal('0.00000798'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
-
         try:
             self.nodes[0].paybackloan({
                         'vaultId': setLoanTokenTSLA,
@@ -300,21 +316,21 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': vaultId1,
+                        'vaultId': vaultId2,
                         'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Vault with id " + vaultId1 + " has no collaterals" in errorString)
+        assert("Vault with id " + vaultId2 + " has no collaterals" in errorString)
 
-        self.nodes[1].deposittovault(vaultId1, account1, "100@" + symbolDFI)
+        self.nodes[1].deposittovault(vaultId2, account1, "100@" + symbolDFI)
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         try:
             self.nodes[0].paybackloan({
-                        'vaultId': vaultId1,
+                        'vaultId': vaultId2,
                         'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
@@ -412,6 +428,19 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(vaultInfo['collateralAmounts'], [])
         assert_equal(vaultInfo['collateralValue'], Decimal('0.00000000'))
         assert_equal(vaultInfo['loanValue'], Decimal('0.00000000'))
+
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId1,
+                    'from': account0,
+                    'amounts': "500@" + symboldUSD})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        vaultInfo = self.nodes[0].getvault(vaultId1)
+        assert_equal(vaultInfo['collateralAmounts'], ['400.00000000@DFI'])
+        assert_equal(vaultInfo['collateralValue'], Decimal('4000.00000000'))
+        assert_equal(vaultInfo['loanValue'], Decimal('1500.0610730'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
