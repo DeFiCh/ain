@@ -186,6 +186,13 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 
+        resultObj= self.nodes[0].listburnhistory(options={'jsonformat': 'object'})
+        assert type(resultObj) is dict
+        resultList = self.nodes[0].listburnhistory(options={'jsonformat': 'list'})
+        assert type(resultList) is list
+        resultDefault= self.nodes[0].listburnhistory()
+        assert type(resultDefault) is list
+
         # Filter on tx type None
         result = self.nodes[0].listburnhistory({"txtype":'0'})
         assert_equal(len(result), 3)

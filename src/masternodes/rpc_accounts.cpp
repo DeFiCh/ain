@@ -16,7 +16,7 @@ UniValue AmountsToJSON(TAmounts const & diffs) {
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexedAmounts, std::string jsonFormat) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexedAmounts, bool isList) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -30,7 +30,7 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     }
 
     UniValue obj(UniValue::VOBJ);
-    if (jsonFormat == "list")
+    if (isList)
         obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
     obj.pushKV("owner", ownerObj);
 
@@ -291,6 +291,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     size_t limit = 100;
     BalanceKey start = {};
     bool including_start = true;
+    bool isList = true;
     {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
@@ -324,14 +325,14 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     if (request.params.size() > 3) {
         isMineOnly = request.params[3].get_bool();
     }
-    std::string jsonFormat{"list"};
     if (request.params.size() > 4) {
-        jsonFormat = request.params[4].getValStr();
+        auto jsonFormat = request.params[4].getValStr();
         if (jsonFormat != "list" && jsonFormat != "object")
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
-    UniValue ret = (jsonFormat == "list") ? UniValue::VARR : UniValue::VOBJ;
+    UniValue ret = (isList) ? UniValue::VARR : UniValue::VOBJ;
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
@@ -350,8 +351,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (account != owner) {
                 return false;
             }
-            auto obj = accountToJSON(owner, balance, verbose, indexedAmounts, jsonFormat);
-            if (jsonFormat == "list")
+            auto obj = accountToJSON(owner, balance, verbose, indexedAmounts, isList);
+            if (isList)
                 ret.push_back(obj);
             else
                 ret.pushKV(owner.GetHex() + "@" + balance.nTokenId.ToString(), obj);
@@ -1235,6 +1236,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                         "Filter by transaction type, supported letter from {CustomTxType}"},
                        {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                         "Maximum number of records to return, 100 by default"},
+                       {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                    },
                    },
                },
@@ -1253,6 +1255,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
     bool txTypeSearch{false};
+    bool isList = true;
 
     if (request.params.size() == 1) {
         UniValue optionsObj = request.params[0].get_obj();
@@ -1263,6 +1266,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"jsonformat", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1292,6 +1296,13 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
+        if(optionsObj.exists("jsonformat")) {
+            auto jsonFormat = optionsObj["jsonformat"].getValStr();
+            if (jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
         }
     }
 
@@ -1360,16 +1371,19 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     AccountHistoryKey startKey{{}, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
     pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
-    UniValue slice(UniValue::VARR);
+    UniValue sliceArray{UniValue::VARR};
+    UniValue sliceObj{UniValue::VOBJ};
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
         const auto& array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
-            slice.push_back(array[i]);
+            (isList) ?
+                sliceArray.push_back(array[i]):
+                sliceObj.pushKV(array[i]["txid"].getValStr(), array[i]);
             --limit;
         }
     }
 
-    return slice;
+    return (isList) ? sliceArray : sliceObj;
 }
 
 UniValue accounthistorycount(const JSONRPCRequest& request) {

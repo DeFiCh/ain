@@ -1475,12 +1475,13 @@ UniValue listtransactions(const JSONRPCRequest& request)
     if (!request.params[4].isNull())
         exclude_custom_tx = request.params[4].get_bool();
 
-    std::string jsonFormat{"list"};
+    bool isList = true;
     if(!request.params[5].isNull())
     {
-        jsonFormat = request.params[5].getValStr();
+        auto jsonFormat = request.params[5].getValStr();
         if (jsonFormat != "list" && jsonFormat != "object")
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
     UniValue ret{UniValue::VARR};
@@ -1524,7 +1525,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
-    if( jsonFormat != "list" ){
+    if(!isList){
         UniValue retObj{UniValue::VOBJ};
         for(auto tx : arrTmp)
             retObj.pushKV(tx["txid"].getValStr(), tx);
@@ -2945,7 +2946,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     CAmount nMinimumSumAmount = MAX_MONEY;
     uint64_t nMaximumCount = 0;
     int nOnlyTokensId = -1; /// @todo tokens set default to 0 or -1 ???
-    std::string jsonFormat{"list"};
+    bool isList = true;
 
     if (!request.params[4].isNull()) {
         const UniValue& options = request.params[4].get_obj();
@@ -2971,9 +2972,10 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
         }
         if(options.exists("jsonformat")) {
-            jsonFormat = options["jsonformat"].getValStr();
+            auto jsonFormat = options["jsonformat"].getValStr();
             if (jsonFormat != "list" && jsonFormat != "object")
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
         }
     }
 
@@ -3066,13 +3068,13 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
         if (avoid_reuse) entry.pushKV("reused", reused);
         entry.pushKV("safe", out.fSafe);
-        if( jsonFormat == "object" ){
+
+        (isList) ?
+            resultList.push_back(entry):
             resultObject.pushKV(out.tx->GetHash().GetHex(), entry);
     }
-        resultList.push_back(entry);
-    }
 
-    return jsonFormat == "list" ? resultList : resultObject;
+    return (isList) ? resultList : resultObject;
 }
 
 void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)
