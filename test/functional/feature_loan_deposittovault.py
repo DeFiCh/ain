@@ -10,7 +10,6 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than
-import calendar
 import time
 
 class DepositToVaultTest (DefiTestFramework):
