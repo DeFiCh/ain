@@ -401,14 +401,14 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateloantoken",
-                "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
+                "Creates (and submits to local node and network) a transaction to update loan token metadata.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
-                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
-                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "New token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Newoken's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
                             {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "token/currency pair to use for price of token"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (optional)."},
@@ -430,7 +430,8 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("updateloantoken", R"('"token":"TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')")
+                        HelpExampleCli("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')") +
+                        HelpExampleRpc("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03})")
                         },
      }.Check(request);
 
@@ -439,10 +440,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 0 must be non-null and expected as string with token symbol, id or creation txid");
+    RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true);
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
