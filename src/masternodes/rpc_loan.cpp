@@ -184,14 +184,10 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
                     "{...}     (object) Json object with collateral token information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("getcollateraltoken", "DFI")
+                    HelpExampleCli("getcollateraltoken", "DFI") +
+                    HelpExampleRpc("getcollateraltoken", R"("DFI")")
                 },
      }.Check(request);
-
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
 
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
@@ -440,9 +436,6 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 0 must be non-null and expected as string with token symbol, id or creation txid");
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
@@ -556,14 +549,10 @@ UniValue getloantoken(const JSONRPCRequest& request)
         RPCResult{
             "{...}     (object) Json object with loan token information\n"},
         RPCExamples{
-            HelpExampleCli("getloantoken", "DFI")},
-    }
-        .Check(request);
-
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
+            HelpExampleCli("getloantoken", "DFI") +
+            HelpExampleRpc("getloantoken", "DFI")
+        },
+    }.Check(request);
 
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
@@ -980,9 +969,6 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    if(request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter id, argument must be non-null");
-
     auto loanSchemeId = request.params[0].getValStr();
 
     if (loanSchemeId.empty() || loanSchemeId.length() > 8)
@@ -1048,10 +1034,6 @@ UniValue takeloan(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
-                           "{\"vaultId\",\"amounts\"}");
 
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -1154,10 +1136,6 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, argument 1 must be non-null and expected as object at least with "
-                           "{\"vaultId\",\"amounts\"}");
 
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -1242,7 +1220,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     UniValue ret{UniValue::VOBJ};
 
     LOCK(cs_main);
-
 
     auto height = ::ChainActive().Height() + 1;
     bool useNextPrice = false, requireLivePrice = true;
@@ -1366,7 +1343,6 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     return ret;
 }
-
 
 static const CRPCCommand commands[] =
 {
