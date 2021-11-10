@@ -1195,6 +1195,10 @@ UniValue getvaulthistory(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (!pvaultHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-vaultindex required for vault history");
+    }
+
     uint256 vaultID = ParseHashV(request.params[0], "vaultId");
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
