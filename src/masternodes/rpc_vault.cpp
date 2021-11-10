@@ -1,6 +1,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/vaulthistory.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
 extern std::string tokenAmountString(CTokenAmount const& amount);
@@ -1146,6 +1147,178 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue vaultHistoryToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+    UniValue obj(UniValue::VOBJ);
+
+    obj.pushKV("vault", key.vaultID.ToString());
+    obj.pushKV("address", ScriptToString(key.address));
+    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    if (auto block = ::ChainActive()[key.blockHeight]) {
+        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
+    }
+    obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
+    obj.pushKV("txn", (uint64_t) key.txn);
+    obj.pushKV("txid", value.txid.ToString());
+    obj.pushKV("amounts", AmountsToJSON(value.diff));
+    return obj;
+}
+
+UniValue getvaulthistory(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"getvaulthistory",
+               "\nReturns the history of the specified vault.\n",
+               {
+                       {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault to get history for"},
+                       {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                                {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Optional height to iterate from (down to genesis block), (default = chaintip)."},
+                                {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum depth, from the genesis block is the default"},
+                                {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Filter by token"},
+                                {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Filter by transaction type, supported letter from {CustomTxType}"},
+                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum number of records to return, 100 by default"},
+                        },
+                       },
+               },
+               RPCResult{
+                       "[{},{}...]     (array) Objects with vault history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
+               },
+    }.Check(request);
+
+    uint256 vaultID = ParseHashV(request.params[0], "vaultId");
+    uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
+    uint32_t depth = maxBlockHeight;
+    std::string tokenFilter;
+    uint32_t limit = 100;
+    auto txType = CustomTxType::None;
+    bool txTypeSearch{false};
+
+    if (request.params.size() == 2) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+                        {
+                                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                                {"depth", UniValueType(UniValue::VNUM)},
+                                {"token", UniValueType(UniValue::VSTR)},
+                                {"txtype", UniValueType(UniValue::VSTR)},
+                                {"limit", UniValueType(UniValue::VNUM)},
+                        }, true, true);
+
+        if (!optionsObj["maxBlockHeight"].isNull()) {
+            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+        }
+
+        if (!optionsObj["depth"].isNull()) {
+            depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
+        }
+
+        if (!optionsObj["txtype"].isNull()) {
+            const auto str = optionsObj["txtype"].get_str();
+            if (str.size() == 1) {
+                // Will search for type ::None if txtype not found.
+                txType = CustomTxCodeToType(str[0]);
+                txTypeSearch = true;
+            }
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            limit = (uint32_t) optionsObj["limit"].get_int64();
+        }
+
+        if (limit == 0) {
+            limit = std::numeric_limits<uint32_t>::max();
+        }
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    std::function<bool(uint256 const &)> isMatchVault = [&vaultID](uint256 const & id) {
+        return id == vaultID;
+    };
+
+    std::set<uint256> txs;
+
+    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+        for (auto const & diff : diffs) {
+            auto token = pcustomcsview->GetToken(diff.first);
+            auto const tokenIdStr = token->CreateSymbolKey(diff.first);
+            if(tokenIdStr == tokenFilter) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    LOCK(cs_main);
+    std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
+
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    depth = std::min(depth, maxBlockHeight);
+
+    const auto startBlock = maxBlockHeight - depth;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
+
+    auto count = limit;
+
+    auto shouldContinue = [&](VaultHistoryKey const & key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        if (txTypeSearch && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            return true;
+        }
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(vaultHistoryToJSON(key, value));
+
+        --count;
+
+        return count != 0;
+    };
+
+    VaultHistoryKey startKey{vaultID, maxBlockHeight, std::numeric_limits<uint32_t>::max(), {}};
+    pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
+
+    UniValue slice(UniValue::VARR);
+    for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
+        const auto& array = it->second.get_array();
+        for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
+            slice.push_back(array[i]);
+            --limit;
+        }
+    }
+
+    return slice;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1154,6 +1327,7 @@ static const CRPCCommand commands[] =
     {"vault",        "closevault",                &closevault,            {"id", "returnAddress", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
+    {"vault",        "getvaulthistory",           &getvaulthistory,       {"id", "options"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},

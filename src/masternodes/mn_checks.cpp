@@ -165,6 +165,7 @@ extern std::string ScriptToString(CScript const& script);
 class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 {
     uint32_t height;
+    uint256& vaultID;
     const Consensus::Params& consensus;
     const std::vector<unsigned char>& metadata;
 
@@ -223,8 +224,8 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 public:
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params& consensus,
-                                const std::vector<unsigned char>& metadata)
-        : height(height), consensus(consensus), metadata(metadata) {}
+                                const std::vector<unsigned char>& metadata, uint256& vaultID)
+        : height(height), vaultID(vaultID), consensus(consensus), metadata(metadata) {}
 
     Res operator()(CCreateMasterNodeMessage& obj) const {
         return serialize(obj);
@@ -490,37 +491,65 @@ public:
 
     Res operator()(CCloseVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CUpdateVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CDepositToVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CWithdrawFromVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CLoanTakeLoanMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CLoanPaybackLoanMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            vaultID = obj.vaultId;
+        }
+        return res;
     }
 
     Res operator()(CCustomTxMessageNone&) const {
@@ -2981,9 +3010,9 @@ public:
     }
 };
 
-Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
+Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage, uint256& vaultID) {
     try {
-        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
+        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata, vaultID), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3019,7 +3048,7 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView *burnView) {
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView *burnView, CVaultHistoryView *vaultView) {
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return Res::Ok();
     }
@@ -3039,8 +3068,10 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
             break;
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryEraser view(mnview, height, txn, historyView, burnView);
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+    CAccountsHistoryEraser view(mnview, height, txn, historyView, burnView, vaultView);
+    uint256 vaultID;
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
+        view.vaultID = vaultID;
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
         // Track burn fee
@@ -3057,7 +3088,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     return (view.Flush(), res);
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView, CVaultHistoryView *vaultView) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -3072,8 +3103,10 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView);
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView, vaultView);
+    uint256 vaultID;
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
+        view.vaultID = vaultID;
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 
         // Track burn fee

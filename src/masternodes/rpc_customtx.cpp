@@ -452,7 +452,8 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
         return Res::Ok();
     }
     auto txMessage = customTypeToMessage(txType);
-    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+    uint256 vaultID;
+    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage, vaultID);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
         boost::apply_visitor(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);

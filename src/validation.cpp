@@ -24,6 +24,7 @@
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/vaulthistory.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -1778,7 +1779,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // process transactions revert for masternodes
         mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, paccountHistoryDB.get(), pburnHistoryDB.get());
+        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         if (!res) {
             LogPrintf("%s\n", res.msg);
         }
@@ -2546,7 +2547,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get());
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2779,7 +2780,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
 
                     // Add transfer as additional TX in block
-                    pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
+                     pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
                                                         {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
                 }
                 else // Log burn failure
@@ -3152,7 +3153,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         });
     }
 
-    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get());
 
     view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
         if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
@@ -3536,6 +3537,9 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             if (pburnHistoryDB) {
                 pburnHistoryDB->Discard();
             }
+            if (pvaultHistoryDB) {
+                pvaultHistoryDB->Discard();
+            }
             m_disconnectTip = false;
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
@@ -3548,6 +3552,9 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         }
         if (pburnHistoryDB) {
             pburnHistoryDB->Flush();
+        }
+        if (pvaultHistoryDB) {
+            pvaultHistoryDB->Flush();
         }
 
         if (!disconnectedConfirms.empty()) {
@@ -3700,6 +3707,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             if (pburnHistoryDB) {
                 pburnHistoryDB->Discard();
             }
+            if (pvaultHistoryDB) {
+                pvaultHistoryDB->Discard();
+            }
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), FormatStateMessage(state));
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
@@ -3713,6 +3723,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         if (pburnHistoryDB) {
             pburnHistoryDB->Flush();
+        }
+        if (pvaultHistoryDB) {
+            pvaultHistoryDB->Flush();
         }
 
         // anchor rewards re-voting etc...

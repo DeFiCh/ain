@@ -28,6 +28,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -417,7 +418,8 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", DEFAULT_ACINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-vaultindex", strprintf("Maintain a full vault history index, tracking all vault changes. Used by the getvaulthistory rpc call (default: %u)", DEFAULT_VAULTINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -1629,6 +1631,12 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+
+                // Create vault history DB
+                pvaultHistoryDB.reset();
+                if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
+                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                }
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate

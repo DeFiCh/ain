@@ -12,6 +12,8 @@
 #include <script/script.h>
 #include <uint256.h>
 
+class CVaultHistoryView;
+
 struct AccountHistoryKey {
     CScript owner;
     uint32_t blockHeight;
@@ -85,11 +87,16 @@ class CAccountsHistoryWriter : public CCustomCSView
     const uint8_t type;
     std::map<CScript, TAmounts> diffs;
     std::map<CScript, TAmounts> burnDiffs;
+    std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
     CAccountsHistoryView* historyView;
     CAccountsHistoryView* burnView;
+    CVaultHistoryView* vaultView;
 
 public:
-    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    uint256 vaultID;
+
+    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView,
+                           CAccountsHistoryView* burnView, CVaultHistoryView* vaultView, const uint256& vaultID = uint256());
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
     Res AddFeeBurn(CScript const & owner, CAmount amount);
@@ -102,11 +109,16 @@ class CAccountsHistoryEraser : public CCustomCSView
     const uint32_t txn;
     std::set<CScript> accounts;
     std::set<CScript> burnAccounts;
+    std::set<uint256> vaults;
     CAccountsHistoryView* historyView;
     CAccountsHistoryView* burnView;
+    CVaultHistoryView* vaultView;
 
 public:
-    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    uint256 vaultID;
+
+    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView,
+                           CVaultHistoryView* vaultView, const uint256& vaultID = uint256());
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubFeeBurn(CScript const & owner);
