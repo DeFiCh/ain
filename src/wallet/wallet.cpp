@@ -2561,6 +2561,15 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             continue;
         }
 
+        if (!wtx.isAbandoned()) {
+            // do not select auto auth outputs
+            std::vector<unsigned char> metadata;
+            auto txType = GuessCustomTxType(*wtx.tx, metadata);
+            if (txType == CustomTxType::AutoAuthPrep) {
+                continue;
+            }
+        }
+
         auto optHeight = locked_chain.getHeight();
         bool const lockedCollateral = optHeight && !chain().mnCanSpend(wtx.tx->GetHash(), *optHeight);
 
@@ -2888,6 +2897,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             if (lockUnspents) {
                 LockCoin(txin.prevout);
             }
+        }
+    }
+
+    if (lockUnspents) {
+        for (const auto& coin : coinControl.m_linkedCoins) {
+            LockCoin(coin.first);
         }
     }
 

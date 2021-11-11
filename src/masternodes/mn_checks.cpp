@@ -681,8 +681,10 @@ public:
         if (token.IsPoolShare()) {
             return Res::Err("can't mint LPS token %s!", id.ToString());
         }
+
+        static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
         // may be different logic with LPS, so, dedicated check:
-        if (!token.IsMintable()) {
+        if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
             return Res::Err("token %s is not mintable!", id.ToString());
         }
 
@@ -3488,17 +3490,23 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!token)
         return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
+    // TODO: Optimize double look up later when first token is DUSD. 
     auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
 
-    auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
-    if (!poolTokendUSD)
-        return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
+    // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
+    if (tokenId == dUsdToken->first) {
+        return poolSwap.ExecuteSwap(mnview, {});
+    }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
     if (!pooldUSDDFI)
         return Res::Err("Cannot find pool pair DUSD-DFI!");
+
+    auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
+    if (!poolTokendUSD)
+        return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
 
     // swap tokenID -> USD -> DFI
     auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});

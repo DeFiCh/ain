@@ -647,9 +647,6 @@ UniValue listmasternodes(const JSONRPCRequest& request)
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -661,6 +658,11 @@ UniValue listmasternodes(const JSONRPCRequest& request)
     LOCK(cs_main);
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
     pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
         limit--;
         return limit != 0;

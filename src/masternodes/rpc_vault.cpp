@@ -214,9 +214,9 @@ UniValue createvault(const JSONRPCRequest& request) {
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv \"\"") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
-                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
-                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, \"\"") +
-                   HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
+                   HelpExampleRpc("createvault", R"("2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv")") +
+                   HelpExampleRpc("createvault", R"("2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv", "")") +
+                   HelpExampleRpc("createvault", R"("2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv", "LOAN0001")")
                 },
     }.Check(request);
 
@@ -303,7 +303,7 @@ UniValue closevault(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                     HelpExampleCli("closevault", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF") +
-                    HelpExampleRpc("closevault", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF")
+                    HelpExampleRpc("closevault", R"("84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2", "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF")")
                 },
     }.Check(request);
 
@@ -423,9 +423,9 @@ UniValue listvaults(const JSONRPCRequest& request) {
                        + HelpExampleCli("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}' '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
                        + HelpExampleCli("listvaults", "{} '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
                        + HelpExampleRpc("listvaults", "")
-                       + HelpExampleRpc("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}'")
-                       + HelpExampleRpc("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}' '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
-                       + HelpExampleRpc("listvaults", "{} '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
+                       + HelpExampleRpc("listvaults", R"({"loanSchemeId": "LOAN1502"})")
+                       + HelpExampleRpc("listvaults", R"({"loanSchemeId": "LOAN1502"}, {"start":"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013", "including_start": true, "limit":100})")
+                       + HelpExampleRpc("listvaults", R"({}, {"start":"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013", "including_start": true, "limit":100})")
                },
     }.Check(request);
 
@@ -466,9 +466,6 @@ UniValue listvaults(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -480,6 +477,11 @@ UniValue listvaults(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
             return false;
         }
@@ -517,7 +519,7 @@ UniValue getvault(const JSONRPCRequest& request) {
                 },
                RPCExamples{
                        HelpExampleCli("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
-                       HelpExampleRpc("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
+                       HelpExampleRpc("getvault", R"("5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")")
                },
     }.Check(request);
 
@@ -571,7 +573,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
                                R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"ownerAddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanSchemeId": "LOANSCHEME001"}')")
                        + HelpExampleRpc(
                                "updatevault",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"ownerAddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanSchemeId": "LOANSCHEME001"}')")
+                               R"("84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2", {"ownerAddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanSchemeId": "LOANSCHEME001"})")
                },
     }.Check(request);
 
@@ -698,7 +700,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                        HelpExampleCli("deposittovault",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DFI") +
                        HelpExampleRpc("deposittovault",
-                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i, mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF, 1@DFI")
+                        R"("84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i", "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "1@DFI")")
                },
     }.Check(request);
 
@@ -784,7 +786,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
                        HelpExampleCli("withdrawfromvault",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DFI") +
                        HelpExampleRpc("withdrawfromvault",
-                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i, mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF, 1@DFI")
+                        R"("84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i", "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "1@DFI")")
                },
     }.Check(request);
 
@@ -881,9 +883,9 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("placeauctionbid",
-                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
                        HelpExampleRpc("placeauctionbid",
-                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DTSLA")
+                        R"("84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2", 0, "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "1@DTSLA")")
                },
     }.Check(request);
 
@@ -978,7 +980,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
                        HelpExampleCli("listauctions",  "") +
                        HelpExampleCli("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'") +
                        HelpExampleRpc("listauctions",  "") +
-                       HelpExampleRpc("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'")
+                       HelpExampleRpc("listauctions", R"({"start": {"vaultId":"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542", "height": 1000}, "including_start": true, "limit":100})")
                },
     }.Check(request);
 
@@ -1006,9 +1008,6 @@ UniValue listauctions(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                vaultId = ArithToUint256(UintToArith256(vaultId) + arith_uint256{1});
-            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -1019,6 +1018,11 @@ UniValue listauctions(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        if (!including_start)
+        {
+            including_start = true;
+            return (true);
+        }
         valueArr.push_back(AuctionToJSON(vaultId, data));
         return --limit != 0;
     }, height, vaultId);
@@ -1026,7 +1030,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
     return valueArr;
 }
 
-UniValue auctoinhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
+UniValue auctionhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("winner", ScriptToString(key.owner));
@@ -1134,7 +1138,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        ret.push_back(auctoinhistoryToJSON(key, valueLazy.get()));
+        ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
 
         return --limit != 0;
     }, start);

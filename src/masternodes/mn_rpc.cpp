@@ -137,6 +137,9 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
             pwallet.AddLockedCoin(txin.prevout);
         }
     }
+    for (const auto& coin : coinControl.m_linkedCoins) {
+        pwallet.AddLockedCoin(coin.first);
+    }
     return mtx;
 }
 
@@ -280,9 +283,7 @@ static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxD
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
-    cctl.m_avoid_address_reuse = false;
     cctl.m_min_depth = 1;
-    cctl.m_max_depth = 999999999;
     cctl.matchDestination = auth;
     cctl.m_tokenFilter = {DCT_ID{0}};
 
@@ -634,7 +635,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                         "Variable name"},
                },
                RPCResult{
-                       "[{id:{...}},{height:{...},...}]     (array) Json object with variable information\n"
+                       "{id:{...}}     (array) Json object with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("getgov", "LP_SPLITS")
@@ -645,26 +646,13 @@ UniValue getgov(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto name = request.params[0].getValStr();
-
-    UniValue result(UniValue::VARR);
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
-        result.push_back(ret);
-    } else {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
+        return ret;
     }
-
-    // Get and add any pending changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
-    for (const auto& items : pending[name]) {
-        UniValue ret(UniValue::VOBJ);
-        ret.pushKV(std::to_string(items.first),items.second->Export());
-        result.push_back(ret);
-    }
-
-    return result;
+    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
 UniValue listgovs(const JSONRPCRequest& request) {
