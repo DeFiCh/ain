@@ -10,7 +10,6 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than
-import calendar
 import time
 
 class DepositToVaultTest (DefiTestFramework):
@@ -69,8 +68,9 @@ class DepositToVaultTest (DefiTestFramework):
             {"currency": "USD", "tokenAmount": "1@DFI"},
             {"currency": "USD", "tokenAmount": "1@BTC"},
             {"currency": "USD", "tokenAmount": "1@TSLA"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -163,8 +163,9 @@ class DepositToVaultTest (DefiTestFramework):
             {"currency": "USD", "tokenAmount": "1@DFI"},
             {"currency": "USD", "tokenAmount": "1@TSLA"},
             {"currency": "USD", "tokenAmount": "1@BTC"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
 
         self.nodes[0].generate(8)
         self.sync_blocks()
@@ -187,8 +188,9 @@ class DepositToVaultTest (DefiTestFramework):
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
         self.nodes[0].generate(6) # let fixed price update
         self.sync_blocks()
 
