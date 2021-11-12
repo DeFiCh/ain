@@ -1828,7 +1828,7 @@ static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
 //  -------------   ------------------------ ----------------------  ----------
-    {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
+    {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only", "jsonformat"}},
     {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
     {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
     {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
