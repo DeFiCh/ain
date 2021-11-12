@@ -69,6 +69,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "pos -> validation -> txdb -> pos"
     "pos_kernel -> validation -> txdb -> pos_kernel"
     "pos -> pos_kernel -> pos"
+    "masternodes/mn_rpc -> wallet/rpcwallet -> masternodes/mn_rpc"
 )
 
 EXIT_CODE=0
