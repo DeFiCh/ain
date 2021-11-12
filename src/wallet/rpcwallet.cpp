@@ -42,6 +42,7 @@
 #include <functional>
 
 #include <masternodes/mn_checks.h>
+#include <masternodes/mn_rpc.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -1522,15 +1523,15 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
     std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
 
+    if(!isList){
+        CUniValueFormatter retObj{};
+        retObj.push_backV(arrTmp);
+        return retObj.getObject("txid");
+    }
+
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
-    if(!isList){
-        UniValue retObj{UniValue::VOBJ};
-        for(auto tx : arrTmp)
-            retObj.pushKV(tx["txid"].getValStr(), tx);
-        return retObj;
-    }
     return ret;
 
 }
@@ -2177,7 +2178,7 @@ static UniValue lockunspent(const JSONRPCRequest& request)
                 },
                 RPCExamples{
             "\nList the unspent transactions\n"
-            + HelpExampleCli("listunspent", "") +
+            + HelpExampleCli("lockunspent", "") +
             "\nLock an unspent transaction\n"
             + HelpExampleCli("lockunspent", "false \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"") +
             "\nList the locked transactions\n"
@@ -2291,13 +2292,13 @@ static UniValue listlockunspent(const JSONRPCRequest& request)
                 },
                 RPCExamples{
             "\nList the unspent transactions\n"
-            + HelpExampleCli("listunspent", "") +
+            + HelpExampleCli("listlockunspent", "") +
             "\nLock an unspent transaction\n"
-            + HelpExampleCli("lockunspent", "false \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"") +
+            + HelpExampleCli("listlockunspent", "false \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"") +
             "\nList the locked transactions\n"
             + HelpExampleCli("listlockunspent", "") +
             "\nUnlock the transaction again\n"
-            + HelpExampleCli("lockunspent", "true \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"") +
+            + HelpExampleCli("listlockunspent", "true \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"") +
             "\nAs a JSON-RPC call\n"
             + HelpExampleRpc("listlockunspent", "")
                 },
@@ -2983,9 +2984,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    UniValue resultList(UniValue::VARR);
-    UniValue resultObject{UniValue::VOBJ};
-
+    CUniValueFormatter resultFormat{};
     std::vector<COutput> vecOutputs;
     {
         CCoinControl cctl;
@@ -3068,13 +3067,10 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
         if (avoid_reuse) entry.pushKV("reused", reused);
         entry.pushKV("safe", out.fSafe);
-
-        (isList) ?
-            resultList.push_back(entry):
-            resultObject.pushKV(out.tx->GetHash().GetHex(), entry);
+        resultFormat.push_back(entry);
     }
 
-    return (isList) ? resultList : resultObject;
+    return (isList) ? resultFormat.getList() : resultFormat.getObject("txid");
 }
 
 void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)

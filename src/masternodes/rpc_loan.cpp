@@ -928,12 +928,14 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    std::string jsonFormat{"list"};
+    bool isList = true;
     if(!request.params[0].isNull()){
-        jsonFormat = request.params[0].getValStr();
+        std::string jsonFormat = request.params[0].getValStr();
         if(jsonFormat != "list" && jsonFormat != "object")
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
+
     auto cmp = [](const CLoanScheme& a, const CLoanScheme& b) {
         return a.ratio == b.ratio ? a.rate < b.rate : a.ratio < b.ratio;
     };
@@ -952,11 +954,10 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
 
     auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
 
-    UniValue ret = (jsonFormat == "list") ? UniValue::VARR : UniValue::VOBJ;
+    CUniValueFormatter ret{};
     for (const auto& item : loans) {
         UniValue obj(UniValue::VOBJ);
-        if (jsonFormat == "list")
-            obj.pushKV("id", item.identifier);
+        obj.pushKV("id", item.identifier);
         obj.pushKV("mincolratio", static_cast<uint64_t>(item.ratio));
         obj.pushKV("interestrate", ValueFromAmount(item.rate));
         if (defaultLoan && *defaultLoan == item.identifier) {
@@ -964,13 +965,11 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
         } else {
             obj.pushKV("default", false);
         }
-        if( jsonFormat == "list")
-            ret.push_back(obj);
-        else
-            ret.pushKV(item.identifier, obj);
+
+        ret.push_back(obj);
     }
 
-    return ret;
+    return isList ? ret.getList() : ret.getObject("id");
 }
 
 UniValue getloanscheme(const JSONRPCRequest& request) {

@@ -234,6 +234,32 @@ CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
 
+UniValue CUniValueFormatter::getObject(const std::string key){
+    UniValue object{UniValue::VOBJ};
+    if( list.size() == 0){
+        return object;
+    }
+    for(const auto & element: list.getValues()){
+        if(!element.exists(key))
+            throw std::runtime_error("specified key is not present in the object");
+
+        object.pushKV(element[key].getValStr(), element);
+    }
+    return object;
+};
+
+void CUniValueFormatter::push_back(const UniValue& obj){
+    list.push_back(obj);
+}
+
+void CUniValueFormatter::push_backV(const std::vector<UniValue>& vec){
+    list.push_backV(vec);
+}
+
+UniValue CUniValueFormatter::getList(){
+    return list;
+}
+
 // returns either base58/bech32 address, or hex if format is unknown
 std::string ScriptToString(CScript const& script) {
     CTxDestination dest;

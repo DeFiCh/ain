@@ -16,7 +16,7 @@ UniValue AmountsToJSON(TAmounts const & diffs) {
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexedAmounts, bool isList) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexedAmounts) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -30,8 +30,7 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     }
 
     UniValue obj(UniValue::VOBJ);
-    if (isList)
-        obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
+    obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
     obj.pushKV("owner", ownerObj);
 
     if (indexedAmounts) {
@@ -332,7 +331,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         isList = jsonFormat == "list";
     }
 
-    UniValue ret = (isList) ? UniValue::VARR : UniValue::VOBJ;
+    CUniValueFormatter ret{};
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
@@ -351,12 +350,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (account != owner) {
                 return false;
             }
-            auto obj = accountToJSON(owner, balance, verbose, indexedAmounts, isList);
-            if (isList)
-                ret.push_back(obj);
-            else
-                ret.pushKV(owner.GetHex() + "@" + balance.nTokenId.ToString(), obj);
-
+            auto obj = accountToJSON(owner, balance, verbose, indexedAmounts);
+            ret.push_back(obj);
 
             return --limit != 0;
         }, {account, start.tokenID});
@@ -365,7 +360,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         return limit != 0;
     }, start.owner);
 
-    return ret;
+    return (isList) ? ret.getList() : ret.getObject("key") ;
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
@@ -1371,19 +1366,16 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     AccountHistoryKey startKey{{}, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
     pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
-    UniValue sliceArray{UniValue::VARR};
-    UniValue sliceObj{UniValue::VOBJ};
+    CUniValueFormatter slice{};
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
         const auto& array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
-            (isList) ?
-                sliceArray.push_back(array[i]):
-                sliceObj.pushKV(array[i]["txid"].getValStr(), array[i]);
+            slice.push_back(array[i]);
             --limit;
         }
     }
 
-    return (isList) ? sliceArray : sliceObj;
+    return (isList) ? slice.getList() : slice.getObject("txid");
 }
 
 UniValue accounthistorycount(const JSONRPCRequest& request) {

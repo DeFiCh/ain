@@ -46,6 +46,16 @@ public:
     void AddLockedCoin(const COutPoint& coin);
 };
 
+class CUniValueFormatter{
+    UniValue list{UniValue::VARR};
+public:
+    UniValue getObject(const std::string key);
+    UniValue getList();
+
+    void push_back(const UniValue& obj);
+    void push_backV(const std::vector<UniValue>& vec);
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
 int chainHeight(interfaces::Chain::Lock& locked_chain);

@@ -6,8 +6,6 @@
 #include <rpc/blockchain.h>
 #include <txmempool.h>
 
-#include <univalue.h>
-
 #include <list>
 #include <vector>
 
