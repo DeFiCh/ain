@@ -248,9 +248,11 @@ public:
     }
 
     Res operator()(CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
         return Res::Err("updatemasternode is disabled for Fort Canning");
-        // auto res = isPostFortCanningFork();
-        // return !res ? res : serialize(obj);
+        
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCreateTokenMessage& obj) const {
@@ -938,9 +940,11 @@ public:
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
         return Res::Err("updatemasternode is disabled for Fort Canning");
-        // auto res = HasCollateralAuth(obj.mnId);
-        // return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
+        
+        auto res = HasCollateralAuth(obj.mnId);
+        return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {

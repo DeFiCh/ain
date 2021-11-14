@@ -366,6 +366,9 @@ Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 }
 
 Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
+    // Temporarily disabled for 2.2
+    return Res::Err("updatemasternode is disabled for Fort Canning");
+
     // auth already checked!
     auto node = GetMasternode(nodeId);
     if (!node) {
