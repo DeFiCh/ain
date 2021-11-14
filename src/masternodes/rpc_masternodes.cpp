@@ -490,6 +490,9 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue updatemasternode(const JSONRPCRequest& request)
 {
+    throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "updatemasternode is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatemasternode",
