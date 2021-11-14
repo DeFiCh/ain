@@ -207,6 +207,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
 UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "reward address change is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setforcedrewardaddress",
@@ -311,6 +315,10 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
 UniValue remforcedrewardaddress(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "reward address change is disabled for Fort Canning");
+    
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"remforcedrewardaddress",
