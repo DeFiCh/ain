@@ -238,16 +238,25 @@ public:
     }
 
     Res operator()(CSetForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CRemForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("updatemasternode is disabled for Fort Canning");
+        
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -913,6 +922,9 @@ public:
     }
 
     Res operator()(const CSetForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto const node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
@@ -925,6 +937,9 @@ public:
     }
 
     Res operator()(const CRemForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto const node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
@@ -937,6 +952,9 @@ public:
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("updatemasternode is disabled for Fort Canning");
+        
         auto res = HasCollateralAuth(obj.mnId);
         return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
