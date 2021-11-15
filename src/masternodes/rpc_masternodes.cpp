@@ -991,15 +991,15 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
-    {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
+    //{"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
-    {"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
-    {"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
+    //{"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
+    //{"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
