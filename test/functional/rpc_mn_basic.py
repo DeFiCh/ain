@@ -148,9 +148,11 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.nodes[2].generate(35)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
+
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
-        # fundingTx is removed for a block
-        assert_equal(len(self.nodes[0].getrawmempool()), 1) # auto auth
+        mempool = self.nodes[0].getrawmempool()
+        assert(idnode0 in mempool and fundingTx in mempool)
+        assert_equal(len(mempool), 3) # + auto auth
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createmasternode(collateral0)

@@ -612,7 +612,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         const auto height = GetSpendHeight(view);
 
-        // it does not need to check mempool anymore it has view there
+        // rebuild accounts view if dirty
+        pool.rebuildAccountsView(height);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
@@ -910,6 +911,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // Store transaction in memory
         pool.addUnchecked(entry, setAncestors, validForFeeEstimation);
+        mnview.Flush();
 
         // trim mempool and check if tx was trimmed
         if (!bypass_limits) {
@@ -917,7 +919,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!pool.exists(hash))
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
-        mnview.Flush();
     }
 
     GetMainSignals().TransactionAddedToMempool(ptx);
