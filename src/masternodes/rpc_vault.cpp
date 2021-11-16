@@ -1168,7 +1168,7 @@ UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const u
 
 UniValue BatchToJSON(const std::vector<CAuctionBatch> batches) {
     UniValue batchArray{UniValue::VARR};
-    for (std::vector<CAuctionBatch>::size_type i{0}; i < batches.size(); ++i) {
+    for (uint64_t i{0}; i < batches.size(); ++i) {
         UniValue batchObj{UniValue::VOBJ};
         batchObj.pushKV("index", i);
         batchObj.pushKV("collaterals", AmountsToJSON(batches[i].collaterals.balances));

@@ -24,6 +24,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chain -> chainparams -> masternodes/mn_checks -> index/txindex -> txdb -> chain"
     "chain -> chainparams -> masternodes/mn_checks -> validation -> versionbits -> chain"
     "chain -> chainparams -> masternodes/mn_checks -> validation -> wallet/wallet -> chain"
+    "chain -> chainparams -> masternodes/mn_checks -> validation -> masternodes/vaulthistory -> chain"
     "chainparams -> key_io -> chainparams"
     "chainparams -> masternodes/mn_checks -> validation -> chainparams"
     "chainparams -> masternodes/mn_checks -> index/txindex -> index/base -> chainparams"
