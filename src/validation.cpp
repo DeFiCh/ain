@@ -3047,28 +3047,22 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         return true;
     });
 
-    std::vector<CVaultId> vaultsToUpdate;
-    cache.ForEachVault([&](const CVaultId& key, const CVaultMessage& vault) {
-        if (!cache.GetLoanScheme(vault.schemeId)) {
-            vaultsToUpdate.push_back(key);
-        }
-        if (std::find(loanDestruction.begin(), loanDestruction.end(), vault.schemeId) != loanDestruction.end()) {
-            vaultsToUpdate.push_back(key);
-        }
-        return true;
-    });
-
-    auto defaultLoanScheme = cache.GetDefaultLoanScheme();
-    for (const auto& vaultToDefault : vaultsToUpdate) {
-        auto vault = cache.GetVault(vaultToDefault);
-        assert(vault);
-        vault->schemeId = *defaultLoanScheme;
-        cache.UpdateVault(vaultToDefault, *vault);
-    }
-
     for (const auto& loanDestroy : loanDestruction) {
         cache.EraseLoanScheme(loanDestroy);
         cache.EraseDelayedDestroyScheme(loanDestroy);
+    }
+
+    if (!loanDestruction.empty()) {
+        CCustomCSView viewCache(cache);
+        auto defaultLoanScheme = cache.GetDefaultLoanScheme();
+        cache.ForEachVault([&](const CVaultId& vaultId, CVaultData vault) {
+            if (!cache.GetLoanScheme(vault.schemeId)) {
+                vault.schemeId = *defaultLoanScheme;
+                viewCache.UpdateVault(vaultId, vault);
+            }
+            return true;
+        });
+        viewCache.Flush();
     }
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
