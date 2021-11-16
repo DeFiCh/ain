@@ -73,7 +73,7 @@ CAmount GetPropsCreationFee(int, CPropType prop)
     switch(prop) {
         case CPropType::CommunityFundRequest:
             return Params().GetConsensus().props.cfp.fee;
-        case CPropType::BlockRewardRellocation:
+        case CPropType::BlockRewardReallocation:
             return Params().GetConsensus().props.brp.fee;
         case CPropType::VoteOfConfidence:
             return Params().GetConsensus().props.voc.fee;

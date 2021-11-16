@@ -474,13 +474,13 @@ UniValue getproposal(const JSONRPCRequest& request)
 
     uint32_t majorityThreshold = 0, votes = 0;
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
-    auto valid = allVotes >= Params().GetConsensus().props.minVoting;
+    auto valid = allVotes > Params().GetConsensus().props.minVoting;
     if (valid) {
         switch(prop->type) {
             case CPropType::CommunityFundRequest:
                 majorityThreshold = Params().GetConsensus().props.cfp.majorityThreshold;
                 break;
-            case CPropType::BlockRewardRellocation:
+            case CPropType::BlockRewardReallocation:
                 majorityThreshold = Params().GetConsensus().props.brp.majorityThreshold;
                 break;
             case CPropType::VoteOfConfidence:
@@ -503,9 +503,9 @@ UniValue getproposal(const JSONRPCRequest& request)
     }
 
     if (valid) {
-        ret.pushKV("approval", strprintf("%d.%d of %d.%d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
+        ret.pushKV("approval", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
     } else {
-        ret.pushKV("validity", strprintf("%d.%d of %d.%d%%", allVotes / 100, allVotes % 100, Params().GetConsensus().props.minVoting / 100, Params().GetConsensus().props.minVoting % 100));
+        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, Params().GetConsensus().props.minVoting / 100, Params().GetConsensus().props.minVoting % 100));
     }
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;
@@ -553,7 +553,7 @@ UniValue listproposals(const JSONRPCRequest& request)
         if (str == "cfp") {
             type = uint8_t(CPropType::CommunityFundRequest);
         } else if (str == "brp") {
-            type = uint8_t(CPropType::BlockRewardRellocation);
+            type = uint8_t(CPropType::BlockRewardReallocation);
         } else if (str == "voc") {
             type = uint8_t(CPropType::VoteOfConfidence);
         } else if (str != "all") {

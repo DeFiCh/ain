@@ -3607,7 +3607,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }, CMnVotePerCycle{propId, prop.cycle});
 
-        if (lround(voters * 10000.f / activeMasternodes.size()) < chainparams.GetConsensus().props.minVoting) {
+        if (lround(voters * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
@@ -3617,7 +3617,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         case CPropType::CommunityFundRequest:
             majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
             break;
-        case CPropType::BlockRewardRellocation:
+        case CPropType::BlockRewardReallocation:
             majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
             break;
         case CPropType::VoteOfConfidence:
@@ -3625,7 +3625,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             break;
         }
 
-        if (lround(voteYes * 10000.f / voters) < majorityThreshold) {
+        if (lround(voteYes * 10000.f / voters) <= majorityThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
