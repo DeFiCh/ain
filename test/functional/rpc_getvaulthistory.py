@@ -8,14 +8,14 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
-import calendar
+from decimal import Decimal
 import time
 
 class TokensRPCGetVaultHistory(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=100', '-eunosheight=100', '-eunospayaheight=100', '-fortcanningheight=100']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=100', '-eunosheight=100', '-eunospayaheight=100', '-fortcanningheight=100', '-vaultindex=1']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -30,8 +30,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Test set oracle data
         oracle_prices = [{"currency": "USD", "tokenAmount": "100.00000000@DFI"},{"currency": "USD", "tokenAmount": "100.00000000@TSLA"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(appoint_oracle_tx, timestamp, oracle_prices)
+        self.nodes[0].setoracledata(appoint_oracle_tx, int(time.time()), oracle_prices)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
@@ -259,44 +258,61 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         bid1_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, '8@TSLA')
         self.nodes[0].generate(1)
         bid2_tx = self.nodes[0].placeauctionbid(new_vault, 0, new_bidding_address, '9@TSLA')
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(33)
 
         # Check bids in result
         result = self.nodes[0].getvaulthistory(new_vault)
-        assert_equal(len(result), 5)
+        assert_equal(len(result), 7)
         assert_equal(result[0]['vault'], new_vault)
-        assert_equal(result[0]['type'], 'AuctionBid')
-        assert_equal(result[0]['txid'], bid2_tx)
+        assert_equal(result[0]['vaultSnapshot']['state'], 'active')
+        assert_equal(result[0]['vaultSnapshot']['collateralAmounts'], ['1.87309846@DFI'])
+        assert_equal(result[0]['vaultSnapshot']['collateralValue'], Decimal('187.30984600'))
+        assert_equal(result[0]['vaultSnapshot']['collateralRatio'], 0)
+        assert_equal(result[0]['vaultSnapshot']['schemeID'], 'LOAN0001')
+        assert_equal(result[0]['vaultSnapshot']['batches'], [])
         assert_equal(result[1]['vault'], new_vault)
         assert_equal(result[1]['type'], 'AuctionBid')
         assert_equal(result[1]['txid'], bid2_tx)
+        assert_equal(result[2]['vault'], new_vault)
+        assert_equal(result[2]['type'], 'AuctionBid')
+        assert_equal(result[2]['txid'], bid2_tx)
 
         if result[0]['address'] == new_bidding_address:
-            assert_equal(result[0]['amounts'], ['-9.00000000@TSLA'])
-            assert_equal(result[1]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
-            assert_equal(result[1]['amounts'], ['8.00000000@TSLA'])
-        elif result[0]['address'] == self.nodes[0].get_genesis_keys().ownerAuthAddress:
-            assert_equal(result[0]['amounts'], ['8.00000000@TSLA'])
-            assert_equal(result[1]['address'], new_bidding_address)
             assert_equal(result[1]['amounts'], ['-9.00000000@TSLA'])
+            assert_equal(result[2]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
+            assert_equal(result[2]['amounts'], ['8.00000000@TSLA'])
+        elif result[0]['address'] == self.nodes[0].get_genesis_keys().ownerAuthAddress:
+            assert_equal(result[1]['amounts'], ['8.00000000@TSLA'])
+            assert_equal(result[2]['address'], new_bidding_address)
+            assert_equal(result[2]['amounts'], ['-9.00000000@TSLA'])
         else:
             assert('Expected address not found in results')
 
-        assert_equal(result[2]['vault'], new_vault)
-        assert_equal(result[2]['type'], 'AuctionBid')
-        assert_equal(result[2]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
-        assert_equal(result[2]['amounts'], ['-8.00000000@TSLA'])
-        assert_equal(result[2]['txid'], bid1_tx)
         assert_equal(result[3]['vault'], new_vault)
-        assert_equal(result[3]['type'], 'TakeLoan')
-        assert_equal(result[3]['address'], vault_owner)
-        assert_equal(result[3]['amounts'], ['6.68896000@TSLA'])
-        assert_equal(result[3]['txid'], takeloan_tx)
+        assert_equal(result[3]['type'], 'AuctionBid')
+        assert_equal(result[3]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
+        assert_equal(result[3]['amounts'], ['-8.00000000@TSLA'])
+        assert_equal(result[3]['txid'], bid1_tx)
         assert_equal(result[4]['vault'], new_vault)
-        assert_equal(result[4]['type'], 'DepositToVault')
-        assert_equal(result[4]['address'], vault_owner)
-        assert_equal(result[4]['amounts'], ['-10.00000000@DFI'])
-        assert_equal(result[4]['txid'], deposit_tx)
+        assert_equal(result[4]['vaultSnapshot']['state'], 'inLiquidation')
+        assert_equal(result[4]['vaultSnapshot']['collateralAmounts'], [])
+        assert_equal(result[4]['vaultSnapshot']['collateralValue'], Decimal('0.00000000'))
+        assert_equal(result[4]['vaultSnapshot']['collateralRatio'], 149)
+        assert_equal(result[4]['vaultSnapshot']['schemeID'], 'LOAN0001')
+        assert_equal(len(result[4]['vaultSnapshot']['batches']), 1)
+        assert_equal(result[4]['vaultSnapshot']['batches'][0]['index'], 0)
+        assert_equal(result[4]['vaultSnapshot']['batches'][0]['collaterals'], ['10.00000000@DFI'])
+        assert_equal(result[4]['vaultSnapshot']['batches'][0]['loan'], '6.68896763@TSLA')
+        assert_equal(result[5]['vault'], new_vault)
+        assert_equal(result[5]['type'], 'TakeLoan')
+        assert_equal(result[5]['address'], vault_owner)
+        assert_equal(result[5]['amounts'], ['6.68896000@TSLA'])
+        assert_equal(result[5]['txid'], takeloan_tx)
+        assert_equal(result[6]['vault'], new_vault)
+        assert_equal(result[6]['type'], 'DepositToVault')
+        assert_equal(result[6]['address'], vault_owner)
+        assert_equal(result[6]['amounts'], ['-10.00000000@DFI'])
+        assert_equal(result[6]['txid'], deposit_tx)
 
 if __name__ == '__main__':
     TokensRPCGetVaultHistory().main()

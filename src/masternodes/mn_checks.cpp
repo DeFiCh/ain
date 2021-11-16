@@ -3048,7 +3048,7 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView *burnView, CVaultHistoryView *vaultView) {
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, CHistoryErasers& erasers, uint32_t txn) {
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return Res::Ok();
     }
@@ -3068,7 +3068,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
             break;
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryEraser view(mnview, height, txn, historyView, burnView, vaultView);
+    CAccountsHistoryEraser view(mnview, height, txn, erasers);
     uint256 vaultID;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
         view.vaultID = vaultID;
@@ -3078,7 +3078,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         if (txType == CustomTxType::CreateToken
         || txType == CustomTxType::CreateMasternode
         || txType == CustomTxType::Vault) {
-            view.SubFeeBurn(tx.vout[0].scriptPubKey);
+            erasers.SubFeeBurn(tx.vout[0].scriptPubKey);
         }
     }
     if (!res) {
@@ -3088,7 +3088,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     return (view.Flush(), res);
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView, CVaultHistoryView *vaultView) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -3103,7 +3103,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView, vaultView);
+    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     uint256 vaultID;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
         view.vaultID = vaultID;
@@ -3111,12 +3111,16 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
-            view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+            if (writers) {
+                writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+            }
         }
         if (txType == CustomTxType::Vault) {
             // burn the half, the rest is returned on close vault
             auto burnFee = tx.vout[0].nValue / 2;
-            view.AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            if (writers) {
+                writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            }
         }
     }
     // list of transactions which aren't allowed to fail:

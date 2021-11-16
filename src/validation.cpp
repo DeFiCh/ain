@@ -1670,6 +1670,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         if (paccountHistoryDB) {
             paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
         }
+        if (pvaultHistoryDB) {
+            pvaultHistoryDB->EraseVaultState(pindex->nHeight);
+        }
     }
 
     // Undo community balance increments
@@ -1779,7 +1782,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // process transactions revert for masternodes
         mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
+        CHistoryErasers erasers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
+        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, erasers, i);
         if (!res) {
             LogPrintf("%s\n", res.msg);
         }
@@ -2290,7 +2294,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get());
+                CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2547,7 +2552,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
+            CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -3149,11 +3155,18 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                                             pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
                                             cache.GetLoanLiquidationPenalty()
             });
+
+            // Store state in vault DB
+            if (pvaultHistoryDB) {
+                pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, collateral.val->ratio());
+            }
+
             return true;
         });
     }
 
-    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get());
+    CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), &writers);
 
     view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
         if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
@@ -3225,6 +3238,12 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         vault->isUnderLiquidation = false;
         view.StoreVault(vaultId, *vault);
         view.EraseAuction(vaultId, pindex->nHeight);
+
+        // Store state in vault DB
+        if (pvaultHistoryDB) {
+            pvaultHistoryDB->WriteVaultState(view, *pindex, vaultId);
+        }
+
         return true;
     }, pindex->nHeight);
 

@@ -55,14 +55,62 @@ struct VaultHistoryValue {
     }
 };
 
+struct VaultStateKey {
+    uint256 vaultID;
+    uint32_t blockHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(vaultID);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        }
+        else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+    }
+};
+
+struct VaultStateValue {
+    bool isUnderLiquidation;
+    TAmounts collaterals;
+    CCollateralLoans collateralsValues;
+    std::vector<CAuctionBatch> auctionBatches;
+    uint32_t ratio;
+    std::string schemeID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(isUnderLiquidation);
+        READWRITE(collaterals);
+        READWRITE(collateralsValues);
+        READWRITE(auctionBatches);
+        READWRITE(ratio);
+        READWRITE(schemeID);
+    }
+};
+
 class CVaultHistoryView : public virtual CStorageView
 {
 public:
-    Res WriteVaultHistory(VaultHistoryKey const & key, VaultHistoryValue const & value);
-    Res EraseVaultHistory(const VaultHistoryKey& key);
+    void WriteVaultHistory(VaultHistoryKey const & key, VaultHistoryValue const & value);
+    void WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio = 0);
+
+    void EraseVaultHistory(const VaultHistoryKey& key);
+    void EraseVaultState(const uint32_t height);
+
     void ForEachVaultHistory(std::function<bool(VaultHistoryKey const &, CLazySerialize<VaultHistoryValue>)> callback, VaultHistoryKey const & start = {});
+    void ForEachVaultState(std::function<bool(VaultStateKey const &, CLazySerialize<VaultStateValue>)> callback, VaultStateKey const & start = {});
 
     struct ByVaultHistoryKey { static constexpr uint8_t prefix() { return 0x01; } };
+    struct ByVaultStateKey { static constexpr uint8_t prefix() { return 0x02; } };
 };
 
 class CVaultHistoryStorage : public CVaultHistoryView
@@ -73,6 +121,6 @@ public:
 
 extern std::unique_ptr<CVaultHistoryStorage> pvaultHistoryDB;
 
-static constexpr bool DEFAULT_VAULTINDEX = true;
+static constexpr bool DEFAULT_VAULTINDEX = false;
 
 #endif //DEFI_MASTERNODES_VAULTHISTORY_H

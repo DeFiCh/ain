@@ -1147,21 +1147,56 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     return ret;
 }
 
-UniValue vaultHistoryToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const uint64_t blockHeight, const std::string& type,
+                     const uint64_t txn, const std::string& txid, const TAmounts& amounts) {
     UniValue obj(UniValue::VOBJ);
 
-    obj.pushKV("vault", key.vaultID.ToString());
-    obj.pushKV("address", ScriptToString(key.address));
-    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
-    if (auto block = ::ChainActive()[key.blockHeight]) {
+    obj.pushKV("vault", vaultID.ToString());
+    obj.pushKV("address", address);
+    obj.pushKV("blockHeight", blockHeight);
+    if (auto block = ::ChainActive()[blockHeight]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
     }
-    obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
-    obj.pushKV("txn", (uint64_t) key.txn);
-    obj.pushKV("txid", value.txid.ToString());
-    obj.pushKV("amounts", AmountsToJSON(value.diff));
+    obj.pushKV("type", type);
+    obj.pushKV("txn", txn);
+    obj.pushKV("txid", txid);
+    obj.pushKV("amounts", AmountsToJSON(amounts));
+
     return obj;
+}
+
+UniValue BatchToJSON(const std::vector<CAuctionBatch> batches) {
+    UniValue batchArray{UniValue::VARR};
+    for (std::vector<CAuctionBatch>::size_type i{0}; i < batches.size(); ++i) {
+        UniValue batchObj{UniValue::VOBJ};
+        batchObj.pushKV("index", i);
+        batchObj.pushKV("collaterals", AmountsToJSON(batches[i].collaterals.balances));
+        batchObj.pushKV("loan", tokenAmountString(batches[i].loanAmount));
+        batchArray.push_back(batchObj);
+    }
+    return batchArray;
+}
+
+UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
+    auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, "", 0, "", {});
+
+    UniValue snapshot(UniValue::VOBJ);
+    snapshot.pushKV("state", value.isUnderLiquidation ? "inLiquidation" : "active");
+    snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
+    snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
+    snapshot.pushKV("collateralRatio", static_cast<int>(value.ratio));
+    snapshot.pushKV("schemeID", value.schemeID);
+    snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
+
+    obj.pushKV("vaultSnapshot", snapshot);
+
+    return obj;
+}
+
+UniValue historyToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+    return vaultToJSON(key.vaultID, ScriptToString(key.address), key.blockHeight, ToString(CustomTxCodeToType(value.category)),
+                       key.txn, value.txid.ToString(), value.diff);
 }
 
 UniValue getvaulthistory(const JSONRPCRequest& request) {
@@ -1278,6 +1313,7 @@ UniValue getvaulthistory(const JSONRPCRequest& request) {
         return startBlock > blockHeight || blockHeight > maxBlockHeight;
     };
 
+    // Get vault TXs
     auto count = limit;
 
     auto shouldContinue = [&](VaultHistoryKey const & key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool
@@ -1301,15 +1337,39 @@ UniValue getvaulthistory(const JSONRPCRequest& request) {
         }
 
         auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(vaultHistoryToJSON(key, value));
+        array.push_back(historyToJSON(key, value));
 
-        --count;
-
-        return count != 0;
+        return --count != 0;
     };
 
     VaultHistoryKey startKey{vaultID, maxBlockHeight, std::numeric_limits<uint32_t>::max(), {}};
     pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
+
+    // Get vault state changes
+    count = limit;
+
+    auto shouldContinueState = [&](VaultStateKey const & key, CLazySerialize<VaultStateValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(stateToJSON(key, value));
+
+        return --count != 0;
+    };
+
+    if (!txTypeSearch) {
+        VaultStateKey stateKey{vaultID, maxBlockHeight};
+        pvaultHistoryDB->ForEachVaultState(shouldContinueState, stateKey);
+    }
 
     UniValue slice(UniValue::VARR);
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
