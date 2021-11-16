@@ -48,7 +48,7 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
         }
     }
 
-    VaultStateValue value{vault->isUnderLiquidation, collaterals->balances, collateralLoans, batches, ratio, vault->schemeId};
+    VaultStateValue value{collaterals->balances, collateralLoans, batches, ratio, vault->schemeId};
     WriteBy<ByVaultStateKey>(VaultStateKey{vaultID, static_cast<uint32_t>(pindex.nHeight)}, value);
 }
 

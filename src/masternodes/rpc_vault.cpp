@@ -1182,7 +1182,7 @@ UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
     auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, "", 0, "", {});
 
     UniValue snapshot(UniValue::VOBJ);
-    snapshot.pushKV("state", value.isUnderLiquidation ? "inLiquidation" : "active");
+    snapshot.pushKV("state", !value.auctionBatches.empty() ? "inLiquidation" : "active");
     snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
     snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
     snapshot.pushKV("collateralRatio", static_cast<int>(value.ratio));

@@ -77,7 +77,6 @@ struct VaultStateKey {
 };
 
 struct VaultStateValue {
-    bool isUnderLiquidation;
     TAmounts collaterals;
     CCollateralLoans collateralsValues;
     std::vector<CAuctionBatch> auctionBatches;
@@ -88,7 +87,6 @@ struct VaultStateValue {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(isUnderLiquidation);
         READWRITE(collaterals);
         READWRITE(collateralsValues);
         READWRITE(auctionBatches);
