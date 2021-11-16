@@ -8,8 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than_or_equal
-
+from test_framework.util import assert_equal
 import calendar
 import time
 from decimal import Decimal
@@ -93,7 +92,7 @@ class LoanZeroInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        setLoanTokenTSLA = self.nodes[0].setloantoken({
+        self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
                                     'fixedIntervalPriceId': "TSLA/USD",
