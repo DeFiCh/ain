@@ -1096,6 +1096,7 @@ void CTxMemPool::rebuildAccountsView(int height)
     CCoinsViewCache mempoolDuplicate(&::ChainstateActive().CoinsTip());
 
     setEntries staged;
+    std::vector<CTransactionRef> vtx;
     // Check custom TX consensus types are now not in conflict with account layer
     auto& txsByEntryTime = mapTx.get<entry_time>();
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
@@ -1104,18 +1105,20 @@ void CTxMemPool::rebuildAccountsView(int height)
         if (!Consensus::CheckTxInputs(tx, state, mempoolDuplicate, &viewDuplicate, height, txfee, Params())) {
             LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
+            vtx.push_back(it->GetSharedTx());
             continue;
         }
         auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), height);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
+            vtx.push_back(it->GetSharedTx());
         }
     }
 
-    for (const auto& it : staged) {
-        auto tx = it->GetSharedTx();
-        RemoveStaged({it}, true, MemPoolRemovalReason::BLOCK);
+    RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
+
+    for (const auto& tx : vtx) {
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
     }
