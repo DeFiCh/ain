@@ -864,7 +864,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
 
 namespace {
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
+    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj, bool isList) {
 
         size_t limit = 100;
         int start = 0;
@@ -888,7 +888,7 @@ namespace {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
 
-        UniValue result(UniValue::VARR);
+        CUniValueFormatter result{};
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
             const auto& pairs = oracle.availablePairs;
@@ -903,6 +903,8 @@ namespace {
             const auto& currency = tokenCurrency.second;
             item.pushKV(oraclefields::Token, token);
             item.pushKV(oraclefields::Currency, currency);
+            if(!isList)
+                item.pushKV("key", tokenCurrency.first+"@"+tokenCurrency.second);
             auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
             if (aggregatePrice) {
                 item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
@@ -915,7 +917,7 @@ namespace {
                 break;
             }
         }
-        return result;
+        return isList ? result.getList() : result.getObject("key");
     }
 } // namespace
 
@@ -974,6 +976,10 @@ UniValue listprices(const JSONRPCRequest& request) {
                             },
                         },
                     },
+                    {
+                        "jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"
+                    },
                },
                RPCResult{
                        "\"json\"                  (string) array containing json-objects having following fields:\n"
@@ -1007,10 +1013,18 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
+    bool isList = true;
+    if (request.params.size() > 1) {
+        auto jsonFormat = request.params[1].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
+    }
+
     LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
+    return GetAllAggregatePrices(view, lastBlockTime, paginationObj, isList);
 }
 
 UniValue getfixedintervalprice(const JSONRPCRequest& request) {
@@ -1141,7 +1155,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
     {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
     {"oracles",     "getprice",                &getprice,                 {"request"}},
-    {"oracles",     "listprices",              &listprices,               {"pagination"}},
+    {"oracles",     "listprices",              &listprices,               {"pagination", "jsonformat"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
 };

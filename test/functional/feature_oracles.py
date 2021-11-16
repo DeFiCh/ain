@@ -275,6 +275,9 @@ class OraclesTest(DefiTestFramework):
 
         # === check listprice in case when no valid prices available ===
         # === the listprices method returns information ===
+        listPrice= self.nodes[1].listprices({}, 'object')
+        assert(type (listPrice) is dict)
+
         assert (len(self.nodes[1].listprices()) == 4)
         # === but no valid prices in both oracles ===
         assert (len([x for x in self.nodes[1].listprices() if x['ok'] == True]) == 2)
