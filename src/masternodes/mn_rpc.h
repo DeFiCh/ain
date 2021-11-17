@@ -54,6 +54,8 @@ public:
 
     void push_back(const UniValue& obj);
     void push_backV(const std::vector<UniValue>& vec);
+private:
+    UniValue removeKey(const UniValue& obj,const std::string key, std::string & keyValue);
 };
 
 // common functions

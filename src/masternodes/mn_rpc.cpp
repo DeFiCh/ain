@@ -234,23 +234,27 @@ CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
 
-UniValue CUniValueFormatter::getObject(const std::string key){
+UniValue CUniValueFormatter::getObject(const std::string id){
     UniValue object{UniValue::VOBJ};
-    if( list.size() == 0){
+
+    std::vector<UniValue> values{list.getValues()};
+
+    int listSize = list.size();
+    if(listSize == 0){
         return object;
     }
-    int index = 0;
-    for(const auto & element: list.getValues()){
-        if(key == "index"){
-            object.pushKV(std::to_string(index), element);
-        }else{
-            if(!element.exists(key))
-                throw std::runtime_error("specified key is not present in the object");
 
-            object.pushKV(element[key].getValStr(), element);
+    for (int i=0; i < listSize; i++){
+        auto objValue = values.at(i);
+        if(id == "index"){
+            object.pushKV(std::to_string(i), objValue);
+            continue;
         }
-        index ++;
+        std::string keyValue{};
+        auto childObj = removeKey(objValue, id, keyValue);
+        object.pushKV(keyValue, childObj);
     }
+
     return object;
 };
 
@@ -265,6 +269,22 @@ void CUniValueFormatter::push_backV(const std::vector<UniValue>& vec){
 UniValue CUniValueFormatter::getList(){
     return list;
 }
+
+UniValue CUniValueFormatter::removeKey(const UniValue& obj,const std::string key, std::string & keyValue){
+    auto objSize = obj.size();
+    std::vector<std::string> keys{obj.getKeys()};
+    std::vector<UniValue> values{obj.getValues()};
+    UniValue retObj{UniValue::VOBJ};
+
+    for(int i=0; i<objSize; i++){
+        if(keys.at(i) != key)
+            retObj.pushKV(keys.at(i), values.at(i));
+        else
+            keyValue = values.at(i).getValStr();
+    }
+    return retObj;
+}
+
 
 // returns either base58/bech32 address, or hex if format is unknown
 std::string ScriptToString(CScript const& script) {

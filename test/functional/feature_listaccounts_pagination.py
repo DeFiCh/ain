@@ -98,7 +98,7 @@ class AccountsValidatingTest(DefiTestFramework):
         #check for length, we should get 2 entries since listaccounts RPC should return all accounts even with pagination.
         assert_equal(len(result2), 2)
         assert(type(result2) is list)
-        result2 = node1.listaccounts({}, False, False, False, "object")
+        result2 = node1.listaccounts({}, True, True, False, "object")
         assert(type(result2) is dict)
         assert_raises_rpc_error(-8, "Invalid json format", node1.listaccounts, {}, False, False, False, "array")
 

@@ -360,7 +360,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         return limit != 0;
     }, start.owner);
 
-    return (isList) ? ret.getList() : ret.getObject("key") ;
+    return (isList) ? ret.getList() : ret.getObject() ;
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
