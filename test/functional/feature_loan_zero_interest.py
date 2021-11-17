@@ -181,6 +181,14 @@ class LoanZeroInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        try:
+            self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': ["1@" + symbolTSLA, "0.00009@" + symbolGOOGL]})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot take this amount of loan for " + symbolGOOGL + ", you need to take higher amount" in errorString)
+
         self.nodes[0].takeloan({
                     'vaultId': vaultId,
                     'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
@@ -225,7 +233,7 @@ class LoanZeroInterestTest (DefiTestFramework):
                         'amounts': ["999.99900000@" + symboldUSD]})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot payback this amount of loan, either payback full amount or less than this amount" in errorString)
+        assert("Cannot payback this amount of loan for " + symboldUSD + ", either payback full amount or less than this amount" in errorString)
 
         self.nodes[0].paybackloan({
                         'vaultId': vaultId,
@@ -238,11 +246,24 @@ class LoanZeroInterestTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(sorted(vaultInfo['interestAmounts']), ['0.00000001@DUSD', '0.00000456@TSLA', '0.00001064@GOOGL'])
 
-        self.nodes[0].generate(1000)
+        self.nodes[0].generate(100)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(sorted(vaultInfo['interestAmounts']), ['0.00001001@DUSD', '0.00114456@TSLA', '0.00267064@GOOGL'])
+        assert_equal(sorted(vaultInfo['interestAmounts']), ['0.00000101@DUSD', '0.00011856@TSLA', '0.00027664@GOOGL'])
+
+        DUSDbalance = self.nodes[0].getaccount(account0, {}, True)[iddUSD]
+
+        self.nodes[0].paybackloan({
+                        'vaultId': vaultId,
+                        'from': account0,
+                        'amounts': ["1000@" + symboldUSD]})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        newDUSDbalance = self.nodes[0].getaccount(account0, {}, True)[iddUSD]
+        assert_equal(newDUSDbalance, DUSDbalance - Decimal('0.00414256'))
 
 if __name__ == '__main__':
     LoanZeroInterestTest().main()
