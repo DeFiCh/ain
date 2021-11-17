@@ -57,6 +57,8 @@ class TokensMintingTest (DefiTestFramework):
         self.nodes[0].generate(1)
         txid3_blockHeight = self.nodes[0].getblockcount()
 
+        tokens = self.nodes[0].listtokens({}, True, 'list')
+        assert(type(tokens) is list)
         # At this point, tokens was created
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 4)

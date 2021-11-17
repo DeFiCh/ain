@@ -326,6 +326,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
 
     tokenObj.pushKV("name", token.name);
     if (verbose) {
+        tokenObj.pushKV("id", id.ToString());
         tokenObj.pushKV("decimal", token.decimal);
         tokenObj.pushKV("limit", token.limit);
         tokenObj.pushKV("mintable", token.IsMintable());
@@ -347,9 +348,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
             tokenObj.pushKV("collateralAddress", "undefined");
         }
     }
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV(id.ToString(), tokenObj);
-    return ret;
+    return tokenObj;
 }
 
 UniValue listtokens(const JSONRPCRequest& request) {
@@ -369,6 +368,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
+                        {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with tokens information\n"
@@ -382,6 +383,14 @@ UniValue listtokens(const JSONRPCRequest& request) {
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
+    }
+
+    bool isList = false;
+    if (request.params.size() > 2) {
+        auto jsonFormat = request.params[2].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
     // parse pagination
@@ -412,15 +421,15 @@ UniValue listtokens(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    UniValue ret(UniValue::VOBJ);
+    CUniValueFormatter ret{};
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+        ret.push_back(tokenToJSON(id, token, verbose));
 
         limit--;
         return limit != 0;
     }, start);
 
-    return ret;
+    return isList ? ret.getList() : ret.getObject("id");
 }
 
 UniValue gettoken(const JSONRPCRequest& request) {
@@ -444,7 +453,9 @@ UniValue gettoken(const JSONRPCRequest& request) {
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true);
+        CUniValueFormatter ret{};
+        ret.push_back(tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true));
+        return ret.getObject("id");
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
