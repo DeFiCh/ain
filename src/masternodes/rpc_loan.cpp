@@ -28,8 +28,9 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     auto token = pcustomcsview->GetToken(tokenId);
     if (!token)
         return (UniValue::VNULL);
-
-    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
+    CUniValueFormatter tokenObj{};
+    tokenObj.push_back(tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
+    loanTokenObj.pushKV("token", tokenObj.getObject("id"));
     loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
