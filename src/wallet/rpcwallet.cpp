@@ -1072,6 +1072,13 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
         filtered_address = DecodeDestination(params[3].get_str());
         has_filtered_address = true;
     }
+    bool isList = true;
+    if(!params[4].isNull()){
+        auto jsonFormat = params[4].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
+    }
 
     // Tally
     std::map<CTxDestination, tallyitem> mapTally;
@@ -1109,7 +1116,7 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
     }
 
     // Reply
-    UniValue ret(UniValue::VARR);
+    CUniValueFormatter ret{};
     std::map<std::string, tallyitem> label_tally;
 
     // Create mapAddressBook iterator
@@ -1187,7 +1194,7 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
         }
     }
 
-    return ret;
+    return isList ? ret.getList() : ret.getObject();
 }
 
 static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
@@ -1206,6 +1213,7 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
                     {"include_empty", RPCArg::Type::BOOL, /* default */ "false", "Whether to include addresses that haven't received any payments."},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Whether to include watch-only addresses (see 'importaddress')"},
                     {"address_filter", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "If present, only return information on this address."},
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                 },
                 RPCResult{
             "[\n"
@@ -1522,17 +1530,10 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
     std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
 
-    if(!isList){
-        CUniValueFormatter retObj{};
-        retObj.push_backV(arrTmp);
-        return retObj.getObject("txid");
-    }
+    CUniValueFormatter retObj{};
+    retObj.push_backV(arrTmp);
 
-    ret.clear();
-    ret.setArray();
-    ret.push_backV(arrTmp);
-    return ret;
-
+    return isList ? retObj.getList() : retObj.getObject("txid");
 }
 
 static UniValue listsinceblock(const JSONRPCRequest& request)
@@ -4288,7 +4289,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listaddressgroupings",             &listaddressgroupings,          {} },
     { "wallet",             "listlabels",                       &listlabels,                    {"purpose"} },
     { "wallet",             "listlockunspent",                  &listlockunspent,               {} },
-    { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter"} },
+    { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter", "jsonformat"} },
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "listsinceblock",                   &listsinceblock,                {"blockhash","target_confirmations","include_watchonly","include_removed"} },
     { "wallet",             "listtransactions",                 &listtransactions,              {"label|dummy","count","skip","include_watchonly","exclude_custom_tx", "jsonformat"} },

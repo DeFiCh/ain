@@ -89,6 +89,9 @@ class ReceivedByTest(DefiTestFramework):
         assert_array_result(res, {"address": other_addr}, expected)
         assert_equal(len(res), 1)
         # Should be two entries though without filter
+        res = self.nodes[1].listreceivedbyaddress(0, True, True, addr, 'object')
+        assert(type(res) is dict)
+
         res = self.nodes[1].listreceivedbyaddress(0, True, True)
         assert_equal(len(res), 3 + num_cb_reward_addresses)  # Became 3 entries
 

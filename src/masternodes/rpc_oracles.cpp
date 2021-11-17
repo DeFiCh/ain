@@ -807,8 +807,6 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto tokenCurrency = std::make_pair(token, currency);
                 value.pushKV(oraclefields::PriceFeeds, PriceFeedToJSON(tokenCurrency));
                 value.pushKV(oraclefields::OracleId, oracleId.GetHex());
-                if (!isList)
-                    value.pushKV("key", tokenCurrency.first + "@" + tokenCurrency.second + ":" + oracleId.GetHex());
                 value.pushKV(oraclefields::Weightage, oracle.weightage);
                 value.pushKV(oraclefields::Timestamp, timestamp);
                 value.pushKV(oraclefields::RawPrice, ValueFromAmount(amount));
@@ -822,7 +820,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         }
         return limit != 0;
     }, start);
-    return isList ? result.getList() : result.getObject("key");
+    return isList ? result.getList() : result.getObject();
 }
 
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
@@ -914,8 +912,6 @@ namespace {
             const auto& currency = tokenCurrency.second;
             item.pushKV(oraclefields::Token, token);
             item.pushKV(oraclefields::Currency, currency);
-            if(!isList)
-                item.pushKV("key", tokenCurrency.first+"@"+tokenCurrency.second);
             auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
             if (aggregatePrice) {
                 item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
@@ -928,7 +924,7 @@ namespace {
                 break;
             }
         }
-        return isList ? result.getList() : result.getObject("key");
+        return isList ? result.getList() : result.getObject();
     }
 } // namespace
 
