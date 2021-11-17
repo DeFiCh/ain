@@ -720,6 +720,8 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                             },
                         },
                     },
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"
+                    },
                 },
                RPCResult{
                        "\"json\"                  (string) Array of json objects containing full information about token prices\n"
@@ -744,6 +746,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     COracleId start = {};
     bool including_start = true;
     size_t limit = 100;
+    bool isList = true;
     {
         if (request.params.size() > 1){
             UniValue paginationObj = request.params[1].get_obj();
@@ -760,6 +763,12 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
+        if (request.params.size() > 2) {
+            auto jsonFormat = request.params[2].getValStr();
+            if (jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
+        }
     }
 
     if (!request.params.empty()) {
@@ -770,7 +779,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     CCustomCSView mnview(*pcustomcsview);
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
 
-    UniValue result(UniValue::VARR);
+    CUniValueFormatter result{};
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
         if (!including_start)
         {
@@ -798,6 +807,8 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto tokenCurrency = std::make_pair(token, currency);
                 value.pushKV(oraclefields::PriceFeeds, PriceFeedToJSON(tokenCurrency));
                 value.pushKV(oraclefields::OracleId, oracleId.GetHex());
+                if (!isList)
+                    value.pushKV("key", tokenCurrency.first + "@" + tokenCurrency.second + ":" + oracleId.GetHex());
                 value.pushKV(oraclefields::Weightage, oracle.weightage);
                 value.pushKV(oraclefields::Timestamp, timestamp);
                 value.pushKV(oraclefields::RawPrice, ValueFromAmount(amount));
@@ -811,7 +822,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         }
         return limit != 0;
     }, start);
-    return result;
+    return isList ? result.getList() : result.getObject("key");
 }
 
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
@@ -1153,7 +1164,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "setoracledata",           &setoracledata,            {"oracleid", "timestamp", "prices", "inputs"}},
     {"oracles",     "getoracledata",           &getoracledata,            {"oracleid"}},
     {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
-    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
+    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination", "jsonformat"}},
     {"oracles",     "getprice",                &getprice,                 {"request"}},
     {"oracles",     "listprices",              &listprices,               {"pagination", "jsonformat"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},

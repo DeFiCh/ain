@@ -349,7 +349,8 @@ class OraclesTest(DefiTestFramework):
         self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency":"USD", "tokenAmount":"7@PT"}])
 
         self.synchronize(node=2, full=True)
-
+        pt_in_usd_raw_prices_obj = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"}, {}, 'object')
+        assert(type(pt_in_usd_raw_prices_obj) is dict)
         pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
 
         assert_equal(len(pt_in_usd_raw_prices), 2)
