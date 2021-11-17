@@ -974,6 +974,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
+                                 {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"
+                    },
                             },
                         },
                },
@@ -1001,6 +1003,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string tokenFilter;
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
+    bool isList = true;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1012,6 +1015,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"jsonformat", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1040,6 +1044,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+        if(!optionsObj["jsonformat"].isNull()){
+            auto jsonFormat = optionsObj["jsonformat"].getValStr();
+            if (jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
         }
     }
 
@@ -1201,7 +1211,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         );
     }
 
-    UniValue slice(UniValue::VARR);
+    CUniValueFormatter slice{};
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
         const auto& array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
@@ -1210,7 +1220,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
     }
 
-    return slice;
+    return isList ? slice.getList() : slice.getObject();
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {

@@ -239,11 +239,17 @@ UniValue CUniValueFormatter::getObject(const std::string key){
     if( list.size() == 0){
         return object;
     }
+    int index = 0;
     for(const auto & element: list.getValues()){
-        if(!element.exists(key))
-            throw std::runtime_error("specified key is not present in the object");
+        if(key == "index"){
+            object.pushKV(std::to_string(index), element);
+        }else{
+            if(!element.exists(key))
+                throw std::runtime_error("specified key is not present in the object");
 
-        object.pushKV(element[key].getValStr(), element);
+            object.pushKV(element[key].getValStr(), element);
+        }
+        index ++;
     }
     return object;
 };

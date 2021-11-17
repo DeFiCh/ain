@@ -411,6 +411,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
         assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443691'))
 
+        listAccountHistory = self.nodes[0].listaccounthistory(account0, {'jsonformat':'object'})
+        assert(type(listAccountHistory) is dict)
+
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:
                 assert_equal(interest['totalInterest'], Decimal('0.00000000'))

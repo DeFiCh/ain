@@ -49,7 +49,7 @@ public:
 class CUniValueFormatter{
     UniValue list{UniValue::VARR};
 public:
-    UniValue getObject(const std::string key);
+    UniValue getObject(const std::string key = "index");
     UniValue getList();
 
     void push_back(const UniValue& obj);
