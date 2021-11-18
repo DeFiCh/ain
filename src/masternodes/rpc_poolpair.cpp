@@ -143,6 +143,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
+                        {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"object\")"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with pools information\n"
@@ -156,6 +158,14 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
+    }
+
+    bool isList = false;
+    if (request.params.size() > 2) {
+        auto jsonFormat = request.params[2].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
     // parse pagination
@@ -187,10 +197,15 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
+    if(isList)
+        ret.setArray();
     pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            auto poolJSON = poolToJSON(id, pool, *token, verbose);
+            isList ?
+                ret.push_back(poolJSON):
+                ret.pushKVs(poolJSON);
             limit--;
         }
 
@@ -1046,6 +1061,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                                     "Flag for verbose list (default = true), otherwise only % are shown."},
                         {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Get shares for all accounts belonging to the wallet (default = false)"},
+                        {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"object\")"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with pools information\n"
@@ -1064,6 +1081,14 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     bool isMineOnly = false;
     if (request.params.size() > 2) {
         isMineOnly = request.params[2].get_bool();
+    }
+
+    bool isList = false;
+    if (request.params.size() > 3) {
+        auto jsonFormat = request.params[3].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
     auto pwallet = GetWallet(request);
@@ -1101,18 +1126,25 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 //    startKey.owner = CScript(0);
 
     UniValue ret(UniValue::VOBJ);
+    if (isList)
+        ret.setArray();
     pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
         const CTokenAmount tokenAmount = pcustomcsview->GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
+                auto poolShareJSON = poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose);
                 if (isMineOnly) {
                     if (IsMineCached(*pwallet, provider) == ISMINE_SPENDABLE) {
-                        ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                        isList ?
+                            ret.push_back(poolShareJSON):
+                            ret.pushKVs(poolShareJSON);
                         limit--;
                     }
                 } else {
-                    ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                    isList ?
+                        ret.push_back(poolShareJSON):
+                        ret.pushKVs(poolShareJSON);
                     limit--;
                 }
             }
@@ -1125,10 +1157,10 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  -------------   -----------------------  ---------------------   ----------
-    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose"}},
+    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose", "jsonformat"}},
     {"poolpair",    "getpoolpair",           &getpoolpair,           {"key", "verbose" }},
     {"poolpair",    "addpoolliquidity",      &addpoolliquidity,      {"from", "shareAddress", "inputs"}},
     {"poolpair",    "removepoolliquidity",   &removepoolliquidity,   {"from", "amount", "inputs"}},
@@ -1136,7 +1168,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
     {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
     {"poolpair",    "compositeswap",         &compositeswap,         {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only"}},
+    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only", "jsonformat"}},
     {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
 };
 

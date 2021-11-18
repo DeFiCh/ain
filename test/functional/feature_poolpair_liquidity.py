@@ -262,6 +262,8 @@ class PoolLiquidityTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
+        list_poolshares = self.nodes[0].listpoolshares({}, False, False, 'list')
+        assert(type(list_poolshares) is list)
         list_poolshares = self.nodes[0].listpoolshares()
         assert_equal(len(list_poolshares), 2)
 

@@ -84,6 +84,8 @@ class GovsetTest (DefiTestFramework):
             "pairSymbol": "SB",
         }, [])
         self.nodes[0].generate(1)
+        listpoolpairs = self.nodes[0].listpoolpairs({}, False, 'list')
+        assert(type(listpoolpairs) is list)
         assert(len(self.nodes[0].listpoolpairs()) == 3)
 
         # set LP_SPLITS with absent pools id
