@@ -27,6 +27,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
+        mnList = self.nodes[0].listmasternodes({}, True, 'list')
+        assert(type(mnList) is list)
         self.nodes[0].generate(100)
         self.sync_all()
 

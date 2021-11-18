@@ -616,6 +616,9 @@ UniValue listmasternodes(const JSONRPCRequest& request)
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids are listed"},
+                        {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"object\")"},
+
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with masternodes information\n"
@@ -630,10 +633,19 @@ UniValue listmasternodes(const JSONRPCRequest& request)
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
     }
+
+    bool isList = false;
+    if(request.params.size() > 2){
+            std::string jsonFormat = request.params[2].getValStr();
+            if(jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
+    }
     // parse pagination
     size_t limit = 1000000;
     uint256 start = {};
     bool including_start = true;
+
     {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
@@ -655,6 +667,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
 
+    if(isList)
+        ret.setArray();
     LOCK(cs_main);
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
     pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
@@ -663,7 +677,10 @@ UniValue listmasternodes(const JSONRPCRequest& request)
             including_start = true;
             return (true);
         }
-        ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
+        auto mnJSON = mnToJSON(nodeId, node, verbose, mnIds, pwallet);
+        isList ?
+            ret.push_back(mnJSON) :
+            ret.pushKVs(mnJSON);
         limit--;
         return limit != 0;
     }, start);
@@ -980,7 +997,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
     {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
-    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
+    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose", "jsonformat"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
