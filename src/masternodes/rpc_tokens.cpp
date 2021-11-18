@@ -326,7 +326,6 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
 
     tokenObj.pushKV("name", token.name);
     if (verbose) {
-        tokenObj.pushKV("id", id.ToString());
         tokenObj.pushKV("decimal", token.decimal);
         tokenObj.pushKV("limit", token.limit);
         tokenObj.pushKV("mintable", token.IsMintable());
@@ -348,7 +347,9 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
             tokenObj.pushKV("collateralAddress", "undefined");
         }
     }
-    return tokenObj;
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(id.ToString(), tokenObj);
+    return ret;
 }
 
 UniValue listtokens(const JSONRPCRequest& request) {
@@ -421,15 +422,20 @@ UniValue listtokens(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    CUniValueFormatter ret{};
+    UniValue ret(UniValue::VOBJ);
+    if(isList)
+        ret.setArray();
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.push_back(tokenToJSON(id, token, verbose));
+        auto tokenJSON = tokenToJSON(id, token, verbose);
+        (isList) ?
+            ret.push_back(tokenJSON) :
+            ret.pushKVs(tokenJSON);
 
         limit--;
         return limit != 0;
     }, start);
 
-    return isList ? ret.getList() : ret.getObject("id");
+    return ret;
 }
 
 UniValue gettoken(const JSONRPCRequest& request) {
@@ -453,9 +459,7 @@ UniValue gettoken(const JSONRPCRequest& request) {
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        CUniValueFormatter ret{};
-        ret.push_back(tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true));
-        return ret.getObject("id");
+        return tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
@@ -805,7 +809,7 @@ static const CRPCCommand commands[] =
 //  -------------   ---------------------    --------------------    ----------
     {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},
     {"tokens",      "updatetoken",           &updatetoken,           {"token", "metadata", "inputs"}},
-    {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose"}},
+    {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose", "jsonformat"}},
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
