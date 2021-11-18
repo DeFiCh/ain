@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
 #include <masternodes/res.h>
+#include <masternodes/vaulthistory.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -23,7 +24,6 @@
 #include <validation.h>
 
 #include <algorithm>
-#include "vaulthistory.h"
 
 std::string ToString(CustomTxType type) {
     switch (type)
