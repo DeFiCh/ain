@@ -11,14 +11,34 @@ void CVaultHistoryView::WriteVaultHistory(VaultHistoryKey const & key, VaultHist
     WriteBy<ByVaultHistoryKey>(key, value);
 }
 
+void CVaultHistoryView::WriteVaultScheme(VaultSchemeKey const & key, const VaultSchemeValue& value)
+{
+    WriteBy<ByVaultSchemeKey>(key, value);
+}
+
+void CVaultHistoryView::WriteGlobalScheme(VaultGlobalSchemeKey const & key, const VaultGlobalSchemeValue& value)
+{
+    WriteBy<ByVaultGlobalSchemeKey>(key, value);
+}
+
 void CVaultHistoryView::EraseVaultHistory(const VaultHistoryKey& key)
 {
     EraseBy<ByVaultHistoryKey>(key);
 }
 
+void CVaultHistoryView::ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback, VaultSchemeKey const & start)
+{
+    ForEach<ByVaultSchemeKey, VaultSchemeKey, VaultSchemeValue>(callback, start);
+}
+
 void CVaultHistoryView::ForEachVaultState(std::function<bool(VaultStateKey const &, CLazySerialize<VaultStateValue>)> callback, VaultStateKey const & start)
 {
     ForEach<ByVaultStateKey, VaultStateKey, VaultStateValue>(callback, start);
+}
+
+void CVaultHistoryView::ForEachGlobalScheme(std::function<bool(VaultGlobalSchemeKey const &, CLazySerialize<VaultGlobalSchemeValue>)> callback, VaultGlobalSchemeKey const & start)
+{
+    ForEach<ByVaultGlobalSchemeKey, VaultGlobalSchemeKey, VaultGlobalSchemeValue>(callback, start);
 }
 
 void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio)
@@ -48,8 +68,18 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
         }
     }
 
-    VaultStateValue value{collaterals->balances, collateralLoans, batches, ratio, vault->schemeId};
+    VaultStateValue value{collaterals->balances, collateralLoans, batches, ratio};
     WriteBy<ByVaultStateKey>(VaultStateKey{vaultID, static_cast<uint32_t>(pindex.nHeight)}, value);
+}
+
+void CVaultHistoryView::EraseVaultScheme(const VaultSchemeKey& key)
+{
+    EraseBy<ByVaultSchemeKey>(key);
+}
+
+void CVaultHistoryView::EraseGlobalScheme(const VaultGlobalSchemeKey& key)
+{
+    EraseBy<ByVaultGlobalSchemeKey>(key);
 }
 
 void CVaultHistoryView::EraseVaultState(const uint32_t height)

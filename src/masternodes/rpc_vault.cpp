@@ -1151,17 +1151,25 @@ UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const u
                      const uint64_t txn, const std::string& txid, const TAmounts& amounts) {
     UniValue obj(UniValue::VOBJ);
 
-    obj.pushKV("vault", vaultID.ToString());
-    obj.pushKV("address", address);
+    if (!address.empty()) {
+        obj.pushKV("address", address);
+    }
     obj.pushKV("blockHeight", blockHeight);
     if (auto block = ::ChainActive()[blockHeight]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
     }
-    obj.pushKV("type", type);
-    obj.pushKV("txn", txn);
+    if (!type.empty()) {
+        obj.pushKV("type", type);
+    }
+    // No address no txn
+    if (!address.empty()) {
+        obj.pushKV("txn", txn);
+    }
     obj.pushKV("txid", txid);
-    obj.pushKV("amounts", AmountsToJSON(amounts));
+    if (!amounts.empty()) {
+        obj.pushKV("amounts", AmountsToJSON(amounts));
+    }
 
     return obj;
 }
@@ -1186,8 +1194,9 @@ UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
     snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
     snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
     snapshot.pushKV("collateralRatio", static_cast<int>(value.ratio));
-    snapshot.pushKV("schemeID", value.schemeID);
-    snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
+    if (!value.auctionBatches.empty()) {
+        snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
+    }
 
     obj.pushKV("vaultSnapshot", snapshot);
 
@@ -1199,10 +1208,23 @@ UniValue historyToJSON(VaultHistoryKey const & key, VaultHistoryValue const & va
                        key.txn, value.txid.ToString(), value.diff);
 }
 
-UniValue getvaulthistory(const JSONRPCRequest& request) {
+UniValue schemeToJSON(VaultSchemeKey const & key, const VaultGlobalSchemeValue& value) {
+    auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, ToString(CustomTxCodeToType(value.category)), 0, value.txid.ToString(), {});
+
+    UniValue scheme(UniValue::VOBJ);
+    scheme.pushKV("id", value.loanScheme.identifier);
+    scheme.pushKV("rate", value.loanScheme.rate);
+    scheme.pushKV("ratio", static_cast<uint64_t>(value.loanScheme.ratio));
+
+    obj.pushKV("loanScheme", scheme);
+
+    return obj;
+}
+
+UniValue listvaulthistory(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"getvaulthistory",
+    RPCHelpMan{"listvaulthistory",
                "\nReturns the history of the specified vault.\n",
                {
                        {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault to get history for"},
@@ -1366,9 +1388,93 @@ UniValue getvaulthistory(const JSONRPCRequest& request) {
         return --count != 0;
     };
 
+    VaultStateKey stateKey{vaultID, maxBlockHeight};
     if (!txTypeSearch) {
-        VaultStateKey stateKey{vaultID, maxBlockHeight};
         pvaultHistoryDB->ForEachVaultState(shouldContinueState, stateKey);
+    }
+
+    // Get vault schemes
+    count = limit;
+
+    std::map<uint32_t, uint256> schemes;
+
+    auto shouldContinueScheme = [&](VaultSchemeKey const & key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        if (txTypeSearch && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        CLoanScheme loanScheme;
+        pvaultHistoryDB->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & schemeKey, CLazySerialize<VaultGlobalSchemeValue> lazyValue) {
+            if (lazyValue.get().loanScheme.identifier != value.schemeID) {
+                return true;
+            }
+            loanScheme = lazyValue.get().loanScheme;
+            schemes.emplace(key.blockHeight, schemeKey.schemeCreationTxid);
+            return false;
+        }, {key.blockHeight, value.txn});
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(schemeToJSON(key, {loanScheme, value.category, value.txid}));
+
+        return --count != 0;
+    };
+
+    if (tokenFilter.empty()) {
+        pvaultHistoryDB->ForEachVaultScheme(shouldContinueScheme, stateKey);
+    }
+
+    // Get vault global scheme changes
+
+    if (!schemes.empty()) {
+        auto lastScheme = schemes.cbegin()->second;
+        for (auto it = ++schemes.cbegin(); it != schemes.cend(); ) {
+            if (lastScheme == it->second) {
+                schemes.erase(it++);
+            } else {
+                ++it;
+            }
+        }
+
+        auto minHeight = schemes.cbegin()->first;
+        for (auto it = schemes.cbegin(); it != schemes.cend(); ++it) {
+            auto nit = std::next(it);
+            uint32_t endHeight = nit != schemes.cend() ? nit->first - 1 : std::numeric_limits<uint32_t>::max();
+            pvaultHistoryDB->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> valueLazy){
+                if (key.blockHeight < minHeight) {
+                    return false;
+                }
+
+                if (it->second != key.schemeCreationTxid) {
+                    return true;
+                }
+
+                if (shouldSkipBlock(key.blockHeight)) {
+                    return true;
+                }
+
+                const auto & value = valueLazy.get();
+
+                if (txTypeSearch && value.category != uint8_t(txType)) {
+                    return true;
+                }
+
+                auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+                array.push_back(schemeToJSON({vaultID, key.blockHeight}, value));
+
+                return --count != 0;
+            }, {endHeight, std::numeric_limits<uint32_t>::max(), it->second});
+        }
     }
 
     UniValue slice(UniValue::VARR);
@@ -1391,7 +1497,7 @@ static const CRPCCommand commands[] =
     {"vault",        "closevault",                &closevault,            {"id", "returnAddress", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
-    {"vault",        "getvaulthistory",           &getvaulthistory,       {"id", "options"}},
+    {"vault",        "listvaulthistory",          &listvaulthistory,      {"id", "options"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},

@@ -81,7 +81,6 @@ struct VaultStateValue {
     CCollateralLoans collateralsValues;
     std::vector<CAuctionBatch> auctionBatches;
     uint32_t ratio;
-    std::string schemeID;
 
     ADD_SERIALIZE_METHODS;
 
@@ -91,7 +90,67 @@ struct VaultStateValue {
         READWRITE(collateralsValues);
         READWRITE(auctionBatches);
         READWRITE(ratio);
+    }
+};
+
+using VaultSchemeKey = VaultStateKey;
+
+struct VaultSchemeValue {
+    unsigned char category;
+    uint256 txid;
+    std::string schemeID;
+    uint32_t txn; // For looking up global scheme from specific place in the block
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(category);
+        READWRITE(txid);
         READWRITE(schemeID);
+        READWRITE(txn);
+    }
+};
+
+struct VaultGlobalSchemeKey {
+    uint32_t blockHeight;
+    uint32_t txn;
+    uint256 schemeCreationTxid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+            READWRITE(WrapBigEndian(txn));
+            txn = ~txn;
+        }
+        else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+            uint32_t txn_ = ~txn;
+            READWRITE(WrapBigEndian(txn_));
+        }
+
+        READWRITE(schemeCreationTxid);
+    }
+};
+
+struct VaultGlobalSchemeValue {
+    CLoanScheme loanScheme;
+    unsigned char category;
+    uint256 txid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(loanScheme);
+        READWRITE(category);
+        READWRITE(txid);
     }
 };
 
@@ -99,16 +158,26 @@ class CVaultHistoryView : public virtual CStorageView
 {
 public:
     void WriteVaultHistory(VaultHistoryKey const & key, VaultHistoryValue const & value);
+    void WriteVaultScheme(VaultSchemeKey const & key, const VaultSchemeValue& value);
     void WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio = 0);
 
     void EraseVaultHistory(const VaultHistoryKey& key);
+    void EraseVaultScheme(const VaultSchemeKey& key);
     void EraseVaultState(const uint32_t height);
 
     void ForEachVaultHistory(std::function<bool(VaultHistoryKey const &, CLazySerialize<VaultHistoryValue>)> callback, VaultHistoryKey const & start = {});
+    void ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback, VaultSchemeKey const & start = {});
     void ForEachVaultState(std::function<bool(VaultStateKey const &, CLazySerialize<VaultStateValue>)> callback, VaultStateKey const & start = {});
+
+    // Loan Scheme storage
+    void WriteGlobalScheme(VaultGlobalSchemeKey const & key, const VaultGlobalSchemeValue& value);
+    void EraseGlobalScheme(const VaultGlobalSchemeKey& key);
+    void ForEachGlobalScheme(std::function<bool(VaultGlobalSchemeKey const &, CLazySerialize<VaultGlobalSchemeValue>)> callback, VaultGlobalSchemeKey const & start = {});
 
     struct ByVaultHistoryKey { static constexpr uint8_t prefix() { return 0x01; } };
     struct ByVaultStateKey { static constexpr uint8_t prefix() { return 0x02; } };
+    struct ByVaultSchemeKey { static constexpr uint8_t prefix() { return 0x03; } };
+    struct ByVaultGlobalSchemeKey { static constexpr uint8_t prefix() { return 0x04; } };
 };
 
 class CVaultHistoryStorage : public CVaultHistoryView

@@ -164,6 +164,12 @@ struct CLoanScheme : public CLoanSchemeData
     }
 };
 
+struct CLoanSchemeCreation : public CLoanScheme
+{
+    uint256 schemeCreationTxid;
+    bool creation{false};
+};
+
 struct CLoanSchemeMessage : public CLoanScheme
 {
     uint64_t updateHeight{0};

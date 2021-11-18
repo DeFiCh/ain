@@ -1783,7 +1783,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // process transactions revert for masternodes
         mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
         CHistoryErasers erasers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, erasers, i);
+        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, erasers);
         if (!res) {
             LogPrintf("%s\n", res.msg);
         }

@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test getvaulthistory RPC."""
+"""Test listvaulthistory RPC."""
 
 from test_framework.test_framework import DefiTestFramework
 
@@ -36,6 +36,8 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Create loan schemes
         self.nodes[0].createloanscheme(150, 5, 'LOAN0001')
+        self.nodes[0].generate(1)
+        self.nodes[0].createloanscheme(300, 2.5, 'LOAN0002')
         self.nodes[0].generate(1)
 
         # Create DUSD token
@@ -107,7 +109,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Create vault
         vault_owner = self.nodes[0].getnewaddress("", "legacy")
-        create_vault_tx = self.nodes[0].createvault(vault_owner, 'LOAN0001')
+        create_vault_tx = self.nodes[0].createvault(vault_owner, 'LOAN0002')
         self.nodes[0].generate(1)
 
         # Deposit to vault
@@ -116,8 +118,56 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         deposit_tx = self.nodes[0].deposittovault(create_vault_tx, collateral_a, '10@DFI')
         self.nodes[0].generate(1)
 
+        # Update global loan scheme change
+        update_002_tx = self.nodes[0].updateloanscheme(600, 1, 'LOAN0002')
+        self.nodes[0].generate(1)
+
+        # Make sure last entry is update vault
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
+        assert_equal(len(result), 3)
+        assert_equal(result[0]['type'], 'LoanScheme')
+
+        # Test rollback of global loan scheme
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
+        assert_equal(len(result), 2)
+        assert_equal(result[0]['type'], 'DepositToVault')
+        self.nodes[0].generate(1)
+
+        # Change loan scheme
+        update_tx = self.nodes[0].updatevault(create_vault_tx, {'loanSchemeId': 'LOAN0001'})
+        self.nodes[0].generate(1)
+
+        # Make sure last entry is update vault
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
+        assert_equal(len(result), 4)
+        assert_equal(result[0]['type'], 'UpdateVault')
+
+        # Test rollback of loan scheme
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
+        assert_equal(len(result), 3)
+        assert_equal(result[0]['type'], 'LoanScheme')
+        self.nodes[0].generate(1)
+
+        # Destroy old loan scheme
+        self.nodes[0].destroyloanscheme('LOAN0002')
+        self.nodes[0].generate(1)
+
+        # Create replacement. Should not show up in vault history.
+        self.nodes[0].createloanscheme(100, 1, 'LOAN0002')
+        self.nodes[0].generate(1)
+
+        # Update loan scheme. Should not show up in vault history.
+        self.nodes[0].updateloanscheme(200, 2, 'LOAN0002')
+        self.nodes[0].generate(1)
+
         # Take loan
         takeloan_tx = self.nodes[0].takeloan({'vaultId':create_vault_tx,'amounts': "1@TSLA"})
+        self.nodes[0].generate(1)
+
+        # Update loan scheme
+        update_001_tx = self.nodes[0].updateloanscheme(200, 6, 'LOAN0001')
         self.nodes[0].generate(1)
 
         # Pay back loan
@@ -139,86 +189,93 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         close_tx = self.nodes[0].closevault(create_vault_tx, close_address)
         self.nodes[0].generate(1)
 
-        # Test getvaulthistory
-        result = self.nodes[0].getvaulthistory(create_vault_tx)
-        assert_equal(len(result), 6)
-        assert_equal(result[0]['vault'], create_vault_tx)
+        # Test listvaulthistory
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
+        assert_equal(len(result), 10)
         assert_equal(result[0]['type'], 'CloseVault')
         assert_equal(result[0]['address'], close_address)
         assert_equal(result[0]['amounts'], ['10.00000000@DFI'])
         assert_equal(result[0]['txid'], close_tx)
-        assert_equal(result[1]['vault'], create_vault_tx)
         assert_equal(result[1]['type'], 'WithdrawFromVault')
         assert_equal(result[1]['address'], withdraw_address)
         assert_equal(result[1]['amounts'], ['0.50000000@DFI'])
         assert_equal(result[1]['txid'], withdraw_tx)
-        assert_equal(result[2]['vault'], create_vault_tx)
         assert_equal(result[2]['type'], 'PaybackLoan')
         assert_equal(result[2]['address'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
-        assert_equal(result[2]['amounts'], ['0.00000114@DFI'])
+        assert_equal(result[2]['amounts'], ['0.00000228@DFI'])
         assert_equal(result[2]['txid'], payback_tx)
-        assert_equal(result[3]['vault'], create_vault_tx)
         assert_equal(result[3]['type'], 'PaybackLoan')
         assert_equal(result[3]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
-        assert_equal(result[3]['amounts'], ['-1.00000114@TSLA'])
+        assert_equal(result[3]['amounts'], ['-1.00000228@TSLA'])
         assert_equal(result[3]['txid'], payback_tx)
-        assert_equal(result[4]['vault'], create_vault_tx)
-        assert_equal(result[4]['type'], 'TakeLoan')
-        assert_equal(result[4]['address'], vault_owner)
-        assert_equal(result[4]['amounts'], ['1.00000000@TSLA'])
-        assert_equal(result[4]['txid'], takeloan_tx)
-        assert_equal(result[5]['vault'], create_vault_tx)
-        assert_equal(result[5]['type'], 'DepositToVault')
-        assert_equal(result[5]['address'], collateral_a)
-        assert_equal(result[5]['amounts'], ['-10.00000000@DFI'])
-        assert_equal(result[5]['txid'], deposit_tx)
+        assert_equal(result[4]['type'], 'LoanScheme')
+        assert_equal(result[4]['loanScheme']['id'], 'LOAN0001')
+        assert_equal(result[4]['loanScheme']['rate'], 600000000)
+        assert_equal(result[4]['loanScheme']['ratio'], 200)
+        assert_equal(result[4]['txid'], update_001_tx)
+        assert_equal(result[5]['type'], 'TakeLoan')
+        assert_equal(result[5]['address'], vault_owner)
+        assert_equal(result[5]['amounts'], ['1.00000000@TSLA'])
+        assert_equal(result[5]['txid'], takeloan_tx)
+        assert_equal(result[6]['type'], 'UpdateVault')
+        assert_equal(result[6]['loanScheme']['id'], 'LOAN0001')
+        assert_equal(result[6]['loanScheme']['rate'], 500000000)
+        assert_equal(result[6]['loanScheme']['ratio'], 150)
+        assert_equal(result[6]['txid'], update_tx)
+        assert_equal(result[7]['type'], 'LoanScheme')
+        assert_equal(result[7]['loanScheme']['id'], 'LOAN0002')
+        assert_equal(result[7]['loanScheme']['rate'], 100000000)
+        assert_equal(result[7]['loanScheme']['ratio'], 600)
+        assert_equal(result[7]['txid'], update_002_tx)
+        assert_equal(result[8]['type'], 'DepositToVault')
+        assert_equal(result[8]['address'], collateral_a)
+        assert_equal(result[8]['amounts'], ['-10.00000000@DFI'])
+        assert_equal(result[8]['txid'], deposit_tx)
+        assert_equal(result[9]['type'], 'Vault')
+        assert_equal(result[9]['loanScheme']['id'], 'LOAN0002')
+        assert_equal(result[9]['loanScheme']['rate'], 250000000)
+        assert_equal(result[9]['loanScheme']['ratio'], 300)
+        assert_equal(result[9]['txid'], create_vault_tx)
 
-        # Test getvaulthistory block height and depth
-        result = self.nodes[0].getvaulthistory(create_vault_tx, {'maxBlockHeight':119,'depth':1})
+        # Test listvaulthistory block height and depth
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'maxBlockHeight':126,'depth':1})
         assert_equal(len(result), 3)
-        assert_equal(result[0]['vault'], create_vault_tx)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
         assert_equal(result[0]['address'], withdraw_address)
         assert_equal(result[0]['amounts'], ['0.50000000@DFI'])
         assert_equal(result[0]['txid'], withdraw_tx)
-        assert_equal(result[1]['vault'], create_vault_tx)
         assert_equal(result[1]['type'], 'PaybackLoan')
         assert_equal(result[1]['address'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
-        assert_equal(result[1]['amounts'], ['0.00000114@DFI'])
+        assert_equal(result[1]['amounts'], ['0.00000228@DFI'])
         assert_equal(result[1]['txid'], payback_tx)
-        assert_equal(result[2]['vault'], create_vault_tx)
         assert_equal(result[2]['type'], 'PaybackLoan')
         assert_equal(result[2]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
-        assert_equal(result[2]['amounts'], ['-1.00000114@TSLA'])
+        assert_equal(result[2]['amounts'], ['-1.00000228@TSLA'])
         assert_equal(result[2]['txid'], payback_tx)
 
-        # Test getvaulthistory token type
-        result = self.nodes[0].getvaulthistory(create_vault_tx, {'token':'TSLA'})
+        # Test listvaulthistory token type
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'token':'TSLA'})
         assert_equal(len(result), 2)
-        assert_equal(result[0]['vault'], create_vault_tx)
         assert_equal(result[0]['type'], 'PaybackLoan')
         assert_equal(result[0]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
-        assert_equal(result[0]['amounts'], ['-1.00000114@TSLA'])
+        assert_equal(result[0]['amounts'], ['-1.00000228@TSLA'])
         assert_equal(result[0]['txid'], payback_tx)
-        assert_equal(result[1]['vault'], create_vault_tx)
         assert_equal(result[1]['type'], 'TakeLoan')
         assert_equal(result[1]['address'], vault_owner)
         assert_equal(result[1]['amounts'], ['1.00000000@TSLA'])
         assert_equal(result[1]['txid'], takeloan_tx)
 
-        # Test getvaulthistory TX type
-        result = self.nodes[0].getvaulthistory(create_vault_tx, {'txtype':'J'})
+        # Test listvaulthistory TX type
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'txtype':'J'})
         assert_equal(len(result), 1)
-        assert_equal(result[0]['vault'], create_vault_tx)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
         assert_equal(result[0]['address'], withdraw_address)
         assert_equal(result[0]['amounts'], ['0.50000000@DFI'])
         assert_equal(result[0]['txid'], withdraw_tx)
 
-        # Test getvaulthistory limit
-        result = self.nodes[0].getvaulthistory(create_vault_tx, {'limit':1})
+        # Test listvaulthistory limit
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'limit':1})
         assert_equal(len(result), 1)
-        assert_equal(result[0]['vault'], create_vault_tx)
         assert_equal(result[0]['type'], 'CloseVault')
         assert_equal(result[0]['address'], close_address)
         assert_equal(result[0]['amounts'], ['10.00000000@DFI'])
@@ -227,11 +284,15 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         # Test rollback of tip to remove CloseVault TX
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
-        result = self.nodes[0].getvaulthistory(create_vault_tx)
+        result = self.nodes[0].listvaulthistory(create_vault_tx)
 
         # Quick check of last entry
-        assert_equal(len(result), 5)
+        assert_equal(len(result), 9)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
+
+        # Restore original scheme values
+        self.nodes[0].updateloanscheme(150, 5, 'LOAN0001')
+        self.nodes[0].generate(1)
 
         # Create new vault
         new_vault = self.nodes[0].createvault(vault_owner, 'LOAN0001')
@@ -261,58 +322,58 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].generate(33)
 
         # Check bids in result
-        result = self.nodes[0].getvaulthistory(new_vault)
-        assert_equal(len(result), 7)
-        assert_equal(result[0]['vault'], new_vault)
+        result = self.nodes[0].listvaulthistory(new_vault)
+        assert_equal(len(result), 8)
         assert_equal(result[0]['vaultSnapshot']['state'], 'active')
-        assert_equal(result[0]['vaultSnapshot']['collateralAmounts'], ['1.87309846@DFI'])
-        assert_equal(result[0]['vaultSnapshot']['collateralValue'], Decimal('187.30984600'))
+        assert_equal(result[0]['vaultSnapshot']['collateralAmounts'], ['1.87309837@DFI'])
+        assert_equal(result[0]['vaultSnapshot']['collateralValue'], Decimal('187.30983700'))
         assert_equal(result[0]['vaultSnapshot']['collateralRatio'], 0)
-        assert_equal(result[0]['vaultSnapshot']['schemeID'], 'LOAN0001')
         assert_equal(result[0]['vaultSnapshot']['batches'], [])
-        assert_equal(result[1]['vault'], new_vault)
         assert_equal(result[1]['type'], 'AuctionBid')
         assert_equal(result[1]['txid'], bid2_tx)
-        assert_equal(result[2]['vault'], new_vault)
         assert_equal(result[2]['type'], 'AuctionBid')
         assert_equal(result[2]['txid'], bid2_tx)
 
-        if result[0]['address'] == new_bidding_address:
+        if result[1]['address'] == new_bidding_address:
             assert_equal(result[1]['amounts'], ['-9.00000000@TSLA'])
             assert_equal(result[2]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
             assert_equal(result[2]['amounts'], ['8.00000000@TSLA'])
-        elif result[0]['address'] == self.nodes[0].get_genesis_keys().ownerAuthAddress:
+        elif result[1]['address'] == self.nodes[0].get_genesis_keys().ownerAuthAddress:
             assert_equal(result[1]['amounts'], ['8.00000000@TSLA'])
             assert_equal(result[2]['address'], new_bidding_address)
             assert_equal(result[2]['amounts'], ['-9.00000000@TSLA'])
         else:
             assert('Expected address not found in results')
 
-        assert_equal(result[3]['vault'], new_vault)
         assert_equal(result[3]['type'], 'AuctionBid')
         assert_equal(result[3]['address'], self.nodes[0].get_genesis_keys().ownerAuthAddress)
         assert_equal(result[3]['amounts'], ['-8.00000000@TSLA'])
         assert_equal(result[3]['txid'], bid1_tx)
-        assert_equal(result[4]['vault'], new_vault)
         assert_equal(result[4]['vaultSnapshot']['state'], 'inLiquidation')
         assert_equal(result[4]['vaultSnapshot']['collateralAmounts'], [])
         assert_equal(result[4]['vaultSnapshot']['collateralValue'], Decimal('0.00000000'))
         assert_equal(result[4]['vaultSnapshot']['collateralRatio'], 149)
-        assert_equal(result[4]['vaultSnapshot']['schemeID'], 'LOAN0001')
         assert_equal(len(result[4]['vaultSnapshot']['batches']), 1)
         assert_equal(result[4]['vaultSnapshot']['batches'][0]['index'], 0)
         assert_equal(result[4]['vaultSnapshot']['batches'][0]['collaterals'], ['10.00000000@DFI'])
         assert_equal(result[4]['vaultSnapshot']['batches'][0]['loan'], '6.68896763@TSLA')
-        assert_equal(result[5]['vault'], new_vault)
         assert_equal(result[5]['type'], 'TakeLoan')
         assert_equal(result[5]['address'], vault_owner)
         assert_equal(result[5]['amounts'], ['6.68896000@TSLA'])
         assert_equal(result[5]['txid'], takeloan_tx)
-        assert_equal(result[6]['vault'], new_vault)
         assert_equal(result[6]['type'], 'DepositToVault')
         assert_equal(result[6]['address'], vault_owner)
         assert_equal(result[6]['amounts'], ['-10.00000000@DFI'])
         assert_equal(result[6]['txid'], deposit_tx)
+        assert_equal(result[7]['type'], 'Vault')
+        assert_equal(result[7]['loanScheme']['id'], 'LOAN0001')
+        assert_equal(result[7]['loanScheme']['rate'], 500000000)
+        assert_equal(result[7]['loanScheme']['ratio'], 150)
+        assert_equal(result[7]['txid'], new_vault)
+
+        print(create_vault_tx)
+        print(new_vault)
+        assert(False)
 
 if __name__ == '__main__':
     TokensRPCGetVaultHistory().main()

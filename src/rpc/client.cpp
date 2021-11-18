@@ -256,7 +256,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "withdrawfromvault", 3, "inputs" },
     { "placeauctionbid", 1, "index" },
     { "placeauctionbid", 4, "inputs" },
-    { "getvaulthistory", 1, "options" },
+    { "listvaulthistory", 1, "options" },
     { "listvaults", 0, "options" },
     { "listvaults", 1, "pagination" },
     { "listauctions", 0, "pagination" },

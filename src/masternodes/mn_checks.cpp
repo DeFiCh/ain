@@ -23,6 +23,7 @@
 #include <validation.h>
 
 #include <algorithm>
+#include "vaulthistory.h"
 
 std::string ToString(CustomTxType type) {
     switch (type)
@@ -166,6 +167,8 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 {
     uint32_t height;
     uint256& vaultID;
+    std::string& schemeID;
+    CLoanSchemeCreation& globalScheme;
     const Consensus::Params& consensus;
     const std::vector<unsigned char>& metadata;
 
@@ -224,8 +227,11 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 public:
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params& consensus,
-                                const std::vector<unsigned char>& metadata, uint256& vaultID)
-        : height(height), vaultID(vaultID), consensus(consensus), metadata(metadata) {}
+                                const std::vector<unsigned char>& metadata,
+                                uint256& vaultID,
+                                std::string& schemeID,
+                                CLoanSchemeCreation& globalScheme)
+        : height(height), vaultID(vaultID), schemeID(schemeID), consensus(consensus), metadata(metadata), globalScheme(globalScheme) {}
 
     Res operator()(CCreateMasterNodeMessage& obj) const {
         return serialize(obj);
@@ -471,7 +477,16 @@ public:
 
     Res operator()(CLoanSchemeMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            globalScheme.identifier = obj.identifier;
+            globalScheme.ratio = obj.ratio;
+            globalScheme.rate = obj.rate;
+            if (!obj.updateHeight) {
+                globalScheme.creation = true;
+            }
+        }
+        return res;
     }
 
     Res operator()(CDefaultLoanSchemeMessage& obj) const {
@@ -486,7 +501,11 @@ public:
 
     Res operator()(CVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (res) {
+            res = serialize(obj);
+            schemeID = obj.schemeId;
+        }
+        return res;
     }
 
     Res operator()(CCloseVaultMessage& obj) const {
@@ -503,6 +522,9 @@ public:
         if (res) {
             res = serialize(obj);
             vaultID = obj.vaultId;
+            if (!obj.schemeId.empty()) {
+                schemeID = obj.schemeId;
+            }
         }
         return res;
     }
@@ -3010,9 +3032,9 @@ public:
     }
 };
 
-Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage, uint256& vaultID) {
+Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage, uint256& vaultID, std::string& schemeID, CLoanSchemeCreation& globalScheme) {
     try {
-        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata, vaultID), txMessage);
+        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata, vaultID, schemeID, globalScheme), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3048,7 +3070,7 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, CHistoryErasers& erasers, uint32_t txn) {
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CHistoryErasers& erasers) {
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return Res::Ok();
     }
@@ -3070,8 +3092,27 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryEraser view(mnview, height, txn, erasers);
     uint256 vaultID;
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
-        view.vaultID = vaultID;
+    std::string schemeID;
+    CLoanSchemeCreation globalScheme;
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID, schemeID, globalScheme))) {
+        if (pvaultHistoryDB) {
+            view.vaultID = vaultID;
+            if (!schemeID.empty()) {
+                erasers.removeLoanScheme = true;
+            } else if (!globalScheme.identifier.empty()) {
+                if (globalScheme.creation) {
+                    erasers.schemeCreationTxid = tx.GetHash();
+                } else {
+                    erasers.vaultView->ForEachGlobalScheme([&erasers, &globalScheme](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
+                        if (value.get().loanScheme.identifier != globalScheme.identifier) {
+                            return true;
+                        }
+                        erasers.schemeCreationTxid = key.schemeCreationTxid;
+                        return false;
+                    }, {height, txn, {}});
+                }
+            }
+        }
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
         // Track burn fee
@@ -3105,8 +3146,33 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     uint256 vaultID;
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID))) {
-        view.vaultID = vaultID;
+    std::string schemeID;
+    CLoanSchemeCreation globalScheme;
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID, schemeID, globalScheme))) {
+        if (pvaultHistoryDB && writers) {
+            view.vaultID = vaultID;
+            if (!schemeID.empty()) {
+                writers->schemeID = schemeID;
+
+                // ID null on vault creation
+                if (vaultID.IsNull()) {
+                    view.vaultID = tx.GetHash();
+                }
+            } else if (!globalScheme.identifier.empty()) {
+                if (globalScheme.creation) {
+                    globalScheme.schemeCreationTxid = tx.GetHash();
+                } else {
+                    writers->vaultView->ForEachGlobalScheme([&globalScheme](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
+                        if (value.get().loanScheme.identifier != globalScheme.identifier) {
+                            return true;
+                        }
+                        globalScheme.schemeCreationTxid = key.schemeCreationTxid;
+                        return false;
+                    }, {height, txn, {}});
+                }
+                writers->globalLoanScheme = globalScheme;
+            }
+        }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 
         // Track burn fee

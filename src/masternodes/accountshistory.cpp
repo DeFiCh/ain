@@ -36,9 +36,9 @@ CBurnHistoryStorage::CBurnHistoryStorage(const fs::path& dbName, std::size_t cac
 }
 
 CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type,
-                                               CHistoryWriters* writers, const uint256& vaultID)
+                                               CHistoryWriters* writers)
     : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn),
-    txid(txid), type(type), writers(writers), vaultID(vaultID)
+    txid(txid), type(type), writers(writers)
 {
 }
 
@@ -65,14 +65,13 @@ Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amoun
 bool CAccountsHistoryWriter::Flush()
 {
     if (writers) {
-        writers->Flush(height, txid, txn, type);
+        writers->Flush(height, txid, txn, type, vaultID);
     }
     return CCustomCSView::Flush();
 }
 
-CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers, const uint256& vaultID)
-    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn),
-      erasers(erasers),  vaultID(vaultID)
+CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers)
+    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), erasers(erasers)
 {
 }
 
@@ -90,7 +89,7 @@ Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
 
 bool CAccountsHistoryEraser::Flush()
 {
-    erasers.Flush(height, txn);
+    erasers.Flush(height, txn, vaultID);
     return Res::Ok(); // makes sure no changes are applyed to underlaying view
 }
 
@@ -130,7 +129,7 @@ void CHistoryErasers::SubBalance(const CScript& owner, const uint256& vaultID)
     }
 }
 
-void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn)
+void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn, const uint256& vaultID)
 {
     if (historyView) {
         for (const auto& account : accounts) {
@@ -145,6 +144,12 @@ void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn)
     if (vaultView) {
         for (const auto& vault : vaults) {
             vaultView->EraseVaultHistory({vault, height, txn});
+        }
+        if (removeLoanScheme) {
+            vaultView->EraseVaultScheme({vaultID, height});
+        }
+        if (!schemeCreationTxid.IsNull()) {
+            vaultView->EraseGlobalScheme({height, txn, schemeCreationTxid});
         }
     }
 }
@@ -185,7 +190,7 @@ void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount
     }
 }
 
-void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type)
+void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID)
 {
     if (historyView) {
         for (const auto& diff : diffs) {
@@ -202,6 +207,12 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
             for (const auto& addresses : diff.second) {
                 vaultView->WriteVaultHistory({diff.first, height, txn, addresses.first}, {txid, type, addresses.second});
             }
+        }
+        if (!schemeID.empty()) {
+            vaultView->WriteVaultScheme({vaultID, height}, {type, txid, schemeID, txn});
+        }
+        if (!globalLoanScheme.identifier.empty()) {
+            vaultView->WriteGlobalScheme({height, txn, globalLoanScheme.schemeCreationTxid}, {globalLoanScheme, type, txid});
         }
     }
 }
