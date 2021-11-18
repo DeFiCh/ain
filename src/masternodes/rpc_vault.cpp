@@ -1166,7 +1166,9 @@ UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const u
     if (!address.empty()) {
         obj.pushKV("txn", txn);
     }
-    obj.pushKV("txid", txid);
+    if (!txid.empty()) {
+        obj.pushKV("txid", txid);
+    }
     if (!amounts.empty()) {
         obj.pushKV("amounts", AmountsToJSON(amounts));
     }

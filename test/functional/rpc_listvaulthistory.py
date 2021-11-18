@@ -328,7 +328,6 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[0]['vaultSnapshot']['collateralAmounts'], ['1.87309837@DFI'])
         assert_equal(result[0]['vaultSnapshot']['collateralValue'], Decimal('187.30983700'))
         assert_equal(result[0]['vaultSnapshot']['collateralRatio'], 0)
-        assert_equal(result[0]['vaultSnapshot']['batches'], [])
         assert_equal(result[1]['type'], 'AuctionBid')
         assert_equal(result[1]['txid'], bid2_tx)
         assert_equal(result[2]['type'], 'AuctionBid')
@@ -370,10 +369,6 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[7]['loanScheme']['rate'], 500000000)
         assert_equal(result[7]['loanScheme']['ratio'], 150)
         assert_equal(result[7]['txid'], new_vault)
-
-        print(create_vault_tx)
-        print(new_vault)
-        assert(False)
 
 if __name__ == '__main__':
     TokensRPCGetVaultHistory().main()
