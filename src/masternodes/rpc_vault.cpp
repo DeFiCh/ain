@@ -433,6 +433,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
     std::string loanSchemeId;
     VaultState state{VaultState::Unknown};
     bool verbose{false};
+    bool isList{true};
     if (request.params.size() > 0) {
         UniValue optionsObj = request.params[0].get_obj();
         if (!optionsObj["ownerAddress"].isNull()) {
@@ -446,6 +447,12 @@ UniValue listvaults(const JSONRPCRequest& request) {
         }
         if (!optionsObj["verbose"].isNull()) {
             verbose = optionsObj["verbose"].getBool();
+        }
+        if (!optionsObj["jsonformat"].isNull()) {
+            auto jsonFormat = optionsObj["jsonformat"].getValStr();
+            if(jsonFormat != "list" && jsonFormat != "object")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+            isList = jsonFormat == "list";
         }
     }
 
@@ -472,7 +479,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         }
     }
 
-    UniValue valueArr{UniValue::VARR};
+    CUniValueFormatter valueArr{};
 
     LOCK(cs_main);
 
@@ -504,7 +511,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         return limit != 0;
     }, start, ownerAddress);
 
-    return valueArr;
+    return isList ? valueArr.getList() : valueArr.getObject("vaultId");
 }
 
 UniValue getvault(const JSONRPCRequest& request) {

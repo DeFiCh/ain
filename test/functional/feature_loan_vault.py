@@ -67,6 +67,9 @@ class VaultTest (DefiTestFramework):
         listVaults = self.nodes[0].listvaults()
         assert(len(listVaults) == 4)
 
+        listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2, "jsonformat": 'object'})
+        assert(type(listVaults) is dict)
+
         # check listVaults filter by ownerAddres
         listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2 })
         assert(len(listVaults) == 3)
