@@ -378,7 +378,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
                         {
                             {
                                 "ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                "Single account ID (CScript or address) or reserved word \"mine\""
+                                "Vault owner address (or CScript) or reserved word \"mine\""
                             },
                             {
                                 "loanSchemeId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
@@ -438,7 +438,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
     if (request.params.size() > 0) {
         UniValue optionsObj = request.params[0].get_obj();
         if (!optionsObj["ownerAddress"].isNull()) {
-            isMine = (optionsObj["ownerAddress"].getValStr() == "mine");
+            auto ownerAddressStr = optionsObj["ownerAddress"].getValStr();
+            isMine = (ownerAddressStr == "mine");
             if(!isMine)
                 ownerAddress = DecodeScript(optionsObj["ownerAddress"].getValStr());
         }
@@ -490,7 +491,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
             return false;
         }
 
-        if (isMine && !(IsMineCached(*pwallet, data.ownerAddress) & ISMINE_SPENDABLE)) {
+        if (isMine && !(IsMineCached(*pwallet, data.ownerAddress) & ISMINE_ALL)) {
             return true;
         }
         auto vaultState = GetVaultState(vaultId, data);
