@@ -370,7 +370,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
                         {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
+                                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"object\")"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with tokens information\n"

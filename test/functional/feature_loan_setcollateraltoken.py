@@ -123,6 +123,8 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
+        collTokens = self.nodes[0].listcollateraltokens({'all': True}, "object")
+        assert(type(collTokens) is dict)
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
         assert_equal(len(collTokens), 2)
 

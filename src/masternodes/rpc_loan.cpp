@@ -227,6 +227,8 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                             {"all", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Alltime setcollateraltoken transactions"},
                         },
                     },
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                     "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
 
                 },
                 RPCResult
@@ -238,7 +240,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                 },
      }.Check(request);
 
-    UniValue ret(UniValue::VARR);
+    CUniValueFormatter ret{};
     DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
     uint32_t height = ::ChainActive().Height();
     bool all = false;
@@ -252,6 +254,13 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
             height = (size_t) byObj["height"].get_int64();
         if (!byObj["all"].isNull())
             all =  byObj["all"].get_bool();
+    }
+    bool isList{true};
+    if(request.params.size() > 1){
+        auto jsonFormat = request.params[1].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
     }
 
     LOCK(cs_main);
@@ -268,7 +277,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
             return true;
         });
 
-        return (ret);
+        return isList ? ret.getList() : ret.getObject("tokenId");
     }
 
     pcustomcsview->ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
@@ -284,7 +293,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return true;
     }, start);
 
-    return (ret);
+    return isList ? ret.getList() : ret.getObject("tokenId");
 }
 
 UniValue setloantoken(const JSONRPCRequest& request) {
@@ -1386,7 +1395,7 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------       ---------------------   ----------
     {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"metadata", "inputs"}},
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
-    {"loan",        "listcollateraltokens",      &listcollateraltokens,  {"by"}},
+    {"loan",        "listcollateraltokens",      &listcollateraltokens,  {"by", "jsonformat"}},
     {"loan",        "setloantoken",              &setloantoken,          {"metadata", "inputs"}},
     {"loan",        "updateloantoken",           &updateloantoken,       {"metadata", "inputs"}},
     {"loan",        "listloantokens",            &listloantokens,        {}},
