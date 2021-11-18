@@ -532,7 +532,10 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 UniValue listloantokens(const JSONRPCRequest& request) {
     RPCHelpMan{"listloantokens",
                 "Return list of all created loan tokens.\n",
-                {},
+                {
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                     "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
+                },
                 RPCResult
                 {
                     "{...}     (object) Json object with loan token information\n"
@@ -542,16 +545,23 @@ UniValue listloantokens(const JSONRPCRequest& request) {
                 },
      }.Check(request);
 
-    UniValue ret(UniValue::VARR);
+    CUniValueFormatter ret{};
 
     LOCK(cs_main);
+    bool isList{true};
+    if(request.params.size() > 0){
+        std::string jsonFormat = request.params[0].getValStr();
+        if(jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+        isList = jsonFormat == "list";
+    }
 
     pcustomcsview->ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.push_back(setLoanTokenToJSON(loanToken,key));
         return true;
     });
 
-    return (ret);
+    return isList ? ret.getList() : ret.getObject();
 }
 
 UniValue getloantoken(const JSONRPCRequest& request)
@@ -1398,7 +1408,7 @@ static const CRPCCommand commands[] =
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {"by", "jsonformat"}},
     {"loan",        "setloantoken",              &setloantoken,          {"metadata", "inputs"}},
     {"loan",        "updateloantoken",           &updateloantoken,       {"metadata", "inputs"}},
-    {"loan",        "listloantokens",            &listloantokens,        {}},
+    {"loan",        "listloantokens",            &listloantokens,        {"jsonformat"}},
     {"loan",        "getloantoken",              &getloantoken,          {"by"}},
     {"loan",        "createloanscheme",          &createloanscheme,      {"mincolratio", "interestrate", "id", "inputs"}},
     {"loan",        "updateloanscheme",          &updateloanscheme,      {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},

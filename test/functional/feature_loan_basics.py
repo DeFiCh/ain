@@ -129,6 +129,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(loans['totals']['collateralTokens'], 2)
         assert_equal(loans['totals']['loanTokens'], 3)
 
+        loanTokens = self.nodes[0].listloantokens('object')
+        assert(type(loanTokens) is dict)
+
         loanTokens = self.nodes[0].listloantokens()
 
         assert_equal(len(loanTokens), 3)
