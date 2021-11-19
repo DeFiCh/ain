@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - hotfix
+      - "*hotfix*" # For testing
 
 jobs:
 
