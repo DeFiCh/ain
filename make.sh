@@ -315,6 +315,10 @@ git_version() {
     if [[ -z $current_tag ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
+        if [[ "${BUILD_VERSION}" == "HOTFIX" ]]; then
+            local prev_tag="$(git describe --abbrev=0 --tags)"
+            [[ -n "${prev_tag}" ]] && IMAGE_VERSION="${prev-tag}-${IMAGE_VERSION}"
+        fi
     else
         IMAGE_VERSION="${current_tag}"
         # strip the 'v' infront of version tags

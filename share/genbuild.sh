@@ -34,11 +34,11 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
-    if [ "x${BUILD_VERSION}" == "xHOTFIX" ]; then
+    # script uses bin/sh and not bash. So no string contains
+    if [ -n "$(echo "${BUILD_VERSION}" | grep hotfix)" ]; then
         # if it's a hotfix use hotfix label. eg: hotfix-59887e8
         SUFFIX=$(git rev-parse --short HEAD)
         git diff-index --quiet HEAD -- || SUFFIX="hotfix-$SUFFIX"
-
     else 
         # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
         SUFFIX=$(git rev-parse --short HEAD)
