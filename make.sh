@@ -312,13 +312,13 @@ git_version() {
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-    if [[ -z $current_tag ]]; then
+    if [[ -z $current_tag || "${current_branch}" == "hotfix" ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
         if [[ "${current_branch}" == "hotfix" ]]; then
             # If the current branch is hotfix branch, 
             # prefix it with the last available tag. 
-            local prev_tag="$(git describe --abbrev=0 --tags)"
+            local prev_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
             [[ -n "${prev_tag}" ]] && IMAGE_VERSION="${prev-tag}-${IMAGE_VERSION}"
         fi
     else
