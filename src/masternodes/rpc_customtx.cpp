@@ -452,10 +452,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
         return Res::Ok();
     }
     auto txMessage = customTypeToMessage(txType);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
-    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage, vaultID, schemeID, globalScheme);
+    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
         boost::apply_visitor(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);

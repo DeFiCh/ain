@@ -166,9 +166,6 @@ extern std::string ScriptToString(CScript const& script);
 class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 {
     uint32_t height;
-    uint256& vaultID;
-    std::string& schemeID;
-    CLoanSchemeCreation& globalScheme;
     const Consensus::Params& consensus;
     const std::vector<unsigned char>& metadata;
 
@@ -227,11 +224,8 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
 public:
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params& consensus,
-                                const std::vector<unsigned char>& metadata,
-                                uint256& vaultID,
-                                std::string& schemeID,
-                                CLoanSchemeCreation& globalScheme)
-        : height(height), vaultID(vaultID), schemeID(schemeID), consensus(consensus), metadata(metadata), globalScheme(globalScheme) {}
+                                const std::vector<unsigned char>& metadata)
+        : height(height), consensus(consensus), metadata(metadata) {}
 
     Res operator()(CCreateMasterNodeMessage& obj) const {
         return serialize(obj);
@@ -477,16 +471,7 @@ public:
 
     Res operator()(CLoanSchemeMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            globalScheme.identifier = obj.identifier;
-            globalScheme.ratio = obj.ratio;
-            globalScheme.rate = obj.rate;
-            if (!obj.updateHeight) {
-                globalScheme.creation = true;
-            }
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CDefaultLoanSchemeMessage& obj) const {
@@ -501,77 +486,42 @@ public:
 
     Res operator()(CVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            schemeID = obj.schemeId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCloseVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CUpdateVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-            if (!obj.schemeId.empty()) {
-                schemeID = obj.schemeId;
-            }
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CDepositToVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CWithdrawFromVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanTakeLoanMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanPaybackLoanMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (res) {
-            res = serialize(obj);
-            vaultID = obj.vaultId;
-        }
-        return res;
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCustomTxMessageNone&) const {
@@ -3032,9 +2982,9 @@ public:
     }
 };
 
-Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage, uint256& vaultID, std::string& schemeID, CLoanSchemeCreation& globalScheme) {
+Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
     try {
-        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata, vaultID, schemeID, globalScheme), txMessage);
+        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3094,25 +3044,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     uint256 vaultID;
     std::string schemeID;
     CLoanSchemeCreation globalScheme;
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID, schemeID, globalScheme))) {
-        if (pvaultHistoryDB) {
-            view.vaultID = vaultID;
-            if (!schemeID.empty()) {
-                erasers.removeLoanScheme = true;
-            } else if (!globalScheme.identifier.empty()) {
-                if (globalScheme.creation) {
-                    erasers.schemeCreationTxid = tx.GetHash();
-                } else {
-                    erasers.vaultView->ForEachGlobalScheme([&erasers, &globalScheme](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
-                        if (value.get().loanScheme.identifier != globalScheme.identifier) {
-                            return true;
-                        }
-                        erasers.schemeCreationTxid = key.schemeCreationTxid;
-                        return false;
-                    }, {height, txn, {}});
-                }
-            }
-        }
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
         // Track burn fee
@@ -3127,6 +3059,54 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         return res;
     }
     return (view.Flush(), res);
+}
+
+void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& view, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
+    if (txType == CustomTxType::Vault) {
+        auto obj = boost::get<CVaultMessage>(txMessage);
+        writers->schemeID = obj.schemeId;
+        view.vaultID = txid;
+    } else if (txType == CustomTxType::CloseVault) {
+        auto obj = boost::get<CCloseVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::UpdateVault) {
+        auto obj = boost::get<CUpdateVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+        if (!obj.schemeId.empty()) {
+            writers->schemeID = obj.schemeId;
+        }
+    } else if (txType == CustomTxType::DepositToVault) {
+        auto obj = boost::get<CDepositToVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::WithdrawFromVault) {
+        auto obj = boost::get<CWithdrawFromVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::TakeLoan) {
+        auto obj = boost::get<CLoanTakeLoanMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::PaybackLoan) {
+        auto obj = boost::get<CLoanPaybackLoanMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::AuctionBid) {
+        auto obj = boost::get<CAuctionBidMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::LoanScheme) {
+        auto obj = boost::get<CLoanSchemeMessage>(txMessage);
+        writers->globalLoanScheme.identifier = obj.identifier;
+        writers->globalLoanScheme.ratio = obj.ratio;
+        writers->globalLoanScheme.rate = obj.rate;
+        if (!obj.updateHeight) {
+            writers->globalLoanScheme.schemeCreationTxid = txid;
+        } else {
+            writers->vaultView->ForEachGlobalScheme([&writers](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
+                if (value.get().loanScheme.identifier != writers->globalLoanScheme.identifier) {
+                    return true;
+                }
+                writers->globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
+                return false;
+            }, {height, txn, {}});
+        }
+    }
 }
 
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
@@ -3145,33 +3125,9 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage, vaultID, schemeID, globalScheme))) {
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (pvaultHistoryDB && writers) {
-            view.vaultID = vaultID;
-            if (!schemeID.empty()) {
-                writers->schemeID = schemeID;
-
-                // ID null on vault creation
-                if (vaultID.IsNull()) {
-                    view.vaultID = tx.GetHash();
-                }
-            } else if (!globalScheme.identifier.empty()) {
-                if (globalScheme.creation) {
-                    globalScheme.schemeCreationTxid = tx.GetHash();
-                } else {
-                    writers->vaultView->ForEachGlobalScheme([&globalScheme](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
-                        if (value.get().loanScheme.identifier != globalScheme.identifier) {
-                            return true;
-                        }
-                        globalScheme.schemeCreationTxid = key.schemeCreationTxid;
-                        return false;
-                    }, {height, txn, {}});
-                }
-                writers->globalLoanScheme = globalScheme;
-            }
+           PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 

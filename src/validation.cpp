@@ -1671,7 +1671,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
         }
         if (pvaultHistoryDB) {
-            pvaultHistoryDB->EraseVaultState(pindex->nHeight);
+            pvaultHistoryDB->EraseVaultHistory(pindex->nHeight);
         }
     }
 

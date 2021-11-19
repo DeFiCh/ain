@@ -12,8 +12,8 @@
 #include <script/script.h>
 
 struct VaultHistoryKey {
-    uint256 vaultID;
     uint32_t blockHeight;
+    uint256 vaultID;
     uint32_t txn; // for order in block
     CScript address;
 
@@ -161,9 +161,7 @@ public:
     void WriteVaultScheme(VaultSchemeKey const & key, const VaultSchemeValue& value);
     void WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio = 0);
 
-    void EraseVaultHistory(const VaultHistoryKey& key);
-    void EraseVaultScheme(const VaultSchemeKey& key);
-    void EraseVaultState(const uint32_t height);
+    void EraseVaultHistory(const uint32_t height);
 
     void ForEachVaultHistory(std::function<bool(VaultHistoryKey const &, CLazySerialize<VaultHistoryValue>)> callback, VaultHistoryKey const & start = {});
     void ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback, VaultSchemeKey const & start = {});

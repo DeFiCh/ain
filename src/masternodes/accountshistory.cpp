@@ -141,17 +141,6 @@ void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn, const uin
             burnView->EraseAccountHistory({account, height, txn});
         }
     }
-    if (vaultView) {
-        for (const auto& vault : vaults) {
-            vaultView->EraseVaultHistory({vault, height, txn});
-        }
-        if (removeLoanScheme) {
-            vaultView->EraseVaultScheme({vaultID, height});
-        }
-        if (!schemeCreationTxid.IsNull()) {
-            vaultView->EraseGlobalScheme({height, txn, schemeCreationTxid});
-        }
-    }
 }
 
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
@@ -205,7 +194,7 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
     if (vaultView) {
         for (const auto& diff : vaultDiffs) {
             for (const auto& addresses : diff.second) {
-                vaultView->WriteVaultHistory({diff.first, height, txn, addresses.first}, {txid, type, addresses.second});
+                vaultView->WriteVaultHistory({height, diff.first, txn, addresses.first}, {txid, type, addresses.second});
             }
         }
         if (!schemeID.empty()) {

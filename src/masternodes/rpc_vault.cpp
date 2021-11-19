@@ -1343,7 +1343,7 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
     auto shouldContinue = [&](VaultHistoryKey const & key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool
     {
         if (!isMatchVault(key.vaultID)) {
-            return false;
+            return true;
         }
 
         if (shouldSkipBlock(key.blockHeight)) {
@@ -1366,7 +1366,7 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
         return --count != 0;
     };
 
-    VaultHistoryKey startKey{vaultID, maxBlockHeight, std::numeric_limits<uint32_t>::max(), {}};
+    VaultHistoryKey startKey{maxBlockHeight, vaultID, std::numeric_limits<uint32_t>::max(), {}};
     pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
 
     // Get vault state changes

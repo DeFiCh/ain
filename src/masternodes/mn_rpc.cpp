@@ -425,10 +425,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     std::vector<unsigned char> metadata;
     auto txType = GuessCustomTxType(tx, metadata);
     auto txMessage = customTypeToMessage(txType);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
-    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage, vaultID, schemeID, globalScheme);
+    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());

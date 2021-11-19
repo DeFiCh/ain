@@ -118,6 +118,11 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         deposit_tx = self.nodes[0].deposittovault(create_vault_tx, collateral_a, '10@DFI')
         self.nodes[0].generate(1)
 
+        # Create new vault, make sure records do not get mixed up
+        another_owner = self.nodes[0].getnewaddress("", "legacy")
+        create_another_tx = self.nodes[0].createvault(another_owner, 'LOAN0002')
+        self.nodes[0].generate(1)
+
         # Update global loan scheme change
         update_002_tx = self.nodes[0].updateloanscheme(600, 1, 'LOAN0002')
         self.nodes[0].generate(1)
@@ -132,6 +137,10 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         result = self.nodes[0].listvaulthistory(create_vault_tx)
         assert_equal(len(result), 2)
         assert_equal(result[0]['type'], 'DepositToVault')
+        self.nodes[0].generate(1)
+
+        # Update other vault's loan scheme
+        update_tx = self.nodes[0].updatevault(create_another_tx, {'loanSchemeId': 'LOAN0001'})
         self.nodes[0].generate(1)
 
         # Change loan scheme
@@ -183,6 +192,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         withdraw_address = self.nodes[0].getnewaddress("", "legacy")
         withdraw_tx = self.nodes[0].withdrawfromvault(create_vault_tx, withdraw_address, '0.5@DFI')
         self.nodes[0].generate(1)
+        withdraw_height = self.nodes[0].getblockcount()
 
         # Close vault
         close_address = self.nodes[0].getnewaddress("", "legacy")
@@ -238,7 +248,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         assert_equal(result[9]['txid'], create_vault_tx)
 
         # Test listvaulthistory block height and depth
-        result = self.nodes[0].listvaulthistory(create_vault_tx, {'maxBlockHeight':126,'depth':1})
+        result = self.nodes[0].listvaulthistory(create_vault_tx, {'maxBlockHeight':withdraw_height,'depth':1})
         assert_equal(len(result), 3)
         assert_equal(result[0]['type'], 'WithdrawFromVault')
         assert_equal(result[0]['address'], withdraw_address)
@@ -308,7 +318,19 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Take loan
         takeloan_tx = self.nodes[0].takeloan({'vaultId': new_vault,'amounts': '6.68896@TSLA'})
-        self.nodes[0].generate(4)
+        self.nodes[0].generate(2)
+
+        # Test state change
+        result = self.nodes[0].listvaulthistory(new_vault)
+        assert_equal(len(result), 4)
+        assert_equal(result[0]['vaultSnapshot']['state'], 'inLiquidation')
+
+        # Test rollback of state change
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        result = self.nodes[0].listvaulthistory(new_vault)
+        assert_equal(len(result), 3)
+        assert_equal(result[0]['type'], 'TakeLoan')
+        self.nodes[0].generate(1)
 
         # Fund another bidding address
         new_bidding_address = self.nodes[0].getnewaddress("", "legacy")
@@ -319,7 +341,7 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         bid1_tx = self.nodes[0].placeauctionbid(new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, '8@TSLA')
         self.nodes[0].generate(1)
         bid2_tx = self.nodes[0].placeauctionbid(new_vault, 0, new_bidding_address, '9@TSLA')
-        self.nodes[0].generate(33)
+        self.nodes[0].generate(35)
 
         # Check bids in result
         result = self.nodes[0].listvaulthistory(new_vault)
