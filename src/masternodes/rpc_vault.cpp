@@ -1195,7 +1195,7 @@ UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
     snapshot.pushKV("state", !value.auctionBatches.empty() ? "inLiquidation" : "active");
     snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
     snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
-    snapshot.pushKV("collateralRatio", static_cast<int>(value.ratio));
+    snapshot.pushKV("collateralRatio", value.ratio != -1 ? static_cast<int>(value.ratio) : static_cast<int>(value.collateralsValues.ratio()));
     if (!value.auctionBatches.empty()) {
         snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
     }
