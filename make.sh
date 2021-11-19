@@ -318,8 +318,11 @@ git_version() {
         if [[ "${current_branch}" == "hotfix" ]]; then
             # If the current branch is hotfix branch, 
             # prefix it with the last available tag. 
-            local prev_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
-            [[ -n "${prev_tag}" ]] && IMAGE_VERSION="${prev-tag}-${IMAGE_VERSION}"
+            local last_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
+            echo "> latest tag: ${last_tag}"
+            if [[ -n "${last_tag}" ]]; then
+                IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
+            fi
         fi
     else
         IMAGE_VERSION="${current_tag}"
@@ -331,6 +334,8 @@ git_version() {
 
     echo "> git branch: ${current_branch}"
     echo "> version: ${IMAGE_VERSION}"
+
+    export BUILD_VERSION="${IMAGE_VERSION}"
     echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
 }
 
