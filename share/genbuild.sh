@@ -37,8 +37,8 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     GIT_LATEST_TAG_AVAILABLE="$(git describe --tags --abbrev=0)"
 
     if [ "x${BUILD_VERSION}" == "xHOTFIX" ] && [ -n "$GIT_LATEST_TAG_AVAILABLE" ]; then
-        TIMESTAMP="$(date '+%s')"
-        HOTFIX_TAG="${GIT_LATEST_TAG_AVAILABLE}-hotfix-${TIMESTAMP}"
+        COMMIT_SHORT_HASH=$(git rev-parse --short HEAD)
+        HOTFIX_TAG="${GIT_LATEST_TAG_AVAILABLE}-hotfix-${COMMIT_SHORT_HASH}"
         SUFFIX="${HOTFIX_TAG}"
     else 
         # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
