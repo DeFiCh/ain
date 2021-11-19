@@ -116,7 +116,6 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
         self.nodes[0].utxostoaccount({collateral_a: "100@0"})
         self.nodes[0].generate(1)
         deposit_tx = self.nodes[0].deposittovault(create_vault_tx, collateral_a, '10@DFI')
-        self.nodes[0].generate(1)
 
         # Create new vault, make sure records do not get mixed up
         another_owner = self.nodes[0].getnewaddress("", "legacy")
@@ -141,7 +140,6 @@ class TokensRPCGetVaultHistory(DefiTestFramework):
 
         # Update other vault's loan scheme
         update_tx = self.nodes[0].updatevault(create_another_tx, {'loanSchemeId': 'LOAN0001'})
-        self.nodes[0].generate(1)
 
         # Change loan scheme
         update_tx = self.nodes[0].updatevault(create_vault_tx, {'loanSchemeId': 'LOAN0001'})
