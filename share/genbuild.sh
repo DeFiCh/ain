@@ -34,8 +34,9 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
-    if [ "x${BUILD_VERSION}" == "xHOTFIX" ];
-        GIT_LATEST_TAG_AVAILABLE="$(git describe --tags --abbrev=0)"
+    GIT_LATEST_TAG_AVAILABLE="$(git describe --tags --abbrev=0)"
+
+    if [ "x${BUILD_VERSION}" == "xHOTFIX" ] && [ -n "$GIT_LATEST_TAG_AVAILABLE" ]; then
         TIMESTAMP="$(date '+%s')"
         HOTFIX_TAG="${GIT_LATEST_TAG_AVAILABLE}-hotfix-${TIMESTAMP}"
         SUFFIX="${HOTFIX_TAG}"
