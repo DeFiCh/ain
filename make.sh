@@ -315,6 +315,12 @@ git_version() {
     if [[ -z $current_tag ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
+        if [[ "${current_branch}" == "hotfix" ]]; then
+            # If the current branch is hotfix branch, 
+            # prefix it with the last available tag. 
+            local prev_tag="$(git describe --abbrev=0 --tags)"
+            [[ -n "${prev_tag}" ]] && IMAGE_VERSION="${prev-tag}-${IMAGE_VERSION}"
+        fi
     else
         IMAGE_VERSION="${current_tag}"
         # strip the 'v' infront of version tags
@@ -323,6 +329,7 @@ git_version() {
         fi
     fi
 
+    echo "> git branch: ${current_branch}"
     echo "> version: ${IMAGE_VERSION}"
     echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
 }
