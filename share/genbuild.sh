@@ -34,9 +34,16 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
-    # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
-    SUFFIX=$(git rev-parse --short HEAD)
-    git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
+    if [ "x${BUILD_VERSION}" == "xHOTFIX" ];
+        GIT_LATEST_TAG_AVAILABLE="$(git describe --tags --abbrev=0)"
+        TIMESTAMP="$(date '+%s')"
+        HOTFIX_TAG="${GIT_LATEST_TAG_AVAILABLE}-hotfix-${TIMESTAMP}"
+        SUFFIX="${HOTFIX_TAG}"
+    else 
+        # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
+        SUFFIX=$(git rev-parse --short HEAD)
+        git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
+    fi
 fi
 
 if [ -n "$DESC" ]; then
