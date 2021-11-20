@@ -336,7 +336,9 @@ git_version() {
     echo "> version: ${IMAGE_VERSION}"
 
     export BUILD_VERSION="${IMAGE_VERSION}"
-    echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
+    fi
 }
 
 pkg_install_deps() {
