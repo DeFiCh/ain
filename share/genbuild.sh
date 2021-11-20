@@ -24,6 +24,7 @@ git_check_in_repo() {
 
 DESC=""
 SUFFIX=""
+CURRENT_BRANCH=""
 if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo share/genbuild.sh; then
     # clean 'dirty' status of touched files that haven't been modified
     git diff >/dev/null 2>/dev/null
@@ -40,7 +41,9 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     # CURRENT_BRANCH="$(git branch --show-current)"
     
     if [ -n "$CURRENT_BRANCH" ]; then
-        SUFFIX="$CURRENT_BRANCH-$SUFFIX"
+        # Make sure to replace `/` with `-`. Since this is
+        # executed with posix shell, cannot do bashisms.
+        SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
     fi
 
     if [ "$CURRENT_BRANCH" != "hotfix" ]; then
@@ -50,7 +53,7 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     fi
 fi
 
-echo "BUILD_GIT_BRANCH: $(git branch --show-current)"
+echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
 echo "BUILD_SUFFIX: $SUFFIX"
 
 if [ -n "$DESC" ]; then
