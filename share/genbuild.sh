@@ -46,9 +46,13 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
     fi
     
-    echo "Build branch: $CURRENT_BRANCH"
-    echo "Build suffix: $SUFFIX"
+    echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
 fi
+
+echo "BITCOIN_GENBUILD_NO_GIT: $BITCOIN_GENBUILD_NO_GIT"
+echo "BUILD_GIT_BRANCH: $(git branch --show-current)"
+echo "BUILD_SUFFIX: $SUFFIX"
+
 
 if [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
