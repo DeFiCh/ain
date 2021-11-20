@@ -35,7 +35,10 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     fi
 
     SUFFIX=$(git rev-parse --short HEAD)
-    CURRENT_BRANCH="$(git branch --show-current)"
+    CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    # Move to this after git upgrade from base images 
+    # CURRENT_BRANCH="$(git branch --show-current)"
+    
     if [ -n "$CURRENT_BRANCH" ]; then
         SUFFIX="$CURRENT_BRANCH-$SUFFIX"
     fi

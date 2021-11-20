@@ -86,6 +86,7 @@ build_prepare() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
+    # ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
     ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
 }
 
