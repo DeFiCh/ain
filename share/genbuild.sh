@@ -34,14 +34,13 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
-    CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    SUFFIX=$(git rev-parse --short HEAD)
+    CURRENT_BRANCH="$(git branch --show-current)"
     if [ "${CURRENT_BRANCH}" = "hotfix" ]; then
-        # if it's a hotfix use hotfix label. eg: hotfix-59887e8
-        SUFFIX=$(git rev-parse --short HEAD)
-        git diff-index --quiet HEAD -- || SUFFIX="hotfix-$SUFFIX"
-    else 
+        # if it's a hotfix use hotfix label. eg: 59887e8-hotfix
+        git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-hotfix"
+    else
         # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
-        SUFFIX=$(git rev-parse --short HEAD)
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
     fi
 fi
