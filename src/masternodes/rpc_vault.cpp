@@ -1258,7 +1258,7 @@ static const CRPCCommand commands[] =
     {"vault",        "placeauctionbid",           &placeauctionbid,       {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
-    {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens"}},
+    {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens", "targetRatio"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
