@@ -17,7 +17,7 @@ constexpr const uint8_t VOC_CYCLES = 2;
 constexpr const uint8_t MAX_CYCLES = 3;
 
 enum CPropType : uint8_t {
-    CommunityFundRequest    = 0x01,
+    CommunityFundProposal   = 0x01,
     BlockRewardReallocation = 0x02,
     VoteOfConfidence        = 0x03,
 };

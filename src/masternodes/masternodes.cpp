@@ -76,7 +76,7 @@ CAmount GetTokenCreationFee(int)
 CAmount GetPropsCreationFee(int, CPropType prop)
 {
     switch(prop) {
-        case CPropType::CommunityFundRequest:
+        case CPropType::CommunityFundProposal:
             return Params().GetConsensus().props.cfp.fee;
         case CPropType::BlockRewardReallocation:
             return Params().GetConsensus().props.brp.fee;

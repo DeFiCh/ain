@@ -3479,7 +3479,7 @@ public:
     Res operator()(const CCreatePropMessage& obj) const
     {
         switch (obj.type) {
-        case CPropType::CommunityFundRequest:
+        case CPropType::CommunityFundProposal:
             if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
                 return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
             break;
