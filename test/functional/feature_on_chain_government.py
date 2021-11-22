@@ -89,7 +89,7 @@ class ChainGornmentTest(DefiTestFramework):
         result = results[0]
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
-        assert_equal(result["type"], "CommunityFundRequest")
+        assert_equal(result["type"], "CommunityFundProposal")
         assert_equal(result["status"], "Voting")
         assert_equal(result["amount"], Decimal("100"))
         assert_equal(result["cyclesPaid"], 1)

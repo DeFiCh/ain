@@ -7,7 +7,7 @@
 std::string CPropTypeToString(const CPropType status)
 {
     switch(status) {
-    case CPropType::CommunityFundRequest:   return "CommunityFundRequest";
+    case CPropType::CommunityFundProposal:  return "CommunityFundProposal";
     case CPropType::BlockRewardReallocation:return "BlockRewardReallocation";
     case CPropType::VoteOfConfidence:       return "VoteOfConfidence";
     }
