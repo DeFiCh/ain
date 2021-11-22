@@ -260,6 +260,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listvaults", 1, "pagination" },
     { "listauctions", 0, "pagination" },
     { "listauctionhistory", 1, "pagination" },
+    { "estimateloan", 1, "tokens" },
+    { "estimateloan", 2, "targetRatio" },
 
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },

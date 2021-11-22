@@ -1146,6 +1146,104 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue estimateloan(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"estimateloan",
+               "Returns amount of loan tokens a vault can take depending on a target collateral ratio.\n",
+                {
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
+                    {"tokens", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with loans token as key and their percent split as value",
+                        {
+
+                            {"split", RPCArg::Type::NUM, RPCArg::Optional::NO, "The percent split"},
+                        },
+                    },
+                    {"targetRatio", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Target collateral ratio. (defaults to vault's loan scheme ratio)"}
+                },
+                RPCResult{
+                    "\"json\"                  (Array) Array of <amount@token> strings\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimateloan", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf '{"TSLA":0.5, "FB": 0.4, "GOOGL":0.1}' 150)") +
+                       HelpExampleRpc("estimateloan", R"("5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf", {"TSLA":0.5, "FB": 0.4, "GOOGL":0.1}, 150)")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VNUM}, false);
+
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
+
+    LOCK(cs_main);
+    auto height = ::ChainActive().Height();
+
+    auto vault = pcustomcsview->GetVault(vaultId);
+    if (!vault) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found.", vaultId.GetHex()));
+    }
+
+    auto vaultState = GetVaultState(vaultId, *vault);
+    if (vaultState == VaultState::InLiquidation) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Vault <%s> is in liquidation.", vaultId.GetHex()));
+    }
+
+    auto scheme = pcustomcsview->GetLoanScheme(vault->schemeId);
+    uint32_t ratio = scheme->ratio;
+    if (request.params.size() > 2) {
+        ratio = (size_t) request.params[2].get_int64();
+    }
+
+    auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+    if (!collaterals) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Cannot estimate loan without collaterals.");
+    }
+
+    auto blockTime = ::ChainActive().Tip()->GetBlockTime();
+    auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, true);
+    if (!rate.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
+    }
+
+    auto collValue = ValueFromUint(rate.val->totalCollaterals);
+    UniValue ret(UniValue::VARR);
+    CBalances loanBalances;
+    CAmount totalSplit{0};
+    if (request.params.size() > 1 && request.params[1].isObject()) {
+        for (const auto& tokenId : request.params[1].getKeys()) {
+            CAmount split = AmountFromValue(request.params[1][tokenId]);
+
+            auto token = pcustomcsview->GetToken(tokenId);
+            if (!token) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %d does not exist!", tokenId));
+            }
+
+            auto loanToken = pcustomcsview->GetLoanTokenByID(token->first);
+            if (!loanToken) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
+            }
+
+            auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            if (!priceFeed.ok) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+            }
+
+            auto price = priceFeed.val->priceRecord[0];
+            if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+                throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", tokenId));
+            }
+
+            auto availableValue = MultiplyAmounts(rate.val->totalCollaterals, split);
+            auto loanAmount = DivideAmounts(availableValue, price);
+            auto amountRatio = MultiplyAmounts(DivideAmounts(loanAmount, ratio), 100);
+
+            loanBalances.Add({token->first, amountRatio});
+            totalSplit += split;
+        }
+        if (totalSplit != COIN)
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %d vs expected %d", totalSplit, COIN));
+    }
+    return AmountsToJSON(loanBalances.balances);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1160,6 +1258,7 @@ static const CRPCCommand commands[] =
     {"vault",        "placeauctionbid",           &placeauctionbid,       {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
+    {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
