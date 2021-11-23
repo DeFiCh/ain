@@ -1189,7 +1189,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     for (const auto& [tokenId, tokenAmount] : loanAmounts.balances) {
         auto loanToken = pcustomcsview->GetLoanTokenByID(tokenId);
         if (!loanToken) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId.v));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%d) is not a loan token!", tokenId.v));
         }
 
         auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
@@ -1199,7 +1199,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
 
        auto price = priceFeed.val->priceRecord[0];
         if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", tokenId.v));
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", loanToken->symbol));
         }
         totalLoanValue += MultiplyAmounts(tokenAmount, price);
     }
@@ -1239,7 +1239,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         totalSplit += split;
     }
     if (totalSplit != COIN) {
-        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %d vs expected %d", totalSplit, COIN));
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
     }
 
     return AmountsToJSON(collateralBalances.balances);

@@ -116,7 +116,7 @@ class EstimateCollateralTest (DefiTestFramework):
             self.nodes[0].estimatecollateral("10@TSLA", 200)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No live fixed price" in errorString)
+        assert("No live fixed price for TSLA" in errorString)
 
         oracle1_prices = [
             {"currency": "USD", "tokenAmount": "1@DFI"},
@@ -147,7 +147,7 @@ class EstimateCollateralTest (DefiTestFramework):
             self.nodes[0].estimatecollateral("10@TSLA", 200, {"DFI": 0.8})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("total split between collateral tokens = 80000000 vs expected 100000000" in errorString)
+        assert("total split between collateral tokens = 0.80000000 vs expected 1.00000000" in errorString)
 
         estimatecollateral = self.nodes[0].estimatecollateral("10@TSLA", 200)
 
