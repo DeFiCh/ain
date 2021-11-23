@@ -160,8 +160,7 @@ class EstimateLoanTest (DefiTestFramework):
             self.nodes[0].estimateloan(vaultId1, {"TSLA": 0.8})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("total split between loan tokens = 80000000 vs expected 100000000" in errorString)
-
+        assert("total split between loan tokens = 0.80000000 vs expected 1.00000000" in errorString)
 
         estimateloan = self.nodes[0].estimateloan(vaultId1, {"TSLA":1})
         # Cannot take more loan than estimated
@@ -219,7 +218,6 @@ class EstimateLoanTest (DefiTestFramework):
             self.nodes[0].estimateloan(vaultId1, {"TSLA":1})
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("errorString", errorString)
         assert("Vault <" + vaultId1 + "> is in liquidation" in errorString)
 
 if __name__ == '__main__':

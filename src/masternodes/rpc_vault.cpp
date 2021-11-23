@@ -1239,7 +1239,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
             totalSplit += split;
         }
         if (totalSplit != COIN)
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %d vs expected %d", totalSplit, COIN));
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
     }
     return AmountsToJSON(loanBalances.balances);
 }
