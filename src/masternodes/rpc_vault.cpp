@@ -1189,7 +1189,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     for (const auto& [tokenId, tokenAmount] : loanAmounts.balances) {
         auto loanToken = pcustomcsview->GetLoanTokenByID(tokenId);
         if (!loanToken) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId.v));
         }
 
         auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
@@ -1212,7 +1212,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %d does not exist!", tokenId));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", tokenId));
         }
 
         auto collateralToken = pcustomcsview->HasLoanCollateralToken({token->first, height});
