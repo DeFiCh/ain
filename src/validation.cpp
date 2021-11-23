@@ -4674,11 +4674,20 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_CHECKPOINT, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
 
     // Check timestamp against prev
-    if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
-        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
+    const auto greatWorld = block.height >= static_cast<uint64_t>(consensusParams.GreatWorldHeight);
+    if ((greatWorld && block.GetBlockTime() <= pindexPrev->GetBlockTime()) || block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old",
+                             strprintf("block's timestamp is too early. Block time: %d Min time: %d",
+                                       block.GetBlockTime(), greatWorld ? pindexPrev->GetBlockTime() : pindexPrev->GetMedianTimePast()));
+    }
+
+    if (greatWorld && block.GetBlockTime() % BLOCK_TIME_INTERVAL != 0) {
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-time-interval",
+                             "block created at invalid time interval");
+    }
 
     // Check timestamp
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && block.height >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
+    if ((Params().NetworkIDString() != CBaseChainParams::REGTEST || greatWorld) && block.height >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }

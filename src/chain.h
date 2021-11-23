@@ -27,20 +27,18 @@ static constexpr int64_t MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT = 5 * 60;
 static constexpr int64_t MAX_FUTURE_BLOCK_TIME_EUNOSPAYA = 30;
 
 /**
+ * Interval in seconds of acceptable block times after the Great World
+ * hard fork. Blocks with times outside of this interval will be rejected.
+ */
+static constexpr int64_t BLOCK_TIME_INTERVAL = 15;
+
+/**
  * Timestamp window used as a grace period by code that compares external
  * timestamps (such as timestamps passed to RPCs, or wallet key creation times)
  * to block timestamps. This should be set at least as high as
  * MAX_FUTURE_BLOCK_TIME.
  */
 static constexpr int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME;
-
-/**
- * Maximum gap between node time and block time used
- * for the "Catching up..." mode in GUI.
- *
- * Ref: https://github.com/bitcoin/bitcoin/pull/1026
- */
-static constexpr int64_t MAX_BLOCK_TIME_GAP = 90 * 60;
 
 class CBlockFileInfo
 {

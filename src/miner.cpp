@@ -151,60 +151,56 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     const auto txVersion = GetTransactionVersion(nHeight);
 
-    // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
-    if (Params().NetworkIDString() != CBaseChainParams::MAIN ||
-            (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
-        CTeamView::CTeam currentTeam;
-        if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
-            currentTeam = *team;
+    CTeamView::CTeam currentTeam;
+    if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
+        currentTeam = *team;
+    }
+
+    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
+
+    bool createAnchorReward{false};
+
+    // No new anchors until we hit fork height, no new confirms should be found before fork.
+    if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
+
+        // Make sure anchor block height and hash exist in chain.
+        CBlockIndex *anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
+        if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
+            createAnchorReward = true;
+        }
+    }
+
+    if (createAnchorReward) {
+        CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+
+        for (auto const &msg : confirms) {
+            finMsg.sigs.push_back(msg.signature);
         }
 
-        auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
+        CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
+        metadata << finMsg;
 
-        bool createAnchorReward{false};
+        CTxDestination destination =
+                finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
+                        WitnessV0KeyHash(finMsg.rewardKeyID));
 
-        // No new anchors until we hit fork height, no new confirms should be found before fork.
-        if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
+        CMutableTransaction mTx(txVersion);
+        mTx.vin.resize(1);
+        mTx.vin[0].prevout.SetNull();
+        mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+        mTx.vout.resize(2);
+        mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+        mTx.vout[0].nValue = 0;
+        mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+        mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
+                CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
-            // Make sure anchor block height and hash exist in chain.
-            CBlockIndex *anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
-            if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
-                createAnchorReward = true;
-            }
-        }
-
-        if (createAnchorReward) {
-            CAnchorFinalizationMessagePlus finMsg{confirms[0]};
-
-            for (auto const &msg : confirms) {
-                finMsg.sigs.push_back(msg.signature);
-            }
-
-            CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
-            metadata << finMsg;
-
-            CTxDestination destination =
-                    finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
-                            WitnessV0KeyHash(finMsg.rewardKeyID));
-
-            CMutableTransaction mTx(txVersion);
-            mTx.vin.resize(1);
-            mTx.vin[0].prevout.SetNull();
-            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-            mTx.vout.resize(2);
-            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-            mTx.vout[0].nValue = 0;
-            mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
-                    CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
-
-            auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
-            if (!rewardTx) {
-                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(
-                        WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
-            }
+        auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
+        if (!rewardTx) {
+            pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(
+                    WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
     }
 
@@ -304,12 +300,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-    if (nHeight >= chainparams.GetConsensus().EunosHeight
-    && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
-        // includes coinbase account changes
-        ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
-        pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
-    }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 
@@ -668,31 +658,6 @@ namespace pos {
         return Status::stakeReady;
     }
 
-    // This is an internal only method to ignore some mints, even though it's valid. 
-    // This is done to workaround https://github.com/DeFiCh/ain/issues/693, so on specific bug condition, 
-    // i.e, when subnode 1 stakes before subnode 0 on Eunos Paya+ (in particular to target pre-Eunos Paya masternodes that's carried over), it's ignored.
-    // in order to give time for subnode 0 to first succeed and create a record. 
-    // 
-    // This is done to ensure that we can workaround the bug, without waiting for consensus change in next update.
-    // This shouldn't have any effect on the mining, even though we ignore some successful hashes since the
-    // Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with 
-    // higher coinage / TM.
-    //
-    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, int64_t creationHeight, 
-        const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
-            
-        auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
-        if (blockHeight < eunosPayaHeight || creationHeight >= eunosPayaHeight) {
-            return false;
-        }
-
-        if (subNode == 1 && subNodesBlockTime[0] == subNodesBlockTime[1]) {
-            LogPrint(BCLog::STAKING, "MakeStake: kernel ignored\n");
-            return true;
-        }
-        return false;
-    }
-
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
 
         bool found = false;
@@ -754,18 +719,23 @@ namespace pos {
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+        const auto greatWorld = blockHeight >= chainparams.GetConsensus().GreatWorldHeight;
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
-            if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+            if (!greatWorld && Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 // For regtest use previous oldest time
                 nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
                 if (nLastCoinStakeSearchTime <= tip->GetMedianTimePast()) {
                     nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
                 }
             } else {
-                // Plus one to avoid time-too-old error on exact median time.
-                nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                // Plus one to avoid time-too-old error on exact last time.
+                if (greatWorld) {
+                    nLastCoinStakeSearchTime = tip->GetBlockTime() + 1;
+                } else {
+                    nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                }
             }
             
             lastBlockSeen = tip->GetBlockHash();
@@ -779,7 +749,7 @@ namespace pos {
             }
             CheckContextState ctxState;
             // Search backwards in time first
-            if (currentTime > lastSearchTime) {
+            if (!greatWorld && currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
                     if (ShutdownRequested()) break;
 
@@ -788,10 +758,7 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
-                            break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
-
                         found = true;
                         break;
                     }
@@ -810,13 +777,14 @@ namespace pos {
 
                     blockTime = ((uint32_t)searchTime + t);
 
+                    if (greatWorld && blockTime % BLOCK_TIME_INTERVAL != 0) {
+                        continue;
+                    }
+
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
-                            break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
-
                         found = true;
                         break;
                     }
