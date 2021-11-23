@@ -141,6 +141,39 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
 
     int nHeight{pindexLast->nHeight + 1};
+
+    // Scale difficulty to new hashing window and interval
+    if (nHeight == params.GreatWorldHeight) {
+        const auto* pindex = pindexLast;
+        uint64_t totalTime{0};
+
+        // Set sample size to be difficulty adjust window
+        const auto blockCount = params.pos.nTargetTimespanV2 / params.pos.nTargetSpacing;
+
+        // Get total hashing window for each block in the sample
+        for (int i{0}; pindex && i < blockCount; --pindex && ++i) {
+            totalTime += pindex->GetMedianTimePast() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA;
+        }
+
+        // Calculate how much larger the window was compared to the new window
+        uint64_t timeWindowScale = totalTime / blockCount * 100 / MAX_FUTURE_BLOCK_TIME_EUNOSPAYA;
+
+        // Scale last difficulty for new window
+        arith_uint256 bnNew;
+        bnNew.SetCompact(pindexLast->nBits);
+        bnNew = bnNew * 100 / timeWindowScale;
+
+        // Scale last difficulty for new hashing frequency
+        bnNew /= BLOCK_TIME_INTERVAL;
+
+        // Limit adjust to minimum if exceeded
+        const arith_uint256 bnDiffLimit = UintToArith256(params.pos.diffLimit);
+        if (bnNew > bnDiffLimit)
+            bnNew = bnDiffLimit;
+
+        return bnNew.GetCompact();
+    }
+
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
     // Restore previous difficulty adjust on testnet after FC
