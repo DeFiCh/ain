@@ -237,28 +237,6 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(pair->second.creationTx == uint256S("0x2222"));
     }
 
-    // revert create token
-    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0xffff")) == false);
-    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0x1111")) == false);
-    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0x2222")));
-    BOOST_REQUIRE(GetTokensCount(view) == 2);
-    {   // search by id
-        auto token = view.GetToken(DCT_ID{128});
-        BOOST_REQUIRE(token);
-        BOOST_REQUIRE(token->symbol == "DCT1");
-    }
-
-    // create again, with same tx and dctid
-    token1.symbol = "DCT3";
-    token1.creationTx = uint256S("0x2222"); // SAME!
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
-    BOOST_REQUIRE(GetTokensCount(view) == 3);
-    {   // search by id
-        auto token = view.GetToken(DCT_ID{129});
-        BOOST_REQUIRE(token);
-        BOOST_REQUIRE(token->symbol == "DCT3");
-    }
-
     {   // search by id
         auto token = view.GetToken(DCT_ID{129});
         BOOST_REQUIRE(token);

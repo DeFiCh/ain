@@ -135,9 +135,9 @@ public:
     bool Exists(const TBytes& key) const;
     bool Read(const TBytes& key, TBytes& value) const;
     bool Write(const TBytes& key, const TBytes& value);
-    bool Flush();
     void Discard();
     bool IsEmpty() const;
+    bool Flush(bool sync);
     size_t SizeEstimate() const;
     CStorageKVIterator NewIterator() const;
     void Compact(const TBytes& begin, const TBytes& end);
@@ -159,9 +159,9 @@ public:
     bool Exists(const TBytes& key) const;
     bool Read(const TBytes& key, TBytes& value) const;
     bool Write(const TBytes& key, const TBytes& value);
-    bool Flush();
     void Discard();
     bool IsEmpty() const;
+    bool Flush(bool sync);
     const MapKV& GetRaw() const;
     size_t SizeEstimate() const;
     CStorageKVIterator NewIterator() const;
@@ -183,9 +183,9 @@ public:
     bool Exists(const TBytes& key) const;
     bool Read(const TBytes& key, TBytes& value) const;
     bool Write(const TBytes& key, const TBytes& value);
-    bool Flush();
     void Discard();
     bool IsEmpty() const;
+    bool Flush(bool sync);
     size_t SizeEstimate() const;
     CStorageKVIterator NewIterator() const;
     void Compact(const TBytes& begin, const TBytes& end);
@@ -355,6 +355,16 @@ public:
             return result;
         return {};
     }
+
+    template<typename KeyType>
+    void Compact(const KeyType& begin, const KeyType& end) {
+        db->Compact(DbTypeToBytes(begin), DbTypeToBytes(end));
+    }
+    template<typename By, typename KeyType>
+    void CompactBy(const KeyType& begin, const KeyType& end) {
+        Compact(std::make_pair(By::prefix(), begin), std::make_pair(By::prefix(), end));
+    }
+
     template<typename By, typename KeyType>
     CStorageIteratorWrapper<By, KeyType> LowerBound(KeyType const & key) {
         CStorageIteratorWrapper<By, KeyType> it{db->NewIterator()};
@@ -370,11 +380,11 @@ public:
         }
     }
 
-    bool Flush();
     void Discard();
     bool IsEmpty() const;
     CStorageKV& GetStorage();
     size_t SizeEstimate() const;
+    bool Flush(bool sync = false);
     void Compact(const TBytes& begin, const TBytes& end);
 
 protected:

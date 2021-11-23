@@ -209,8 +209,8 @@ bool CStorageLevelDB::Write(const TBytes& key, const TBytes& value) {
     return true;
 }
 
-bool CStorageLevelDB::Flush() {
-    auto result = db->WriteBatch(*batch);
+bool CStorageLevelDB::Flush(bool sync) {
+    auto result = db->WriteBatch(*batch, sync);
     batch->Clear();
     snapshot = std::make_shared<CLevelDBSnapshot>(db);
     return result;
@@ -269,7 +269,7 @@ bool CFlushableStorageKV::Read(const TBytes& key, TBytes& value) const {
     }
 }
 
-bool CFlushableStorageKV::Flush() {
+bool CFlushableStorageKV::Flush(bool) {
     for (const auto& it : changed) {
         if (!it.second) {
             db->Erase(it.first);
@@ -340,8 +340,8 @@ size_t CStorageKV::SizeEstimate() const {
     return std::visit([](auto& db) { return db.SizeEstimate(); }, dbs);
 }
 
-bool CStorageKV::Flush() {
-    return std::visit([](auto& db) { return db.Flush(); }, dbs);
+bool CStorageKV::Flush(bool sync) {
+    return std::visit([sync](auto& db) { return db.Flush(sync); }, dbs);
 }
 
 void CStorageKV::Discard() {
@@ -367,10 +367,6 @@ CFlushableStorageKV* CStorageKV::GetFlushableStorage() {
 // Storage abstract translator
 CStorageView::CStorageView(std::shared_ptr<CStorageKV> db) : db(db) {}
 
-bool CStorageView::Flush() {
-    return db->Flush();
-}
-
 void CStorageView::Discard() {
     db->Discard();
 }
@@ -385,6 +381,10 @@ bool CStorageView::IsEmpty() const {
 
 size_t CStorageView::SizeEstimate() const {
     return db->SizeEstimate();
+}
+
+bool CStorageView::Flush(bool sync) {
+    return db->Flush(sync);
 }
 
 void CStorageView::Compact(const TBytes& begin, const TBytes& end) {
