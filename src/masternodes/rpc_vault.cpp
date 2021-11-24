@@ -1186,10 +1186,10 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     CAmount totalLoanValue{0};
-    for (const auto& [tokenId, tokenAmount] : loanAmounts.balances) {
-        auto loanToken = pcustomcsview->GetLoanTokenByID(tokenId);
+    for (const auto& balance : loanAmounts.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(balance.first);
         if (!loanToken) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%d) is not a loan token!", tokenId.v));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%d) is not a loan token!", balance.first.v));
         }
 
         auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
@@ -1201,23 +1201,23 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
             throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", loanToken->symbol));
         }
-        totalLoanValue += MultiplyAmounts(tokenAmount, price);
+        totalLoanValue += MultiplyAmounts(balance.second, price);
     }
 
     uint32_t height = ::ChainActive().Height();
     CBalances collateralBalances;
     CAmount totalSplit{0};
-    for (const auto& [tokenId, splitValue] : collateralSplits) {
-        CAmount split = AmountFromValue(splitValue);
+    for (const auto& collateralSplit : collateralSplits) {
+        CAmount split = AmountFromValue(collateralSplit.second);
 
-        auto token = pcustomcsview->GetToken(tokenId);
+        auto token = pcustomcsview->GetToken(collateralSplit.first);
         if (!token) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", tokenId));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", collateralSplit.first));
         }
 
         auto collateralToken = pcustomcsview->HasLoanCollateralToken({token->first, height});
         if (!collateralToken || !collateralToken->factor) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", tokenId));
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
         }
 
         auto priceFeed = pcustomcsview->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
@@ -1227,7 +1227,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
 
         auto price = priceFeed.val->priceRecord[0];
         if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", tokenId));
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", collateralSplit.first));
         }
 
         auto requiredValue = MultiplyAmounts(totalLoanValue, split);
