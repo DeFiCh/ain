@@ -313,6 +313,16 @@ public:
 
     uint32_t ratio() const;
     CAmount precisionRatio() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(totalCollaterals);
+        READWRITE(totalLoans);
+        READWRITE(collaterals);
+        READWRITE(loans);
+    }
 };
 
 template<typename T>
