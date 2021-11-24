@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test listaccounthistory RPC."""
+"""Test listcustomtxtypes RPC."""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
