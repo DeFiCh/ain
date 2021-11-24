@@ -9,6 +9,7 @@
 #include <flushablestorage.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/vault.h>
 #include <script/script.h>
 #include <uint256.h>
 
@@ -90,21 +91,23 @@ public:
 class CHistoryWriters {
     CAccountHistoryStorage* historyView;
     CBurnHistoryStorage* burnView;
+    CVaultHistoryStorage* vaultView;
+    CVaultId vaultID;
+    std::string schemeID;
+    CLoanSchemeCreation globalLoanScheme;
     std::map<CScript, TAmounts> diffs;
     std::map<CScript, TAmounts> burnDiffs;
     std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
 
 public:
-    CVaultHistoryStorage* vaultView;
-    CLoanSchemeCreation globalLoanScheme;
-    std::string schemeID;
-
     CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
 
-    void AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
+    void AddBalance(const CScript& owner, const CTokenAmount amount);
     void AddFeeBurn(const CScript& owner, const CAmount amount);
-    void SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
-    void Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID);
+    void SubBalance(const CScript& owner, const CTokenAmount amount);
+    void AddVault(const CVaultId& vaultId, const std::string& schemeId = {});
+    void AddLoanScheme(const CLoanSchemeMessage& loanScheme, const uint256& txid, uint32_t height, uint32_t txn);
+    void Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type);
 };
 
 class CAccountsHistoryWriter : public CCustomCSView
@@ -116,9 +119,8 @@ class CAccountsHistoryWriter : public CCustomCSView
     CHistoryWriters* writers;
 
 public:
-    uint256 vaultID;
-
     CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
+
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
     bool Flush();

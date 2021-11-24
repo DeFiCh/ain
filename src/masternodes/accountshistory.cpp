@@ -143,7 +143,7 @@ Res CAccountsHistoryWriter::AddBalance(CScript const & owner, CTokenAmount amoun
 {
     auto res = CCustomCSView::AddBalance(owner, amount);
     if (writers && amount.nValue != 0 && res.ok) {
-        writers->AddBalance(owner, amount, vaultID);
+        writers->AddBalance(owner, amount);
     }
 
     return res;
@@ -153,7 +153,7 @@ Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amoun
 {
     auto res = CCustomCSView::SubBalance(owner, amount);
     if (writers && res.ok && amount.nValue != 0) {
-        writers->SubBalance(owner, amount, vaultID);
+        writers->SubBalance(owner, amount);
     }
 
     return res;
@@ -162,7 +162,7 @@ Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amoun
 bool CAccountsHistoryWriter::Flush()
 {
     if (writers) {
-        writers->Flush(height, txid, txn, type, vaultID);
+        writers->Flush(height, txid, txn, type);
     }
     return CCustomCSView::Flush();
 }
@@ -170,7 +170,7 @@ bool CAccountsHistoryWriter::Flush()
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
     : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
 
-void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
+void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount)
 {
     if (historyView) {
         diffs[owner][amount.nTokenId] += amount.nValue;
@@ -190,7 +190,7 @@ void CHistoryWriters::AddFeeBurn(const CScript& owner, const CAmount amount)
     }
 }
 
-void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
+void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount)
 {
     if (historyView) {
         diffs[owner][amount.nTokenId] -= amount.nValue;
@@ -203,7 +203,43 @@ void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount
     }
 }
 
-void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID)
+void CHistoryWriters::AddVault(const CVaultId& vaultId, const std::string& schemeId)
+{
+    if (!vaultView) {
+        return;
+    }
+
+    vaultID = vaultId;
+    if (!schemeId.empty()) {
+        schemeID = schemeId;
+    }
+}
+
+void CHistoryWriters::AddLoanScheme(const CLoanSchemeMessage& loanScheme, const uint256& txid, uint32_t height, uint32_t txn)
+{
+    if (!vaultView) {
+        return;
+    }
+
+    globalLoanScheme.identifier = loanScheme.identifier;
+    globalLoanScheme.ratio = loanScheme.ratio;
+    globalLoanScheme.rate = loanScheme.rate;
+
+    if (!loanScheme.updateHeight) {
+        globalLoanScheme.schemeCreationTxid = txid;
+        return;
+    }
+
+    vaultView->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & key, VaultGlobalSchemeValue value) {
+        if (value.loanScheme.identifier != globalLoanScheme.identifier) {
+            return true;
+        }
+        globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
+        return false;
+    }, {height, txn, {}});
+}
+
+void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type)
 {
     if (historyView) {
         for (const auto& diff : diffs) {
