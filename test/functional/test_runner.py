@@ -248,6 +248,7 @@ BASE_SCRIPTS = [
     'rpc_deriveaddresses.py --usecli',
     'rpc_scantxoutset.py',
     'rpc_getcustomtx.py',
+    'rpc_listvaulthistory.py',
     'feature_logging.py',
     'feature_loan_scheme.py',
     #'feature_forced_reward_address.py',
