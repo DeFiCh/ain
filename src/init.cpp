@@ -1644,7 +1644,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
-                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 // If necessary, upgrade from older database format.

@@ -3081,35 +3081,35 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
 
 void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& view, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
     if (txType == CustomTxType::Vault) {
-        auto obj = boost::get<CVaultMessage>(txMessage);
+        auto obj = std::get<CVaultMessage>(txMessage);
         writers->schemeID = obj.schemeId;
         view.vaultID = txid;
     } else if (txType == CustomTxType::CloseVault) {
-        auto obj = boost::get<CCloseVaultMessage>(txMessage);
+        auto obj = std::get<CCloseVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::UpdateVault) {
-        auto obj = boost::get<CUpdateVaultMessage>(txMessage);
+        auto obj = std::get<CUpdateVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
         if (!obj.schemeId.empty()) {
             writers->schemeID = obj.schemeId;
         }
     } else if (txType == CustomTxType::DepositToVault) {
-        auto obj = boost::get<CDepositToVaultMessage>(txMessage);
+        auto obj = std::get<CDepositToVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::WithdrawFromVault) {
-        auto obj = boost::get<CWithdrawFromVaultMessage>(txMessage);
+        auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::TakeLoan) {
-        auto obj = boost::get<CLoanTakeLoanMessage>(txMessage);
+        auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoan) {
-        auto obj = boost::get<CLoanPaybackLoanMessage>(txMessage);
+        auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
-        auto obj = boost::get<CAuctionBidMessage>(txMessage);
+        auto obj = std::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::LoanScheme) {
-        auto obj = boost::get<CLoanSchemeMessage>(txMessage);
+        auto obj = std::get<CLoanSchemeMessage>(txMessage);
         writers->globalLoanScheme.identifier = obj.identifier;
         writers->globalLoanScheme.ratio = obj.ratio;
         writers->globalLoanScheme.rate = obj.rate;
