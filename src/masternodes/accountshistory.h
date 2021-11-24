@@ -12,6 +12,9 @@
 #include <script/script.h>
 #include <uint256.h>
 
+class CVaultHistoryView;
+class CVaultHistoryStorage;
+
 struct AccountHistoryKey {
     CScript owner;
     uint32_t blockHeight;
@@ -77,22 +80,60 @@ public:
     CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
+class CHistoryWriters {
+    CAccountHistoryStorage* historyView;
+    CBurnHistoryStorage* burnView;
+    std::map<CScript, TAmounts> diffs;
+    std::map<CScript, TAmounts> burnDiffs;
+    std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
+
+public:
+    CVaultHistoryStorage* vaultView;
+    CLoanSchemeCreation globalLoanScheme;
+    std::string schemeID;
+
+    CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
+
+    void AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
+    void AddFeeBurn(const CScript& owner, const CAmount amount);
+    void SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
+    void Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID);
+};
+
+class CHistoryErasers {
+    CAccountHistoryStorage* historyView;
+    CBurnHistoryStorage* burnView;
+    std::set<CScript> accounts;
+    std::set<CScript> burnAccounts;
+    std::set<uint256> vaults;
+
+public:
+    CVaultHistoryStorage* vaultView;
+    bool removeLoanScheme{false};
+    uint256 schemeCreationTxid;
+
+    CHistoryErasers(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
+
+    void AddBalance(const CScript& owner, const uint256& vaultID);
+    void SubFeeBurn(const CScript& owner);
+    void SubBalance(const CScript& owner, const uint256& vaultID);
+    void Flush(const uint32_t height, const uint32_t txn, const uint256& vaultID);
+};
+
 class CAccountsHistoryWriter : public CCustomCSView
 {
     const uint32_t height;
     const uint32_t txn;
     const uint256 txid;
     const uint8_t type;
-    std::map<CScript, TAmounts> diffs;
-    std::map<CScript, TAmounts> burnDiffs;
-    CAccountsHistoryView* historyView;
-    CAccountsHistoryView* burnView;
+    CHistoryWriters* writers;
 
 public:
-    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    uint256 vaultID;
+
+    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    Res AddFeeBurn(CScript const & owner, CAmount amount);
     bool Flush();
 };
 
@@ -100,16 +141,14 @@ class CAccountsHistoryEraser : public CCustomCSView
 {
     const uint32_t height;
     const uint32_t txn;
-    std::set<CScript> accounts;
-    std::set<CScript> burnAccounts;
-    CAccountsHistoryView* historyView;
-    CAccountsHistoryView* burnView;
+    CHistoryErasers& erasers;
 
 public:
-    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    uint256 vaultID;
+
+    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    Res SubFeeBurn(CScript const & owner);
     bool Flush();
 };
 

@@ -325,6 +325,9 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
 
 Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
 {
+    // Temporarily disabled for 2.2
+    return Res::Err("reward address change is disabled for Fort Canning");
+
     auto node = GetMasternode(nodeId);
     if (!node) {
         return Res::Err("masternode %s does not exists", nodeId.ToString());
@@ -349,6 +352,9 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
 
 Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 {
+    // Temporarily disabled for 2.2
+    return Res::Err("reward address change is disabled for Fort Canning");
+
     auto node = GetMasternode(nodeId);
     if (!node) {
         return Res::Err("masternode %s does not exists", nodeId.ToString());
@@ -366,6 +372,9 @@ Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 }
 
 Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
+    // Temporarily disabled for 2.2
+    return Res::Err("updatemasternode is disabled for Fort Canning");
+
     // auth already checked!
     auto node = GetMasternode(nodeId);
     if (!node) {
