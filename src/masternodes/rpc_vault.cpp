@@ -1175,7 +1175,6 @@ UniValue estimateloan(const JSONRPCRequest& request) {
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
-    auto height = ::ChainActive().Height();
 
     auto vault = pcustomcsview->GetVault(vaultId);
     if (!vault) {
@@ -1198,14 +1197,13 @@ UniValue estimateloan(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_MISC_ERROR, "Cannot estimate loan without collaterals.");
     }
 
+    auto height = ::ChainActive().Height();
     auto blockTime = ::ChainActive().Tip()->GetBlockTime();
     auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, true);
     if (!rate.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
     }
 
-    auto collValue = ValueFromUint(rate.val->totalCollaterals);
-    UniValue ret(UniValue::VARR);
     CBalances loanBalances;
     CAmount totalSplit{0};
     if (request.params.size() > 1 && request.params[1].isObject()) {
