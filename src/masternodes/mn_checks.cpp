@@ -3512,7 +3512,7 @@ public:
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
-        return mnview.CreateProp(tx.GetHash(), height, obj, consensus.props.votingPeriod);
+        return mnview.CreateProp(tx.GetHash(), height, obj);
     }
 
     Res operator()(const CPropVoteMessage& obj) const
