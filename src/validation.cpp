@@ -4674,7 +4674,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_CHECKPOINT, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
 
     // Check timestamp against prev
-    const auto greatWorld = block.height >= static_cast<uint64_t>(consensusParams.GreatWorldHeight);
+    const auto greatWorld = nHeight >= static_cast<uint64_t>(consensusParams.GreatWorldHeight);
     if ((greatWorld && block.GetBlockTime() <= pindexPrev->GetBlockTime()) || block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old",
                              strprintf("block's timestamp is too early. Block time: %d Min time: %d",
@@ -4687,7 +4687,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     }
 
     // Check timestamp
-    if ((Params().NetworkIDString() != CBaseChainParams::REGTEST || greatWorld) && block.height >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
+    if ((Params().NetworkIDString() != CBaseChainParams::REGTEST || greatWorld) && nHeight >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }
@@ -4695,7 +4695,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
-    if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+    if (nHeight >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
