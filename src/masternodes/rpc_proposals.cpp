@@ -509,13 +509,8 @@ UniValue getproposal(const JSONRPCRequest& request)
     }
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;
-    auto votingPeriod = Params().GetConsensus().props.votingPeriod;
-    auto finalHeight = prop->creationHeight;
-    for (uint8_t i = 0; i < prop->cycle; ++i) {
-        finalHeight += (finalHeight % votingPeriod) + votingPeriod;
-    }
+    auto blocks = prop->finalHeight - targetHeight;
 
-    auto blocks = finalHeight - targetHeight;
     if (blocks > Params().GetConsensus().blocksPerDay()) {
         ret.pushKV("ends", strprintf("%d days", blocks * target / 60 / 60 / 24));
     } else if (blocks > Params().GetConsensus().blocksPerDay() / 24) {

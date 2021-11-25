@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainparams.h>
 #include <masternodes/proposals.h>
 
 std::string CPropTypeToString(const CPropType status)
@@ -34,7 +35,7 @@ std::string CPropVoteToString(const CPropVoteType vote)
     return "Unknown";
 }
 
-Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg, uint32_t votingPeriod)
+Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg)
 {
     CPropObject prop;
     static_cast<CCreatePropMessage&>(prop) = msg;
@@ -42,6 +43,7 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, uint8_t(1));
 
+    auto votingPeriod = GetVotingPeriod();
     for (uint8_t i = 1; i <= prop.nCycles; ++i) {
         height += (height % votingPeriod) + votingPeriod;
         auto key = std::make_pair(height, propId);
@@ -172,4 +174,19 @@ void CPropsView::ForEachCycleProp(std::function<bool(CPropId const &, CPropObjec
         assert(prop);
         return callback(key.second, *prop);
     }, std::make_pair(height, uint256{}));
+}
+
+Res CPropsView::SetVotingPeriod(uint32_t votingPeriod)
+{
+    Write(ByVoting::prefix(), votingPeriod);
+    return Res::Ok();
+}
+
+uint32_t CPropsView::GetVotingPeriod()
+{
+    uint32_t votingPeriod;
+    if (Read(ByVoting::prefix(), votingPeriod)) {
+        return votingPeriod;
+    }
+    return Params().GetConsensus().props.votingPeriod;
 }

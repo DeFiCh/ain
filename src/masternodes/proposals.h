@@ -114,7 +114,7 @@ class CPropsView : public virtual CStorageView
 {
 public:
 
-    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop, uint32_t votingPeriod);
+    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop);
     std::optional<CPropObject> GetProp(const CPropId& propId);
     Res UpdatePropCycle(const CPropId& propId, uint8_t cycle);
     Res UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status);
@@ -125,10 +125,14 @@ public:
     void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
     void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
 
-    struct ByType   { static constexpr uint8_t prefix() { return 0x2C; } };
-    struct ByCycle  { static constexpr uint8_t prefix() { return 0x2D; } };
-    struct ByMnVote { static constexpr uint8_t prefix() { return 0x2E; } };
-    struct ByStatus { static constexpr uint8_t prefix() { return 0x2F; } };
+    Res SetVotingPeriod(uint32_t votingPeriod);
+    uint32_t GetVotingPeriod();
+
+    struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
+    struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };
+    struct ByMnVote { static constexpr uint8_t prefix() { return 0x2D; } };
+    struct ByStatus { static constexpr uint8_t prefix() { return 0x2E; } };
+    struct ByVoting { static constexpr uint8_t prefix() { return 0x2F; } };
 };
 
 #endif // DEFI_MASTERNODES_PROPOSALS_H
