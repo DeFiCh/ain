@@ -511,7 +511,44 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
     obj.pushKV("warnings",       GetWarnings("statusbar"));
     return obj;
 }
+static UniValue getversioninfo(const JSONRPCRequest& request){
+    RPCHelpMan{"getversioninfo",
+               "Returns an object containing various version info about the node.\n",
+               {},
+               RPCResult{
+                       "{\n"
+                       "  \"node\": {\n"
+                       "      \"name\": DefiChain                         (string)  the node name\n"
+                       "      \"version\": \"xxxxx\",                   (string) the server version string\n"
+                       "      \"numericVersion\": xxxxx,                (numeric) the server version\n"
+                       "      \"fullVersion\": \"/DefiChain:x.x.x/\",     (string) the server subversion string\n"
+                       "      \"protocol\": xxxxx,                      (numeric) the protocol version\n"
+                       "   }\n"
+                       "  ...\n"
+                       "}"
+               },
+               RPCExamples{
+                       HelpExampleCli("getversioninfo", "")
+                       + HelpExampleRpc("getversioninfo", "")
+               },
+    }.Check(request);
 
+    UniValue obj(UniValue::VOBJ);
+    UniValue nodeInfoObj(UniValue::VOBJ);
+
+    nodeInfoObj.pushKV("name", CLIENT_NAME);
+    nodeInfoObj.pushKV("version", strVersion);
+    nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
+    nodeInfoObj.pushKV("fullVersion",strFullVersion);
+    nodeInfoObj.pushKV("userAgent",strSubVersion);
+
+    UniValue protocolInfoObj(UniValue::VOBJ);
+    protocolInfoObj.pushKV("version", PROTOCOL_VERSION);
+
+    obj.pushKV("node",nodeInfoObj);
+    obj.pushKV("protocol", protocolInfoObj);
+    return obj;
+}
 static UniValue setban(const JSONRPCRequest& request)
 {
     const RPCHelpMan help{"setban",
@@ -730,6 +767,7 @@ static const CRPCCommand commands[] =
     { "network",            "getaddednodeinfo",       &getaddednodeinfo,       {"node"} },
     { "network",            "getnettotals",           &getnettotals,           {} },
     { "network",            "getnetworkinfo",         &getnetworkinfo,         {} },
+    { "network",            "getversioninfo",         &getversioninfo,         {} },
     { "network",            "setban",                 &setban,                 {"subnet", "command", "bantime", "absolute"} },
     { "network",            "listbanned",             &listbanned,             {} },
     { "network",            "clearbanned",            &clearbanned,            {} },

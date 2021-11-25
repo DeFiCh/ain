@@ -73,7 +73,7 @@ const std::string CLIENT_NAME("DeFiChain");
 
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
 
-static std::string FormatVersion(int nVersion)
+std::string FormatVersion(int nVersion)
 {
     if (nVersion % 100 == 0)
         return strprintf("%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
@@ -103,5 +103,12 @@ std::string FormatSubVersion(const std::string& name, int nClientVersion, const 
         ss << ")";
     }
     ss << "/";
+    return ss.str();
+}
+
+std::string FormatFullVersion(const std::string& name, int nClientVersion)
+{
+    std::ostringstream ss;
+    ss << name << ":" << FormatVersion(nClientVersion);
     return ss.str();
 }

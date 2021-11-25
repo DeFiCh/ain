@@ -88,6 +88,8 @@ CCriticalSection cs_mapLocalHost;
 std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);
 static bool vfLimited[NET_MAX] GUARDED_BY(cs_mapLocalHost) = {};
 std::string strSubVersion;
+std::string strVersion;
+std::string strFullVersion;
 
 void CConnman::AddOneShot(const std::string& strDest)
 {

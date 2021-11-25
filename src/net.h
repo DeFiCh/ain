@@ -532,6 +532,10 @@ extern bool g_relay_txes;
 /** Subversion as sent to the P2P network in `version` messages */
 extern std::string strSubVersion;
 
+extern std::string strVersion;
+
+extern std::string strFullVersion;
+
 struct LocalServiceInfo {
     int nScore;
     int nPort;
