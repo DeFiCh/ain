@@ -1533,7 +1533,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
         }
 
         auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
-        if (!amountInCurrency.ok) {
+        if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
         result.totalCollaterals += MultiplyAmounts(collateralToken->factor, *amountInCurrency.val);;
@@ -1544,7 +1544,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
         if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
 
         auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
-        if (!amountInCurrency.ok) {
+        if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
         result.totalLoans += *amountInCurrency.val;

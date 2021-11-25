@@ -929,7 +929,7 @@ CAmount CCollateralLoans::precisionRatio() const
 ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
         auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
-        if (!priceResult.ok)
+        if (!priceResult)
             return std::move(priceResult);
 
         auto price = priceResult.val.get();
@@ -1010,7 +1010,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!amountInCurrency.ok)
+        if (!amountInCurrency)
             return std::move(amountInCurrency);
 
         auto prevLoans = result.totalLoans;
@@ -1036,7 +1036,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
 
         auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!amountInCurrency.ok)
+        if (!amountInCurrency)
             return std::move(amountInCurrency);
 
         auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
