@@ -491,7 +491,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
             return false;
         }
 
-        if (isMine && !(IsMineCached(*pwallet, data.ownerAddress) & ISMINE_ALL)) {
+        if (isMine && !(IsMineCached(*pwallet, data.ownerAddress) & ISMINE_SPENDABLE)) {
             return true;
         }
         auto vaultState = GetVaultState(vaultId, data);
