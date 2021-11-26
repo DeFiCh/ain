@@ -1203,7 +1203,6 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     } else {
         loanPayback.from = DecodeScript(fromStr);
     }
-}
 
     if (!::IsMine(*pwallet, loanPayback.from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,
