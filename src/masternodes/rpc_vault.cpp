@@ -866,7 +866,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
                {
                     {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
                     {"index", RPCArg::Type::NUM, RPCArg::Optional::NO, "Auction index"},
-                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get tokens"},
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get tokens. If \"from\" value is: \"*\" (star), it's means auto-selection accounts from wallet."},
                     {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of amount@symbol format"},
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
@@ -902,8 +902,27 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     uint32_t index = request.params[1].get_int();
-    auto from = DecodeScript(request.params[2].get_str());
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
+
+    CScript from = {};
+    auto fromStr = request.params[2].get_str();
+    if (fromStr == "*") {
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), CBalances{TAmounts{{amount.nTokenId, amount.nValue}}}, SelectionPie);
+
+        for (auto& account : selectedAccounts) {
+            if (account.second.balances[amount.nTokenId] >= amount.nValue) {
+                from = account.first;
+                break;
+            }
+        }
+
+        if (from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                      "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
+        }
+    } else {
+        from = DecodeScript(fromStr);
+    }
 
     CAuctionBidMessage msg{vaultId, index, from, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
