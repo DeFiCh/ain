@@ -1174,35 +1174,36 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
 
-    if (!metaObj["from"].isNull()) {
-        auto fromStr = metaObj["from"].getValStr();
-        if (fromStr == "*") {
-            auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), loanPayback.amounts, SelectionPie);
-
-            for (auto& account : selectedAccounts) {
-                auto it = loanPayback.amounts.balances.begin();
-                while (it != loanPayback.amounts.balances.end()) {
-                    if (account.second.balances[it->first] < it->second) {
-                        break;
-                    }
-                    it++;
-                }
-                if (it == loanPayback.amounts.balances.end()) {
-                    loanPayback.from = account.first;
-                    break;
-                }
-            }
-
-            if (loanPayback.from.empty()) {
-                throw JSONRPCError(RPC_INVALID_REQUEST,
-                        "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
-            }
-        } else {
-            loanPayback.from = DecodeScript(fromStr);
-        }
-    } else {
+    if (metaObj["from"].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
     }
+
+    auto fromStr = metaObj["from"].getValStr();
+    if (fromStr == "*") {
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), loanPayback.amounts, SelectionPie);
+
+        for (auto& account : selectedAccounts) {
+            auto it = loanPayback.amounts.balances.begin();
+            while (it != loanPayback.amounts.balances.end()) {
+                if (account.second.balances[it->first] < it->second) {
+                    break;
+                }
+                it++;
+            }
+            if (it == loanPayback.amounts.balances.end()) {
+                loanPayback.from = account.first;
+                break;
+            }
+        }
+
+        if (loanPayback.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                    "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
+        }
+    } else {
+        loanPayback.from = DecodeScript(fromStr);
+    }
+}
 
     if (!::IsMine(*pwallet, loanPayback.from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,
