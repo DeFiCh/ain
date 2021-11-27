@@ -267,7 +267,7 @@ class LoanTest (DefiTestFramework):
             self.nodes[0].placeauctionbid(vaultId1, 0, "*", "1600@TSLA")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Not enough tokens on account, call accounttoaccount to increase it." in errorString)
+        assert("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
 
         newAddress = self.nodes[0].getnewaddress("")
         self.nodes[0].sendtokenstoaddress({}, {newAddress: "1600@TSLA"}) # newAddress has now the highest amount of TSLA token
