@@ -105,6 +105,7 @@ class LoanTest (DefiTestFramework):
                             'mintable': True,
                             'interest': 1})
         self.nodes[0].generate(6)
+
         # take loan
         self.nodes[0].takeloan({
                     'vaultId': vaultId1,
@@ -254,7 +255,7 @@ class LoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        # Trigger liquidation updating price in oracle
+        # Reset price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "200@TSLA"}]
         oracle2_prices = [{"currency": "USD", "tokenAmount": "300@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())

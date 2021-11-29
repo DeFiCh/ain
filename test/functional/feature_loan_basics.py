@@ -402,7 +402,6 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'from': account0,
                     'amounts': vaultInfo['loanAmounts']})
 
-
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -467,8 +466,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].deposittovault(vaultId3, address, "100@DFI")
         self.nodes[0].generate(1)
-        vault = self.nodes[0].getvault(vaultId3)
-        print("vault", vault)
+
         # take loan
         self.nodes[0].takeloan({
             'vaultId': vaultId3,
@@ -479,9 +477,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         address2 = self.nodes[0].getnewaddress()
         self.nodes[0].sendtokenstoaddress({}, {address2:["5@TSLA", "5@GOOGL"]}) # split into two address
         self.nodes[0].generate(1)
-
-        listaccounts = self.nodes[0].listaccounts({}, False, False, True)
-        print("listaccounts", listaccounts)
 
         try:
             self.nodes[0].paybackloan({
