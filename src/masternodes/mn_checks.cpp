@@ -2682,6 +2682,16 @@ public:
             if (!res)
                 return res;
 
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
+            {
+                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId);
+                if (!newRate)
+                    return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
+
+                if (newRate->interestPerBlock == 0)
+                    return Res::Err("Partially payback is unavailable");
+            }
+
             res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
             if (!res)
                 return res;
