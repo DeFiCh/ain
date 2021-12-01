@@ -237,10 +237,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     }
     auto interestPerBlock = rate.interestPerBlock;
     if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
-        interestPerBlock = std::ceil(InterestPerBlock(interestPerBlock + loanIncreased, token->interest, scheme->rate));
-        if (interestPerBlock == rate.interestPerBlock) {
-            return Res::Err("Loan amount is below minimum");
-        }
+        interestPerBlock += std::ceil(InterestPerBlock(loanIncreased, token->interest, scheme->rate));
     } else {
         interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
     }

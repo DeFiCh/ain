@@ -257,7 +257,7 @@ public:
     Res operator()(CUpdateMasterNodeMessage& obj) const {
         // Temporarily disabled for 2.2
         return Res::Err("updatemasternode is disabled for Fort Canning");
-        
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -955,7 +955,7 @@ public:
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
         // Temporarily disabled for 2.2
         return Res::Err("updatemasternode is disabled for Fort Canning");
-        
+
         auto res = HasCollateralAuth(obj.mnId);
         return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
@@ -2689,7 +2689,7 @@ public:
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
                 if (newRate->interestPerBlock == 0)
-                    return Res::Err("Partially payback is unavailable");
+                        return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
             res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
@@ -3577,7 +3577,7 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!token)
         return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
-    // TODO: Optimize double look up later when first token is DUSD. 
+    // TODO: Optimize double look up later when first token is DUSD.
     auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
