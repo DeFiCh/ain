@@ -437,7 +437,7 @@ UniValue CRPCTable::execute(const JSONRPCRequest &request) const
         UniValue result;
         for (const auto& command : it->second) {
             if (ExecuteCommand(*command, request, result, &command == &it->second.back())) {
-                return result;
+                return FormatResult(request, result);
             }
         }
     }

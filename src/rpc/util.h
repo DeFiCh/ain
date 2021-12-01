@@ -20,6 +20,8 @@
 
 #include <variant>
 
+#include <util/system.h>
+
 class FillableSigningProvider;
 class CPubKey;
 class CScript;
@@ -89,6 +91,8 @@ std::pair<int64_t, int64_t> ParseDescriptorRange(const UniValue& value);
 
 /** Evaluate a descriptor given as a string, or as a {"desc":...,"range":...} object, with default range of 1000. */
 std::vector<CScript> EvalDescriptorStringOrObject(const UniValue& scanobject, FlatSigningProvider& provider);
+
+UniValue FormatResult(const JSONRPCRequest &request, const UniValue& result);
 
 struct RPCArg {
     enum class Type {

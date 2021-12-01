@@ -734,3 +734,32 @@ std::vector<CScript> EvalDescriptorStringOrObject(const UniValue& scanobject, Fl
     }
     return ret;
 }
+
+UniValue FormatListResult(const UniValue& result) {
+    if (result.isObject() && gArgs.GetArg("-rpcjsonformat", "") == "array") {
+        UniValue ret(UniValue::VARR);
+        for (const auto& key : result.getKeys()) {
+            auto elem = result[key];
+            elem.pushKV("id", key);
+            ret.push_back(elem);
+        }
+        return ret;
+    } else if (result.isArray() && gArgs.GetArg("-rpcjsonformat", "") == "object") {
+        UniValue object{UniValue::VOBJ};
+        std::vector<UniValue> values{result.getValues()};
+
+        int listSize = result.size();
+        for (int i = 0; i < listSize; i++) {
+            object.pushKV(std::to_string(i), values.at(i));
+        }
+        return object;
+    }
+    return result;
+}
+
+UniValue FormatResult(const JSONRPCRequest &request, const UniValue& result) {
+    if (request.strMethod.find("list") != std::string::npos) {
+        return FormatListResult(result);
+    }
+    return result;
+}

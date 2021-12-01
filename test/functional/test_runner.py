@@ -274,6 +274,7 @@ BASE_SCRIPTS = [
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
     'feature_update_mn.py',
+    'feature_jsonformat.py',
     'feature_block_reward.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
