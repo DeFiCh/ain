@@ -1053,8 +1053,8 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     RPCHelpMan{"listauctionhistory",
                "\nReturns information about auction history.\n",
                {
-                    {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+                    {"owner|vaultId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Single account ID (CScript or address) or vaultId or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
                             {
@@ -1120,18 +1120,24 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         account = request.params[0].getValStr();
     }
 
+    int filter = -1;
     bool isMine = false;
+
     if (account == "mine") {
         isMine = true;
     } else if (account != "all") {
-        start.owner = DecodeScript(account);
+        filter = DecodeScriptTxId(account, {start.owner, start.vaultId});
     }
 
     LOCK(cs_main);
     UniValue ret(UniValue::VARR);
 
     paccountHistoryDB->ForEachAuctionHistory([&](AuctionHistoryKey const & key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
-        if (!start.owner.empty() && start.owner != key.owner) {
+        if (filter == 0 && start.owner != key.owner) {
+            return true;
+        }
+
+        if (filter == 1 && start.vaultId != key.vaultId) {
             return true;
         }
 
