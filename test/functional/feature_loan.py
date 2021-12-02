@@ -228,6 +228,10 @@ class LoanTest (DefiTestFramework):
         assert_equal(auctions[1]['auctionBid'], "515.00000000@TSLA")
         assert_equal(auctions[2]['auctionBid'], "555.50000000@TSLA")
 
+        auctionsV = self.nodes[0].listauctionhistory(vaultId1)
+        assert_equal(len(auctionsV), 3)
+        assert_equal(auctions, auctionsV)
+
         vault1 = self.nodes[0].getvault(vaultId1)
         accountBal = self.nodes[0].getaccount(account)
 

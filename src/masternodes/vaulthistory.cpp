@@ -34,6 +34,15 @@ void CVaultHistoryView::EraseVaultHistory(const uint32_t height)
         EraseBy<ByVaultStateKey>(stateKey);
         EraseBy<ByVaultSchemeKey>(stateKey);
     }
+
+    std::vector<VaultGlobalSchemeKey> schemeKeys;
+    auto schemeIt = LowerBound<ByVaultGlobalSchemeKey>(VaultGlobalSchemeKey{height, ~0u});
+    for (; schemeIt.Valid() && schemeIt.Key().blockHeight == height; schemeIt.Next()) {
+        schemeKeys.push_back(schemeIt.Key());
+    }
+    for (auto& key : schemeKeys) {
+        EraseGlobalScheme(key);
+    }
 }
 
 void CVaultHistoryView::ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback, VaultSchemeKey const & start)

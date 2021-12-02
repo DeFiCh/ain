@@ -4526,15 +4526,24 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.fChecked)
         return true;
 
+    // Create block copy with height based on hashPrevBlock
+    auto newBlock = block;
+    const auto pindexPrev = LookupBlockIndex(block.hashPrevBlock);
+    if (!pindexPrev && block.GetHash() != consensusParams.hashGenesisBlock) {
+        return state.Invalid(ValidationInvalidReason::BLOCK_MISSING_PREV, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
+    }
+    const int height = pindexPrev ? pindexPrev->nHeight + 1 : 0;
+    newBlock.height = height;
+
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get(), ctxState))
+    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(newBlock, consensusParams, pcustomcsview.get(), ctxState))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
-    if (fCheckMerkleRoot && (block.height < consensusParams.EunosHeight
-    || block.height >= consensusParams.EunosKampungHeight)) {
+    if (fCheckMerkleRoot && (height < consensusParams.EunosHeight
+    || height >= consensusParams.EunosKampungHeight)) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
@@ -4566,8 +4575,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight))
+                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
@@ -4581,7 +4590,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
     }
 
-    if (!fIsFakeNet && fCheckPOS && block.height >= consensusParams.FortCanningHeight) {
+    if (!fIsFakeNet && fCheckPOS && height >= consensusParams.FortCanningHeight) {
         CKeyID minter;
         // this is safe cause pos::ContextualCheckProofOfStake checked
         block.ExtractMinterKey(minter);
@@ -4706,7 +4715,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     // Check timestamp
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && block.height >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }
@@ -4714,7 +4723,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
-    if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+    if (nHeight >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
@@ -5079,7 +5088,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     }
 
     // masternode key and operator auth address
-    auto operatorDetails = AmISignerNow(team);
+    auto operatorDetails = AmISignerNow(tip->nHeight, team);
 
     if (operatorDetails.empty()) {
         return;

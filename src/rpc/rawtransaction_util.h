@@ -50,4 +50,11 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, Fill
 /** Create a transaction from univalue parameters */
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain & chain);
 
+struct CParserResults {
+    CScript& address;
+    uint256& txid;
+};
+
+int DecodeScriptTxId(const std::string& str, CParserResults result);
+
 #endif // DEFI_RPC_RAWTRANSACTION_UTIL_H
