@@ -1153,6 +1153,105 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue estimatecollateral(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"estimatecollateral",
+               "Returns amount of collateral tokens needed to take an amount of loan tokens for a target collateral ratio.\n",
+                {
+                    {"loanAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"targetRatio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Target collateral ratio."},
+                    {"tokens", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Object with collateral token as key and their percent split as value. (defaults to { DFI: 1 }",
+                        {
+                            {"split", RPCArg::Type::NUM, RPCArg::Optional::NO, "The percent split"},
+                        },
+                    },
+                },
+                RPCResult{
+                    "\"json\"                  (Array) Array of <amount@token> strings\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimatecollateral", R"(23.55311144@MSFT 150 '{"DFI": 0.8, "BTC":0.2}')") +
+                       HelpExampleRpc("estimatecollateral", R"("23.55311144@MSFT" 150 {"DFI": 0.8, "BTC":0.2})")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValueType(), UniValue::VNUM, UniValue::VOBJ}, false);
+
+    const CBalances loanAmounts = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    auto ratio = request.params[1].get_int();
+
+    std::map<std::string, UniValue> collateralSplits;
+    if (request.params.size() > 2) {
+        request.params[2].getObjMap(collateralSplits);
+    } else {
+        collateralSplits["DFI"] = 1;
+    }
+
+    LOCK(cs_main);
+
+    CAmount totalLoanValue{0};
+    for (const auto& balance : loanAmounts.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(balance.first);
+        if (!loanToken) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%d) is not a loan token!", balance.first.v));
+        }
+
+        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+        if (!priceFeed.ok) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+        }
+
+       auto price = priceFeed.val->priceRecord[0];
+        if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", loanToken->symbol));
+        }
+        totalLoanValue += MultiplyAmounts(balance.second, price);
+    }
+
+    uint32_t height = ::ChainActive().Height();
+    CBalances collateralBalances;
+    CAmount totalSplit{0};
+    for (const auto& collateralSplit : collateralSplits) {
+        CAmount split = AmountFromValue(collateralSplit.second);
+
+        auto token = pcustomcsview->GetToken(collateralSplit.first);
+        if (!token) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", collateralSplit.first));
+        }
+
+        auto collateralToken = pcustomcsview->HasLoanCollateralToken({token->first, height});
+        if (!collateralToken || !collateralToken->factor) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
+        }
+
+        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
+        if (!priceFeed.ok) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+        }
+
+        auto price = priceFeed.val->priceRecord[0];
+        if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", collateralSplit.first));
+        }
+
+        auto requiredValue = MultiplyAmounts(totalLoanValue, split);
+        auto collateralValue = DivideAmounts(requiredValue, price);
+        auto amountRatio = DivideAmounts(MultiplyAmounts(collateralValue, ratio), 100);
+        auto totalAmount = DivideAmounts(amountRatio, collateralToken->factor);
+
+        collateralBalances.Add({token->first, totalAmount});
+        totalSplit += split;
+    }
+    if (totalSplit != COIN) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+    }
+
+    return AmountsToJSON(collateralBalances.balances);
+}
+
 UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const uint64_t blockHeight, const std::string& type,
                      const uint64_t txn, const std::string& txid, const TAmounts& amounts) {
     UniValue obj(UniValue::VOBJ);
@@ -1579,6 +1678,7 @@ static const CRPCCommand commands[] =
     {"vault",        "placeauctionbid",           &placeauctionbid,       {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
+    {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
     {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
 };
 
