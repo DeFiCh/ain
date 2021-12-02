@@ -1810,8 +1810,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
-UniValue listcustomtxtypes(const JSONRPCRequest& request) {
-    RPCHelpMan{"listcustomtxtypes",
+UniValue getcustomtxcodes(const JSONRPCRequest& request) {
+    RPCHelpMan{"getcustomtxcodes",
                "\nList all available custom transaction types.\n",
                {
                },
@@ -1819,8 +1819,8 @@ UniValue listcustomtxtypes(const JSONRPCRequest& request) {
                        "{\"1\": \"ICXCreateOrder\", \"2\": \"ICXMakeOffer\", ...}     (object) List of custom transaction types { [single letter representation]: custom transaction type name}\n"
                },
                RPCExamples{
-                       HelpExampleCli("listcustomtxtypes", "")
-                       + HelpExampleRpc("listcustomtxtypes", "")
+                       HelpExampleCli("getcustomtxcodes", "")
+                       + HelpExampleRpc("getcustomtxcodes", "")
                },
     }.Check(request);
 
@@ -1851,7 +1851,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
-    {"accounts",    "listcustomtxtypes",     &listcustomtxtypes,     {}},
+    {"accounts",    "getcustomtxcodes",      &getcustomtxcodes,      {}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

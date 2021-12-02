@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test listcustomtxtypes RPC."""
+"""Test getcustomtxcodes RPC."""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
@@ -12,7 +12,7 @@ from test_framework.util import (
     assert_equal,
 )
 
-class RPClistCustomTxTypes(DefiTestFramework):
+class RPCgetCustomTxCodes(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -44,7 +44,7 @@ class RPClistCustomTxTypes(DefiTestFramework):
         self.nodes[0].minttokens(["300@" + token_a])
         self.nodes[0].generate(1)
 
-        tx_list = self.nodes[0].listcustomtxtypes()
+        tx_list = self.nodes[0].getcustomtxcodes()
         for (key, value) in tx_list.items():
             if value == "MintToken":
                 mint_token_tx_key = key
@@ -84,4 +84,4 @@ class RPClistCustomTxTypes(DefiTestFramework):
             assert_equal(e.error['message'], "Invalid tx type (wrong)")
 
 if __name__ == '__main__':
-    RPClistCustomTxTypes().main ()
+    RPCgetCustomTxCodes().main ()
