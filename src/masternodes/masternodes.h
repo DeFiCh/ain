@@ -95,9 +95,7 @@ public:
     //! empty constructor
     CMasternode();
 
-    State GetState() const;
     State GetState(int height) const;
-    bool IsActive() const;
     bool IsActive(int height) const;
 
     static std::string GetHumanReadableState(State state);
@@ -414,7 +412,7 @@ public:
     }
 
     // cause depends on current mns:
-    CTeamView::CTeam CalcNextTeam(uint256 const & stakeModifier);
+    CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
@@ -447,7 +445,7 @@ public:
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
 
-std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;

@@ -5088,7 +5088,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     }
 
     // masternode key and operator auth address
-    auto operatorDetails = AmISignerNow(team);
+    auto operatorDetails = AmISignerNow(tip->nHeight, team);
 
     if (operatorDetails.empty()) {
         return;
