@@ -1620,7 +1620,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VNUM, UniValue::VOBJ}, false);
 
-    const CBalances loanAmounts = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    const CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
     auto ratio = request.params[1].get_int();
 
     std::map<std::string, UniValue> collateralSplits;
@@ -1633,22 +1633,15 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     CAmount totalLoanValue{0};
-    for (const auto& balance : loanAmounts.balances) {
-        auto loanToken = pcustomcsview->GetLoanTokenByID(balance.first);
-        if (!loanToken) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%d) is not a loan token!", balance.first.v));
-        }
+    for (const auto& loan : loanBalances.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
 
-        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
-        if (!priceFeed.ok) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
-
-       auto price = priceFeed.val->priceRecord[0];
-        if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", loanToken->symbol));
-        }
-        totalLoanValue += MultiplyAmounts(balance.second, price);
+        totalLoanValue += *amountInCurrency.val;
     }
 
     uint32_t height = ::ChainActive().Height();

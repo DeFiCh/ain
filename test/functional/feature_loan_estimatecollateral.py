@@ -116,7 +116,7 @@ class EstimateCollateralTest (DefiTestFramework):
             self.nodes[0].estimatecollateral("10@TSLA", 200)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No live fixed price for TSLA" in errorString)
+        assert("No live fixed prices for TSLA/USD" in errorString)
 
         oracle1_prices = [
             {"currency": "USD", "tokenAmount": "1@DFI"},
