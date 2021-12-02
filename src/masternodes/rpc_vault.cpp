@@ -440,8 +440,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!optionsObj["ownerAddress"].isNull()) {
             auto ownerAddressStr = optionsObj["ownerAddress"].getValStr();
             isMine = (ownerAddressStr == "mine");
-            if(!isMine)
-                ownerAddress = DecodeScript(optionsObj["ownerAddress"].getValStr());
+            if (!isMine)
+                ownerAddress = DecodeScript(ownerAddressStr);
         }
         if (!optionsObj["loanSchemeId"].isNull()) {
             loanSchemeId = optionsObj["loanSchemeId"].getValStr();
