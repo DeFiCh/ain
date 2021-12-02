@@ -1590,6 +1590,73 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
     return slice;
 }
 
+UniValue estimatevault(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"estimatevault",
+               "Returns estimated vault for given collateral and loan amounts.\n",
+                {
+                    {"collateralAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Collateral amounts as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"loanAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Loan amounts as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                },
+                RPCResult{
+                       "{\n"
+                       "  \"collateralValue\" : n.nnnnnnnn,        (amount) The total collateral value in USD\n"
+                       "  \"loanValue\" : n.nnnnnnnn,              (amount) The total loan value in USD\n"
+                       "  \"informativeRatio\" : n.nnnnnnnn,       (amount) Informative ratio with 8 digit precision\n"
+                       "  \"collateralRatio\" : n,                 (uint) Ratio as unsigned int\n"
+                       "}\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimatevault", R"('["1000.00000000@DFI"]' '["0.65999990@GOOGL"]')") +
+                       HelpExampleRpc("estimatevault", R"(["1000.00000000@DFI"], ["0.65999990@GOOGL"])")
+               },
+    }.Check(request);
+
+    CBalances collateralBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[1], "");
+
+    LOCK(cs_main);
+    auto height = (uint32_t) ::ChainActive().Height();
+
+    CCollateralLoans result{};
+
+    for (const auto& collateral : collateralBalances.balances) {
+        auto collateralToken = pcustomcsview->HasLoanCollateralToken({collateral.first, height});
+        if (!collateralToken || !collateralToken->factor) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token with id (%s) is not a valid collateral!", collateral.first.ToString()));
+        }
+
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
+        }
+        result.totalCollaterals += MultiplyAmounts(collateralToken->factor, *amountInCurrency.val);;
+    }
+
+    for (const auto& loan : loanBalances.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
+
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
+        }
+        result.totalLoans += *amountInCurrency.val;
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("collateralValue", ValueFromUint(result.totalCollaterals));
+    ret.pushKV("loanValue", ValueFromUint(result.totalLoans));
+    ret.pushKV("informativeRatio", ValueFromAmount(result.precisionRatio()));
+    ret.pushKV("collateralRatio", int(result.ratio()));
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1606,6 +1673,7 @@ static const CRPCCommand commands[] =
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
     {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
+    {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
