@@ -821,7 +821,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
             depth--;
         }
 
-        return true;
+        return depth != 0;
     };
 
     pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
