@@ -926,7 +926,7 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
         if (!priceResult)
             return std::move(priceResult);
 
-        auto price = priceResult.val.get();
+        auto price = priceResult.val.value();
         auto amountInCurrency = MultiplyAmounts(price, amount);
         if (price > COIN && amountInCurrency < amount)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
