@@ -1010,19 +1010,17 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         int targetHeight = ::ChainActive().Height() + 1;
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
-        const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
-
         CPoolPair pp = poolPair->second;
         res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
             auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
-            if (!resPP.ok) {
-                return Res::Err("%s: %s", base, resPP.msg);
+            if (!resPP) {
+                return resPP;
             }
 
             return Res::Ok(tokenAmount.ToString());
         }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
 
-        if (!res.ok)
+        if (!res)
             throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
     }
     return UniValue(res.msg);

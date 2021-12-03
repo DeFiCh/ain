@@ -6,8 +6,9 @@
 UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
+    auto currentHeight = ChainActive().Height();
     if (!verbose) {
-        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState()));
+        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
     }
     else {
         UniValue obj(UniValue::VOBJ);
@@ -30,7 +31,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
         obj.pushKV("banTx", node.banTx.GetHex());
-        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
+        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
         obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
@@ -44,11 +45,10 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
-        auto currentHeight = ChainActive().Height();
         uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
-        if (node.IsActive()) {
+        if (node.IsActive(currentHeight)) {
             // Get block times with next block as height
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
 

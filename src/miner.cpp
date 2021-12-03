@@ -109,6 +109,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
+    CBlockIndex* pindexPrev = ::ChainActive().Tip();
+    assert(pindexPrev != nullptr);
+    nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
     if (!blockTime) {
@@ -116,15 +119,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (!myIDs)
             return nullptr;
         auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive())
+        if (!nodePtr || !nodePtr->IsActive(nHeight))
             return nullptr;
     }
 
-    CBlockIndex* pindexPrev = ::ChainActive().Tip();
-    assert(pindexPrev != nullptr);
-    nHeight = pindexPrev->nHeight + 1;
     auto consensus = chainparams.GetConsensus();
-
     pblock->nVersion = ComputeBlockVersion(pindexPrev, consensus);
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
@@ -719,7 +718,7 @@ namespace pos {
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
+            if (!nodePtr || !nodePtr->IsActive(tip->height + 1))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;

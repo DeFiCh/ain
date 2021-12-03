@@ -3245,7 +3245,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-curteam", "anchor wrong current team");
     }
 
-    if (finMsg.nextTeam != mnview.CalcNextTeam(prevStakeModifier)) {
+    if (finMsg.nextTeam != mnview.CalcNextTeam(height, prevStakeModifier)) {
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
