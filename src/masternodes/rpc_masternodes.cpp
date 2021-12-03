@@ -318,7 +318,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     // Temporarily disabled for 2.2
     throw JSONRPCError(RPC_INVALID_REQUEST,
                            "reward address change is disabled for Fort Canning");
-    
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"remforcedrewardaddress",
@@ -814,10 +814,11 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         if (blockHeight <= creationHeight) {
             return true;
         }
-
-        if (auto tip = ::ChainActive()[blockHeight]) {
+        auto tip = ::ChainActive()[blockHeight];
+        if (tip && depth > 0) {
             lastHeight = tip->height;
             ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+            depth--;
         }
 
         return true;
