@@ -241,9 +241,7 @@ public:
 
     void operator()(const CUpdateOracleAppointMessage& obj) const {
         rpcInfo.pushKV("oracleId", obj.oracleId.ToString());
-        rpcInfo.pushKV("oracleAddress", ScriptToString(obj.newOracleAppoint.oracleAddress));
-        rpcInfo.pushKV("weightage", obj.newOracleAppoint.weightage);
-        tokenCurrencyPairInfo(obj.newOracleAppoint.availablePairs);
+        (*this)(obj.newOracleAppoint);
     }
 
     void operator()(const CRemoveOracleAppointMessage& obj) const {
@@ -413,7 +411,6 @@ public:
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         if (!obj.to.empty())
             rpcInfo.pushKV("to", ScriptToString(obj.to));
-        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         for (auto const & kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
                 auto tokenImpl = static_cast<CTokenImplementation const&>(*token);

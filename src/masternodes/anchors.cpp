@@ -283,8 +283,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
             auto count = list.count(std::make_tuple(curHeight, curSignHash));
 
             if (count >= quorum) {
-                KList::iterator it0, it0Copy, it1;
-                std::tie(it0,it1) = list.equal_range(std::make_tuple(curHeight, curSignHash));
+                auto [it0, it1] = list.equal_range(std::make_tuple(curHeight, curSignHash));
 
                 // Fix to avoid "Anchor too new" error until F hard fork
                 auto anchorIndex = ::ChainActive()[it0->height];
@@ -293,7 +292,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
                 }
 
                 uint32_t validCount{0};
-                it0Copy = it0;
+                auto it0Copy = it0;
                 for (uint32_t i{0}; i < quorum && it0Copy != it1; ++i, ++it0Copy) {
                     // ValidateAuth called here performs extra checks with SPV enabled.
                     if (ValidateAuth(*it0Copy)) {
@@ -647,8 +646,7 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
             break;
         }
 
-        KList::iterator it0, it1;
-        std::tie(it0,it1) = list.equal_range(it->btcHeight);
+        auto [it0, it1] = list.equal_range(it->btcHeight);
         CAnchorIndex::AnchorRec const * choosenOne = nullptr;
         // at least one iteration here
         for (; it0 != it1; ++it0) {
@@ -958,13 +956,9 @@ bool CAnchorFinalizationMessage::CheckConfirmSigs()
     return CheckSigs(GetSignHash(), sigs, currentTeam);
 }
 
-size_t CAnchorFinalizationMessagePlus::CheckConfirmSigs(const uint32_t height)
+size_t CAnchorFinalizationMessagePlus::CheckConfirmSigs(CAnchorData::CTeam const & team,  const uint32_t height)
 {
-    auto team = pcustomcsview->GetConfirmTeam(height);
-    if (!team) {
-        return false;
-    }
-    return CheckSigs(GetSignHash(), sigs, *team);
+    return CheckSigs(GetSignHash(), sigs, team);
 }
 
 bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)
@@ -1086,8 +1080,7 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
 
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
-        KList::iterator it0, it1;
-        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHeight, it->btcTxHash));
+        auto [it0, it1] = list.equal_range(std::make_tuple(it->btcTxHeight, it->btcTxHash));
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {

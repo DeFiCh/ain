@@ -31,19 +31,18 @@ Res CAccountsHistoryView::EraseAccountHistory(const AccountHistoryKey& key)
 }
 
 CAccountHistoryStorage::CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
-    : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe))
+    : CStorageView(std::make_shared<CStorageLevelDB>(dbName, cacheSize, fMemory, fWipe))
 {
 }
 
 CBurnHistoryStorage::CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
-    : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe))
+    : CStorageView(std::make_shared<CStorageLevelDB>(dbName, cacheSize, fMemory, fWipe))
 {
 }
 
 CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type,
                                                CHistoryWriters* writers)
-    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn),
-    txid(txid), type(type), writers(writers)
+    : CStorageView(storage), height(height), txn(txn), txid(txid), type(type), writers(writers)
 {
 }
 
@@ -76,7 +75,7 @@ bool CAccountsHistoryWriter::Flush()
 }
 
 CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers)
-    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), erasers(erasers)
+    : CStorageView(storage), height(height), txn(txn), erasers(erasers)
 {
 }
 

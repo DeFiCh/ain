@@ -368,7 +368,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     CAmount delta{0};
     ApplyDelta(entry.GetTx().GetHash(), delta);
     if (delta) {
-            mapTx.modify(newit, update_fee_delta(delta));
+        mapTx.modify(newit, update_fee_delta(delta));
     }
 
     // Update cachedInnerUsage to include contained transaction's usage.
@@ -391,7 +391,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
     // Update ancestors with information about this tx
     for (const auto& pit : GetIterSet(setParentTransactions)) {
-            UpdateParent(newit, pit, true);
+        UpdateParent(newit, pit, true);
     }
     UpdateAncestorsOf(true, newit, setAncestors);
     UpdateEntryForAncestors(newit, setAncestors);
@@ -462,30 +462,30 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
 {
     // Remove transaction from memory pool
     AssertLockHeld(cs);
-        setEntries txToRemove;
-        txiter origit = mapTx.find(origTx.GetHash());
-        if (origit != mapTx.end()) {
-            txToRemove.insert(origit);
-        } else {
-            // When recursively removing but origTx isn't in the mempool
-            // be sure to remove any children that are in the pool. This can
-            // happen during chain re-orgs if origTx isn't re-accepted into
-            // the mempool for any reason.
-            for (unsigned int i = 0; i < origTx.vout.size(); i++) {
-                auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
-                if (it == mapNextTx.end())
-                    continue;
-                txiter nextit = mapTx.find(it->second->GetHash());
-                assert(nextit != mapTx.end());
-                txToRemove.insert(nextit);
-            }
+    setEntries txToRemove;
+    txiter origit = mapTx.find(origTx.GetHash());
+    if (origit != mapTx.end()) {
+        txToRemove.insert(origit);
+    } else {
+        // When recursively removing but origTx isn't in the mempool
+        // be sure to remove any children that are in the pool. This can
+        // happen during chain re-orgs if origTx isn't re-accepted into
+        // the mempool for any reason.
+        for (unsigned int i = 0; i < origTx.vout.size(); i++) {
+            auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
+            if (it == mapNextTx.end())
+                continue;
+            txiter nextit = mapTx.find(it->second->GetHash());
+            assert(nextit != mapTx.end());
+            txToRemove.insert(nextit);
         }
-        setEntries setAllRemoves;
-        for (txiter it : txToRemove) {
-            CalculateDescendants(it, setAllRemoves);
-        }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
 
-        RemoveStaged(setAllRemoves, false, reason);
+    RemoveStaged(setAllRemoves, false, reason);
 }
 
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
@@ -1097,7 +1097,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     }
 
     CAmount txfee = 0;
-    accountsView().Discard();
+    acview.reset();
     CCustomCSView viewDuplicate(accountsView());
 
     setEntries staged;

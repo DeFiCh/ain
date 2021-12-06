@@ -132,7 +132,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)};
     // encode
@@ -243,7 +243,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CUpdateOracleAppointMessage msg{
         oracleId,
@@ -328,7 +328,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     CRemoveOracleAppointMessage msg{};
     msg.oracleId = ParseHashV(request.params[0], "oracleid");
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -462,9 +462,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CTokenPrices tokenPrices;
 
     for (const auto &value : prices.get_array().getValues()) {
-        std::string currency;
-        std::pair<CAmount, std::string> tokenAmount;
-        std::tie(currency, tokenAmount) = parseDataItem(value);
+        const auto [currency, tokenAmount] = parseDataItem(value);
         tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
     }
 
@@ -473,7 +471,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     int targetHeight;
     CScript oracleAddress;
     {
-        LOCK(cs_main);
         // check if tx parameters are valid
         auto oracleRes = pcustomcsview->GetOracleData(oracleId);
         if (!oracleRes) {
@@ -481,7 +478,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         }
         oracleAddress = oracleRes.val->oracleAddress;
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = pcustomcsview->GetLastHeight() + 1;
     }
 
     // timestamp is checked at consensus level
@@ -607,7 +604,6 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
-    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
 
     auto oracleRes = mnview.GetOracleData(oracleId);
@@ -676,8 +672,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
     }
-
-    LOCK(cs_main);
 
     UniValue value(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
@@ -766,9 +760,8 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -947,9 +940,8 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
@@ -1007,9 +999,8 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
@@ -1042,22 +1033,22 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
 
-    LOCK(cs_main);
-
     LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
 
-    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    CCustomCSView view(*pcustomcsview);
+    auto fixedPrice = view.GetFixedIntervalPrice(pairId);
     if (!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    auto height = view.GetLastHeight();
+    auto priceBlocks = GetFixedIntervalPriceBlocks(height, view);
 
     objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
     objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
     objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
-    objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
+    objPrice.pushKV("isLive", fixedPrice.val->isLive(view.GetPriceDeviation()));
     return objPrice;
 }
 
@@ -1108,16 +1099,15 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue listPrice{UniValue::VARR};
-    pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+    CCustomCSView view(*pcustomcsview);
+    view.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         UniValue obj{UniValue::VOBJ};
         obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
         obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
         obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
         obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-        obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
+        obj.pushKV("isLive", fixedIntervalPrice.isLive(view.GetPriceDeviation()));
         listPrice.push_back(obj);
         return --limit != 0;
     }, start);

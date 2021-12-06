@@ -758,15 +758,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    // construct undo
-    auto& flushable = view.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-    // flush changes
+    mnview.AddUndo(view, tx.GetHash(), height);
     view.Flush();
-    // write undo
-    if (!undo.before.empty()) {
-        mnview.SetUndo(UndoKey{height, tx.GetHash()}, undo);
-    }
     return res;
 }
 
@@ -856,14 +849,14 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
     int anchorHeight = height - 1;
-    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
-    if (!uniqueKeys) {
-        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
-    }
-
     auto team = mnview.GetConfirmTeam(anchorHeight);
     if (!team) {
         return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", anchorHeight);
+    }
+
+    auto uniqueKeys = finMsg.CheckConfirmSigs(*team, anchorHeight);
+    if (!uniqueKeys) {
+        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
 
     auto quorum = GetMinAnchorQuorum(*team);
@@ -1188,8 +1181,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     return poolResult;
 }
 
-Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
 {
+    auto token = mnview.GetToken(tokenId);
+    if (!token)
+        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
+
     CPoolSwapMessage obj;
 
     obj.from = from;
@@ -1200,19 +1197,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     obj.maxPrice = POOLPRICE_MAX;
 
     auto poolSwap = CPoolSwap(obj, height);
-    auto token = mnview.GetToken(tokenId);
-    if (!token)
-        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
-    // TODO: Optimize double look up later when first token is DUSD.
+    // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
+    if (token->symbol == "DUSD")
+        return poolSwap.ExecuteSwap(mnview, {});
+
     auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
-
-    // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
-    if (tokenId == dUsdToken->first) {
-        return poolSwap.ExecuteSwap(mnview, {});
-    }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
     if (!pooldUSDDFI)
@@ -1223,9 +1215,7 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
         return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
 
     // swap tokenID -> USD -> DFI
-    auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
-
-    return res;
+    return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
 }
 
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)

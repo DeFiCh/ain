@@ -276,7 +276,6 @@ void Shutdown(InitInterfaces& interfaces)
         panchorAwaitingConfirms.reset();
         panchorauths.reset();
         pcustomcsview.reset();
-        pcustomcsDB.reset();
         pblocktree.reset();
     }
     for (const auto& client : interfaces.chain_clients) {
@@ -1622,10 +1621,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                         "", CClientUIInterface::MSG_ERROR);
                 });
 
-                pcustomcsDB.reset();
-                pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
+                auto pcustomcsDB = std::make_shared<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;

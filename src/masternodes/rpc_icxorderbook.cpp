@@ -1,11 +1,11 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const status) {
+UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const status, int currentHeight) {
     UniValue orderObj(UniValue::VOBJ);
 
     auto token = pcustomcsview->GetToken(order.idToken);
-        if (!token)
-            return (UniValue::VNULL);
+    if (!token)
+        return (UniValue::VNULL);
 
     switch (status)
     {
@@ -44,7 +44,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
         orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
         if (!order.closeTx.IsNull()) orderObj.pushKV("closeTx", order.closeTx.GetHex());
     }
-    else if (order.creationHeight + order.expiry <= pcustomcsview->GetLastHeight())
+    else if (order.creationHeight + order.expiry <= currentHeight)
     {
         orderObj.pushKV("expired", true);
     }
@@ -281,12 +281,12 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
 
     int targetHeight;
     {
-        LOCK(cs_main);
         DCT_ID idToken;
+        CCustomCSView view(*pcustomcsview);
 
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
-            auto token = pcustomcsview->GetTokenGuessId(tokenFromSymbol, idToken);
+            auto token = view.GetTokenGuessId(tokenFromSymbol, idToken);
             if (!token)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenFromSymbol));
             order.idToken = idToken;
@@ -296,19 +296,19 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must not be null");
 
-            CTokenAmount balance = pcustomcsview->GetBalance(order.ownerAddress, idToken);
+            CTokenAmount balance = view.GetBalance(order.ownerAddress, idToken);
             if (balance.nValue < order.amountFrom)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!", token->CreateSymbolKey(order.idToken), ScriptToString(order.ownerAddress)));
         }
         else
         {
-            auto token = pcustomcsview->GetTokenGuessId(tokenToSymbol, idToken);
+            auto token = view.GetTokenGuessId(tokenToSymbol, idToken);
             if (!token)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenToSymbol));
             order.idToken = idToken;
         }
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -427,8 +427,9 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
     int targetHeight;
     {
-        LOCK(cs_main);
-        auto order = pcustomcsview->GetICXOrderByCreationTx(makeoffer.orderTx);
+        CCustomCSView view(*pcustomcsview);
+
+        auto order = view.GetICXOrderByCreationTx(makeoffer.orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",makeoffer.orderTx.GetHex()));
 
@@ -439,13 +440,13 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must be non-null");
 
-            CTokenAmount balance = pcustomcsview->GetBalance(makeoffer.ownerAddress,order->idToken);
+            CTokenAmount balance = view.GetBalance(makeoffer.ownerAddress,order->idToken);
             if (balance.nValue < makeoffer.amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
-                        pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(makeoffer.ownerAddress)));
+                        view.GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(makeoffer.ownerAddress)));
         }
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
 
         if (targetHeight < Params().GetConsensus().EunosPayaHeight)
             makeoffer.expiry = CICXMakeOffer::DEFAULT_EXPIRY;
@@ -562,17 +563,17 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        LOCK(cs_main);
+        CCustomCSView view(*pcustomcsview);
 
-        targetHeight = ::ChainActive().Height() + 1;
-
-        auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
+        auto offer = view.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
         if (!offer)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offerTx (%s) does not exist",submitdfchtlc.offerTx.GetHex()));
 
-        auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+        auto order = view.GetICXOrderByCreationTx(offer->orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
+
+        targetHeight = view.GetLastHeight() + 1;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
@@ -588,10 +589,10 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
             if (!submitdfchtlc.timeout)
             submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
 
-            CTokenAmount balance = pcustomcsview->GetBalance(offer->ownerAddress,order->idToken);
+            CTokenAmount balance = view.GetBalance(offer->ownerAddress,order->idToken);
             if (balance.nValue < offer->amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
-                        pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
+                        view.GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
         }
     }
 
@@ -719,15 +720,13 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        LOCK(cs_main);
+        CCustomCSView view(*pcustomcsview);
 
-        targetHeight = ::ChainActive().Height() + 1;
-
-        auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
+        auto offer = view.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
         if (!offer)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offerTx (%s) does not exist",submitexthtlc.offerTx.GetHex()));\
 
-        auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+        auto order = view.GetICXOrderByCreationTx(offer->orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
 
@@ -739,6 +738,8 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         {
             authScript = order->ownerAddress;
         }
+
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -838,12 +839,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"seed\" must be non-null");
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::ICXClaimDFCHTLC)
@@ -928,8 +924,9 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        LOCK(cs_main);
-        auto order = pcustomcsview->GetICXOrderByCreationTx(closeorder.orderTx);
+        CCustomCSView view(*pcustomcsview);
+
+        auto order = view.GetICXOrderByCreationTx(closeorder.orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + closeorder.orderTx.GetHex() + ") does not exist");
 
@@ -938,7 +935,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
         if (!order->closeTx.IsNull())
             throw JSONRPCError(RPC_INVALID_PARAMETER,"orderTx (" + closeorder.orderTx.GetHex() + " is already closed!");
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1024,9 +1021,9 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        LOCK(cs_main);
+        CCustomCSView view(*pcustomcsview);
 
-        auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(closeoffer.offerTx);
+        auto offer = view.GetICXMakeOfferByCreationTx(closeoffer.offerTx);
         if (!offer)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "OfferTx (" + closeoffer.offerTx.GetHex() + ") does not exist");
 
@@ -1035,7 +1032,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
         if (!offer->closeTx.IsNull())
             throw JSONRPCError(RPC_INVALID_PARAMETER,"OfferTx (" + closeoffer.offerTx.GetHex() + " is already closed!");
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1097,21 +1094,22 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("EXPERIMENTAL warning:", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    LOCK(cs_main);
+    CCustomCSView view(*pcustomcsview);
 
-    uint256 orderTxid= uint256S(request.params[0].getValStr());
-    auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
+    auto currentHeight = view.GetLastHeight();
+    uint256 orderTxid = uint256S(request.params[0].getValStr());
+    auto order = view.GetICXOrderByCreationTx(orderTxid);
     if (order)
     {
-        auto status = pcustomcsview->GetICXOrderStatus({order->idToken,order->creationTx});
-        ret.pushKVs(icxOrderToJSON(*order, status));
+        auto status = view.GetICXOrderStatus({order->idToken,order->creationTx});
+        ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
         return ret;
     }
 
-    auto fillorder = pcustomcsview->GetICXMakeOfferByCreationTx(orderTxid);
+    auto fillorder = view.GetICXMakeOfferByCreationTx(orderTxid);
     if (fillorder)
     {
-        auto status = pcustomcsview->GetICXMakeOfferStatus({fillorder->orderTx,fillorder->creationTx});
+        auto status = view.GetICXMakeOfferStatus({fillorder->orderTx,fillorder->creationTx});
         ret.pushKVs(icxMakeOfferToJSON(*fillorder, status));
         return ret;
     }
@@ -1166,18 +1164,19 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         if (!byObj["closed"].isNull()) closed = byObj["closed"].get_bool();
     }
 
+    CCustomCSView view(*pcustomcsview);
+
+    auto currentHeight = view.GetLastHeight();
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()};
     if (!tokenSymbol.empty() && !chain.empty())
     {
-        auto token1 = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
+        auto token1 = view.GetTokenGuessId(tokenSymbol, idToken);
         if (!token1)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
     }
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-
-    LOCK(cs_main);
 
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
@@ -1187,19 +1186,19 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         auto orderkeylambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
             if (key.first != prefix || !limit)
                 return (false);
-            auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
+            auto order = view.GetICXOrderByCreationTx(key.second);
             if (order)
             {
-                ret.pushKVs(icxOrderToJSON(*order, status));
+                ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
                 limit--;
             }
             return true;
         };
 
         if (closed)
-            pcustomcsview->ForEachICXOrderClose(orderkeylambda, prefix);
+            view.ForEachICXOrderClose(orderkeylambda, prefix);
         else
-            pcustomcsview->ForEachICXOrderOpen(orderkeylambda, prefix);
+            view.ForEachICXOrderOpen(orderkeylambda, prefix);
 
         return ret;
     }
@@ -1208,7 +1207,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         auto offerkeylambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
             if (key.first != orderTxid || !limit)
                 return (false);
-            auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(key.second);
+            auto offer = view.GetICXMakeOfferByCreationTx(key.second);
             if (offer)
             {
                 ret.pushKVs(icxMakeOfferToJSON(*offer, status));
@@ -1217,9 +1216,9 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
             return true;
         };
         if (closed)
-            pcustomcsview->ForEachICXMakeOfferClose(offerkeylambda, orderTxid);
+            view.ForEachICXMakeOfferClose(offerkeylambda, orderTxid);
         else
-            pcustomcsview->ForEachICXMakeOfferOpen(offerkeylambda, orderTxid);
+            view.ForEachICXMakeOfferOpen(offerkeylambda, orderTxid);
 
         return ret;
     }
@@ -1227,19 +1226,19 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     auto orderlambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
         if (!limit)
             return false;
-        auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
+        auto order = view.GetICXOrderByCreationTx(key.second);
         if (order)
         {
-            ret.pushKVs(icxOrderToJSON(*order, status));
+            ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
             limit--;
         }
         return true;
     };
 
     if (closed)
-        pcustomcsview->ForEachICXOrderClose(orderlambda);
+        view.ForEachICXOrderClose(orderlambda);
     else
-        pcustomcsview->ForEachICXOrderOpen(orderlambda);
+        view.ForEachICXOrderOpen(orderlambda);
 
     return ret;
 }
@@ -1292,12 +1291,12 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    LOCK(cs_main);
+    CCustomCSView view(*pcustomcsview);
 
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)
             return false;
-        auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
+        auto dfchtlc = view.GetICXSubmitDFCHTLCByCreationTx(key.second);
         if (dfchtlc)
         {
             ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
@@ -1308,7 +1307,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     auto exthtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)
             return false;
-        auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
+        auto exthtlc = view.GetICXSubmitEXTHTLCByCreationTx(key.second);
         if (exthtlc)
         {
             ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
@@ -1317,10 +1316,10 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         return true;
     };
 
-    pcustomcsview->ForEachICXClaimDFCHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+    view.ForEachICXClaimDFCHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)
             return false;
-        auto claimdfchtlc = pcustomcsview->GetICXClaimDFCHTLCByCreationTx(key.second);
+        auto claimdfchtlc = view.GetICXClaimDFCHTLCByCreationTx(key.second);
         if (claimdfchtlc)
         {
             ret.pushKVs(icxClaimDFCHTLCToJSON(*claimdfchtlc));
@@ -1330,12 +1329,12 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     }, offerTxid);
 
     if (closed)
-        pcustomcsview->ForEachICXSubmitDFCHTLCClose(dfchtlclambda, offerTxid);
-    pcustomcsview->ForEachICXSubmitDFCHTLCOpen(dfchtlclambda, offerTxid);
+        view.ForEachICXSubmitDFCHTLCClose(dfchtlclambda, offerTxid);
+    view.ForEachICXSubmitDFCHTLCOpen(dfchtlclambda, offerTxid);
 
     if (closed)
-        pcustomcsview->ForEachICXSubmitEXTHTLCClose(exthtlclambda, offerTxid);
-    pcustomcsview->ForEachICXSubmitEXTHTLCOpen(exthtlclambda, offerTxid);
+        view.ForEachICXSubmitEXTHTLCClose(exthtlclambda, offerTxid);
+    view.ForEachICXSubmitEXTHTLCOpen(exthtlclambda, offerTxid);
 
     return ret;
 }

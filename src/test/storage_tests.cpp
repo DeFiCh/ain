@@ -45,10 +45,10 @@ UniValue CallRPC(std::string args)
     }
 }
 
-int GetTokensCount()
+int GetTokensCount(CCustomCSView& view)
 {
     int counter{0};
-    pcustomcsview->ForEachToken([&counter] (DCT_ID const & id, CLazySerialize<CTokenImplementation>) {
+    view.ForEachToken([&counter] (DCT_ID const & id, CLazySerialize<CTokenImplementation>) {
 //        printf("DCT_ID: %d, Token: %s: %s\n", id, token.symbol.c_str(), token.name.c_str()); // dump for debug
         ++counter;
         return true;
@@ -75,24 +75,29 @@ static std::vector<unsigned char> ToBytes(const char * in)
 
 BOOST_AUTO_TEST_CASE(flushableType)
 {
-    CStorageKV & storage = pcustomcsview->GetStorage();
-    BOOST_REQUIRE(dynamic_cast<CFlushableStorageKV*>(&storage));
+    auto& mainStorage = pcustomcsview->GetStorage();
+    BOOST_REQUIRE(dynamic_cast<CStorageLevelDB*>(&mainStorage));
+
+    CCustomCSView mnview(*pcustomcsview);
+    auto& cacheStorage = mnview.GetStorage();
+    BOOST_REQUIRE(dynamic_cast<CFlushableStorageKV*>(&cacheStorage));
 }
 
 BOOST_AUTO_TEST_CASE(undo)
 {
-    CStorageKV & base_raw = pcustomcsview->GetStorage();
+    CCustomCSView view(*pcustomcsview);
+    auto& base_raw = view.GetStorage();
     // place some "old" record
-    pcustomcsview->Write("testkey1", "value0");
+    view.Write("testkey1", "value0");
 
     auto snapStart = TakeSnapshot(base_raw);
 
-    CCustomCSView mnview(*pcustomcsview);
+    CCustomCSView mnview(view);
     BOOST_CHECK(mnview.Write("testkey1", "value1")); // modify
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
     // construct undo
-    auto& flushable = mnview.GetStorage();
+    auto& flushable = static_cast<CFlushableStorageKV&>(mnview.GetStorage());
     auto undo = CUndo::Construct(base_raw, flushable.GetRaw());
     BOOST_CHECK(undo.before.size() == 2);
     BOOST_CHECK(undo.before.at(ToBytes("testkey1")) == ToBytes("value0"));
@@ -107,17 +112,17 @@ BOOST_AUTO_TEST_CASE(undo)
     BOOST_CHECK(snap1.at(ToBytes("testkey2")) == ToBytes("value2"));
 
     // write undo
-    pcustomcsview->SetUndo(UndoKey{1, uint256S("0x1")}, undo);
+    view.SetUndo(UndoKey{1, uint256S("0x1")}, undo);
 
     auto snap2 = TakeSnapshot(base_raw);
     BOOST_CHECK(snap2.size() - snap1.size() == 1); // undo
     BOOST_CHECK(snap2.size() - snapStart.size() == 2); // onew new record + undo
 
-    pcustomcsview->OnUndoTx(uint256S("0x1"), 2); // fail
+    view.OnUndoTx(uint256S("0x1"), 2); // fail
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    pcustomcsview->OnUndoTx(uint256S("0x2"), 1); // fail
+    view.OnUndoTx(uint256S("0x2"), 1); // fail
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    pcustomcsview->OnUndoTx(uint256S("0x1"), 1); // success
+    view.OnUndoTx(uint256S("0x1"), 1); // success
     BOOST_CHECK(snapStart == TakeSnapshot(base_raw));
 }
 
@@ -166,14 +171,15 @@ BOOST_AUTO_TEST_CASE(recipients)
 
 BOOST_AUTO_TEST_CASE(tokens)
 {
-    BOOST_REQUIRE(GetTokensCount() == 1);
+    CCustomCSView view(*pcustomcsview);
+    BOOST_REQUIRE(GetTokensCount(view) == 1);
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{0});
+        auto token = view.GetToken(DCT_ID{0});
         BOOST_REQUIRE(token);
         BOOST_REQUIRE(token->symbol == "DFI");
     }
     {   // search by symbol
-        auto pair = pcustomcsview->GetToken("DFI");
+        auto pair = view.GetToken("DFI");
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{0});
         BOOST_REQUIRE(pair->second);
@@ -184,60 +190,60 @@ BOOST_AUTO_TEST_CASE(tokens)
     CTokenImplementation token1;
     token1.symbol = "DCT1";
     token1.creationTx = uint256S("0x1111");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
-    BOOST_REQUIRE(GetTokensCount() == 2);
+    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(GetTokensCount(view) == 2);
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{128});
+        auto token = view.GetToken(DCT_ID{128});
         BOOST_REQUIRE(token);
         BOOST_REQUIRE(token->symbol == "DCT1");
     }
     {   // search by symbol
-        auto pair = pcustomcsview->GetToken("DCT1#128");
+        auto pair = view.GetToken("DCT1#128");
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{128});
         BOOST_REQUIRE(pair->second);
         BOOST_REQUIRE(pair->second->symbol == "DCT1");
     }
     {   // search by tx
-        auto pair = pcustomcsview->GetTokenByCreationTx(uint256S("0x1111"));
+        auto pair = view.GetTokenByCreationTx(uint256S("0x1111"));
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{128});
         BOOST_REQUIRE(pair->second.creationTx == uint256S("0x1111"));
     }
 
     // another token creation
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate symbol & tx
+    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate symbol & tx
     token1.symbol = "DCT2";
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate tx
+    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate tx
     token1.creationTx = uint256S("0x2222");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
-    BOOST_REQUIRE(GetTokensCount() == 3);
+    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(GetTokensCount(view) == 3);
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{129});
+        auto token = view.GetToken(DCT_ID{129});
         BOOST_REQUIRE(token);
         BOOST_REQUIRE(token->symbol == "DCT2");
     }
     {   // search by symbol
-        auto pair = pcustomcsview->GetToken("DCT2#129");
+        auto pair = view.GetToken("DCT2#129");
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{129});
         BOOST_REQUIRE(pair->second);
         BOOST_REQUIRE(pair->second->symbol == "DCT2");
     }
     {   // search by tx
-        auto pair = pcustomcsview->GetTokenByCreationTx(uint256S("0x2222"));
+        auto pair = view.GetTokenByCreationTx(uint256S("0x2222"));
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{129});
         BOOST_REQUIRE(pair->second.creationTx == uint256S("0x2222"));
     }
 
     // revert create token
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0xffff")) == false);
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0x1111")) == false);
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0x2222")));
-    BOOST_REQUIRE(GetTokensCount() == 2);
+    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0xffff")) == false);
+    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0x1111")) == false);
+    BOOST_REQUIRE(view.RevertCreateToken(uint256S("0x2222")));
+    BOOST_REQUIRE(GetTokensCount(view) == 2);
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{128});
+        auto token = view.GetToken(DCT_ID{128});
         BOOST_REQUIRE(token);
         BOOST_REQUIRE(token->symbol == "DCT1");
     }
@@ -245,22 +251,22 @@ BOOST_AUTO_TEST_CASE(tokens)
     // create again, with same tx and dctid
     token1.symbol = "DCT3";
     token1.creationTx = uint256S("0x2222"); // SAME!
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
-    BOOST_REQUIRE(GetTokensCount() == 3);
+    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(GetTokensCount(view) == 3);
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{129});
+        auto token = view.GetToken(DCT_ID{129});
         BOOST_REQUIRE(token);
         BOOST_REQUIRE(token->symbol == "DCT3");
     }
 
     {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{129});
+        auto token = view.GetToken(DCT_ID{129});
         BOOST_REQUIRE(token);
         auto tokenImpl = static_cast<CTokenImplementation &>(*token);
         BOOST_REQUIRE(tokenImpl.destructionHeight == -1);
         BOOST_REQUIRE(tokenImpl.destructionTx == uint256{});
     }
-    BOOST_REQUIRE(GetTokensCount() == 3);
+    BOOST_REQUIRE(GetTokensCount(view) == 3);
 }
 
 struct TestForward {
@@ -305,6 +311,7 @@ BOOST_AUTO_TEST_CASE(ForEachTest)
         pcustomcsview->WriteBy<TestForward>(TestForward{(uint16_t)-1}, 6);
         pcustomcsview->WriteBy<TestForward>(TestForward{((uint32_t)-1) -1}, 7);
         pcustomcsview->WriteBy<TestForward>(TestForward{((uint32_t)-1)}, 8);
+        pcustomcsview->Flush();
 
         int test = 1;
         pcustomcsview->ForEach<TestForward, TestForward, int>([&] (TestForward const & key, int value) {
@@ -320,6 +327,7 @@ BOOST_AUTO_TEST_CASE(ForEachTest)
         pcustomcsview->WriteBy<TestBackward>(TestBackward{256}, 4);
         pcustomcsview->WriteBy<TestBackward>(TestBackward{((uint16_t)-1) -1}, 5);
         pcustomcsview->WriteBy<TestBackward>(TestBackward{(uint16_t)-1}, 6);
+        pcustomcsview->Flush();
 
         int test = 6;
         pcustomcsview->ForEach<TestBackward, TestBackward, int>([&] (TestBackward const & key, int value) {
@@ -368,7 +376,9 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         view2.EraseBy<TestForward>(TestForward{255});
 
         // single level iterator over view2 values{11, 9} key 255 does not present
-        it = NewKVIterator<TestForward>(TestForward{0}, view2.GetStorage().GetRaw());
+        auto& flushable2 = static_cast<CFlushableStorageKV&>(view2.GetStorage());
+        auto flushable2Raw = flushable2.GetRaw();
+        it = NewKVIterator<TestForward>(TestForward{0}, flushable2Raw);
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 11);
         it.Next();
@@ -376,7 +386,7 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         it.Next();
         BOOST_CHECK(!it.Valid());
 
-        it = NewKVIterator<TestForward>(TestForward{2}, view2.GetStorage().GetRaw());
+        it = NewKVIterator<TestForward>(TestForward{2}, flushable2Raw);
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 9);
         it.Prev();
@@ -404,7 +414,9 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         BOOST_CHECK(!it.Valid());
 
         // view3 has an empty kv storage
-        it = NewKVIterator<TestForward>(TestForward{0}, view3.GetStorage().GetRaw());
+        auto& flushable3 = static_cast<CFlushableStorageKV&>(view3.GetStorage());
+        auto flushable3Raw = flushable3.GetRaw();
+        it = NewKVIterator<TestForward>(TestForward{0}, flushable3Raw);
         BOOST_CHECK(!it.Valid());
     }
 
@@ -458,6 +470,131 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         it.Next();
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SnapshotTest)
+{
+    {
+        pcustomcsview->WriteBy<TestForward>(TestForward{0}, 1);
+        pcustomcsview->WriteBy<TestForward>(TestForward{1}, 2);
+        pcustomcsview->Flush();
+
+        CCustomCSView view1(*pcustomcsview);
+
+        pcustomcsview->WriteBy<TestForward>(TestForward{2}, 5);
+        pcustomcsview->WriteBy<TestForward>(TestForward{3}, 6);
+        pcustomcsview->Flush();
+
+        CCustomCSView view2(*pcustomcsview);
+
+        pcustomcsview->WriteBy<TestForward>(TestForward{5}, 6);
+        pcustomcsview->Flush();
+
+        std::map<int, int> results = {
+            {0, 1}, {1, 2},
+            {2, 5}, {3, 6},
+        };
+
+        uint32_t count = 0;
+        view1.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
+            BOOST_REQUIRE(count < 2);
+            BOOST_CHECK_EQUAL(key.n, count);
+            BOOST_CHECK_EQUAL(results[count], value);
+            ++count;
+            return true;
+        });
+        BOOST_CHECK_EQUAL(count, 2);
+
+        count = 0;
+        view2.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
+            BOOST_REQUIRE(count < 4);
+            BOOST_CHECK_EQUAL(key.n, count);
+            BOOST_CHECK_EQUAL(results[count], value);
+            ++count;
+            return true;
+        });
+        BOOST_CHECK_EQUAL(count, 4);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(ViewFlush)
+{
+    {
+        CCustomCSView view(*pcustomcsview);
+
+        view.WriteBy<TestForward>(TestForward{0}, 1);
+        view.WriteBy<TestForward>(TestForward{1}, 2);
+        view.Flush();
+
+        CCustomCSView view2(view);
+        view2.WriteBy<TestForward>(TestForward{2}, 3);
+        view2.Flush();
+
+        int count = 0;
+        // view contains view2 changes, pcustomcsview keeps changes in the batch
+        view.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
+            BOOST_REQUIRE(count < 1);
+            BOOST_CHECK_EQUAL(key.n, count + 2);
+            BOOST_CHECK_EQUAL(value, count + 3);
+            ++count;
+            return true;
+        });
+        BOOST_CHECK_EQUAL(count, 1);
+
+        pcustomcsview->Flush();
+
+        auto readed = pcustomcsview->ReadBy<TestForward, int>(TestForward{0});
+        BOOST_REQUIRE(readed);
+        BOOST_CHECK_EQUAL(*readed, 1);
+
+        count = 0;
+        // pcustomcsview does not contains view2 changes
+        pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
+            BOOST_REQUIRE(count < 2);
+            BOOST_CHECK_EQUAL(key.n, count);
+            ++count;
+            BOOST_CHECK_EQUAL(value, count);
+            return true;
+        });
+        BOOST_CHECK_EQUAL(count, 2);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SnapshotParallel)
+{
+    {
+        pcustomcsview->WriteBy<TestForward>(TestForward{0}, 1);
+        pcustomcsview->WriteBy<TestForward>(TestForward{1}, 2);
+        pcustomcsview->WriteBy<TestForward>(TestForward{2}, 3);
+        pcustomcsview->WriteBy<TestForward>(TestForward{3}, 4);
+        pcustomcsview->WriteBy<TestForward>(TestForward{4}, 5);
+        pcustomcsview->WriteBy<TestForward>(TestForward{5}, 6);
+        pcustomcsview->WriteBy<TestForward>(TestForward{6}, 7);
+        pcustomcsview->WriteBy<TestForward>(TestForward{7}, 8);
+        pcustomcsview->WriteBy<TestForward>(TestForward{8}, 9);
+        pcustomcsview->Flush();
+
+        auto testFunc = [&]() {
+            int count = 0;
+            pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
+                BOOST_REQUIRE(count < 9);
+                BOOST_CHECK_EQUAL(key.n, count);
+                ++count;
+                BOOST_CHECK_EQUAL(value, count);
+                return true;
+            });
+            BOOST_CHECK_EQUAL(count, 9);
+        };
+
+        constexpr int num_threads = 64;
+        std::vector<std::thread> threads;
+
+        for (int i = 0; i < num_threads; i++)
+            threads.emplace_back(testFunc);
+
+        for (int i = 0; i < num_threads; i++)
+            threads[i].join();
     }
 }
 
