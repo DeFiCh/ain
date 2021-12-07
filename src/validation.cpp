@@ -4689,6 +4689,10 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
+    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && nHeight != block.height) {
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "incorrect-height", "incorrect height set in block header");
+    }
+
     // Check proof of work
     const Consensus::Params& consensusParams = params.GetConsensus();
     if (block.nBits != pos::GetNextWorkRequired(pindexPrev, block.nTime, consensusParams))
