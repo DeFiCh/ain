@@ -3182,7 +3182,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
-                if (pindex->nHeight >= chainparams.GetConsensus().FortCanningMuseumHeight && amountToBurn > 0) {
+                if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
 
