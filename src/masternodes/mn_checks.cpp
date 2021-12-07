@@ -2749,10 +2749,19 @@ public:
             auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
             if (amount > obj.amount.nValue)
                 return Res::Err("First bid should include liquidation penalty of %d%%", data->liquidationPenalty * 100 / COIN);
+
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight
+            && data->liquidationPenalty && obj.amount.nValue == batch->loanAmount.nValue)
+                return Res::Err("First bid should be higher than batch one");
         } else {
             auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
             if (amount > obj.amount.nValue)
                 return Res::Err("Bid override should be at least 1%% higher than current one");
+
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight
+            && obj.amount.nValue == bid->second.nValue)
+                return Res::Err("Bid override should be higher than last one");
+
             // immediate refund previous bid
             CalculateOwnerRewards(bid->first);
             mnview.AddBalance(bid->first, bid->second);

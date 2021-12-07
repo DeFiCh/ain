@@ -3182,13 +3182,13 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
-                assert(amountToBurn > 0);
+                if (pindex->nHeight >= chainparams.GetConsensus().FortCanningMuseumHeight && amountToBurn > 0) {
+                    CScript tmpAddress(vaultId.begin(), vaultId.end());
+                    view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
 
-                CScript tmpAddress(vaultId.begin(), vaultId.end());
-                view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-
-                SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
-                view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
+                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                    view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
+                }
 
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
@@ -3199,10 +3199,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto amountToFill = bidTokenAmount.nValue - penaltyAmount;
                 if (amountToFill > 0) {
                     // return the rest as collateral to vault via DEX to DFI
-                    auto res = view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
-                    auto amount = view.GetBalance(tmpAddress, bidTokenAmount.nTokenId);
-                    res = SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
-                    amount = view.GetBalance(tmpAddress, DCT_ID{0});
+                    CScript tmpAddress(vaultId.begin(), vaultId.end());
+                    view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
+
+                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
                 }
