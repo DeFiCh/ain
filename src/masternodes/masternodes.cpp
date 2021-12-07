@@ -86,16 +86,15 @@ CMasternode::CMasternode()
 {
 }
 
-CMasternode::State CMasternode::GetState() const
-{
-    return GetState(::ChainActive().Height());
-}
-
 CMasternode::State CMasternode::GetState(int height) const
 {
     int EunosPayaHeight = Params().GetConsensus().EunosPayaHeight;
 
-    if (resignHeight == -1) { // enabled or pre-enabled
+    if (height < creationHeight) {
+        return State::UNKNOWN;
+    }
+
+    if (resignHeight == -1 || height < resignHeight) { // enabled or pre-enabled
         // Special case for genesis block
         int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {
@@ -112,11 +111,6 @@ CMasternode::State CMasternode::GetState(int height) const
         return State::RESIGNED;
     }
     return State::UNKNOWN;
-}
-
-bool CMasternode::IsActive() const
-{
-    return IsActive(::ChainActive().Height());
 }
 
 bool CMasternode::IsActive(int height) const
@@ -742,7 +736,7 @@ void CCustomCSView::SetDbVersion(int version)
     Write(DbVersion::prefix(), version);
 }
 
-CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
+CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 & stakeModifier)
 {
     if (stakeModifier == uint256())
         return Params().GetGenesisTeam();
@@ -750,8 +744,8 @@ CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    ForEachMasternode([&stakeModifier, &priorityMN] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive())
+    ForEachMasternode([&] (uint256 const & id, CMasternode node) {
+        if(!node.IsActive(height))
             return true;
 
         CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
@@ -790,8 +784,8 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> authMN;
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> confirmMN;
-    ForEachMasternode([&masternodeIDs, &stakeModifier, &authMN, &confirmMN] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive())
+    ForEachMasternode([&] (uint256 const & id, CMasternode node) {
+        if(!node.IsActive(pindexNew->height))
             return true;
 
         // Not in our list of MNs from last week, skip.
@@ -926,6 +920,20 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+{
+        auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
+        if (!priceResult)
+            return std::move(priceResult);
+
+        auto price = priceResult.val.get();
+        auto amountInCurrency = MultiplyAmounts(price, amount);
+        if (price > COIN && amountInCurrency < amount)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
+
+        return ResVal<CAmount>(amountInCurrency, Res::Ok());
+}
+
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
                                                            int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
@@ -992,22 +1000,15 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!priceResult)
-            return std::move(priceResult);
-
-        auto price = priceResult.val.get();
-
         LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
-        auto value = loanTokenAmount + TotalInterest(*rate, height);
-        auto amountInCurrency = MultiplyAmounts(price, value);
-
-        if (price > COIN && amountInCurrency < value)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
+        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!amountInCurrency)
+            return std::move(amountInCurrency);
 
         auto prevLoans = result.totalLoans;
-        result.totalLoans += amountInCurrency;
+        result.totalLoans += *amountInCurrency.val;
 
         if (prevLoans > result.totalLoans)
             return Res::Err("Exceeded maximum loans");
@@ -1028,20 +1029,15 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
 
-        auto priceResult = GetValidatedIntervalPrice(token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!priceResult)
-            return std::move(priceResult);
+        auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!amountInCurrency)
+            return std::move(amountInCurrency);
 
-        auto price = priceResult.val.get();
-
-        auto amountInCurrency = MultiplyAmounts(price, tokenAmount);
-        if (price > COIN && amountInCurrency < tokenAmount)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(tokenAmount), GetDecimaleString(price));
-
-        amountInCurrency = MultiplyAmounts(token->factor, amountInCurrency);
+        auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
 
         auto prevCollaterals = result.totalCollaterals;
-        result.totalCollaterals += amountInCurrency;
+        result.totalCollaterals += amountFactor;
+
         if (prevCollaterals > result.totalCollaterals)
             return Res::Err("Exceeded maximum collateral");
 
@@ -1063,7 +1059,7 @@ uint256 CCustomCSView::MerkleRoot() {
     return ComputeMerkleRoot(std::move(hashes));
 }
 
-std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team)
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
 {
     AssertLockHeld(cs_main);
 
@@ -1071,8 +1067,12 @@ std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team)
     auto const mnIds = pcustomcsview->GetOperatorsMulti();
     for (const auto& mnId : mnIds)
     {
-        if (pcustomcsview->GetMasternode(mnId.second)->IsActive() && team.find(mnId.first) != team.end())
-        {
+        auto node = pcustomcsview->GetMasternode(mnId.second);
+        if (!node) {
+            continue;
+        }
+
+        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
             CKey masternodeKey;
             std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
             for (auto const & wallet : wallets) {

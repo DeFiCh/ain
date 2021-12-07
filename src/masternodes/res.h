@@ -42,21 +42,6 @@ struct Res
     static Res Ok() {
         return Res{true, {}, 0, {} };
     }
-
-//    template<typename... Args>
-//    static Res Skipped(uint32_t code, std::string const & msg, const Args&... args) {
-//        return Res{true, tfm::format(msg, args...), code};
-//    }
-
-    std::string ToString() const {
-        if (!ok && code != 0) {
-            return strprintf("ERROR %d: %s", code, msg);
-        }
-        if (!ok) {
-            return strprintf("ERROR: %s", msg);
-        }
-        return msg;
-    }
 };
 
 template <typename T>
