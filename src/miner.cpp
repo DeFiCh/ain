@@ -425,7 +425,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     // transactions for block inclusion.
     sortedEntries.clear();
     sortedEntries.insert(sortedEntries.begin(), package.begin(), package.end());
-    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
+    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByEntryTime());
 }
 
 // This transaction selection algorithm orders the mempool based
