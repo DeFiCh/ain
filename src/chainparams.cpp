@@ -347,7 +347,7 @@ public:
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
-        consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningMuseumHeight = 724000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
