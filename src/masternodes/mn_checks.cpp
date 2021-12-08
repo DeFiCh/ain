@@ -618,7 +618,8 @@ public:
         CTokenAmount tokenAmount{id, amount};
         // if "from" not supplied it will only add balance on "to" address
         if (!from.empty()) {
-            auto res = mnview.SubBalance(from, tokenAmount);
+            const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+            auto res = mnview.SubBalance(from, tokenAmount, allowance);
             if (!res)
                 return res;
         }
@@ -766,7 +767,8 @@ public:
 
     Res subBalanceDelShares(const CScript& owner, const CBalances& balance) const {
         CalculateOwnerRewards(owner);
-        auto res = mnview.SubBalances(owner, balance);
+        const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+        auto res = mnview.SubBalances(owner, balance, allowance);
         if (!res) {
             return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, res.msg);
         }
@@ -1205,7 +1207,8 @@ public:
 
         for (const auto& kv : obj.from) {
             CalculateOwnerRewards(kv.first);
-            auto res = mnview.SubBalances(kv.first, kv.second);
+            const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+            auto res = mnview.SubBalances(kv.first, kv.second, allowance);
             if (!res) {
                 return res;
             }
@@ -2439,7 +2442,8 @@ public:
 
         //check balance
         CalculateOwnerRewards(obj.from);
-        res = mnview.SubBalance(obj.from, obj.amount);
+        const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+        res = mnview.SubBalance(obj.from, obj.amount, allowance);
         if (!res)
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
 
@@ -2483,7 +2487,8 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
 
-        res = mnview.SubVaultCollateral(obj.vaultId, obj.amount);
+        const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+        res = mnview.SubVaultCollateral(obj.vaultId, obj.amount, allowance);
         if (!res)
             return res;
 
@@ -2673,7 +2678,8 @@ public:
             else if (it->second - subLoan < 0)
                 subLoan = it->second;
 
-            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan}, allowance);
             if (!res)
                 return res;
 
@@ -2698,7 +2704,7 @@ public:
 
             CalculateOwnerRewards(obj.from);
             // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan}, allowance);
             if (!res)
                 return res;
 
@@ -2768,7 +2774,8 @@ public:
         }
         //check balance
         CalculateOwnerRewards(obj.from);
-        res = mnview.SubBalance(obj.from, obj.amount);
+        const auto allowance = static_cast<int>(height) >= consensus.FortCanningMuseumHeight && static_cast<int>(height) < consensus.FortCanningHillHeight;
+        res = mnview.SubBalance(obj.from, obj.amount, allowance);
         return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
@@ -3535,7 +3542,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
             auto& subView = i == 0 ? view : intermediateView;
-            res = subView.SubBalance(obj.from, swapAmount);
+            const auto allowance = static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight && static_cast<int>(height) < Params().GetConsensus().FortCanningHillHeight;
+            res = subView.SubBalance(obj.from, swapAmount, allowance);
             if (!res) {
                 return res;
             }

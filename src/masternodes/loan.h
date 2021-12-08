@@ -297,7 +297,7 @@ public:
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
-    Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
+    Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount, const bool allowance);
     boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
 

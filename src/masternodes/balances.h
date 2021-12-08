@@ -30,12 +30,12 @@ struct CBalances
         }
         return Res::Ok();
     }
-    Res Sub(CTokenAmount amount) {
+    Res Sub(CTokenAmount amount, const bool allowance = false) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        auto res = current.Sub(amount.nValue);
+        auto res = current.Sub(amount.nValue, allowance);
         if (!res.ok) {
             return res;
         }
@@ -59,6 +59,7 @@ struct CBalances
         }
         return CTokenAmount{amount.nTokenId, remainder};
     }
+    /* Unused
     Res SubBalances(TAmounts const & other) {
         for (const auto& kv : other) {
             auto res = Sub(CTokenAmount{kv.first, kv.second});
@@ -68,6 +69,7 @@ struct CBalances
         }
         return Res::Ok();
     }
+     */
     CBalances SubBalancesWithRemainder(TAmounts const & other) {
         CBalances remainderBalances;
         for (const auto& kv : other) {

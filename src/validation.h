@@ -752,7 +752,7 @@ private:
     //! Mark a block as not having block data
     void EraseBlockData(CBlockIndex* index) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    static void ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+    static void ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const bool allowance);
 
     static void ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 

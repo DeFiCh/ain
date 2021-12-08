@@ -2693,6 +2693,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
+        const auto allowance = pindex->nHeight >= chainparams.GetConsensus().FortCanningMuseumHeight && pindex->nHeight < chainparams.GetConsensus().FortCanningHillHeight;
+
         // hardfork commissions update
         const auto distributed = cache.UpdatePoolRewards(
             [&](CScript const & owner, DCT_ID tokenID) {
@@ -2701,7 +2703,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             },
             [&](CScript const & from, CScript const & to, CTokenAmount amount) {
                 if (!from.empty()) {
-                    auto res = cache.SubBalance(from, amount);
+
+                    auto res = cache.SubBalance(from, amount, allowance);
                     if (!res) {
                         LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
                         return res;
@@ -2733,7 +2736,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // close expired orders, refund all expired DFC HTLCs at this block height
-        ProcessICXEvents(pindex, cache, chainparams);
+        ProcessICXEvents(pindex, cache, chainparams, allowance);
 
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
@@ -2770,7 +2773,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     return true;
                 }, BalanceKey{script, DCT_ID{}});
 
-                cache.SubBalances(script, zeroAmounts);
+                cache.SubBalances(script, zeroAmounts, false);
             }
         }
 
@@ -2881,7 +2884,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     return true;
 }
 
-void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const bool allowance) {
     if (pindex->nHeight < chainparams.GetConsensus().EunosHeight) {
         return;
     }
@@ -2899,7 +2902,7 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
         if (order->orderType == CICXOrder::TYPE_INTERNAL) {
             CTokenAmount amount{order->idToken, order->amountToFill};
             CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
-            auto res = cache.SubBalance(txidaddr, amount);
+            auto res = cache.SubBalance(txidaddr, amount, allowance);
             if (!res)
                 LogPrintf("Can't subtract balance from order (%s) txidaddr: %s\n", order->creationTx.GetHex(), res.msg);
             else {
@@ -2930,7 +2933,7 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
 
         if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) ||
             (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))) {
-            auto res = cache.SubBalance(txidAddr, takerFee);
+            auto res = cache.SubBalance(txidAddr, takerFee, allowance);
             if (!res)
                 LogPrintf("Can't subtract takerFee from offer (%s) txidAddr: %s\n", offer->creationTx.GetHex(), res.msg);
             else {
@@ -2981,7 +2984,7 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
 
             CTokenAmount amount{order->idToken, dfchtlc->amount};
             CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
-            auto res = cache.SubBalance(txidaddr, amount);
+            auto res = cache.SubBalance(txidaddr, amount, allowance);
             if (!res)
                 LogPrintf("Can't subtract balance from dfc htlc (%s) txidaddr: %s\n", dfchtlc->creationTx.GetHex(), res.msg);
             else {
@@ -3029,6 +3032,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
+
+    const auto allowance = pindex->nHeight >= chainparams.GetConsensus().FortCanningMuseumHeight && pindex->nHeight < chainparams.GetConsensus().FortCanningHillHeight;
 
     std::vector<CLoanSchemeMessage> loanUpdates;
     cache.ForEachDelayedLoanScheme([&pindex, &loanUpdates](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& loanScheme) {
@@ -3113,7 +3118,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 totalInterest.Add({tokenId, subInterest});
 
                 // Remove the interests from the vault and the storage respectively  
-                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
+                cache.SubLoanToken(vaultId, {tokenId, tokenValue}, allowance);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 // Putting this back in now for auction calculations.
@@ -3125,7 +3130,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (const auto& col : collaterals.balances) {
                 auto tokenId = col.first;
                 auto tokenValue = col.second;
-                cache.SubVaultCollateral(vaultId, {tokenId, tokenValue});
+                cache.SubVaultCollateral(vaultId, {tokenId, tokenValue}, allowance);
             }
 
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
@@ -3187,6 +3192,15 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
 
                     SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+
+                    // Incorrect behaviour between FC Museum and after FC Hill
+                    if (allowance) {
+                        view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
+                    }
+                }
+
+                // Original behaviour before FC Museum and after FC Hill
+                if (!allowance) {
                     view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
                 }
 
@@ -3204,7 +3218,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                     SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
                     auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
-                    view.SubBalance(tmpAddress, amount);
+                    view.SubBalance(tmpAddress, amount, allowance);
                     view.AddVaultCollateral(vaultId, amount);
                 }
 

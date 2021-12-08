@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(neg_token_balances)
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to sub negative
-        res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100});
+        res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100}, false);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);

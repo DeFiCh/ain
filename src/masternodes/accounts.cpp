@@ -44,13 +44,13 @@ Res CAccountsView::AddBalance(CScript const & owner, CTokenAmount amount)
     return SetBalance(owner, balance);
 }
 
-Res CAccountsView::SubBalance(CScript const & owner, CTokenAmount amount)
+Res CAccountsView::SubBalance(CScript const & owner, CTokenAmount amount, const bool allowance)
 {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    auto res = balance.Sub(amount.nValue);
+    auto res = balance.Sub(amount.nValue, allowance);
     if (!res.ok) {
         return res;
     }
@@ -68,10 +68,10 @@ Res CAccountsView::AddBalances(CScript const & owner, CBalances const & balances
     return Res::Ok();
 }
 
-Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances)
+Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances, const bool allowance)
 {
     for (const auto& kv : balances.balances) {
-        auto res = SubBalance(owner, CTokenAmount{kv.first, kv.second});
+        auto res = SubBalance(owner, CTokenAmount{kv.first, kv.second}, allowance);
         if (!res.ok) {
             return res;
         }

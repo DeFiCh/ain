@@ -19,10 +19,10 @@ public:
     CTokenAmount GetBalance(CScript const & owner, DCT_ID tokenID) const;
 
     virtual Res AddBalance(CScript const & owner, CTokenAmount amount);
-    virtual Res SubBalance(CScript const & owner, CTokenAmount amount);
+    virtual Res SubBalance(CScript const & owner, CTokenAmount amount, const bool allowance = false);
 
     Res AddBalances(CScript const & owner, CBalances const & balances);
-    Res SubBalances(CScript const & owner, CBalances const & balances);
+    Res SubBalances(CScript const & owner, CBalances const & balances, const bool allowance);
 
     uint32_t GetBalancesHeight(CScript const & owner);
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);

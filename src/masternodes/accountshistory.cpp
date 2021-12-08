@@ -52,9 +52,10 @@ Res CAccountsHistoryWriter::AddBalance(CScript const & owner, CTokenAmount amoun
     return res;
 }
 
-Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amount)
+Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amount, const bool)
 {
-    auto res = CCustomCSView::SubBalance(owner, amount);
+    const auto allowance = static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight && static_cast<int>(height) < Params().GetConsensus().FortCanningHillHeight;
+    auto res = CCustomCSView::SubBalance(owner, amount, allowance);
     if (writers && res.ok && amount.nValue != 0) {
         writers->SubBalance(owner, amount, vaultID);
     }
@@ -81,7 +82,7 @@ Res CAccountsHistoryEraser::AddBalance(CScript const & owner, CTokenAmount)
     return Res::Ok();
 }
 
-Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
+Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount, const bool)
 {
     erasers.SubBalance(owner, vaultID);
     return Res::Ok();

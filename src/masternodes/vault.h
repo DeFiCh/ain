@@ -160,7 +160,7 @@ public:
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
-    Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
+    Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount, const bool allownce);
     boost::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
     void ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback);
 

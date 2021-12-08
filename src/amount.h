@@ -7,6 +7,7 @@
 #define DEFI_AMOUNT_H
 
 #include <arith_uint256.h>
+#include <logging.h>
 #include <masternodes/res.h>
 #include <serialize.h>
 #include <stdint.h>
@@ -16,6 +17,8 @@
 
 /** Amount in satoshis (Can be negative) */
 typedef int64_t CAmount;
+
+static constexpr CAmount MAX_SUB_ALLOWANCE = 100;
 
 // Defi Custom Token ID
 struct DCT_ID {
@@ -137,14 +140,24 @@ struct CTokenAmount { // simple std::pair is less informative
         this->nValue = *sumRes.val;
         return Res::Ok();
     }
-    Res Sub(CAmount amount) {
+    Res Sub(CAmount amount, const bool allowance = false) {
         // safety checks
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
-        if (this->nValue < amount) {
-            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+        if (allowance) {
+            if (this->nValue < amount) {
+                LogPrintf("%s: balance short by %d\n", __func__, amount - this->nValue);
+            }
+            if (this->nValue + MAX_SUB_ALLOWANCE < amount) {
+                return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+            }
+        } else {
+            if (this->nValue < amount) {
+                return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+            }
         }
+
         // sub
         this->nValue -= amount;
         return Res::Ok();

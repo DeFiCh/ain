@@ -321,13 +321,13 @@ Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
+Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount, const bool allowance)
 {
     if (!GetLoanTokenByID(amount.nTokenId)) {
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
     }
     auto amounts = GetLoanTokens(vaultId);
-    if (!amounts || !amounts->Sub(amount)) {
+    if (!amounts || !amounts->Sub(amount, allowance)) {
         return Res::Err("Loan token for vault <%s> not found", vaultId.GetHex());
     }
     if (amounts->balances.empty()) {

@@ -80,10 +80,10 @@ Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
+Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount, const bool allownce)
 {
     auto amounts = GetVaultCollaterals(vaultId);
-    if (!amounts || !amounts->Sub(amount)) {
+    if (!amounts || !amounts->Sub(amount, allownce)) {
         return Res::Err("Collateral for vault <%s> not found", vaultId.GetHex());
     }
     if (amounts->balances.empty()) {
