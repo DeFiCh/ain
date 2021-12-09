@@ -3189,7 +3189,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
-                    view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
+                view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
 
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
