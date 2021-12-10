@@ -151,7 +151,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
         const auto blockCount = params.pos.nTargetTimespanV2 / params.pos.nTargetSpacing;
 
         // Get total hashing window for each block in the sample
-        for (int i{0}; pindex && i < blockCount; --pindex && ++i) {
+        for (int i{0}; pindex->pprev && i < blockCount; pindex = pindex->pprev, ++i) {
             totalTime += pindex->GetMedianTimePast() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA;
         }
 
