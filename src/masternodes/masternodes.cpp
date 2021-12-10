@@ -871,11 +871,42 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
-bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t targetHeight)
+static void UpdateRewardsTransparent(CCustomCSView & view, CScript const & owner, uint32_t height)
+{
+    CCustomCSView mnview(view);
+    mnview.CalculateOwnerRewards(owner, height);
+    mnview.Flush();
+}
+
+Res CCustomCSView::AddBalance(CScript const & owner, CTokenAmount amount, uint32_t height)
+{
+    UpdateRewardsTransparent(*this, owner, height);
+    return AddBalance(owner, amount);
+}
+
+Res CCustomCSView::SubBalance(CScript const & owner, CTokenAmount amount, uint32_t height)
+{
+    UpdateRewardsTransparent(*this, owner, height);
+    return SubBalance(owner, amount);
+}
+
+Res CCustomCSView::AddBalances(CScript const & owner, CBalances const & balances, uint32_t height)
+{
+    UpdateRewardsTransparent(*this, owner, height);
+    return AddBalances(owner, balances);
+}
+
+Res CCustomCSView::SubBalances(CScript const & owner, CBalances const & balances, uint32_t height)
+{
+    UpdateRewardsTransparent(*this, owner, height);
+    return SubBalances(owner, balances);
+}
+
+void CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t targetHeight)
 {
     auto balanceHeight = GetBalancesHeight(owner);
     if (balanceHeight >= targetHeight) {
-        return false;
+        return;
     }
     ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = GetShare(poolId, owner);
@@ -897,7 +928,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
         return true;
     });
 
-    return UpdateBalancesHeight(owner, targetHeight);
+    UpdateBalancesHeight(owner, targetHeight);
 }
 
 double CCollateralLoans::calcRatio(uint64_t maxRatio) const
