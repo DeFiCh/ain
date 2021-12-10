@@ -55,7 +55,7 @@ UniValue poolToJSON(CCustomCSView& view, DCT_ID const& id, CPoolPair const& pool
                 ++next_it;
 
                 // Get token balance
-                const auto balance = view.GetBalance(pool.ownerAddress, it->first).nValue;
+                const auto balance = view.GetBalanceNoRewards(pool.ownerAddress, it->first).nValue;
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {
@@ -1224,7 +1224,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     CCustomCSView view(*pcustomcsview);
     view.ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
-        const CTokenAmount tokenAmount = view.GetBalance(provider, poolId);
+        const CTokenAmount tokenAmount = view.GetBalanceNoRewards(provider, poolId);
         if(tokenAmount.nValue) {
             const auto poolPair = view.GetPoolPair(poolId);
             if(poolPair) {

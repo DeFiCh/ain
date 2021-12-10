@@ -52,7 +52,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     if (token->symbol != "BTC" || token->name != "Bitcoin" || !token->IsDAT())
         return Res::Err("Only Bitcoin can be swapped in " + obj.name);
 
-    auto res = mnview.SubBalance(script, {id, amount});
+    auto res = mnview.SubBalanceNoRewards(script, {id, amount});
     if (!res)
         return res;
 
@@ -74,8 +74,8 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
         return std::move(resVal);
 
     const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
-    res = mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI});
-    return !res ? res : mnview.AddBalance(script, {{0}, totalDFI});
+    res = mnview.SubBalanceNoRewards(consensus.smartContracts.begin()->second, {{0}, totalDFI});
+    return !res ? res : mnview.AddBalanceNoRewards(script, {{0}, totalDFI});
 }
 
 Res CSmartContractsConsensus::operator()(const CSmartContractMessage& obj) const {

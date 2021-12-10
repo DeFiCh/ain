@@ -11,7 +11,7 @@ void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmo
     }, start);
 }
 
-CTokenAmount CAccountsView::GetBalance(CScript const & owner, DCT_ID tokenID) const
+CTokenAmount CAccountsView::GetBalanceNoRewards(CScript const & owner, DCT_ID tokenID) const
 {
     CAmount val;
     bool ok = ReadBy<ByBalanceKey>(BalanceKey{owner, tokenID}, val);
@@ -31,12 +31,12 @@ Res CAccountsView::SetBalance(CScript const & owner, CTokenAmount amount)
     return Res::Ok();
 }
 
-Res CAccountsView::AddBalance(CScript const & owner, CTokenAmount amount)
+Res CAccountsView::AddBalanceNoRewards(CScript const & owner, CTokenAmount amount)
 {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
-    auto balance = GetBalance(owner, amount.nTokenId);
+    auto balance = GetBalanceNoRewards(owner, amount.nTokenId);
     auto res = balance.Add(amount.nValue);
     if (!res.ok) {
         return res;
@@ -44,12 +44,12 @@ Res CAccountsView::AddBalance(CScript const & owner, CTokenAmount amount)
     return SetBalance(owner, balance);
 }
 
-Res CAccountsView::SubBalance(CScript const & owner, CTokenAmount amount)
+Res CAccountsView::SubBalanceNoRewards(CScript const & owner, CTokenAmount amount)
 {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
-    auto balance = GetBalance(owner, amount.nTokenId);
+    auto balance = GetBalanceNoRewards(owner, amount.nTokenId);
     auto res = balance.Sub(amount.nValue);
     if (!res.ok) {
         return res;
@@ -57,10 +57,10 @@ Res CAccountsView::SubBalance(CScript const & owner, CTokenAmount amount)
     return SetBalance(owner, balance);
 }
 
-Res CAccountsView::AddBalances(CScript const & owner, CBalances const & balances)
+Res CAccountsView::AddBalancesNoRewards(CScript const & owner, CBalances const & balances)
 {
     for (const auto& kv : balances.balances) {
-        auto res = AddBalance(owner, CTokenAmount{kv.first, kv.second});
+        auto res = AddBalanceNoRewards(owner, CTokenAmount{kv.first, kv.second});
         if (!res.ok) {
             return res;
         }
@@ -68,10 +68,10 @@ Res CAccountsView::AddBalances(CScript const & owner, CBalances const & balances
     return Res::Ok();
 }
 
-Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances)
+Res CAccountsView::SubBalancesNoRewards(CScript const & owner, CBalances const & balances)
 {
     for (const auto& kv : balances.balances) {
-        auto res = SubBalance(owner, CTokenAmount{kv.first, kv.second});
+        auto res = SubBalanceNoRewards(owner, CTokenAmount{kv.first, kv.second});
         if (!res.ok) {
             return res;
         }

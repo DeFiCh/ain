@@ -109,9 +109,8 @@ class CAccountsHistoryWriter : public CCustomCSView
 
 public:
     CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
-
-    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
-    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    Res AddBalanceNoRewards(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalanceNoRewards(CScript const & owner, CTokenAmount amount) override;
     bool Flush();
 };
 

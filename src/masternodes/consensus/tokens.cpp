@@ -107,8 +107,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
         if (!minted)
             return minted;
 
-        CalculateOwnerRewards(*mintable.val);
-        auto res = mnview.AddBalance(*mintable.val, CTokenAmount{kv.first, kv.second});
+        auto res = mnview.AddBalancePlusRewards(*mintable.val, CTokenAmount{kv.first, kv.second}, height);
         if (!res)
             return res;
     }

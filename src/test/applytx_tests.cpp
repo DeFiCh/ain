@@ -52,21 +52,21 @@ BOOST_AUTO_TEST_CASE(neg_token_balances)
     {
         // Initial value
         auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
-        auto res = mnview.AddBalance(owner, dfi100);
+        auto res = mnview.AddBalanceNoRewards(owner, dfi100);
         BOOST_CHECK(res.ok);
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
 
         // Fail to add negative
-        res = mnview.AddBalance(owner, CTokenAmount{DCT_ID{0}, -100});
+        res = mnview.AddBalanceNoRewards(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
 
         // Fail to sub negative
-        res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100});
+        res = mnview.SubBalanceNoRewards(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
     }
 }
 
@@ -97,9 +97,9 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
     // Initial value
     auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
-    auto res = mnview.AddBalance(owner, dfi100);
+    auto res = mnview.AddBalanceNoRewards(owner, dfi100);
     BOOST_CHECK(res.ok);
-    BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
+    BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
 
     // create templates for msg and tx:
     CAccountToAccountMessage msg{};
@@ -120,8 +120,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
-        BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), CTokenAmount{});
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(CScript(0xA), DFI), CTokenAmount{});
     }
 
     // try to send "A:101@DFI"
@@ -136,8 +136,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.code, (uint32_t) CustomTxErrCodes::NotEnoughBalance);
         // check that nothing changes:
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
-        BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), CTokenAmount{});
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(CScript(0xA), DFI), CTokenAmount{});
     }
 
     // try to send "A:10@DFI, B:-1@DFI"
@@ -153,9 +153,9 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
-        BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), CTokenAmount{});
-        BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xB), DFI), CTokenAmount{});
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi100);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(CScript(0xA), DFI), CTokenAmount{});
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(CScript(0xB), DFI), CTokenAmount{});
     }
 
     // send "A:10@DFI" (success)
@@ -171,8 +171,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         // check result balances:
         auto const dfi90 = CTokenAmount{DFI, 90};
         auto const dfi10 = CTokenAmount{DFI, 10};
-        BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi90);
-        BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), dfi10);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(owner, DFI), dfi90);
+        BOOST_CHECK_EQUAL(mnview.GetBalanceNoRewards(CScript(0xA), DFI), dfi10);
     }
 }
 

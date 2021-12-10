@@ -286,25 +286,21 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
 
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
-            auto token = view.GetTokenGuessId(tokenFromSymbol, idToken);
-            if (!token)
+            if (!view.GetTokenGuessId(tokenFromSymbol, idToken))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenFromSymbol));
+
             order.idToken = idToken;
 
             if (!metaObj["receivePubkey"].isNull())
                 order.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must not be null");
-
-            CTokenAmount balance = view.GetBalance(order.ownerAddress, idToken);
-            if (balance.nValue < order.amountFrom)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!", token->CreateSymbolKey(order.idToken), ScriptToString(order.ownerAddress)));
         }
         else
         {
-            auto token = view.GetTokenGuessId(tokenToSymbol, idToken);
-            if (!token)
+            if (!view.GetTokenGuessId(tokenToSymbol, idToken))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenToSymbol));
+
             order.idToken = idToken;
         }
 
@@ -439,11 +435,6 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                 makeoffer.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must be non-null");
-
-            CTokenAmount balance = view.GetBalance(makeoffer.ownerAddress,order->idToken);
-            if (balance.nValue < makeoffer.amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
-                        view.GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(makeoffer.ownerAddress)));
         }
 
         targetHeight = view.GetLastHeight() + 1;
@@ -587,12 +578,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
             authScript = offer->ownerAddress;
 
             if (!submitdfchtlc.timeout)
-            submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
-
-            CTokenAmount balance = view.GetBalance(offer->ownerAddress,order->idToken);
-            if (balance.nValue < offer->amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
-                        view.GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
+                submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
         }
     }
 

@@ -460,6 +460,15 @@ public:
 
     void SetBackend(CCustomCSView & backend);
 
+    CTokenAmount GetBalancePlusRewards(CScript const & owner, DCT_ID tokenID, uint32_t height);
+
+    Res AddBalancePlusRewards(CScript const & owner, CTokenAmount amount, uint32_t height);
+    Res SubBalancePlusRewards(CScript const & owner, CTokenAmount amount, uint32_t height);
+
+    Res AddBalancesPlusRewards(CScript const & owner, CBalances const & balances, uint32_t height);
+    Res SubBalancesPlusRewards(CScript const & owner, CBalances const & balances, uint32_t height);
+
+
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
 
@@ -473,7 +482,7 @@ public:
 
     bool CanSpend(const uint256 & txId, int height) const;
 
-    bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
+    void CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
     ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true);
 

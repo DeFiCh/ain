@@ -101,22 +101,21 @@ Res CCustomTxVisitor::CheckCustomTx() const {
 }
 
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, CScript const & from, CScript const & to) const {
-    assert(!from.empty() || !to.empty());
+    assert(!from.empty() && !to.empty());
 
     CTokenAmount tokenAmount{id, amount};
     // if "from" not supplied it will only add balance on "to" address
-    if (!from.empty()) {
-        auto res = mnview.SubBalance(from, tokenAmount);
-        if (!res)
-            return res;
-    }
+    auto res = mnview.GetBalancesHeight(from)
+             ? mnview.SubBalancePlusRewards(from, tokenAmount, height)
+             : mnview.SubBalanceNoRewards(from, tokenAmount);
+    if (!res)
+        return res;
 
-    // if "to" not supplied it will only sub balance from "form" address
-    if (!to.empty()) {
-        auto res = mnview.AddBalance(to,tokenAmount);
-        if (!res)
-            return res;
-    }
+    res = mnview.GetBalancesHeight(to)
+        ? mnview.AddBalancePlusRewards(to, tokenAmount, height)
+        : mnview.AddBalanceNoRewards(to, tokenAmount);
+    if (!res)
+        return res;
 
     return Res::Ok();
 }
@@ -194,7 +193,7 @@ Res CCustomTxVisitor::SetShares(const CScript& owner, const TAmounts& balances) 
     for (const auto& balance : balances) {
         auto token = mnview.GetToken(balance.first);
         if (token && token->IsPoolShare()) {
-            const auto bal = mnview.GetBalance(owner, balance.first);
+            const auto bal = mnview.GetBalanceNoRewards(owner, balance.first);
             if (bal.nValue == balance.second) {
                 auto res = mnview.SetShare(balance.first, owner, height);
                 if (!res)
@@ -209,7 +208,7 @@ Res CCustomTxVisitor::DelShares(const CScript& owner, const TAmounts& balances) 
     for (const auto& kv : balances) {
         auto token = mnview.GetToken(kv.first);
         if (token && token->IsPoolShare()) {
-            const auto balance = mnview.GetBalance(owner, kv.first);
+            const auto balance = mnview.GetBalanceNoRewards(owner, kv.first);
             if (balance.nValue == 0) {
                 auto res = mnview.DelShare(kv.first, owner);
                 if (!res)
@@ -220,16 +219,8 @@ Res CCustomTxVisitor::DelShares(const CScript& owner, const TAmounts& balances) 
     return Res::Ok();
 }
 
-// we need proxy view to prevent add/sub balance record
-void CCustomTxVisitor::CalculateOwnerRewards(const CScript& owner) const {
-    CCustomCSView view(mnview);
-    view.CalculateOwnerRewards(owner, height);
-    view.Flush();
-}
-
 Res CCustomTxVisitor::SubBalanceDelShares(const CScript& owner, const CBalances& balance) const {
-    CalculateOwnerRewards(owner);
-    auto res = mnview.SubBalances(owner, balance);
+    auto res = mnview.SubBalancesPlusRewards(owner, balance, height);
     if (!res)
         return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, res.msg);
 
@@ -237,8 +228,7 @@ Res CCustomTxVisitor::SubBalanceDelShares(const CScript& owner, const CBalances&
 }
 
 Res CCustomTxVisitor::AddBalanceSetShares(const CScript& owner, const CBalances& balance) const {
-    CalculateOwnerRewards(owner);
-    auto res = mnview.AddBalances(owner, balance);
+    auto res = mnview.AddBalancesPlusRewards(owner, balance, height);
     return !res ? res : SetShares(owner, balance.balances);
 }
 

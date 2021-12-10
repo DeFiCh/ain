@@ -46,7 +46,6 @@ protected:
     bool HasAuth(const CScript& auth) const;
     CAmount CalculateTakerFee(CAmount amount) const;
     Res EraseEmptyBalances(TAmounts& balances) const;
-    void CalculateOwnerRewards(const CScript& owner) const;
     Res HasCollateralAuth(const uint256& collateralTx) const;
     ResVal<CBalances> MintedTokens(uint32_t mintingOutputsStart) const;
     Res SetShares(const CScript& owner, const TAmounts& balances) const;

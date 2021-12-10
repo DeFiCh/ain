@@ -104,7 +104,7 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
             return true; // no share or target height is before a pool share' one
         }
         auto onLiquidity = [&]() -> CAmount {
-            return mnview.GetBalance(owner, poolId).nValue;
+            return mnview.GetBalanceNoRewards(owner, poolId).nValue;
         };
         uint32_t firstHeight = 0;
         auto beginHeight = std::max(*height, begin);
@@ -120,7 +120,7 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
                     firstHeight = height;
                 }
                 if (height >= eunosHeight || firstHeight != height) {
-                    mnview.AddBalance(owner, amount); // update owner liquidity
+                    mnview.AddBalanceNoRewards(owner, amount); // update owner liquidity
                 }
             }
         );
@@ -898,16 +898,16 @@ void RevertOwnerBalances(CCustomCSView & view, CScript const & owner, TAmounts c
         auto token = view.GetToken(balance.first);
         auto IsPoolShare = token && token->IsPoolShare();
         if (amount > 0) {
-            view.AddBalance(owner, {balance.first, amount});
+            view.AddBalanceNoRewards(owner, {balance.first, amount});
             if (IsPoolShare) {
-                if (view.GetBalance(owner, balance.first).nValue == amount) {
+                if (view.GetBalanceNoRewards(owner, balance.first).nValue == amount) {
                     view.SetShare(balance.first, owner, 0);
                 }
             }
         } else {
-            view.SubBalance(owner, {balance.first, -amount});
+            view.SubBalanceNoRewards(owner, {balance.first, -amount});
             if (IsPoolShare) {
-                if (view.GetBalance(owner, balance.first).nValue == 0) {
+                if (view.GetBalanceNoRewards(owner, balance.first).nValue == 0) {
                     view.DelShare(balance.first, owner);
                 } else {
                     view.SetShare(balance.first, owner, 0);

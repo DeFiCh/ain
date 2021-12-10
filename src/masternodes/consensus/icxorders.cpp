@@ -31,7 +31,6 @@ Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage& obj) const {
 
         // subtract the balance from tokenFrom to dedicate them for the order
         CScript txidAddr(order.creationTx.begin(), order.creationTx.end());
-        CalculateOwnerRewards(order.ownerAddress);
         res = TransferTokenBalance(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
     }
 
@@ -76,9 +75,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage& obj) const {
     }
 
     // locking takerFee in offer txidaddr
-    CalculateOwnerRewards(makeoffer.ownerAddress);
     res = TransferTokenBalance(DCT_ID{0}, makeoffer.takerFee, makeoffer.ownerAddress, txidAddr);
-
     return !res ? res : mnview.ICXMakeOffer(makeoffer);
 }
 
@@ -148,7 +145,6 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
 
         // refund the rest of locked takerFee if there is difference
         if (offer->takerFee - takerFee) {
-            CalculateOwnerRewards(offer->ownerAddress);
             res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
             if (!res)
                 return res;
@@ -164,7 +160,6 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
             return res;
 
         // burn makerDeposit
-        CalculateOwnerRewards(order->ownerAddress);
         res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
         if (!res)
             return res;
@@ -175,7 +170,6 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
             return Res::Err("tx must have at least one input from offer owner");
 
         srcAddr = offer->ownerAddress;
-        CalculateOwnerRewards(offer->ownerAddress);
 
         auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx);
         if (!exthtlc)
@@ -303,7 +297,6 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage& obj) const {
 
         // refund the rest of locked takerFee if there is difference
         if (offer->takerFee - takerFee) {
-            CalculateOwnerRewards(offer->ownerAddress);
             res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
             if (!res)
                 return res;
@@ -319,7 +312,6 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage& obj) const {
             return res;
 
         // burn makerDeposit
-        CalculateOwnerRewards(order->ownerAddress);
         res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
     }
 
@@ -367,7 +359,6 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
         return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
 
     // claim DFC HTLC to receiveAddress
-    CalculateOwnerRewards(order->ownerAddress);
     CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
 
     if (order->orderType == CICXOrder::TYPE_INTERNAL)
@@ -379,12 +370,12 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
         return res;
 
     // refund makerDeposit
-    res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, CScript(), order->ownerAddress);
+    res = mnview.AddBalancePlusRewards(order->ownerAddress, {DCT_ID{0}, offer->takerFee}, height);
     if (!res)
         return res;
 
     // makerIncentive
-    res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 25 / 100, CScript(), order->ownerAddress);
+    res = mnview.AddBalancePlusRewards(order->ownerAddress, {DCT_ID{0}, offer->takerFee * 25 / 100}, height);
     if (!res)
         return res;
 
@@ -394,7 +385,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
     if (order->idToken == tokenBTC->first && order->orderPrice == COIN) {
         // maker bonus should be in DFI
         auto tokenId = static_cast<int>(height) < consensus.GreatWorldHeight ? tokenBTC->first : DCT_ID{0};
-        res = TransferTokenBalance(tokenId, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+        res = mnview.AddBalancePlusRewards(order->ownerAddress, {tokenId, offer->takerFee * 50 / 100}, height);
         if (!res)
             return res;
     }
@@ -465,7 +456,6 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage& obj) const {
     if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0) {
         // subtract the balance from txidAddr and return to owner
         CScript txidAddr(order->creationTx.begin(), order->creationTx.end());
-        CalculateOwnerRewards(order->ownerAddress);
         res = TransferTokenBalance(order->idToken, order->amountToFill, txidAddr, order->ownerAddress);
         if (!res)
             return res;
@@ -512,7 +502,6 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) {
         // subtract takerFee from txidAddr and return to owner
         CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
-        CalculateOwnerRewards(offer->ownerAddress);
         res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
         if (!res)
             return res;
@@ -520,7 +509,6 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
         // subtract the balance from txidAddr and return to owner
         CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
-        CalculateOwnerRewards(offer->ownerAddress);
         if (isPreEunosPaya) {
             res = TransferTokenBalance(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
             if (!res)

@@ -58,7 +58,7 @@ Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmo
     const auto res = optPool->AddLiquidity(amountA, amountB, [&] /*onMint*/(CAmount liqAmount) -> Res {
         BOOST_CHECK(liqAmount > 0);
 
-        auto add = mnview.AddBalance(shareAddress, { idPool, liqAmount });
+        auto add = mnview.AddBalanceNoRewards(shareAddress, { idPool, liqAmount });
         if (!add.ok) {
             return add;
         }
@@ -337,18 +337,17 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         auto rwd50 = 50 * COIN / ProvidersCount;
         cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner, uint32_t) {
 
-            cache.CalculateOwnerRewards(owner, 2); // one block
             // check only first couple of pools and the last (zero)
             if (id == RWD25 && owner != CScript(id.v * ProvidersCount)) { // first got slightly less due to MINIMUM_LIQUIDITY
-                CAmount rwd = cache.GetBalance(owner, DCT_ID{0}).nValue;
+                CAmount rwd = cache.GetBalancePlusRewards(owner, DCT_ID{0}, 2).nValue;
                 BOOST_CHECK(rwd == rwd25);
             }
             if (id == RWD50 && owner != CScript(id.v * ProvidersCount)) { // first got slightly less due to MINIMUM_LIQUIDITY
-                CAmount rwd = cache.GetBalance(owner, DCT_ID{0}).nValue;
+                CAmount rwd = cache.GetBalancePlusRewards(owner, DCT_ID{0}, 2).nValue;
                 BOOST_CHECK(rwd == rwd50);
             }
             if (id == DCT_ID{10} ) { // first got slightly less due to MINIMUM_LIQUIDITY
-                CAmount rwd = cache.GetBalance(owner, DCT_ID{0}).nValue;
+                CAmount rwd = cache.GetBalancePlusRewards(owner, DCT_ID{0}, 2).nValue;
                 BOOST_CHECK(rwd == 0);
             }
             return true;
@@ -363,8 +362,8 @@ BOOST_AUTO_TEST_CASE(math_rewards)
                     return false;
 
                 if (owner != CScript(id.v * ProvidersCount)) { // first got slightly less due to MINIMUM_LIQUIDITY
-                    CAmount rwdA = cache.GetBalance(owner, DCT_ID{optPool->idTokenA}).nValue;
-                    CAmount rwdB = cache.GetBalance(owner, DCT_ID{optPool->idTokenB}).nValue;
+                    CAmount rwdA = cache.GetBalancePlusRewards(owner, DCT_ID{optPool->idTokenA}, 2).nValue;
+                    CAmount rwdB = cache.GetBalancePlusRewards(owner, DCT_ID{optPool->idTokenB}, 2).nValue;
                     BOOST_CHECK(rwdA == id.v * COIN / ProvidersCount);
                     BOOST_CHECK(rwdB == id.v * COIN * 2 / ProvidersCount);
                 }
@@ -433,7 +432,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&]() -> CAmount {
-            return mnview.GetBalance(shareAddress[0], idPool).nValue;
+            return mnview.GetBalanceNoRewards(shareAddress[0], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
@@ -454,7 +453,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
                 default:
                     BOOST_REQUIRE(false);
                 }
-                mnview.AddBalance(shareAddress[0], amount);
+                mnview.AddBalanceNoRewards(shareAddress[0], amount);
             }
         );
         return true;
@@ -510,7 +509,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&] () -> CAmount {
-            return mnview.GetBalance(shareAddress[1], idPool).nValue;
+            return mnview.GetBalanceNoRewards(shareAddress[1], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
@@ -551,7 +550,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                 }
-                mnview.AddBalance(shareAddress[1], amount);
+                mnview.AddBalanceNoRewards(shareAddress[1], amount);
             }
         );
         return false;

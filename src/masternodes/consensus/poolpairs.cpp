@@ -133,8 +133,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage& obj) const {
             return Res::Err("tx must have at least one input from account owner");
 
     for (const auto& kv : obj.from) {
-        CalculateOwnerRewards(kv.first);
-        auto res = mnview.SubBalances(kv.first, kv.second);
+        auto res = mnview.SubBalancesPlusRewards(kv.first, kv.second, height);
         if (!res)
             return res;
     }
@@ -180,9 +179,8 @@ Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage& obj) const {
 
     res = pool.RemoveLiquidity(amount.nValue, [&] (CAmount amountA, CAmount amountB) {
 
-        CalculateOwnerRewards(from);
         CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
-        return mnview.AddBalances(from, balances);
+        return mnview.AddBalancesPlusRewards(from, balances, height);
     });
 
     return !res ? res : mnview.SetPoolPair(amount.nTokenId, height, pool);

@@ -2775,7 +2775,7 @@ void CChainState::ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& c
             return zeroAmounts.Add(balance).ok;
         }, BalanceKey{script, DCT_ID{}});
 
-        cache.SubBalances(script, zeroAmounts);
+        cache.SubBalancesNoRewards(script, zeroAmounts);
     }
 
     uint32_t nTx = pindex->nTx;
@@ -2783,9 +2783,9 @@ void CChainState::ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& c
     for (const auto& balance : burnAmounts.balances) {
         // If amount cannot be deducted then burn skipped.
         auto tokenAmount = CTokenAmount{balance.first, balance.second};
-        auto result = cache.SubBalance(retiredBurnAddress, tokenAmount);
+        auto result = cache.SubBalanceNoRewards(retiredBurnAddress, tokenAmount);
         if (result) {
-            cache.AddBalance(chainparams.GetConsensus().burnAddress, tokenAmount);
+            cache.AddBalanceNoRewards(chainparams.GetConsensus().burnAddress, tokenAmount);
 
             // Add transfer as additional TX in block
             pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), nTx++},
@@ -2833,18 +2833,18 @@ void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& 
     const auto distributed = cache.UpdatePoolRewards(
         [&](CScript const & owner, DCT_ID tokenID) {
             cache.CalculateOwnerRewards(owner, pindex->nHeight);
-            return cache.GetBalance(owner, tokenID);
+            return cache.GetBalanceNoRewards(owner, tokenID);
         },
         [&](CScript const & from, CScript const & to, CTokenAmount amount) {
             if (!from.empty()) {
-                auto res = cache.SubBalance(from, amount);
+                auto res = cache.SubBalanceNoRewards(from, amount);
                 if (!res) {
                     LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
                     return res;
                 }
             }
             if (!to.empty()) {
-                auto res = cache.AddBalance(to, amount);
+                auto res = cache.AddBalanceNoRewards(to, amount);
                 if (!res) {
                     LogPrintf("Can't apply reward to %s: %s, %ld\n", to.GetHex(), res.msg, pindex->nHeight);
                     return res;
@@ -2887,13 +2887,11 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
         if (order->orderType == CICXOrder::TYPE_INTERNAL) {
             CTokenAmount amount{order->idToken, order->amountToFill};
             CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
-            auto res = cache.SubBalance(txidaddr, amount);
+            auto res = cache.SubBalanceNoRewards(txidaddr, amount);
             if (!res)
                 LogPrintf("Can't subtract balance from order (%s) txidaddr: %s\n", order->creationTx.GetHex(), res.msg);
-            else {
-                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
-                cache.AddBalance(order->ownerAddress, amount);
-            }
+            else
+                cache.AddBalancePlusRewards(order->ownerAddress, amount, pindex->nHeight);
         }
 
         cache.ICXCloseOrderTx(*order, status);
@@ -2918,13 +2916,11 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
 
         if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) ||
             (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))) {
-            auto res = cache.SubBalance(txidAddr, takerFee);
+            auto res = cache.SubBalanceNoRewards(txidAddr, takerFee);
             if (!res)
                 LogPrintf("Can't subtract takerFee from offer (%s) txidAddr: %s\n", offer->creationTx.GetHex(), res.msg);
-            else {
-                cache.CalculateOwnerRewards(offer->ownerAddress, pindex->nHeight);
-                cache.AddBalance(offer->ownerAddress, takerFee);
-            }
+            else
+                cache.AddBalancePlusRewards(offer->ownerAddress, takerFee, pindex->nHeight);
         }
 
         cache.ICXCloseMakeOfferTx(*offer, status);
@@ -2953,8 +2949,7 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
         if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL) {
             if (!cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx, isPreEunosPaya)) {
                 CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
-                cache.AddBalance(order->ownerAddress, makerDeposit);
+                cache.AddBalancePlusRewards(order->ownerAddress, makerDeposit, pindex->nHeight);
                 refund = true;
             }
         } else if (status == CICXSubmitDFCHTLC::STATUS_REFUNDED)
@@ -2969,13 +2964,11 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
 
             CTokenAmount amount{order->idToken, dfchtlc->amount};
             CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
-            auto res = cache.SubBalance(txidaddr, amount);
+            auto res = cache.SubBalanceNoRewards(txidaddr, amount);
             if (!res)
                 LogPrintf("Can't subtract balance from dfc htlc (%s) txidaddr: %s\n", dfchtlc->creationTx.GetHex(), res.msg);
-            else {
-                cache.CalculateOwnerRewards(ownerAddress, pindex->nHeight);
-                cache.AddBalance(ownerAddress, amount);
-            }
+            else
+                cache.AddBalancePlusRewards(ownerAddress, amount, pindex->nHeight);
 
             cache.ICXCloseDFCHTLC(*dfchtlc, status);
         }
@@ -3002,8 +2995,7 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
         if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL) {
             if (!cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx, isPreEunosPaya)) {
                 CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
-                cache.AddBalance(order->ownerAddress, makerDeposit);
+                cache.AddBalancePlusRewards(order->ownerAddress, makerDeposit, pindex->nHeight);
                 cache.ICXCloseEXTHTLC(*exthtlc, status);
             }
         }
@@ -3169,28 +3161,26 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
-                    view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
+                    view.AddBalanceNoRewards(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
 
                     SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
-                view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
-
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
                     auto tokenAmount = col.second;
-                    view.AddBalance(bidOwner, {tokenId, tokenAmount});
+                    view.AddBalancePlusRewards(bidOwner, {tokenId, tokenAmount}, pindex->nHeight);
                 }
 
                 auto amountToFill = bidTokenAmount.nValue - penaltyAmount;
                 if (amountToFill > 0) {
                     // return the rest as collateral to vault via DEX to DFI
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
-                    view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
+                    view.AddBalanceNoRewards(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
 
                     SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
-                    auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
-                    view.SubBalance(tmpAddress, amount);
+                    auto amount = view.GetBalanceNoRewards(tmpAddress, DCT_ID{0});
+                    view.SubBalanceNoRewards(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
                 }
 

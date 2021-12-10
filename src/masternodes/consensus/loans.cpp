@@ -352,8 +352,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
             return res;
 
         const auto& address = !obj.to.empty() ? obj.to : vault->ownerAddress;
-        CalculateOwnerRewards(address);
-        res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
+        res = mnview.AddBalancePlusRewards(address, CTokenAmount{kv.first, kv.second}, height);
         if (!res)
             return res;
     }
@@ -469,8 +468,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
                 return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
         }
 
-        CalculateOwnerRewards(obj.from);
-
         if (static_cast<int>(height) < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
             res = mnview.SubMintedTokens(tokenId, subLoan);
             if (!res)
@@ -478,7 +475,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
 
             // subtract loan amount first, interest is burning below
             LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
-            res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+            res = mnview.SubBalancePlusRewards(obj.from, CTokenAmount{tokenId, subLoan}, height);
             if (!res)
                 return res;
 

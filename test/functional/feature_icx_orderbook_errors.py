@@ -164,7 +164,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'orderPrice':0.01})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Not enough balance for Token DFI on address "+accountDFI in errorString)
+        assert(errorString)
 
         orderTx = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
