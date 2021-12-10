@@ -200,16 +200,13 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const CVaultId& vaultI
     return ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id));
 }
 
-inline CAmount InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+template<typename T>
+inline T InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
 {
+    static_assert(std::is_arithmetic<T>::value, "T should be arithmetic type");
     auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    return MultiplyAmounts(netInterest, amount) / (365 * Params().GetConsensus().blocksPerDay());
-}
-
-inline float InterestPerBlockFloat(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
-{
-    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    return MultiplyAmounts(netInterest, amount) / (365.f * Params().GetConsensus().blocksPerDay());
+    static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
+    return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
@@ -243,9 +240,9 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     }
 
     if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
-        rate.interestPerBlock += std::ceil(InterestPerBlockFloat(loanIncreased, token->interest, scheme->rate));
+        rate.interestPerBlock += std::ceil(InterestPerBlock<float>(loanIncreased, token->interest, scheme->rate));
     } else {
-        rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
+        rate.interestPerBlock += InterestPerBlock<CAmount>(loanIncreased, token->interest, scheme->rate);
     }
     rate.height = height;
 
@@ -278,9 +275,9 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
 
     rate.height = height;
     if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
-        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - CAmount(std::ceil(InterestPerBlockFloat(loanDecreased, token->interest, scheme->rate))));
+        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - CAmount(std::ceil(InterestPerBlock<float>(loanDecreased, token->interest, scheme->rate))));
     } else {
-        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock(loanDecreased, token->interest, scheme->rate));
+        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock<CAmount>(loanDecreased, token->interest, scheme->rate));
     }
 
     WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
