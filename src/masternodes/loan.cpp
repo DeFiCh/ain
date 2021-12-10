@@ -2,6 +2,8 @@
 #include <chainparams.h>
 #include <masternodes/loan.h>
 
+#include <cmath>
+
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
 {
     auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
