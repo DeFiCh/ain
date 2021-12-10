@@ -384,7 +384,7 @@ class CCustomCSView
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
-private:
+
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
@@ -410,6 +410,12 @@ public:
     {
         CheckPrefixes();
     }
+
+    Res AddBalance(CScript const & owner, CTokenAmount amount, uint32_t height);
+    Res SubBalance(CScript const & owner, CTokenAmount amount, uint32_t height);
+
+    Res AddBalances(CScript const & owner, CBalances const & balances, uint32_t height);
+    Res SubBalances(CScript const & owner, CBalances const & balances, uint32_t height);
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
@@ -443,6 +449,12 @@ public:
     }
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
+
+protected:
+    using CAccountsView::AddBalance;
+    using CAccountsView::SubBalance;
+    using CAccountsView::AddBalances;
+    using CAccountsView::SubBalances;
 };
 
 std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
