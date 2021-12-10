@@ -79,8 +79,9 @@ static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const Uni
     else if (code == RPC_METHOD_NOT_FOUND)
         nStatus = HTTP_NOT_FOUND;
 
-    std::string strReply = JSONRPCReply(NullUniValue, objError, id);
+    auto strReply = JSONRPCReplyObj(NullUniValue, objError, id).write();
 
+    strReply += '\n';
     req->WriteHeader("Content-Type", "application/json");
     req->WriteReply(nStatus, strReply);
 }
@@ -217,17 +218,16 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
         if (valRequest.isObject()) {
             jreq.parse(valRequest);
 
-            UniValue result = tableRPC.execute(jreq);
-
             // Send reply
-            strReply = JSONRPCReply(result, NullUniValue, jreq.id);
+            strReply = JSONRPCReplyObj(tableRPC.execute(jreq), NullUniValue, jreq.id).write();
 
         // array of requests
         } else if (valRequest.isArray())
-            strReply = JSONRPCExecBatch(jreq, valRequest.get_array());
+            strReply = JSONRPCExecBatch(jreq, valRequest).write();
         else
             throw JSONRPCError(RPC_PARSE_ERROR, "Top-level object parse error");
 
+        strReply += '\n';
         req->WriteHeader("Content-Type", "application/json");
         req->WriteReply(HTTP_OK, strReply);
     } catch (const UniValue& objError) {

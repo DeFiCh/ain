@@ -93,6 +93,16 @@ struct CompareTxIterByAncestorCount {
     }
 };
 
+// A comparator that sorts transactions based on tx entry time.
+struct CompareTxIterByEntryTime {
+    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const
+    {
+        if (a->GetTime() == b->GetTime())
+            return CompareTxIterByAncestorCount()(a, b);
+        return CompareTxMemPoolEntryByEntryTime()(*a, *b);
+    }
+};
+
 typedef boost::multi_index_container<
     CTxMemPoolModifiedEntry,
     boost::multi_index::indexed_by<
