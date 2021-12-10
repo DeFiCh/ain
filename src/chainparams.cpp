@@ -127,6 +127,7 @@ public:
         consensus.EunosKampungHeight = 895743;
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
+        consensus.FortCanningMuseumHeight = 1430640;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -347,6 +348,7 @@ public:
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
+        consensus.FortCanningMuseumHeight = 724000;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -529,6 +531,7 @@ public:
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 300;
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -703,6 +706,7 @@ public:
         consensus.EunosKampungHeight = 10000000;
         consensus.EunosPayaHeight = 10000000;
         consensus.FortCanningHeight = 10000000;
+        consensus.FortCanningMuseumHeight = 10000000;
         consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -916,6 +920,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
     UpdateHeightValidation("Fork canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fork canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (!args.IsArgSet("-vbparams")) return;

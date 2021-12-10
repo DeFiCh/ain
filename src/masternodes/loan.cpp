@@ -200,10 +200,16 @@ std::optional<CInterestRate> CLoanView::GetInterestRate(const CVaultId& vaultId,
     return ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id));
 }
 
-CAmount InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+inline CAmount InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
 {
     auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
     return MultiplyAmounts(netInterest, amount) / (365 * Params().GetConsensus().blocksPerDay());
+}
+
+inline float InterestPerBlockFloat(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+{
+    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
+    return MultiplyAmounts(netInterest, amount) / (365.f * Params().GetConsensus().blocksPerDay());
 }
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
@@ -235,8 +241,13 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
         rate.interestToHeight = TotalInterest(rate, height);
     }
+
+    if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+        rate.interestPerBlock += std::ceil(InterestPerBlockFloat(loanIncreased, token->interest, scheme->rate));
+    } else {
+        rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
+    }
     rate.height = height;
-    rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
 
     WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
     return Res::Ok();
@@ -264,8 +275,13 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     }
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
     rate.interestToHeight = std::max(CAmount{0}, TotalInterest(rate, height) - interestDecreased);
+
     rate.height = height;
-    rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock(loanDecreased, token->interest, scheme->rate));
+    if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - CAmount(std::ceil(InterestPerBlockFloat(loanDecreased, token->interest, scheme->rate))));
+    } else {
+        rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock(loanDecreased, token->interest, scheme->rate));
+    }
 
     WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
     return Res::Ok();

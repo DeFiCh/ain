@@ -255,6 +255,7 @@ BASE_SCRIPTS = [
     #'feature_forced_reward_address.py',
     'feature_loan_vault.py',
     'feature_loan_deposittovault.py',
+    'feature_loan_interest.py',
     'feature_loan_estimateloan.py',
     'feature_loan_priceupdate.py',
     'feature_loan_vaultstate.py',
