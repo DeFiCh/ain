@@ -89,12 +89,13 @@ CMasternode::CMasternode()
 CMasternode::State CMasternode::GetState(int height) const
 {
     int EunosPayaHeight = Params().GetConsensus().EunosPayaHeight;
+    const auto skipOnTestnet = Params().NetworkIDString() != CBaseChainParams::TESTNET;
 
-    if (height < creationHeight) {
+    if (skipOnTestnet && height < creationHeight) {
         return State::UNKNOWN;
     }
 
-    if (resignHeight == -1 || height < resignHeight) { // enabled or pre-enabled
+    if (resignHeight == -1 || (skipOnTestnet && height < resignHeight)) { // enabled or pre-enabled
         // Special case for genesis block
         int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {

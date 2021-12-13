@@ -55,7 +55,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
 
     CKeyID minter;
     if (!blockHeader.ExtractMinterKey(minter)) {
-        return false;
+        return error("%s: Failed to extract minter keyr", __func__);
     }
     uint256 masternodeID;
     int64_t creationHeight;
@@ -66,12 +66,12 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         AssertLockHeld(cs_main);
         auto optMasternodeID = mnView->GetMasternodeIdByOperator(minter);
         if (!optMasternodeID) {
-            return false;
+            return error("%s: Failed to find masternode by operator", __func__);
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
         if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
-            return false;
+            return error("%s: Masternode %s does either not exist or is not active at height %d", __func__, masternodeID.ToString(), blockHeader.height);
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
