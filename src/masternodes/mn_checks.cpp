@@ -2505,7 +2505,7 @@ public:
                         if (col.nTokenId == DCT_ID{0})
                             totalDFI += col.nValue;
 
-                    if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                    if (totalDFI < collateralsLoans.val->totalCollaterals / 2 && obj.amount.nTokenId == DCT_ID{0})
                         return Res::Err("At least 50%% of the vault must be in DFI");
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
