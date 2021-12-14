@@ -486,7 +486,6 @@ class VaultTest (DefiTestFramework):
         # Should be able to withdraw part of BTC
         self.nodes[0].withdrawfromvault(vaultId4, address, "0.1@BTC")
         self.nodes[0].generate(1)
-        vault = self.nodes[0].getvault(vaultId4)
 
 if __name__ == '__main__':
     VaultTest().main()
