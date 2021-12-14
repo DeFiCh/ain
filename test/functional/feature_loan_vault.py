@@ -18,8 +18,8 @@ class VaultTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
             ]
 
     def run_test(self):
@@ -424,28 +424,24 @@ class VaultTest (DefiTestFramework):
             estimatevault = self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@TSLAA')
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("errorString", errorString)
         assert("Invalid Defi token: TSLAA" in errorString)
         # Invalid collateral token
         try:
             estimatevault = self.nodes[0].estimatevault('3.00000000@DFII', '3.00000000@TSLA')
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("errorString", errorString)
         assert("Invalid Defi token: DFII" in errorString)
         # Token not set as a collateral
         try:
             estimatevault = self.nodes[0].estimatevault('3.00000000@TSLA', '3.00000000@TSLA')
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("errorString", errorString)
         assert("Token with id (2) is not a valid collateral!" in errorString)
         # Token not set as loan token
         try:
             estimatevault = self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("errorString", errorString)
         assert("Token with id (0) is not a loan token!" in errorString)
 
         vault = self.nodes[0].getvault(vaultId2)
@@ -454,6 +450,43 @@ class VaultTest (DefiTestFramework):
         assert_equal(estimatevault["loanValue"], vault["loanValue"])
         assert_equal(estimatevault["informativeRatio"], vault["informativeRatio"])
         assert_equal(estimatevault["collateralRatio"], vault["collateralRatio"])
+
+
+        # Test BTC price increase and remove some BTC from collateral
+
+        # Reset price
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(11)
+
+        # Deposit collaterals. 50% of BTC
+        address = self.nodes[0].getnewaddress()
+        self.nodes[1].sendtokenstoaddress({}, { address: '1.25@BTC'})
+        self.nodes[1].generate(1)
+        self.sync_all()
+        vaultId4 = self.nodes[0].createvault(address, 'LOAN000A')
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId4, address, '1.25@BTC') # 1.25@BTC as collateral factor 0.8
+        self.nodes[0].deposittovault(vaultId4, accountDFI, '1@DFI')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+                        'vaultId': vaultId4,
+                        'amounts': "1@TSLA"
+                    })
+        self.nodes[0].generate(1)
+
+        # BTC doubles in price
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "2@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(11)
+
+        # Should be able to withdraw part of BTC
+        self.nodes[0].withdrawfromvault(vaultId4, address, "0.1@BTC")
+        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId4)
 
 if __name__ == '__main__':
     VaultTest().main()
