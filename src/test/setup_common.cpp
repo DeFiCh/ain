@@ -214,7 +214,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
 
         mintedBlocks = nodePtr->mintedBlocks;
     }
-    block.height = tip->nHeight + 1;
+    block.deprecatedHeight = tip->nHeight + 1;
     block.mintedBlocks = mintedBlocks + 1;
     block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 

@@ -241,7 +241,7 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
-        height         = block.height;
+        height         = block.deprecatedHeight;
         mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
         sig            = block.sig;
@@ -276,7 +276,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.stakeModifier   = stakeModifier;
-        block.height         = height;
+        block.deprecatedHeight = height;
         block.mintedBlocks   = mintedBlocks;
         block.sig            = sig;
         return block;
@@ -438,7 +438,7 @@ public:
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.stakeModifier   = stakeModifier;
-        block.height          = height;
+        block.deprecatedHeight = height;
         block.mintedBlocks    = mintedBlocks;
         block.sig             = sig;
 

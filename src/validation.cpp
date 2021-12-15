@@ -1702,7 +1702,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             std::vector<unsigned char> metadata;
             if (IsAnchorRewardTxPlus(tx, metadata))
             {
-                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchorFinalizationMessagePlus finMsg;
                 ss >> finMsg;
@@ -1718,11 +1718,11 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     disconnectedAnchorConfirms.push_back(message);
                 }
 
-                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
             else if (IsAnchorRewardTx(tx, metadata))
             {
-                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchorFinalizationMessage finMsg;
                 ss >> finMsg;
@@ -1740,7 +1740,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
                 mnview.EraseAnchorConfirmData(finMsg.btcTxHash);
 
-                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
         }
 
@@ -2263,7 +2263,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CheckContextState ctxState;
 
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, !fJustCheck, !fJustCheck)) {
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, !fJustCheck, pindex->nHeight, !fJustCheck)) {
         if (state.GetReason() == ValidationInvalidReason::BLOCK_MUTATED) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -2579,7 +2579,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::vector<unsigned char> metadata;
             if (IsAnchorRewardTxPlus(tx, metadata)) {
                 if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
                 ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
                 if (!res.ok) {
@@ -2589,11 +2589,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 rewardedAnchors.push_back(*res.val);
                 if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
             } else if (IsAnchorRewardTx(tx, metadata)) {
                 if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
                 ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata, chainparams.GetConsensus());
                 if (!res.ok) {
@@ -2603,7 +2603,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 rewardedAnchors.push_back(*res.val);
                 if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
+                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
             }
         }
@@ -2722,13 +2722,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed.first);
         if (!res.ok) {
-            LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+            LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, block.GetHash().ToString());
         }
 
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
             res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
             if (!res.ok) {
-                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, block.GetHash().ToString());
             }
         }
 
@@ -4521,7 +4521,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, FlatFilePos &pos, un
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, CheckContextState& ctxState, bool fCheckPOS, bool fCheckMerkleRoot)
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, CheckContextState& ctxState, bool fCheckPOS, const int height, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -4530,13 +4530,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get(), ctxState))
+    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get(), ctxState, height))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
-    if (fCheckMerkleRoot && (block.height < consensusParams.EunosHeight
-    || block.height >= consensusParams.EunosKampungHeight)) {
+    if (fCheckMerkleRoot && (height < consensusParams.EunosHeight
+    || height >= consensusParams.EunosKampungHeight)) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
@@ -4568,8 +4568,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight))
+                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
@@ -4583,7 +4583,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
     }
 
-    if (!fIsFakeNet && fCheckPOS && block.height >= consensusParams.FortCanningHeight) {
+    if (!fIsFakeNet && fCheckPOS && height >= consensusParams.FortCanningHeight) {
         CKeyID minter;
         // this is safe cause pos::ContextualCheckProofOfStake checked
         block.ExtractMinterKey(minter);
@@ -4690,7 +4690,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && nHeight != block.height) {
+    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && nHeight != block.deprecatedHeight) {
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "incorrect-height", "incorrect height set in block header");
     }
 
@@ -4712,7 +4712,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     // Check timestamp
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && block.height >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }
@@ -4720,7 +4720,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
-    if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+    if (nHeight >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
@@ -5010,7 +5010,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     }
 
     CheckContextState ctxState;
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false) || // false cause we can check pos context only on ConnectBlock
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, pindex->nHeight) || // false cause we can check pos context only on ConnectBlock
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         assert(IsBlockReason(state.GetReason()));
         if (state.IsInvalid() && state.GetReason() != ValidationInvalidReason::BLOCK_MUTATED) {
@@ -5183,12 +5183,22 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         // Therefore, the following critical section must include the CheckBlock() call as well.
         LOCK(cs_main);
 
+        // Get previous block index
+        bool ret{true};
+        const auto prevIndex = LookupBlockIndex(pblock->hashPrevBlock);
+        if (!prevIndex) {
+            ret = false;
+            state.Invalid(ValidationInvalidReason::BLOCK_MISSING_PREV, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
+        }
+
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
         // reverts a011b9db38ce6d3d5c1b67c1e3bad9365b86f2ce
         // we can end up in isolation banning all other nodes
         CheckContextState ctxState;
-        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), ctxState, false); // false cause we can check pos context only on ConnectBlock
+        if (ret) {
+            ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), ctxState, false, prevIndex->nHeight + 1); // false cause we can check pos context only on ConnectBlock
+        }
         if (ret) {
             // Store to disk
             ret = ::ChainstateActive().AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, nullptr, fNewBlock);
@@ -5249,7 +5259,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
@@ -5666,7 +5676,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false)) // false cause we can check pos context only on ConnectBlock
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, pindex->nHeight)) // false cause we can check pos context only on ConnectBlock
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         // check level 2: verify undo validity

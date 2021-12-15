@@ -60,7 +60,7 @@ static CBlock BuildBlockTestCase() {
         creationHeight = int64_t(nodePtr->creationHeight);
     }
 
-    block.height = tip->nHeight + 1;
+    block.deprecatedHeight = tip->nHeight + 1;
     block.mintedBlocks = mintedBlocks + 1;
     block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 
@@ -81,7 +81,7 @@ static CBlock BuildBlockTestCase() {
     block.nTime = 0;
     CheckContextState ctxState;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.deprecatedHeight, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);
@@ -130,21 +130,21 @@ BOOST_AUTO_TEST_CASE(SimpleRoundTripTest)
         CBlock block2;
         {
             PartiallyDownloadedBlock tmp = partialBlock;
-            BOOST_CHECK(partialBlock.FillBlock(block2, {}) == READ_STATUS_INVALID); // No transactions
+            BOOST_CHECK(partialBlock.FillBlock(block2, {}, 0) == READ_STATUS_INVALID); // No transactions
             partialBlock = tmp;
         }
 
         // Wrong transaction
         {
             PartiallyDownloadedBlock tmp = partialBlock;
-            partialBlock.FillBlock(block2, {block.vtx[2]}); // Current implementation doesn't check txn here, but don't require that
+            partialBlock.FillBlock(block2, {block.vtx[2]}, 0); // Current implementation doesn't check txn here, but don't require that
             partialBlock = tmp;
         }
         bool mutated;
         BOOST_CHECK(block.hashMerkleRoot != BlockMerkleRoot(block2, &mutated));
 
         CBlock block3;
-        BOOST_CHECK(partialBlock.FillBlock(block3, {block.vtx[1]}) == READ_STATUS_OK);
+        BOOST_CHECK(partialBlock.FillBlock(block3, {block.vtx[1]}, 0) == READ_STATUS_OK);
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block3.GetHash().ToString());
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block3, &mutated).ToString());
         BOOST_CHECK(!mutated);
@@ -302,7 +302,7 @@ BOOST_AUTO_TEST_CASE(SufficientPreforwardRTTest)
 
         CBlock block2;
         PartiallyDownloadedBlock partialBlockCopy = partialBlock;
-        BOOST_CHECK(partialBlock.FillBlock(block2, {}) == READ_STATUS_OK);
+        BOOST_CHECK(partialBlock.FillBlock(block2, {}, 0) == READ_STATUS_OK);
         BOOST_CHECK_EQUAL(block.GetHash().ToString(), block2.GetHash().ToString());
         bool mutated;
         BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated).ToString());

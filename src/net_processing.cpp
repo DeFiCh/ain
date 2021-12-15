@@ -2987,7 +2987,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     return true;
                 }
                 std::vector<CTransactionRef> dummy;
-                status = tempBlock.FillBlock(*pblock, dummy);
+                status = tempBlock.FillBlock(*pblock, dummy, pindex->nHeight);
                 if (status == READ_STATUS_OK) {
                     fBlockReconstructed = true;
                 }
@@ -3079,7 +3079,12 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             }
 
             PartiallyDownloadedBlock& partialBlock = *it->second.second->partialBlock;
-            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn);
+            const auto prevIndex = LookupBlockIndex(partialBlock.header.hashPrevBlock);
+            if (!prevIndex) {
+                // Should never get here. Valid header including hashPrevBlock should be checked in CMPCTBLOCK.
+                return true;
+            }
+            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn, prevIndex->nHeight + 1);
             if (status == READ_STATUS_INVALID) {
                 MarkBlockAsReceived(resp.blockhash); // Reset in-flight state in case of whitelist
                 Misbehaving(pfrom->GetId(), 100, strprintf("Peer %d sent us invalid compact block/non-matching block transactions\n", pfrom->GetId()));
