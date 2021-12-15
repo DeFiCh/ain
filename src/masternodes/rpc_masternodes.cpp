@@ -816,8 +816,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         }
 
         if (auto tip = ::ChainActive()[blockHeight]) {
-            lastHeight = tip->height;
-            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+            lastHeight = tip->nHeight;
+            ret.pushKV(std::to_string(lastHeight), tip->GetBlockHash().ToString());
         }
 
         return true;
@@ -833,10 +833,10 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
 
-    for (; tip && tip->height > creationHeight && depth > 0; tip = tip->pprev, --depth) {
+    for (; tip && tip->nHeight > creationHeight && depth > 0; tip = tip->pprev, --depth) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id && *id == mn_id) {
-            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+            ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
         }
     }
 
