@@ -142,11 +142,16 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
 
     int nHeight{pindexLast->nHeight + 1};
 
-    // Scale last difficulty for new hashing frequency
+
     if (nHeight == params.GreatWorldHeight) {
         arith_uint256 bnNew;
         bnNew.SetCompact(pindexLast->nBits);
+
+        // Scale last difficulty for new hashing frequency
         bnNew *= BLOCK_TIME_INTERVAL;
+
+        // Scale last difficulty for reduction in hashing window
+        bnNew *= 4;
 
         // Limit adjust to minimum if exceeded
         const arith_uint256 bnDiffLimit = UintToArith256(params.pos.diffLimit);
