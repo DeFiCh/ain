@@ -5057,7 +5057,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     auto topAnchor = panchors->GetActiveAnchor();
     CTeamView::CTeam team;
     int teamChange = tip->nHeight;
-    auto const teamDakota = pcustomcsview->GetAuthTeam(tip->height);
+    auto const teamDakota = pcustomcsview->GetAuthTeam(tip->nHeight);
     if (!teamDakota || teamDakota->empty()) {
         return;
     }
@@ -5068,12 +5068,12 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
 
     uint64_t topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
-    if (tip->height <= topAnchorHeight) {
+    if (tip->nHeight <= topAnchorHeight) {
         return;
     }
 
     CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
-    uint64_t forkHeight = pindexFork && (pindexFork->height >= (uint64_t)consensus.mn.anchoringFrequency) ? pindexFork->height - (uint64_t)consensus.mn.anchoringFrequency : 0;
+    uint64_t forkHeight = pindexFork && (pindexFork->nHeight >= (uint64_t)consensus.mn.anchoringFrequency) ? pindexFork->nHeight - (uint64_t)consensus.mn.anchoringFrequency : 0;
     // limit fork height - trim it by the top anchor, if any
     forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
@@ -5096,12 +5096,12 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     for (CBlockIndex const * pindex = tip; pindex && pindex != pindexFork && teamChange >= 0; pindex = pindex->pprev, --teamChange) {
 
         // Only anchor by specified frequency
-        if (pindex->height % consensus.mn.anchoringFrequency != 0) {
+        if (pindex->nHeight % consensus.mn.anchoringFrequency != 0) {
             continue;
         }
 
         // Get start anchor height
-        int anchorHeight = static_cast<int>(pindex->height) - consensus.mn.anchoringFrequency;
+        int anchorHeight = static_cast<int>(pindex->nHeight) - consensus.mn.anchoringFrequency;
 
         // Get anchor block from specified time depth
         int64_t timeDepth = consensus.mn.anchoringTimeDepth;
@@ -5110,7 +5110,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         }
 
         // Select a block further back to avoid Anchor too new error.
-        if (pindex->height >= consensus.FortCanningHeight) {
+        if (pindex->nHeight >= consensus.FortCanningHeight) {
             timeDepth += consensus.mn.anchoringAdditionalTimeDepth;
             while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
                 --anchorHeight;
@@ -5136,7 +5136,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         size_t prefixLength{CKeyID().size() - spv::BtcAnchorMarker.size() - sizeof(uint64_t)};
         std::vector<unsigned char> hashPrefix{pindex->GetBlockHash().begin(), pindex->GetBlockHash().begin() + prefixLength};
         teamDetailsVector.insert(teamDetailsVector.end(), spv::BtcAnchorMarker.begin(), spv::BtcAnchorMarker.end()); // 3 Bytes
-        uint64_t anchorCreationHeight = pindex->height;
+        uint64_t anchorCreationHeight = pindex->nHeight;
         teamDetailsVector.insert(teamDetailsVector.end(), reinterpret_cast<unsigned char*>(&anchorCreationHeight),
                                  reinterpret_cast<unsigned char*>(&anchorCreationHeight) + sizeof(uint64_t)); // 8 Bytes
         teamDetailsVector.insert(teamDetailsVector.end(), hashPrefix.begin(), hashPrefix.end()); // 9 Bytes

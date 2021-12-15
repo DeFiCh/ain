@@ -139,7 +139,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     bool eunosPaya;
     {
         LOCK(cs_main);
-        eunosPaya = ::ChainActive().Tip()->height >= Params().GetConsensus().EunosPayaHeight;
+        eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
     }
 
     // Get timelock if any
@@ -540,7 +540,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     bool forkCanning;
     {
         LOCK(cs_main);
-        forkCanning = ::ChainActive().Tip()->height >= Params().GetConsensus().FortCanningHeight;
+        forkCanning = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().FortCanningHeight;
     }
 
     if (!forkCanning) {
@@ -796,7 +796,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
 
-    auto lastHeight = ::ChainActive().Tip()->height + 1;
+    auto lastHeight = ::ChainActive().Tip()->nHeight + 1;
     const auto creationHeight = masternode->creationHeight;
 
     int depth{std::numeric_limits<int>::max()};
@@ -831,7 +831,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
-    auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
+    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight) - 1];
 
     for (; tip && tip->nHeight > creationHeight && depth > 0; tip = tip->pprev, --depth) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
