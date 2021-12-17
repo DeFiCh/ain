@@ -1241,8 +1241,9 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-
     auto height = ::ChainActive().Height() + 1;
+    RPCCheckFortCanningNewConstraint(height);
+
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
@@ -1329,10 +1330,12 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
+    RPCCheckFortCanningNewConstraint(height);
+
     std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
 
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
-    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
+    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRateV2 rate)
     {
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId)
@@ -1345,11 +1348,19 @@ UniValue getinterest(const JSONRPCRequest& request) {
             return true;
 
         LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
-        interest[tokenId].first += TotalInterest(rate, height);
-        interest[tokenId].second += rate.interestPerBlock;
+        interest[tokenId].first += CeilInterest(TotalInterest(rate, height), height);
+        interest[tokenId].second += CeilInterest(rate.interestPerBlock, height);
 
         return true;
-    });
+    };
+
+    if (height >= Params().GetConsensus().FortCanningNewHeight) {
+        pcustomcsview->ForEachVaultInterestV2(vaultInterest);
+    } else {
+        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV2(rate));
+        });
+    }
 
     UniValue obj(UniValue::VOBJ);
     for (std::map<DCT_ID, std::pair<CAmount, CAmount> >::iterator it=interest.begin(); it!=interest.end(); ++it)

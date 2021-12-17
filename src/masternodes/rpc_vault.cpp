@@ -43,6 +43,8 @@ namespace {
 
     bool WillLiquidateNext(const CVaultId& vaultId, const CVaultData& vault) {
         auto height = ::ChainActive().Height();
+        RPCCheckFortCanningNewConstraint(height);
+
         auto blockTime = ::ChainActive()[height]->GetBlockTime();
 
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
@@ -152,10 +154,10 @@ namespace {
             for (const auto& loan : loanTokens->balances) {
                 auto token = pcustomcsview->GetLoanTokenByID(loan.first);
                 if (!token) continue;
-                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
+                auto rate = pcustomcsview->GetInterestRateV2(vaultId, loan.first, height);
                 if (!rate) continue;
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
-                auto totalInterest = TotalInterest(*rate, height + 1);
+                auto totalInterest = CeilInterest(TotalInterest(*rate, height + 1), height);
                 auto value = loan.second + totalInterest;
                 if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];

@@ -223,7 +223,44 @@ struct CInterestRate
     }
 };
 
-CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
+struct CInterestRateV2
+{
+    uint32_t height;
+    base_uint<128> interestPerBlock;
+    base_uint<128> interestToHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(height);
+        READWRITE(interestPerBlock);
+        READWRITE(interestToHeight);
+    }
+};
+
+inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2& rate1)
+{
+    CInterestRate rate2{};
+    rate2.height = rate1.height;
+    rate2.interestPerBlock = rate1.interestPerBlock.GetLow64();
+    rate2.interestToHeight = rate1.interestToHeight.GetLow64();
+
+    return rate2;
+}
+
+inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
+{
+    CInterestRateV2 rate2{};
+    rate2.height = rate1.height;
+    rate2.interestPerBlock = rate1.interestPerBlock;
+    rate2.interestToHeight = rate1.interestToHeight;
+
+    return rate2;
+}
+
+base_uint<128> TotalInterest(const CInterestRateV2& rate, uint32_t height);
+CAmount CeilInterest(const base_uint<128>& amount, int height);
 
 class CLoanTakeLoanMessage
 {
@@ -292,9 +329,14 @@ public:
 
     Res DeleteInterest(const CVaultId& vaultId);
     boost::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
+    boost::optional<CInterestRateV2> GetInterestRateV2(const CVaultId& loanSchemeID, DCT_ID id, int height);
+    void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, int height);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
+    void ForEachVaultInterestV2(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV2)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
+    void RevertInterestRateToV1(int height);
+    void MigrateInterestRateToV2(int height);
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);

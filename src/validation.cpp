@@ -1837,6 +1837,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
+    // one time downgrade to revert CInterestRateV2 structure
+    if (pindex->nHeight == Params().GetConsensus().FortCanningNewHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate reverting ...\n");
+        mnview.RevertInterestRateToV1(Params().GetConsensus().FortCanningNewHeight - 1);
+        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
+    }
+
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
@@ -2304,6 +2312,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
         return true;
+    }
+
+    // one time upgrade to convert the old CInterestRate data structure
+    // we don't neeed it in undos
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningNewHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate migration ...\n");
+        mnview.MigrateInterestRateToV2(chainparams.GetConsensus().FortCanningNewHeight);
+        LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
     CKeyID minterKey;
@@ -3106,13 +3123,13 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
                 auto tokenValue = loan.second;
-                auto rate = cache.GetInterestRate(vaultId, tokenId);
+                auto rate = cache.GetInterestRateV2(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                auto subInterest = CeilInterest(TotalInterest(*rate, pindex->nHeight), pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
-                // Remove the interests from the vault and the storage respectively  
+                // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);

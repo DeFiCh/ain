@@ -5,6 +5,7 @@
 
 #include <arith_uint256.h>
 
+#include <util/strencodings.h>
 #include <uint256.h>
 #include <crypto/common.h>
 
@@ -148,13 +149,18 @@ double base_uint<BITS>::getdouble() const
 template <unsigned int BITS>
 std::string base_uint<BITS>::GetHex() const
 {
-    return ArithToUint256(*this).GetHex();
+    uint256 b;
+    for(int x=0; x<WIDTH; ++x)
+        WriteLE32(b.begin() + x*4, pn[x]);
+    return b.GetHex();
 }
 
 template <unsigned int BITS>
 void base_uint<BITS>::SetHex(const char* psz)
 {
-    *this = UintToArith256(uint256S(psz));
+    uint256 a(uint256S(psz));
+    for(int x=0; x<WIDTH; ++x)
+        pn[x] = ReadLE32(a.begin() + x*4);
 }
 
 template <unsigned int BITS>
@@ -223,6 +229,16 @@ template void base_uint<256>::SetHex(const char*);
 template void base_uint<256>::SetHex(const std::string&);
 template unsigned int base_uint<256>::bits() const;
 template base_uint<256> base_uint<256>::sqrt() const;
+
+template base_uint<128>& base_uint<128>::operator<<=(unsigned int);
+template base_uint<128>& base_uint<128>::operator>>=(unsigned int);
+template base_uint<128>& base_uint<128>::operator*=(uint32_t b32);
+template base_uint<128>& base_uint<128>::operator*=(const base_uint<128>& b);
+template base_uint<128>& base_uint<128>::operator/=(const base_uint<128>& b);
+template int base_uint<128>::CompareTo(const base_uint<128>&) const;
+template bool base_uint<128>::EqualTo(uint64_t) const;
+template std::string base_uint<128>::GetHex() const;
+template std::string base_uint<128>::ToString() const;
 
 // This implementation directly uses shifts instead of going
 // through an intermediate MPI representation.

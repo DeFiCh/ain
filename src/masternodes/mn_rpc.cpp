@@ -443,6 +443,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     }
 }
 
+void RPCCheckFortCanningNewConstraint(int height)
+{
+    if (height == Params().GetConsensus().FortCanningNewHeight -1 || height == Params().GetConsensus().FortCanningNewHeight)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This type of transaction is not possible around hard fork height");
+}
+
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     auto wallet = GetWalletForJSONRPCRequest(request);
 
