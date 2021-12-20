@@ -423,8 +423,9 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
 
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
     std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
-    auto txMessage = customTypeToMessage(txType);
+    uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
+    auto txType = GuessCustomTxType(tx, metadata, false, nullptr, nullptr, &customTxVersion);
+    auto txMessage = customTypeToMessage(txType, customTxVersion);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
@@ -754,6 +755,18 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     }
 
     return result;
+}
+
+void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const MetadataVersion version)
+{
+    if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+        return;
+    }
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << height << static_cast<uint8_t>(version);
+
+    metaData << ToByteVector(stream);
 }
 
 static const CRPCCommand commands[] =

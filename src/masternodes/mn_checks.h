@@ -158,6 +158,12 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     return CustomTxType::None;
 }
 
+enum class MetadataVersion : uint8_t {
+    None = 0,
+    One = 1,
+    Two = 2,
+};
+
 std::string ToString(CustomTxType type);
 
 // it's disabled after Dakota height
@@ -368,7 +374,7 @@ using CCustomTxMessage = std::variant<
     CAuctionBidMessage
 >;
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType);
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
@@ -384,7 +390,8 @@ Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CSc
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */
-inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false){
+inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
+                                      uint32_t* height = nullptr, uint32_t* customTxExpiration = nullptr, uint8_t* customTxVersion = nullptr){
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
@@ -394,20 +401,26 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
         for (size_t i{1}; i < tx.vout.size(); ++i) {
             std::vector<unsigned char> dummydata;
             bool dummyOpcodes{false};
-            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
+            bool dummyOpcodesGW{false};
+            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes, dummyOpcodesGW)) {
                 return CustomTxType::Reject;
             }
         }
     }
 
     bool hasAdditionalOpcodes{false};
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
+    bool hasAdditionalOpcodesGW{false};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW, customTxExpiration, customTxVersion)) {
         return CustomTxType::None;
     }
 
     // If metadata contains additional opcodes mark as Reject.
-    if (metadataValidation && hasAdditionalOpcodes) {
-        return CustomTxType::Reject;
+    if (height) {
+        if (*height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && metadataValidation && hasAdditionalOpcodes) {
+            return CustomTxType::Reject;
+        } else if (*height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && metadataValidation && hasAdditionalOpcodesGW) {
+            return CustomTxType::Reject;
+        }
     }
 
     auto txType = CustomTxCodeToType(metadata[0]);

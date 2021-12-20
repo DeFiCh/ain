@@ -12,6 +12,7 @@
  * belongs in tx_verify.h/cpp instead.
  */
 
+#include <cstdint>
 #include <vector>
 
 /// moved here (!!) due to strange linker errors under mac/win builds
@@ -27,8 +28,11 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& hasAdditionalOpcodes);
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
+                         bool& hasAdditionalOpcodes,
+                         bool& hasAdditionalOpcodesGW,
+                         uint32_t* customTxExpiration = nullptr,
+                         uint8_t* customTxVersion = nullptr);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false, bool greatWorld = false);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false, bool greatWorld = false);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H
