@@ -2683,7 +2683,7 @@ public:
                 return res;
 
             if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight &&
-                static_cast<int>(height) < consensus.FortCanningNewHeight && subLoan < it->second)
+                static_cast<int>(height) < consensus.FortCanningHillHeight && subLoan < it->second)
             {
                 auto newRate = mnview.GetInterestRateV2(obj.vaultId, tokenId, height);
                 if (!newRate)
@@ -3031,7 +3031,7 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 }
 
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
-    if (height == Params().GetConsensus().FortCanningNewHeight -1 || height == Params().GetConsensus().FortCanningNewHeight)
+    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
     {
         TBytes dummy;
         switch(GuessCustomTxType(tx, dummy))

@@ -1242,7 +1242,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto height = ::ChainActive().Height() + 1;
-    RPCCheckFortCanningNewConstraint(height);
+    RPCCheckFortCanningHillConstraint(height);
 
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
@@ -1330,7 +1330,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
-    RPCCheckFortCanningNewConstraint(height);
+    RPCCheckFortCanningHillConstraint(height);
 
     std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
 
@@ -1354,7 +1354,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         return true;
     };
 
-    if (height >= Params().GetConsensus().FortCanningNewHeight) {
+    if (height >= Params().GetConsensus().FortCanningHillHeight) {
         pcustomcsview->ForEachVaultInterestV2(vaultInterest);
     } else {
         pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {

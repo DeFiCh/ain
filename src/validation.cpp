@@ -1838,10 +1838,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     // one time downgrade to revert CInterestRateV2 structure
-    if (pindex->nHeight == Params().GetConsensus().FortCanningNewHeight) {
+    if (pindex->nHeight == Params().GetConsensus().FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate reverting ...\n");
-        mnview.RevertInterestRateToV1(Params().GetConsensus().FortCanningNewHeight - 1);
+        mnview.RevertInterestRateToV1(Params().GetConsensus().FortCanningHillHeight - 1);
         LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -2316,10 +2316,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // one time upgrade to convert the old CInterestRate data structure
     // we don't neeed it in undos
-    if (pindex->nHeight == chainparams.GetConsensus().FortCanningNewHeight) {
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
-        mnview.MigrateInterestRateToV2(chainparams.GetConsensus().FortCanningNewHeight);
+        mnview.MigrateInterestRateToV2(chainparams.GetConsensus().FortCanningHillHeight);
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
