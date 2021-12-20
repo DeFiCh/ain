@@ -259,8 +259,9 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
     return rate2;
 }
 
-base_uint<128> TotalInterest(const CInterestRateV2& rate, uint32_t height);
-CAmount CeilInterest(const base_uint<128>& amount, int height);
+base_uint<128> TotalInterestHighPrecision(const CInterestRateV2& rate, uint32_t height);
+CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
+CAmount CeilAmount(const base_uint<128>& amount, uint32_t height);
 
 class CLoanTakeLoanMessage
 {
@@ -329,8 +330,8 @@ public:
 
     Res DeleteInterest(const CVaultId& vaultId);
     boost::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
-    boost::optional<CInterestRateV2> GetInterestRateV2(const CVaultId& loanSchemeID, DCT_ID id, int height);
-    void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, int height);
+    boost::optional<CInterestRateV2> GetInterestRateV2(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
+    void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});

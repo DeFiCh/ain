@@ -157,7 +157,7 @@ namespace {
                 auto rate = pcustomcsview->GetInterestRateV2(vaultId, loan.first, height);
                 if (!rate) continue;
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
-                auto totalInterest = CeilInterest(TotalInterest(*rate, height + 1), height);
+                auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
                 if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];

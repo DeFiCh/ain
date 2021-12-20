@@ -2662,7 +2662,7 @@ public:
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
             LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
-            auto subInterest = CeilInterest(TotalInterest(*rate, height), height);
+            auto subInterest = TotalInterest(*rate, height);
             auto subLoan = kv.second - subInterest;
 
             if (kv.second < subInterest)

@@ -3126,7 +3126,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto rate = cache.GetInterestRateV2(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                auto subInterest = CeilInterest(TotalInterest(*rate, pindex->nHeight), pindex->nHeight);
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
                 // Remove the interests from the vault and the storage respectively

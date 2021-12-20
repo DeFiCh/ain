@@ -149,7 +149,8 @@ double base_uint<BITS>::getdouble() const
 template <unsigned int BITS>
 std::string base_uint<BITS>::GetHex() const
 {
-    uint256 b;
+    base_blob<BITS> b;
+
     for(int x=0; x<WIDTH; ++x)
         WriteLE32(b.begin() + x*4, pn[x]);
     return b.GetHex();
@@ -158,7 +159,9 @@ std::string base_uint<BITS>::GetHex() const
 template <unsigned int BITS>
 void base_uint<BITS>::SetHex(const char* psz)
 {
-    uint256 a(uint256S(psz));
+    base_blob<BITS> a;
+
+    a.SetHex(psz);
     for(int x=0; x<WIDTH; ++x)
         pn[x] = ReadLE32(a.begin() + x*4);
 }
@@ -213,32 +216,11 @@ base_uint<BITS> base_uint<BITS>::sqrt() const
     return res;
 }
 
-// Explicit instantiations for base_uint<256>
-template base_uint<256>::base_uint(const std::string&);
-template base_uint<256>& base_uint<256>::operator<<=(unsigned int);
-template base_uint<256>& base_uint<256>::operator>>=(unsigned int);
-template base_uint<256>& base_uint<256>::operator*=(uint32_t b32);
-template base_uint<256>& base_uint<256>::operator*=(const base_uint<256>& b);
-template base_uint<256>& base_uint<256>::operator/=(const base_uint<256>& b);
-template int base_uint<256>::CompareTo(const base_uint<256>&) const;
-template bool base_uint<256>::EqualTo(uint64_t) const;
-template double base_uint<256>::getdouble() const;
-template std::string base_uint<256>::GetHex() const;
-template std::string base_uint<256>::ToString() const;
-template void base_uint<256>::SetHex(const char*);
-template void base_uint<256>::SetHex(const std::string&);
-template unsigned int base_uint<256>::bits() const;
-template base_uint<256> base_uint<256>::sqrt() const;
+// Explicit instantiations for base_uint<128>
+template class base_uint<128>;
 
-template base_uint<128>& base_uint<128>::operator<<=(unsigned int);
-template base_uint<128>& base_uint<128>::operator>>=(unsigned int);
-template base_uint<128>& base_uint<128>::operator*=(uint32_t b32);
-template base_uint<128>& base_uint<128>::operator*=(const base_uint<128>& b);
-template base_uint<128>& base_uint<128>::operator/=(const base_uint<128>& b);
-template int base_uint<128>::CompareTo(const base_uint<128>&) const;
-template bool base_uint<128>::EqualTo(uint64_t) const;
-template std::string base_uint<128>::GetHex() const;
-template std::string base_uint<128>::ToString() const;
+// Explicit instantiations for base_uint<256>
+template class base_uint<256>;
 
 // This implementation directly uses shifts instead of going
 // through an intermediate MPI representation.

@@ -1002,7 +1002,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
         LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
-        auto totalAmount = loanTokenAmount + CeilInterest(TotalInterest(*rate, height), height);
+        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
             return std::move(amountInCurrency);

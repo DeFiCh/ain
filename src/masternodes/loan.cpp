@@ -200,7 +200,7 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const CVaultId& vaultI
     return ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id));
 }
 
-boost::optional<CInterestRateV2> CLoanView::GetInterestRateV2(const CVaultId& vaultId, DCT_ID id, int height)
+boost::optional<CInterestRateV2> CLoanView::GetInterestRateV2(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
     if (height >= Params().GetConsensus().FortCanningNewHeight) {
         return ReadBy<LoanInterestByVault, CInterestRateV2>(std::make_pair(vaultId, id));
@@ -213,7 +213,7 @@ boost::optional<CInterestRateV2> CLoanView::GetInterestRateV2(const CVaultId& va
     return {};
 }
 
-inline base_uint<128> InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest, int height)
+inline base_uint<128> InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest, uint32_t height)
 {
     CAmount netInterest((tokenInterest + schemeInterest) / 100); // in % (in COIN precision)
 
@@ -231,16 +231,16 @@ inline float InterestPerBlockFloat(CAmount amount, CAmount tokenInterest, CAmoun
     return MultiplyAmounts(netInterest, amount) / (365.f * Params().GetConsensus().blocksPerDay());
 }
 
-base_uint<128> TotalInterest(const CInterestRateV2& rate, uint32_t height)
+base_uint<128> TotalInterestHighPrecision(const CInterestRateV2& rate, uint32_t height)
 {
     base_uint<128> interest;
     interest = rate.interestToHeight + (base_uint<128>(height - rate.height) * rate.interestPerBlock);
 
-    LogPrint(BCLog::LOAN, "%s(): CInterestRate{.height=%d, .perBlock=%d, .toHeight=%d}, height %d - totalInterest %d\n", __func__, rate.height, CeilInterest(rate.interestPerBlock, height), CeilInterest(rate.interestToHeight, height), height, CeilInterest(interest, height));
+    LogPrint(BCLog::LOAN, "%s(): CInterestRate{.height=%d, .perBlock=%d, .toHeight=%d}, height %d - totalInterest %d\n", __func__, rate.height, CeilAmount(rate.interestPerBlock, height), CeilAmount(rate.interestToHeight, height), height, CeilAmount(interest, height));
     return interest;
 }
 
-CAmount CeilInterest(const base_uint<128>& amount, int height)
+CAmount CeilAmount(const base_uint<128>& amount, uint32_t height)
 {
     if (height >= Params().GetConsensus().FortCanningNewHeight)
     {
@@ -253,7 +253,14 @@ CAmount CeilInterest(const base_uint<128>& amount, int height)
     return amount.GetLow64();
 }
 
-void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, int height)
+CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height)
+{
+    auto interest = TotalInterestHighPrecision(rate, height);
+
+    return CeilAmount(interest, height);
+}
+
+void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height)
 {
     if (height >= Params().GetConsensus().FortCanningNewHeight)
     {
@@ -285,7 +292,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     }
     if (rate.height) {
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
-        rate.interestToHeight = TotalInterest(rate, height);
+        rate.interestToHeight = TotalInterestHighPrecision(rate, height);
     }
 
     if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight && int(height) < Params().GetConsensus().FortCanningNewHeight) {
@@ -321,7 +328,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
         return Res::Err("Data mismatch height == 0");
     }
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
-    base_uint<128> interestToHeight = TotalInterest(rate, height) - interestDecreased;
+    base_uint<128> interestToHeight = TotalInterestHighPrecision(rate, height) - interestDecreased;
     if (interestToHeight > rate.interestToHeight)
         rate.interestToHeight = 0;
     else
