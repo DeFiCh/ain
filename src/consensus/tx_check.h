@@ -32,7 +32,7 @@ bool ParseScriptByMarker(CScript const & script,
                          bool& hasAdditionalOpcodes,
                          bool& hasAdditionalOpcodesGW,
                          CExpirationAndVersion* customTxParams = nullptr);
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height = 0);
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height = 0);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false, bool greatWorld = false);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false, bool greatWorld = false);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

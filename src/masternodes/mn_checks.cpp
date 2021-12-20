@@ -3181,7 +3181,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
-    CExpirationAndVersion customTxParams{std::numeric_limits<uint32_t>::max(), static_cast<uint8_t>(MetadataVersion::None)};
+    CExpirationAndVersion customTxParams;
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxParams);
     if (txType == CustomTxType::None) {
         return res;

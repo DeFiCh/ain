@@ -375,8 +375,8 @@ using CCustomTxMessage = std::variant<
 >;
 
 struct CExpirationAndVersion {
-    uint32_t expiration;
-    uint8_t version;
+    uint32_t expiration{std::numeric_limits<uint32_t>::max()};
+    uint8_t version{static_cast<uint8_t>(MetadataVersion::None)};
 
     ADD_SERIALIZE_METHODS;
 

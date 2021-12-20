@@ -4568,10 +4568,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
         TBytes dummy;
+        const auto fortCanning{block.height >= static_cast<uint32_t>(consensusParams.FortCanningHeight)};
+        const auto greatWorld{block.height >= static_cast<uint32_t>(consensusParams.GreatWorldHeight)};
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, block.height) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, block.height))
+                !IsAnchorRewardTx(*block.vtx[i], dummy, fortCanning, greatWorld) &&
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, fortCanning, greatWorld))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
