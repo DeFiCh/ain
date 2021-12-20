@@ -3063,8 +3063,8 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     }
     auto res = Res::Ok();
     std::vector<unsigned char> metadata;
-    uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    auto txType = GuessCustomTxType(tx, metadata, false, 0, nullptr, &customTxVersion);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
     switch(txType)
     {
         case CustomTxType::CreateMasternode:
@@ -3077,7 +3077,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         default:
             break;
     }
-    auto txMessage = customTypeToMessage(txType, customTxVersion);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     CAccountsHistoryEraser view(mnview, height, txn, erasers);
     uint256 vaultID;
     std::string schemeID;
@@ -3181,9 +3181,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
-    uint32_t customTxExpiration{std::numeric_limits<uint32_t>::max()};
-    uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxExpiration, &customTxVersion);
+    CExpirationAndVersion customTxParams{std::numeric_limits<uint32_t>::max(), static_cast<uint8_t>(MetadataVersion::None)};
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxParams);
     if (txType == CustomTxType::None) {
         return res;
     }
@@ -3196,16 +3195,16 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
-        if (customTxExpiration == 0) {
+        if (customTxParams.expiration == 0) {
             return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction expiration set");
         }
-        if (customTxVersion != static_cast<uint8_t>(MetadataVersion::None) &&
-            customTxVersion != static_cast<uint8_t>(MetadataVersion::One) &&
-            customTxVersion != static_cast<uint8_t>(MetadataVersion::Two)) {
+        if (customTxParams.version != static_cast<uint8_t>(MetadataVersion::None) &&
+            customTxParams.version != static_cast<uint8_t>(MetadataVersion::One) &&
+            customTxParams.version != static_cast<uint8_t>(MetadataVersion::Two)) {
             return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
         }
     }
-    auto txMessage = customTypeToMessage(txType, customTxVersion);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (pvaultHistoryDB && writers) {

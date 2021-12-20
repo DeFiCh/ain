@@ -19,6 +19,7 @@
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
 
+struct CExpirationAndVersion;
 class CScript;
 class CTransaction;
 class CValidationState;
@@ -30,8 +31,7 @@ bool ParseScriptByMarker(CScript const & script,
                          std::vector<unsigned char> & metadata,
                          bool& hasAdditionalOpcodes,
                          bool& hasAdditionalOpcodesGW,
-                         uint32_t* customTxExpiration = nullptr,
-                         uint8_t* customTxVersion = nullptr);
+                         CExpirationAndVersion* customTxParams = nullptr);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height = 0);
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height = 0);
 

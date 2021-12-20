@@ -423,9 +423,9 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
 
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
     std::vector<unsigned char> metadata;
-    uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    auto txType = GuessCustomTxType(tx, metadata, false, 0, nullptr, &customTxVersion);
-    auto txMessage = customTypeToMessage(txType, customTxVersion);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
@@ -763,8 +763,10 @@ void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const Met
         return;
     }
 
+    CExpirationAndVersion customTxParams{height, static_cast<uint8_t>(version)};
+
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-    stream << height << static_cast<uint8_t>(version);
+    stream << customTxParams;
 
     metaData << ToByteVector(stream);
 }

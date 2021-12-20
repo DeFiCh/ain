@@ -7,6 +7,7 @@
 #include <chainparams.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
+#include <masternodes/mn_checks.h> // For CExpirationAndVersion
 
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
@@ -70,8 +71,7 @@ bool ParseScriptByMarker(CScript const & script,
                          std::vector<unsigned char> & metadata,
                          bool& hasAdditionalOpcodes,
                          bool& hasAdditionalOpcodesGW,
-                         uint32_t* customTxExpiration,
-                         uint8_t* customTxVersion)
+                         CExpirationAndVersion* customTxParams)
 {
     opcodetype opcode;
     auto pc = script.begin();
@@ -90,11 +90,9 @@ bool ParseScriptByMarker(CScript const & script,
     if (script.GetOp(pc, opcode, expirationAndVersion)) {
         hasAdditionalOpcodes = true;
         if (expirationAndVersion.size() == sizeof(uint32_t) + sizeof(uint8_t)) {
-            if (customTxExpiration) {
-                *customTxExpiration = expirationAndVersion[0];
-            }
-            if (customTxVersion) {
-                *customTxVersion = expirationAndVersion[4];
+            if (customTxParams) {
+                VectorReader stream(SER_DISK, CLIENT_VERSION, expirationAndVersion, 0);
+                stream >> *customTxParams;
             }
         } else {
             hasAdditionalOpcodesGW = true;
