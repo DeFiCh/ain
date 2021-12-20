@@ -22,7 +22,6 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         address = self.nodes[0].getnewaddress("", "legacy")
         tx = self.nodes[0].utxostoaccount({address:"1@DFI"})
         rawtx = self.nodes[0].getrawtransaction(tx)
-        rawtx_verbose = self.nodes[0].getrawtransaction(tx, 1)
         self.nodes[0].clearmempool()
 
         # Test invalid version

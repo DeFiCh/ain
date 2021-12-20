@@ -3064,7 +3064,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     auto res = Res::Ok();
     std::vector<unsigned char> metadata;
     uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    auto txType = GuessCustomTxType(tx, metadata, false, nullptr, nullptr, &customTxVersion);
+    auto txType = GuessCustomTxType(tx, metadata, false, 0, nullptr, &customTxVersion);
     switch(txType)
     {
         case CustomTxType::CreateMasternode:
@@ -3183,7 +3183,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
     uint32_t customTxExpiration{std::numeric_limits<uint32_t>::max()};
     uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, &height, &customTxExpiration, &customTxVersion);
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxExpiration, &customTxVersion);
     if (txType == CustomTxType::None) {
         return res;
     }

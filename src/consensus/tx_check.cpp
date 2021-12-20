@@ -4,6 +4,7 @@
 
 #include <consensus/tx_check.h>
 
+#include <chainparams.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
 
@@ -107,13 +108,15 @@ bool ParseScriptByMarker(CScript const & script,
     return true;
 }
 
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning, bool greatWorld)
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
     bool hasAdditionalOpcodes{false};
     bool hasAdditionalOpcodesGW{false};
+    const bool fortCanning{height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)};
+    const bool greatWorld{height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)};
     const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW);
     if (fortCanning && !greatWorld && hasAdditionalOpcodes) {
         return false;
@@ -123,13 +126,15 @@ bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & meta
     return result;
 }
 
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning, bool greatWorld)
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint32_t height)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
     bool hasAdditionalOpcodes{false};
     bool hasAdditionalOpcodesGW{false};
+    const bool fortCanning{height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)};
+    const bool greatWorld{height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)};
     const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW);
     if (fortCanning && !greatWorld && hasAdditionalOpcodes) {
         return false;

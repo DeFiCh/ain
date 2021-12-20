@@ -391,7 +391,7 @@ Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CSc
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */
 inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
-                                      uint32_t* height = nullptr, uint32_t* customTxExpiration = nullptr, uint8_t* customTxVersion = nullptr){
+                                      uint32_t height = 0, uint32_t* customTxExpiration = nullptr, uint8_t* customTxVersion = nullptr){
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
@@ -415,10 +415,10 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     }
 
     // If metadata contains additional opcodes mark as Reject.
-    if (height) {
-        if (*height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && metadataValidation && hasAdditionalOpcodes) {
+    if (metadataValidation) {
+        if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes) {
             return CustomTxType::Reject;
-        } else if (*height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && metadataValidation && hasAdditionalOpcodesGW) {
+        } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodesGW) {
             return CustomTxType::Reject;
         }
     }

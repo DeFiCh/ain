@@ -445,7 +445,7 @@ public:
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniValue& results) {
     std::vector<unsigned char> metadata;
     uint8_t customTxVersion{static_cast<uint8_t>(MetadataVersion::None)};
-    txType = GuessCustomTxType(tx, metadata, false, nullptr, nullptr, &customTxVersion);
+    txType = GuessCustomTxType(tx, metadata, false, 0, nullptr, &customTxVersion);
     if (txType == CustomTxType::None) {
         return Res::Ok();
     }
