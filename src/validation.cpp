@@ -1789,6 +1789,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
 
+    // one time downgrade to revert CInterestRateV2 structure
+    if (pindex->nHeight == Params().GetConsensus().FortCanningHillHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate reverting ...\n");
+        mnview.RevertInterestRateToV1();
+        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
+    }
+
     // Remove burn balance transfers
     if (pindex->nHeight == Params().GetConsensus().EunosHeight)
     {
@@ -1836,14 +1844,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
-
-    // one time downgrade to revert CInterestRateV2 structure
-    if (pindex->nHeight == Params().GetConsensus().FortCanningHillHeight) {
-        auto time = GetTimeMillis();
-        LogPrintf("Interest rate reverting ...\n");
-        mnview.RevertInterestRateToV1(Params().GetConsensus().FortCanningHillHeight - 1);
-        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
-    }
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -2319,7 +2319,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
-        mnview.MigrateInterestRateToV2(chainparams.GetConsensus().FortCanningHillHeight);
+        mnview.MigrateInterestRateToV2();
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 

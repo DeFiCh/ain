@@ -381,12 +381,12 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId)
     return Res::Ok();
 }
 
-void CLoanView::RevertInterestRateToV1(int height)
+void CLoanView::RevertInterestRateToV1()
 {
     std::vector<std::pair<std::pair<CVaultId, DCT_ID>, CInterestRateV2>> rates;
     ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, CInterestRateV2>([&](const std::pair<CVaultId, DCT_ID>& pair, CInterestRateV2 rate) {
-        rate.interestPerBlock /= COIN;
-        rate.interestToHeight /= COIN;
+        rate.interestPerBlock /= base_uint<128>(COIN);
+        rate.interestToHeight /= base_uint<128>(COIN);
 
         rates.emplace_back(pair, std::move(rate));
         return true;
@@ -397,7 +397,7 @@ void CLoanView::RevertInterestRateToV1(int height)
     }
 }
 
-void CLoanView::MigrateInterestRateToV2(int height)
+void CLoanView::MigrateInterestRateToV2()
 {
     std::vector<std::pair<std::pair<CVaultId, DCT_ID>, CInterestRate>> rates;
     ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, CInterestRate>([&](const std::pair<CVaultId, DCT_ID>& pair, CInterestRate rate) {
@@ -407,8 +407,9 @@ void CLoanView::MigrateInterestRateToV2(int height)
 
     for (auto it = rates.begin(); it != rates.end(); it = rates.erase(it)) {
         auto newRate = ConvertInterestRateToV2(it->second);
-        newRate.interestPerBlock *= COIN;
-        newRate.interestToHeight *= COIN;
+
+        newRate.interestPerBlock *= base_uint<128>(COIN);
+        newRate.interestToHeight *= base_uint<128>(COIN);
         WriteBy<LoanInterestByVault>(it->first, newRate);
     }
 }
