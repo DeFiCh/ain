@@ -33,7 +33,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainparams -> masternodes/mn_checks -> chainparams"
     "chainparams -> masternodes/mn_checks -> masternodes/anchors -> chainparams"
     "chainparams -> masternodes/mn_checks -> masternodes/vaulthistory -> masternodes/vault -> chainparams"
-    "chainparams -> masternodes/mn_checks -> consensus/tx_check -> chainparams"
     "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
     "consensus/tx_verify -> masternodes/mn_checks -> txmempool -> consensus/tx_verify"
     "masternodes/govvariables/icx_takerfee_per_btc -> masternodes/gv -> masternodes/govvariables/icx_takerfee_per_btc"
