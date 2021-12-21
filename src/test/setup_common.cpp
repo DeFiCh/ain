@@ -111,7 +111,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     {
         LOCK(cs_main);
 
-        auto pcustomcsDB = std::make_shared<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
+        auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB{GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true});
         pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
 
         panchorauths.reset();

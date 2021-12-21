@@ -60,9 +60,9 @@ std::map<TBytes, TBytes> TakeSnapshot(CStorageKV const & storage)
 {
     std::map<TBytes, TBytes> result;
     TBytes key;
-    auto it = const_cast<CStorageKV&>(storage).NewIterator();
-    for(it->Seek(key); it->Valid(); it->Next()) {
-        result.emplace(it->Key(),it->Value());
+    auto it = storage.NewIterator();
+    for(it.Seek(key); it.Valid(); it.Next()) {
+        result.emplace(it.Key(), it.Value());
     }
     return result;
 }
@@ -76,11 +76,11 @@ static std::vector<unsigned char> ToBytes(const char * in)
 BOOST_AUTO_TEST_CASE(flushableType)
 {
     auto& mainStorage = pcustomcsview->GetStorage();
-    BOOST_REQUIRE(dynamic_cast<CStorageLevelDB*>(&mainStorage));
+    BOOST_REQUIRE(mainStorage.GetStorageLevelDB());
 
     CCustomCSView mnview(*pcustomcsview);
     auto& cacheStorage = mnview.GetStorage();
-    BOOST_REQUIRE(dynamic_cast<CFlushableStorageKV*>(&cacheStorage));
+    BOOST_REQUIRE(cacheStorage.GetFlushableStorage());
 }
 
 BOOST_AUTO_TEST_CASE(undo)
@@ -97,8 +97,8 @@ BOOST_AUTO_TEST_CASE(undo)
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
     // construct undo
-    auto& flushable = static_cast<CFlushableStorageKV&>(mnview.GetStorage());
-    auto undo = CUndo::Construct(base_raw, flushable.GetRaw());
+    auto flushable = mnview.GetStorage().GetFlushableStorage();
+    auto undo = CUndo::Construct(base_raw, flushable->GetRaw());
     BOOST_CHECK(undo.before.size() == 2);
     BOOST_CHECK(undo.before.at(ToBytes("testkey1")) == ToBytes("value0"));
     BOOST_CHECK(undo.before.at(ToBytes("testkey2")).has_value() == false);
@@ -375,49 +375,55 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         view2.WriteBy<TestForward>(TestForward{256}, 9);
         view2.EraseBy<TestForward>(TestForward{255});
 
-        // single level iterator over view2 values{11, 9} key 255 does not present
-        auto& flushable2 = static_cast<CFlushableStorageKV&>(view2.GetStorage());
-        auto flushable2Raw = flushable2.GetRaw();
-        it = NewKVIterator<TestForward>(TestForward{0}, flushable2Raw);
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 11);
-        it.Next();
-        BOOST_CHECK(it.Value().as<int>() == 9);
-        it.Next();
-        BOOST_CHECK(!it.Valid());
+        auto flushable2 = view2.GetStorage().GetFlushableStorage();
+        {
+            // single level iterator over view2 values{11, 9} key 255 does not present
+            auto it = NewKVIterator<TestForward>(TestForward{0}, flushable2->GetRaw());
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 11);
+            it.Next();
+            BOOST_CHECK(it.Value().as<int>() == 9);
+            it.Next();
+            BOOST_CHECK(!it.Valid());
+        }
 
-        it = NewKVIterator<TestForward>(TestForward{2}, flushable2Raw);
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 9);
-        it.Prev();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 11);
-        it.Prev();
-        BOOST_CHECK(!it.Valid());
+        {
+            auto it = NewKVIterator<TestForward>(TestForward{2}, flushable2->GetRaw());
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 9);
+            it.Prev();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 11);
+            it.Prev();
+            BOOST_CHECK(!it.Valid());
+        }
 
         CCustomCSView view3(view2);
         view3.EraseBy<TestForward>(TestForward{1});
 
-        it = view3.LowerBound<TestForward>(TestForward{256});
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 9);
-        it.Prev();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 1);
-        it.Next();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 9);
-        it.Prev();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 1);
-        it.Prev();
-        BOOST_CHECK(!it.Valid());
+        {
+            auto it = view3.LowerBound<TestForward>(TestForward{256});
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 9);
+            it.Prev();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 1);
+            it.Next();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 9);
+            it.Prev();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 1);
+            it.Prev();
+            BOOST_CHECK(!it.Valid());
+        }
 
-        // view3 has an empty kv storage
-        auto& flushable3 = static_cast<CFlushableStorageKV&>(view3.GetStorage());
-        auto flushable3Raw = flushable3.GetRaw();
-        it = NewKVIterator<TestForward>(TestForward{0}, flushable3Raw);
-        BOOST_CHECK(!it.Valid());
+        {
+            // view3 has an empty kv storage
+            auto flushable3 = view3.GetStorage().GetFlushableStorage();
+            auto it = NewKVIterator<TestForward>(TestForward{0}, flushable3->GetRaw());
+            BOOST_CHECK(!it.Valid());
+        }
     }
 
     {
@@ -440,36 +446,38 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         CCustomCSView view2(view);
         view2.WriteBy<TestBackward>(TestBackward{256}, 5);
 
-        test = 5;
-        it = view2.LowerBound<TestBackward>(TestBackward{257});
-        while (it.Valid()) {
-            BOOST_CHECK(it.Value().as<int>() == test);
-            test == 5 ? test-=2 : test--;
-            it.Next();
-        }
-        BOOST_CHECK(test == 0);
+        {
+            test = 5;
+            auto it = view2.LowerBound<TestBackward>(TestBackward{257});
+            while (it.Valid()) {
+                BOOST_CHECK(it.Value().as<int>() == test);
+                test == 5 ? test-=2 : test--;
+                it.Next();
+            }
+            BOOST_CHECK(test == 0);
 
-        it.Seek(TestBackward{254});
-        test = 2;
-        // go forward (prev in backward)
-        while (it.Valid()) {
-            BOOST_CHECK(it.Value().as<int>() == test);
-            test == 3 ? test+=2 : test++;
+            it.Seek(TestBackward{254});
+            test = 2;
+            // go forward (prev in backward)
+            while (it.Valid()) {
+                BOOST_CHECK(it.Value().as<int>() == test);
+                test == 3 ? test+=2 : test++;
+                it.Prev();
+            }
+            BOOST_CHECK(test == 6);
+
+            it.Seek(TestBackward{255});
+            BOOST_CHECK(it.Valid());
             it.Prev();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 5);
+            it.Next();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 3);
+            it.Next();
+            BOOST_CHECK(it.Valid());
+            BOOST_CHECK(it.Value().as<int>() == 2);
         }
-        BOOST_CHECK(test == 6);
-
-        it.Seek(TestBackward{255});
-        BOOST_CHECK(it.Valid());
-        it.Prev();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 5);
-        it.Next();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 3);
-        it.Next();
-        BOOST_CHECK(it.Valid());
-        BOOST_CHECK(it.Value().as<int>() == 2);
     }
 }
 

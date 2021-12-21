@@ -745,7 +745,6 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 
     if (tx)
     {
-        LOCK(cs_main);
         // Default to INT_MAX
         nHeight = std::numeric_limits<int>::max();
 

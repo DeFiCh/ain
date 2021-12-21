@@ -712,15 +712,13 @@ namespace pos {
         {
             LOCK(cs_main);
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
-            if (!optMasternodeID)
-            {
+            if (!optMasternodeID) {
                 return Status::initWaiting;
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
-            {
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1)) {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
@@ -767,7 +765,7 @@ namespace pos {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
+
             lastBlockSeen = tip->GetBlockHash();
         }
 

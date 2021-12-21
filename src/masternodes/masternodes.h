@@ -241,10 +241,7 @@ struct SubNodeBlockTimeKey
 
 class CMasternodesView : public virtual CStorageView
 {
-    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
-
 public:
-//    CMasternodesView() = default;
 
     std::optional<CMasternode> GetMasternode(uint256 const & id) const;
     std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
@@ -447,7 +444,7 @@ class CCustomCSView
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
-private:
+
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
@@ -461,6 +458,7 @@ public:
     }
 
     CCustomCSView(CStorageView&) = delete;
+    CCustomCSView(CCustomCSView&&) = default;
     CCustomCSView(const CCustomCSView&) = delete;
 
     CCustomCSView(std::shared_ptr<CStorageKV> st) : CStorageView(st)
@@ -473,6 +471,8 @@ public:
     {
         CheckPrefixes();
     }
+
+    void SetBackend(CCustomCSView & backend);
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);

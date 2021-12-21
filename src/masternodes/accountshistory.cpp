@@ -31,12 +31,12 @@ Res CAccountsHistoryView::EraseAccountHistory(const AccountHistoryKey& key)
 }
 
 CAccountHistoryStorage::CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
-    : CStorageView(std::make_shared<CStorageLevelDB>(dbName, cacheSize, fMemory, fWipe))
+    : CStorageView(std::make_shared<CStorageKV>(CStorageLevelDB{dbName, cacheSize, fMemory, fWipe}))
 {
 }
 
 CBurnHistoryStorage::CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
-    : CStorageView(std::make_shared<CStorageLevelDB>(dbName, cacheSize, fMemory, fWipe))
+    : CStorageView(std::make_shared<CStorageKV>(CStorageLevelDB{dbName, cacheSize, fMemory, fWipe}))
 {
 }
 

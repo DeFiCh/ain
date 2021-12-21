@@ -761,7 +761,8 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     }
 
     CCustomCSView mnview(*pcustomcsview);
-    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
+    auto height = mnview.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -941,7 +942,8 @@ UniValue getprice(const JSONRPCRequest &request) {
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
     CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
+    auto height = view.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
@@ -1000,7 +1002,8 @@ UniValue listprices(const JSONRPCRequest& request) {
     }
 
     CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive().Tip()->GetBlockTime());
+    auto height = view.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 

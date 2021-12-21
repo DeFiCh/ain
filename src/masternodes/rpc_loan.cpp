@@ -1227,15 +1227,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     UniValue ret{UniValue::VOBJ};
 
-    auto [height, blockTime] = WITH_LOCK(cs_main,
-        return std::make_pair(::ChainActive().Height(), ::ChainActive().Tip()->GetBlockTime()));
+    CCustomCSView view(*pcustomcsview);
+    auto height = view.GetLastHeight();
+    auto blockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
 
     bool useNextPrice = false, requireLivePrice = true;
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
 
-    CCustomCSView view(*pcustomcsview);
-
-    view.ForEachVault([&, height = height, blockTime = blockTime](const CVaultId& vaultId, const CVaultData& data) {
+    view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
         auto collaterals = view.GetVaultCollaterals(vaultId);
         if (!collaterals)

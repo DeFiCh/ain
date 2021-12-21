@@ -374,6 +374,7 @@ libdefi_server_a_SOURCES = \
   chain.cpp \
   consensus/tx_verify.cpp \
   flatfile.cpp \
+  flushablestorage.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \

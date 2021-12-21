@@ -359,7 +359,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     // Add to memory pool without checking anything.
     // Used by AcceptToMemoryPool(), which DOES do
     // all the appropriate checks.
-    indexed_transaction_set::iterator newit = mapTx.insert(entry).first;
+    auto newit = mapTx.insert(entry).first;
     mapLinks.insert(make_pair(newit, TxLinks()));
 
     // Update transaction for any feeDelta created by PrioritiseTransaction
@@ -398,7 +398,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
-    if (minerPolicyEstimator) {minerPolicyEstimator->processTransaction(entry, validFeeEstimate);}
+    if (minerPolicyEstimator) minerPolicyEstimator->processTransaction(entry, validFeeEstimate);
 
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
@@ -493,7 +493,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
     AssertLockHeld(cs);
     setEntries txToRemove;
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+    for (auto it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
         LockPoints lp = it->GetLockPoints();
         bool validLP =  TestLockPointValidity(&lp);
@@ -556,19 +556,32 @@ CTxMemPool::~CTxMemPool()
 {
 }
 
-CCustomCSView& CTxMemPool::accountsView()
+static void CreateOrUpdateView(std::unique_ptr<CCustomCSView>& acview, bool updateBackend)
 {
     if (!acview) {
-        assert(pcustomcsview);
         acview = std::make_unique<CCustomCSView>(*pcustomcsview);
+        return;
     }
+    if (!updateBackend) {
+        return;
+    }
+    if (acview->GetLastHeight() != pcustomcsview->GetLastHeight()) {
+        acview->SetBackend(*pcustomcsview);
+    }
+}
+
+CCustomCSView& CTxMemPool::accountsView(int height, const CCoinsViewCache& coinsCache)
+{
+    assert(pcustomcsview);
+    CreateOrUpdateView(acview, true);
+    rebuildAccountsView(height, coinsCache);
     return *acview;
 }
 
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, bool viewChanges)
 {
     AssertLockHeld(cs);
 
@@ -580,7 +593,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         }
     }
     // Before the txs in the new block have been removed from the mempool, update policy estimates
-    if (minerPolicyEstimator) {minerPolicyEstimator->processBlock(nBlockHeight, entries);}
+    if (minerPolicyEstimator) minerPolicyEstimator->processBlock(nBlockHeight, entries);
 
     for (const auto& tx : vtx) {
         auto it = mapTx.find(tx->GetHash());
@@ -592,6 +605,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     }
 
     if (pcustomcsview) {
+        CreateOrUpdateView(acview, viewChanges);
         accountsViewDirty |= forceRebuildForReorg;
         rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
     }
@@ -651,7 +665,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
     const int64_t spendheight = GetSpendHeight(mempoolDuplicate);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+    for (auto it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->GetTxSize();
         innerUsage += it->DynamicMemoryUsage();
@@ -664,7 +678,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
         setEntries setParentCheck;
         for (const CTxIn &txin : tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+            auto it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->GetTx();
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
@@ -787,7 +801,7 @@ std::vector<CTxMemPool::indexed_transaction_set::const_iterator> CTxMemPool::Get
 
     iters.reserve(mapTx.size());
 
-    for (indexed_transaction_set::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
+    for (auto mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
         iters.push_back(mi);
     }
     std::sort(iters.begin(), iters.end(), DepthAndScoreComparator());
@@ -1092,13 +1106,13 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
 
 void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
-    if (!pcustomcsview || !accountsViewDirty) {
+    if (!accountsViewDirty) {
         return;
     }
 
     CAmount txfee = 0;
-    acview.reset();
-    CCustomCSView viewDuplicate(accountsView());
+    acview->Discard();
+    CCustomCSView viewDuplicate(*acview);
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;

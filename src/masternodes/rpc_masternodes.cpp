@@ -717,6 +717,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         ++idCount;
     }
 
+    CCustomCSView view(*pcustomcsview);
+
     if (!identifier["ownerAddress"].isNull()) {
         CKeyID ownerAddressID;
         auto ownerAddress = identifier["ownerAddress"].getValStr();
@@ -728,7 +730,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }
-        auto node = pcustomcsview->GetMasternodeIdByOwner(ownerAddressID);
+        auto node = view.GetMasternodeIdByOwner(ownerAddressID);
         if (!node) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
         }
@@ -747,7 +749,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }
-        auto node = pcustomcsview->GetMasternodeIdByOperator(operatorAddressID);
+        auto node = view.GetMasternodeIdByOperator(operatorAddressID);
         if (!node) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
         }
@@ -763,13 +765,12 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Only provide one identifier information");
     }
 
-    auto masternode = pcustomcsview->GetMasternode(mn_id);
+    auto masternode = view.GetMasternode(mn_id);
     if (!masternode) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
 
-    LOCK(cs_main);
-    auto lastHeight = ::ChainActive().Tip()->nHeight + 1;
+    auto lastHeight = view.GetLastHeight() + 1;
     const auto creationHeight = masternode->creationHeight;
 
     int depth{std::numeric_limits<int>::max()};
@@ -792,8 +793,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         if (blockHeight <= startBlock) {
             return false;
         }
-        auto tip = ::ChainActive()[blockHeight];
-        if (tip && depth > 0) {
+        if (auto tip = WITH_LOCK(cs_main, return ::ChainActive()[blockHeight])) {
             lastHeight = tip->nHeight;
             ret.pushKV(std::to_string(lastHeight), tip->GetBlockHash().ToString());
             depth--;
@@ -802,20 +802,23 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         return depth != 0;
     };
 
-    pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
+    view.ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
         return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
 
-    pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
+    view.ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
         return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
-    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight) - 1];
+    lastHeight = std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight);
 
-    for (; tip && tip->nHeight > creationHeight && depth > 0 && tip->nHeight > startBlock; tip = tip->pprev, --depth) {
-        auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
-        if (id && *id == mn_id) {
-            ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
+    if (creationHeight < lastHeight) {
+        auto tip = WITH_LOCK(cs_main, return ::ChainActive()[lastHeight - 1]);
+        for (; tip && tip->nHeight > creationHeight && depth > 0; tip = tip->pprev, --depth) {
+            auto id = view.GetMasternodeIdByOperator(tip->minterKey());
+            if (id && *id == mn_id) {
+                ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
+            }
         }
     }
 
@@ -909,8 +912,7 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
 
     std::set<uint256> masternodes;
 
-    LOCK(cs_main);
-    auto pindex = ::ChainActive().Tip();
+    auto pindex = WITH_LOCK(cs_main, return ::ChainActive().Tip());
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
         if (auto id = pcustomcsview->GetMasternodeIdByOperator(pindex->minterKey())) {

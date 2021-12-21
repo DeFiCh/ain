@@ -5,14 +5,15 @@
 #ifndef DEFI_FLUSHABLESTORAGE_H
 #define DEFI_FLUSHABLESTORAGE_H
 
+#include <dbwrapper.h>
+#include <memusage.h>
 #include <shutdown.h>
 
-#include <dbwrapper.h>
 #include <functional>
 #include <map>
-#include <memusage.h>
-
+#include <memory>
 #include <optional>
+#include <variant>
 
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, std::optional<TBytes>>;
@@ -38,168 +39,108 @@ static bool BytesToDbType(const TBytes& bytes, T& value) {
     return true;
 }
 
-// Key-Value storage iterator interface
-class CStorageKVIterator {
-public:
-    virtual ~CStorageKVIterator() = default;
-    virtual void Seek(const TBytes& key) = 0;
-    virtual void Next() = 0;
-    virtual void Prev() = 0;
-    virtual bool Valid() = 0;
-    virtual TBytes Key() = 0;
-    virtual TBytes Value() = 0;
-};
-
 // Represents an empty iterator
-class CStorageKVEmptyIterator : public CStorageKVIterator {
+class CStorageKVEmptyIterator {
 public:
-    ~CStorageKVEmptyIterator() override = default;
-    void Seek(const TBytes&) override {}
-    void Next() override {}
-    void Prev() override {}
-    bool Valid() override { return false; }
-    TBytes Key() override { return {}; }
-    TBytes Value() override { return {}; }
+    void Next() {}
+    void Prev() {}
+    void Seek(const TBytes&) {}
+    TBytes Key() { return {}; }
+    TBytes Value() { return {}; }
+    bool Valid() { return false; }
 };
-
-// Key-Value storage interface
-class CStorageKV {
-public:
-    virtual ~CStorageKV() = default;
-    virtual bool Exists(const TBytes& key) const = 0;
-    virtual bool Write(const TBytes& key, const TBytes& value) = 0;
-    virtual bool Erase(const TBytes& key) = 0;
-    virtual bool Read(const TBytes& key, TBytes& value) const = 0;
-    virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
-    virtual size_t SizeEstimate() const = 0;
-    virtual void Discard() = 0;
-    virtual bool Flush() = 0;
-};
-
-// doesn't serialize/deserialize vector size
-template<typename T>
-struct RawTBytes {
-    std::reference_wrapper<T> ref;
-
-    template<typename Stream>
-    void Serialize(Stream& os) const {
-        auto& val = ref.get();
-        os.write((char*)val.data(), val.size());
-    }
-
-    template<typename Stream>
-    void Unserialize(Stream& is) {
-        auto& val = ref.get();
-        val.resize(is.size());
-        is.read((char*)val.data(), is.size());
-    }
-};
-
-template<typename T>
-inline RawTBytes<T> refTBytes(T& val) {
-    return RawTBytes<T>{val};
-}
 
 class CLevelDBSnapshot {
 public:
-    CLevelDBSnapshot(std::shared_ptr<CDBWrapper> db) : db(db) {
-        snapshot = db->GetSnapshot();
-    }
-    ~CLevelDBSnapshot() {
-        db->ReleaseSnapshot(snapshot);
-    }
-    operator const leveldb::Snapshot*() const {
-        return snapshot;
-    }
+    explicit CLevelDBSnapshot(std::shared_ptr<CDBWrapper> db);
+    ~CLevelDBSnapshot();
+    operator const leveldb::Snapshot*() const;
 private:
     std::shared_ptr<CDBWrapper> db;
     const leveldb::Snapshot* snapshot;
 };
 
 // LevelDB glue layer Iterator
-class CStorageLevelDBIterator : public CStorageKVIterator {
+class CStorageLevelDBIterator {
 public:
-    CStorageLevelDBIterator(std::shared_ptr<CDBWrapper> db, std::shared_ptr<CLevelDBSnapshot> s) : snapshot(s) {
-        auto options = db->GetIterOptions();
-        options.snapshot = *snapshot;
-        it.reset(db->NewIterator(options));
-    }
+    CStorageLevelDBIterator(CStorageLevelDBIterator&&) = default;
+    CStorageLevelDBIterator(const CStorageLevelDBIterator&) = delete;
+    CStorageLevelDBIterator(std::shared_ptr<CDBWrapper> db, std::shared_ptr<CLevelDBSnapshot> s);
 
-    void Seek(const TBytes& key) override {
-        it->Seek(refTBytes(key)); // lower_bound in fact
-    }
-    void Next() override {
-        it->Next();
-    }
-    void Prev() override {
-        it->Prev();
-    }
-    bool Valid() override {
-        return it->Valid();
-    }
-    TBytes Key() override {
-        TBytes key;
-        auto rawKey = refTBytes(key);
-        return it->GetKey(rawKey) ? key : TBytes{};
-    }
-    TBytes Value() override {
-        TBytes value;
-        auto rawValue = refTBytes(value);
-        return it->GetValue(rawValue) ? value : TBytes{};
-    }
+    void Next();
+    void Prev();
+    bool Valid();
+    TBytes Key();
+    TBytes Value();
+    void Seek(const TBytes& key);
+
 private:
     std::unique_ptr<CDBIterator> it;
     std::shared_ptr<CLevelDBSnapshot> snapshot;
 };
 
-// LevelDB glue layer storage
-class CStorageLevelDB : public CStorageKV {
-public:
-    explicit CStorageLevelDB(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false)
-                            : db(std::make_shared<CDBWrapper>(dbName, cacheSize, fMemory, fWipe))
-                            , batch(std::make_shared<CDBBatch>(*db))
-                            , snapshot(std::make_shared<CLevelDBSnapshot>(db)) {}
+class CStorageKVIterator;
 
-    bool Exists(const TBytes& key) const override {
-        auto options = db->GetReadOptions();
-        options.snapshot = *snapshot;
-        return db->Exists(refTBytes(key), options);
-    }
-    bool Write(const TBytes& key, const TBytes& value) override {
-        batch->Write(refTBytes(key), refTBytes(value));
-        return true;
-    }
-    bool Erase(const TBytes& key) override {
-        batch->Erase(refTBytes(key));
-        return true;
-    }
-    bool Read(const TBytes& key, TBytes& value) const override {
-        auto rawVal = refTBytes(value);
-        auto options = db->GetReadOptions();
-        options.snapshot = *snapshot;
-        return db->Read(refTBytes(key), rawVal, options);
-    }
-    bool Flush() override { // Commit batch
-        auto result = db->WriteBatch(*batch);
-        batch->Clear();
-        snapshot = std::make_shared<CLevelDBSnapshot>(db);
-        return result;
-    }
-    void Discard() override {
-        batch->Clear();
-    }
-    size_t SizeEstimate() const override {
-        return batch->SizeEstimate();
-    }
-    std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return std::make_unique<CStorageLevelDBIterator>(db, snapshot);
-    }
-    void Compact(const TBytes& begin, const TBytes& end) {
-        db->CompactRange(refTBytes(begin), refTBytes(end));
-    }
-    bool IsEmpty() {
-        return db->IsEmpty();
-    }
+// Flushable Key-Value Storage Iterator
+class CFlushableStorageKVIterator {
+public:
+    CFlushableStorageKVIterator(CFlushableStorageKVIterator&&) = default;
+    CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
+    CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt, const MapKV& map);
+
+    void Next();
+    void Prev();
+    bool Valid();
+    TBytes Key();
+    TBytes Value();
+    void Seek(const TBytes& key);
+
+private:
+    template<typename TIterator, typename Compare>
+    TIterator Advance(TIterator it, TIterator end, Compare comp, TBytes prevKey);
+
+    const MapKV& map;
+    MapKV::const_iterator mIt;
+    std::unique_ptr<CStorageKVIterator> pIt;
+    enum IteratorState { Invalid, Map, Parent } itState;
+};
+
+class CStorageKVIterator {
+public:
+    template<typename T>
+    CStorageKVIterator(T&& t) : iterators(std::forward<T>(t)) {}
+    CStorageKVIterator(CStorageKVIterator&&) = default;
+    CStorageKVIterator(const CStorageKVIterator&) = delete;
+
+    void Next();
+    void Prev();
+    bool Valid();
+    TBytes Key();
+    TBytes Value();
+    void Seek(const TBytes& key);
+
+private:
+    std::variant<CStorageKVEmptyIterator,
+                 CStorageLevelDBIterator,
+                 CFlushableStorageKVIterator> iterators;
+};
+
+// LevelDB glue layer storage
+class CStorageLevelDB {
+public:
+    CStorageLevelDB(const fs::path& dbName, std::size_t cacheSize,
+                    bool fMemory = false, bool fWipe = false);
+
+    bool Erase(const TBytes& key);
+    bool Exists(const TBytes& key) const;
+    bool Read(const TBytes& key, TBytes& value) const;
+    bool Write(const TBytes& key, const TBytes& value);
+    bool Flush();
+    void Discard();
+    bool IsEmpty() const;
+    size_t SizeEstimate() const;
+    CStorageKVIterator NewIterator() const;
+    void Compact(const TBytes& begin, const TBytes& end);
 
 private:
     std::shared_ptr<CDBWrapper> db;
@@ -207,158 +148,62 @@ private:
     std::shared_ptr<CLevelDBSnapshot> snapshot;
 };
 
-// Flashable storage
-
-// Flushable Key-Value Storage Iterator
-class CFlushableStorageKVIterator : public CStorageKVIterator {
-public:
-    CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
-    CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt, MapKV& map) : map(map), pIt(std::move(pIt)) {
-        itState = Invalid;
-    }
-
-    void Seek(const TBytes& key) override {
-        pIt->Seek(key);
-        mIt = Advance(map.lower_bound(key), map.end(), std::greater<TBytes>{}, {});
-    }
-    void Next() override {
-        assert(Valid());
-        mIt = Advance(mIt, map.end(), std::greater<TBytes>{}, Key());
-    }
-    void Prev() override {
-        assert(Valid());
-        auto tmp = mIt;
-        if (tmp != map.end()) {
-            ++tmp;
-        }
-        auto it = std::reverse_iterator<decltype(tmp)>(tmp);
-        auto end = Advance(it, map.rend(), std::less<TBytes>{}, Key());
-        if (end == map.rend()) {
-            mIt = map.begin();
-        } else {
-            auto offset = mIt == map.end() ? 1 : 0;
-            std::advance(mIt, -std::distance(it, end) - offset);
-        }
-    }
-    bool Valid() override {
-        return itState != Invalid;
-    }
-    TBytes Key() override {
-        assert(Valid());
-        return itState == Map ? mIt->first : pIt->Key();
-    }
-    TBytes Value() override {
-        assert(Valid());
-        return itState == Map ? *mIt->second : pIt->Value();
-    }
-private:
-    template<typename TIterator, typename Compare>
-    TIterator Advance(TIterator it, TIterator end, Compare comp, TBytes prevKey) {
-
-        while (it != end || pIt->Valid()) {
-            while (it != end && (!pIt->Valid() || !comp(it->first, pIt->Key()))) {
-                if (prevKey.empty() || comp(it->first, prevKey)) {
-                    if (it->second) {
-                        itState = Map;
-                        return it;
-                    } else {
-                        prevKey = it->first;
-                    }
-                }
-                ++it;
-            }
-            if (pIt->Valid()) {
-                if (prevKey.empty() || comp(pIt->Key(), prevKey)) {
-                    itState = Parent;
-                    return it;
-                }
-                if constexpr (std::is_same_v<TIterator, decltype(mIt)>) {
-                    pIt->Next();
-                } else {
-                    pIt->Prev();
-                }
-            }
-        }
-        itState = Invalid;
-        return it;
-    }
-    const MapKV& map;
-    MapKV::const_iterator mIt;
-    std::unique_ptr<CStorageKVIterator> pIt;
-    enum IteratorState { Invalid, Map, Parent } itState;
-};
+class CStorageKV;
 
 // Flushable Key-Value Storage
-class CFlushableStorageKV : public CStorageKV {
+class CFlushableStorageKV {
 public:
-    explicit CFlushableStorageKV(std::shared_ptr<CStorageKV> db) : db(db) {}
-    CFlushableStorageKV(const CFlushableStorageKV&) = delete;
+    explicit CFlushableStorageKV(std::shared_ptr<CStorageKV> db);
 
-    bool Exists(const TBytes& key) const override {
-        auto it = changed.find(key);
-        if (it != changed.end()) {
-            return bool(it->second);
-        }
-        return db->Exists(key);
-    }
-    bool Write(const TBytes& key, const TBytes& value) override {
-        changed[key] = value;
-        return true;
-    }
-    bool Erase(const TBytes& key) override {
-        changed[key] = {};
-        return true;
-    }
-    bool Read(const TBytes& key, TBytes& value) const override {
-        auto it = changed.find(key);
-        if (it == changed.end()) {
-            return db->Read(key, value);
-        } else if (it->second) {
-            value = it->second.value();
-            return true;
-        } else {
-            return false;
-        }
-    }
-    bool Flush() override {
-        for (const auto& it : changed) {
-            if (!it.second) {
-                if (!db->Erase(it.first)) {
-                    return false;
-                }
-            } else if (!db->Write(it.first, it.second.value())) {
-                return false;
-            }
-        }
-        changed.clear();
-        return true;
-    }
-    void Discard() override {
-        changed.clear();
-    }
-    size_t SizeEstimate() const override {
-        return memusage::DynamicUsage(changed);
-    }
-    std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return std::make_unique<CFlushableStorageKVIterator>(db->NewIterator(), changed);
-    }
-    const MapKV& GetRaw() {
-        return changed;
-    }
+    bool Erase(const TBytes& key);
+    bool Exists(const TBytes& key) const;
+    bool Read(const TBytes& key, TBytes& value) const;
+    bool Write(const TBytes& key, const TBytes& value);
+    bool Flush();
+    void Discard();
+    bool IsEmpty() const;
+    const MapKV& GetRaw() const;
+    size_t SizeEstimate() const;
+    CStorageKVIterator NewIterator() const;
+    void SetStorage(std::shared_ptr<CStorageKV> db);
+    void Compact(const TBytes& begin, const TBytes& end);
 
 private:
     std::shared_ptr<CStorageKV> db;
     MapKV changed;
 };
 
+// Key-Value storage interface
+class CStorageKV {
+public:
+    template<typename T>
+    CStorageKV(T&& db) : dbs(std::forward<T>(db)) {}
+
+    bool Erase(const TBytes& key);
+    bool Exists(const TBytes& key) const;
+    bool Read(const TBytes& key, TBytes& value) const;
+    bool Write(const TBytes& key, const TBytes& value);
+    bool Flush();
+    void Discard();
+    bool IsEmpty() const;
+    size_t SizeEstimate() const;
+    CStorageKVIterator NewIterator() const;
+    void Compact(const TBytes& begin, const TBytes& end);
+    CStorageLevelDB* GetStorageLevelDB();
+    CFlushableStorageKV* GetFlushableStorage();
+
+private:
+    std::variant<CStorageLevelDB, CFlushableStorageKV> dbs;
+};
+
 template<typename T>
 class CLazySerialize {
     std::optional<T> value;
-    std::unique_ptr<CStorageKVIterator>& it;
+    CStorageKVIterator& it;
 
 public:
     CLazySerialize(const CLazySerialize&) = default;
-    explicit CLazySerialize(std::unique_ptr<CStorageKVIterator>& it) : it(it) {}
+    explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
 
     operator T() & {
         return get();
@@ -370,7 +215,7 @@ public:
     const T& get() {
         if (!value) {
             value = T{};
-            BytesToDbType(it->Value(), *value);
+            BytesToDbType(it.Value(), *value);
         }
         return *value;
     }
@@ -379,15 +224,18 @@ public:
 template<typename By, typename KeyType>
 class CStorageIteratorWrapper {
     bool valid = false;
+    CStorageKVIterator it;
     std::pair<uint8_t, KeyType> key;
-    std::unique_ptr<CStorageKVIterator> it;
 
     void UpdateValidity() {
-        valid = it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix();
+        valid = it.Valid() && BytesToDbType(it.Key(), key) && key.first == By::prefix();
     }
 
-    struct Resolver {
-        std::unique_ptr<CStorageKVIterator>& it;
+    class CResolver {
+        CStorageKVIterator& it;
+
+    public:
+        CResolver(CStorageKVIterator& it) : it(it) {}
 
         template<typename T>
         inline operator CLazySerialize<T>() {
@@ -405,7 +253,8 @@ class CStorageIteratorWrapper {
 
 public:
     CStorageIteratorWrapper(CStorageIteratorWrapper&&) = default;
-    explicit CStorageIteratorWrapper(std::unique_ptr<CStorageKVIterator> it) : it(std::move(it)) {}
+    CStorageIteratorWrapper(const CStorageIteratorWrapper&) = delete;
+    explicit CStorageIteratorWrapper(CStorageKVIterator it) : it(std::move(it)) {}
 
     bool Valid() {
         return valid;
@@ -414,37 +263,37 @@ public:
         assert(Valid());
         return key.second;
     }
-    Resolver Value() {
+    CResolver Value() {
         assert(Valid());
-        return Resolver{it};
+        return CResolver{it};
     }
     void Next() {
         assert(Valid());
-        it->Next();
+        it.Next();
         UpdateValidity();
     }
     void Prev() {
         assert(Valid());
-        it->Prev();
+        it.Prev();
         UpdateValidity();
     }
     void Seek(const KeyType& newKey) {
         key = std::make_pair(By::prefix(), newKey);
-        it->Seek(DbTypeToBytes(key));
+        it.Seek(DbTypeToBytes(key));
         UpdateValidity();
     }
     template<typename T>
     bool Value(T& value) {
         assert(Valid());
-        return BytesToDbType(it->Value(), value);
+        return BytesToDbType(it.Value(), value);
     }
 };
 
 // Creates an iterator to single level key value storage
 template<typename By, typename KeyType>
-CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& map) {
-    auto emptyParent = std::make_unique<CStorageKVEmptyIterator>();
-    auto flushableIterator = std::make_unique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
+CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, const MapKV& map) {
+    auto emptyParent = std::make_unique<CStorageKVIterator>(CStorageKVEmptyIterator{});
+    CStorageKVIterator flushableIterator = CFlushableStorageKVIterator{std::move(emptyParent), map};
     CStorageIteratorWrapper<By, KeyType> it{std::move(flushableIterator)};
     it.Seek(key);
     return it;
@@ -453,6 +302,7 @@ CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& ma
 class CStorageView {
 public:
     CStorageView() = default;
+    CStorageView(CStorageView&&) = default;
     CStorageView(const CStorageView&) = delete;
     CStorageView(CStorageView& o) : db(o.Clone()) {}
     virtual ~CStorageView() = default;
@@ -520,22 +370,19 @@ public:
         }
     }
 
-    bool Flush() { return db->Flush(); }
-    void Discard() { db->Discard(); }
-    CStorageKV& GetStorage() { return *db; }
-    size_t SizeEstimate() const { return db->SizeEstimate(); }
+    bool Flush();
+    void Discard();
+    bool IsEmpty() const;
+    CStorageKV& GetStorage();
+    size_t SizeEstimate() const;
+    void Compact(const TBytes& begin, const TBytes& end);
 
 protected:
-    CStorageView(std::shared_ptr<CStorageKV> db) : db(db) {}
+    CStorageView(std::shared_ptr<CStorageKV> db);
+    void SetBackend(CStorageView& backend);
 
-    std::shared_ptr<CStorageKV> Clone() {
-        auto clone = db;
-        if (auto ldb = std::dynamic_pointer_cast<CStorageLevelDB>(db)) {
-            clone = std::make_shared<CStorageLevelDB>(*ldb);
-        }
-        return std::make_shared<CFlushableStorageKV>(clone);
-    }
 private:
+    std::shared_ptr<CStorageKV> Clone();
     std::shared_ptr<CStorageKV> db;
 };
 

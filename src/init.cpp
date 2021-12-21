@@ -1621,7 +1621,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                         "", CClientUIInterface::MSG_ERROR);
                 });
 
-                auto pcustomcsDB = std::make_shared<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
+                auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState));
                 pcustomcsview.reset();
                 pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
                 if (!fReset && !fReindexChainState) {

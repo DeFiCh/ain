@@ -855,8 +855,9 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::Ancho
 
 void CCustomCSView::AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height)
 {
-    auto& flushable = static_cast<CFlushableStorageKV&>(cache.GetStorage());
-    SetUndo({height, txid}, CUndo::Construct(GetStorage(), flushable.GetRaw()));
+    auto flushable = cache.GetStorage().GetFlushableStorage();
+    assert(flushable);
+    SetUndo({height, txid}, CUndo::Construct(GetStorage(), flushable->GetRaw()));
 }
 
 void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
@@ -910,6 +911,12 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     });
 
     return UpdateBalancesHeight(owner, targetHeight);
+}
+
+void CCustomCSView::SetBackend(CCustomCSView & backend)
+{
+    // update backend
+    CStorageView::SetBackend(backend);
 }
 
 double CCollateralLoans::calcRatio(uint64_t maxRatio) const
@@ -1059,8 +1066,9 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
 
 uint256 CCustomCSView::MerkleRoot()
 {
-    auto& flushable = static_cast<CFlushableStorageKV&>(GetStorage());
-    auto& rawMap = flushable.GetRaw();
+    auto flushable = GetStorage().GetFlushableStorage();
+    assert(flushable);
+    auto& rawMap = flushable->GetRaw();
     if (rawMap.empty()) {
         return {};
     }
