@@ -628,7 +628,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        uint32_t customTxExpiration{std::numeric_limits<uint32_t>::max()};
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime, &customTxExpiration);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -670,7 +671,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, ::ChainActive().Height(),
-                              fSpendsCoinbase, nSigOpsCost, lp);
+                              fSpendsCoinbase, nSigOpsCost, lp, customTxExpiration);
         unsigned int nSize = entry.GetTxSize();
 
         if (nSigOpsCost > MAX_STANDARD_TX_SIGOPS_COST)
@@ -2298,7 +2299,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2556,7 +2557,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2872,6 +2873,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pruned.Flush();
             LogPrintf("Pruning undo data finished.\n");
             LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
+        }
+    }
+
+    if (pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
+        // Remove any TXs from mempool that are now expired
+        const auto removed = mempool.ExpireByHeight(pindex->nHeight);
+        if (removed) {
+            LogPrintf("%s: %d transaction expired at height %d\n", __func__, removed, pindex->nHeight);
         }
     }
 

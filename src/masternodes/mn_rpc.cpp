@@ -790,7 +790,7 @@ void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const Met
         return;
     }
 
-    CExpirationAndVersion customTxParams{pcustomcsview->GetGlobalCustomTxExpiration(), static_cast<uint8_t>(version)};
+    CExpirationAndVersion customTxParams{height + pcustomcsview->GetGlobalCustomTxExpiration(), static_cast<uint8_t>(version)};
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << customTxParams;

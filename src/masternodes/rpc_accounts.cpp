@@ -595,7 +595,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()) + 1);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
     CScript scriptBurn;
     scriptBurn << OP_RETURN;
 

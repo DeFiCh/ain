@@ -3174,7 +3174,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& c
 }
 
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -3202,6 +3202,12 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
             customTxParams.version != static_cast<uint8_t>(MetadataVersion::One) &&
             customTxParams.version != static_cast<uint8_t>(MetadataVersion::Two)) {
             return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
+        }
+        if (height > customTxParams.expiration) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Transaction has expired");
+        }
+        if (customTxExpiration) {
+            *customTxExpiration = customTxParams.expiration;
         }
     }
     auto txMessage = customTypeToMessage(txType, customTxParams.version);
