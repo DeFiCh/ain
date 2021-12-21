@@ -121,12 +121,13 @@ class RejectCustomTx(DefiTestFramework):
         address = self.nodes[0].getnewaddress("", "legacy")
         tx = self.nodes[0].utxostoaccount({address:"1@DFI"})
         rawtx = self.nodes[0].getrawtransaction(tx)
-        assert_equal(self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex'][94:], '050600000001')
+        expiration = self.nodes[0].getblockcount() + 6
+        assert_equal(self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex'][94:], '05' + hex(expiration)[2:] + '00000001')
         self.nodes[0].clearmempool()
 
         # Append extra data and test failure
         rawtx = rawtx.replace('feffffff0200e1f5050000000035', 'feffffff0200e1f5050000000036')
-        rawtx = rawtx.replace('050600000001', '05060000000100')
+        rawtx = rawtx.replace('05' + hex(expiration)[2:] + '00000001', '05' + hex(expiration)[2:] + '0000000100')
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_raises_rpc_error(-26, "Invalid custom transaction", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
 
