@@ -723,6 +723,16 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 /*
  *  CCustomCSView
  */
+void CCustomCSView::SetGlobalCustomTxExpiration(const uint32_t height)
+{
+    globalCustomTxExpiration = height;
+}
+
+uint32_t CCustomCSView::GetGlobalCustomTxExpiration() const
+{
+    return globalCustomTxExpiration;
+}
+
 int CCustomCSView::GetDbVersion() const
 {
     int version;

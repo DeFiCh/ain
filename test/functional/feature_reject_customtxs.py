@@ -8,13 +8,13 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class RejectCustomTx(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=120']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=120', '-greatworldheight=130', '-customtxexpiration=6']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -113,6 +113,22 @@ class RejectCustomTx(DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid custom transaction" in errorString)
+
+        # Move to GreatWorld height
+        self.nodes[0].generate(10)
+
+        # Create transaction with new expiration and version fields
+        address = self.nodes[0].getnewaddress("", "legacy")
+        tx = self.nodes[0].utxostoaccount({address:"1@DFI"})
+        rawtx = self.nodes[0].getrawtransaction(tx)
+        assert_equal(self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex'][94:], '050600000001')
+        self.nodes[0].clearmempool()
+
+        # Append extra data and test failure
+        rawtx = rawtx.replace('feffffff0200e1f5050000000035', 'feffffff0200e1f5050000000036')
+        rawtx = rawtx.replace('050600000001', '05060000000100')
+        signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
+        assert_raises_rpc_error(-26, "Invalid custom transaction", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
 
 if __name__ == '__main__':
     RejectCustomTx().main()

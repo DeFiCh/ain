@@ -757,13 +757,40 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue setcustomtxexpiration(const JSONRPCRequest& request) {
+    RPCHelpMan{"setcustomtxexpiration",
+               "\nSet the expiration in blocks of locally created transactions. This expiration is to be\n"
+               "added to the current block height at the point of transaction creation. Once the chain reaches the\n"
+               "combined height if the transaction has not been added to a block it will be removed from the mempool\n"
+               "and can no longer be added to a block\n",
+               {
+                       {"blockCount", RPCArg::Type::NUM, RPCArg::Optional::NO, ""}
+               },
+               RPCResult{
+                       ""
+               },
+               RPCExamples{
+                       HelpExampleCli("setcustomtxexpiration", "10")
+                       + HelpExampleRpc("setcustomtxexpiration", "10")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VNUM}, false);
+
+    LOCK(cs_main);
+
+    pcustomcsview->SetGlobalCustomTxExpiration(request.params[0].get_int());
+
+    return {};
+}
+
 void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const MetadataVersion version)
 {
     if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
         return;
     }
 
-    CExpirationAndVersion customTxParams{height, static_cast<uint8_t>(version)};
+    CExpirationAndVersion customTxParams{pcustomcsview->GetGlobalCustomTxExpiration(), static_cast<uint8_t>(version)};
 
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << customTxParams;
@@ -780,6 +807,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"blockchain",  "setcustomtxexpiration", &setcustomtxexpiration, {"blockHeight"}},
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {
