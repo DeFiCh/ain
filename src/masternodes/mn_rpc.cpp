@@ -766,9 +766,7 @@ UniValue setcustomtxexpiration(const JSONRPCRequest& request) {
                {
                        {"blockCount", RPCArg::Type::NUM, RPCArg::Optional::NO, ""}
                },
-               RPCResult{
-                       ""
-               },
+               RPCResults{},
                RPCExamples{
                        HelpExampleCli("setcustomtxexpiration", "10")
                        + HelpExampleRpc("setcustomtxexpiration", "10")
