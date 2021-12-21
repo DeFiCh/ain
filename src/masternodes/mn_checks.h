@@ -374,20 +374,6 @@ using CCustomTxMessage = std::variant<
     CAuctionBidMessage
 >;
 
-struct CExpirationAndVersion {
-    uint32_t expiration{std::numeric_limits<uint32_t>::max()};
-    uint8_t version{static_cast<uint8_t>(MetadataVersion::None)};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(expiration);
-        READWRITE(version);
-    }
-};
-
 CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);

@@ -4,10 +4,9 @@
 
 #include <consensus/tx_check.h>
 
-#include <chainparams.h>
+#include <clientversion.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
-#include <masternodes/mn_checks.h> // For CExpirationAndVersion
 
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
