@@ -2500,13 +2500,15 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
-                    uint64_t totalDFI = 0;
-                    for (auto& col : collateralsLoans.val->collaterals)
-                        if (col.nTokenId == DCT_ID{0})
-                            totalDFI += col.nValue;
+                    if (obj.amount.nTokenId == DCT_ID{0} || static_cast<int>(height) < consensus.FortCanningHillHeight) {
+                        uint64_t totalDFI = 0;
+                        for (auto& col : collateralsLoans.val->collaterals)
+                            if (col.nTokenId == DCT_ID{0})
+                                totalDFI += col.nValue;
 
-                    if (totalDFI < collateralsLoans.val->totalCollaterals / 2 && obj.amount.nTokenId == DCT_ID{0})
-                        return Res::Err("At least 50%% of the vault must be in DFI");
+                        if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                            return Res::Err("At least 50%% of the vault must be in DFI");
+                    }
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
