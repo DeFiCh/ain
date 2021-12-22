@@ -147,6 +147,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -371,6 +372,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -492,6 +494,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -634,6 +637,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -721,6 +725,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -797,6 +802,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -876,6 +882,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1086,6 +1093,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1223,6 +1231,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);

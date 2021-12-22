@@ -177,6 +177,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -302,6 +303,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -398,6 +400,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -485,6 +488,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -597,6 +601,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 

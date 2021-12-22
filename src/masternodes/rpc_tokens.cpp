@@ -101,6 +101,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -299,6 +300,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -686,6 +688,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 

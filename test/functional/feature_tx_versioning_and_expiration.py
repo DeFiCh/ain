@@ -59,5 +59,51 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         self.sync_blocks()
         assert_equal(self.nodes[1].getmempoolinfo()['size'], 0)
 
+        # Fund account for tests
+        self.nodes[0].utxostoaccount({address:"1@DFI"})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+        disconnect_nodes(self.nodes[0], 1)
+
+        # Test auto auth expiration value set by startup flag
+        self.stop_node(0)
+        self.start_node(0, ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=101', '-greatworldheight=101', '-customtxexpiration=1'])
+        destination = self.nodes[0].getnewaddress("", "legacy")
+        tx = self.nodes[0].accounttoaccount(address, {destination: "1@DFI"})
+        autoauth_tx = self.nodes[0].getrawtransaction(tx, 1)['vin'][0]['txid']
+        expiration = self.nodes[0].getblockcount() + 1
+        assert_equal(self.nodes[0].getrawtransaction(autoauth_tx, 1)['vout'][0]['scriptPubKey']['hex'][14:], '05' + hex(expiration)[2:] + '00000001')
+        autoauth_rawtx = self.nodes[0].getrawtransaction(autoauth_tx)
+        self.nodes[0].clearmempool()
+
+        # Test auto auth expiration
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-26, "Transaction has expired", self.nodes[0].sendrawtransaction, autoauth_rawtx)
+        self.nodes[1].sendrawtransaction(autoauth_rawtx)
+        assert_equal(self.nodes[1].getmempoolinfo()['size'], 1)
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
+        assert_equal(self.nodes[1].getmempoolinfo()['size'], 0)
+        disconnect_nodes(self.nodes[0], 1)
+
+        # Test auto auth expiration value set by RPC
+        self.nodes[0].setcustomtxexpiration(10)
+        tx = self.nodes[0].accounttoaccount(address, {destination: "1@DFI"})
+        autoauth_tx = self.nodes[0].getrawtransaction(tx, 1)['vin'][0]['txid']
+        expiration = self.nodes[0].getblockcount() + 10
+        assert_equal(self.nodes[0].getrawtransaction(autoauth_tx, 1)['vout'][0]['scriptPubKey']['hex'][14:], '05' + hex(expiration)[2:] + '00000001')
+        autoauth_rawtx = self.nodes[0].getrawtransaction(autoauth_tx)
+        self.nodes[0].clearmempool()
+
+        # Test auto auth expiration
+        self.nodes[0].generate(10)
+        assert_raises_rpc_error(-26, "Transaction has expired", self.nodes[0].sendrawtransaction, autoauth_rawtx)
+        self.nodes[1].sendrawtransaction(autoauth_rawtx)
+        assert_equal(self.nodes[1].getmempoolinfo()['size'], 1)
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
+        assert_equal(self.nodes[1].getmempoolinfo()['size'], 0)
+        disconnect_nodes(self.nodes[0], 1)
+
 if __name__ == '__main__':
     TxVersionAndExpirationTest().main()

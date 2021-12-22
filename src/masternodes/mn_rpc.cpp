@@ -312,6 +312,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
     mtx.vout.push_back(CTxOut(0, scriptMeta));
 
     // Only set change to auth on single auth TXs
@@ -506,6 +507,7 @@ UniValue setgov(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -597,6 +599,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
