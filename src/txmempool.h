@@ -705,7 +705,7 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
-    void rebuildAccountsView(int height);
+    void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

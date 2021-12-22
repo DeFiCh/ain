@@ -590,7 +590,9 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         ClearPrioritisation(tx->GetHash());
     }
 
-    rebuildAccountsView(nBlockHeight);
+    if (pcustomcsview) {
+        rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
+    }
 
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
@@ -1084,7 +1086,7 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     }
 }
 
-void CTxMemPool::rebuildAccountsView(int height)
+void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {
         return;
@@ -1093,7 +1095,6 @@ void CTxMemPool::rebuildAccountsView(int height)
     CAmount txfee = 0;
     accountsView().Discard();
     CCustomCSView viewDuplicate(accountsView());
-    CCoinsViewCache mempoolDuplicate(&::ChainstateActive().CoinsTip());
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
@@ -1102,13 +1103,13 @@ void CTxMemPool::rebuildAccountsView(int height)
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
         CValidationState state;
         const auto& tx = it->GetTx();
-        if (!Consensus::CheckTxInputs(tx, state, mempoolDuplicate, &viewDuplicate, height, txfee, Params())) {
+        if (!Consensus::CheckTxInputs(tx, state, coinsCache, &viewDuplicate, height, txfee, Params())) {
             LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), height);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
