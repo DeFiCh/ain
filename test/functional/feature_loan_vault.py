@@ -462,7 +462,7 @@ class VaultTest (DefiTestFramework):
 
         # Deposit collaterals. 50% of BTC
         address = self.nodes[0].getnewaddress()
-        self.nodes[1].sendtokenstoaddress({}, { address: '1.25@BTC'})
+        self.nodes[1].sendtokenstoaddress({}, { address: '1.50@BTC'})
         self.nodes[1].generate(1)
         self.sync_all()
         vaultId4 = self.nodes[0].createvault(address, 'LOAN000A')
@@ -477,13 +477,20 @@ class VaultTest (DefiTestFramework):
                     })
         self.nodes[0].generate(1)
 
+        self.nodes[0].deposittovault(vaultId4, address, '0.2@BTC')
+        self.nodes[0].generate(1)
+
+        # Should be able to withdraw extra BTC
+        self.nodes[0].withdrawfromvault(vaultId4, address, "0.1@BTC")
+        self.nodes[0].generate(1)
+
         # BTC doubles in price
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "2@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(11)
+        self.nodes[0].generate(20)
 
-        # Should be able to withdraw part of BTC
+        # Should be able to withdraw part of BTC after BTC appreciation in price
         self.nodes[0].withdrawfromvault(vaultId4, address, "0.1@BTC")
         self.nodes[0].generate(1)
 
