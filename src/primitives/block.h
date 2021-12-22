@@ -33,7 +33,7 @@ public:
     uint32_t nTime;
     uint32_t nBits;
 
-    uint64_t height;
+    uint64_t deprecatedHeight;
     uint64_t mintedBlocks;
     uint256 stakeModifier;
     std::vector<unsigned char> sig;
@@ -53,7 +53,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(stakeModifier);
-        READWRITE(height);
+        READWRITE(deprecatedHeight);
         READWRITE(mintedBlocks);
         READWRITE(sig);
     }
@@ -66,7 +66,7 @@ public:
         nTime = 0;
         nBits = 0;
         stakeModifier.SetNull();
-        height = 0;
+        deprecatedHeight = 0;
         mintedBlocks = 0;
         sig = {};
         recoveredPubKey = CPubKey{};
@@ -144,7 +144,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.stakeModifier  = stakeModifier;
-        block.height         = height;
+        block.deprecatedHeight = deprecatedHeight;
         block.mintedBlocks   = mintedBlocks;
         block.sig            = sig;
 

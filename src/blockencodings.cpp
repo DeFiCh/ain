@@ -174,7 +174,7 @@ bool PartiallyDownloadedBlock::IsTxAvailable(size_t index) const {
     return txn_available[index] != nullptr;
 }
 
-ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing) {
+ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const int height) {
     assert(!header.IsNull());
     uint256 hash = header.GetHash();
     block = header;
@@ -200,7 +200,7 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
     CValidationState state;
     CheckContextState ctxState;
 
-    if (!CheckBlock(block, state, Params().GetConsensus(), ctxState, false)) {
+    if (!CheckBlock(block, state, Params().GetConsensus(), ctxState, false, height)) {
         // TODO: We really want to just check merkle tree manually here,
         // but that is expensive, and CheckBlock caches a block's
         // "checked-status" (in the CBlock?). CBlock should be able to
