@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan - setcollateraltoken."""
+"""Test Loan - loan basics."""
 
 from test_framework.test_framework import DefiTestFramework
 
@@ -441,6 +441,22 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(vaultInfo['collateralAmounts'], ['400.00000000@DFI'])
         assert_equal(vaultInfo['collateralValue'], Decimal('4000.00000000'))
         assert_equal(vaultInfo['loanValue'], Decimal('1500.0610730'))
+
+        # feed oracle
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
+                          {"currency": "USD", "tokenAmount": "10@GOOGL"},
+                          {"currency": "USD", "tokenAmount": "5@DFI"},
+                          {"currency": "USD", "tokenAmount": "10@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+
+        self.nodes[0].generate(12)
+        self.sync_blocks()
+
+        vaultInfo = self.nodes[0].getvault(vaultId1)
+        assert_equal(vaultInfo['state'], 'inLiquidation')
+        assert_equal(len(vaultInfo['batches']), 1)
+        assert_equal(vaultInfo['batches'][0]['collaterals'], ['400.00000000@DFI'])
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

@@ -179,6 +179,7 @@ DEFI_CORE_H = \
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/vault.h \
+  masternodes/vaulthistory.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -404,6 +405,7 @@ libdefi_server_a_SOURCES = \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
   masternodes/vault.cpp \
+  masternodes/vaulthistory.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \

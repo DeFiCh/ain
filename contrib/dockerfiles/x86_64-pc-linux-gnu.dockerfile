@@ -13,7 +13,7 @@ RUN apt update && apt dist-upgrade -y
 
 RUN apt-get install -y apt-transport-https
 
-RUN apt install -y software-properties-common build-essential libtool autotools-dev automake \
+RUN apt install -y software-properties-common build-essential git libtool autotools-dev automake \
 pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
 libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
 libminiupnpc-dev libzmq3-dev libqrencode-dev wget \

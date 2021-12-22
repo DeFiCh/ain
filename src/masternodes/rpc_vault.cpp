@@ -1,6 +1,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/vaulthistory.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
 extern std::string tokenAmountString(CTokenAmount const& amount);
@@ -1052,8 +1053,8 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     RPCHelpMan{"listauctionhistory",
                "\nReturns information about auction history.\n",
                {
-                    {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+                    {"owner|vaultId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Single account ID (CScript or address) or vaultId or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
                             {
@@ -1119,18 +1120,24 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         account = request.params[0].getValStr();
     }
 
+    int filter = -1;
     bool isMine = false;
+
     if (account == "mine") {
         isMine = true;
     } else if (account != "all") {
-        start.owner = DecodeScript(account);
+        filter = DecodeScriptTxId(account, {start.owner, start.vaultId});
     }
 
     LOCK(cs_main);
     UniValue ret(UniValue::VARR);
 
     paccountHistoryDB->ForEachAuctionHistory([&](AuctionHistoryKey const & key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
-        if (!start.owner.empty() && start.owner != key.owner) {
+        if (filter == 0 && start.owner != key.owner) {
+            return true;
+        }
+
+        if (filter == 1 && start.vaultId != key.vaultId) {
             return true;
         }
 
@@ -1146,6 +1153,605 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const uint64_t blockHeight, const std::string& type,
+                     const uint64_t txn, const std::string& txid, const TAmounts& amounts) {
+    UniValue obj(UniValue::VOBJ);
+
+    if (!address.empty()) {
+        obj.pushKV("address", address);
+    }
+    obj.pushKV("blockHeight", blockHeight);
+    if (auto block = ::ChainActive()[blockHeight]) {
+        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
+    }
+    if (!type.empty()) {
+        obj.pushKV("type", type);
+    }
+    // No address no txn
+    if (!address.empty()) {
+        obj.pushKV("txn", txn);
+    }
+    if (!txid.empty()) {
+        obj.pushKV("txid", txid);
+    }
+    if (!amounts.empty()) {
+        obj.pushKV("amounts", AmountsToJSON(amounts));
+    }
+
+    return obj;
+}
+
+UniValue BatchToJSON(const std::vector<CAuctionBatch> batches) {
+    UniValue batchArray{UniValue::VARR};
+    for (uint64_t i{0}; i < batches.size(); ++i) {
+        UniValue batchObj{UniValue::VOBJ};
+        batchObj.pushKV("index", i);
+        batchObj.pushKV("collaterals", AmountsToJSON(batches[i].collaterals.balances));
+        batchObj.pushKV("loan", tokenAmountString(batches[i].loanAmount));
+        batchArray.push_back(batchObj);
+    }
+    return batchArray;
+}
+
+UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
+    auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, "", 0, "", {});
+
+    UniValue snapshot(UniValue::VOBJ);
+    snapshot.pushKV("state", !value.auctionBatches.empty() ? "inLiquidation" : "active");
+    snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
+    snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
+    snapshot.pushKV("collateralRatio", value.ratio != -1 ? static_cast<int>(value.ratio) : static_cast<int>(value.collateralsValues.ratio()));
+    if (!value.auctionBatches.empty()) {
+        snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
+    }
+
+    obj.pushKV("vaultSnapshot", snapshot);
+
+    return obj;
+}
+
+UniValue historyToJSON(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+    return vaultToJSON(key.vaultID, ScriptToString(key.address), key.blockHeight, ToString(CustomTxCodeToType(value.category)),
+                       key.txn, value.txid.ToString(), value.diff);
+}
+
+UniValue schemeToJSON(VaultSchemeKey const & key, const VaultGlobalSchemeValue& value) {
+    auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, ToString(CustomTxCodeToType(value.category)), 0, value.txid.ToString(), {});
+
+    UniValue scheme(UniValue::VOBJ);
+    scheme.pushKV("id", value.loanScheme.identifier);
+    scheme.pushKV("rate", value.loanScheme.rate);
+    scheme.pushKV("ratio", static_cast<uint64_t>(value.loanScheme.ratio));
+
+    obj.pushKV("loanScheme", scheme);
+
+    return obj;
+}
+
+UniValue listvaulthistory(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"listvaulthistory",
+               "\nReturns the history of the specified vault.\n",
+               {
+                       {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault to get history for"},
+                       {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                                {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Optional height to iterate from (down to genesis block), (default = chaintip)."},
+                                {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum depth, from the genesis block is the default"},
+                                {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Filter by token"},
+                                {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Filter by transaction type, supported letter from {CustomTxType}"},
+                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum number of records to return, 100 by default"},
+                        },
+                       },
+               },
+               RPCResult{
+                       "[{},{}...]     (array) Objects with vault history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
+               },
+    }.Check(request);
+
+    if (!pvaultHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-vaultindex required for vault history");
+    }
+
+    uint256 vaultID = ParseHashV(request.params[0], "vaultId");
+    uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
+    uint32_t depth = maxBlockHeight;
+    std::string tokenFilter;
+    uint32_t limit = 100;
+    auto txType = CustomTxType::None;
+    bool txTypeSearch{false};
+
+    if (request.params.size() == 2) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+                        {
+                                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                                {"depth", UniValueType(UniValue::VNUM)},
+                                {"token", UniValueType(UniValue::VSTR)},
+                                {"txtype", UniValueType(UniValue::VSTR)},
+                                {"limit", UniValueType(UniValue::VNUM)},
+                        }, true, true);
+
+        if (!optionsObj["maxBlockHeight"].isNull()) {
+            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+        }
+
+        if (!optionsObj["depth"].isNull()) {
+            depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
+        }
+
+        if (!optionsObj["txtype"].isNull()) {
+            const auto str = optionsObj["txtype"].get_str();
+            if (str.size() == 1) {
+                // Will search for type ::None if txtype not found.
+                txType = CustomTxCodeToType(str[0]);
+                txTypeSearch = true;
+            }
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            limit = (uint32_t) optionsObj["limit"].get_int64();
+        }
+
+        if (limit == 0) {
+            limit = std::numeric_limits<uint32_t>::max();
+        }
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    std::function<bool(uint256 const &)> isMatchVault = [&vaultID](uint256 const & id) {
+        return id == vaultID;
+    };
+
+    std::set<uint256> txs;
+
+    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+        for (auto const & diff : diffs) {
+            auto token = pcustomcsview->GetToken(diff.first);
+            auto const tokenIdStr = token->CreateSymbolKey(diff.first);
+            if(tokenIdStr == tokenFilter) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    LOCK(cs_main);
+    std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
+
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    depth = std::min(depth, maxBlockHeight);
+
+    const auto startBlock = maxBlockHeight - depth;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
+
+    // Get vault TXs
+    auto count = limit;
+
+    auto shouldContinue = [&](VaultHistoryKey const & key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return true;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        if (txTypeSearch && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            return true;
+        }
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(historyToJSON(key, value));
+
+        return --count != 0;
+    };
+
+    VaultHistoryKey startKey{maxBlockHeight, vaultID, std::numeric_limits<uint32_t>::max(), {}};
+    pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
+
+    // Get vault state changes
+    count = limit;
+
+    auto shouldContinueState = [&](VaultStateKey const & key, CLazySerialize<VaultStateValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(stateToJSON(key, value));
+
+        return --count != 0;
+    };
+
+    VaultStateKey stateKey{vaultID, maxBlockHeight};
+    if (!txTypeSearch) {
+        pvaultHistoryDB->ForEachVaultState(shouldContinueState, stateKey);
+    }
+
+    // Get vault schemes
+    count = limit;
+
+    std::map<uint32_t, uint256> schemes;
+
+    auto shouldContinueScheme = [&](VaultSchemeKey const & key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool
+    {
+        if (!isMatchVault(key.vaultID)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
+            return true;
+        }
+
+        const auto & value = valueLazy.get();
+
+        if (txTypeSearch && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        CLoanScheme loanScheme;
+        pvaultHistoryDB->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & schemeKey, CLazySerialize<VaultGlobalSchemeValue> lazyValue) {
+            if (lazyValue.get().loanScheme.identifier != value.schemeID) {
+                return true;
+            }
+            loanScheme = lazyValue.get().loanScheme;
+            schemes.emplace(key.blockHeight, schemeKey.schemeCreationTxid);
+            return false;
+        }, {key.blockHeight, value.txn});
+
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(schemeToJSON(key, {loanScheme, value.category, value.txid}));
+
+        return --count != 0;
+    };
+
+    if (tokenFilter.empty()) {
+        pvaultHistoryDB->ForEachVaultScheme(shouldContinueScheme, stateKey);
+    }
+
+    // Get vault global scheme changes
+
+    if (!schemes.empty()) {
+        auto lastScheme = schemes.cbegin()->second;
+        for (auto it = ++schemes.cbegin(); it != schemes.cend(); ) {
+            if (lastScheme == it->second) {
+                schemes.erase(it++);
+            } else {
+                ++it;
+            }
+        }
+
+        auto minHeight = schemes.cbegin()->first;
+        for (auto it = schemes.cbegin(); it != schemes.cend(); ++it) {
+            auto nit = std::next(it);
+            uint32_t endHeight = nit != schemes.cend() ? nit->first - 1 : std::numeric_limits<uint32_t>::max();
+            pvaultHistoryDB->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> valueLazy){
+                if (key.blockHeight < minHeight) {
+                    return false;
+                }
+
+                if (it->second != key.schemeCreationTxid) {
+                    return true;
+                }
+
+                if (shouldSkipBlock(key.blockHeight)) {
+                    return true;
+                }
+
+                const auto & value = valueLazy.get();
+
+                if (txTypeSearch && value.category != uint8_t(txType)) {
+                    return true;
+                }
+
+                auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+                array.push_back(schemeToJSON({vaultID, key.blockHeight}, value));
+
+                return --count != 0;
+            }, {endHeight, std::numeric_limits<uint32_t>::max(), it->second});
+        }
+    }
+
+    UniValue slice(UniValue::VARR);
+    for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
+        const auto& array = it->second.get_array();
+        for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
+            slice.push_back(array[i]);
+            --limit;
+        }
+    }
+
+    return slice;
+}
+
+UniValue estimateloan(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"estimateloan",
+               "Returns amount of loan tokens a vault can take depending on a target collateral ratio.\n",
+                {
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
+                    {"tokens", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with loans token as key and their percent split as value",
+                        {
+
+                            {"split", RPCArg::Type::NUM, RPCArg::Optional::NO, "The percent split"},
+                        },
+                    },
+                    {"targetRatio", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Target collateral ratio. (defaults to vault's loan scheme ratio)"}
+                },
+                RPCResult{
+                    "\"json\"                  (Array) Array of <amount@token> strings\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimateloan", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf '{"TSLA":0.5, "FB": 0.4, "GOOGL":0.1}' 150)") +
+                       HelpExampleRpc("estimateloan", R"("5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf", {"TSLA":0.5, "FB": 0.4, "GOOGL":0.1}, 150)")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VNUM}, false);
+
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
+
+    LOCK(cs_main);
+
+    auto vault = pcustomcsview->GetVault(vaultId);
+    if (!vault) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found.", vaultId.GetHex()));
+    }
+
+    auto vaultState = GetVaultState(vaultId, *vault);
+    if (vaultState == VaultState::InLiquidation) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Vault <%s> is in liquidation.", vaultId.GetHex()));
+    }
+
+    auto scheme = pcustomcsview->GetLoanScheme(vault->schemeId);
+    uint32_t ratio = scheme->ratio;
+    if (request.params.size() > 2) {
+        ratio = (size_t) request.params[2].get_int64();
+    }
+
+    auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+    if (!collaterals) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Cannot estimate loan without collaterals.");
+    }
+
+    auto height = ::ChainActive().Height();
+    auto blockTime = ::ChainActive().Tip()->GetBlockTime();
+    auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, true);
+    if (!rate.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
+    }
+
+    CBalances loanBalances;
+    CAmount totalSplit{0};
+    if (request.params.size() > 1 && request.params[1].isObject()) {
+        for (const auto& tokenId : request.params[1].getKeys()) {
+            CAmount split = AmountFromValue(request.params[1][tokenId]);
+
+            auto token = pcustomcsview->GetToken(tokenId);
+            if (!token) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %d does not exist!", tokenId));
+            }
+
+            auto loanToken = pcustomcsview->GetLoanTokenByID(token->first);
+            if (!loanToken) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
+            }
+
+            auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            if (!priceFeed.ok) {
+                throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+            }
+
+            auto price = priceFeed.val->priceRecord[0];
+            if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+                throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", tokenId));
+            }
+
+            auto availableValue = MultiplyAmounts(rate.val->totalCollaterals, split);
+            auto loanAmount = DivideAmounts(availableValue, price);
+            auto amountRatio = MultiplyAmounts(DivideAmounts(loanAmount, ratio), 100);
+
+            loanBalances.Add({token->first, amountRatio});
+            totalSplit += split;
+        }
+        if (totalSplit != COIN)
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+    }
+    return AmountsToJSON(loanBalances.balances);
+}
+
+UniValue estimatecollateral(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"estimatecollateral",
+               "Returns amount of collateral tokens needed to take an amount of loan tokens for a target collateral ratio.\n",
+                {
+                    {"loanAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"targetRatio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Target collateral ratio."},
+                    {"tokens", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Object with collateral token as key and their percent split as value. (defaults to { DFI: 1 }",
+                        {
+                            {"split", RPCArg::Type::NUM, RPCArg::Optional::NO, "The percent split"},
+                        },
+                    },
+                },
+                RPCResult{
+                    "\"json\"                  (Array) Array of <amount@token> strings\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimatecollateral", R"(23.55311144@MSFT 150 '{"DFI": 0.8, "BTC":0.2}')") +
+                       HelpExampleRpc("estimatecollateral", R"("23.55311144@MSFT" 150 {"DFI": 0.8, "BTC":0.2})")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValueType(), UniValue::VNUM, UniValue::VOBJ}, false);
+
+    const CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    auto ratio = request.params[1].get_int();
+
+    std::map<std::string, UniValue> collateralSplits;
+    if (request.params.size() > 2) {
+        request.params[2].getObjMap(collateralSplits);
+    } else {
+        collateralSplits["DFI"] = 1;
+    }
+
+    LOCK(cs_main);
+
+    CAmount totalLoanValue{0};
+    for (const auto& loan : loanBalances.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
+
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
+        }
+        totalLoanValue += *amountInCurrency.val;
+    }
+
+    uint32_t height = ::ChainActive().Height();
+    CBalances collateralBalances;
+    CAmount totalSplit{0};
+    for (const auto& collateralSplit : collateralSplits) {
+        CAmount split = AmountFromValue(collateralSplit.second);
+
+        auto token = pcustomcsview->GetToken(collateralSplit.first);
+        if (!token) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", collateralSplit.first));
+        }
+
+        auto collateralToken = pcustomcsview->HasLoanCollateralToken({token->first, height});
+        if (!collateralToken || !collateralToken->factor) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
+        }
+
+        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
+        if (!priceFeed.ok) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
+        }
+
+        auto price = priceFeed.val->priceRecord[0];
+        if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+            throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", collateralSplit.first));
+        }
+
+        auto requiredValue = MultiplyAmounts(totalLoanValue, split);
+        auto collateralValue = DivideAmounts(requiredValue, price);
+        auto amountRatio = DivideAmounts(MultiplyAmounts(collateralValue, ratio), 100);
+        auto totalAmount = DivideAmounts(amountRatio, collateralToken->factor);
+
+        collateralBalances.Add({token->first, totalAmount});
+        totalSplit += split;
+    }
+    if (totalSplit != COIN) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
+    }
+
+    return AmountsToJSON(collateralBalances.balances);
+}
+
+UniValue estimatevault(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"estimatevault",
+               "Returns estimated vault for given collateral and loan amounts.\n",
+                {
+                    {"collateralAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Collateral amounts as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"loanAmounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Loan amounts as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                },
+                RPCResult{
+                       "{\n"
+                       "  \"collateralValue\" : n.nnnnnnnn,        (amount) The total collateral value in USD\n"
+                       "  \"loanValue\" : n.nnnnnnnn,              (amount) The total loan value in USD\n"
+                       "  \"informativeRatio\" : n.nnnnnnnn,       (amount) Informative ratio with 8 digit precision\n"
+                       "  \"collateralRatio\" : n,                 (uint) Ratio as unsigned int\n"
+                       "}\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("estimatevault", R"('["1000.00000000@DFI"]' '["0.65999990@GOOGL"]')") +
+                       HelpExampleRpc("estimatevault", R"(["1000.00000000@DFI"], ["0.65999990@GOOGL"])")
+               },
+    }.Check(request);
+
+    CBalances collateralBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[1], "");
+
+    LOCK(cs_main);
+    auto height = (uint32_t) ::ChainActive().Height();
+
+    CCollateralLoans result{};
+
+    for (const auto& collateral : collateralBalances.balances) {
+        auto collateralToken = pcustomcsview->HasLoanCollateralToken({collateral.first, height});
+        if (!collateralToken || !collateralToken->factor) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token with id (%s) is not a valid collateral!", collateral.first.ToString()));
+        }
+
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
+        }
+        result.totalCollaterals += MultiplyAmounts(collateralToken->factor, *amountInCurrency.val);;
+    }
+
+    for (const auto& loan : loanBalances.balances) {
+        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
+
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        if (!amountInCurrency) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
+        }
+        result.totalLoans += *amountInCurrency.val;
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("collateralValue", ValueFromUint(result.totalCollaterals));
+    ret.pushKV("loanValue", ValueFromUint(result.totalLoans));
+    ret.pushKV("informativeRatio", ValueFromAmount(result.precisionRatio()));
+    ret.pushKV("collateralRatio", int(result.ratio()));
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1154,12 +1760,16 @@ static const CRPCCommand commands[] =
     {"vault",        "closevault",                &closevault,            {"id", "returnAddress", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
+    {"vault",        "listvaulthistory",          &listvaulthistory,      {"id", "options"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},
     {"vault",        "placeauctionbid",           &placeauctionbid,       {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
+    {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens", "targetRatio"}},
+    {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
+    {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {

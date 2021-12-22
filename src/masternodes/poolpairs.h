@@ -53,10 +53,6 @@ struct CPoolSwapMessage {
     CAmount amountFrom;
     PoolPrice maxPrice;
 
-    std::string ToString() const {
-        return "(" + from.GetHex() + ":" + std::to_string(amountFrom) +"@"+ idTokenFrom.ToString() + "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
-    }
-
     ADD_SERIALIZE_METHODS
 
     template <typename Stream, typename Operation>
@@ -258,18 +254,6 @@ struct CLiquidityMessage {
     CAccounts from; // from -> balances
     CScript shareAddress;
 
-    std::string ToString() const {
-        if (from.empty()) {
-            return "empty transfer";
-        }
-        std::string result;
-        for (const auto& kv : from) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        result += " to " + shareAddress.GetHex();
-        return result;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -282,11 +266,6 @@ struct CLiquidityMessage {
 struct CRemoveLiquidityMessage {
     CScript from;
     CTokenAmount amount;
-
-    std::string ToString() const {
-        std::string result = "(" + from.GetHex() + "->" + amount.ToString() + ")";
-        return result;
-    }
 
     ADD_SERIALIZE_METHODS;
 
