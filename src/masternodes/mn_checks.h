@@ -400,25 +400,23 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     if (metadataValidation) {
         for (size_t i{1}; i < tx.vout.size(); ++i) {
             std::vector<unsigned char> dummydata;
-            bool dummyOpcodes{false};
-            bool dummyOpcodesGW{false};
-            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes, dummyOpcodesGW)) {
+            uint8_t dummyOpcodes{HasForks::None};
+            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
                 return CustomTxType::Reject;
             }
         }
     }
 
-    bool hasAdditionalOpcodes{false};
-    bool hasAdditionalOpcodesGW{false};
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW, customTxParams)) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes, customTxParams)) {
         return CustomTxType::None;
     }
 
     // If metadata contains additional opcodes mark as Reject.
     if (metadataValidation) {
-        if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes) {
+        if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::FortCanning) {
             return CustomTxType::Reject;
-        } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodesGW) {
+        } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::GreatWorld) {
             return CustomTxType::Reject;
         }
     }

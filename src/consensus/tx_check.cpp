@@ -68,8 +68,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& hasAdditionalOpcodes,
-                         bool& hasAdditionalOpcodesGW,
+                         uint8_t& hasAdditionalOpcodes,
                          CExpirationAndVersion* customTxParams)
 {
     opcodetype opcode;
@@ -87,17 +86,17 @@ bool ParseScriptByMarker(CScript const & script,
     // Check that no more opcodes are found in the script
     std::vector<unsigned char> expirationAndVersion;
     if (script.GetOp(pc, opcode, expirationAndVersion)) {
-        hasAdditionalOpcodes = true;
+        hasAdditionalOpcodes |= HasForks::FortCanning;
         if (expirationAndVersion.size() == sizeof(uint32_t) + sizeof(uint8_t)) {
             if (customTxParams) {
                 VectorReader stream(SER_DISK, CLIENT_VERSION, expirationAndVersion, 0);
                 stream >> *customTxParams;
             }
         } else {
-            hasAdditionalOpcodesGW = true;
+            hasAdditionalOpcodes |= HasForks::GreatWorld;
         }
         if (pc != script.end()) {
-            hasAdditionalOpcodesGW = true;
+            hasAdditionalOpcodes |= HasForks::GreatWorld;
         }
     }
 
@@ -105,33 +104,31 @@ bool ParseScriptByMarker(CScript const & script,
     return true;
 }
 
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning, bool greatWorld)
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
-    bool hasAdditionalOpcodes{false};
-    bool hasAdditionalOpcodesGW{false};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW);
-    if (fortCanning && !greatWorld && hasAdditionalOpcodes) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
+    if (hasForks & HasForks::FortCanning && !(hasForks & HasForks::GreatWorld) && hasAdditionalOpcodes & HasForks::FortCanning) {
         return false;
-    } else if (greatWorld && hasAdditionalOpcodesGW) {
+    } else if (hasForks & HasForks::GreatWorld && hasAdditionalOpcodes & HasForks::GreatWorld) {
         return false;
     }
     return result;
 }
 
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning, bool greatWorld)
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
-    bool hasAdditionalOpcodes{false};
-    bool hasAdditionalOpcodesGW{false};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes, hasAdditionalOpcodesGW);
-    if (fortCanning && !greatWorld && hasAdditionalOpcodes) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
+    if (hasForks & HasForks::FortCanning && !(hasForks & HasForks::GreatWorld) && hasAdditionalOpcodes & HasForks::FortCanning) {
         return false;
-    } else if (greatWorld && hasAdditionalOpcodesGW) {
+    } else if (hasForks & HasForks::GreatWorld && hasAdditionalOpcodes & HasForks::GreatWorld) {
         return false;
     }
     return result;
