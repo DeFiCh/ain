@@ -496,7 +496,7 @@ class VaultTest (DefiTestFramework):
 
         # Should not be able to withdraw if DFI lower than 50% of collateralized loan value
         try:
-            self.nodes[0].withdrawfromvault(vaultId4, accountDFI, "0.25@DFI")
+            self.nodes[0].withdrawfromvault(vaultId4, accountDFI, "0.26@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("At least 50% of the vault must be in DFI" in errorString)
