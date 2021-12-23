@@ -2500,13 +2500,16 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
-                    if (obj.amount.nTokenId == DCT_ID{0} || static_cast<int>(height) < consensus.FortCanningHillHeight) {
-                        uint64_t totalDFI = 0;
-                        for (auto& col : collateralsLoans.val->collaterals)
-                            if (col.nTokenId == DCT_ID{0})
-                                totalDFI += col.nValue;
+                    uint64_t totalDFI = 0;
+                    for (auto& col : collateralsLoans.val->collaterals)
+                        if (col.nTokenId == DCT_ID{0})
+                            totalDFI += col.nValue;
 
+                    if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
                         if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                            return Res::Err("At least 50%% of the vault must be in DFI");
+                    } else {
+                        if (totalDFI * 100 < collateralsLoans.val->totalLoans * scheme->ratio / 2)
                             return Res::Err("At least 50%% of the vault must be in DFI");
                     }
 
@@ -2613,8 +2616,13 @@ public:
                 if (col.nTokenId == DCT_ID{0})
                     totalDFI += col.nValue;
 
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                return Res::Err("At least 50%% of the vault must be in DFI when taking a loan");
+            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
+                if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                    return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
+            } else {
+                if (totalDFI * 100 < collateralsLoans.val->totalLoans * scheme->ratio / 2)
+                    return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
+            }
 
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
