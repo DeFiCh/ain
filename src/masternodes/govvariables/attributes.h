@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_ATTRIBUTES_H
-#define DEFI_MASTERNODES_ATTRIBUTES_H
+#ifndef DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
+#define DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
 
 #include <masternodes/gv.h>
 
@@ -74,4 +74,4 @@ private:
                                                     {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"}};
 };
 
-#endif // DEFI_MASTERNODES_ATTRIBUTES_H
+#endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
