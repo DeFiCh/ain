@@ -491,8 +491,21 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(20)
 
         # Should be able to withdraw part of BTC after BTC appreciation in price
-        self.nodes[0].withdrawfromvault(vaultId4, address, "0.1@BTC")
+        self.nodes[0].withdrawfromvault(vaultId4, address, "0.5@BTC")
         self.nodes[0].generate(1)
+
+        # Should not be able to withdraw if DFI lower than 50% of collateralized loan value
+        try:
+            self.nodes[0].withdrawfromvault(vaultId4, accountDFI, "0.25@DFI")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("At least 50% of the vault must be in DFI" in errorString)
+
+        # Should be able to take 0.33@TSLA and respect 50% DFI ratio
+        self.nodes[0].takeloan({
+            'vaultId': vaultId4,
+            'amounts': "0.33@TSLA"
+        })
 
 if __name__ == '__main__':
     VaultTest().main()
