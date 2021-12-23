@@ -2509,7 +2509,7 @@ public:
                         if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
                             return Res::Err("At least 50%% of the vault must be in DFI");
                     } else {
-                        if (MultiplyAmounts(totalDFI * 100) < MultiplyAmounts(collateralsLoans.val->totalLoans * scheme->ratio) / 2)
+                        if (MultiplyAmounts(totalDFI, 100) < MultiplyAmounts(collateralsLoans.val->totalLoans, scheme->ratio) / 2)
                             return Res::Err("At least 50%% of the vault must be in DFI");
                     }
 
@@ -2620,7 +2620,7 @@ public:
                 if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
                     return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
             } else {
-                if (MultiplyAmounts(totalDFI * 100) < MultiplyAmounts(collateralsLoans.val->totalLoans * scheme->ratio) / 2)
+                if (MultiplyAmounts(totalDFI, 100) < MultiplyAmounts(collateralsLoans.val->totalLoans, scheme->ratio) / 2)
                     return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
             }
 
