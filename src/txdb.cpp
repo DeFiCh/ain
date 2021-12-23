@@ -276,7 +276,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
 
                 //PoS
                 pindexNew->stakeModifier = diskindex.stakeModifier;
-                pindexNew->height = diskindex.height;
+                pindexNew->deprecatedHeight = diskindex.deprecatedHeight;
                 pindexNew->mintedBlocks = diskindex.mintedBlocks;
                 pindexNew->sig = diskindex.sig;
                 if (pindexNew->nHeight && !skipSigCheck) {

@@ -65,7 +65,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint3
     genesis.nTime           = nTime;
     genesis.nBits           = nBits;
     genesis.nVersion        = nVersion;
-    genesis.height          = 0;
+    genesis.deprecatedHeight = 0;
     genesis.stakeModifier   = uint256S("0");
     genesis.mintedBlocks    = 0;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
