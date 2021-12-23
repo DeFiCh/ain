@@ -157,7 +157,7 @@ DEFI_CORE_H = \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
   masternodes/factory.h \
-  masternodes/govvariables/token_attributes.h \
+  masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
   masternodes/govvariables/loan_liquidation_penalty.h \
