@@ -454,7 +454,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "\nSet special 'governance' variables:: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -494,7 +494,10 @@ UniValue setgov(const JSONRPCRequest& request) {
             auto gv = GovVariable::Create(name);
             if(!gv)
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
-            gv->Import(request.params[0][name]);
+            const auto res = gv->Import(request.params[0][name]);
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+            }
             varStream << name << *gv;
         }
     }
@@ -538,7 +541,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgovheight",
-               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
+               "\nChange governance variable at height: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
                {
                        {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
                         {
@@ -581,7 +584,10 @@ UniValue setgovheight(const JSONRPCRequest& request) {
         if (!gv) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
         }
-        gv->Import(request.params[0][name]);
+        const auto res = gv->Import(request.params[0][name]);
+        if (!res) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+        }
         varStream << name << *gv;
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");

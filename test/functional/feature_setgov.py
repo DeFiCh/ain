@@ -12,7 +12,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import \
-    connect_nodes, disconnect_nodes, assert_equal
+    connect_nodes, disconnect_nodes, assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 
 
@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -431,6 +431,25 @@ class GovsetTest (DefiTestFramework):
         result = self.nodes[0].listgovs()
         assert_equal(len(result[6]), 1)
         assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 30)
+
+        # Test ATTRIBUTE before FCH
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningHill", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','1']})
+
+        # Move to FCH fork
+        self.nodes[0].generate(1110 - self.nodes[0].getblockcount())
+
+        # Set ATTRIBUTE with invalid settings
+        assert_raises_rpc_error(-5, "Object of ['type','id','key','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":'error'})
+        assert_raises_rpc_error(-5, "Incorrect number of items. Object of ['type','id','key','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":['token','payback_dfi','1']})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: token,", self.nodes[0].setgov, {"ATTRIBUTES":['unrecognised','1','payback_dfi','1']})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: payback_dfi, payback_dfi_fee_pct", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','unrecognised','1']})
+        assert_raises_rpc_error(-5, "Identifier for token must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','not_a_number','payback_dfi','1']})
+        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','not_a_number']})
+        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','-1']})
+        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','2']})
+        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi_fee_pct','not_a_number']})
+        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi_fee_pct','-1']})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Invalid loan token specified", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','1']})
 
 if __name__ == '__main__':
     GovsetTest ().main ()

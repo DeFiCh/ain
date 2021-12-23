@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/gv.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/icx_takerfee_per_btc.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/loan_liquidation_penalty.h>
