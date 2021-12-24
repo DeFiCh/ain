@@ -1047,30 +1047,20 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
+                            {
                                 {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Address of the owner of tokenA."},
+                                    "Address of the owner of tokenA."},
                                 {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "One of the keys may be specified (id/symbol)"},
+                                    "One of the keys may be specified (id/symbol)"},
                                 {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                 "tokenFrom coins amount"},
+                                    "tokenFrom coins amount"},
                                 {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Address of the owner of tokenB."},
+                                    "Address of the owner of tokenB."},
                                 {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "One of the keys may be specified (id/symbol)"},
+                                    "One of the keys may be specified (id/symbol)"},
                                 {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum acceptable price"},
-                        },
-                       },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
-                        {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
+                                    "Maximum acceptable price"},
+                            },
                        },
                },
                RPCResult{
@@ -1148,7 +1138,7 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
+                            {
                                 {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
                                  "Address of the owner of tokenA."},
                                 {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -1161,17 +1151,7 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
                                  "One of the keys may be specified (id/symbol)"},
                                 {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                  "Maximum acceptable price"},
-                        },
-                       },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
-                        {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
+                            },
                        },
                },
                RPCResult{
@@ -1338,8 +1318,8 @@ static const CRPCCommand commands[] =
     {"poolpair",    "compositeswap",            &compositeswap,             {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",           &listpoolshares,            {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata"}},
-    {"poolpair",    "testcompositeswap",        &testcompositeswap,         {"metadata", "inputs"}},
-    {"poolpair",    "estimatecompositepaths",   &estimatecompositepaths,    {"metadata", "inputs"}},
+    {"poolpair",    "testcompositeswap",        &testcompositeswap,         {"metadata"}},
+    {"poolpair",    "estimatecompositepaths",   &estimatecompositepaths,    {"metadata"}},
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable& tableRPC) {
