@@ -280,6 +280,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_listanchors", 1, "maxBtcHeight" },
     { "spv_listanchors", 2, "minConfs" },
     { "spv_listanchors", 3, "maxConfs" },
+    { "spv_listanchors", 4, "startBtcHeight" },
+    { "spv_listanchors", 5, "limit" },
     { "spv_sendtoaddress", 1, "amount" },
     { "spv_sendtoaddress", 2, "feerate" },
     { "spv_listreceivedbyaddress", 0, "minconf" },
