@@ -19,8 +19,8 @@ class LoanTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
             ]
 
     def run_test(self):
@@ -105,6 +105,7 @@ class LoanTest (DefiTestFramework):
                             'mintable': True,
                             'interest': 1})
         self.nodes[0].generate(6)
+
         # take loan
         self.nodes[0].takeloan({
                     'vaultId': vaultId1,
@@ -237,10 +238,55 @@ class LoanTest (DefiTestFramework):
         assert_equal(vault1['state'], "active")
         assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '226.00000000@TSLA'])
 
+
         self.nodes[0].deposittovault(vaultId1, account, '600@DFI')
         self.nodes[0].generate(1)
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['collateralAmounts'], ['600.00000000@DFI'])
+
+        # Trigger liquidation updating price in oracle
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "2@TSLA"}]
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "3@TSLA"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
+        self.nodes[0].generate(36)
+
+        # take loan
+        self.nodes[0].takeloan({
+            'vaultId': vaultId1,
+            'amounts': "1000@TSLA"
+        })
+        self.nodes[0].generate(1)
+
+        # Reset price in oracle
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "200@TSLA"}]
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "300@TSLA"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
+        self.nodes[0].generate(36)
+
+        # Not enought tokens on account
+        try:
+            self.nodes[0].placeauctionbid(vaultId1, 0, "*", "1600@TSLA")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
+
+        newAddress = self.nodes[0].getnewaddress("")
+        self.nodes[0].sendtokenstoaddress({}, {newAddress: "1600@TSLA"}) # newAddress has now the highest amount of TSLA token
+        self.nodes[0].generate(1)
+
+        self.nodes[0].placeauctionbid(vaultId1, 0, "*", "1600@TSLA") # Autoselect address with highest amount of TSLA token
+        self.nodes[0].generate(40) # let auction end
+
+        auction = self.nodes[0].listauctionhistory(newAddress)[0]
+        assert_equal(auction['winner'], newAddress)
+        assert_equal(auction['blockHeight'], 600)
+        assert_equal(auction['vaultId'], vaultId1)
+        assert_equal(auction['batchIndex'], 0)
+        assert_equal(auction['auctionBid'], "1600.00000000@TSLA")
 
 if __name__ == '__main__':
     LoanTest().main()
