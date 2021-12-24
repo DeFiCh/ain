@@ -987,6 +987,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                        },
                    },
                    {
+                       "path", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "One of auto/direct (default = direct)"
+                   },
+                   {
                        "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                        "Returns estimated composite path when true (default = false)"
                    },
@@ -1012,12 +1016,19 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VBOOL}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VSTR, UniValue::VBOOL}, true);
+
+    std::string path = "direct";
+    if (request.params.size() > 1) {
+        path = request.params[1].get_str();
+    }
 
     bool verbose = false;
-    if (request.params.size() > 1) {
-        verbose = request.params[1].get_bool();
+    if (request.params.size() > 2) {
+        verbose = request.params[2].get_bool();
     }
+
+    UniValue pools{UniValue::VARR};
 
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
@@ -1032,17 +1043,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
         // If no direct swap found search for composite swap
-        if (!poolPair) {
+        if (!poolPair && path != "direct") {
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-
-            if (verbose) {
-                std::vector<std::vector<DCT_ID>> poolPaths = compositeSwap.CalculatePoolPaths(mnview_dummy);
-                return poolPathsToJSON(poolPaths);
-            }
-
             std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy);
             res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds);
-
             if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};
                 if (!compositeSwap.errors.empty()) {
@@ -1053,6 +1057,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                     errorMsg += ')';
                 }
                 throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
+            }
+
+            for (const auto& id : poolIds) {
+                pools.push_back(id.ToString());
             }
         } else {
             CPoolPair pp = poolPair->second;
@@ -1067,8 +1075,18 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
             if (!res)
                 throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
+
+            pools.push_back(poolPair->first.ToString());
         }
     }
+    if (verbose) {
+        UniValue swapObj{UniValue::VOBJ};
+        swapObj.pushKV("path", path);
+        swapObj.pushKV("pools", pools);
+        swapObj.pushKV("amount", res.msg);
+        return swapObj;
+    }
+
     return UniValue(res.msg);
 }
 
@@ -1181,7 +1199,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "poolswap",                 &poolswap,                  {"metadata", "inputs"}},
     {"poolpair",    "compositeswap",            &compositeswap,             {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",           &listpoolshares,            {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata", "verbose"}},
+    {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata", "path", "verbose"}},
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable& tableRPC) {
