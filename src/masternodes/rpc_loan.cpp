@@ -401,14 +401,14 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateloantoken",
-                "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
+                "Creates (and submits to local node and network) a transaction to update loan token metadata.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
-                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
-                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "New token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Newoken's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
                             {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "token/currency pair to use for price of token"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (optional)."},
@@ -430,7 +430,8 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("updateloantoken", R"('"token":"TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')")
+                        HelpExampleCli("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')") +
+                        HelpExampleRpc("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03})")
                         },
      }.Check(request);
 
@@ -439,10 +440,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 0 must be non-null and expected as string with token symbol, id or creation txid");
+    RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true);
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
@@ -1124,7 +1122,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
-                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens"},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens. If \"from\" value is: \"*\" (star), it's means auto-selection accounts from wallet."},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },
@@ -1169,15 +1167,40 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
 
-    if (!metaObj["from"].isNull())
-        loanPayback.from = DecodeScript(metaObj["from"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
-
     if (!metaObj["amounts"].isNull())
         loanPayback.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+
+    if (metaObj["from"].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+    }
+
+    auto fromStr = metaObj["from"].getValStr();
+    if (fromStr == "*") {
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), loanPayback.amounts, SelectionPie);
+
+        for (auto& account : selectedAccounts) {
+            auto it = loanPayback.amounts.balances.begin();
+            while (it != loanPayback.amounts.balances.end()) {
+                if (account.second.balances[it->first] < it->second) {
+                    break;
+                }
+                it++;
+            }
+            if (it == loanPayback.amounts.balances.end()) {
+                loanPayback.from = account.first;
+                break;
+            }
+        }
+
+        if (loanPayback.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                    "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
+        }
+    } else {
+        loanPayback.from = DecodeScript(fromStr);
+    }
 
     if (!::IsMine(*pwallet, loanPayback.from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -1247,10 +1270,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto height = ::ChainActive().Height() + 1;
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
-    pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
+
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals)
+            collaterals = CBalances{};
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
@@ -1259,6 +1286,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         totalVaults++;
         return true;
     });
+
+    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        totalAuctions++;
+        return true;
+    }, height);
 
     UniValue totalsObj{UniValue::VOBJ};
     auto totalLoanSchemes = static_cast<int>(listloanschemes(request).size());
@@ -1271,7 +1303,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     totalsObj.pushKV("loanTokens", totalLoanTokens);
     totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
-    auto totalAuctions = static_cast<int>(listauctions(request).size());
     totalsObj.pushKV("openAuctions", totalAuctions);
 
     UniValue defaultsObj{UniValue::VOBJ};
@@ -1376,7 +1407,7 @@ static const CRPCCommand commands[] =
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {"by"}},
     {"loan",        "setloantoken",              &setloantoken,          {"metadata", "inputs"}},
-    {"loan",        "updateloantoken",           &updateloantoken,       {"metadata", "inputs"}},
+    {"loan",        "updateloantoken",           &updateloantoken,       {"token", "metadata", "inputs"}},
     {"loan",        "listloantokens",            &listloantokens,        {}},
     {"loan",        "getloantoken",              &getloantoken,          {"by"}},
     {"loan",        "createloanscheme",          &createloanscheme,      {"mincolratio", "interestrate", "id", "inputs"}},

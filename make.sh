@@ -86,6 +86,7 @@ build_prepare() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
+    # ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
     ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
 }
 
@@ -312,9 +313,20 @@ git_version() {
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-    if [[ -z $current_tag ]]; then
+    if [[ -z $current_tag || "${current_branch}" == "hotfix" ]]; then
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
+        if [[ "${current_branch}" == "hotfix" ]]; then
+            # If the current branch is hotfix branch, 
+            # prefix it with the last available tag. 
+            git fetch --tags
+            local last_tag
+            last_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
+            echo "> last tag: ${last_tag}"
+            if [[ -n "${last_tag}" ]]; then
+                IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
+            fi
+        fi
     else
         IMAGE_VERSION="${current_tag}"
         # strip the 'v' infront of version tags
@@ -323,8 +335,13 @@ git_version() {
         fi
     fi
 
+    echo "> git branch: ${current_branch}"
     echo "> version: ${IMAGE_VERSION}"
-    echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
+
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        # GitHub Actions
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV
+    fi
 }
 
 pkg_install_deps() {

@@ -24,6 +24,7 @@ git_check_in_repo() {
 
 DESC=""
 SUFFIX=""
+CURRENT_BRANCH=""
 if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo share/genbuild.sh; then
     # clean 'dirty' status of touched files that haven't been modified
     git diff >/dev/null 2>/dev/null
@@ -34,10 +35,26 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
-    # otherwise generate suffix from git, i.e. string like "59887e8-dirty"
     SUFFIX=$(git rev-parse --short HEAD)
-    git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
+    CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    # Move to this after git upgrade from base images 
+    # CURRENT_BRANCH="$(git branch --show-current)"
+    
+    if [ -n "$CURRENT_BRANCH" ]; then
+        # Make sure to replace `/` with `-`. Since this is
+        # executed with posix shell, cannot do bashisms.
+        SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
+    fi
+
+    if [ "$CURRENT_BRANCH" != "hotfix" ]; then
+        # if it's hotfix branch, don't mark dirty.
+        # otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
+        git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
+    fi
 fi
+
+echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
+echo "BUILD_SUFFIX: $SUFFIX"
 
 if [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
