@@ -491,9 +491,16 @@ UniValue setgov(const JSONRPCRequest& request) {
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() > 0 && request.params[0].isObject()) {
         for (const std::string& name : request.params[0].getKeys()) {
-            auto gv = GovVariable::Create(name);
-            if(!gv)
+            std::shared_ptr<GovVariable> gv;
+            // Special case to not override but to append for ATTRIBUTES
+            if (name == "ATTRIBUTES") {
+                gv = pcustomcsview->GetVariable(name);
+            } else {
+                gv = GovVariable::Create(name);
+            }
+            if (!gv) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+            }
             const auto res = gv->Import(request.params[0][name]);
             if (!res) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
@@ -580,7 +587,13 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     const auto keys = request.params[0].getKeys();
     if (!keys.empty()) {
         const std::string& name = request.params[0].getKeys()[0];
-        auto gv = GovVariable::Create(name);
+        std::shared_ptr<GovVariable> gv;
+        // Special case to not override but to append for ATTRIBUTES
+        if (name == "ATTRIBUTES") {
+            gv = pcustomcsview->GetVariable(name);
+        } else {
+            gv = GovVariable::Create(name);
+        }
         if (!gv) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
         }
@@ -634,7 +647,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
-               "ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
                "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -675,7 +688,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
     }.Check(request);
 
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
-                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
+                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
 
     LOCK(cs_main);
 

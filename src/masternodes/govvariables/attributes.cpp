@@ -7,14 +7,44 @@
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
 
+template<typename T>
+static std::string KeyBuilder(const T& value){
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
+template<typename T, typename ... Args >
+static std::string KeyBuilder(const T& value, const Args& ... args){
+    return KeyBuilder(value) + '/' + KeyBuilder(args...);
+}
+
+static std::vector<std::string> KeyBreaker(const std::string& str){
+    std::vector<std::string> strVec;
+    size_t last = 0, next = 0;
+    while ((next = str.find("/", last)) != std::string::npos) {
+        strVec.push_back(str.substr(last, next - last));
+        last = next + 1;
+    }
+    strVec.push_back(str.substr(last, str.size()));
+
+    return strVec;
+}
+
+struct AttributesKey {
+    uint8_t type;
+    std::string identifier;
+    uint8_t key;
+};
+
 Res ATTRIBUTES::Import(const UniValue & val) {
     if (!val.isArray()) {
-        return Res::Err("Object of ['type','id','key','value'] expected");
+        return Res::Err("Array of values expected");
     }
 
     const auto& array = val.get_array();
-    if (array.size() != 4) {
-        return Res::Err("Incorrect number of items. Object of ['type','id','key','value'] expected");
+    if (array.empty()) {
+        return Res::Err("Empty array, no vaules provided");
     }
 
     AttributesKey mapKey;
@@ -31,6 +61,10 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     switch(mapKey.type) {
         // switch for the many more types coming later!
         case AttributeTypes::Token:
+            if (array.size() != 4) {
+                return Res::Err("Incorrect number of items for token type. Array of ['token','loan token ID','key','value'] expected");
+            }
+
             int32_t tokenId;
             if (!ParseInt32(array[1].getValStr(), &tokenId) || tokenId < 1) {
                 return Res::Err("Identifier for token must be a positive integer");
@@ -54,14 +88,14 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                     if (!ParseInt32(array[3].get_str(), &paybackDFI) || paybackDFI < 0 || paybackDFI > 1) {
                         return Res::Err("Payback DFI value must be either 0 or 1");
                     }
-                    attributes[mapKey] = array[3].getValStr();
+                    attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = array[3].getValStr();
                     break;
                 case TokenKeys::PaybackDFIFeePCT:
                     int32_t paybackDFIFeePCT;
                     if (!ParseInt32(array[3].getValStr(), &paybackDFIFeePCT) || paybackDFIFeePCT < 0) {
                         return Res::Err("Payback DFI fee percentage value must be a positive integer");
                     }
-                    attributes[mapKey] = array[3].getValStr();
+                    attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = array[3].getValStr();
                     break;
             }
             break;
@@ -71,20 +105,22 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 }
 
 UniValue ATTRIBUTES::Export() const {
-    UniValue res(UniValue::VARR);
+    UniValue res(UniValue::VOBJ);
     for (const auto& item : attributes) {
-        // switch for the many more types coming later!
-        switch(item.first.type) {
-            case AttributeTypes::Token:
+        const auto strVec= KeyBreaker(item.first);
+        // Should never be empty
+        if (!strVec.empty()) {
+            // Token should always have three items
+            if (strVec[0].size() == 1 && strVec[0].at(0) == AttributeTypes::Token && strVec.size() == 3 && strVec[2].size() == 1) {
                 try {
-                    res.pushKV(displayTypes.at(item.first.type) + "/" + item.first.identifier + "/" + displayTokenKeys.at(item.first.key), item.second);
+                    res.pushKV(displayTypes.at(AttributeTypes::Token) + "/" + strVec[1] + "/" + displayTokenKeys.at(strVec[2].at(0)), item.second);
                 } catch (const std::out_of_range&) {
                     // Should not get here, if we do perhaps update displayTypes and displayTokenKeys for newly added types and keys.
                 }
-                break;
+            }
         }
     }
-    return {};
+    return res;
 }
 
 Res ATTRIBUTES::Validate(const CCustomCSView & view) const
@@ -94,37 +130,42 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     }
 
     for (const auto& item : attributes) {
+        const auto strVec= KeyBreaker(item.first);
+
+        if (strVec.empty()) {
+            return Res::Err("Empty map key found");
+        }
+
         // switch for the many more types coming later!
-        switch(item.first.type) {
-            case AttributeTypes::Token:
-                int32_t tokenId;
-                if (!ParseInt32(item.first.identifier, &tokenId) || tokenId < 1) {
-                    return Res::Err("Identifier for token must be a positive integer");
-                }
-                if (!view.GetLoanTokenByID({static_cast<uint32_t>(tokenId)})) {
-                    return Res::Err("Invalid loan token specified");
-                }
+        if (strVec[0].size() == 1 && strVec[0].at(0) == AttributeTypes::Token) {
+            if (strVec.size() != 3) {
+                return Res::Err("Three items expected in token key");
+            }
 
-                switch(item.first.key) {
-                    case TokenKeys::PaybackDFI:
-                        int32_t paybackDFI;
-                        if (!ParseInt32(item.second, &paybackDFI) || paybackDFI < 0 || paybackDFI > 1) {
-                            return Res::Err("Payback DFI value must be either 0 or 1");
-                        }
-                        break;
-                    case TokenKeys::PaybackDFIFeePCT:
-                        int32_t paybackDFIFeePCT;
-                        if (!ParseInt32(item.second, &paybackDFIFeePCT) || paybackDFIFeePCT < 0) {
-                            return Res::Err("Payback DFI fee percentage value must be a positive integer");
-                        }
-                        break;
-                    default:
-                        return Res::Err("Unrecognised key");
-                }
+            int32_t tokenId;
+            if (!ParseInt32(strVec[1], &tokenId) || tokenId < 1) {
+                return Res::Err("Identifier for token must be a positive integer");
+            }
 
-                break;
-            default:
-                return Res::Err("Unrecognised type");
+            if (!view.GetLoanTokenByID({static_cast<uint32_t>(tokenId)})) {
+                return Res::Err("Invalid loan token specified");
+            }
+
+            if (strVec[2].size() == 1 && strVec[2].at(0) == TokenKeys::PaybackDFI) {
+                int32_t paybackDFI;
+                if (!ParseInt32(item.second, &paybackDFI) || paybackDFI < 0 || paybackDFI > 1) {
+                    return Res::Err("Payback DFI value must be either 0 or 1");
+                }
+            } else if (strVec[2].size() == 1 && strVec[2].at(0) == TokenKeys::PaybackDFIFeePCT) {
+                int32_t paybackDFIFeePCT;
+                if (!ParseInt32(item.second, &paybackDFIFeePCT) || paybackDFIFeePCT < 0) {
+                    return Res::Err("Payback DFI fee percentage value must be a positive integer");
+                }
+            } else {
+                return Res::Err("Unrecognised key");
+            }
+        } else {
+            return Res::Err("Unrecognised type");
         }
     }
 

@@ -8,31 +8,12 @@
 #include <masternodes/gv.h>
 
 enum AttributeTypes : uint8_t {
-    Token = 0x00,
+    Token = 't',
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI = 0x00,
-    PaybackDFIFeePCT = 0x01,
-};
-
-struct AttributesKey {
-    uint8_t type;
-    std::string identifier;
-    uint8_t key;
-
-    bool operator<(const AttributesKey& comp) const {
-        return std::tie(type, identifier, key) < std::tie(comp.type, comp.identifier, comp.key);
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(type);
-        READWRITE(identifier);
-        READWRITE(key);
-    }
+    PaybackDFI = 'a',
+    PaybackDFIFeePCT = 'b',
 };
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
@@ -60,7 +41,7 @@ public:
         READWRITE(attributes);
     }
 
-    std::map<AttributesKey, std::string> attributes;
+    std::map<std::string, std::string> attributes;
 
 private:
     // Defined allowed arguments
