@@ -248,7 +248,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "amountFrom": ltc_to_doge_from,
             "to": destination,
             "tokenTo": symbolDOGE,
-        }, [])
+        })
 
         assert_equal(len(estimateCompositePathsRes), 2)
 
@@ -266,7 +266,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "amountFrom": ltc_to_doge_from,
             "to": destination,
             "tokenTo": symbolDOGE,
-        }, [])
+        })
 
         testCPoolSwapRes = str(testCPoolSwapRes).split("@", 2)
 
