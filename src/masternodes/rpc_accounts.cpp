@@ -83,7 +83,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
-    obj.pushKV("blockHeight", index->height);
+    obj.pushKV("blockHeight", index->nHeight);
     obj.pushKV("blockHash", index->GetBlockHash().GetHex());
     obj.pushKV("blockTime", index->GetBlockTime());
     if (pwtx->IsCoinBase()) {
@@ -155,7 +155,7 @@ static void searchInWallet(CWallet const * pwallet,
         auto* pwtx = &(*it);
 
         auto index = LookupBlockIndex(pwtx->hashBlock);
-        if (!index || index->height == 0) { // skip genesis block
+        if (!index || index->nHeight == 0) { // skip genesis block
             continue;
         }
 
@@ -1180,10 +1180,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         count = limit;
         searchInWallet(pwallet, account, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || startBlock > index->height || index->height > maxBlockHeight;
+                return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
             }
@@ -1509,7 +1509,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     if (shouldSearchInWallet) {
         searchInWallet(pwallet, owner, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || index->height > currentHeight;
+                return txs.count(pwtx->GetHash()) || index->nHeight > currentHeight;
             },
             [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
                 ++count;

@@ -1270,10 +1270,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto height = ::ChainActive().Height() + 1;
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
-    pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
+
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals)
+            collaterals = CBalances{};
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
@@ -1282,6 +1286,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         totalVaults++;
         return true;
     });
+
+    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        totalAuctions++;
+        return true;
+    }, height);
 
     UniValue totalsObj{UniValue::VOBJ};
     auto totalLoanSchemes = static_cast<int>(listloanschemes(request).size());
@@ -1294,7 +1303,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     totalsObj.pushKV("loanTokens", totalLoanTokens);
     totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
-    auto totalAuctions = static_cast<int>(listauctions(request).size());
     totalsObj.pushKV("openAuctions", totalAuctions);
 
     UniValue defaultsObj{UniValue::VOBJ};
