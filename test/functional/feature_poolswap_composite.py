@@ -250,6 +250,16 @@ class PoolPairCompositeTest(DefiTestFramework):
             "tokenTo": symbolDOGE,
         }, [])
 
+        assert_equal(len(estimateCompositePathsRes), 2)
+
+        poolLTC_DFI = list(self.nodes[0].getpoolpair("LTC-DFI").keys())[0]
+        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
+        assert_equal(estimateCompositePathsRes[0], [poolLTC_DFI, poolDOGE_DFI])
+
+        poolLTC_USDC = list(self.nodes[0].getpoolpair("LTC-USDC").keys())[0]
+        poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
+        assert_equal(estimateCompositePathsRes[1], [poolLTC_USDC, poolDOGE_USDC])
+
         testCPoolSwapRes = self.nodes[0].testcompositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
