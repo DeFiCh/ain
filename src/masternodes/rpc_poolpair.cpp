@@ -986,6 +986,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                                        "Maximum acceptable price"},
                        },
                    },
+                   {
+                       "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                       "Returns estimated composite path when true (default = false)"
+                   },
                },
                RPCResult{
                           "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"
@@ -1008,7 +1012,12 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VBOOL}, true);
+
+    bool verbose = false;
+    if (request.params.size() > 1) {
+        verbose = request.params[1].get_bool();
+    }
 
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
@@ -1022,85 +1031,17 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         int targetHeight = ::ChainActive().Height() + 1;
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
-        CPoolPair pp = poolPair->second;
-        res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
-            if (!resPP) {
-                return resPP;
+        // If no direct swap found search for composite swap
+        if (!poolPair) {
+            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
+
+            if (verbose) {
+                std::vector<std::vector<DCT_ID>> poolPaths = compositeSwap.CalculatePoolPaths(mnview_dummy);
+                return poolPathsToJSON(poolPaths);
             }
 
-            return Res::Ok(tokenAmount.ToString());
-        }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
-
-        if (!res)
-            throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
-    }
-    return UniValue(res.msg);
-}
-
-
-UniValue testcompositeswap(const JSONRPCRequest& request) {
-
-    RPCHelpMan{"testcompositeswap",
-               "\nTests a compositeswap transaction with given metadata and returns compositeswap result.\n",
-               {
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                            {
-                                {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                    "Address of the owner of tokenA."},
-                                {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                    "One of the keys may be specified (id/symbol)"},
-                                {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                    "tokenFrom coins amount"},
-                                {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                    "Address of the owner of tokenB."},
-                                {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                    "One of the keys may be specified (id/symbol)"},
-                                {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                    "Maximum acceptable price"},
-                            },
-                       },
-               },
-               RPCResult{
-                        "\"amount@tokenId\"    (string) The string with amount result of compisitepoolswap in format AMOUNT@TOKENID.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("testcompositeswap",   "'{\"from\":\"MyAddress\","
-                                                         "\"tokenFrom\":\"MyToken1\","
-                                                         "\"amountFrom\":\"0.001\","
-                                                         "\"to\":\"Address\","
-                                                         "\"tokenTo\":\"Token2\","
-                                                         "\"maxPrice\":\"0.01\""
-                                                         "}' '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("testcompositeswap", "'{\"from\":\"MyAddress\","
-                                                         "\"tokenFrom\":\"MyToken1\","
-                                                         "\"amountFrom\":\"0.001\","
-                                                         "\"to\":\"Address\","
-                                                         "\"tokenTo\":\"Token2\","
-                                                         "\"maxPrice\":\"0.01\""
-                                                         "}' '[{\"txid\":\"id\",\"vout\":0}]'")
-               },
-    }.Check(request);
-
-    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-
-    CPoolSwapMessage poolSwapMsg{};
-    CheckAndFillPoolSwapMessage(request, poolSwapMsg);
-
-    // test execution and returns execution result
-    Res res = Res::Ok();
-    {
-        LOCK(cs_main);
-        CCustomCSView dummy(*pcustomcsview); // create dummy cache for test state writing
-
-        int targetHeight = ::ChainActive().Height() + 1;
-
-        // If no direct swap found search for composite swap
-        if (!dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
-
-            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-            std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(dummy);
-            res = compositeSwap.ExecuteSwap(dummy, poolIds);
+            std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy);
+            res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds);
 
             if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};
@@ -1113,79 +1054,22 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
                 }
                 throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
             }
-        }
+        } else {
+            CPoolPair pp = poolPair->second;
+            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
+                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
+                if (!resPP) {
+                    return resPP;
+                }
 
-    }
+                return Res::Ok(tokenAmount.ToString());
+            }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
 
-    return res.msg;
-}
-
-UniValue estimatecompositepaths(const JSONRPCRequest& request) {
-
-    RPCHelpMan{"estimatecompositepaths",
-               "\nReturns composite swap paths.\n",
-               {
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                            {
-                                {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Address of the owner of tokenA."},
-                                {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "One of the keys may be specified (id/symbol)"},
-                                {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                 "tokenFrom coins amount"},
-                                {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Address of the owner of tokenB."},
-                                {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "One of the keys may be specified (id/symbol)"},
-                                {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum acceptable price"},
-                            },
-                       },
-               },
-               RPCResult{
-                       "\"[[tokenId,..]..]\"                  (array) returns an array of pool paths which is an array of tokenId \n"
-               },
-               RPCExamples{
-                       HelpExampleCli("estimatecompositepaths",   "'{\"from\":\"MyAddress\","
-                                                             "\"tokenFrom\":\"MyToken1\","
-                                                             "\"amountFrom\":\"0.001\","
-                                                             "\"to\":\"Address\","
-                                                             "\"tokenTo\":\"Token2\","
-                                                             "\"maxPrice\":\"0.01\""
-                                                             "}' '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("estimatecompositepaths", "'{\"from\":\"MyAddress\","
-                                                             "\"tokenFrom\":\"MyToken1\","
-                                                             "\"amountFrom\":\"0.001\","
-                                                             "\"to\":\"Address\","
-                                                             "\"tokenTo\":\"Token2\","
-                                                             "\"maxPrice\":\"0.01\""
-                                                             "}' '[{\"txid\":\"id\",\"vout\":0}]'")
-               },
-    }.Check(request);
-
-    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
-
-    CPoolSwapMessage poolSwapMsg{};
-    CheckAndFillPoolSwapMessage(request, poolSwapMsg);
-
-    // test execution and returns execution result
-    UniValue res(UniValue::VARR);
-    {
-        LOCK(cs_main);
-        CCustomCSView dummy(*pcustomcsview); // create dummy cache for test state writing
-
-        int targetHeight = ::ChainActive().Height() + 1;
-
-        // If no direct swap found search for composite swap
-        if (!dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
-
-            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-            std::vector<std::vector<DCT_ID>> poolPaths = compositeSwap.CalculatePoolPaths(dummy);
-            res = poolPathsToJSON(poolPaths);
+            if (!res)
+                throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
         }
     }
-
-    return res;
+    return UniValue(res.msg);
 }
 
 UniValue listpoolshares(const JSONRPCRequest& request) {
@@ -1297,9 +1181,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "poolswap",                 &poolswap,                  {"metadata", "inputs"}},
     {"poolpair",    "compositeswap",            &compositeswap,             {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",           &listpoolshares,            {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata"}},
-    {"poolpair",    "testcompositeswap",        &testcompositeswap,         {"metadata"}},
-    {"poolpair",    "estimatecompositepaths",   &estimatecompositepaths,    {"metadata"}},
+    {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata", "verbose"}},
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable& tableRPC) {

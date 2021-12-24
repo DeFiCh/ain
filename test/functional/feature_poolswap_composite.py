@@ -242,13 +242,13 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
-        estimateCompositePathsRes = self.nodes[0].estimatecompositepaths({
+        estimateCompositePathsRes = self.nodes[0].testpoolswap({
             "from": source,
             "tokenFrom": symbolLTC,
             "amountFrom": ltc_to_doge_from,
             "to": destination,
             "tokenTo": symbolDOGE,
-        })
+        }, True)
 
         assert_equal(len(estimateCompositePathsRes), 2)
 
@@ -260,7 +260,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
         assert_equal(estimateCompositePathsRes[1], [poolLTC_USDC, poolDOGE_USDC])
 
-        testCPoolSwapRes = self.nodes[0].testcompositeswap({
+        testCPoolSwapRes = self.nodes[0].testpoolswap({
             "from": source,
             "tokenFrom": symbolLTC,
             "amountFrom": ltc_to_doge_from,
