@@ -1040,11 +1040,9 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
 
 UniValue testcompositeswap(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"testcompositeswap",
-               "\nTests a compositeswap transaction with given metadata and returns compositeswap result.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nTests a compositeswap transaction with given metadata and returns compositeswap result.\n",
                {
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                             {
@@ -1084,20 +1082,9 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
-    }
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
-    }
-
     RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
 
-    CPoolSwapMessageV2 poolSwapMsgV2{};
-    CPoolSwapMessage& poolSwapMsg = poolSwapMsgV2.swapInfo;
+    CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
     // test execution and returns execution result
@@ -1105,6 +1092,9 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView dummy(*pcustomcsview); // create dummy cache for test state writing
+
+        int targetHeight = ::ChainActive().Height() + 1;
+
         // If no direct swap found search for composite swap
         if (!dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
 
@@ -1131,11 +1121,9 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
 }
 
 UniValue estimatecompositepaths(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"estimatecompositepaths",
-               "\nReturns composite swap paths.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns composite swap paths.\n",
                {
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                             {
@@ -1175,20 +1163,9 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
-    }
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
-    }
-
     RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
 
-    CPoolSwapMessageV2 poolSwapMsgV2{};
-    CPoolSwapMessage& poolSwapMsg = poolSwapMsgV2.swapInfo;
+    CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
     // test execution and returns execution result
@@ -1196,6 +1173,9 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView dummy(*pcustomcsview); // create dummy cache for test state writing
+
+        int targetHeight = ::ChainActive().Height() + 1;
+
         // If no direct swap found search for composite swap
         if (!dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
 
