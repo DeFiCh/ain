@@ -1122,7 +1122,7 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
             std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(dummy);
             res = compositeSwap.ExecuteSwap(dummy, poolIds);
 
-            if (!res.ok) {
+            if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};
                 if (!compositeSwap.errors.empty()) {
                     errorMsg += " Details: (";
@@ -1144,7 +1144,7 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"estimatecompositepaths",
-               "\Returns composite swap paths.\n" +
+               "\nReturns composite swap paths.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
@@ -1325,7 +1325,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                        actor (function)            params
 //  -------------   -----------------------     ---------------------       ----------
     {"poolpair",    "listpoolpairs",            &listpoolpairs,             {"pagination", "verbose"}},
