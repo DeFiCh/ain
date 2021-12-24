@@ -207,6 +207,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # test getmasternodeblocks
         self.nodes[0].generate(1)
         node0_keys = self.nodes[0].get_genesis_keys()
+        blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress}, 2)
+        assert_equal(len(blocks), 2)
+
         blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress})
         assert_equal(list(blocks.keys())[0], '162')
 
