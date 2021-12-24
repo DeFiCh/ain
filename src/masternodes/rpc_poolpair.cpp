@@ -1094,7 +1094,7 @@ UniValue testcompositeswap(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
 
     CPoolSwapMessageV2 poolSwapMsgV2{};
     CPoolSwapMessage& poolSwapMsg = poolSwapMsgV2.swapInfo;
@@ -1185,7 +1185,7 @@ UniValue estimatecompositepaths(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
 
     CPoolSwapMessageV2 poolSwapMsgV2{};
     CPoolSwapMessage& poolSwapMsg = poolSwapMsgV2.swapInfo;
