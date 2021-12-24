@@ -250,8 +250,6 @@ class PoolPairCompositeTest(DefiTestFramework):
             "tokenTo": symbolDOGE,
         }, [])
 
-        print("estimateCompositePathsRes:", estimateCompositePathsRes)
-
         testCPoolSwapRes = self.nodes[0].testcompositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
@@ -260,7 +258,6 @@ class PoolPairCompositeTest(DefiTestFramework):
             "tokenTo": symbolDOGE,
         }, [])
 
-        print("testCPoolSwapRes:", testCPoolSwapRes)
         testCPoolSwapRes = str(testCPoolSwapRes).split("@", 2)
 
         psTestAmount = testCPoolSwapRes[0]
