@@ -988,7 +988,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                    },
                    {
                        "path", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "One of auto/direct (default = direct)"
+                       "One of auto/direct (default = direct)\n"
+                       "auto - automatically use composite swap or direct swap as needed.\n"
+                       "direct - uses direct path only or fails.\n"
+                       "Note: The default will be switched to auto in the upcoming versions."
                    },
                    {
                        "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
@@ -1021,6 +1024,8 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     std::string path = "direct";
     if (request.params.size() > 1) {
         path = request.params[1].get_str();
+        if (!(path == "direct" || path == "auto"))
+            throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Invalid path"});
     }
 
     bool verbose = false;
@@ -1040,10 +1045,28 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
 
         int targetHeight = ::ChainActive().Height() + 1;
-        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
         // If no direct swap found search for composite swap
-        if (!poolPair && path != "direct") {
+        if (path == "direct") {
+            auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+            if (!poolPair) 
+                throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
+
+            CPoolPair pp = poolPair->second;
+            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
+                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
+                if (!resPP) {
+                    return resPP;
+                }
+
+                return Res::Ok(tokenAmount.ToString());
+            }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
+
+            if (!res)
+                throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
+
+            pools.push_back(poolPair->first.ToString());
+        } else {
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
             std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy);
             res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds);
@@ -1062,21 +1085,6 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             for (const auto& id : poolIds) {
                 pools.push_back(id.ToString());
             }
-        } else {
-            CPoolPair pp = poolPair->second;
-            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
-                if (!resPP) {
-                    return resPP;
-                }
-
-                return Res::Ok(tokenAmount.ToString());
-            }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
-
-            if (!res)
-                throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
-
-            pools.push_back(poolPair->first.ToString());
         }
     }
     if (verbose) {
@@ -1087,7 +1095,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         return swapObj;
     }
 
-    return UniValue(res.msg);
+    return res.msg;
 }
 
 UniValue listpoolshares(const JSONRPCRequest& request) {
