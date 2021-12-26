@@ -183,11 +183,23 @@ class PoolPairTest (DefiTestFramework):
         print("goldCheckPS:", goldCheckPS)
         print("testPoolSwapRes:", testPoolSwapRes)
 
-        testPoolSwapRes = str(testPoolSwapRes).split("@", 2)
+        testPoolSwapSplit = str(testPoolSwapRes).split("@", 2)
 
-        psTestAmount = testPoolSwapRes[0]
-        psTestTokenId = testPoolSwapRes[1]
+        psTestAmount = testPoolSwapSplit[0]
+        psTestTokenId = testPoolSwapSplit[1]
         assert_equal(psTestTokenId, idGold)
+
+        testPoolSwapVerbose =  self.nodes[0].testpoolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 10,
+            "to": accountSN1,
+            "tokenTo": symbolGOLD,
+        }, "direct", True)
+
+        assert_equal(testPoolSwapVerbose["path"], "direct")
+        assert_equal(testPoolSwapVerbose["pools"][0], idGS)
+        assert_equal(testPoolSwapVerbose["amount"], testPoolSwapRes)
 
         self.nodes[0].poolswap({
             "from": accountGN0,

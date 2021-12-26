@@ -3367,6 +3367,39 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 
 std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
 
+    std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
+
+    // Record best pair
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+
+    // Loop through all common pairs
+    for (const auto& path : poolPaths) {
+
+        // Test on copy of view
+        CCustomCSView dummy(view);
+
+        // Execute pool path
+        auto res = ExecuteSwap(dummy, path);
+
+        // Add error for RPC user feedback
+        if (!res) {
+            const auto token = dummy.GetToken(currentID);
+            if (token) {
+                errors.emplace_back(token->symbol, res.msg);
+            }
+        }
+
+        // Record amount if more than previous or default value
+        if (res && result > bestPair.second) {
+            bestPair = {path, result};
+        }
+    }
+
+    return bestPair.first;
+}
+
+std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& view) {
+
     // For tokens to be traded get all pairs and pool IDs
     std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
     view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
@@ -3393,8 +3426,8 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
     set_intersection(fromPoolsID.begin(), fromPoolsID.end(), toPoolsID.begin(), toPoolsID.end(),
                      std::inserter(commonPairs, commonPairs.begin()),
                      [](std::pair<uint32_t, DCT_ID> a, std::pair<uint32_t, DCT_ID> b) {
-        return a.first < b.first;
-    });
+                         return a.first < b.first;
+                     });
 
     // Loop through all common pairs and record direct pool to pool swaps
     std::vector<std::vector<DCT_ID>> poolPaths;
@@ -3425,7 +3458,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
 
                 // If a pool pairs matches from pair and to pair add it to the pool paths
                 if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
-                (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
+                    (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
                     poolPaths.push_back({fromIt->second, id, toIt->second});
                 }
             }
@@ -3433,33 +3466,8 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
         return true;
     }, {0});
 
-    // Record best pair
-    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
-
-    // Loop through all common pairs
-    for (const auto& path : poolPaths) {
-
-        // Test on copy of view
-        CCustomCSView dummy(view);
-
-        // Execute pool path
-        auto res = ExecuteSwap(dummy, path);
-
-        // Add error for RPC user feedback
-        if (!res) {
-            const auto token = dummy.GetToken(currentID);
-            if (token) {
-                errors.emplace_back(token->symbol, res.msg);
-            }
-        }
-
-        // Record amount if more than previous or default value
-        if (res && result > bestPair.second) {
-            bestPair = {path, result};
-        }
-    }
-
-    return bestPair.first;
+    // return pool paths
+    return poolPaths;
 }
 
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
@@ -3548,7 +3556,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             }
             intermediateView.Flush();
 
-            return res;
+           return Res::Ok(swapAmountResult.ToString());
         }, static_cast<int>(height));
 
         if (!poolResult) {
