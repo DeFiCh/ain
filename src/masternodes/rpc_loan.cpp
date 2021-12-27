@@ -1122,7 +1122,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
-                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens"},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens. If \"from\" value is: \"*\" (star), it's means auto-selection accounts from wallet."},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },
@@ -1167,15 +1167,40 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
 
-    if (!metaObj["from"].isNull())
-        loanPayback.from = DecodeScript(metaObj["from"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
-
     if (!metaObj["amounts"].isNull())
         loanPayback.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+
+    if (metaObj["from"].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+    }
+
+    auto fromStr = metaObj["from"].getValStr();
+    if (fromStr == "*") {
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), loanPayback.amounts, SelectionPie);
+
+        for (auto& account : selectedAccounts) {
+            auto it = loanPayback.amounts.balances.begin();
+            while (it != loanPayback.amounts.balances.end()) {
+                if (account.second.balances[it->first] < it->second) {
+                    break;
+                }
+                it++;
+            }
+            if (it == loanPayback.amounts.balances.end()) {
+                loanPayback.from = account.first;
+                break;
+            }
+        }
+
+        if (loanPayback.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                    "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
+        }
+    } else {
+        loanPayback.from = DecodeScript(fromStr);
+    }
 
     if (!::IsMine(*pwallet, loanPayback.from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -1246,10 +1271,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
-    pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
+
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals)
+            collaterals = CBalances{};
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
@@ -1258,6 +1287,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         totalVaults++;
         return true;
     });
+
+    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        totalAuctions++;
+        return true;
+    }, height);
 
     UniValue totalsObj{UniValue::VOBJ};
     auto totalLoanSchemes = static_cast<int>(listloanschemes(request).size());
@@ -1270,7 +1304,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     totalsObj.pushKV("loanTokens", totalLoanTokens);
     totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
-    auto totalAuctions = static_cast<int>(listauctions(request).size());
     totalsObj.pushKV("openAuctions", totalAuctions);
 
     UniValue defaultsObj{UniValue::VOBJ};
