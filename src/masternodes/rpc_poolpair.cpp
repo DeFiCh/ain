@@ -1081,10 +1081,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 }
                 throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
             }
-
             for (const auto& id : poolIds) {
                 pools.push_back(id.ToString());
             }
+            res.msg = compositeSwap.GetResult().ToString();
         }
     }
     if (verbose) {

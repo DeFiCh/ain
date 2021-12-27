@@ -3556,7 +3556,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             }
             intermediateView.Flush();
 
-           return Res::Ok(swapAmountResult.ToString());
+           return res;
         }, static_cast<int>(height));
 
         if (!poolResult) {
