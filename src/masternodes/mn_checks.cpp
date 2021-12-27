@@ -3534,11 +3534,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto res = view.SetPoolPair(currentID, height, *pool);
-            if (!res) {
-                return res;
-            }
-
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
@@ -3548,6 +3543,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             // which shouldn't happen in the first place.
             if (testOnly) 
                 return res;
+            
+            auto res = view.SetPoolPair(currentID, height, *pool);
+            if (!res) {
+                return res;
+            }
 
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
