@@ -3496,12 +3496,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         poolPrice = obj.maxPrice;
     }
 
-    CCustomCSView mnview(view);
-    mnview.CalculateOwnerRewards(obj.from, height);
-    mnview.CalculateOwnerRewards(obj.to, height);
-
-    if (!testOnly)
+    if (!testOnly) {
+        CCustomCSView mnview(view);
+        mnview.CalculateOwnerRewards(obj.from, height);
+        mnview.CalculateOwnerRewards(obj.to, height);
         mnview.Flush();
+    }
 
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
