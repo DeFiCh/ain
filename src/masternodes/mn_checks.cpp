@@ -3470,6 +3470,9 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
     return poolPaths;
 }
 
+// Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
+// for a pool, if used multiple times (or duplicated pool IDs) with the same view.
+// testOnly is only meant for one-off tests per well defined view.  
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
