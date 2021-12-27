@@ -3470,7 +3470,10 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
     return poolPaths;
 }
 
-Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
+// Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
+// for a pool, if used multiple times (or duplicated pool IDs) with the same view.
+// testOnly is only meant for one-off tests per well defined view.  
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
@@ -3496,10 +3499,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolPrice = obj.maxPrice;
     }
 
-    CCustomCSView mnview(view);
-    mnview.CalculateOwnerRewards(obj.from, height);
-    mnview.CalculateOwnerRewards(obj.to, height);
-    mnview.Flush();
+    if (!testOnly) {
+        CCustomCSView mnview(view);
+        mnview.CalculateOwnerRewards(obj.from, height);
+        mnview.CalculateOwnerRewards(obj.to, height);
+        mnview.Flush();
+    }
 
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
@@ -3532,13 +3537,20 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+            // Save swap amount for next loop
+            swapAmountResult = tokenAmount;
+
+            // If we're just testing, don't do any balance transfers.
+            // Just go over pools and return result. The only way this can
+            // cause inaccurate result is if we go over the same path twice, 
+            // which shouldn't happen in the first place.
+            if (testOnly)
+                return Res::Ok();
+
             auto res = view.SetPoolPair(currentID, height, *pool);
             if (!res) {
                 return res;
             }
-
-            // Save swap amount for next loop
-            swapAmountResult = tokenAmount;
 
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
