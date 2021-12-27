@@ -3499,7 +3499,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     CCustomCSView mnview(view);
     mnview.CalculateOwnerRewards(obj.from, height);
     mnview.CalculateOwnerRewards(obj.to, height);
-    mnview.Flush();
+
+    if (!testOnly)
+        mnview.Flush();
 
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
