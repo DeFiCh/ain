@@ -86,6 +86,18 @@ UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmoun
     return ret;
 }
 
+
+UniValue poolPathsToJSON(std::vector<std::vector<DCT_ID>> & poolPaths) {
+    UniValue paths(UniValue::VARR);
+    for (auto poolIds : poolPaths) {
+        UniValue pathObj(UniValue::VARR);
+        for (auto poolId : poolIds){
+            pathObj.push_back(poolId.ToString());
+        }
+        paths.push_back(pathObj);
+    }
+    return paths;
+}
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
@@ -974,6 +986,17 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                                        "Maximum acceptable price"},
                        },
                    },
+                   {
+                       "path", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "One of auto/direct (default = direct)\n"
+                       "auto - automatically use composite swap or direct swap as needed.\n"
+                       "direct - uses direct path only or fails.\n"
+                       "Note: The default will be switched to auto in the upcoming versions."
+                   },
+                   {
+                       "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                       "Returns estimated composite path when true (default = false)"
+                   },
                },
                RPCResult{
                           "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"
@@ -996,7 +1019,21 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VSTR, UniValue::VBOOL}, true);
+
+    std::string path = "direct";
+    if (request.params.size() > 1) {
+        path = request.params[1].get_str();
+        if (!(path == "direct" || path == "auto"))
+            throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Invalid path"});
+    }
+
+    bool verbose = false;
+    if (request.params.size() > 2) {
+        verbose = request.params[2].get_bool();
+    }
+
+    UniValue pools{UniValue::VARR};
 
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
@@ -1008,22 +1045,57 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
 
         int targetHeight = ::ChainActive().Height() + 1;
-        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
-        CPoolPair pp = poolPair->second;
-        res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
-            if (!resPP) {
-                return resPP;
+        // If no direct swap found search for composite swap
+        if (path == "direct") {
+            auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+            if (!poolPair) 
+                throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
+
+            CPoolPair pp = poolPair->second;
+            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
+                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
+                if (!resPP) {
+                    return resPP;
+                }
+
+                return Res::Ok(tokenAmount.ToString());
+            }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
+
+            if (!res)
+                throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
+
+            pools.push_back(poolPair->first.ToString());
+        } else {
+            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
+            std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy);
+            res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds);
+            if (!res) {
+                std::string errorMsg{"Cannot find usable pool pair."};
+                if (!compositeSwap.errors.empty()) {
+                    errorMsg += " Details: (";
+                    for (size_t i{0}; i < compositeSwap.errors.size(); ++i) {
+                        errorMsg += '"' + compositeSwap.errors[i].first + "\":\"" +  compositeSwap.errors[i].second + '"' + (i + 1 < compositeSwap.errors.size() ? "," : "");
+                    }
+                    errorMsg += ')';
+                }
+                throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
             }
 
-            return Res::Ok(tokenAmount.ToString());
-        }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
-
-        if (!res)
-            throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
+            for (const auto& id : poolIds) {
+                pools.push_back(id.ToString());
+            }
+        }
     }
-    return UniValue(res.msg);
+    if (verbose) {
+        UniValue swapObj{UniValue::VOBJ};
+        swapObj.pushKV("path", path);
+        swapObj.pushKV("pools", pools);
+        swapObj.pushKV("amount", res.msg);
+        return swapObj;
+    }
+
+    return res.msg;
 }
 
 UniValue listpoolshares(const JSONRPCRequest& request) {
@@ -1123,19 +1195,19 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-{ 
-//  category        name                     actor (function)        params
-//  -------------   -----------------------  ---------------------   ----------
-    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose"}},
-    {"poolpair",    "getpoolpair",           &getpoolpair,           {"key", "verbose" }},
-    {"poolpair",    "addpoolliquidity",      &addpoolliquidity,      {"from", "shareAddress", "inputs"}},
-    {"poolpair",    "removepoolliquidity",   &removepoolliquidity,   {"from", "amount", "inputs"}},
-    {"poolpair",    "createpoolpair",        &createpoolpair,        {"metadata", "inputs"}},
-    {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
-    {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
-    {"poolpair",    "compositeswap",         &compositeswap,         {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
+{
+//  category        name                        actor (function)            params
+//  -------------   -----------------------     ---------------------       ----------
+    {"poolpair",    "listpoolpairs",            &listpoolpairs,             {"pagination", "verbose"}},
+    {"poolpair",    "getpoolpair",              &getpoolpair,               {"key", "verbose" }},
+    {"poolpair",    "addpoolliquidity",         &addpoolliquidity,          {"from", "shareAddress", "inputs"}},
+    {"poolpair",    "removepoolliquidity",      &removepoolliquidity,       {"from", "amount", "inputs"}},
+    {"poolpair",    "createpoolpair",           &createpoolpair,            {"metadata", "inputs"}},
+    {"poolpair",    "updatepoolpair",           &updatepoolpair,            {"metadata", "inputs"}},
+    {"poolpair",    "poolswap",                 &poolswap,                  {"metadata", "inputs"}},
+    {"poolpair",    "compositeswap",            &compositeswap,             {"metadata", "inputs"}},
+    {"poolpair",    "listpoolshares",           &listpoolshares,            {"pagination", "verbose", "is_mine_only"}},
+    {"poolpair",    "testpoolswap",             &testpoolswap,              {"metadata", "path", "verbose"}},
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable& tableRPC) {
