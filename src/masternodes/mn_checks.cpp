@@ -3544,9 +3544,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             // Just go over pools and return result. The only way this can
             // cause inaccurate result is if we go over the same path twice, 
             // which shouldn't happen in the first place.
-            if (testOnly) 
-                return res;
-            
+            if (testOnly)
+                return Res::Ok();
+
             auto res = view.SetPoolPair(currentID, height, *pool);
             if (!res) {
                 return res;
