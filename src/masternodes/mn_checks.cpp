@@ -3470,7 +3470,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
     return poolPaths;
 }
 
-Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
@@ -3539,6 +3539,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
+
+            // If we're just testing, don't do any balance transfers.
+            // Just go over pools and return result. The only way this can
+            // cause inaccurate result is if we go over the same path twice, 
+            // which shouldn't happen in the first place.
+            if (testOnly) 
+                return res;
 
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
