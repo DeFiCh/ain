@@ -485,7 +485,7 @@ public:
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
     Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
     std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView& view);
-
+    CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H
