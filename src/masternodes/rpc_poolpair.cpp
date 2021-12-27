@@ -1068,7 +1068,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             pools.push_back(poolPair->first.ToString());
         } else {
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-            std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy);
+            std::vector<DCT_ID> poolIds = compositeSwap.CalculateSwaps(mnview_dummy, true);
             res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds, true);
             if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};

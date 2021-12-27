@@ -3365,7 +3365,7 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     return false;
 }
 
-std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly) {
 
     std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
 
@@ -3379,7 +3379,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
         CCustomCSView dummy(view);
 
         // Execute pool path
-        auto res = ExecuteSwap(dummy, path);
+        auto res = ExecuteSwap(dummy, path, testOnly);
 
         // Add error for RPC user feedback
         if (!res) {
