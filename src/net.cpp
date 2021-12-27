@@ -88,8 +88,7 @@ CCriticalSection cs_mapLocalHost;
 std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);
 static bool vfLimited[NET_MAX] GUARDED_BY(cs_mapLocalHost) = {};
 std::string strSubVersion;
-std::string strVersion;
-std::string strFullVersion;
+
 
 void CConnman::AddOneShot(const std::string& strDest)
 {
@@ -1460,7 +1459,7 @@ static void ThreadMapPort()
             }
         }
 
-        std::string strDesc = PACKAGE_NAME " " + FormatFullVersion();
+        std::string strDesc = PACKAGE_NAME " " + FormatVersionAndSuffix();
 
         do {
             r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, port.c_str(), port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0, "0");

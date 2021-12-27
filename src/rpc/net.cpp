@@ -518,12 +518,16 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
                RPCResult{
                        "{\n"
                        "  \"node\": {\n"
-                       "      \"name\": DefiChain                         (string)  the node name\n"
-                       "      \"version\": \"xxxxx\",                   (string) the server version string\n"
-                       "      \"numericVersion\": xxxxx,                (numeric) the server version\n"
-                       "      \"fullVersion\": \"/DefiChain:x.x.x/\",     (string) the server subversion string\n"
-                       "      \"protocol\": xxxxx,                      (numeric) the protocol version\n"
-                       "   }\n"
+                       "      \"name\": DeFiChain                       (string) Node name\n"
+                       "      \"version\": \"xxxxx\",                   (string) Node version string\n"
+                       "      \"numericVersion\": xxxxx,                (number) Node numeric version\n"
+                       "      \"fullVersion\": \"DefiChain:x.x.x\",     (string) Full node version string including name and version\n"
+                       "      \"userAgent\": \"/DefiChain:x.x.x/\",     (string) P2P user agent string (subversion string conforming to BIP-14)\n"
+                       "   },\n"
+                       "  \"protocol\": {\n"
+                       "      \"version\": \"xxxxx\",                   (number) Operating protocol version\n"
+                       "      \"min\": \"xxxxx\",                       (number) Minimum protocol that's supported by the node\n"
+                       "   },\n"
                        "  ...\n"
                        "}"
                },
@@ -536,14 +540,18 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     UniValue obj(UniValue::VOBJ);
     UniValue nodeInfoObj(UniValue::VOBJ);
 
+    std::ostringstream strFullVersion;
+    strFullVersion << CLIENT_NAME << ":" << FormatVersion(CLIENT_VERSION);
+
     nodeInfoObj.pushKV("name", CLIENT_NAME);
-    nodeInfoObj.pushKV("version", strVersion);
+    nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
-    nodeInfoObj.pushKV("fullVersion",strFullVersion);
+    nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
 
     UniValue protocolInfoObj(UniValue::VOBJ);
     protocolInfoObj.pushKV("version", PROTOCOL_VERSION);
+    protocolInfoObj.pushKV("min", MIN_PEER_PROTO_VERSION);
 
     obj.pushKV("node",nodeInfoObj);
     obj.pushKV("protocol", protocolInfoObj);

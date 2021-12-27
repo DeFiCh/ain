@@ -81,7 +81,7 @@ std::string FormatVersion(int nVersion)
         return strprintf("%d.%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, nVersion % 100);
 }
 
-std::string FormatFullVersion()
+std::string FormatVersionAndSuffix()
 {
     return CLIENT_BUILD;
 }
@@ -103,12 +103,5 @@ std::string FormatSubVersion(const std::string& name, int nClientVersion, const 
         ss << ")";
     }
     ss << "/";
-    return ss.str();
-}
-
-std::string FormatFullVersion(const std::string& name, int nClientVersion)
-{
-    std::ostringstream ss;
-    ss << name << ":" << FormatVersion(nClientVersion);
     return ss.str();
 }
