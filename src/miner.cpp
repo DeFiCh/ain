@@ -793,7 +793,7 @@ namespace pos {
                     {
                         if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
                             break;
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                        LogPrintf("MakeStake: kernel found\n");
 
                         found = true;
                         break;
@@ -818,7 +818,7 @@ namespace pos {
                     {
                         if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
                             break;
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                        LogPrintf("MakeStake: kernel found\n");
 
                         found = true;
                         break;
