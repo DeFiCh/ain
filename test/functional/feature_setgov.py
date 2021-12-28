@@ -432,24 +432,25 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 30)
 
         # Test ATTRIBUTE before FCH
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningHill", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','1']})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningHill", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'true'}})
 
         # Move to FCH fork
         self.nodes[0].generate(1110 - self.nodes[0].getblockcount())
 
         # Set ATTRIBUTE with invalid settings
-        assert_raises_rpc_error(-5, "Array of values expected", self.nodes[0].setgov, {"ATTRIBUTES":'error'})
-        assert_raises_rpc_error(-5, "Array of values expected", self.nodes[0].setgov, {"ATTRIBUTES":'[]'})
-        assert_raises_rpc_error(-5, "Incorrect number of items for token type. Array of ['token','loan token ID','key','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":['token','payback_dfi','1']})
-        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: token,", self.nodes[0].setgov, {"ATTRIBUTES":['unrecognised','1','payback_dfi','1']})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: payback_dfi, payback_dfi_fee_pct", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','unrecognised','1']})
-        assert_raises_rpc_error(-5, "Identifier for token must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','not_a_number','payback_dfi','1']})
-        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','not_a_number']})
-        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','-1']})
-        assert_raises_rpc_error(-5, "Payback DFI value must be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','2']})
-        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi_fee_pct','not_a_number']})
-        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi_fee_pct','-1']})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Invalid loan token specified", self.nodes[0].setgov, {"ATTRIBUTES":['token','1','payback_dfi','1']})
+        assert_raises_rpc_error(-5, "Object of values expected", self.nodes[0].setgov, {"ATTRIBUTES":'error'})
+        assert_raises_rpc_error(-5, "Object of values expected", self.nodes[0].setgov, {"ATTRIBUTES":'{}'})
+        assert_raises_rpc_error(-5, "Empty key", self.nodes[0].setgov, {"ATTRIBUTES":{'':'true'}})
+        assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'token/15/payback_dfi':''}})
+        assert_raises_rpc_error(-5, "Incorrect key for token type. Object of ['token/ID/key','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'token/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'unrecognised/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: payback_dfi, payback_dfi_fee_pct", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Identifier for token must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/not_a_number/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, 'Payback DFI value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'not_a_number'}})
+        assert_raises_rpc_error(-5, 'Payback DFI value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'unrecognised'}})
+        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'-1'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Invalid loan token specified", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'true'}})
 
         # Setup for loan related tests
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
@@ -480,29 +481,34 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Test setting of new Gov var
-        self.nodes[0].setgov({"ATTRIBUTES":['token','5','payback_dfi','1']})
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/5/payback_dfi':'true'}})
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': '1'})
-        self.nodes[0].setgov({"ATTRIBUTES":['token','5','payback_dfi_fee_pct','5']})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'true'})
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'5'}})
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '5'})
-        assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '5'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '5'})
+        assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '5'})
+
+        # Test setting multiple ATTRIBUTES
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/5/payback_dfi':'false','token/5/payback_dfi_fee_pct':'2'}})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2'})
 
         # Test pending change
         activate = self.nodes[0].getblockcount() + 10
-        self.nodes[0].setgovheight({"ATTRIBUTES":['token','5','payback_dfi_fee_pct','1']}, activate)
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'token/5/payback_dfi':'true','token/5/payback_dfi_fee_pct':'1'}}, activate)
         self.nodes[0].generate(9)
 
         # No change yet
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '5'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2'})
 
         # Pending change present
-        assert_equal(self.nodes[0].listgovs()[8][1][str(activate)], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '1'})
+        assert_equal(self.nodes[0].listgovs()[8][1][str(activate)], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '1'})
 
         # Check pending change applied
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '1'})
-        assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'token/5/payback_dfi': '1', 'token/5/payback_dfi_fee_pct': '1'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '1'})
+        assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '1'})
 
 if __name__ == '__main__':
     GovsetTest ().main ()

@@ -38,68 +38,77 @@ struct AttributesKey {
 };
 
 Res ATTRIBUTES::Import(const UniValue & val) {
-    if (!val.isArray()) {
-        return Res::Err("Array of values expected");
+    if (!val.isObject()) {
+        return Res::Err("Object of values expected");
     }
 
-    const auto& array = val.get_array();
-    if (array.empty()) {
-        return Res::Err("Empty array, no vaules provided");
-    }
-
-    AttributesKey mapKey;
-    try {
-        mapKey.type = allowedTypes.at(array[0].getValStr());
-    } catch(const std::out_of_range&) {
-        std::string error{"Unrecognised type argument provided, valid types are:"};
-        for (const auto& pair : allowedTypes) {
-            error += " " + pair.first + ",";
+    std::map<std::string,UniValue> objMap;
+    val.getObjMap(objMap);
+    for (const auto pair : objMap) {
+        const auto key = KeyBreaker(pair.first);
+        if (key.empty() || key[0].empty()) {
+            return Res::Err("Empty key");
         }
-        return Res::Err(error);
-    }
 
-    switch(mapKey.type) {
-        // switch for the many more types coming later!
-        case AttributeTypes::Token:
-            if (array.size() != 4) {
-                return Res::Err("Incorrect number of items for token type. Array of ['token','loan token ID','key','value'] expected");
+        const auto& value = pair.second.get_str();
+        if (value.empty()) {
+            return Res::Err("Empty value");
+        }
+
+        AttributesKey mapKey;
+        try {
+            mapKey.type = allowedTypes.at(key[0]);
+        } catch(const std::out_of_range&) {
+            std::string error{"Unrecognised type argument provided, valid types are:"};
+            for (const auto& pair : allowedTypes) {
+                error += " " + pair.first + ",";
             }
+            return Res::Err(error);
+        }
 
-            int32_t tokenId;
-            if (!ParseInt32(array[1].getValStr(), &tokenId) || tokenId < 1) {
-                return Res::Err("Identifier for token must be a positive integer");
-            }
-
-            mapKey.identifier = array[1].get_str();
-
-            try {
-                mapKey.key = allowedTokenKeys.at(array[2].get_str());
-            } catch(const std::out_of_range&) {
-                std::string error{"Unrecognised key argument provided, valid keys are:"};
-                for (const auto& pair : allowedTokenKeys) {
-                    error += " " + pair.first + ",";
+        switch(mapKey.type) {
+            // switch for the many more types coming later!
+            case AttributeTypes::Token:
+                if (key.size() != 3 || key[1].empty() || key[2].empty()) {
+                    return Res::Err("Incorrect key for token type. Object of ['token/ID/key','value'] expected");
                 }
-                return Res::Err(error);
-            }
+                int32_t tokenId;
+                if (!ParseInt32(key[1], &tokenId) || tokenId < 1) {
+                    return Res::Err("Identifier for token must be a positive integer");
+                }
 
-            switch(mapKey.key) {
-                case TokenKeys::PaybackDFI:
-                    int32_t paybackDFI;
-                    if (!ParseInt32(array[3].get_str(), &paybackDFI) || paybackDFI < 0 || paybackDFI > 1) {
-                        return Res::Err("Payback DFI value must be either 0 or 1");
+                mapKey.identifier = key[1];
+
+                try {
+                    mapKey.key = allowedTokenKeys.at(key[2]);
+                } catch(const std::out_of_range&) {
+                    std::string error{"Unrecognised key argument provided, valid keys are:"};
+                    for (const auto& pair : allowedTokenKeys) {
+                        error += " " + pair.first + ",";
                     }
-                    attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = array[3].getValStr();
-                    break;
-                case TokenKeys::PaybackDFIFeePCT:
-                    int32_t paybackDFIFeePCT;
-                    if (!ParseInt32(array[3].getValStr(), &paybackDFIFeePCT) || paybackDFIFeePCT < 0) {
-                        return Res::Err("Payback DFI fee percentage value must be a positive integer");
-                    }
-                    attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = array[3].getValStr();
-                    break;
-            }
-            break;
+                    return Res::Err(error);
+                }
+
+
+                switch(mapKey.key) {
+                    case TokenKeys::PaybackDFI:
+                        if (value != "true" && value != "false") {
+                            return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
+                        }
+                        attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = value;
+                        break;
+                    case TokenKeys::PaybackDFIFeePCT:
+                        int32_t paybackDFIFeePCT;
+                        if (!ParseInt32(value, &paybackDFIFeePCT) || paybackDFIFeePCT < 0) {
+                            return Res::Err("Payback DFI fee percentage value must be a positive integer");
+                        }
+                        attributes[KeyBuilder(mapKey.type, mapKey.identifier, mapKey.key)] = value;
+                        break;
+                }
+                break;
+        }
     }
+
 
     return Res::Ok();
 }
@@ -152,9 +161,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             }
 
             if (strVec[2].size() == 1 && strVec[2].at(0) == TokenKeys::PaybackDFI) {
-                int32_t paybackDFI;
-                if (!ParseInt32(item.second, &paybackDFI) || paybackDFI < 0 || paybackDFI > 1) {
-                    return Res::Err("Payback DFI value must be either 0 or 1");
+                if (item.second != "true" && item.second != "false") {
+                    return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
                 }
             } else if (strVec[2].size() == 1 && strVec[2].at(0) == TokenKeys::PaybackDFIFeePCT) {
                 int32_t paybackDFIFeePCT;
