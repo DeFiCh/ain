@@ -917,14 +917,14 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             }
             static std::atomic<uint64_t> time{0};
             if (GetSystemTimeInSeconds() - time > 120) {
-                LogPrintf("ThreadStaker: unlock wallet to start minting...\n");
+                LogPrint(BCLog::STAKING, "ThreadStaker: unlock wallet to start minting...\n");
                 time = GetSystemTimeInSeconds();
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 
-    LogPrintf("ThreadStaker: started.\n");
+    LogPrint(BCLog::STAKING, "ThreadStaker: started.\n");
 
     while (!args.empty()) {
         boost::this_thread::interruption_point();
@@ -932,7 +932,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
         while (fImporting || fReindex) {
             boost::this_thread::interruption_point();
 
-            LogPrintf("ThreadStaker: waiting reindex...\n");
+            LogPrint(BCLog::STAKING, "ThreadStaker: waiting reindex...\n");
 
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
@@ -951,23 +951,23 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     status = staker.stake(chainparams, arg);
                 }
                 if (status == Staker::Status::error) {
-                    LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
+                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
                     it = args.erase(it);
                     continue;
                 }
                 else if (status == Staker::Status::minted) {
-                    LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
+                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
                 }
                 else if (status == Staker::Status::initWaiting) {
-                    LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
+                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 }
                 else if (status == Staker::Status::stakeWaiting) {
                     LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             }
             catch (const std::runtime_error &e) {
-                LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
+                LogPrint(BCLog::STAKING, "ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
                 // Could be failed TX in mempool, wipe mempool and allow loop to continue.
                 LOCK(cs_main);
