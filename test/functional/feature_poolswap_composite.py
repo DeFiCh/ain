@@ -76,7 +76,6 @@ class PoolPairCompositeTest(DefiTestFramework):
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]
         idLTC = list(self.nodes[0].gettoken(symbolLTC).keys())[0]
-
         coin = 100000000
 
         # Creating poolpairs
@@ -168,6 +167,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
+
         self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
@@ -242,6 +242,34 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
+        estimateCompositePathsRes = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, "auto", True)
+
+        assert_equal(estimateCompositePathsRes['path'], 'auto')
+
+        poolLTC_USDC = list(self.nodes[0].getpoolpair("LTC-USDC").keys())[0]
+        poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
+        assert_equal(estimateCompositePathsRes['pools'], [poolLTC_USDC, poolDOGE_USDC])
+
+        testCPoolSwapRes = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, "auto")
+
+        testCPoolSwapRes = str(testCPoolSwapRes).split("@", 2)
+
+        psTestAmount = testCPoolSwapRes[0]
+        psTestTokenId = testCPoolSwapRes[1]
+        assert_equal(psTestTokenId, idDOGE)
+
         self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
@@ -261,6 +289,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         dest_balance = self.nodes[0].getaccount(destination, {}, True)
         assert_equal(dest_balance[idDOGE], doge_received * 2)
         assert_equal(len(dest_balance), 1)
+        # Check test swap correctness
+        assert_equal(Decimal(psTestAmount), dest_balance[idDOGE])
 
         # Set up addresses for swapping
         source = self.nodes[0].getnewaddress("", "legacy")

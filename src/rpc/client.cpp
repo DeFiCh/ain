@@ -295,6 +295,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "compositeswap", 0, "metadata" },
     { "compositeswap", 1, "inputs" },
     { "testpoolswap", 0, "metadata"},
+    { "testpoolswap", 2, "verbose"},
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
     { "listpoolshares", 2, "is_mine_only" },
