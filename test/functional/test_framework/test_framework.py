@@ -327,7 +327,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         self.nodes[0].generate(25)
         self.nodes[1].generate(25)
         self.sync_blocks()
-        self.nodes[0].generate(100)
+        self.nodes[0].generate(98)
         self.sync_blocks()
 
         if my_tokens is not None:

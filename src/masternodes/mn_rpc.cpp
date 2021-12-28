@@ -491,13 +491,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() > 0 && request.params[0].isObject()) {
         for (const std::string& name : request.params[0].getKeys()) {
-            std::shared_ptr<GovVariable> gv;
-            // Special case to not override but to append for ATTRIBUTES
-            if (name == "ATTRIBUTES") {
-                gv = pcustomcsview->GetVariable(name);
-            } else {
-                gv = GovVariable::Create(name);
-            }
+            auto gv = GovVariable::Create(name);
             if (!gv) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
             }
@@ -587,13 +581,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     const auto keys = request.params[0].getKeys();
     if (!keys.empty()) {
         const std::string& name = request.params[0].getKeys()[0];
-        std::shared_ptr<GovVariable> gv;
-        // Special case to not override but to append for ATTRIBUTES
-        if (name == "ATTRIBUTES") {
-            gv = pcustomcsview->GetVariable(name);
-        } else {
-            gv = GovVariable::Create(name);
-        }
+        auto gv = GovVariable::Create(name);
         if (!gv) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
         }
