@@ -128,6 +128,7 @@ public:
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
+        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -348,6 +349,7 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
+        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -530,6 +532,7 @@ public:
         consensus.EunosPayaHeight = 300;
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
         consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -704,6 +707,7 @@ public:
         consensus.EunosPayaHeight = 10000000;
         consensus.FortCanningHeight = 10000000;
         consensus.FortCanningMuseumHeight = 10000000;
+        consensus.FortCanningHillHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -915,8 +919,9 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fork canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fork canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
 
