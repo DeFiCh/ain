@@ -259,9 +259,8 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
     return rate2;
 }
 
-base_uint<128> TotalInterestHighPrecision(const CInterestRateV2& rate, uint32_t height);
 CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
-CAmount CeilAmount(const base_uint<128>& amount, uint32_t height);
+CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 
 class CLoanTakeLoanMessage
 {

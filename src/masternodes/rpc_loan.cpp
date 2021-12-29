@@ -1382,7 +1382,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
         LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
         interest[tokenId].first += TotalInterest(rate, height);
-        interest[tokenId].second += CeilAmount(rate.interestPerBlock, height);
+        interest[tokenId].second += InterestPerBlock(rate, height);
 
         return true;
     };
