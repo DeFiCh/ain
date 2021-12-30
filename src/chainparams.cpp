@@ -65,7 +65,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint3
     genesis.nTime           = nTime;
     genesis.nBits           = nBits;
     genesis.nVersion        = nVersion;
-    genesis.height          = 0;
+    genesis.deprecatedHeight = 0;
     genesis.stakeModifier   = uint256S("0");
     genesis.mintedBlocks    = 0;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
@@ -919,9 +919,9 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fork canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fork canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fork canning new", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
 

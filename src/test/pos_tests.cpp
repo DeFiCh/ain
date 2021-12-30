@@ -26,7 +26,7 @@ std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height,
     pblock->hashPrevBlock = prev_hash;
 
     pblock->mintedBlocks = mintedBlocks;
-    pblock->height = height;
+    pblock->deprecatedHeight = height;
 
     return pblock;
 }
@@ -142,17 +142,17 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
     CKey minterKey = pos->second.operatorKey;
     CheckContextState ctxState;
 
-    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
+    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get(), ctxState, 0));
 
 //    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     uint64_t height = 0;
     uint64_t mintedBlocks = 1;
     std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
 
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState, 0));
 
-    block->height = 1;
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
+    // Failure against a height of 1
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState, 1));
 }
 
 BOOST_AUTO_TEST_CASE(sign_pos_block)
