@@ -919,9 +919,9 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fork canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fork canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fork canning new", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
 
