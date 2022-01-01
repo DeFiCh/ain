@@ -2808,15 +2808,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Apply any pending GovVariable changes. Will come into effect on the next block.
             auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
             for (const auto& var : storedGovVars) {
-                CCustomCSView govCache(cache);
-                // Add to existing ATTRIBUTES instead of overwriting.
-                if (var->GetName() == "ATTRIBUTES") {
-                    auto govVar = mnview.GetVariable(var->GetName());
-                    if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                if (var) {
+                    CCustomCSView govCache(cache);
+                    // Add to existing ATTRIBUTES instead of overwriting.
+                    if (var->GetName() == "ATTRIBUTES") {
+                        auto govVar = mnview.GetVariable(var->GetName());
+                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                            govCache.Flush();
+                        }
+                    } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
                         govCache.Flush();
                     }
-                } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
-                    govCache.Flush();
                 }
             }
             cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
