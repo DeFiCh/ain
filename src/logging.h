@@ -8,6 +8,7 @@
 
 #include <fs.h>
 #include <tinyformat.h>
+#include <util/time.h>
 
 #include <atomic>
 #include <cstdint>
@@ -166,5 +167,51 @@ static inline void LogPrint(const BCLog::LogFlags& category, const Args&... args
         LogPrintf(args...);
     }
 }
+
+class ILogFilter
+{
+public:
+    virtual ~ILogFilter(){};
+    virtual bool filter() = 0;
+};
+
+// Implementation that logs at most every millis_ milliseconds
+class TimeThrottledFilter : public ILogFilter
+{
+private:
+    uint64_t millis_{0};
+    uint64_t last_time_millis_{0};
+
+public:
+    TimeThrottledFilter() = delete;
+    explicit TimeThrottledFilter(uint64_t millis) : millis_(millis)
+    {
+    }
+
+    virtual bool filter() override
+    {
+        int64_t current_time = GetTimeMillis();
+        // First call or at least millis_ ms to last call
+        if ((last_time_millis_ == 0) || ((current_time - last_time_millis_) > millis_)) {
+            last_time_millis_ = current_time;
+            return true;
+        }
+        return false;
+    }
+};
+
+template <typename... Args>
+static inline void LogPrintThrottled(const BCLog::LogFlags& category, ILogFilter& time_throttled_filter, const Args&... args)
+{
+    // Log everything directly if category is enabled..
+    if (LogAcceptCategory((category))) {
+        LogPrintf(args...);
+    } else { // .. and otherwise time throttle
+        if (time_throttled_filter.filter()) {
+            LogPrintf(args...);
+        }
+    }
+}
+
 
 #endif // DEFI_LOGGING_H
