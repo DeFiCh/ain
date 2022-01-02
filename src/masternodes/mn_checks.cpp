@@ -3146,17 +3146,52 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     }
 }
 
+
+bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
+    if (height < consensus.FortCanningParkHeight)
+        return false;
+    
+    // ICXCreateOrder      = '1',
+    // ICXMakeOffer        = '2',
+    // ICXSubmitDFCHTLC    = '3',
+    // ICXSubmitEXTHTLC    = '4',
+    // ICXClaimDFCHTLC     = '5',
+    // ICXCloseOrder       = '6',
+    // ICXCloseOffer       = '7',
+
+    // Leaving close orders, as withdrawal of existing should be ok?
+    switch (type) {
+        case CustomTxType::ICXCreateOrder:
+        case CustomTxType::ICXMakeOffer:
+        case CustomTxType::ICXSubmitDFCHTLC:
+        case CustomTxType::ICXSubmitEXTHTLC:
+        case CustomTxType::ICXClaimDFCHTLC:
+            return true;
+        default:
+            return false;
+    }
+}
+
+
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
+
+
     const auto metadataValidation = height >= consensus.FortCanningHeight;
+    
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
     }
+
+    if (IsDisabledTx(height, txType, consensus)) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
+    }
+    
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }

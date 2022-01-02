@@ -128,6 +128,7 @@ public:
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
+        consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -349,6 +350,7 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
+        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -532,6 +534,7 @@ public:
         consensus.EunosPayaHeight = 300;
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
         consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -707,6 +710,7 @@ public:
         consensus.EunosPayaHeight = 10000000;
         consensus.FortCanningHeight = 10000000;
         consensus.FortCanningMuseumHeight = 10000000;
+        consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -921,6 +925,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
     UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
     UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort canning park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
