@@ -128,7 +128,7 @@ public:
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
