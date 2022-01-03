@@ -123,7 +123,7 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool s
         return Res::Err("Pool with poolId %s does not exist", poolId.ToString());
     }
 
-    CPoolPair & pool = poolPair.get();
+    CPoolPair & pool = poolPair.value();
 
     if (pool.status != status) {
         pool.status = status;
@@ -157,7 +157,7 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool s
     return Res::Ok();
 }
 
-boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const
+std::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const
 {
     auto pool = ReadBy<ByID, CPoolPair>(poolId);
     if (!pool) {
@@ -184,7 +184,7 @@ boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) cons
     return pool;
 }
 
-boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
+std::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
 {
     DCT_ID poolId;
     ByPairKey key {tokenA, tokenB};
@@ -482,7 +482,7 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(std::function<CToke
 
         CAmount distributedFeeA = 0;
         CAmount distributedFeeB = 0;
-        boost::optional<CScript> ownerAddress;
+        std::optional<CScript> ownerAddress;
 
         PoolHeightKey poolKey = {poolId, uint32_t(nHeight)};
 
@@ -617,7 +617,7 @@ Res CPoolPairView::DelShare(DCT_ID const & poolId, CScript const & provider) {
     return Res::Ok();
 }
 
-boost::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const & poolId, CScript const & provider) {
+std::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const & poolId, CScript const & provider) {
     return ReadBy<ByShare, uint32_t>(PoolShareKey{poolId, provider});
 }
 

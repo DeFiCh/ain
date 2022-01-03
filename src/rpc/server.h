@@ -31,6 +31,9 @@ namespace RPCServer
 /** Query whether RPC is running */
 bool IsRPCRunning();
 
+/** Throw JSONRPCError if RPC is not running */
+void RpcInterruptionPoint();
+
 /**
  * Set the RPC warmup status.  When this is done, all RPC calls will error out
  * immediately with RPC_IN_WARMUP.
@@ -164,7 +167,7 @@ extern CRPCTable tableRPC;
 void StartRPC();
 void InterruptRPC();
 void StopRPC();
-std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);
+UniValue JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);
 
 // Retrieves any serialization flags requested in command line argument
 int RPCSerializationFlags();

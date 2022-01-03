@@ -366,7 +366,7 @@ public:
     {
         uint256 masternodesID = testMasternodeKeys.begin()->first;
         CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
-        wallet = MakeUnique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
+        wallet = std::make_unique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
         bool firstRun;
         wallet->LoadWallet(firstRun);
         AddKey(*wallet, coinbaseKey);
@@ -432,7 +432,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 1U);
 
     // Check initial balance from one mature coinbase transaction.
@@ -449,7 +449,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
 
     // Lock both coins. Confirm number of available coins drops to 0.
@@ -481,7 +481,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
 }
 

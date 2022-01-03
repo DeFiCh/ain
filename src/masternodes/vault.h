@@ -155,27 +155,27 @@ class CVaultView : public virtual CStorageView
 public:
     Res StoreVault(const CVaultId&, const CVaultData&);
     Res EraseVault(const CVaultId&);
-    boost::optional<CVaultData> GetVault(const CVaultId&) const;
+    std::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
     Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
-    boost::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
+    std::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
     void ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
     Res StoreAuction(const CVaultId& vaultId, const CAuctionData& data);
     Res EraseAuction(const CVaultId& vaultId, uint32_t height);
-    boost::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
+    std::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
     Res StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch);
     Res EraseAuctionBatch(const CVaultId& vaultId, uint32_t id);
-    boost::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
+    std::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
     void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId = {});
 
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
     Res StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount);
     Res EraseAuctionBid(const CVaultId& vaultId, uint32_t id);
-    boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
+    std::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
 
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
     struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x21; } };

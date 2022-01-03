@@ -47,28 +47,28 @@ public:
     LockImpl(CCriticalSection& mutex) : m_mutex(mutex)
     {
     }
-    Optional<int> getHeight() override
+    std::optional<int> getHeight() override
     {
         LockAssertion lock(m_mutex);
         int height = ::ChainActive().Height();
         if (height >= 0) {
             return height;
         }
-        return nullopt;
+        return std::nullopt;
     }
-    Optional<int> getBlockHeight(const uint256& hash) override
+    std::optional<int> getBlockHeight(const uint256& hash) override
     {
         LockAssertion lock(m_mutex);
         CBlockIndex* block = LookupBlockIndex(hash);
         if (block && ::ChainActive().Contains(block)) {
             return block->nHeight;
         }
-        return nullopt;
+        return std::nullopt;
     }
     int getBlockDepth(const uint256& hash) override
     {
-        const Optional<int> tip_height = getHeight();
-        const Optional<int> height = getBlockHeight(hash);
+        const std::optional<int> tip_height = getHeight();
+        const std::optional<int> height = getBlockHeight(hash);
         return tip_height && height ? *tip_height - *height + 1 : 0;
     }
     uint256 getBlockHash(int height) override
@@ -98,7 +98,7 @@ public:
         CBlockIndex* block = ::ChainActive()[height];
         return block && ((block->nStatus & BLOCK_HAVE_DATA) != 0) && block->nTx > 0;
     }
-    Optional<int> findFirstBlockWithTimeAndHeight(int64_t time, int height, uint256* hash) override
+    std::optional<int> findFirstBlockWithTimeAndHeight(int64_t time, int height, uint256* hash) override
     {
         LockAssertion lock(m_mutex);
         CBlockIndex* block = ::ChainActive().FindEarliestAtLeast(time, height);
@@ -106,9 +106,9 @@ public:
             if (hash) *hash = block->GetBlockHash();
             return block->nHeight;
         }
-        return nullopt;
+        return std::nullopt;
     }
-    Optional<int> findPruned(int start_height, Optional<int> stop_height) override
+    std::optional<int> findPruned(int start_height, std::optional<int> stop_height) override
     {
         LockAssertion lock(m_mutex);
         if (::fPruneMode) {
@@ -120,9 +120,9 @@ public:
                 block = block->pprev;
             }
         }
-        return nullopt;
+        return std::nullopt;
     }
-    Optional<int> findFork(const uint256& hash, Optional<int>* height) override
+    std::optional<int> findFork(const uint256& hash, std::optional<int>* height) override
     {
         LockAssertion lock(m_mutex);
         const CBlockIndex* block = LookupBlockIndex(hash);
@@ -137,20 +137,20 @@ public:
         if (fork) {
             return fork->nHeight;
         }
-        return nullopt;
+        return std::nullopt;
     }
     CBlockLocator getTipLocator() override
     {
         LockAssertion lock(m_mutex);
         return ::ChainActive().GetLocator();
     }
-    Optional<int> findLocatorFork(const CBlockLocator& locator) override
+    std::optional<int> findLocatorFork(const CBlockLocator& locator) override
     {
         LockAssertion lock(m_mutex);
         if (CBlockIndex* fork = FindForkInGlobalIndex(::ChainActive(), locator)) {
             return fork->nHeight;
         }
-        return nullopt;
+        return std::nullopt;
     }
     bool checkFinalTx(const CTransaction& tx) override
     {
@@ -250,7 +250,7 @@ class ChainImpl : public Chain
 public:
     std::unique_ptr<Chain::Lock> lock() override
     {
-        return MakeUnique<LockImpl>(::cs_main);
+        return std::make_unique<LockImpl>(::cs_main);
     }
     bool findBlock(const uint256& hash, CBlock* block, int64_t* time, int64_t* time_max) override
     {
@@ -280,7 +280,7 @@ public:
         return pcustomcsview->CanSpend(nodeId, height);
     }
 
-    boost::optional<CMasternode> mnExists(const uint256 & nodeId) const override
+    std::optional<CMasternode> mnExists(const uint256 & nodeId) const override
     {
         LOCK(cs_main);
         return pcustomcsview->GetMasternode(nodeId);
@@ -365,7 +365,7 @@ public:
     }
     std::unique_ptr<Handler> handleNotifications(Notifications& notifications) override
     {
-        return MakeUnique<NotificationsHandlerImpl>(*this, notifications);
+        return std::make_unique<NotificationsHandlerImpl>(*this, notifications);
     }
     void waitForNotificationsIfNewBlocksConnected(const uint256& old_tip) override
     {
@@ -379,7 +379,7 @@ public:
     }
     std::unique_ptr<Handler> handleRpc(const CRPCCommand& command) override
     {
-        return MakeUnique<RpcHandlerImpl>(command);
+        return std::make_unique<RpcHandlerImpl>(command);
     }
     bool rpcEnableDeprecated(const std::string& method) override { return IsDeprecatedRPCEnabled(method); }
     void rpcRunLater(const std::string& name, std::function<void()> fn, int64_t seconds) override
@@ -397,6 +397,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Chain> MakeChain() { return MakeUnique<ChainImpl>(); }
+std::unique_ptr<Chain> MakeChain() { return std::make_unique<ChainImpl>(); }
 
 } // namespace interfaces

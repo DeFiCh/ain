@@ -2,11 +2,13 @@
 #include <chainparams.h>
 #include <masternodes/loan.h>
 
+#include <cmath>
+
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
 {
     auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
     if (collToken)
-        return MakeUnique<CLoanSetCollateralTokenImpl>(*collToken);
+        return std::make_unique<CLoanSetCollateralTokenImpl>(*collToken);
     return {};
 }
 
@@ -66,7 +68,7 @@ std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DC
 {
     auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
     if (loanToken)
-        return MakeUnique<CLoanSetLoanTokenImpl>(*loanToken);
+        return std::make_unique<CLoanSetLoanTokenImpl>(*loanToken);
     return {};
 }
 
@@ -143,7 +145,7 @@ Res CLoanView::StoreDefaultLoanScheme(const std::string& loanSchemeID)
     return Res::Ok();
 }
 
-boost::optional<std::string> CLoanView::GetDefaultLoanScheme()
+std::optional<std::string> CLoanView::GetDefaultLoanScheme()
 {
     std::string loanSchemeID;
     if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID)) {
@@ -153,12 +155,12 @@ boost::optional<std::string> CLoanView::GetDefaultLoanScheme()
     return {};
 }
 
-boost::optional<CLoanSchemeData> CLoanView::GetLoanScheme(const std::string& loanSchemeID)
+std::optional<CLoanSchemeData> CLoanView::GetLoanScheme(const std::string& loanSchemeID)
 {
     return ReadBy<LoanSchemeKey, CLoanSchemeData>(loanSchemeID);
 }
 
-boost::optional<uint64_t> CLoanView::GetDestroyLoanScheme(const std::string& loanSchemeID)
+std::optional<uint64_t> CLoanView::GetDestroyLoanScheme(const std::string& loanSchemeID)
 {
     return ReadBy<DestroyLoanSchemeKey, uint64_t>(loanSchemeID);
 }
@@ -195,7 +197,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
     EraseBy<DestroyLoanSchemeKey>(loanSchemeID);
 }
 
-boost::optional<CInterestRate> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id)
+std::optional<CInterestRate> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id)
 {
     return ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id));
 }
@@ -343,7 +345,7 @@ Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-boost::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
+std::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
 {
     return ReadBy<LoanTokenAmount, CBalances>(vaultId);
 }

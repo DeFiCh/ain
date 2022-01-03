@@ -1,10 +1,8 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
-#include <rpc/util.h>
 
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
@@ -64,8 +62,6 @@ std::map<TBytes, TBytes> TakeSnapshot(CStorageKV const & storage)
     TBytes key;
     auto it = const_cast<CStorageKV&>(storage).NewIterator();
     for(it->Seek(key); it->Valid(); it->Next()) {
-        boost::this_thread::interruption_point();
-
         result.emplace(it->Key(),it->Value());
     }
     return result;
@@ -100,7 +96,7 @@ BOOST_AUTO_TEST_CASE(undo)
     auto undo = CUndo::Construct(base_raw, flushable.GetRaw());
     BOOST_CHECK(undo.before.size() == 2);
     BOOST_CHECK(undo.before.at(ToBytes("testkey1")) == ToBytes("value0"));
-    BOOST_CHECK(undo.before.at(ToBytes("testkey2")).is_initialized() == false);
+    BOOST_CHECK(undo.before.at(ToBytes("testkey2")).has_value() == false);
 
     // flush changes
     mnview.Flush();

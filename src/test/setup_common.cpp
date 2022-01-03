@@ -23,7 +23,6 @@
 #include <script/sigcache.h>
 #include <streams.h>
 #include <txdb.h>
-#include <util/memory.h>
 #include <util/strencodings.h>
 #include <util/time.h>
 #include <util/translation.h>
@@ -97,12 +96,12 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
     // We have to run a scheduler thread to prevent ActivateBestChain
     // from blocking due to queue overrun.
-    threadGroup.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
     mempool.setSanityCheck(1.0);
     pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-    g_chainstate = MakeUnique<CChainState>();
+    g_chainstate = std::make_unique<CChainState>();
     ::ChainstateActive().InitCoinsDB(
         /* cache_size_bytes */ 1 << 23, /* in_memory */ true, /* should_wipe */ false);
     assert(!::ChainstateActive().CanFlushToDisk());
@@ -113,15 +112,15 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         LOCK(cs_main);
 
         pcustomcsDB.reset();
-        pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
-        pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+        pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
+        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
 
         panchorauths.reset();
-        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
         panchors.reset();
-        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
+        panchors = std::make_unique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
     }
 
@@ -134,18 +133,18 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
     }
 
-    nScriptCheckThreads = 3;
-    for (int i = 0; i < nScriptCheckThreads - 1; i++)
-        threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    constexpr int script_check_threads = 2;
+    StartScriptCheckWorkerThreads(script_check_threads);
+    g_parallel_script_checks = true;
 
-    g_banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
-    g_connman = MakeUnique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
+    g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
+    g_connman = std::make_unique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
 }
 
 TestingSetup::~TestingSetup()
 {
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    scheduler.stop();
+    StopScriptCheckWorkerThreads();
     GetMainSignals().FlushBackgroundCallbacks();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     g_connman.reset();

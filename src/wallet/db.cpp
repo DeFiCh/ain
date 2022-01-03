@@ -14,8 +14,6 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/thread.hpp>
-
 namespace {
 
 //! Make sure database has a unique fileid within the environment. If it
@@ -169,8 +167,6 @@ bool BerkeleyEnvironment::Open(bool retry)
     if (fDbEnvInit)
         return true;
 
-    boost::this_thread::interruption_point();
-
     fs::path pathIn = strPath;
     TryCreateDirectories(pathIn);
     if (!LockDirectory(pathIn, ".walletlock")) {
@@ -242,8 +238,6 @@ bool BerkeleyEnvironment::Open(bool retry)
 BerkeleyEnvironment::BerkeleyEnvironment()
 {
     Reset();
-
-    boost::this_thread::interruption_point();
 
     LogPrint(BCLog::DB, "BerkeleyEnvironment::MakeMock\n");
 
@@ -360,7 +354,7 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
     }
     LogPrintf("Salvage(aggressive) found %u records\n", salvagedData.size());
 
-    std::unique_ptr<Db> pdbCopy = MakeUnique<Db>(env->dbenv.get(), 0);
+    std::unique_ptr<Db> pdbCopy = std::make_unique<Db>(env->dbenv.get(), 0);
     int ret = pdbCopy->open(nullptr,               // Txn pointer
                             filename.c_str(),   // Filename
                             "main",             // Logical db name
@@ -538,7 +532,7 @@ BerkeleyBatch::BerkeleyBatch(BerkeleyDatabase& database, const char* pszMode, bo
         pdb = database.m_db.get();
         if (pdb == nullptr) {
             int ret;
-            std::unique_ptr<Db> pdb_temp = MakeUnique<Db>(env->dbenv.get(), 0);
+            std::unique_ptr<Db> pdb_temp = std::make_unique<Db>(env->dbenv.get(), 0);
 
             bool fMockDb = env->IsMock();
             if (fMockDb) {
@@ -696,7 +690,7 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
                 std::string strFileRes = strFile + ".rewrite";
                 { // surround usage of db with extra {}
                     BerkeleyBatch db(database, "r");
-                    std::unique_ptr<Db> pdbCopy = MakeUnique<Db>(env->dbenv.get(), 0);
+                    std::unique_ptr<Db> pdbCopy = std::make_unique<Db>(env->dbenv.get(), 0);
 
                     int ret = pdbCopy->open(nullptr,               // Txn pointer
                                             strFileRes.c_str(), // Filename
@@ -759,7 +753,7 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
                 return fSuccess;
             }
         }
-        MilliSleep(100);
+        UninterruptibleSleep(std::chrono::milliseconds{100});
     }
 }
 
@@ -827,7 +821,6 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
 
         if (nRefCount == 0)
         {
-            boost::this_thread::interruption_point();
             std::map<std::string, int>::iterator mi = env->mapFileUseCount.find(strFile);
             if (mi != env->mapFileUseCount.end())
             {
@@ -891,7 +884,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                 }
             }
         }
-        MilliSleep(100);
+        UninterruptibleSleep(std::chrono::milliseconds{100});
     }
 }
 

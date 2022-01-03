@@ -251,10 +251,10 @@ void CSpvWrapper::Load()
             if (entry.second.purpose == "spv")
             {
                 uint160 userHash;
-                if (entry.first.which() == PKHashType) {
-                    userHash = *boost::get<PKHash>(&entry.first);
-                } else if (entry.first.which() == WitV0KeyHashType) {
-                    userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
+                if (entry.first.index() == PKHashType) {
+                    userHash = std::get<PKHash>(entry.first);
+                } else if (entry.first.index() == WitV0KeyHashType) {
+                    userHash = std::get<WitnessV0KeyHash>(entry.first);
                 } else {
                     continue;
                 }
@@ -265,7 +265,7 @@ void CSpvWrapper::Load()
             }
             else if (entry.second.purpose == "htlc")
             {
-                uint160 userHash = *boost::get<ScriptHash>(&entry.first);
+                uint160 userHash = std::get<ScriptHash>(entry.first);
                 UInt160 spvHash;
                 UIntConvert(userHash.begin(), spvHash);
                 htlcAddresses->insert(spvHash);
@@ -1357,7 +1357,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
     for (const auto& item : wallets) {
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
-                htlcAddresses.insert(*boost::get<ScriptHash>(&entry.first));
+                htlcAddresses.insert(std::get<ScriptHash>(entry.first));
             }
         }
     }

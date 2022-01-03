@@ -11,7 +11,7 @@
 #include <vector>
 #include <cstring>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 class CBlock;
 class CTransaction;
@@ -318,7 +318,7 @@ struct CGovernanceHeightMessage {
 
 struct CCustomTxMessageNone {};
 
-typedef boost::variant<
+using CCustomTxMessage = std::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
@@ -366,7 +366,7 @@ typedef boost::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CAuctionBidMessage
-> CCustomTxMessage;
+>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
@@ -425,7 +425,7 @@ inline bool IsMintTokenTx(const CTransaction& tx)
     return GuessCustomTxType(tx, metadata) == CustomTxType::MintToken;
 }
 
-inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
+inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
 {
     std::vector<unsigned char> metadata;
     if (GuessCustomTxType(tx, metadata) == CustomTxType::AccountToUtxos) {
@@ -434,7 +434,7 @@ inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(con
     return {};
 }
 
-inline boost::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
+inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
 {
     const auto metadata = GetAccountToUtxosMetadata(tx);
     if (metadata) {

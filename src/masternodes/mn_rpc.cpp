@@ -271,7 +271,7 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
-boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
+std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
@@ -279,7 +279,7 @@ boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -345,7 +345,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
     return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
-static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
+static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
@@ -378,7 +378,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         }
         auto authInput = GetAuthInputOnly(pwallet, destination);
         if (authInput) {
-            result.push_back(authInput.get());
+            result.push_back(authInput.value());
         }
         else {
             notFoundYet.insert(auth);
@@ -393,13 +393,13 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
             }
         } else {
-            auths.insert(anyFounder.get());
+            auths.insert(anyFounder.value());
             auto authInput = GetAnyFoundationAuthInput(pwallet);
             if (authInput) {
-                result.push_back(authInput.get());
+                result.push_back(authInput.value());
             }
             else {
-                notFoundYet.insert(anyFounder.get());
+                notFoundYet.insert(anyFounder.value());
             }
         }
     }

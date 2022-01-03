@@ -29,13 +29,13 @@ std::string trim_ws(std::string const & str)
 std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 {
     if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
-        return MakeUnique<CTokenImpl>(*tokenImpl);
+        return std::make_unique<CTokenImpl>(*tokenImpl);
     }
 
     return {};
 }
 
-boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
+std::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
 {
     DCT_ID id;
     if (ReadBy<Symbol, std::string>(symbolKey, id)) {
@@ -44,7 +44,7 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
     return {};
 }
 
-boost::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTokenByCreationTx(const uint256 & txid) const
+std::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTokenByCreationTx(const uint256 & txid) const
 {
     DCT_ID id;
     if (ReadBy<CreationTx, uint256>(txid, id)) {
@@ -71,7 +71,7 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
         auto pair = GetTokenByCreationTx(tx);
         if (pair) {
             id = pair->first;
-            return MakeUnique<CTokenImpl>(pair->second);
+            return std::make_unique<CTokenImpl>(pair->second);
         }
     } else {
         auto pair = GetToken(key);
@@ -305,7 +305,7 @@ DCT_ID CTokensView::DecrementLastDctId()
     return *lastDctId;
 }
 
-boost::optional<DCT_ID> CTokensView::ReadLastDctId() const
+std::optional<DCT_ID> CTokensView::ReadLastDctId() const
 {
     DCT_ID lastDctId{DCT_ID_START};
     if (Read(LastDctId::prefix(), lastDctId)) {

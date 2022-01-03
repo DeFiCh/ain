@@ -173,7 +173,7 @@ static void searchInWallet(CWallet const * pwallet,
             if (!IsValidDestination(sent.destination)) {
                 continue;
             }
-            if (IsValidDestination(destination) && destination != sent.destination) {
+            if (IsValidDestination(destination) && account != GetScriptForDestination(sent.destination)) {
                 continue;
             }
             sent.amount = -sent.amount;
@@ -186,7 +186,7 @@ static void searchInWallet(CWallet const * pwallet,
             if (!IsValidDestination(recv.destination)) {
                 continue;
             }
-            if (IsValidDestination(destination) && destination != recv.destination) {
+            if (IsValidDestination(destination) && account != GetScriptForDestination(recv.destination)) {
                 continue;
             }
             if (!txEntry(recv, index, pwtx)) {
@@ -1023,6 +1023,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
             }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
+            }
         }
         if (!optionsObj["limit"].isNull()) {
             limit = (uint32_t) optionsObj["limit"].get_int64();
@@ -1090,7 +1093,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
-            reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
+            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
         }
 
         bool accountRecord = true;
@@ -1268,6 +1271,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                 // Will search for type ::None if txtype not found.
                 txType = CustomTxCodeToType(str[0]);
                 txTypeSearch = true;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
             }
         }
 
@@ -1416,6 +1421,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
             }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
+            }
         }
     }
 
@@ -1469,7 +1477,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
-            reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, value.diff);
+            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
         }
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
@@ -1803,6 +1811,30 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue getcustomtxcodes(const JSONRPCRequest& request) {
+    RPCHelpMan{"getcustomtxcodes",
+               "\nList all available custom transaction types.\n",
+               {
+               },
+               RPCResult{
+                       "{\"1\": \"ICXCreateOrder\", \"2\": \"ICXMakeOffer\", ...}     (object) List of custom transaction types { [single letter representation]: custom transaction type name}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getcustomtxcodes", "")
+                       + HelpExampleRpc("getcustomtxcodes", "")
+               },
+    }.Check(request);
+
+    UniValue typeObj(UniValue::VOBJ);
+    for (auto i = 0; i < std::numeric_limits<uint8_t>::max(); i++) {
+        auto type = CustomTxCodeToType(i);
+        if (type != CustomTxType::None && type != CustomTxType::Reject) {
+            typeObj.pushKV(std::string(1, i), ToString(type));
+        }
+    }
+    return typeObj;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -1820,6 +1852,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
+    {"accounts",    "getcustomtxcodes",      &getcustomtxcodes,      {}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

@@ -9,7 +9,6 @@
 
 #include <init.h>
 
-#include <addrman.h>
 #include <amount.h>
 #include <banman.h>
 #include <blockfilter.h>
@@ -22,7 +21,6 @@
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
 #include <index/txindex.h>
-#include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
@@ -72,10 +70,7 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/thread.hpp>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
@@ -158,7 +153,7 @@ NODISCARD static bool CreatePidFile()
 
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
-static boost::thread_group threadGroup;
+std::vector<std::thread> threadGroup;
 static CScheduler scheduler;
 
 void Interrupt()
@@ -217,9 +212,12 @@ void Shutdown(InitInterfaces& interfaces)
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue threadGroup
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    // CScheduler/checkqueue threaGroup
+    scheduler.stop();
+    for (auto& thread : threadGroup) {
+        if (thread.joinable()) thread.join();
+    }
+    StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
@@ -475,6 +473,7 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningmuseumheight", "Fort Canning Museum fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningparkheight", "Fort Canning Park fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanninghillheight", "Fort Canning Hill fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
@@ -726,6 +725,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadExternalBlockFile(chainparams, file, &pos);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             nFile++;
         }
         pblocktree->WriteReindexing(false);
@@ -743,6 +746,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
             LoadExternalBlockFile(chainparams, file);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -1113,15 +1120,6 @@ bool AppInitParameterInteraction()
         incrementalRelayFee = CFeeRate(n);
     }
 
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
-
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = gArgs.GetArg("-prune", 0);
     if (nPruneArg < 0) {
@@ -1262,7 +1260,7 @@ bool AppInitLockDataDirectory()
 void SetupAnchorSPVDatabases(bool resync) {
     // Close and open database
     panchors.reset();
-    panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+    panchors = std::make_unique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
 
     // load anchors after spv due to spv (and spv height) not set before (no last height yet)
     if (gArgs.GetBoolArg("-spv", true)) {
@@ -1271,11 +1269,11 @@ void SetupAnchorSPVDatabases(bool resync) {
 
         // Open database based on network
         if (Params().NetworkIDString() == "regtest") {
-            spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+            spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
         } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
         } else {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
         }
     }
 }
@@ -1331,15 +1329,27 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
-    if (nScriptCheckThreads) {
-        for (int i=0; i<nScriptCheckThreads-1; i++)
-            threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    if (script_threads <= 0) {
+        // -par=0 means autodetect (number of cores - 1 script threads)
+        // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
+        script_threads += GetNumCores();
+    }
+
+    // Subtract 1 because the main thread counts towards the par threads
+    script_threads = std::max(script_threads - 1, 0);
+
+    // Number of script-checking threads <= MAX_SCRIPTCHECK_THREADS
+    script_threads = std::min(script_threads, MAX_SCRIPTCHECK_THREADS);
+
+    LogPrintf("Script verification uses %d additional threads\n", script_threads);
+    if (script_threads >= 1) {
+        g_parallel_script_checks = true;
+        StartScriptCheckWorkerThreads(script_threads);
     }
 
     // Start the lightweight task scheduler thread
-    CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);
@@ -1388,7 +1398,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // need to reindex later.
 
     assert(!g_banman);
-    g_banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
+    g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
     assert(!g_connman);
     g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
 
@@ -1547,7 +1557,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             try {
                 LOCK(cs_main);
                 // This statement makes ::ChainstateActive() usable.
-                g_chainstate = MakeUnique<CChainState>();
+                g_chainstate = std::make_unique<CChainState>();
                 UnloadBlockIndex();
 
                 // new CBlockTreeDB tries to delete the existing file, which
@@ -1612,9 +1622,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 });
 
                 pcustomcsDB.reset();
-                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
+                pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1628,16 +1638,16 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
-                    paccountHistoryDB = MakeUnique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 pburnHistoryDB.reset();
-                pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
-                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 // If necessary, upgrade from older database format.
@@ -1755,7 +1765,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, fReindex);
+        g_txindex = std::make_unique<TxIndex>(nTxIndexCache, false, fReindex);
         g_txindex->Start();
     }
 
@@ -1777,9 +1787,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         LOCK(cs_main);
 
         panchorauths.reset();
-        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
         SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
         // Check if DB version changed
@@ -1848,7 +1858,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(std::bind(&ThreadImport, vImportFiles));
+    threadGroup.emplace_back(ThreadImport, vImportFiles);
 
     // Wait for genesis block to be processed
     {
@@ -1987,8 +1997,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&destination)) :
-                         destination.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
+            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
+                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
 
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
@@ -2055,13 +2065,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // Mint proof-of-stake blocks in background
-        threadGroup.create_thread(
-            std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-                // Run ThreadStaker
-                pos::ThreadStaker threadStaker;
-                threadStaker(std::move(stakersParams), std::move(chainparams));
-            }
-        ));
+        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
+            // Run ThreadStaker
+            pos::ThreadStaker threadStaker;
+            threadStaker(stakersParams, chainparams);
+        });
     }
 
     return true;

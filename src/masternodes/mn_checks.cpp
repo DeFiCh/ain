@@ -163,7 +163,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
 
 extern std::string ScriptToString(CScript const& script);
 
-class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
+class CCustomMetadataParseVisitor
 {
     uint32_t height;
     const Consensus::Params& consensus;
@@ -538,7 +538,7 @@ public:
     }
 };
 
-class CCustomTxVisitor : public boost::static_visitor<Res>
+class CCustomTxVisitor
 {
 protected:
     uint32_t height;
@@ -886,12 +886,12 @@ public:
         CMasternode node;
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
-            if (dest.which() == PKHashType) {
+            if (dest.index() == PKHashType) {
                 node.ownerType = 1;
-                node.ownerAuthAddress = CKeyID(*boost::get<PKHash>(&dest));
-            } else if (dest.which() == WitV0KeyHashType) {
+                node.ownerAuthAddress = CKeyID(std::get<PKHash>(dest));
+            } else if (dest.index() == WitV0KeyHashType) {
                 node.ownerType = 4;
-                node.ownerAuthAddress = CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
+                node.ownerAuthAddress = CKeyID(std::get<WitnessV0KeyHash>(dest));
             }
         }
         node.creationHeight = height;
@@ -1247,7 +1247,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        CPoolPair& pool = pair.get();
+        CPoolPair& pool = pair.value();
 
         // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
         {
@@ -3021,7 +3021,7 @@ public:
 
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
     try {
-        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
+        return std::visit(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3031,8 +3031,8 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
     try {
-        return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
-    } catch (const std::exception& e) {
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
+    } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
         return Res::Err("unexpected error");
@@ -3041,8 +3041,8 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 Res CustomTxRevert(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage) {
     try {
-        return boost::apply_visitor(CCustomTxRevertVisitor(tx, height, coins, mnview, consensus), txMessage);
-    } catch (const std::exception& e) {
+        return std::visit(CCustomTxRevertVisitor(tx, height, coins, mnview, consensus), txMessage);
+    } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
         return Res::Err("unexpected error");
@@ -3100,35 +3100,35 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
 
 void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& view, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
     if (txType == CustomTxType::Vault) {
-        auto obj = boost::get<CVaultMessage>(txMessage);
+        auto obj = std::get<CVaultMessage>(txMessage);
         writers->schemeID = obj.schemeId;
         view.vaultID = txid;
     } else if (txType == CustomTxType::CloseVault) {
-        auto obj = boost::get<CCloseVaultMessage>(txMessage);
+        auto obj = std::get<CCloseVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::UpdateVault) {
-        auto obj = boost::get<CUpdateVaultMessage>(txMessage);
+        auto obj = std::get<CUpdateVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
         if (!obj.schemeId.empty()) {
             writers->schemeID = obj.schemeId;
         }
     } else if (txType == CustomTxType::DepositToVault) {
-        auto obj = boost::get<CDepositToVaultMessage>(txMessage);
+        auto obj = std::get<CDepositToVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::WithdrawFromVault) {
-        auto obj = boost::get<CWithdrawFromVaultMessage>(txMessage);
+        auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::TakeLoan) {
-        auto obj = boost::get<CLoanTakeLoanMessage>(txMessage);
+        auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoan) {
-        auto obj = boost::get<CLoanPaybackLoanMessage>(txMessage);
+        auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
-        auto obj = boost::get<CAuctionBidMessage>(txMessage);
+        auto obj = std::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::LoanScheme) {
-        auto obj = boost::get<CLoanSchemeMessage>(txMessage);
+        auto obj = std::get<CLoanSchemeMessage>(txMessage);
         writers->globalLoanScheme.identifier = obj.identifier;
         writers->globalLoanScheme.ratio = obj.ratio;
         writers->globalLoanScheme.rate = obj.rate;
@@ -3520,7 +3520,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
@@ -3547,7 +3547,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         currentID = poolIDs[i];
 
         // Use single swap pool if already found
-        boost::optional<CPoolPair> pool;
+        std::optional<CPoolPair> pool;
         if (poolPair) {
             pool = poolPair->second;
         }

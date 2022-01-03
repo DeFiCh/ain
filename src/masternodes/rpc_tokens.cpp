@@ -75,7 +75,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
-    if (collateralDest.which() == 0) {
+    if (collateralDest.index() == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
     }
 
