@@ -289,7 +289,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    pblock->height         = pindexPrev->nHeight + 1;
+    pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
         pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
@@ -719,7 +719,7 @@ namespace pos {
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height + 1))
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -727,7 +727,7 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+                if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
                     scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
@@ -743,7 +743,7 @@ namespace pos {
                 scriptPubKey = args.coinbaseScript;
             }
 
-            blockHeight = tip->height + 1;
+            blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
             timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
@@ -841,7 +841,6 @@ namespace pos {
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
         pblock->nBits = nBits;
-        pblock->height = blockHeight;
         pblock->mintedBlocks = mintedBlocks + 1;
         pblock->stakeModifier = std::move(stakeModifier);
 
