@@ -185,7 +185,7 @@ public:
     uint32_t nBits;
 
     // proof-of-stake specific fields
-    uint64_t height;
+    uint64_t deprecatedHeight;
     uint64_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
     std::vector<unsigned char> sig;
@@ -220,7 +220,7 @@ public:
         nTime          = 0;
         nBits          = 0;
         stakeModifier  = uint256{};
-        height         = 0;
+        deprecatedHeight = 0;
         mintedBlocks   = 0;
         sig            = {};
         minterKeyID    = {};
@@ -239,7 +239,7 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
-        height         = block.height;
+        deprecatedHeight = block.deprecatedHeight;
         mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
         sig            = block.sig;
@@ -274,7 +274,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.stakeModifier   = stakeModifier;
-        block.height         = height;
+        block.deprecatedHeight = deprecatedHeight;
         block.mintedBlocks   = mintedBlocks;
         block.sig            = sig;
         return block;
@@ -328,7 +328,7 @@ public:
         std::sort(pbegin, pend);
 
         // Only after FC and when we have a full set of times.
-        if (height >= Params().GetConsensus().FortCanningHeight && pend - pbegin == nMedianTimeSpan) {
+        if (nHeight >= Params().GetConsensus().FortCanningHeight && pend - pbegin == nMedianTimeSpan) {
             // Take the median of the top five.
             return pbegin[8];
         }
@@ -422,7 +422,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(stakeModifier);
-        READWRITE(height);
+        READWRITE(deprecatedHeight);
         READWRITE(mintedBlocks);
         READWRITE(sig);
     }
@@ -436,7 +436,7 @@ public:
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.stakeModifier   = stakeModifier;
-        block.height          = height;
+        block.deprecatedHeight = deprecatedHeight;
         block.mintedBlocks    = mintedBlocks;
         block.sig             = sig;
 

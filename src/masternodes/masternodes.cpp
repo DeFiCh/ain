@@ -785,7 +785,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> authMN;
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> confirmMN;
     ForEachMasternode([&] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive(pindexNew->height))
+        if(!node.IsActive(pindexNew->nHeight))
             return true;
 
         // Not in our list of MNs from last week, skip.
@@ -820,7 +820,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
 
     {
         LOCK(cs_main);
-        SetAnchorTeams(authTeam, confirmTeam, pindexNew->height);
+        SetAnchorTeams(authTeam, confirmTeam, pindexNew->nHeight);
     }
 
     // Debug logging

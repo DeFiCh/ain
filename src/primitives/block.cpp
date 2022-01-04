@@ -19,7 +19,7 @@ uint256 CBlockHeader::GetHash() const
 uint256 CBlockHeader::GetHashToSign() const
 {
     CDataStream ss(SER_GETHASH, 0);
-    ss << nVersion << hashPrevBlock << hashMerkleRoot << nTime << nBits << height << mintedBlocks << stakeModifier;
+    ss << nVersion << hashPrevBlock << hashMerkleRoot << nTime << nBits << deprecatedHeight << mintedBlocks << stakeModifier;
     return Hash(ss.begin(), ss.end());
 }
 
@@ -32,7 +32,7 @@ std::string CBlock::ToString() const
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits,
-        height, mintedBlocks,
+        deprecatedHeight, mintedBlocks,
         vtx.size());
     for (const auto& tx : vtx) {
         s << "  " << tx->ToString() << "\n";

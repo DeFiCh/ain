@@ -482,8 +482,10 @@ public:
     CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
     : obj(obj), height(height) {}
 
-    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
-    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view, bool testOnly = false);
+    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
+    std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView& view);
+    CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H
