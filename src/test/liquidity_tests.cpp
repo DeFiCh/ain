@@ -87,6 +87,9 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     auto optPool = mnview.GetPoolPair(idPool);
     BOOST_REQUIRE(optPool);
 
+    // do not include FCH floor in swap
+    auto height = Params().GetConsensus().FortCanningHillHeight - 1;
+
     Res res{};
     { // basic fails
         CPoolPair pool = *optPool;
@@ -165,7 +168,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(ta.nValue, 1000);
             return Res::Ok();
-        });
+        }, height);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 10000);
         BOOST_CHECK_EQUAL(pool.reserveA, 991001);
@@ -181,7 +184,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(ta.nValue, 66442954); // pre-optimization: 66464593
             return Res::Ok();
-        });
+        }, height);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 298000000);
@@ -198,7 +201,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(ta.nValue, 66442953021); // pre-optimization: 66465256146
             return Res::Ok();
-        });
+        }, height);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 298000000);
@@ -213,7 +216,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(ta.nValue, 49748743719); // pre-optimization: 49773755285
             return Res::Ok();
-        });
+        }, height);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 199000000);
@@ -228,7 +231,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(ta.nValue, 98902087); // pre-optimization: 99000000
             return Res::Ok();
-        });
+        }, height);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000);
         BOOST_CHECK_EQUAL(pool.reserveA, 100099000);
