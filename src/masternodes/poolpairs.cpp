@@ -429,6 +429,11 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     }
 
     CAmount result = slopeSwap(in.nValue, reserveF, reserveT, height >= Params().GetConsensus().BayfrontGardensHeight);
+    if (height >= Params().GetConsensus().FortCanningHillHeight && result > 0) {
+        // floor the result
+        result--;
+        reserveT--;
+    }
 
     swapEvent = true; // (!!!)
 
