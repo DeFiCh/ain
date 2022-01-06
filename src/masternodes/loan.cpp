@@ -259,6 +259,15 @@ static base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint
     return interest;
 }
 
+static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
+{
+    base_uint<128> amountHP = amount;
+    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+        amountHP *= COIN;
+    }
+    return amountHP;
+}
+
 CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height)
 {
     return Ceil(TotalInterestCalculation(rate, height), height);
@@ -328,10 +337,11 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
+    auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
     auto interestToHeight = TotalInterestCalculation(rate, height);
-    rate.interestToHeight = interestToHeight < interestDecreased ? 0
-                          : interestToHeight - interestDecreased;
+    rate.interestToHeight = interestToHeight < interestDecreasedHP ? 0
+                          : interestToHeight - interestDecreasedHP;
 
     rate.height = height;
     auto interestPerBlock = InterestPerBlockCalculation(loanDecreased, token->interest, scheme->rate, height);
