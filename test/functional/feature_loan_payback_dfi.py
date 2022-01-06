@@ -6,8 +6,6 @@
 """Test Loan - payback loan."""
 
 from test_framework.test_framework import DefiTestFramework
-
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import calendar
@@ -103,7 +101,6 @@ class PaybackLoanTest (DefiTestFramework):
         self.nodes[0].generate(5)
 
         iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
-        idTSLA = list(self.nodes[0].getloantoken(symbolTSLA)["token"])[0]
 
         vaultId = self.nodes[0].createvault(account0, 'LOAN150')
         self.nodes[0].generate(1)
@@ -126,7 +123,7 @@ class PaybackLoanTest (DefiTestFramework):
             "status": True,
             "ownerAddress": poolOwner,
             "pairSymbol": "DUSD-DFI",
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity(
