@@ -245,7 +245,7 @@ static CAmount Ceil(const base_uint<128>& value, uint32_t height)
 {
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CAmount amount = (value / base_uint<128>(COIN)).GetLow64();
-        amount += CAmount(value != (amount * COIN));
+        amount += CAmount(value != base_uint<128>(amount) * COIN);
         return amount;
     }
     return value.GetLow64();
