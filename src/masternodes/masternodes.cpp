@@ -920,13 +920,25 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool reverseDirection)
 {
         auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
         if (!priceResult)
             return std::move(priceResult);
 
         auto price = priceResult.val.get();
+
+        if (reverseDirection)
+        {
+            if (price == 0)
+                return Res::Err("Price is zero (%s - %s/%s)", GetDecimaleString(price), priceFeedId.first, priceFeedId.second);
+            auto amountInCurrency = DivideAmounts(amount, price);
+            if (MultiplyAmounts(amountInCurrency, price) != amount)
+                amountInCurrency += 1;
+
+            return ResVal<CAmount>(amountInCurrency, Res::Ok());
+        }
+
         auto amountInCurrency = MultiplyAmounts(price, amount);
         if (price > COIN && amountInCurrency < amount)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
@@ -950,7 +962,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!res)
         return std::move(res);
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
     return ResVal<CCollateralLoans>(result, Res::Ok());

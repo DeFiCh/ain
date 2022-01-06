@@ -2645,6 +2645,14 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
+            auto paybackAmount = kv.second;
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
+            {
+                tokenId = mnview.GetToken("DUSD")->first;
+                paybackAmount = mnview.GetAmountInCurrency(paybackAmount, {"DFI","USD"});
+            }
+
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -2663,17 +2671,17 @@ public:
 
             LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
-            auto subLoan = kv.second - subInterest;
+            auto subLoan = paybackAmount - subInterest;
 
-            if (kv.second < subInterest)
+            if (paybackAmount < subInterest)
             {
-                subInterest = kv.second;
+                subInterest = paybackAmount;
                 subLoan = 0;
             }
             else if (it->second - subLoan < 0)
                 subLoan = it->second;
 
-            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subLoan});
             if (!res)
                 return res;
 
@@ -2692,21 +2700,40 @@ public:
                         return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
-            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
-            if (!res)
-                return res;
+            if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
+            {
+                res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
+                if (!res)
+                    return res;
+            }
 
             CalculateOwnerRewards(obj.from);
-            // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
-            if (!res)
-                return res;
 
-            // burn interest Token->USD->DFI->burnAddress
+            // sub amount from balance and burn interest Token->USD->DFI->burnAddress
             if (subInterest)
             {
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
-                res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
+                if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
+                {
+                    // subtract loan amount first, interest is burning below
+                    res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+                    if (!res)
+                        return res;
+
+                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                    res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
+                }
+                else
+                {
+                    CAmount subLoanInDFI = mnview.GetAmountInCurrency(subLoan, {"DFI","USD"}, false, true, true);
+                    res = TransferTokenBalance(DCT_ID{0}, subLoanInDFI, obj.from, consensus.burnAddress);
+                    if (!res)
+                        return res;
+
+                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest in DFI directly - %lld, height - %d\n", subInterest, height);
+                    CAmount subInterestInDFI = mnview.GetAmountInCurrency(subInterest, {"DFI","USD"}, false, true, true);
+                    res = TransferTokenBalance(DCT_ID{0}, subInterestInDFI, obj.from, consensus.burnAddress);
+                }
+
                 if (!res)
                     return res;
             }
@@ -3150,7 +3177,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
 bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
     if (height < consensus.FortCanningParkHeight)
         return false;
-    
+
     // ICXCreateOrder      = '1',
     // ICXMakeOffer        = '2',
     // ICXSubmitDFCHTLC    = '3',
@@ -3182,7 +3209,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 
     const auto metadataValidation = height >= consensus.FortCanningHeight;
-    
+
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
@@ -3191,7 +3218,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     if (IsDisabledTx(height, txType, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
-    
+
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
@@ -3507,7 +3534,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
-// testOnly is only meant for one-off tests per well defined view.  
+// testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
@@ -3577,7 +3604,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // If we're just testing, don't do any balance transfers.
             // Just go over pools and return result. The only way this can
-            // cause inaccurate result is if we go over the same path twice, 
+            // cause inaccurate result is if we go over the same path twice,
             // which shouldn't happen in the first place.
             if (testOnly)
                 return Res::Ok();
