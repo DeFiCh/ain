@@ -179,8 +179,8 @@ public:
 class TimeThrottledFilter : public ILogFilter
 {
 private:
-    uint64_t millis_{0};
-    uint64_t last_time_millis_{0};
+    std::atomic_uint64_t millis_{0};
+    std::atomic_uint64_t last_time_millis_{0};
 
 public:
     TimeThrottledFilter() = delete;
@@ -188,15 +188,15 @@ public:
     {
     }
 
-    virtual bool filter() override
+    bool filter() override
     {
         int64_t current_time = GetTimeMillis();
         // First call or at least millis_ ms to last call
         if ((last_time_millis_ == 0) || ((current_time - last_time_millis_) > millis_)) {
             last_time_millis_ = current_time;
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 };
 
@@ -207,7 +207,7 @@ static inline void LogPrintThrottled(const BCLog::LogFlags& category, ILogFilter
     if (LogAcceptCategory((category))) {
         LogPrintf(args...);
     } else { // .. and otherwise time throttle
-        if (time_throttled_filter.filter()) {
+        if (!time_throttled_filter.filter()) {
             LogPrintf(args...);
         }
     }
