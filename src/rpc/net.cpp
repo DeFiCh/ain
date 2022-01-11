@@ -15,6 +15,7 @@
 #include <policy/settings.h>
 #include <rpc/protocol.h>
 #include <rpc/util.h>
+#include <rpc/rpcversion.h>
 #include <sync.h>
 #include <timedata.h>
 #include <util/strencodings.h>
@@ -22,6 +23,7 @@
 #include <validation.h>
 #include <version.h>
 #include <warnings.h>
+#include <BRPeer.h>
 
 #include <univalue.h>
 
@@ -553,8 +555,18 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     protocolInfoObj.pushKV("version", PROTOCOL_VERSION);
     protocolInfoObj.pushKV("min", MIN_PEER_PROTO_VERSION);
 
+    UniValue rpcInfoObj(UniValue::VOBJ);
+    rpcInfoObj.pushKV("version", FormatVersion(RPC_VERSION));
+
+    UniValue btcInfoObj(UniValue::VOBJ);
+    btcInfoObj.pushKV("version", BR_PROTOCOL_VERSION);
+    btcInfoObj.pushKV("min", BR_MIN_PROTO_VERSION);
+    btcInfoObj.pushKV("userAgent", USER_AGENT);
+
     obj.pushKV("node",nodeInfoObj);
     obj.pushKV("protocol", protocolInfoObj);
+    obj.pushKV("rpc", rpcInfoObj);
+    obj.pushKV("btc", btcInfoObj);
     return obj;
 }
 static UniValue setban(const JSONRPCRequest& request)
