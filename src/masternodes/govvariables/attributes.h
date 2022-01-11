@@ -45,14 +45,24 @@ public:
 
 private:
     // Defined allowed arguments
-    const std::map<std::string, uint8_t> allowedTypes{{"token", AttributeTypes::Token}};
-    const std::map<std::string, uint8_t> allowedTokenKeys{{"payback_dfi", TokenKeys::PaybackDFI},
-                                                    {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT}};
+    const std::map<std::string, uint8_t> allowedTypes{
+        {"token", AttributeTypes::Token}
+    };
+
+    const std::map<std::string, uint8_t> allowedTokenKeys{
+        {"payback_dfi",         TokenKeys::PaybackDFI},
+        {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT}
+    };
 
     // For formatting in export
-    const std::map<uint8_t, std::string> displayTypes{{ AttributeTypes::Token, "token"}};
-    const std::map<uint8_t, std::string> displayTokenKeys{{TokenKeys::PaybackDFI, "payback_dfi"},
-                                                    {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"}};
+    const std::map<uint8_t, std::string> displayTypes{
+        {AttributeTypes::Token, "token"}
+    };
+
+    const std::map<uint8_t, std::string> displayTokenKeys{
+        {TokenKeys::PaybackDFI,       "payback_dfi"},
+        {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"}
+    };
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

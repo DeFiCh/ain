@@ -7,14 +7,14 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
-Res ICX_TAKERFEE_PER_BTC::Import(const UniValue & val) {
+Res ICX_TAKERFEE_PER_BTC::Import(const UniValue & val)
+{
     takerFeePerBTC = AmountFromValue(val);
     return Res::Ok();
 }
 
-UniValue ICX_TAKERFEE_PER_BTC::Export() const {
-    UniValue res(UniValue::VOBJ);
-
+UniValue ICX_TAKERFEE_PER_BTC::Export() const
+{
     return ValueFromAmount(takerFeePerBTC);
 }
 
@@ -22,6 +22,7 @@ Res ICX_TAKERFEE_PER_BTC::Validate(const CCustomCSView &mnview) const
 {
     if (takerFeePerBTC <= 0)
         return Res::Err("takerFeePerBTC cannot be 0 or less");
+
     return Res::Ok();
 }
 
