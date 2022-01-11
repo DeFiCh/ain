@@ -920,7 +920,7 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool reverseDirection)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool reverseDirectionWithCeil)
 {
         auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
         if (!priceResult)
@@ -928,7 +928,7 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
 
         auto price = priceResult.val.get();
 
-        if (reverseDirection)
+        if (reverseDirectionWithCeil)
         {
             if (price == 0)
                 return Res::Err("Price is zero (%s - %s/%s)", GetDecimaleString(price), priceFeedId.first, priceFeedId.second);

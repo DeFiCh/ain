@@ -2649,6 +2649,7 @@ public:
 
             if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
             {
+                // set tokenId to DUSD and calculate the DFI amount in DUSD
                 tokenId = mnview.GetToken("DUSD")->first;
                 paybackAmount = mnview.GetAmountInCurrency(paybackAmount, {"DFI","USD"});
             }
@@ -2679,7 +2680,9 @@ public:
                 subLoan = 0;
             }
             else if (it->second - subLoan < 0)
+            {
                 subLoan = it->second;
+            }
 
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subLoan});
             if (!res)
@@ -2692,51 +2695,55 @@ public:
 
             if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
             {
-                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId);
-                if (!newRate)
+                rate = mnview.GetInterestRate(obj.vaultId, tokenId);
+                if (!rate)
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                if (newRate->interestPerBlock == 0)
+                if (rate->interestPerBlock == 0)
                         return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
+
+            CalculateOwnerRewards(obj.from);
 
             if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
             {
                 res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
                 if (!res)
                     return res;
-            }
 
-            CalculateOwnerRewards(obj.from);
+                // subtract loan amount first, interest is burning below
+                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+                if (!res)
+                    return res;
 
-            // sub amount from balance and burn interest Token->USD->DFI->burnAddress
-            if (subInterest)
-            {
-                if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
+                // burn interest Token->USD->DFI->burnAddress
+                if (subInterest)
                 {
-                    // subtract loan amount first, interest is burning below
-                    res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
-                    if (!res)
-                        return res;
-
                     LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
                     res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
                 }
+            }
+            else
+            {
+                CAmount subInDFI;
+                // if DFI payback overpay loan and interest amount
+                if (paybackAmount > subLoan + subInterest)
+                {
+                    bool useNextPrice = false, requireLivePrice = true, reverseDirectionWithCeil = true;
+                    subInDFI = mnview.GetAmountInCurrency(subInterest + subLoan, {"DFI","USD"}, useNextPrice, requireLivePrice, reverseDirectionWithCeil);
+                }
                 else
                 {
-                    CAmount subLoanInDFI = mnview.GetAmountInCurrency(subLoan, {"DFI","USD"}, false, true, true);
-                    res = TransferTokenBalance(DCT_ID{0}, subLoanInDFI, obj.from, consensus.burnAddress);
-                    if (!res)
-                        return res;
-
-                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest in DFI directly - %lld, height - %d\n", subInterest, height);
-                    CAmount subInterestInDFI = mnview.GetAmountInCurrency(subInterest, {"DFI","USD"}, false, true, true);
-                    res = TransferTokenBalance(DCT_ID{0}, subInterestInDFI, obj.from, consensus.burnAddress);
+                    subInDFI = kv.second;
                 }
 
-                if (!res)
-                    return res;
+                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
+                res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
             }
+
+            if (!res)
+                return res;
         }
 
         return Res::Ok();
