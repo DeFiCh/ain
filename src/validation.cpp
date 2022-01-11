@@ -3938,7 +3938,10 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     fContinue = false;
-                    if (state.GetRejectReason() == "high-hash") {
+                    if (state.GetRejectReason() == "high-hash"
+                    || (pindexConnect == pindexMostWork
+                    && pindexConnect->nHeight >= chainparams.GetConsensus().FortCanningParkHeight
+                    && state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         UpdateMempoolForReorg(disconnectpool, false);
                         return false;
                     }
