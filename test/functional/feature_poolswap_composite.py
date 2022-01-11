@@ -11,6 +11,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     disconnect_nodes,
+    assert_raises_rpc_error
 )
 
 from decimal import Decimal
@@ -269,6 +270,44 @@ class PoolPairCompositeTest(DefiTestFramework):
         psTestAmount = testCPoolSwapRes[0]
         psTestTokenId = testCPoolSwapRes[1]
         assert_equal(psTestTokenId, idDOGE)
+
+        customPathPoolSwap = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_USDC, poolDOGE_USDC])
+
+        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
+
+        psTestAmount = customPathPoolSwap[0]
+        psTestTokenId = customPathPoolSwap[1]
+        assert_equal(psTestTokenId, idDOGE)
+
+        poolLTC_DFI = list(self.nodes[0].getpoolpair("LTC-DFI").keys())[0]
+        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
+        customPathPoolSwap = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_DFI, poolDOGE_DFI])
+
+        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
+
+        psTestTokenId = customPathPoolSwap[1]
+        assert_equal(psTestTokenId, idDOGE)
+
+        assert_raises_rpc_error(-32600, "Custom pool path is invalid.", self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_DFI, "100"])
 
         self.nodes[0].compositeswap({
             "from": source,
