@@ -14,6 +14,7 @@ enum AttributeTypes : uint8_t {
 enum TokenKeys : uint8_t  {
     PaybackDFI = 'a',
     PaybackDFIFeePCT = 'b',
+    DexFeePCT = 'c',
 };
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
@@ -51,7 +52,8 @@ private:
 
     const std::map<std::string, uint8_t> allowedTokenKeys{
         {"payback_dfi",         TokenKeys::PaybackDFI},
-        {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT}
+        {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
+        {"dex_fee_pct",         TokenKeys::DexFeePCT},
     };
 
     // For formatting in export
@@ -61,7 +63,8 @@ private:
 
     const std::map<uint8_t, std::string> displayTokenKeys{
         {TokenKeys::PaybackDFI,       "payback_dfi"},
-        {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"}
+        {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
+        {TokenKeys::DexFeePCT,        "dex_fee_pct"},
     };
 };
 

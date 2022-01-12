@@ -6,12 +6,17 @@
 
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
+#include <util/strencodings.h>
 
 template<typename T>
 static std::string KeyBuilder(const T& value){
     std::ostringstream oss;
     oss << value;
     return oss.str();
+}
+
+static std::string KeyBuilder(const UniValue& value){
+    return value.getValStr();
 }
 
 template<typename T, typename ... Args >
@@ -30,23 +35,97 @@ static std::vector<std::string> KeyBreaker(const std::string& str){
     return strVec;
 }
 
-struct AttributesKey {
-    uint8_t key;
-    uint8_t type;
-    std::string identifier;
-};
-
 static ResVal<int32_t> VerifyInt32(const std::string& str) {
     int32_t int32;
     if (!ParseInt32(str, &int32) || int32 < 0) {
-        return Res::Err("Identifier for must be a positive integer");
+        return Res::Err("Identifier must be a positive integer");
     }
     return {int32, Res::Ok()};
 }
 
-static bool VerifyPct(const std::string& str) {
-    auto res = VerifyInt32(str);
-    return res && *res.val <= COIN;
+static ResVal<CAmount> VerifyPct(const std::string& str) {
+    CAmount amount = 0;
+    if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
+        return Res::Err("Percentage must be a positive integer or float");
+    }
+    if (amount > COIN * 100) {
+        return Res::Err("Percentage exceeds 100%%");
+    }
+    return ResVal<CAmount>(amount, Res::Ok());
+}
+
+static Res ProcessVariable(const std::string& key, const std::string& value,
+                           std::function<ResVal<uint8_t>(const std::string&)> parseType,
+                           std::function<ResVal<uint8_t>(const std::string&)> parseKey,
+                           std::function<Res(const UniValue&)> applyVariable = {}) {
+
+    if (key.size() > 128) {
+        return Res::Err("Identifier exceeds maximum length (128)");
+    }
+
+    const auto keys = KeyBreaker(key);
+    if (keys.empty() || keys[0].empty()) {
+        return Res::Err("Empty key");
+    }
+
+    if (value.empty()) {
+        return Res::Err("Empty value");
+    }
+
+    auto res = parseType(keys[0]);
+    if (!res) {
+        return std::move(res);
+    }
+
+    auto type = *res.val;
+
+    if (type == AttributeTypes::Token) {
+
+        if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
+            return Res::Err("Incorrect key for token type. Object of ['token/ID/key','value'] expected");
+        }
+
+        auto resInt = VerifyInt32(keys[1]);
+        if (!resInt) {
+            return std::move(resInt);
+        }
+
+        auto res = parseKey(keys[2]);
+        if (!res) {
+            return std::move(res);
+        }
+
+        UniValue univalue;
+        auto tokenKey = *res.val;
+
+        if (tokenKey == TokenKeys::PaybackDFI) {
+            if (value != "true" && value != "false") {
+                return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
+            }
+            univalue.setBool(value == "true");
+        } else if (tokenKey == TokenKeys::PaybackDFIFeePCT
+                || tokenKey == TokenKeys::DexFeePCT) {
+            auto res = VerifyPct(value);
+            if (!res) {
+                return std::move(res);
+            }
+            univalue = ValueFromAmount(*res.val);
+        } else {
+            return Res::Err("Unrecognised key");
+        }
+
+        if (applyVariable) {
+            UniValue values(UniValue::VARR);
+            values.push_back(type);
+            values.push_back(*resInt.val);
+            values.push_back(tokenKey);
+            values.push_back(univalue);
+            return applyVariable(values);
+        }
+    } else {
+        return Res::Err("Unrecognised type");
+    }
+    return Res::Ok();
 }
 
 static ResVal<uint8_t> GetType(const std::string& key, const std::map<std::string, uint8_t>& types) {
@@ -70,79 +149,65 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     val.getObjMap(objMap);
 
     for (const auto& pair : objMap) {
-        if (pair.first.size() > 128) {
-            return Res::Err("Identifier exceed maximum length (128)");
-        }
-
-        const auto keys = KeyBreaker(pair.first);
-        if (keys.empty() || keys[0].empty()) {
-            return Res::Err("Empty key");
-        }
-
-        const auto& value = pair.second.get_str();
-        if (value.empty()) {
-            return Res::Err("Empty value");
-        }
-
-        auto res = GetType(keys[0], allowedTypes);
+        auto res = ProcessVariable(pair.first, pair.second.get_str(),
+                                   std::bind(GetType, std::placeholders::_1, allowedTypes),
+                                   std::bind(GetType, std::placeholders::_1, allowedTokenKeys),
+                                   [this](const UniValue& values) {
+            if (values[0].get_int() == AttributeTypes::Token) {
+                auto value = values[3].getValStr();
+                if (values[3].isBool()) {
+                    value = value == "1" ? "true" : "false";
+                }
+                if (values[3].isNum()) {
+                    value = KeyBuilder(values[3].get_real());
+                }
+                attributes[KeyBuilder(values[0], values[1], values[2])] = value;
+            }
+            return Res::Ok();
+        });
         if (!res) {
-            return std::move(res);
-        }
-
-        auto type = *res.val;
-
-        if (type == AttributeTypes::Token) {
-
-            if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
-                return Res::Err("Incorrect key for token type. Object of ['token/ID/key','value'] expected");
-            }
-
-            if (!VerifyInt32(keys[1])) {
-                return Res::Err("Identifier for token must be a positive integer");
-            }
-
-            auto res = GetType(keys[2], allowedTokenKeys);
-            if (!res) {
-                return std::move(res);
-            }
-
-            auto key = *res.val;
-
-            if (key == TokenKeys::PaybackDFI) {
-                if (value != "true" && value != "false") {
-                    return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
-                }
-            } else if (key == TokenKeys::PaybackDFIFeePCT) {
-                if (!VerifyPct(value)) {
-                    return Res::Err("Payback DFI fee percentage value must be a positive integer");
-                }
-            } else {
-                return Res::Err("Unrecognised key");
-            }
-
-            attributes[KeyBuilder(type, keys[1], key)] = value;
+            return res;
         }
     }
     return Res::Ok();
 }
 
+static ResVal<uint8_t> GetTypeByKey(const std::string& key) {
+    auto res = VerifyInt32(key);
+    if (!res) {
+        return res;
+    }
+    return ResVal<uint8_t>(*res.val, Res::Ok());
+}
+
 UniValue ATTRIBUTES::Export() const {
-    UniValue res(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
     for (const auto& item : attributes) {
-        const auto strVec = KeyBreaker(item.first);
+        const auto keys = KeyBreaker(item.first);
         // Should never be empty
-        if (!strVec.empty()) {
-            // Token should always have three items
-            if (strVec[0].size() == 1 && strVec[0].at(0) == AttributeTypes::Token && strVec.size() == 3 && strVec[2].size() == 1) {
-                try {
-                    res.pushKV(displayTypes.at(AttributeTypes::Token) + '/' + strVec[1] + '/' + displayTokenKeys.at(strVec[2].at(0)), item.second);
-                } catch (const std::out_of_range&) {
-                    // Should not get here, if we do perhaps update displayTypes and displayTokenKeys for newly added types and keys.
-                }
+        if (keys.empty()) {
+            continue;
+        }
+        auto res = GetTypeByKey(keys[0]);
+        if (!res) {
+            continue;
+        }
+        auto type = *res.val;
+        // Token should always have three items
+        if (type == AttributeTypes::Token && keys.size() == 3) {
+            res = GetTypeByKey(keys[2]);
+            if (!res) {
+                continue;
+            }
+            auto tokenKey = *res.val;
+            try {
+                ret.pushKV(displayTypes.at(type) + '/' + keys[1] + '/' + displayTokenKeys.at(tokenKey), item.second);
+            } catch (const std::out_of_range&) {
+                // Should not get here, if we do perhaps update displayTypes and displayTokenKeys for newly added types and keys.
             }
         }
     }
-    return res;
+    return ret;
 }
 
 Res ATTRIBUTES::Validate(const CCustomCSView & view) const
@@ -151,56 +216,32 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         return Res::Err("Cannot be set before FortCanningHill");
 
     for (const auto& item : attributes) {
-        if (item.first.size() > 128) {
-            return Res::Err("Identifier exceed maximum length (128)");
-        }
-
-        const auto strVec = KeyBreaker(item.first);
-
-        if (strVec.empty()) {
-            return Res::Err("Empty map key found");
-        }
-
-        if (strVec[0].size() != 1) {
-            return Res::Err("Incorrect attribute length");
-        }
-
-        auto type = strVec[0][0];
-
-        if (type == AttributeTypes::Token) {
-
-            if (strVec.size() != 3 || strVec[1].empty() || strVec[2].empty()) {
-                return Res::Err("Incorrect key for token type. Object of ['token/ID/key','value'] expected");
+        auto res = ProcessVariable(item.first, item.second, GetTypeByKey, GetTypeByKey,
+                                   [&](const UniValue& values) {
+            if (values[0].get_int() == AttributeTypes::Token) {
+                uint32_t tokenId = uint32_t(values[1].get_int());
+                if (values[2].get_int() == TokenKeys::DexFeePCT) {
+                    auto token = view.GetToken(DCT_ID{tokenId});
+                    if (!token) {
+                        return Res::Err("No such token (%d)", tokenId);
+                    }
+                    if (token->IsPoolShare()) {
+                        return Res::Err("Token (%s) is pool share one", token->symbol);
+                    }
+                    return Res::Ok();
+                }
+                if (values[2].get_int() == TokenKeys::PaybackDFI
+                ||  values[2].get_int() == TokenKeys::PaybackDFIFeePCT) {
+                    if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
+                        return Res::Err("No such loan token (%d)", tokenId);
+                    }
+                    return Res::Ok();
+                }
             }
-
-            auto res = VerifyInt32(strVec[1]);
-            if (!res) {
-                return std::move(res);
-            }
-
-            auto tokenId = uint32_t(*res.val);
-
-            auto key = strVec[2][0];
-
-            if (key == TokenKeys::PaybackDFI) {
-                if (!view.GetLoanTokenByID({tokenId})) {
-                    return Res::Err("Invalid loan token specified");
-                }
-                if (item.second != "true" && item.second != "false") {
-                    return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
-                }
-            } else if (key == TokenKeys::PaybackDFIFeePCT) {
-                if (!view.GetLoanTokenByID({tokenId})) {
-                    return Res::Err("Invalid loan token specified");
-                }
-                if (!VerifyPct(item.second)) {
-                    return Res::Err("Payback DFI fee percentage value must be a positive integer");
-                }
-            } else {
-                return Res::Err("Unrecognised key");
-            }
-        } else {
             return Res::Err("Unrecognised type");
+        });
+        if (!res) {
+            return res;
         }
     }
 
@@ -209,5 +250,24 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
+    for (const auto& item : attributes) {
+        auto res = ProcessVariable(item.first, item.second, GetTypeByKey, GetTypeByKey,
+                                   [&](const UniValue& values) -> Res {
+            if (values[0].get_int() == AttributeTypes::Token) {
+                if (values[2].get_int() == TokenKeys::DexFeePCT) {
+                    auto res = VerifyPct(values[3].getValStr());
+                    if (!res) {
+                        return std::move(res);
+                    }
+                    auto tokenId = uint32_t(values[1].get_int());
+                    return mnview.SetDexfeePct({tokenId}, *res.val / 100);
+                }
+            }
+            return Res::Ok();
+        });
+        if (!res) {
+            return res;
+        }
+    }
     return Res::Ok();
 }

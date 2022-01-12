@@ -444,13 +444,13 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for token type. Object of ['token/ID/key','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'token/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'unrecognised/5/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: payback_dfi, payback_dfi_fee_pct", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/unrecognised':'true'}})
-        assert_raises_rpc_error(-5, "Identifier for token must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/not_a_number/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: dex_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Identifier must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Payback DFI value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Payback DFI value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'unrecognised'}})
-        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'not_a_number'}})
-        assert_raises_rpc_error(-5, "Payback DFI fee percentage value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'-1'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Invalid loan token specified", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Percentage must be a positive integer or float", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Percentage must be a positive integer or float", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi_fee_pct':'-1'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: No such loan token (5)", self.nodes[0].setgov, {"ATTRIBUTES":{'token/5/payback_dfi':'true'}})
 
         # Setup for loan related tests
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
