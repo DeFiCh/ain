@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/gv.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/icx_takerfee_per_btc.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/loan_liquidation_penalty.h>
@@ -79,4 +80,13 @@ void CGovView::EraseStoredVariables(const uint32_t height)
     for (const auto& var : vars) {
         EraseBy<ByHeightVars>(GovVarKey{height, var->GetName()});
     }
+}
+
+std::map<std::string, std::string> CGovView::GetAttributes() const {
+    if (const auto var = GetVariable("ATTRIBUTES")) {
+        if (const auto attrs = dynamic_cast<ATTRIBUTES*>(var.get())) {
+            return attrs->attributes;
+        }
+    }
+    return {};
 }

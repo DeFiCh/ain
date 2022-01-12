@@ -1352,26 +1352,54 @@ public:
             return Res::Err("tx not from foundation member");
         }
         for(const auto& var : obj.govs) {
-            auto result = var->Validate(mnview);
-            if (!result) {
-                return Res::Err("%s: %s", var->GetName(), result.msg);
+            auto res = var->Validate(mnview);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+
             if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
                     storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
                     continue;
                 }
+            } else if (var->GetName() == "ATTRIBUTES") {
+                // Add to existing ATTRIBUTES instead of overwriting.
+                auto govVar = mnview.GetVariable(var->GetName());
+                res = govVar->Import(var->Export());
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                // Validate as complete set. Check for future conflicts between key pairs.
+                res = govVar->Validate(mnview);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = govVar->Apply(mnview, height);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = mnview.SetVariable(*govVar);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                return Res::Ok();
             }
-            auto res = var->Apply(mnview, height);
+
+            res = var->Apply(mnview, height);
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            auto add = mnview.SetVariable(*var);
-            if (!add) {
-                return Res::Err("%s: %s", var->GetName(), add.msg);
+
+            res = mnview.SetVariable(*var);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
         }
         return Res::Ok();
