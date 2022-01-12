@@ -182,6 +182,5 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
-    mnview.SetAttributes(attributes);
     return Res::Ok();
 }
