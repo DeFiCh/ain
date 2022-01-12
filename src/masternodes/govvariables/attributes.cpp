@@ -182,6 +182,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
-    // On implemenation of features that rely on ATTRIBUTES store values in mnview where they are needed.
+    mnview.SetAttributes(attributes);
     return Res::Ok();
 }

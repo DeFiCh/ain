@@ -544,6 +544,16 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
     return 0;
 }
 
+std::map<std::string, std::string> CMasternodesView::GetAttributes() const {
+    std::map<std::string, std::string> attributes;
+    Read(Attrs::prefix(), attributes);
+    return attributes;
+}
+
+void CMasternodesView::SetAttributes(const std::map<std::string, std::string>& attributes) {
+    Write(Attrs::prefix(), attributes);
+}
+
 std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock)
 {
     // Get last block time for non-subnode staking
