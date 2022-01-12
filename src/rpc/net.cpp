@@ -15,7 +15,6 @@
 #include <policy/settings.h>
 #include <rpc/protocol.h>
 #include <rpc/util.h>
-#include <rpc/rpcversion.h>
 #include <sync.h>
 #include <timedata.h>
 #include <util/strencodings.h>
@@ -519,18 +518,24 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
                {},
                RPCResult{
                        "{\n"
-                       "  \"node\": {\n"
-                       "      \"name\": DeFiChain                       (string) Node name\n"
-                       "      \"version\": \"xxxxx\",                   (string) Node version string\n"
-                       "      \"numericVersion\": xxxxx,                (number) Node numeric version\n"
-                       "      \"fullVersion\": \"DefiChain:x.x.x\",     (string) Full node version string including name and version\n"
-                       "      \"userAgent\": \"/DefiChain:x.x.x/\",     (string) P2P user agent string (subversion string conforming to BIP-14)\n"
-                       "   },\n"
-                       "  \"protocol\": {\n"
-                       "      \"version\": \"xxxxx\",                   (number) Operating protocol version\n"
-                       "      \"min\": \"xxxxx\",                       (number) Minimum protocol that's supported by the node\n"
-                       "   },\n"
-                       "  ...\n"
+                       " \"name\": DeFiChain                       (string) Node name\n"
+                       " \"version\": \"xxxxx\",                   (string) Node version string\n"
+                       " \"numericVersion\": xxxxx,                (number) Node numeric version\n"
+                       " \"fullVersion\": \"DefiChain:x.x.x\",     (string) Full node version string including name and version\n"
+                       " \"userAgent\": \"/DefiChain:x.x.x/\",     (string) P2P user agent string (subversion string conforming to BIP-14)\n"
+                       " \"protoVersion\": \"xxxxx\",              (number) Operating protocol version\n"
+                       " \"protoVersionMin\": \"xxxxx\",           (number) Minimum protocol that's supported by the node\n"
+                       " \"rpcVersion\": \"xxxxx\",                (string) RPC version\n"
+                       " \"rpcVersionMin\": \"xxxxx\",             (string) Minimum RPC version supported\n"
+                       " \"spv\":\n"
+                       " \"{\n"
+                       "    \"btc\":\n"
+                       "       \"{\n"
+                       "          \"userAgent\": \"xxxxx\",          (string) BTC SPV agent string\n"
+                       "          \"protoVersion\": \"xxxxx\",       (number) BTC SPV protocol version\n"
+                       "          \"protoVersionMin\": \"xxxxx\",    (number) Minimum BTC SPV protocol that's supported by the node\n"
+                       "       \"}\n"
+                       " \"}\"\n"
                        "}"
                },
                RPCExamples{
@@ -539,8 +544,17 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
                },
     }.Check(request);
 
-    UniValue obj(UniValue::VOBJ);
     UniValue nodeInfoObj(UniValue::VOBJ);
+
+    
+
+    UniValue btcInfoObj(UniValue::VOBJ);
+    btcInfoObj.pushKV("version", BR_PROTOCOL_VERSION);
+    btcInfoObj.pushKV("min", BR_MIN_PROTO_VERSION);
+    btcInfoObj.pushKV("userAgent", USER_AGENT);
+
+    UniValue spvInfoObj(UniValue::VOBJ);
+    spvInfoObj.pushKV("btc", btcInfoObj);
 
     std::ostringstream strFullVersion;
     strFullVersion << CLIENT_NAME << ":" << FormatVersion(CLIENT_VERSION);
@@ -550,24 +564,12 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
     nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
-
-    UniValue protocolInfoObj(UniValue::VOBJ);
-    protocolInfoObj.pushKV("version", PROTOCOL_VERSION);
-    protocolInfoObj.pushKV("min", MIN_PEER_PROTO_VERSION);
-
-    UniValue rpcInfoObj(UniValue::VOBJ);
-    rpcInfoObj.pushKV("version", FormatVersion(RPC_VERSION));
-
-    UniValue btcInfoObj(UniValue::VOBJ);
-    btcInfoObj.pushKV("version", BR_PROTOCOL_VERSION);
-    btcInfoObj.pushKV("min", BR_MIN_PROTO_VERSION);
-    btcInfoObj.pushKV("userAgent", USER_AGENT);
-
-    obj.pushKV("node",nodeInfoObj);
-    obj.pushKV("protocol", protocolInfoObj);
-    obj.pushKV("rpc", rpcInfoObj);
-    obj.pushKV("btc", btcInfoObj);
-    return obj;
+    nodeInfoObj.pushKV("protoVersion",PROTOCOL_VERSION);
+    nodeInfoObj.pushKV("protoVersionMin",MIN_PEER_PROTO_VERSION);
+    nodeInfoObj.pushKV("rpcVersion","1");
+    nodeInfoObj.pushKV("rpcVersionMin","1");
+    nodeInfoObj.pushKV("spv",spvInfoObj);
+    return nodeInfoObj;
 }
 static UniValue setban(const JSONRPCRequest& request)
 {
