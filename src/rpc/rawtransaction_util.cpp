@@ -79,13 +79,34 @@ CScript DecodeScript(std::string const& str)
         if (IsStandard(result, dummy)) {
             return result;
         }
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient script (" + str + ") does not solvable/non-standard");;
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient script (" + str + ") does not solvable/non-standard");
     }
     const auto dest = DecodeDestination(str);
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to any valid address");
     }
     return GetScriptForDestination(dest);
+}
+
+int DecodeScriptTxId(const std::string& str, CParserResults result)
+{
+    if (IsHex(str)) {
+        auto hex = ParseHex(str);
+        CScript address{hex.begin(), hex.end()};
+        txnouttype dummy;
+        if (IsStandard(address, dummy)) {
+            result.address = address;
+            return 0;
+        }
+        if (hex.size() == 32) {
+            std::reverse(hex.begin(), hex.end());
+            result.txid = uint256{hex};
+            return 1;
+        }
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "not solvable/non-standard address neither txid");
+    }
+    result.address = DecodeScript(str);
+    return 0;
 }
 
 CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name)

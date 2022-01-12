@@ -432,6 +432,8 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
             {"maxBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max btc height, optional (default = -1)"},
             {"minConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "min anchor confirmations, optional (default = -1)"},
             {"maxConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max anchor confirmations, optional (default = -1)"},
+            {"startBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max anchor confirmations, optional (default = -1)"},
+            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "number of records to return (default = unlimited)"},
         },
         RPCResult{
             "\"array\"                  Returns array of anchors\n"
@@ -445,13 +447,14 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
-    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM }, true);
+    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM }, true);
 
-
-    int minBtcHeight = request.params.size() > 0 && !request.params[0].isNull() ? request.params[0].get_int() : -1;
-    int maxBtcHeight = request.params.size() > 1 && !request.params[1].isNull() ? request.params[1].get_int() : -1;
-    int minConfs  = request.params.size() > 2 && !request.params[2].isNull() ? request.params[2].get_int() : -1;
-    int maxConfs  = request.params.size() > 3 && !request.params[3].isNull() ? request.params[3].get_int() : -1;
+    const int minBtcHeight = request.params.size() > 0 ? request.params[0].get_int() : -1;
+    const int maxBtcHeight = request.params.size() > 1 ? request.params[1].get_int() : -1;
+    const int minConfs = request.params.size() > 2 ? request.params[2].get_int() : -1;
+    const int maxConfs = request.params.size() > 3 ? request.params[3].get_int() : -1;
+    const int startBtcHeight = request.params.size() > 4 ? request.params[4].get_int() : -1;
+    const int limit = request.params.size() > 5 ? request.params[5].get_int() : std::numeric_limits<int>::max();
 
     // ! before cs_main lock
     uint32_t const tmp = spv::pspv->GetLastBlockHeight();
@@ -461,13 +464,16 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
 
     panchors->UpdateLastHeight(tmp); // may be unnecessary but for sure
     auto const * cur = panchors->GetActiveAnchor();
+    auto count = limit;
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &cur, minBtcHeight, maxBtcHeight, minConfs, maxConfs](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&](const CAnchorIndex::AnchorRec & rec) {
         // from tip to genesis:
         auto confs = panchors->GetAnchorConfirmations(&rec);
-        if ( (maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs) )
+        if ((maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs))
             return true; // continue
-        if ( (minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) || (maxConfs >= 0 && confs > maxConfs) )
+        if ((minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) ||
+            (maxConfs >= 0 && confs > maxConfs) ||
+            (startBtcHeight >= 0 && static_cast<THeight>(rec.btcHeight) < startBtcHeight))
             return false; // break
 
         UniValue anchor(UniValue::VOBJ);
@@ -480,7 +486,7 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
         }
 
         result.push_back(anchor);
-        return true;
+        return --count != 0;
     });
     return result;
 }
@@ -1576,7 +1582,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
-  { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs" }  },
+  { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs", "startBtcHeight", "limit" }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
   { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
   { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },

@@ -548,6 +548,7 @@ private:
 
     std::vector<indexed_transaction_set::const_iterator> GetSortedDepthAndScore() const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
+    bool accountsViewDirty;
     std::unique_ptr<CCustomCSView> acview;
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
@@ -704,6 +705,7 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
+    void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

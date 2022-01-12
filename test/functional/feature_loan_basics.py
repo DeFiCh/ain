@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan - setcollateraltoken."""
+"""Test Loan - loan basics."""
 
 from test_framework.test_framework import DefiTestFramework
 
@@ -19,8 +19,8 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -373,7 +373,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186824'))
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186822'))
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
 
         try:
@@ -405,14 +405,13 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'from': account0,
                     'amounts': vaultInfo['loanAmounts']})
 
-
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmounts'], [])
         assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
-        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443691'))
+        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443685'))
 
         listAccountHistory = self.nodes[0].listaccounthistory(account0, {'jsonformat':'object'})
         assert(type(listAccountHistory) is dict)
@@ -447,6 +446,76 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(vaultInfo['collateralAmounts'], ['400.00000000@DFI'])
         assert_equal(vaultInfo['collateralValue'], Decimal('4000.00000000'))
         assert_equal(vaultInfo['loanValue'], Decimal('1500.0610730'))
+
+        # feed oracle
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
+                          {"currency": "USD", "tokenAmount": "10@GOOGL"},
+                          {"currency": "USD", "tokenAmount": "5@DFI"},
+                          {"currency": "USD", "tokenAmount": "10@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+
+        self.nodes[0].generate(12)
+        self.sync_blocks()
+
+        vaultInfo = self.nodes[0].getvault(vaultId1)
+        assert_equal(vaultInfo['state'], 'inLiquidation')
+        assert_equal(len(vaultInfo['batches']), 1)
+        assert_equal(vaultInfo['batches'][0]['collaterals'], ['400.00000000@DFI'])
+
+        address = self.nodes[0].getnewaddress()
+        self.nodes[0].utxostoaccount({address: "100@" + symbolDFI})
+        self.nodes[0].generate(1)
+
+        vaultId3 = self.nodes[0].createvault(address)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId3, address, "100@DFI")
+        self.nodes[0].generate(1)
+
+        # take loan
+        self.nodes[0].takeloan({
+            'vaultId': vaultId3,
+            'amounts': ["10@TSLA", "10@GOOGL"]
+        })
+        self.nodes[0].generate(1)
+
+        address2 = self.nodes[0].getnewaddress()
+        self.nodes[0].sendtokenstoaddress({}, {address2:["5@TSLA", "5@GOOGL"]}) # split into two address
+        self.nodes[0].generate(1)
+
+        try:
+            self.nodes[0].paybackloan({
+                'vaultId': vaultId3,
+                'from': "*",
+                'amounts': ["10@" + symbolTSLA, "10@" + symbolGOOGL]
+            })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Not enough tokens on account, call sendtokenstoaddress to increase it." in errorString)
+
+        self.nodes[0].paybackloan({
+                'vaultId': vaultId3,
+                'from': "*",
+                'amounts': "5@" + symbolTSLA
+        })
+        self.nodes[0].generate(1)
+
+        vault = self.nodes[0].getvault(vaultId3)
+        assert_equal(sorted(vault['loanAmounts']), sorted(['5.00002853@' + symbolTSLA, '10.00003993@' + symbolGOOGL]))
+
+        self.nodes[0].sendtokenstoaddress({}, {address2:["5@" + symbolTSLA, "10@" + symbolGOOGL]})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId3,
+            'from': "*",
+            'amounts': ["5@" + symbolTSLA, "10@" + symbolGOOGL]
+        })
+        self.nodes[0].generate(1)
+
+        vault = self.nodes[0].getvault(vaultId3)
+        assert_equal(sorted(vault['loanAmounts']), sorted(['0.00003425@' + symbolTSLA, '0.00005324@' + symbolGOOGL]))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

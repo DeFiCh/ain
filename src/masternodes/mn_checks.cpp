@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
 #include <masternodes/res.h>
+#include <masternodes/vaulthistory.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -238,16 +239,25 @@ public:
     }
 
     Res operator()(CSetForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CRemForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("updatemasternode is disabled for Fort Canning");
+
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -913,6 +923,9 @@ public:
     }
 
     Res operator()(const CSetForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto const node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
@@ -925,6 +938,9 @@ public:
     }
 
     Res operator()(const CRemForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
         auto const node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
@@ -937,6 +953,9 @@ public:
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("updatemasternode is disabled for Fort Canning");
+
         auto res = HasCollateralAuth(obj.mnId);
         return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
@@ -2663,6 +2682,16 @@ public:
             if (!res)
                 return res;
 
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
+            {
+                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId);
+                if (!newRate)
+                    return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
+
+                if (newRate->interestPerBlock == 0)
+                        return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
+            }
+
             res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
             if (!res)
                 return res;
@@ -2720,10 +2749,19 @@ public:
             auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
             if (amount > obj.amount.nValue)
                 return Res::Err("First bid should include liquidation penalty of %d%%", data->liquidationPenalty * 100 / COIN);
+
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight
+            && data->liquidationPenalty && obj.amount.nValue == batch->loanAmount.nValue)
+                return Res::Err("First bid should be higher than batch one");
         } else {
             auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
             if (amount > obj.amount.nValue)
                 return Res::Err("Bid override should be at least 1%% higher than current one");
+
+            if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight
+            && obj.amount.nValue == bid->second.nValue)
+                return Res::Err("Bid override should be higher than last one");
+
             // immediate refund previous bid
             CalculateOwnerRewards(bid->first);
             mnview.AddBalance(bid->first, bid->second);
@@ -3019,7 +3057,7 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView *burnView) {
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CHistoryErasers& erasers) {
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return Res::Ok();
     }
@@ -3039,7 +3077,10 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
             break;
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryEraser view(mnview, height, txn, historyView, burnView);
+    CAccountsHistoryEraser view(mnview, height, txn, erasers);
+    uint256 vaultID;
+    std::string schemeID;
+    CLoanSchemeCreation globalScheme;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
@@ -3047,7 +3088,7 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         if (txType == CustomTxType::CreateToken
         || txType == CustomTxType::CreateMasternode
         || txType == CustomTxType::Vault) {
-            view.SubFeeBurn(tx.vout[0].scriptPubKey);
+            erasers.SubFeeBurn(tx.vout[0].scriptPubKey);
         }
     }
     if (!res) {
@@ -3057,33 +3098,123 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     return (view.Flush(), res);
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView) {
+void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& view, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
+    if (txType == CustomTxType::Vault) {
+        auto obj = std::get<CVaultMessage>(txMessage);
+        writers->schemeID = obj.schemeId;
+        view.vaultID = txid;
+    } else if (txType == CustomTxType::CloseVault) {
+        auto obj = std::get<CCloseVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::UpdateVault) {
+        auto obj = std::get<CUpdateVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+        if (!obj.schemeId.empty()) {
+            writers->schemeID = obj.schemeId;
+        }
+    } else if (txType == CustomTxType::DepositToVault) {
+        auto obj = std::get<CDepositToVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::WithdrawFromVault) {
+        auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::TakeLoan) {
+        auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::PaybackLoan) {
+        auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::AuctionBid) {
+        auto obj = std::get<CAuctionBidMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::LoanScheme) {
+        auto obj = std::get<CLoanSchemeMessage>(txMessage);
+        writers->globalLoanScheme.identifier = obj.identifier;
+        writers->globalLoanScheme.ratio = obj.ratio;
+        writers->globalLoanScheme.rate = obj.rate;
+        if (!obj.updateHeight) {
+            writers->globalLoanScheme.schemeCreationTxid = txid;
+        } else {
+            writers->vaultView->ForEachGlobalScheme([&writers](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
+                if (value.get().loanScheme.identifier != writers->globalLoanScheme.identifier) {
+                    return true;
+                }
+                writers->globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
+                return false;
+            }, {height, txn, {}});
+        }
+    }
+}
+
+
+bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
+    if (height < consensus.FortCanningParkHeight)
+        return false;
+    
+    // ICXCreateOrder      = '1',
+    // ICXMakeOffer        = '2',
+    // ICXSubmitDFCHTLC    = '3',
+    // ICXSubmitEXTHTLC    = '4',
+    // ICXClaimDFCHTLC     = '5',
+    // ICXCloseOrder       = '6',
+    // ICXCloseOffer       = '7',
+
+    // Leaving close orders, as withdrawal of existing should be ok?
+    switch (type) {
+        case CustomTxType::ICXCreateOrder:
+        case CustomTxType::ICXMakeOffer:
+        case CustomTxType::ICXSubmitDFCHTLC:
+        case CustomTxType::ICXSubmitEXTHTLC:
+        case CustomTxType::ICXClaimDFCHTLC:
+            return true;
+        default:
+            return false;
+    }
+}
+
+
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
+
+
     const auto metadataValidation = height >= consensus.FortCanningHeight;
+    
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
     }
+
+    if (IsDisabledTx(height, txType, consensus)) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
+    }
+    
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView);
+    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+        if (pvaultHistoryDB && writers) {
+           PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
+        }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
-            view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+            if (writers) {
+                writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+            }
         }
         if (txType == CustomTxType::Vault) {
             // burn the half, the rest is returned on close vault
             auto burnFee = tx.vout[0].nValue / 2;
-            view.AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            if (writers) {
+                writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            }
         }
     }
     // list of transactions which aren't allowed to fail:
@@ -3168,7 +3299,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-curteam", "anchor wrong current team");
     }
 
-    if (finMsg.nextTeam != mnview.CalcNextTeam(prevStakeModifier)) {
+    if (finMsg.nextTeam != mnview.CalcNextTeam(height, prevStakeModifier)) {
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
@@ -3269,7 +3400,40 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     return false;
 }
 
-std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly) {
+
+    std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
+
+    // Record best pair
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+
+    // Loop through all common pairs
+    for (const auto& path : poolPaths) {
+
+        // Test on copy of view
+        CCustomCSView dummy(view);
+
+        // Execute pool path
+        auto res = ExecuteSwap(dummy, path, testOnly);
+
+        // Add error for RPC user feedback
+        if (!res) {
+            const auto token = dummy.GetToken(currentID);
+            if (token) {
+                errors.emplace_back(token->symbol, res.msg);
+            }
+        }
+
+        // Record amount if more than previous or default value
+        if (res && result > bestPair.second) {
+            bestPair = {path, result};
+        }
+    }
+
+    return bestPair.first;
+}
+
+std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& view) {
 
     // For tokens to be traded get all pairs and pool IDs
     std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
@@ -3297,8 +3461,8 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
     set_intersection(fromPoolsID.begin(), fromPoolsID.end(), toPoolsID.begin(), toPoolsID.end(),
                      std::inserter(commonPairs, commonPairs.begin()),
                      [](std::pair<uint32_t, DCT_ID> a, std::pair<uint32_t, DCT_ID> b) {
-        return a.first < b.first;
-    });
+                         return a.first < b.first;
+                     });
 
     // Loop through all common pairs and record direct pool to pool swaps
     std::vector<std::vector<DCT_ID>> poolPaths;
@@ -3329,7 +3493,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
 
                 // If a pool pairs matches from pair and to pair add it to the pool paths
                 if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
-                (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
+                    (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
                     poolPaths.push_back({fromIt->second, id, toIt->second});
                 }
             }
@@ -3337,36 +3501,14 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
         return true;
     }, {0});
 
-    // Record best pair
-    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
-
-    // Loop through all common pairs
-    for (const auto& path : poolPaths) {
-
-        // Test on copy of view
-        CCustomCSView dummy(view);
-
-        // Execute pool path
-        auto res = ExecuteSwap(dummy, path);
-
-        // Add error for RPC user feedback
-        if (!res) {
-            const auto token = dummy.GetToken(currentID);
-            if (token) {
-                errors.emplace_back(token->symbol, res.msg);
-            }
-        }
-
-        // Record amount if more than previous or default value
-        if (res && result > bestPair.second) {
-            bestPair = {path, result};
-        }
-    }
-
-    return bestPair.first;
+    // return pool paths
+    return poolPaths;
 }
 
-Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
+// Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
+// for a pool, if used multiple times (or duplicated pool IDs) with the same view.
+// testOnly is only meant for one-off tests per well defined view.  
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
@@ -3392,10 +3534,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolPrice = obj.maxPrice;
     }
 
-    CCustomCSView mnview(view);
-    mnview.CalculateOwnerRewards(obj.from, height);
-    mnview.CalculateOwnerRewards(obj.to, height);
-    mnview.Flush();
+    if (!testOnly) {
+        CCustomCSView mnview(view);
+        mnview.CalculateOwnerRewards(obj.from, height);
+        mnview.CalculateOwnerRewards(obj.to, height);
+        mnview.Flush();
+    }
 
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
@@ -3428,13 +3572,20 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+            // Save swap amount for next loop
+            swapAmountResult = tokenAmount;
+
+            // If we're just testing, don't do any balance transfers.
+            // Just go over pools and return result. The only way this can
+            // cause inaccurate result is if we go over the same path twice, 
+            // which shouldn't happen in the first place.
+            if (testOnly)
+                return Res::Ok();
+
             auto res = view.SetPoolPair(currentID, height, *pool);
             if (!res) {
                 return res;
             }
-
-            // Save swap amount for next loop
-            swapAmountResult = tokenAmount;
 
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
@@ -3452,7 +3603,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             }
             intermediateView.Flush();
 
-            return res;
+           return res;
         }, static_cast<int>(height));
 
         if (!poolResult) {
@@ -3490,7 +3641,7 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!token)
         return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
-    // TODO: Optimize double look up later when first token is DUSD. 
+    // TODO: Optimize double look up later when first token is DUSD.
     auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");

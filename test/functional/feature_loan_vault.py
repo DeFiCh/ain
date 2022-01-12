@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan Scheme."""
+"""Test vault."""
 
 from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
@@ -12,6 +12,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
+
 class VaultTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -23,6 +24,7 @@ class VaultTest (DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(120)
+        self.nodes[1].generate(120)
         self.nodes[0].createloanscheme(175, 3, 'LOAN0001')
         self.nodes[0].createloanscheme(150, 2.5, 'LOAN000A')
         self.nodes[0].createloanscheme(200, 2, 'LOAN0002')
@@ -63,16 +65,30 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
         vaultId3 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
 
+        ownerAddress3 = self.nodes[1].getnewaddress('', 'legacy')
+        vaultId4 = self.nodes[1].createvault(ownerAddress3, 'LOAN0002')
+        vaultId5 = self.nodes[1].createvault(ownerAddress3, 'LOAN0003')
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        mineList = self.nodes[1].listvaults(options={'ownerAddress':'mine'})
+        assert(len(mineList) == 2)
+        self.nodes[1].closevault(vaultId4, ownerAddress3)
+        self.nodes[1].generate(1)
+        self.nodes[1].closevault(vaultId5, ownerAddress3)
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
         # check listvaults
         listVaults = self.nodes[0].listvaults()
-        assert(len(listVaults) == 4)
+        assert(len(listVaults) == 5)
 
         listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2, "jsonformat": 'object'})
         assert(type(listVaults) is dict)
 
         # check listVaults filter by ownerAddres
         listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2 })
-        assert(len(listVaults) == 3)
+        assert(len(listVaults) == 4)
         for vault in listVaults:
             assert(vault["ownerAddress"] == ownerAddress2)
 
@@ -142,7 +158,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].createvault(ownerAddress1, 'LOAN0002') # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 126" in errorString)
+        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 249" in errorString)
 
         # update
         try:
@@ -150,7 +166,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(vaultId2, params) # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 126" in errorString)
+        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 249" in errorString)
 
         # update vault scheme
         newAddress = self.nodes[0].getnewaddress('', 'legacy')
@@ -250,7 +266,7 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
-                                    'factor': 1,
+                                    'factor': 0.8,
                                     'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(7)
@@ -339,7 +355,7 @@ class VaultTest (DefiTestFramework):
 
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['loanAmounts'], ['0.50000047@TSLA'])
-        assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
+        assert_equal(vault1['collateralValue'], Decimal('1.800000000'))
         assert_equal(vault1['loanValue'],Decimal('0.50000047'))
         assert_equal(vault1['interestValue'],Decimal('0.00000047'))
         assert_equal(vault1['interestAmounts'],['0.00000047@TSLA'])
@@ -369,7 +385,7 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['state'], "inLiquidation")
-        assert_equal(vault1['liquidationHeight'], 324)
+        assert_equal(vault1['liquidationHeight'], 444)
         assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
         assert_equal(vault1['batchCount'], 1)
 
@@ -421,6 +437,41 @@ class VaultTest (DefiTestFramework):
         # collaterals 2.5 + 0.5 fee
         assert_equal(self.nodes[0].getaccount(ownerAddress2)[0], '3.00000000@DFI')
 
+        # Invalid loan token
+        try:
+            estimatevault = self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@TSLAA')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print("errorString", errorString)
+        assert("Invalid Defi token: TSLAA" in errorString)
+        # Invalid collateral token
+        try:
+            estimatevault = self.nodes[0].estimatevault('3.00000000@DFII', '3.00000000@TSLA')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print("errorString", errorString)
+        assert("Invalid Defi token: DFII" in errorString)
+        # Token not set as a collateral
+        try:
+            estimatevault = self.nodes[0].estimatevault('3.00000000@TSLA', '3.00000000@TSLA')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print("errorString", errorString)
+        assert("Token with id (2) is not a valid collateral!" in errorString)
+        # Token not set as loan token
+        try:
+            estimatevault = self.nodes[0].estimatevault('3.00000000@DFI', '3.00000000@DFI')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print("errorString", errorString)
+        assert("Token with id (0) is not a loan token!" in errorString)
+
+        vault = self.nodes[0].getvault(vaultId2)
+        estimatevault = self.nodes[0].estimatevault(vault["collateralAmounts"], vault["loanAmounts"])
+        assert_equal(estimatevault["collateralValue"], vault["collateralValue"])
+        assert_equal(estimatevault["loanValue"], vault["loanValue"])
+        assert_equal(estimatevault["informativeRatio"], vault["informativeRatio"])
+        assert_equal(estimatevault["collateralRatio"], vault["collateralRatio"])
 
 if __name__ == '__main__':
     VaultTest().main()

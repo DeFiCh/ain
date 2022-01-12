@@ -1011,7 +1011,7 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
     }
 
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
-    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive()) {
+    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height)) {
         LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
         return false;
     }
@@ -1062,7 +1062,7 @@ void CAnchorAwaitingConfirms::ReVote()
         return;
     }
 
-    const auto operatorDetails = AmISignerNow(currentTeam);
+    const auto operatorDetails = AmISignerNow(height, currentTeam);
 
     for (const auto& keys : operatorDetails) {
         CAnchorIndex::UnrewardedResult unrewarded = panchors->GetUnrewarded();

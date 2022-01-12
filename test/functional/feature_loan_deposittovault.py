@@ -3,14 +3,13 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan Scheme."""
+"""Test Loan - deposittovault."""
 
 from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than
-import calendar
 import time
 
 class DepositToVaultTest (DefiTestFramework):
@@ -69,8 +68,9 @@ class DepositToVaultTest (DefiTestFramework):
             {"currency": "USD", "tokenAmount": "1@DFI"},
             {"currency": "USD", "tokenAmount": "1@BTC"},
             {"currency": "USD", "tokenAmount": "1@TSLA"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -163,8 +163,9 @@ class DepositToVaultTest (DefiTestFramework):
             {"currency": "USD", "tokenAmount": "1@DFI"},
             {"currency": "USD", "tokenAmount": "1@TSLA"},
             {"currency": "USD", "tokenAmount": "1@BTC"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
 
         self.nodes[0].generate(8)
         self.sync_blocks()
@@ -187,8 +188,9 @@ class DepositToVaultTest (DefiTestFramework):
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
-        timestamp = calendar.timegm(time.gmtime())
-        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        mock_time = int(time.time())
+        self.nodes[0].setmocktime(mock_time)
+        self.nodes[0].setoracledata(oracle_id1, mock_time, oracle1_prices)
         self.nodes[0].generate(6) # let fixed price update
         self.sync_blocks()
 
@@ -196,6 +198,8 @@ class DepositToVaultTest (DefiTestFramework):
         assert_equal(vault1['state'], "frozen")
 
         self.nodes[0].generate(6) # let fixed price be stable and check vault is now underLiquidation state
+        self.sync_blocks()
+
         vault1 = self.nodes[1].getvault(vaultId1)
         assert_equal(vault1['state'], "inLiquidation")
 

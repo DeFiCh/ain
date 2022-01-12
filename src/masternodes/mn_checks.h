@@ -21,6 +21,9 @@ class CCoinsViewCache;
 class CCustomCSView;
 class CAccountsHistoryView;
 class CCustomTxVisitor;
+class CVaultHistoryView;
+class CHistoryWriters;
+class CHistoryErasers;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
 
@@ -369,8 +372,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CAccountsHistoryView* historyView = nullptr, CAccountsHistoryView *burnView = nullptr);
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn = 0, CAccountsHistoryView* historyView = nullptr, CAccountsHistoryView *burnView = nullptr);
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height,  uint32_t txn, CHistoryErasers& erasers);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
@@ -479,8 +482,10 @@ public:
     CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
     : obj(obj), height(height) {}
 
-    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
-    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view, bool testOnly = false);
+    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
+    std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView& view);
+    CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H

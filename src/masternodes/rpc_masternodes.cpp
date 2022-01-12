@@ -6,8 +6,9 @@
 UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
+    auto currentHeight = ChainActive().Height();
     if (!verbose) {
-        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState()));
+        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
     }
     else {
         UniValue obj(UniValue::VOBJ);
@@ -30,7 +31,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
         obj.pushKV("banTx", node.banTx.GetHex());
-        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
+        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
         obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
@@ -44,11 +45,10 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
-        auto currentHeight = ChainActive().Height();
         uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
-        if (node.IsActive()) {
+        if (node.IsActive(currentHeight)) {
             // Get block times with next block as height
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
 
@@ -139,7 +139,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     bool eunosPaya;
     {
         LOCK(cs_main);
-        eunosPaya = ::ChainActive().Tip()->height >= Params().GetConsensus().EunosPayaHeight;
+        eunosPaya = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().EunosPayaHeight;
     }
 
     // Get timelock if any
@@ -207,6 +207,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
 UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "reward address change is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setforcedrewardaddress",
@@ -311,6 +315,10 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
 UniValue remforcedrewardaddress(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "reward address change is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"remforcedrewardaddress",
@@ -490,6 +498,10 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue updatemasternode(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "updatemasternode is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatemasternode",
@@ -528,7 +540,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     bool forkCanning;
     {
         LOCK(cs_main);
-        forkCanning = ::ChainActive().Tip()->height >= Params().GetConsensus().FortCanningHeight;
+        forkCanning = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().FortCanningHeight;
     }
 
     if (!forkCanning) {
@@ -801,15 +813,17 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
 
-    auto lastHeight = ::ChainActive().Tip()->height + 1;
+    auto lastHeight = ::ChainActive().Tip()->nHeight + 1;
     const auto creationHeight = masternode->creationHeight;
 
     int depth{std::numeric_limits<int>::max()};
     if (!request.params[1].isNull()) {
         depth = request.params[1].get_int();
     }
-
     UniValue ret(UniValue::VOBJ);
+    auto currentHeight = ::ChainActive().Height();
+    depth = std::min(depth, currentHeight);
+    auto startBlock = currentHeight - depth;
 
     auto masternodeBlocks = [&](const uint256& masternodeID, uint32_t blockHeight) {
         if (masternodeID != mn_id) {
@@ -819,13 +833,17 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         if (blockHeight <= creationHeight) {
             return true;
         }
-
-        if (auto tip = ::ChainActive()[blockHeight]) {
-            lastHeight = tip->height;
-            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+        if (blockHeight <= startBlock) {
+            return false;
+        }
+        auto tip = ::ChainActive()[blockHeight];
+        if (tip && depth > 0) {
+            lastHeight = tip->nHeight;
+            ret.pushKV(std::to_string(lastHeight), tip->GetBlockHash().ToString());
+            depth--;
         }
 
-        return true;
+        return depth != 0;
     };
 
     pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
@@ -836,12 +854,12 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
-    auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
+    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight) - 1];
 
-    for (; tip && tip->height > creationHeight && depth > 0; tip = tip->pprev, --depth) {
+    for (; tip && tip->nHeight > creationHeight && depth > 0 && tip->nHeight > startBlock; tip = tip->pprev, --depth) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id && *id == mn_id) {
-            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+            ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
         }
     }
 
@@ -996,15 +1014,15 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
-    {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
-    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose", "jsonformat"}},
+    //{"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
+    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
-    {"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
-    {"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
+    //{"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
+    //{"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

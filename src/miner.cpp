@@ -109,6 +109,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
+    CBlockIndex* pindexPrev = ::ChainActive().Tip();
+    assert(pindexPrev != nullptr);
+    nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
     if (!blockTime) {
@@ -116,15 +119,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (!myIDs)
             return nullptr;
         auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive())
+        if (!nodePtr || !nodePtr->IsActive(nHeight))
             return nullptr;
     }
 
-    CBlockIndex* pindexPrev = ::ChainActive().Tip();
-    assert(pindexPrev != nullptr);
-    nHeight = pindexPrev->nHeight + 1;
     auto consensus = chainparams.GetConsensus();
-
     pblock->nVersion = ComputeBlockVersion(pindexPrev, consensus);
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
@@ -290,6 +289,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
+    pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
         pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
@@ -423,7 +423,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     // transactions for block inclusion.
     sortedEntries.clear();
     sortedEntries.insert(sortedEntries.begin(), package.begin(), package.end());
-    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
+    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByEntryTime());
 }
 
 // This transaction selection algorithm orders the mempool based
@@ -719,7 +719,7 @@ namespace pos {
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -727,7 +727,7 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+                if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
                     scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
@@ -743,7 +743,7 @@ namespace pos {
                 scriptPubKey = args.coinbaseScript;
             }
 
-            blockHeight = tip->height + 1;
+            blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
             timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
@@ -841,7 +841,6 @@ namespace pos {
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
         pblock->nBits = nBits;
-        pblock->height = blockHeight;
         pblock->mintedBlocks = mintedBlocks + 1;
         pblock->stakeModifier = std::move(stakeModifier);
 

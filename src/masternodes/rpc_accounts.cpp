@@ -83,7 +83,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
-    obj.pushKV("blockHeight", index->height);
+    obj.pushKV("blockHeight", index->nHeight);
     obj.pushKV("blockHash", index->GetBlockHash().GetHex());
     obj.pushKV("blockTime", index->GetBlockTime());
     if (pwtx->IsCoinBase()) {
@@ -155,7 +155,7 @@ static void searchInWallet(CWallet const * pwallet,
         auto* pwtx = &(*it);
 
         auto index = LookupBlockIndex(pwtx->hashBlock);
-        if (!index || index->height == 0) { // skip genesis block
+        if (!index || index->nHeight == 0) { // skip genesis block
             continue;
         }
 
@@ -1038,6 +1038,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
             }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
+            }
         }
         if (!optionsObj["limit"].isNull()) {
             limit = (uint32_t) optionsObj["limit"].get_int64();
@@ -1201,10 +1204,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         count = limit;
         searchInWallet(pwallet, account, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || startBlock > index->height || index->height > maxBlockHeight;
+                return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
             }
@@ -1292,6 +1295,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                 // Will search for type ::None if txtype not found.
                 txType = CustomTxCodeToType(str[0]);
                 txTypeSearch = true;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
             }
         }
 
@@ -1447,6 +1452,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
             }
+            if (txType == CustomTxType::None) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx type (" + str + ")");
+            }
         }
     }
 
@@ -1540,7 +1548,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     if (shouldSearchInWallet) {
         searchInWallet(pwallet, owner, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || index->height > currentHeight;
+                return txs.count(pwtx->GetHash()) || index->nHeight > currentHeight;
             },
             [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
                 ++count;
@@ -1834,6 +1842,30 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue getcustomtxcodes(const JSONRPCRequest& request) {
+    RPCHelpMan{"getcustomtxcodes",
+               "\nList all available custom transaction types.\n",
+               {
+               },
+               RPCResult{
+                       "{\"1\": \"ICXCreateOrder\", \"2\": \"ICXMakeOffer\", ...}     (object) List of custom transaction types { [single letter representation]: custom transaction type name}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getcustomtxcodes", "")
+                       + HelpExampleRpc("getcustomtxcodes", "")
+               },
+    }.Check(request);
+
+    UniValue typeObj(UniValue::VOBJ);
+    for (auto i = 0; i < std::numeric_limits<uint8_t>::max(); i++) {
+        auto type = CustomTxCodeToType(i);
+        if (type != CustomTxType::None && type != CustomTxType::Reject) {
+            typeObj.pushKV(std::string(1, i), ToString(type));
+        }
+    }
+    return typeObj;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -1851,6 +1883,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
+    {"accounts",    "getcustomtxcodes",      &getcustomtxcodes,      {}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

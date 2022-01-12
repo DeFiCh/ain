@@ -208,12 +208,12 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         tip = ::ChainActive().Tip();
 
         auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(tip->height))
+        if (!nodePtr || !nodePtr->IsActive(tip->nHeight))
             throw std::runtime_error(std::string(__func__) + ": nodePtr does not exist");
 
         mintedBlocks = nodePtr->mintedBlocks;
     }
-    block.height = tip->nHeight + 1;
+    block.deprecatedHeight = tip->nHeight + 1;
     block.mintedBlocks = mintedBlocks + 1;
     block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 

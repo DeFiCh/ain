@@ -33,6 +33,8 @@
 #include <stddef.h>
 #include <inttypes.h>
 
+#include <map>
+
 #define PEER_MAX_CONNECTIONS 3
 
 typedef struct BRPeerManagerStruct BRPeerManager;
