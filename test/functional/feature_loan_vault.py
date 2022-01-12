@@ -18,8 +18,8 @@ class VaultTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-jellyfish_regtest=1'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-jellyfish_regtest=1']
             ]
 
     def run_test(self):
@@ -506,6 +506,92 @@ class VaultTest (DefiTestFramework):
             'vaultId': vaultId4,
             'amounts': "0.33@TSLA"
         })
+        self.nodes[0].generate(1)
+
+        # Collateral value overflow
+
+        # Add token and poolpairs needed for paybackloan
+        self.nodes[0].setloantoken({
+                                    'symbol': "DUSD",
+                                    'name': "DUSD stable token",
+                                    'fixedIntervalPriceId': "DUSD/USD",
+                                    'mintable': True,
+                                    'interest': 1})
+        self.nodes[0].generate(1)
+
+        poolOwner = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].createpoolpair({
+            "tokenA": "DUSD",
+            "tokenB": idDFI,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-DFI",
+        }, [])
+        self.nodes[0].generate(1)
+
+        accountDFI = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.nodes[0].minttokens("300@DUSD")
+        self.nodes[0].generate(1)
+        self.nodes[0].utxostoaccount({accountDFI: "100@" + symbolDFI})
+        self.nodes[0].generate(1)
+        self.nodes[0].addpoolliquidity({
+            accountDFI: ["300@DUSD", "100@" + symbolDFI]
+        }, accountDFI, [])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].createpoolpair({
+            "tokenA": "DUSD",
+            "tokenB": "TSLA",
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "DUSD-TSLA",
+        }, [])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].minttokens("100@TSLA")
+        self.nodes[0].generate(1)
+        self.nodes[0].minttokens("100@DUSD")
+        self.nodes[0].generate(1)
+        self.nodes[0].addpoolliquidity({
+            accountDFI: ["100@TSLA", "100@DUSD"]
+        }, accountDFI, [])
+        self.nodes[0].generate(1)
+
+        vaultId5 = self.nodes[0].createvault(address, 'LOAN000A')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].utxostoaccount({accountDFI: "100000000@" + symbolDFI})
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId5, accountDFI, "100000000@" + symbolDFI)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+            'vaultId': vaultId5,
+            'amounts': "0.5@TSLA"
+        })
+        self.nodes[0].generate(1)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "9999999999@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(20)
+
+        vault5 = self.nodes[0].getvault(vaultId5)
+        assert_equal(vault5['collateralValue'], 0) # collateral value overflowed
+
+        # Actions on vault should be blocked
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].takeloan, {'vaultId': vaultId5,'amounts': "0.5@TSLA"})
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].deposittovault, vaultId5, accountDFI, "1@" + symbolDFI)
+        assert_raises_rpc_error(-32600, 'Value/price too high', self.nodes[0].withdrawfromvault, vaultId5, address, "1@DFI")
+
+        # Should be able to close vault
+        self.nodes[0].paybackloan({'vaultId': vaultId5, 'from': address, 'amounts': ["1@TSLA"]})
+        self.nodes[0].generate(1)
+        self.nodes[0].closevault(vaultId5, address)
+        self.nodes[0].generate(1)
+
 
 if __name__ == '__main__':
     VaultTest().main()
