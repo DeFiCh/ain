@@ -222,9 +222,6 @@ public:
 
     uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
 
-    std::map<std::string, std::string> GetAttributes() const;
-    void SetAttributes(const std::map<std::string, std::string>& attributes);
-
     // tags
     struct ID       { static constexpr uint8_t prefix() { return 'M'; } };
     struct Operator { static constexpr uint8_t prefix() { return 'o'; } };
@@ -236,9 +233,6 @@ public:
 
     // Store long term time lock
     struct Timelock { static constexpr uint8_t prefix() { return 'K'; } };
-
-    // Store attributes map
-    struct Attrs { static constexpr uint8_t prefix() { return 's'; } };
 };
 
 class CLastHeightView : public virtual CStorageView
@@ -363,7 +357,7 @@ class CCustomCSView
     void CheckPrefixes()
     {
         CheckPrefix<
-            CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock, Attrs,
+            CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
             CLastHeightView         ::  Height,
             CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
             CFoundationsDebtView    ::  Debt,
