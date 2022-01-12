@@ -422,6 +422,38 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
 
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/%s/dex_fee_pct'%(idGold): '5', 'token/%s/dex_fee_pct'%(idSilver): '8'}})
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/%s/dex_fee_pct'%(idGold): '5', 'token/%s/dex_fee_pct'%(idSilver): '8'})
+
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": swap_from,
+            "to": destination,
+            "tokenTo": symbolSILVER,
+        })
+        commission = round((swap_from * 0.1), 8)
+        amountA = swap_from - commission
+        dexinfee = round(amountA * 0.05, 8)
+        amountA = amountA - dexinfee
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        reserveA = pool['reserveA']
+        reserveB = pool['reserveB']
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        assert_equal(pool['reserveA'] - reserveA, amountA)
+        swapped = self.nodes[0].getaccount(destination, {}, True)[idSilver]
+        amountB = reserveB - pool['reserveB']
+        dexoutfee = round(amountB * Decimal(0.08), 8)
+        assert_equal(amountB - dexoutfee, swapped)
+        assert_equal(self.nodes[0].listaccounthistory(accountGN0, {'token':symbolGOLD})[0]['amounts'], ['-200.00000000@'+symbolGOLD])
+
+        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
+
         # REVERTING:
         #========================
         print ("Reverting...")

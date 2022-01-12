@@ -490,9 +490,9 @@ class GovsetTest (DefiTestFramework):
         assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '5'})
 
         # Test setting multiple ATTRIBUTES
-        self.nodes[0].setgov({"ATTRIBUTES":{'token/5/payback_dfi':'false','token/5/payback_dfi_fee_pct':'2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/5/payback_dfi':'false','token/5/payback_dfi_fee_pct':'2.378'}})
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2.378'})
 
         # Test pending change
         activate = self.nodes[0].getblockcount() + 10
@@ -500,7 +500,7 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(9)
 
         # No change yet
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/5/payback_dfi': 'false', 'token/5/payback_dfi_fee_pct': '2.378'})
 
         # Pending change present
         assert_equal(self.nodes[0].listgovs()[8][1][str(activate)], {'token/5/payback_dfi': 'true', 'token/5/payback_dfi_fee_pct': '1'})
