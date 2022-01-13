@@ -170,13 +170,13 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             auto trade = MultiplyAmounts(1000000, pool.commission);
             auto amount = 1000000 - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
-            BOOST_CHECK_EQUAL(ta.nValue, 1000);
+            BOOST_CHECK_EQUAL(ta.nValue, 999);
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 10000);
         BOOST_CHECK_EQUAL(pool.reserveA, 941501);
-        BOOST_CHECK_EQUAL(pool.reserveB, 1);
+        BOOST_CHECK_EQUAL(pool.reserveB, 2);
     }
 
     // trying to swap moooore than reserved (sliding), but on "resonable" reserves
@@ -190,13 +190,13 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             auto trade = MultiplyAmounts(2*COIN, pool.commission);
             auto amount = 2*COIN - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
-            BOOST_CHECK_EQUAL(ta.nValue, 66218499); // pre-optimization: 66464593
+            BOOST_CHECK_EQUAL(ta.nValue, 66218498); // pre-optimization: 66464593
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 296020000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 33781501); // pre-optimization: 33535407
+        BOOST_CHECK_EQUAL(pool.reserveB, 33781502); // pre-optimization: 33535407
     }
 
     {
@@ -210,13 +210,13 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             auto trade = MultiplyAmounts(2*COIN, pool.commission);
             auto amount = 2*COIN - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
-            BOOST_CHECK_EQUAL(ta.nValue, 63535589265); // pre-optimization: 66465256146
+            BOOST_CHECK_EQUAL(ta.nValue, 63535589264); // pre-optimization: 66465256146
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 274240000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 36464410735); // pre-optimization: 33534743854
+        BOOST_CHECK_EQUAL(pool.reserveB, 36464410736); // pre-optimization: 33534743854
     }
     {
 //        printf("1 COIN (1:1000)\n");
