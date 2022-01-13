@@ -422,10 +422,10 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'token/%s/dex_fee_pct'%(idGold): '5', 'token/%s/dex_fee_pct'%(idSilver): '8'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'token/%s/dex_fee_pct'%(idGold): '0.05', 'token/%s/dex_fee_pct'%(idSilver): '0.08'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/%s/dex_fee_pct'%(idGold): '5', 'token/%s/dex_fee_pct'%(idSilver): '8'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'token/%s/dex_fee_pct'%(idGold): '0.05', 'token/%s/dex_fee_pct'%(idSilver): '0.08'})
 
         self.nodes[0].poolswap({
             "from": accountGN0,

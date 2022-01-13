@@ -48,7 +48,7 @@ static ResVal<CAmount> VerifyPct(const std::string& str) {
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
         return Res::Err("Percentage must be a positive integer or float");
     }
-    if (amount > COIN * 100) {
+    if (amount > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
     return ResVal<CAmount>(amount, Res::Ok());
@@ -260,7 +260,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         return std::move(res);
                     }
                     auto tokenId = uint32_t(values[1].get_int());
-                    return mnview.SetDexfeePct({tokenId}, *res.val / 100);
+                    return mnview.SetDexfeePct({tokenId}, *res.val);
                 }
             }
             return Res::Ok();
