@@ -157,6 +157,7 @@ DEFI_CORE_H = \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
   masternodes/factory.h \
+  masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
   masternodes/govvariables/loan_liquidation_penalty.h \
@@ -376,6 +377,7 @@ libdefi_server_a_SOURCES = \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
   masternodes/oracles.cpp \
+  masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
   masternodes/govvariables/loan_liquidation_penalty.cpp \
