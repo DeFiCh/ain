@@ -2320,7 +2320,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
-        mnview.MigrateInterestRateToV2();
+        mnview.MigrateInterestRateToV2(mnview,(uint32_t)pindex->nHeight);
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -3131,7 +3131,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
                 auto tokenValue = loan.second;
-                auto rate = cache.GetInterestRateV2(vaultId, tokenId, pindex->nHeight);
+                auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);

@@ -993,7 +993,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = GetInterestRateV2(vaultId, loanTokenId, height);
+        auto rate = GetInterestRate(vaultId, loanTokenId, height);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
 
