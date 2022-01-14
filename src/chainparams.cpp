@@ -929,6 +929,12 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     UpdateHeightValidation("Fort canning park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
+    if (gArgs.GetBoolArg("-simulatemainnet", false)) {
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
+        consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+    }
+
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
