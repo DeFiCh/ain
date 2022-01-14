@@ -3106,9 +3106,6 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryEraser view(mnview, height, txn, erasers);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
@@ -3178,7 +3175,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
 bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
     if (height < consensus.FortCanningParkHeight)
         return false;
-    
+
     // ICXCreateOrder      = '1',
     // ICXMakeOffer        = '2',
     // ICXSubmitDFCHTLC    = '3',
@@ -3210,7 +3207,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 
     const auto metadataValidation = height >= consensus.FortCanningHeight;
-    
+
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
@@ -3219,7 +3216,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     if (IsDisabledTx(height, txType, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
-    
+
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
@@ -3535,7 +3532,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
-// testOnly is only meant for one-off tests per well defined view.  
+// testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
@@ -3605,7 +3602,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // If we're just testing, don't do any balance transfers.
             // Just go over pools and return result. The only way this can
-            // cause inaccurate result is if we go over the same path twice, 
+            // cause inaccurate result is if we go over the same path twice,
             // which shouldn't happen in the first place.
             if (testOnly)
                 return Res::Ok();
