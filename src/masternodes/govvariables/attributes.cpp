@@ -56,7 +56,7 @@ static ResVal<CAmount> VerifyPct(const std::string& str) {
 
 static Res ProcessVariable(const std::string& key, const std::string& value,
                            std::function<ResVal<uint8_t>(const std::string&)> parseType,
-                           std::function<ResVal<uint8_t>(const std::string&)> parseKey,
+                           std::function<ResVal<uint8_t>(uint8_t, const std::string&)> parseKey,
                            std::function<Res(const UniValue&)> applyVariable = {}) {
 
     if (key.size() > 128) {
@@ -72,39 +72,42 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
         return Res::Err("Empty value");
     }
 
-    auto res = parseType(keys[0]);
-    if (!res) {
-        return std::move(res);
+    auto resType = parseType(keys[0]);
+    if (!resType) {
+        return std::move(resType);
     }
 
-    auto type = *res.val;
+    auto type = *resType.val;
+
+    if (type != AttributeTypes::Token && type != AttributeTypes::Poolpairs) {
+        return Res::Err("Unrecognised type");
+    }
+
+    if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
+        return Res::Err("Incorrect key for <type>. Object of ['<type>/ID/<key>','value'] expected");
+    }
+
+    auto typeId = VerifyInt32(keys[1]);
+    if (!typeId) {
+        return std::move(typeId);
+    }
+
+    auto resKey = parseKey(type, keys[2]);
+    if (!resKey) {
+        return std::move(resKey);
+    }
+
+    UniValue univalue;
+    auto typeKey = *resKey.val;
 
     if (type == AttributeTypes::Token) {
 
-        if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
-            return Res::Err("Incorrect key for token type. Object of ['token/ID/key','value'] expected");
-        }
-
-        auto resInt = VerifyInt32(keys[1]);
-        if (!resInt) {
-            return std::move(resInt);
-        }
-
-        auto res = parseKey(keys[2]);
-        if (!res) {
-            return std::move(res);
-        }
-
-        UniValue univalue;
-        auto tokenKey = *res.val;
-
-        if (tokenKey == TokenKeys::PaybackDFI) {
+        if (typeKey == TokenKeys::PaybackDFI) {
             if (value != "true" && value != "false") {
                 return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
             }
             univalue.setBool(value == "true");
-        } else if (tokenKey == TokenKeys::PaybackDFIFeePCT
-                || tokenKey == TokenKeys::DexFeePCT) {
+        } else if (typeKey == TokenKeys::PaybackDFIFeePCT) {
             auto res = VerifyPct(value);
             if (!res) {
                 return std::move(res);
@@ -114,16 +117,27 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
             return Res::Err("Unrecognised key");
         }
 
-        if (applyVariable) {
-            UniValue values(UniValue::VARR);
-            values.push_back(type);
-            values.push_back(*resInt.val);
-            values.push_back(tokenKey);
-            values.push_back(univalue);
-            return applyVariable(values);
+    } else if (type == AttributeTypes::Poolpairs) {
+
+        if (typeKey == PoolKeys::TokenAFeePCT
+        ||  typeKey == PoolKeys::TokenBFeePCT) {
+            auto res = VerifyPct(value);
+            if (!res) {
+                return std::move(res);
+            }
+            univalue = ValueFromAmount(*res.val);
+        } else {
+            return Res::Err("Unrecognised key");
         }
-    } else {
-        return Res::Err("Unrecognised type");
+    }
+
+    if (applyVariable) {
+        UniValue values(UniValue::VARR);
+        values.push_back(type);
+        values.push_back(*typeId.val);
+        values.push_back(typeKey);
+        values.push_back(univalue);
+        return applyVariable(values);
     }
     return Res::Ok();
 }
@@ -140,6 +154,14 @@ static ResVal<uint8_t> GetType(const std::string& key, const std::map<std::strin
     }
 }
 
+static ResVal<uint8_t> GetKey(uint8_t type, const std::string& key, const std::map<uint8_t, std::map<std::string, uint8_t>>& types) {
+    try {
+        return GetType(key, types.at(type));
+    } catch (const std::out_of_range&) {
+        return Res::Err("Unrecognised type");
+    }
+}
+
 Res ATTRIBUTES::Import(const UniValue & val) {
     if (!val.isObject()) {
         return Res::Err("Object of values expected");
@@ -151,9 +173,10 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     for (const auto& pair : objMap) {
         auto res = ProcessVariable(pair.first, pair.second.get_str(),
                                    std::bind(GetType, std::placeholders::_1, allowedTypes),
-                                   std::bind(GetType, std::placeholders::_1, allowedTokenKeys),
+                                   std::bind(GetKey, std::placeholders::_1, std::placeholders::_2, allowedKeys),
                                    [this](const UniValue& values) {
-            if (values[0].get_int() == AttributeTypes::Token) {
+            if (values[0].get_int() == AttributeTypes::Token
+            ||  values[0].get_int() == AttributeTypes::Poolpairs) {
                 auto value = values[3].getValStr();
                 if (values[3].isBool()) {
                     value = value == "1" ? "true" : "false";
@@ -193,17 +216,20 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         auto type = *res.val;
+        if (type != AttributeTypes::Token && type != AttributeTypes::Poolpairs) {
+            continue;
+        }
         // Token should always have three items
-        if (type == AttributeTypes::Token && keys.size() == 3) {
+        if (keys.size() == 3) {
             res = GetTypeByKey(keys[2]);
             if (!res) {
                 continue;
             }
             auto tokenKey = *res.val;
             try {
-                ret.pushKV(displayTypes.at(type) + '/' + keys[1] + '/' + displayTokenKeys.at(tokenKey), item.second);
+                ret.pushKV(displayTypes.at(type) + '/' + keys[1] + '/' + displayKeys.at(type).at(tokenKey), item.second);
             } catch (const std::out_of_range&) {
-                // Should not get here, if we do perhaps update displayTypes and displayTokenKeys for newly added types and keys.
+                // Should not get here, if we do perhaps update displayTypes and displayKeys for newly added types and keys.
             }
         }
     }
@@ -216,30 +242,35 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         return Res::Err("Cannot be set before FortCanningHill");
 
     for (const auto& item : attributes) {
-        auto res = ProcessVariable(item.first, item.second, GetTypeByKey, GetTypeByKey,
-                                   [&](const UniValue& values) {
-            if (values[0].get_int() == AttributeTypes::Token) {
-                uint32_t tokenId = uint32_t(values[1].get_int());
-                if (values[2].get_int() == TokenKeys::DexFeePCT) {
-                    auto token = view.GetToken(DCT_ID{tokenId});
-                    if (!token) {
-                        return Res::Err("No such token (%d)", tokenId);
+        auto res = ProcessVariable(
+            item.first, item.second, GetTypeByKey,
+            [](uint8_t, const std::string& key) {
+                return GetTypeByKey(key);
+            },
+            [&](const UniValue& values) {
+                if (values[0].get_int() == AttributeTypes::Token) {
+                    uint32_t tokenId = uint32_t(values[1].get_int());
+                    if (values[2].get_int() == TokenKeys::PaybackDFI
+                    ||  values[2].get_int() == TokenKeys::PaybackDFIFeePCT) {
+                        if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
+                            return Res::Err("No such loan token (%d)", tokenId);
+                        }
+                        return Res::Ok();
                     }
-                    if (token->IsPoolShare()) {
-                        return Res::Err("Token (%s) is pool share one", token->symbol);
-                    }
-                    return Res::Ok();
                 }
-                if (values[2].get_int() == TokenKeys::PaybackDFI
-                ||  values[2].get_int() == TokenKeys::PaybackDFIFeePCT) {
-                    if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
-                        return Res::Err("No such loan token (%d)", tokenId);
+                if (values[0].get_int() == AttributeTypes::Poolpairs) {
+                    uint32_t poolId = uint32_t(values[1].get_int());
+                    if (values[2].get_int() == PoolKeys::TokenAFeePCT
+                    ||  values[2].get_int() == PoolKeys::TokenBFeePCT) {
+                        if (!view.GetPoolPair(DCT_ID{poolId})) {
+                            return Res::Err("No such pool (%d)", poolId);
+                        }
+                        return Res::Ok();
                     }
-                    return Res::Ok();
                 }
+                return Res::Err("Unrecognised type");
             }
-            return Res::Err("Unrecognised type");
-        });
+        );
         if (!res) {
             return res;
         }
@@ -251,20 +282,29 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& item : attributes) {
-        auto res = ProcessVariable(item.first, item.second, GetTypeByKey, GetTypeByKey,
-                                   [&](const UniValue& values) -> Res {
-            if (values[0].get_int() == AttributeTypes::Token) {
-                if (values[2].get_int() == TokenKeys::DexFeePCT) {
+        auto res = ProcessVariable(
+            item.first, item.second, GetTypeByKey,
+            [](uint8_t, const std::string& key) {
+                return GetTypeByKey(key);
+            },
+            [&](const UniValue& values) -> Res {
+                if (values[0].get_int() == AttributeTypes::Poolpairs) {
+                    auto poolId = uint32_t(values[1].get_int());
+                    auto pool = mnview.GetPoolPair(DCT_ID{poolId});
+                    if (!pool) {
+                        return Res::Err("No such pool (%d)", poolId);
+                    }
+                    auto tokenId = values[2].get_int() == PoolKeys::TokenAFeePCT ?
+                                    pool->idTokenA : pool->idTokenB;
                     auto res = VerifyPct(values[3].getValStr());
                     if (!res) {
                         return std::move(res);
                     }
-                    auto tokenId = uint32_t(values[1].get_int());
-                    return mnview.SetDexfeePct({tokenId}, *res.val);
+                    return mnview.SetDexfeePct(DCT_ID{poolId}, tokenId, *res.val);
                 }
+                return Res::Ok();
             }
-            return Res::Ok();
-        });
+        );
         if (!res) {
             return res;
         }

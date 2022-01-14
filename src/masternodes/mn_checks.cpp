@@ -3598,7 +3598,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         // Check if last pool swap
         bool lastSwap = i + 1 == poolIDs.size();
 
-        auto dexfeeInPct = view.GetDexfeePct(swapAmount.nTokenId);
+        auto dexfeeInPct = view.GetDexfeePct(currentID, swapAmount.nTokenId);
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
@@ -3608,7 +3608,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
 
             if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                if (auto dexfeeOutPct = view.GetDexfeePct(tokenAmount.nTokenId)) {
+                if (auto dexfeeOutPct = view.GetDexfeePct(currentID, tokenAmount.nTokenId)) {
                     dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
                     swapAmountResult.nValue -= dexfeeOutAmount.nValue;
                 }

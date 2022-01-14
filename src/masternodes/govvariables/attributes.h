@@ -8,13 +8,18 @@
 #include <masternodes/gv.h>
 
 enum AttributeTypes : uint8_t {
-    Token = 't',
+    Token     = 't',
+    Poolpairs = 'p',
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI = 'a',
+    PaybackDFI       = 'a',
     PaybackDFIFeePCT = 'b',
-    DexFeePCT = 'c',
+};
+
+enum PoolKeys : uint8_t {
+    TokenAFeePCT = 'a',
+    TokenBFeePCT = 'b',
 };
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
@@ -47,24 +52,44 @@ public:
 private:
     // Defined allowed arguments
     const std::map<std::string, uint8_t> allowedTypes{
-        {"token", AttributeTypes::Token}
+        {"token",       AttributeTypes::Token},
+        {"poolpairs",   AttributeTypes::Poolpairs},
     };
 
-    const std::map<std::string, uint8_t> allowedTokenKeys{
-        {"payback_dfi",         TokenKeys::PaybackDFI},
-        {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
-        {"dex_fee_pct",         TokenKeys::DexFeePCT},
+    const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
+        {
+            AttributeTypes::Token, {
+                {"payback_dfi",         TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
+            }
+        },
+        {
+            AttributeTypes::Poolpairs, {
+                {"tokenAFeePct",        PoolKeys::TokenAFeePCT},
+                {"tokenBFeePct",        PoolKeys::TokenBFeePCT},
+            }
+        },
     };
 
     // For formatting in export
     const std::map<uint8_t, std::string> displayTypes{
-        {AttributeTypes::Token, "token"}
+        {AttributeTypes::Token,     "token"},
+        {AttributeTypes::Poolpairs, "poolpairs"},
     };
 
-    const std::map<uint8_t, std::string> displayTokenKeys{
-        {TokenKeys::PaybackDFI,       "payback_dfi"},
-        {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
-        {TokenKeys::DexFeePCT,        "dex_fee_pct"},
+    const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
+        {
+            AttributeTypes::Token, {
+                {TokenKeys::PaybackDFI,       "payback_dfi"},
+                {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
+            }
+        },
+        {
+            AttributeTypes::Poolpairs, {
+                {PoolKeys::TokenAFeePCT,      "tokenAFeePct"},
+                {PoolKeys::TokenBFeePCT,      "tokenBFeePct"},
+            }
+        },
     };
 };
 

@@ -706,17 +706,20 @@ void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript
     }, startKey);
 }
 
-Res CPoolPairView::SetDexfeePct(DCT_ID tokenId, CAmount feePct) {
+Res CPoolPairView::SetDexfeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
     if (feePct < 0 || feePct > COIN) {
         return Res::Err("Token dex fee should be in percentage");
     }
-    WriteBy<ByTokenDexfeePct>(tokenId, uint32_t(feePct));
+    WriteBy<ByTokenDexfeePct>(std::make_pair(poolId, tokenId), uint32_t(feePct));
     return Res::Ok();
 }
 
-CAmount CPoolPairView::GetDexfeePct(DCT_ID tokenId) const {
+CAmount CPoolPairView::GetDexfeePct(DCT_ID poolId, DCT_ID tokenId) const {
     uint32_t feePct;
-    if (ReadBy<ByTokenDexfeePct>(tokenId, feePct)) {
+    if (ReadBy<ByTokenDexfeePct>(std::make_pair(poolId, tokenId), feePct)) {
         return feePct;
     }
     return 0;
