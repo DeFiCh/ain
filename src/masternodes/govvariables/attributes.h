@@ -65,8 +65,8 @@ private:
         },
         {
             AttributeTypes::Poolpairs, {
-                {"tokenAFeePct",        PoolKeys::TokenAFeePCT},
-                {"tokenBFeePct",        PoolKeys::TokenBFeePCT},
+                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
+                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
             }
         },
     };
@@ -86,8 +86,8 @@ private:
         },
         {
             AttributeTypes::Poolpairs, {
-                {PoolKeys::TokenAFeePCT,      "tokenAFeePct"},
-                {PoolKeys::TokenBFeePCT,      "tokenBFeePct"},
+                {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
+                {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
             }
         },
     };

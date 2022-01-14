@@ -79,10 +79,6 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
 
     auto type = *resType.val;
 
-    if (type != AttributeTypes::Token && type != AttributeTypes::Poolpairs) {
-        return Res::Err("Unrecognised type");
-    }
-
     if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
         return Res::Err("Incorrect key for <type>. Object of ['<type>/ID/<key>','value'] expected");
     }
@@ -101,7 +97,6 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
     auto typeKey = *resKey.val;
 
     if (type == AttributeTypes::Token) {
-
         if (typeKey == TokenKeys::PaybackDFI) {
             if (value != "true" && value != "false") {
                 return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
@@ -116,9 +111,7 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
         } else {
             return Res::Err("Unrecognised key");
         }
-
     } else if (type == AttributeTypes::Poolpairs) {
-
         if (typeKey == PoolKeys::TokenAFeePCT
         ||  typeKey == PoolKeys::TokenBFeePCT) {
             auto res = VerifyPct(value);
@@ -129,6 +122,8 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
         } else {
             return Res::Err("Unrecognised key");
         }
+    } else {
+        return Res::Err("Unrecognised type");
     }
 
     if (applyVariable) {
@@ -171,23 +166,25 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     val.getObjMap(objMap);
 
     for (const auto& pair : objMap) {
-        auto res = ProcessVariable(pair.first, pair.second.get_str(),
-                                   std::bind(GetType, std::placeholders::_1, allowedTypes),
-                                   std::bind(GetKey, std::placeholders::_1, std::placeholders::_2, allowedKeys),
-                                   [this](const UniValue& values) {
-            if (values[0].get_int() == AttributeTypes::Token
-            ||  values[0].get_int() == AttributeTypes::Poolpairs) {
-                auto value = values[3].getValStr();
-                if (values[3].isBool()) {
-                    value = value == "1" ? "true" : "false";
+        auto res = ProcessVariable(
+            pair.first, pair.second.get_str(),
+            std::bind(GetType, std::placeholders::_1, allowedTypes),
+            std::bind(GetKey, std::placeholders::_1, std::placeholders::_2, allowedKeys),
+            [this](const UniValue& values) {
+                if (values[0].get_int() == AttributeTypes::Token
+                ||  values[0].get_int() == AttributeTypes::Poolpairs) {
+                    auto value = values[3].getValStr();
+                    if (values[3].isBool()) {
+                        value = value == "1" ? "true" : "false";
+                    }
+                    if (values[3].isNum()) {
+                        value = KeyBuilder(values[3].get_real());
+                    }
+                    attributes[KeyBuilder(values[0], values[1], values[2])] = value;
                 }
-                if (values[3].isNum()) {
-                    value = KeyBuilder(values[3].get_real());
-                }
-                attributes[KeyBuilder(values[0], values[1], values[2])] = value;
+                return Res::Ok();
             }
-            return Res::Ok();
-        });
+        );
         if (!res) {
             return res;
         }
@@ -216,7 +213,7 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         auto type = *res.val;
-        if (type != AttributeTypes::Token && type != AttributeTypes::Poolpairs) {
+        if (!displayTypes.count(type)) {
             continue;
         }
         // Token should always have three items
