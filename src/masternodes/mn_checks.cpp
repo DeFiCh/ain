@@ -3693,14 +3693,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
-        for (const auto collateral : collaterals->balances)
+        for (const auto& collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto loan : loans->balances)
+        for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
