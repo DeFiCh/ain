@@ -407,9 +407,16 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     auto const maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
     // NOTE it has a bug prior Dakota hardfork
-    auto const price = height < Params().GetConsensus().DakotaHeight
+    auto price = height < Params().GetConsensus().DakotaHeight
                               ? arith_uint256(reserveT) * PRECISION / reserveF
                               : arith_uint256(reserveF) * PRECISION / reserveT;
+    if (height >= Params().GetConsensus().FortCanningHillHeight) {
+        auto reducedInValue= in.nValue
+        if (commission) {
+            reducedInValue -= MultiplyAmounts(in.nValue, commission);
+        }
+        price= DivideAmounts(MultiplyAmounts(in.nValue, reserveF + reducedInValue), MultiplyAmounts(reducedInValue, reserveT))
+    }
     if (price > maxPrice256)
         return Res::Err("Price is higher than indicated.");
 
