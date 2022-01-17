@@ -454,6 +454,31 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
 
+        # set 1% token dex fee and commission
+        self.nodes[0].setgov({"ATTRIBUTES":{'poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'}})
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'})
+
+        self.nodes[0].updatepoolpair({"pool": "GS", "commission": 0.01})
+        self.nodes[0].generate(1)
+
+        # swap 1 sat
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 0.00000001,
+            "to": destination,
+            "tokenTo": symbolGOLD,
+        })
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        reserveA = pool['reserveA']
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        assert_equal(reserveA, pool['reserveA'])
+
         # REVERTING:
         #========================
         print ("Reverting...")
