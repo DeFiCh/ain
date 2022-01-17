@@ -22,7 +22,7 @@ curl cmake
 # install clang 11
 RUN wget https://apt.llvm.org/llvm.sh
 RUN chmod +x llvm.sh
-RUN ./llvm.sh 11
+RUN ./llvm.sh 11 0
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
