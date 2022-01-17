@@ -130,7 +130,7 @@ public:
     Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
 private:
-    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, bool postBayfrontGardens = false);
+    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, int height);
 
     inline void ioProofer() const { // Maybe it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
         if (reserveA < 0 || reserveB < 0 ||

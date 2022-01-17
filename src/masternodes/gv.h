@@ -46,6 +46,8 @@ public:
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
+    std::map<std::string, std::string> GetAttributes() const;
+
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
 };

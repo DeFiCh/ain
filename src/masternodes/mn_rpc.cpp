@@ -454,7 +454,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "\nSet special 'governance' variables:: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -492,9 +492,13 @@ UniValue setgov(const JSONRPCRequest& request) {
     if (request.params.size() > 0 && request.params[0].isObject()) {
         for (const std::string& name : request.params[0].getKeys()) {
             auto gv = GovVariable::Create(name);
-            if(!gv)
+            if (!gv) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
-            gv->Import(request.params[0][name]);
+            }
+            const auto res = gv->Import(request.params[0][name]);
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+            }
             varStream << name << *gv;
         }
     }
@@ -538,7 +542,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgovheight",
-               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
+               "\nChange governance variable at height: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
                {
                        {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
                         {
@@ -581,7 +585,10 @@ UniValue setgovheight(const JSONRPCRequest& request) {
         if (!gv) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
         }
-        gv->Import(request.params[0][name]);
+        const auto res = gv->Import(request.params[0][name]);
+        if (!res) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+        }
         varStream << name << *gv;
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
@@ -628,7 +635,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
-               "ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
                "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -669,7 +676,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
     }.Check(request);
 
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
-                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
+                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
 
     LOCK(cs_main);
 
