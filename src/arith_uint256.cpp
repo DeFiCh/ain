@@ -55,6 +55,39 @@ base_uint<BITS>& base_uint<BITS>::operator>>=(unsigned int shift)
 }
 
 template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(uint32_t b32)
+{
+    uint64_t carry = 0;
+    for (int i = 0; i < WIDTH; i++) {
+        uint64_t n = carry + (uint64_t)b32 * pn[i];
+        pn[i] = n & 0xffffffff;
+        carry = n >> 32;
+    }
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(int32_t b32)
+{
+    (*this) *= uint32_t(b32);
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(int64_t b64)
+{
+    (*this) *= base_uint(b64);
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(uint64_t b64)
+{
+    (*this) *= base_uint(b64);
+    return *this;
+}
+
+template <unsigned int BITS>
 base_uint<BITS>& base_uint<BITS>::operator*=(const base_uint& b)
 {
     base_uint<BITS> a;

@@ -42,15 +42,7 @@ public:
     {
         static_assert(BITS/32 > 0 && BITS%32 == 0, "Template parameter BITS must be a positive multiple of 32.");
 
-        for (int i = 0; i < WIDTH; i++)
-            pn[i] = b.pn[i];
-    }
-
-    base_uint& operator=(const base_uint& b)
-    {
-        for (int i = 0; i < WIDTH; i++)
-            pn[i] = b.pn[i];
-        return *this;
+        (*this) = b;
     }
 
     base_uint(uint64_t b)
@@ -61,6 +53,12 @@ public:
         pn[1] = (unsigned int)(b >> 32);
         for (int i = 2; i < WIDTH; i++)
             pn[i] = 0;
+    }
+
+    template<unsigned int BITS1>
+    base_uint(const base_uint<BITS1>& b)
+    {
+        (*this) = b;
     }
 
     explicit base_uint(const std::string& str);
@@ -83,6 +81,24 @@ public:
     }
 
     double getdouble() const;
+
+    template<unsigned int BITS1>
+    base_uint& operator=(const base_uint<BITS1>& b)
+    {
+        auto bits = std::min(BITS, BITS1);
+        for (int i = 0; i < bits; i++)
+            pn[i] = b.pn[i];
+        for (int i = bits; i < BITS; i++)
+            pn[i] = 0;
+        return *this;
+    }
+
+    base_uint& operator=(const base_uint& b)
+    {
+        for (int i = 0; i < WIDTH; i++)
+            pn[i] = b.pn[i];
+        return *this;
+    }
 
     base_uint& operator=(uint64_t b)
     {
@@ -165,6 +181,10 @@ public:
         return *this;
     }
 
+    base_uint& operator*=(int32_t b32);
+    base_uint& operator*=(uint32_t b32);
+    base_uint& operator*=(int64_t b64);
+    base_uint& operator*=(uint64_t b64);
     base_uint& operator*=(const base_uint& b);
     base_uint& operator/=(const base_uint& b);
 
@@ -214,6 +234,10 @@ public:
     friend inline const base_uint operator^(const base_uint& a, const base_uint& b) { return base_uint(a) ^= b; }
     friend inline const base_uint operator>>(const base_uint& a, int shift) { return base_uint(a) >>= shift; }
     friend inline const base_uint operator<<(const base_uint& a, int shift) { return base_uint(a) <<= shift; }
+    friend inline const base_uint operator*(const base_uint& a, int32_t b) { return base_uint(a) *= b; }
+    friend inline const base_uint operator*(const base_uint& a, uint32_t b) { return base_uint(a) *= b; }
+    friend inline const base_uint operator*(const base_uint& a, int64_t b) { return base_uint(a) *= b; }
+    friend inline const base_uint operator*(const base_uint& a, uint64_t b) { return base_uint(a) *= b; }
     friend inline bool operator==(const base_uint& a, const base_uint& b) { return memcmp(a.pn, b.pn, sizeof(a.pn)) == 0; }
     friend inline bool operator!=(const base_uint& a, const base_uint& b) { return memcmp(a.pn, b.pn, sizeof(a.pn)) != 0; }
     friend inline bool operator>(const base_uint& a, const base_uint& b) { return a.CompareTo(b) > 0; }
