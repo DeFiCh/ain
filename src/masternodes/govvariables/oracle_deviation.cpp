@@ -9,23 +9,25 @@
 #include <rpc/util.h> /// AmountFromValue
 
 
-Res ORACLE_DEVIATION::Import(const UniValue & val) {
+Res ORACLE_DEVIATION::Import(const UniValue & val)
+{
     deviation = AmountFromValue(val);
     return Res::Ok();
 }
 
-UniValue ORACLE_DEVIATION::Export() const {
+UniValue ORACLE_DEVIATION::Export() const
+{
     return ValueFromAmount(deviation);
 }
 
 Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
 {
-    if (view.GetLastHeight() < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+    if (view.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
-    }
 
     if (deviation < COIN / 100)
         return Res::Err("Deviation cannot be less than 1 percent");
+
     return Res::Ok();
 }
 

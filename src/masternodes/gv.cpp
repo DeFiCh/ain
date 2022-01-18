@@ -81,3 +81,10 @@ void CGovView::EraseStoredVariables(const uint32_t height)
         EraseBy<ByHeightVars>(GovVarKey{height, var->GetName()});
     }
 }
+
+std::shared_ptr<ATTRIBUTES> CGovView::GetAttributes() const {
+    if (const auto var = GetVariable("ATTRIBUTES")) {
+        return std::dynamic_pointer_cast<ATTRIBUTES>(var);
+    }
+    return {};
+}

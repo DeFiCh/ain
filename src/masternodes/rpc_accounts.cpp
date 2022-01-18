@@ -1721,6 +1721,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount auctionFee{0};
     CAmount paybackFee{0};
     CBalances burntTokens;
+    CBalances dexfeeburn;
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1759,6 +1760,15 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             return true;
         }
 
+        // dex fee burn
+        if (value.category == uint8_t(CustomTxType::PoolSwap)
+        ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+            for (auto const & diff : value.diff) {
+                dexfeeburn.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
@@ -1773,11 +1783,12 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
+
     UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances)
-    {
+    for (const auto& item : burntTokens.balances) {
         tokens.push_back(tokenAmountString({{item.first}, item.second}));
     }
+
     result.pushKV("tokens", tokens);
     result.pushKV("feeburn", ValueFromAmount(burntFee));
 
@@ -1787,6 +1798,15 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     if (paybackFee) {
         result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    }
+
+    UniValue dexfeetokens(UniValue::VARR);
+    for (const auto& item : dexfeeburn.balances) {
+        dexfeetokens.push_back(tokenAmountString({{item.first}, item.second}));
+    }
+
+    if (!dexfeetokens.empty()) {
+        result.pushKV("dexfeetokens", dexfeetokens);
     }
 
     LOCK(cs_main);
