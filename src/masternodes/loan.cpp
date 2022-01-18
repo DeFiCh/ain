@@ -169,15 +169,13 @@ Res CLoanView::EraseLoanScheme(const std::string& loanSchemeID)
     std::vector<uint64_t> loanUpdateHeights;
     ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage&)
     {
-        if (key.first == loanSchemeID) {
+        if (key.first == loanSchemeID)
             loanUpdateHeights.push_back(key.second);
-        }
         return true;
     });
 
-    for (const auto& height : loanUpdateHeights) {
+    for (const auto& height : loanUpdateHeights)
         EraseDelayedLoanScheme(loanSchemeID, height);
-    }
 
     // Delete loan scheme
     EraseBy<LoanSchemeKey>(loanSchemeID);
@@ -197,9 +195,8 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 boost::optional<CInterestRateV2> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight) {
+    if (height >= Params().GetConsensus().FortCanningHillHeight)
         return ReadBy<LoanInterestV2ByVault, CInterestRateV2>(std::make_pair(vaultId, id));
-    }
 
     if (auto rate = ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id)))
         return ConvertInterestRateToV2(*rate);
@@ -226,12 +223,12 @@ inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount toke
 
 static base_uint<128> InterestPerBlockCalculation(CAmount amount, CAmount tokenInterest, CAmount schemeInterest, uint32_t height)
 {
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
         return InterestPerBlockCalculationV2(amount, tokenInterest, schemeInterest);
-    }
-    if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+
+    if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight)
         return std::ceil(InterestPerBlockCalculationV1<float>(amount, tokenInterest, schemeInterest));
-    }
+
     return InterestPerBlockCalculationV1<CAmount>(amount, tokenInterest, schemeInterest);
 }
 
@@ -240,7 +237,6 @@ CAmount CeilInterest(const base_uint<128>& value, uint32_t height)
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CAmount amount = (value / base_uint<128>(HIGH_PRECISION_SCALER)).GetLow64();
         amount += CAmount(value != base_uint<128>(amount) * HIGH_PRECISION_SCALER);
-
         return amount;
     }
     return value.GetLow64();
@@ -257,9 +253,9 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
 {
     base_uint<128> amountHP = amount;
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
         amountHP *= HIGH_PRECISION_SCALER;
-    }
+
     return amountHP;
 }
 
@@ -275,31 +271,29 @@ CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height)
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight) {
+    if (height >= Params().GetConsensus().FortCanningHillHeight)
         WriteBy<LoanInterestV2ByVault>(pair, rate);
-    } else {
+    else
         WriteBy<LoanInterestByVault>(pair, ConvertInterestRateToV1(rate));
-    }
 }
 
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme) {
+    if (!scheme)
         return Res::Err("No such scheme id %s", loanSchemeID);
-    }
+
     auto token = GetLoanTokenByID(id);
-    if (!token) {
+    if (!token)
         return Res::Err("No such loan token id %s", id.ToString());
-    }
 
     CInterestRateV2 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height))
         rate = *readRate;
 
-    if (rate.height > height || height == 0) {
+    if (rate.height > height || height == 0)
         return Res::Err("Cannot store height in the past");
-    }
+
     if (rate.height) {
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
         rate.interestToHeight = TotalInterestCalculation(rate, height);
@@ -321,24 +315,23 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
 Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme) {
+    if (!scheme)
         return Res::Err("No such scheme id %s", loanSchemeID);
-    }
+
     auto token = GetLoanTokenByID(id);
-    if (!token) {
+    if (!token)
         return Res::Err("No such loan token id %s", id.ToString());
-    }
 
     CInterestRateV2 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height))
         rate = *readRate;
 
-    if (rate.height > height) {
+    if (rate.height > height)
         return Res::Err("Cannot store height in the past");
-    }
-    if (rate.height == 0) {
+
+    if (rate.height == 0)
         return Res::Err("Data mismatch height == 0");
-    }
+
     auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
     auto interestToHeight = TotalInterestCalculation(rate, height);
@@ -384,24 +377,20 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
     if (height >= Params().GetConsensus().FortCanningHillHeight)
     {
         auto it = LowerBound<LoanInterestV2ByVault>(std::make_pair(vaultId, DCT_ID{0}));
-        for (; it.Valid() && it.Key().first == vaultId; it.Next()) {
+        for (; it.Valid() && it.Key().first == vaultId; it.Next())
             keysToDelete.push_back(it.Key());
-        }
 
-        for (const auto& key : keysToDelete) {
+        for (const auto& key : keysToDelete)
             EraseBy<LoanInterestV2ByVault>(key);
-        }
     }
     else
     {
         auto it = LowerBound<LoanInterestByVault>(std::make_pair(vaultId, DCT_ID{0}));
-        for (; it.Valid() && it.Key().first == vaultId; it.Next()) {
+        for (; it.Valid() && it.Key().first == vaultId; it.Next())
             keysToDelete.push_back(it.Key());
-        }
 
-        for (const auto& key : keysToDelete) {
+        for (const auto& key : keysToDelete)
             EraseBy<LoanInterestByVault>(key);
-        }
     }
     return Res::Ok();
 }
@@ -414,13 +403,11 @@ void CLoanView::RevertInterestRateToV1()
         rate.interestToHeight /= HIGH_PRECISION_SCALER;
         rates.emplace_back(pair, std::move(rate));
         EraseBy<LoanInterestV2ByVault>(pair);
-
         return true;
     });
 
-    for (auto it = rates.begin(); it != rates.end(); it = rates.erase(it)) {
+    for (auto it = rates.begin(); it != rates.end(); it = rates.erase(it))
         WriteBy<LoanInterestByVault>(it->first, ConvertInterestRateToV1(it->second));
-    }
 }
 
 void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
@@ -448,35 +435,35 @@ void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanTokenByID(amount.nTokenId)) {
+    if (!GetLoanTokenByID(amount.nTokenId))
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
-    }
+
     CBalances amounts;
     ReadBy<LoanTokenAmount>(vaultId, amounts);
     auto res = amounts.Add(amount);
-    if (!res) {
+    if (!res)
         return res;
-    }
-    if (!amounts.balances.empty()) {
+
+    if (!amounts.balances.empty())
         WriteBy<LoanTokenAmount>(vaultId, amounts);
-    }
+
     return Res::Ok();
 }
 
 Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanTokenByID(amount.nTokenId)) {
+    if (!GetLoanTokenByID(amount.nTokenId))
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
-    }
+
     auto amounts = GetLoanTokens(vaultId);
-    if (!amounts || !amounts->Sub(amount)) {
+    if (!amounts || !amounts->Sub(amount))
         return Res::Err("Loan token for vault <%s> not found", vaultId.GetHex());
-    }
-    if (amounts->balances.empty()) {
+
+    if (amounts->balances.empty())
         EraseBy<LoanTokenAmount>(vaultId);
-    } else {
+    else
         WriteBy<LoanTokenAmount>(vaultId, *amounts);
-    }
+
     return Res::Ok();
 }
 
@@ -499,8 +486,8 @@ Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
 CAmount CLoanView::GetLoanLiquidationPenalty()
 {
     CAmount penalty;
-    if (Read(LoanLiquidationPenalty::prefix(), penalty)) {
+    if (Read(LoanLiquidationPenalty::prefix(), penalty))
         return penalty;
-    }
+
     return 5 * COIN / 100;
 }
