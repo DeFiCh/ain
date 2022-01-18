@@ -127,7 +127,7 @@ public:
     Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection = false);
     Res RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim);
 
-    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, int height = INT_MAX);
+    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, int height);
@@ -231,6 +231,9 @@ public:
     Res SetRewardLoanPct(DCT_ID const & poolId, uint32_t height, CAmount rewardLoanPct);
     bool HasPoolPair(DCT_ID const & poolId) const;
 
+    Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
+    CAmount GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const;
+
     std::pair<CAmount, CAmount> UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
     // tags
@@ -248,6 +251,7 @@ public:
     struct ByDailyLoanReward{ static constexpr uint8_t prefix() { return 'q'; } };
     struct ByRewardLoanPct  { static constexpr uint8_t prefix() { return 'U'; } };
     struct ByPoolLoanReward { static constexpr uint8_t prefix() { return 'W'; } };
+    struct ByTokenDexFeePct { static constexpr uint8_t prefix() { return 'l'; } };
 };
 
 struct CLiquidityMessage {
