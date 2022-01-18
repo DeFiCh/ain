@@ -15,10 +15,6 @@ static std::string KeyBuilder(const T& value){
     return oss.str();
 }
 
-static std::string KeyBuilder(const UniValue& value){
-    return value.getValStr();
-}
-
 template<typename T, typename ... Args >
 static std::string KeyBuilder(const T& value, const Args& ... args){
     return KeyBuilder(value) + '/' + KeyBuilder(args...);
@@ -54,10 +50,8 @@ static ResVal<CAmount> VerifyPct(const std::string& str) {
     return ResVal<CAmount>(amount, Res::Ok());
 }
 
-static Res ProcessVariable(const std::string& key, const std::string& value,
-                           std::function<ResVal<uint8_t>(const std::string&)> parseType,
-                           std::function<ResVal<uint8_t>(uint8_t, const std::string&)> parseKey,
-                           std::function<Res(const UniValue&)> applyVariable = {}) {
+Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
+                                std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const {
 
     if (key.size() > 128) {
         return Res::Err("Identifier exceeds maximum length (128)");
@@ -65,49 +59,71 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
 
     const auto keys = KeyBreaker(key);
     if (keys.empty() || keys[0].empty()) {
-        return Res::Err("Empty key");
+        return Res::Err("Empty version");
     }
 
     if (value.empty()) {
         return Res::Err("Empty value");
     }
 
-    auto resType = parseType(keys[0]);
-    if (!resType) {
-        return std::move(resType);
+    auto iver = allowedVersions.find(keys[0]);
+    if (iver == allowedVersions.end()) {
+        return Res::Err("Unsupported version");
     }
 
-    auto type = *resType.val;
+    auto version = iver->second;
 
-    if (keys.size() != 3 || keys[1].empty() || keys[2].empty()) {
-        return Res::Err("Incorrect key for <type>. Object of ['<type>/ID/<key>','value'] expected");
+    if (keys.size() != 4 || keys[1].empty() || keys[2].empty() || keys[3].empty()) {
+        return Res::Err("Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
     }
 
-    auto typeId = VerifyInt32(keys[1]);
+    auto itype = allowedTypes.find(keys[1]);
+    if (itype == allowedTypes.end()) {
+        std::string error{"Unrecognised type argument provided, valid types are:"};
+        for (const auto& pair : allowedTypes) {
+            error += ' ' + pair.first + ',';
+        }
+        return Res::Err(error);
+    }
+
+    auto type = itype->second;
+
+    auto typeId = VerifyInt32(keys[2]);
     if (!typeId) {
         return std::move(typeId);
     }
 
-    auto resKey = parseKey(type, keys[2]);
-    if (!resKey) {
-        return std::move(resKey);
+    auto ikey = allowedKeys.find(type);
+    if (ikey == allowedKeys.end()) {
+        return Res::Err("Unsupported type");
+    }
+
+    itype = ikey->second.find(keys[3]);
+    if (itype == ikey->second.end()) {
+        std::string error{"Unrecognised key argument provided, valid keys are:"};
+        for (const auto& pair : ikey->second) {
+            error += ' ' + pair.first + ',';
+        }
+        return Res::Err(error);
     }
 
     UniValue univalue;
-    auto typeKey = *resKey.val;
+    auto typeKey = itype->second;
+
+    CValueV0 valueV0;
 
     if (type == AttributeTypes::Token) {
         if (typeKey == TokenKeys::PaybackDFI) {
             if (value != "true" && value != "false") {
                 return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
             }
-            univalue.setBool(value == "true");
+            valueV0 = value == "true";
         } else if (typeKey == TokenKeys::PaybackDFIFeePCT) {
             auto res = VerifyPct(value);
             if (!res) {
                 return std::move(res);
             }
-            univalue = ValueFromAmount(*res.val);
+            valueV0 = *res.val;
         } else {
             return Res::Err("Unrecognised key");
         }
@@ -118,7 +134,7 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
             if (!res) {
                 return std::move(res);
             }
-            univalue = ValueFromAmount(*res.val);
+            valueV0 = *res.val;
         } else {
             return Res::Err("Unrecognised key");
         }
@@ -127,34 +143,9 @@ static Res ProcessVariable(const std::string& key, const std::string& value,
     }
 
     if (applyVariable) {
-        UniValue values(UniValue::VARR);
-        values.push_back(type);
-        values.push_back(*typeId.val);
-        values.push_back(typeKey);
-        values.push_back(univalue);
-        return applyVariable(values);
+        return applyVariable(CDataStructureV0{version, type, uint32_t(*typeId.val), typeKey}, valueV0);
     }
     return Res::Ok();
-}
-
-static ResVal<uint8_t> GetType(const std::string& key, const std::map<std::string, uint8_t>& types) {
-    try {
-        return {types.at(key), Res::Ok()};
-    } catch (const std::out_of_range&) {
-        std::string error{"Unrecognised type argument provided, valid types are:"};
-        for (const auto& pair : types) {
-            error += ' ' + pair.first + ',';
-        }
-        return Res::Err(error);
-    }
-}
-
-static ResVal<uint8_t> GetKey(uint8_t type, const std::string& key, const std::map<uint8_t, std::map<std::string, uint8_t>>& types) {
-    try {
-        return GetType(key, types.at(type));
-    } catch (const std::out_of_range&) {
-        return Res::Err("Unrecognised type");
-    }
 }
 
 Res ATTRIBUTES::Import(const UniValue & val) {
@@ -167,21 +158,8 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 
     for (const auto& pair : objMap) {
         auto res = ProcessVariable(
-            pair.first, pair.second.get_str(),
-            std::bind(GetType, std::placeholders::_1, allowedTypes),
-            std::bind(GetKey, std::placeholders::_1, std::placeholders::_2, allowedKeys),
-            [this](const UniValue& values) {
-                if (values[0].get_int() == AttributeTypes::Token
-                ||  values[0].get_int() == AttributeTypes::Poolpairs) {
-                    auto value = values[3].getValStr();
-                    if (values[3].isBool()) {
-                        value = value == "1" ? "true" : "false";
-                    }
-                    if (values[3].isNum()) {
-                        value = KeyBuilder(values[3].get_real());
-                    }
-                    attributes[KeyBuilder(values[0], values[1], values[2])] = value;
-                }
+            pair.first, pair.second.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& value) {
+                attributes[attribute] = value;
                 return Res::Ok();
             }
         );
@@ -192,42 +170,31 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     return Res::Ok();
 }
 
-static ResVal<uint8_t> GetTypeByKey(const std::string& key) {
-    auto res = VerifyInt32(key);
-    if (!res) {
-        return res;
-    }
-    return ResVal<uint8_t>(*res.val, Res::Ok());
-}
-
 UniValue ATTRIBUTES::Export() const {
     UniValue ret(UniValue::VOBJ);
-    for (const auto& item : attributes) {
-        const auto keys = KeyBreaker(item.first);
-        // Should never be empty
-        if (keys.empty()) {
+    for (const auto& attribute : attributes) {
+        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        if (!attrV0 || attrV0->version != VersionTypes::v0) {
             continue;
         }
-        auto res = GetTypeByKey(keys[0]);
-        if (!res) {
+        auto valV0 = boost::get<const CValueV0>(&attribute.second);
+        if (!valV0) {
             continue;
         }
-        auto type = *res.val;
-        if (!displayTypes.count(type)) {
-            continue;
-        }
-        // Token should always have three items
-        if (keys.size() == 3) {
-            res = GetTypeByKey(keys[2]);
-            if (!res) {
-                continue;
+        try {
+            auto key = KeyBuilder(displayVersions.at(attrV0->version),
+                                  displayTypes.at(attrV0->type),
+                                  attrV0->typeId,
+                                  displayKeys.at(attrV0->type).at(attrV0->key));
+
+            if (auto bool_val = boost::get<const bool>(valV0)) {
+                ret.pushKV(key, *bool_val ? "true" : "false");
+            } else if (auto amount = boost::get<const CAmount>(valV0)) {
+                auto uvalue = ValueFromAmount(*amount);
+                ret.pushKV(key, KeyBuilder(uvalue.get_real()));
             }
-            auto tokenKey = *res.val;
-            try {
-                ret.pushKV(displayTypes.at(type) + '/' + keys[1] + '/' + displayKeys.at(type).at(tokenKey), item.second);
-            } catch (const std::out_of_range&) {
-                // Should not get here, if we do perhaps update displayTypes and displayKeys for newly added types and keys.
-            }
+        } catch (const std::out_of_range&) {
+            // Should not get here, that's mean maps are mismatched
         }
     }
     return ret;
@@ -238,39 +205,47 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHillHeight)
         return Res::Err("Cannot be set before FortCanningHill");
 
-    for (const auto& item : attributes) {
-        auto res = ProcessVariable(
-            item.first, item.second, GetTypeByKey,
-            [](uint8_t, const std::string& key) {
-                return GetTypeByKey(key);
-            },
-            [&](const UniValue& values) {
-                if (values[0].get_int() == AttributeTypes::Token) {
-                    uint32_t tokenId = uint32_t(values[1].get_int());
-                    if (values[2].get_int() == TokenKeys::PaybackDFI
-                    ||  values[2].get_int() == TokenKeys::PaybackDFIFeePCT) {
-                        if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
-                            return Res::Err("No such loan token (%d)", tokenId);
-                        }
-                        return Res::Ok();
-                    }
-                }
-                if (values[0].get_int() == AttributeTypes::Poolpairs) {
-                    uint32_t poolId = uint32_t(values[1].get_int());
-                    if (values[2].get_int() == PoolKeys::TokenAFeePCT
-                    ||  values[2].get_int() == PoolKeys::TokenBFeePCT) {
-                        if (!view.GetPoolPair(DCT_ID{poolId})) {
-                            return Res::Err("No such pool (%d)", poolId);
-                        }
-                        return Res::Ok();
-                    }
-                }
-                return Res::Err("Unrecognised type");
-            }
-        );
-        if (!res) {
-            return res;
+    for (const auto& attribute : attributes) {
+        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        if (!attrV0 || attrV0->version != VersionTypes::v0) {
+            return Res::Err("Unsupported version");
         }
+        auto valV0 = boost::get<const CValueV0>(&attribute.second);
+        if (!valV0) {
+            return Res::Err("Unsupported value");
+        }
+        if (attrV0->type == AttributeTypes::Token) {
+            uint32_t tokenId = attrV0->typeId;
+            if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
+                return Res::Err("No such loan token (%d)", tokenId);
+            }
+            if (attrV0->key == TokenKeys::PaybackDFI) {
+                if (!boost::get<const bool>(valV0)) {
+                    return Res::Err("Unsupported value");
+                }
+                continue;
+            }
+            if (attrV0->key == TokenKeys::PaybackDFIFeePCT) {
+                if (!boost::get<const CAmount>(valV0)) {
+                    return Res::Err("Unsupported value");
+                }
+                continue;
+            }
+        }
+        if (attrV0->type == AttributeTypes::Poolpairs) {
+            if (!boost::get<const CAmount>(valV0)) {
+                return Res::Err("Unsupported value");
+            }
+            uint32_t poolId = attrV0->typeId;
+            if (attrV0->key == PoolKeys::TokenAFeePCT
+            ||  attrV0->key == PoolKeys::TokenBFeePCT) {
+                if (!view.GetPoolPair(DCT_ID{poolId})) {
+                    return Res::Err("No such pool (%d)", poolId);
+                }
+                continue;
+            }
+        }
+        return Res::Err("Unrecognised type");
     }
 
     return Res::Ok();
@@ -278,32 +253,25 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
-    for (const auto& item : attributes) {
-        auto res = ProcessVariable(
-            item.first, item.second, GetTypeByKey,
-            [](uint8_t, const std::string& key) {
-                return GetTypeByKey(key);
-            },
-            [&](const UniValue& values) -> Res {
-                if (values[0].get_int() == AttributeTypes::Poolpairs) {
-                    auto poolId = uint32_t(values[1].get_int());
-                    auto pool = mnview.GetPoolPair(DCT_ID{poolId});
-                    if (!pool) {
-                        return Res::Err("No such pool (%d)", poolId);
-                    }
-                    auto tokenId = values[2].get_int() == PoolKeys::TokenAFeePCT ?
-                                    pool->idTokenA : pool->idTokenB;
-                    auto res = VerifyPct(values[3].getValStr());
-                    if (!res) {
-                        return std::move(res);
-                    }
-                    return mnview.SetDexfeePct(DCT_ID{poolId}, tokenId, *res.val);
-                }
-                return Res::Ok();
+    for (const auto& attribute : attributes) {
+        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        if (attrV0 && attrV0->version == VersionTypes::v0
+        &&  attrV0->type == AttributeTypes::Poolpairs) {
+            uint32_t poolId = attrV0->typeId;
+            auto pool = mnview.GetPoolPair(DCT_ID{poolId});
+            if (!pool) {
+                return Res::Err("No such pool (%d)", poolId);
             }
-        );
-        if (!res) {
-            return res;
+            auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                                        pool->idTokenA : pool->idTokenB;
+
+            if (auto valV0 = boost::get<const CValueV0>(&attribute.second)) {
+                auto valuePct = boost::get<const CAmount>(*valV0);
+                auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
+                if (!res) {
+                    return res;
+                }
+            }
         }
     }
     return Res::Ok();

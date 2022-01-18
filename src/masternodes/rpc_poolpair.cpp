@@ -1051,7 +1051,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
             CPoolPair pp = poolPair->second;
-            auto dexfeeInPct = mnview_dummy.GetDexfeePct(poolPair->first, poolSwapMsg.idTokenFrom);
+            auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
                 auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
@@ -1061,7 +1061,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
                 auto resultAmount = tokenAmount;
                 if (targetHeight >= Params().GetConsensus().FortCanningHillHeight) {
-                    if (auto dexfeeOutPct = mnview_dummy.GetDexfeePct(poolPair->first, tokenAmount.nTokenId)) {
+                    if (auto dexfeeOutPct = mnview_dummy.GetDexFeePct(poolPair->first, tokenAmount.nTokenId)) {
                         auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
                         resultAmount.nValue -= dexfeeOutAmount;
                     }

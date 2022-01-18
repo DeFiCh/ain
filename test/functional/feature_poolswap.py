@@ -422,10 +422,10 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
 
         self.nodes[0].poolswap({
             "from": accountGN0,
@@ -455,10 +455,10 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
 
         # set 1% token dex fee and commission
-        self.nodes[0].setgov({"ATTRIBUTES":{'poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'})
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'})
 
         self.nodes[0].updatepoolpair({"pool": "GS", "commission": 0.01})
         self.nodes[0].generate(1)

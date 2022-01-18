@@ -231,8 +231,8 @@ public:
     Res SetRewardLoanPct(DCT_ID const & poolId, uint32_t height, CAmount rewardLoanPct);
     bool HasPoolPair(DCT_ID const & poolId) const;
 
-    Res SetDexfeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
-    CAmount GetDexfeePct(DCT_ID poolId, DCT_ID tokenId) const;
+    Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
+    CAmount GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const;
 
     std::pair<CAmount, CAmount> UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
@@ -251,7 +251,7 @@ public:
     struct ByDailyLoanReward{ static constexpr uint8_t prefix() { return 'q'; } };
     struct ByRewardLoanPct  { static constexpr uint8_t prefix() { return 'U'; } };
     struct ByPoolLoanReward { static constexpr uint8_t prefix() { return 'W'; } };
-    struct ByTokenDexfeePct { static constexpr uint8_t prefix() { return 'l'; } };
+    struct ByTokenDexFeePct { static constexpr uint8_t prefix() { return 'l'; } };
 };
 
 struct CLiquidityMessage {
