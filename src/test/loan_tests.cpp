@@ -81,42 +81,42 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     const std::string id("sch1");
     CreateScheme(mnview, id, 150, 2 * COIN);
 
-    // const CAmount tokenInterest = 5 * COIN;
-    // auto token_id = CreateLoanToken(mnview, "TST", "TEST", "", tokenInterest);
-    // auto scheme = mnview.GetLoanScheme(id);
-    // BOOST_REQUIRE(scheme);
-    // BOOST_CHECK_EQUAL(scheme->ratio, 150);
-    // BOOST_CHECK_EQUAL(scheme->rate, 2 * COIN);
+    const CAmount tokenInterest = 5 * COIN;
+    auto token_id = CreateLoanToken(mnview, "TST", "TEST", "", tokenInterest);
+    auto scheme = mnview.GetLoanScheme(id);
+    BOOST_REQUIRE(scheme);
+    BOOST_CHECK_EQUAL(scheme->ratio, 150);
+    BOOST_CHECK_EQUAL(scheme->rate, 2 * COIN);
 
-    // auto vault_id = NextTx();
-    // BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, 1 * COIN));
+    auto vault_id = NextTx();
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, 1 * COIN));
 
-    // auto rate = mnview.GetInterestRate(vault_id, token_id);
-    // BOOST_REQUIRE(rate);
-    // BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
-    // BOOST_CHECK_EQUAL(rate->height, 1);
+    auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(rate->height, 1);
 
-    // auto interestPerBlock = rate->interestPerBlock;
-    // BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, 1 * COIN));
+    auto interestPerBlock = rate->interestPerBlock;
+    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, 1 * COIN));
 
-    // rate = mnview.GetInterestRate(vault_id, token_id);
-    // BOOST_REQUIRE(rate);
-    // BOOST_CHECK_EQUAL(rate->height, 5);
-    // BOOST_CHECK_EQUAL(rate->interestToHeight, 4 * interestPerBlock);
+    rate = mnview.GetInterestRate(vault_id, token_id, 5);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->height, 5);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 4 * interestPerBlock.GetLow64());
 
-    // auto interestToHeight = rate->interestToHeight;
-    // interestPerBlock = rate->interestPerBlock;
-    // BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, interestToHeight + interestPerBlock));
-    // rate = mnview.GetInterestRate(vault_id, token_id);
+    auto interestToHeight = rate->interestToHeight;
+    interestPerBlock = rate->interestPerBlock;
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight + interestPerBlock).GetLow64()));
+    rate = mnview.GetInterestRate(vault_id, token_id, 6);
 
-    // BOOST_REQUIRE(rate);
-    // BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
 
-    // BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
 
-    // rate = mnview.GetInterestRate(vault_id, token_id);
-    // BOOST_REQUIRE(rate);
-    // BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
+    rate = mnview.GetInterestRate(vault_id, token_id, 6);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(collateralization_ratio)

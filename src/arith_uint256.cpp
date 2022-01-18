@@ -269,3 +269,25 @@ arith_uint256 UintToArith256(const uint256 &a)
         b.pn[x] = ReadLE32(a.begin() + x*4);
     return b;
 }
+
+base_uint<128> Arith256ToBaseUInt128(arith_uint256 const & b)
+{
+    base_uint<128> a;
+
+    a |= ((b >> 64).GetLow64());
+    a <<= 64;
+    a |= b.GetLow64();
+
+    return (a);
+}
+
+arith_uint256 BaseUInt128ToArith256(base_uint<128> const & b)
+{
+    arith_uint256 a;
+
+    a |= ((b >> 64).GetLow64());
+    a <<= 64;
+    a |= b.GetLow64();
+
+    return (a);
+}

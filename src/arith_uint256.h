@@ -297,5 +297,7 @@ public:
 
 uint256 ArithToUint256(const arith_uint256 &);
 arith_uint256 UintToArith256(const uint256 &);
+base_uint<128> Arith256ToBaseUInt128(arith_uint256 const &);
+arith_uint256 BaseUInt128ToArith256(base_uint<128> const &);
 
 #endif // DEFI_ARITH_UINT256_H
