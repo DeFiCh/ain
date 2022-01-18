@@ -387,7 +387,7 @@ Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAm
     return onReclaim(resAmountA, resAmountB);
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &)> onTransfer, int height) {
+Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &, const CTokenAmount &)> onTransfer, int height) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
@@ -415,7 +415,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     // claim trading fee
     if (commission) {
-        CAmount const tradeFee = (arith_uint256(in.nValue) * arith_uint256(commission) / arith_uint256(COIN)).GetLow64(); /// @todo check overflow (COIN vs PRECISION cause commission was normalized to COIN)
+        CAmount const tradeFee = MultiplyAmounts(in.nValue, commission);
         in.nValue -= tradeFee;
         if (forward) {
             blockCommissionA += tradeFee;
@@ -423,19 +423,29 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
             blockCommissionB += tradeFee;
         }
     }
+
+    CTokenAmount dexfeeInAmount{in.nTokenId, 0};
+    if (dexfeeInPct > 0 && height >= Params().GetConsensus().FortCanningHillHeight) {
+        if (dexfeeInPct > COIN) {
+            return Res::Err("Dex fee input percentage over 100%%");
+        }
+        dexfeeInAmount.nValue = MultiplyAmounts(in.nValue, dexfeeInPct);
+        in.nValue -= dexfeeInAmount.nValue;
+    }
+
     auto checkRes = SafeAdd(reserveF, in.nValue);
-    if (!checkRes.ok) {
+    if (!checkRes) {
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
-    CAmount result = slopeSwap(in.nValue, reserveF, reserveT, height >= Params().GetConsensus().BayfrontGardensHeight);
+    CAmount result = slopeSwap(in.nValue, reserveF, reserveT, height);
 
     swapEvent = true; // (!!!)
 
-    return onTransfer({ forward ? idTokenB : idTokenA, result });
+    return onTransfer(dexfeeInAmount, { forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, bool postBayfrontGardens) {
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, int height) {
     assert (unswapped >= 0);
     assert (SafeAdd(unswapped, poolFrom).ok);
 
@@ -443,7 +453,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolT = arith_uint256(poolTo);
 
     arith_uint256 swapped = 0;
-    if (!postBayfrontGardens) {
+    if (height < Params().GetConsensus().BayfrontGardensHeight) {
         CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
         while (unswapped > 0) {
             //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
@@ -459,6 +469,10 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
         arith_uint256 unswappedA = arith_uint256(unswapped);
 
         swapped = poolT - (poolT * poolF / (poolF + unswappedA));
+        if (height >= Params().GetConsensus().FortCanningHillHeight && swapped != 0) {
+            // floor the result
+            --swapped;
+        }
         poolF += unswappedA;
         poolT -= swapped;
     }
@@ -690,4 +704,23 @@ void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript
     ForEach<ByShare, PoolShareKey, uint32_t>([&callback] (PoolShareKey const & poolShareKey, uint32_t height) {
         return callback(poolShareKey.poolID, poolShareKey.owner, height);
     }, startKey);
+}
+
+Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
+    if (feePct < 0 || feePct > COIN) {
+        return Res::Err("Token dex fee should be in percentage");
+    }
+    WriteBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), uint32_t(feePct));
+    return Res::Ok();
+}
+
+CAmount CPoolPairView::GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const {
+    uint32_t feePct;
+    if (ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)) {
+        return feePct;
+    }
+    return 0;
 }

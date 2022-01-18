@@ -688,7 +688,7 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    explicit CRegTestParams(const ArgsManager& args) {
+    explicit CRegTestParams() {
         strNetworkID = "regtest";
         bool isJellyfish = false;
         isJellyfish = gArgs.GetBoolArg("-jellyfish_regtest", false);
@@ -797,7 +797,7 @@ public:
         m_assumed_blockchain_size = 0;
         m_assumed_chain_state_size = 0;
 
-        UpdateActivationParametersFromArgs(args);
+        UpdateActivationParametersFromArgs();
 
         base58Prefixes[PUBKEY_ADDRESS] = {0x6f};
         base58Prefixes[SCRIPT_ADDRESS] = {0xc4};
@@ -892,7 +892,7 @@ public:
         consensus.vDeployments[d].nStartTime = nStartTime;
         consensus.vDeployments[d].nTimeout = nTimeout;
     }
-    void UpdateActivationParametersFromArgs(const ArgsManager& args);
+    void UpdateActivationParametersFromArgs();
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
@@ -914,7 +914,7 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
     return {};
 }
 
-void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
+void CRegTestParams::UpdateActivationParametersFromArgs()
 {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
@@ -934,9 +934,15 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
-    if (!args.IsArgSet("-vbparams")) return;
+    if (gArgs.GetBoolArg("-simulatemainnet", false)) {
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
+        consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+    }
 
-    for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
+    if (!gArgs.IsArgSet("-vbparams")) return;
+
+    for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {
         std::vector<std::string> vDeploymentParams;
         boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
         if (vDeploymentParams.size() != 3) {
@@ -980,7 +986,7 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
     else if (chain == CBaseChainParams::DEVNET)
         return std::unique_ptr<CChainParams>(new CDevNetParams());
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
+        return std::unique_ptr<CChainParams>(new CRegTestParams());
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 

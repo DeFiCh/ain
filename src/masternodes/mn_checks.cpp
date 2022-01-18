@@ -1175,6 +1175,10 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
+            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
+        }
+
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
@@ -1352,26 +1356,54 @@ public:
             return Res::Err("tx not from foundation member");
         }
         for(const auto& var : obj.govs) {
-            auto result = var->Validate(mnview);
-            if (!result) {
-                return Res::Err("%s: %s", var->GetName(), result.msg);
+            auto res = var->Validate(mnview);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+
             if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
                     storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
                     continue;
                 }
+            } else if (var->GetName() == "ATTRIBUTES") {
+                // Add to existing ATTRIBUTES instead of overwriting.
+                auto govVar = mnview.GetVariable(var->GetName());
+                res = govVar->Import(var->Export());
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                // Validate as complete set. Check for future conflicts between key pairs.
+                res = govVar->Validate(mnview);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = govVar->Apply(mnview, height);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = mnview.SetVariable(*govVar);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                return Res::Ok();
             }
-            auto res = var->Apply(mnview, height);
+
+            res = var->Apply(mnview, height);
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            auto add = mnview.SetVariable(*var);
-            if (!add) {
-                return Res::Err("%s: %s", var->GetName(), add.msg);
+
+            res = mnview.SetVariable(*var);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
         }
         return Res::Ok();
@@ -3078,9 +3110,6 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryEraser view(mnview, height, txn, erasers);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
@@ -3150,7 +3179,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
 bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
     if (height < consensus.FortCanningParkHeight)
         return false;
-    
+
     // ICXCreateOrder      = '1',
     // ICXMakeOffer        = '2',
     // ICXSubmitDFCHTLC    = '3',
@@ -3182,7 +3211,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 
     const auto metadataValidation = height >= consensus.FortCanningHeight;
-    
+
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
@@ -3191,7 +3220,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     if (IsDisabledTx(height, txType, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
-    
+
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
@@ -3507,7 +3536,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
-// testOnly is only meant for one-off tests per well defined view.  
+// testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
     CTokenAmount swapAmountResult{{},0};
@@ -3570,14 +3599,34 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         // Check if last pool swap
         bool lastSwap = i + 1 == poolIDs.size();
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
+            if (obj.idTokenTo == swapAmount.nTokenId) {
+                return Res::Err("Final swap should have idTokenTo as destination, not source");
+            }
+            if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
+                return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
+            }
+        }
+
+        auto dexfeeInPct = view.GetDexFeePct(currentID, swapAmount.nTokenId);
+
         // Perform swap
-        poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
+            CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                if (auto dexfeeOutPct = view.GetDexFeePct(currentID, tokenAmount.nTokenId)) {
+                    dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                    swapAmountResult.nValue -= dexfeeOutAmount.nValue;
+                }
+            }
+
             // If we're just testing, don't do any balance transfers.
             // Just go over pools and return result. The only way this can
-            // cause inaccurate result is if we go over the same path twice, 
+            // cause inaccurate result is if we go over the same path twice,
             // which shouldn't happen in the first place.
             if (testOnly)
                 return Res::Ok();
@@ -3597,11 +3646,27 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
+
+            // burn the dex in amount
+            if (dexfeeInAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                if (!res) {
+                    return res;
+                }
+            }
+
+            // burn the dex out amount
+            if (dexfeeOutAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                if (!res) {
+                    return res;
+                }
+            }
 
            return res;
         }, static_cast<int>(height));
@@ -3668,14 +3733,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
-        for (const auto collateral : collaterals->balances)
+        for (const auto& collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto loan : loans->balances)
+        for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
