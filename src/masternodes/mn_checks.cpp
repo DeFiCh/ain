@@ -1175,6 +1175,10 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
+            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
+        }
+
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
@@ -3604,6 +3608,15 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         // Check if last pool swap
         bool lastSwap = i + 1 == poolIDs.size();
+
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
+            if (obj.idTokenTo == swapAmount.nTokenId) {
+                return Res::Err("Final swap should have idTokenTo as destination, not source");
+            }
+            if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
+                return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
+            }
+        }
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
