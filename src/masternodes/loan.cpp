@@ -219,11 +219,9 @@ inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CA
 // precisoin COIN ^3
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
 {
-    arith_uint256 netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    static const arith_uint256 blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
-    arith_uint256 result = netInterest * arith_uint256(amount) * arith_uint256(COIN) / blocksPerYear;
-
-    return (Arith256ToBaseUInt128(result));
+    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
+    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
 static base_uint<128> InterestPerBlockCalculation(CAmount amount, CAmount tokenInterest, CAmount schemeInterest, uint32_t height)
@@ -309,9 +307,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
     {
         CBalances amounts;
-        if (!ReadBy<CLoanView::LoanTokenAmount>(vaultId, amounts))
-            return Res::Err("Cannot find current loan amount balance");
-
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
     }
     else
@@ -353,9 +349,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
     {
         CBalances amounts;
-        if (!ReadBy<CLoanView::LoanTokenAmount>(vaultId, amounts))
-            return Res::Err("Cannot find current loan amount balance");
-
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
     }
     else

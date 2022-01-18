@@ -30,6 +30,8 @@ protected:
     uint32_t pn[WIDTH];
 public:
 
+    template<unsigned int BITS1> friend class base_uint;
+
     base_uint()
     {
         static_assert(BITS/32 > 0 && BITS%32 == 0, "Template parameter BITS must be a positive multiple of 32.");
@@ -85,10 +87,10 @@ public:
     template<unsigned int BITS1>
     base_uint& operator=(const base_uint<BITS1>& b)
     {
-        auto bits = std::min(BITS, BITS1);
-        for (int i = 0; i < bits; i++)
+        auto width = std::min(WIDTH, base_uint<BITS1>::WIDTH);
+        for (int i = 0; i < width; i++)
             pn[i] = b.pn[i];
-        for (int i = bits; i < BITS; i++)
+        for (int i = width; i < WIDTH; i++)
             pn[i] = 0;
         return *this;
     }
@@ -321,7 +323,5 @@ public:
 
 uint256 ArithToUint256(const arith_uint256 &);
 arith_uint256 UintToArith256(const uint256 &);
-base_uint<128> Arith256ToBaseUInt128(arith_uint256 const &);
-arith_uint256 BaseUInt128ToArith256(base_uint<128> const &);
 
 #endif // DEFI_ARITH_UINT256_H
