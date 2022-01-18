@@ -72,6 +72,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     }
 
     auto version = iver->second;
+    if (version != VersionTypes::v0) {
+        return Res::Err("Unsupported version");
+    }
 
     if (keys.size() != 4 || keys[1].empty() || keys[2].empty() || keys[3].empty()) {
         return Res::Err("Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
@@ -143,7 +146,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     }
 
     if (applyVariable) {
-        return applyVariable(CDataStructureV0{version, type, uint32_t(*typeId.val), typeKey}, valueV0);
+        return applyVariable(CDataStructureV0{type, uint32_t(*typeId.val), typeKey}, valueV0);
     }
     return Res::Ok();
 }
@@ -174,7 +177,7 @@ UniValue ATTRIBUTES::Export() const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
         auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
-        if (!attrV0 || attrV0->version != VersionTypes::v0) {
+        if (!attrV0) {
             continue;
         }
         auto valV0 = boost::get<const CValueV0>(&attribute.second);
@@ -182,7 +185,7 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         try {
-            auto key = KeyBuilder(displayVersions.at(attrV0->version),
+            auto key = KeyBuilder(displayVersions.at(VersionTypes::v0),
                                   displayTypes.at(attrV0->type),
                                   attrV0->typeId,
                                   displayKeys.at(attrV0->type).at(attrV0->key));
@@ -207,7 +210,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
     for (const auto& attribute : attributes) {
         auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
-        if (!attrV0 || attrV0->version != VersionTypes::v0) {
+        if (!attrV0) {
             return Res::Err("Unsupported version");
         }
         auto valV0 = boost::get<const CValueV0>(&attribute.second);
@@ -255,8 +258,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
-        if (attrV0 && attrV0->version == VersionTypes::v0
-        &&  attrV0->type == AttributeTypes::Poolpairs) {
+        if (attrV0 && attrV0->type == AttributeTypes::Poolpairs) {
             uint32_t poolId = attrV0->typeId;
             auto pool = mnview.GetPoolPair(DCT_ID{poolId});
             if (!pool) {

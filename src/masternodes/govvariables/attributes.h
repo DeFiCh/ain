@@ -30,7 +30,6 @@ enum PoolKeys : uint8_t {
 using CValueV0 = boost::variant<bool, CAmount>;
 
 struct CDataStructureV0 {
-    uint8_t version;
     uint8_t type;
     uint32_t typeId;
     uint8_t key;
@@ -39,18 +38,15 @@ struct CDataStructureV0 {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(version);
         READWRITE(type);
         READWRITE(typeId);
         READWRITE(key);
     }
 
     bool operator<(const CDataStructureV0& o) const {
-        return version < o.version
-            || (version == o.version
-            && (type < o.type
+        return type < o.type
             || (type == o.type
-            && key < o.key)));
+            && key < o.key);
     }
 };
 
