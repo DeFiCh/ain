@@ -3608,10 +3608,21 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
+        auto dexfeeInPct = view.GetDexFeePct(currentID, swapAmount.nTokenId);
+
         // Perform swap
-        poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
+
+            CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                if (auto dexfeeOutPct = view.GetDexFeePct(currentID, tokenAmount.nTokenId)) {
+                    dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                    swapAmountResult.nValue -= dexfeeOutAmount.nValue;
+                }
+            }
 
             // If we're just testing, don't do any balance transfers.
             // Just go over pools and return result. The only way this can
@@ -3635,11 +3646,27 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
+
+            // burn the dex in amount
+            if (dexfeeInAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                if (!res) {
+                    return res;
+                }
+            }
+
+            // burn the dex out amount
+            if (dexfeeOutAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                if (!res) {
+                    return res;
+                }
+            }
 
            return res;
         }, static_cast<int>(height));

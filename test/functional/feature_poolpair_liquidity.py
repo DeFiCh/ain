@@ -355,6 +355,11 @@ class PoolLiquidityTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
+        # Wipe mempool
+        self.nodes[0].clearmempool()
+        self.nodes[1].clearmempool()
+        self.nodes[2].clearmempool()
+
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
