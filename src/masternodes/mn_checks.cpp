@@ -2539,10 +2539,10 @@ public:
 
                     if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
                         if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                            return Res::Err("At least 50%% of the vault must be in DFI");
+                            return Res::Err("At least 50%% of the collateral must be in DFI");
                     } else {
                         if (MultiplyAmounts(totalDFI, 100) < MultiplyAmounts(collateralsLoans.val->totalLoans, scheme->ratio) / 2)
-                            return Res::Err("At least 50%% of the vault must be in DFI");
+                            return Res::Err("At least 50%% of the collateral must be in DFI");
                     }
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2650,10 +2650,10 @@ public:
 
             if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
                 if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                    return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
+                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             } else {
                 if (MultiplyAmounts(totalDFI, 100) < MultiplyAmounts(collateralsLoans.val->totalLoans, scheme->ratio) / 2)
-                    return Res::Err("At least 50%% of the vault must be in DFI when taking a loan.");
+                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             }
 
             if (collateralsLoans.val->ratio() < scheme->ratio)
