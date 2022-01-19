@@ -42,7 +42,7 @@ static ResVal<int32_t> VerifyInt32(const std::string& str) {
 static ResVal<CAmount> VerifyFloat(const std::string& str) {
     CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
-        return Res::Err("Amount must be a float");
+        return Res::Err("Amount must be a positive float");
     }
     return {amount, Res::Ok()};
 }

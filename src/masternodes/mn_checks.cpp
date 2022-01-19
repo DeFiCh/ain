@@ -1443,14 +1443,14 @@ public:
                 }
             } catch (const std::out_of_range&) {}
 
-            const auto& btcPrice = DivideAmounts(MultiplyAmounts(resVal.val.get(), (premium + COIN)), COIN);
+            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), premium + COIN);
 
             resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
             if (!resVal) {
                 return std::move(resVal);
             }
 
-            const auto totalDFI = DivideAmounts(MultiplyAmounts(DivideAmounts(btcPrice, resVal.val.get()), amount), COIN);
+            const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, resVal.val.get()), amount);
 
             res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI});
             if (!res) {
