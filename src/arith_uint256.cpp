@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 
+template<unsigned int BITS>
+constexpr int base_uint<BITS>::WIDTH;
+
 template <unsigned int BITS>
 base_uint<BITS>::base_uint(const std::string& str)
 {
