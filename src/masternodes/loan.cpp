@@ -370,7 +370,7 @@ void CLoanView::ForEachVaultInterestV2(std::function<bool(const CVaultId&, DCT_I
 }
 
 template<typename BoundType>
-void DeleteInterest(CLoanView& view, const CVaultId& vaultId, uint32_t height)
+void DeleteInterest(CLoanView& view, const CVaultId& vaultId)
 {
     std::vector<std::pair<CVaultId, DCT_ID>> keysToDelete;
 
@@ -385,9 +385,9 @@ void DeleteInterest(CLoanView& view, const CVaultId& vaultId, uint32_t height)
 Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
 {
     if (height >= Params().GetConsensus().FortCanningHillHeight)
-        ::DeleteInterest<LoanInterestV2ByVault>(*this, vaultId, height);
+        ::DeleteInterest<LoanInterestV2ByVault>(*this, vaultId);
     else
-        ::DeleteInterest<LoanInterestByVault>(*this, vaultId, height);
+        ::DeleteInterest<LoanInterestByVault>(*this, vaultId);
 
     return Res::Ok();
 }
