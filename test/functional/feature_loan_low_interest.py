@@ -12,6 +12,7 @@ from test_framework.util import assert_equal
 import calendar
 import time
 from decimal import Decimal, getcontext, ROUND_UP
+
 class Loan():
     def __init__(self, amount, vaultId, loanToken, height=0, returnedInterest=0, interestPerBlock=0):
         self.__amount = amount
@@ -55,10 +56,10 @@ class LowInterestTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=2', '-fortcanningheight=3', '-fortcanningmuseumheight=4', '-fortcanningparkheight=5', '-fortcanninghillheight=132', '-jellyfish_regtest=1', '-txindex=1']
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=2', '-fortcanningheight=3', '-fortcanningmuseumheight=4', '-fortcanningparkheight=5', '-fortcanninghillheight=432', '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet']
         ]
 
-    blocksPerDay = Decimal('144')
+    blocksPerDay = Decimal('2880')
     account0 = ''
     symbolDFI = "DFI"
     symbolDOGE = "DOGE"
@@ -134,7 +135,7 @@ class LowInterestTest (DefiTestFramework):
                     'token': self.idDFI,
                     'factor': 1,
                     'fixedIntervalPriceId': "DFI/USD"})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(300)
 
         # Setup pools
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
@@ -158,7 +159,7 @@ class LowInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity({
-            self.account0: ["1000000@" + self.symboldUSD, "100000@" + self.symbolDFI]
+            self.account0: ["1000000@" + self.symboldUSD, "1000000@" + self.symbolDFI]
         }, self.account0, [])
         self.nodes[0].generate(1)
 
@@ -178,11 +179,11 @@ class LowInterestTest (DefiTestFramework):
         # Init vault
         vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "1@DFI")
+        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
         self.nodes[0].generate(1)
 
         # Init loan
-        loan = Loan(amount=Decimal('0.00657'),
+        loan = Loan(amount=Decimal('0.1314'),
                     vaultId=vaultId,
                     loanToken=self.symbolDOGE,
                     interestPerBlock=Decimal('0.00000001'))
@@ -209,11 +210,11 @@ class LowInterestTest (DefiTestFramework):
         # Init vault
         vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "1@DFI")
+        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
         self.nodes[0].generate(1)
 
         # Init loan
-        loan = Loan(amount=Decimal('0.657'),
+        loan = Loan(amount=Decimal('13.14'),
                     vaultId=vaultId,
                     loanToken=self.symbolDOGE)
 
@@ -246,11 +247,11 @@ class LowInterestTest (DefiTestFramework):
         # Init vault
         vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "1@DFI")
+        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
         self.nodes[0].generate(1)
 
         # Init loan
-        loan = Loan(amount=Decimal('0.00657'), vaultId=vaultId, loanToken=self.symbolDOGE)
+        loan = Loan(amount=Decimal('0.1314'), vaultId=vaultId, loanToken=self.symbolDOGE)
         loan.takeLoan(self.nodes[0])
         self.nodes[0].generate(1)
 
@@ -276,11 +277,11 @@ class LowInterestTest (DefiTestFramework):
         # Init vault
         vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "1@DFI")
+        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
         self.nodes[0].generate(1)
 
         # Init loan
-        loan = Loan(amount=Decimal('0.657'), vaultId=vaultId, loanToken=self.symbolDOGE)
+        loan = Loan(amount=Decimal('13.14'), vaultId=vaultId, loanToken=self.symbolDOGE)
         loan.takeLoan(self.nodes[0])
         self.nodes[0].generate(1)
 
@@ -312,18 +313,18 @@ class LowInterestTest (DefiTestFramework):
         vaultId = loan0.getVaultId()
 
         # Init loan
-        loan = Loan(amount=Decimal('0.657'), vaultId=vaultId, loanToken=self.symbolDOGE)
+        loan = Loan(amount=Decimal('0.1314'), vaultId=vaultId, loanToken=self.symbolDOGE)
         loan.takeLoan(self.nodes[0])
         self.nodes[0].generate(1)
 
         loan.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
         loan0.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
 
-        self.nodes[0].generate(5)
+        self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(loan.getVaultId())
 
         # calculate interests pre FCH for loan0
-        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight() + 1
+        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight()
         interestPreFCHLoan0 = Decimal(blocksPreFCHLoan0) * Decimal("0.00000001")
         # calculate interest post FCH for loan0
         blocksPostFCHLoan0 = self.nodes[0].getblockcount() - self.FCHheight
@@ -336,9 +337,10 @@ class LowInterestTest (DefiTestFramework):
         interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
         # total interests loan0 and current loan
         totalInterest = interestAmount0 + interestAmount
+        totalInterestCeil = totalInterest.quantize(Decimal('1E-8'), rounding=ROUND_UP)
 
         returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        assert_equal(returnedInterest, totalInterest)
+        assert_equal(returnedInterest, totalInterestCeil)
         # save loan for later use
         loan.setReturnedInterest(returnedInterest)
         self.loans.append(loan)
@@ -351,18 +353,20 @@ class LowInterestTest (DefiTestFramework):
         vaultId = loan4.getVaultId() # same as loan0
 
         # calculate interests pre FCH for loan0
-        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight() + 1
+        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight()
         interestPreFCHLoan0 = Decimal(blocksPreFCHLoan0) * Decimal("0.00000001")
         # calculate interest post FCH for loan0
         blocksPostFCHLoan0 = self.nodes[0].getblockcount() - self.FCHheight
         interestPostFCHLoan0 = Decimal(blocksPostFCHLoan0) * loan0.getInterestPerBlock()
         # total interests for loan0
         interestAmount0 = interestPostFCHLoan0 + interestPreFCHLoan0
+        interestAmountCeil0 = interestAmount0.quantize(Decimal('1E-8'), rounding=ROUND_UP)
 
         blocksSinceLoan4 = loan4.getBlocksSinceLoan(self.nodes[0])
         interestAmount4 = Decimal(blocksSinceLoan4) * loan4.getInterestPerBlock()
+        interestAmountCeil4 = interestAmount4.quantize(Decimal('1E-8'), rounding=ROUND_UP)
 
-        paybackAmount = loan0.getAmount() + interestAmount0 + loan4.getAmount() + interestAmount4
+        paybackAmount = loan0.getAmount() + interestAmountCeil0 + loan4.getAmount() + interestAmountCeil4
 
         vault = self.nodes[0].getvault(vaultId)
         assert_equal(paybackAmount, Decimal(vault["loanAmounts"][0].split('@')[0]))
@@ -391,7 +395,7 @@ class LowInterestTest (DefiTestFramework):
         # Create new vault to compare interest calculation
         vaultIdPostFCH = self.nodes[0].createvault(self.account0, 'LOAN150')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultIdPostFCH, self.account0, "1@DFI")
+        self.nodes[0].deposittovault(vaultIdPostFCH, self.account0, "10@DFI")
         self.nodes[0].generate(1)
 
         # Get vault0 which has a paid loan
@@ -399,8 +403,8 @@ class LowInterestTest (DefiTestFramework):
         vaultIdPaid = loan0.getVaultId()
 
         # Init loans
-        loanPaid = Loan(amount=Decimal('0.657'), vaultId=vaultIdPaid, loanToken=self.symbolDOGE)
-        loanPostFCH = Loan(amount=Decimal('0.657'), vaultId=vaultIdPostFCH, loanToken=self.symbolDOGE)
+        loanPaid = Loan(amount=Decimal('0.1314'), vaultId=vaultIdPaid, loanToken=self.symbolDOGE)
+        loanPostFCH = Loan(amount=Decimal('0.1314'), vaultId=vaultIdPostFCH, loanToken=self.symbolDOGE)
         loanPaid.takeLoan(self.nodes[0])
         loanPostFCH.takeLoan(self.nodes[0])
 
