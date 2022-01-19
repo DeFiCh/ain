@@ -126,6 +126,7 @@ BASE_SCRIPTS = [
     'feature_auth_return_change.py',
     'feature_setgov.py',
     'interface_zmq.py',
+    'feature_restore_utxo.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
