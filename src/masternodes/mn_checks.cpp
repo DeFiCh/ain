@@ -2716,8 +2716,18 @@ public:
                     return std::move(resVal);
                 }
 
-                // Apply 1% penalty
+                // Apply penalty
                 CAmount penalty{99000000}; // Update from Gov var
+                CDataStructureV0 penaltyKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFIFeePCT};
+                try {
+                    const auto& value = attrs.at(penaltyKey);
+                    auto valueV0 = boost::get<const CValueV0>(&value);
+                    if (valueV0) {
+                        if (auto storedPenalty = boost::get<const CAmount>(valueV0)) {
+                            penalty = COIN - *storedPenalty;
+                        }
+                    }
+                } catch (const std::out_of_range&) {}
                 dfiUSDPrice = MultiplyAmounts(*resVal.val, penalty);
 
                 // Set tokenId to DUSD

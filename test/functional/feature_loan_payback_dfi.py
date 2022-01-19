@@ -160,11 +160,31 @@ class PaybackLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         vaultAfter = self.nodes[0].getvault(vaultId)
-        print(vaultAfter)
         [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
         [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
 
         assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - (10 * Decimal('0.99'))))
+
+        # Test 5% penalty
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi_fee_pct':'0.05'}})
+        self.nodes[0].generate(1)
+
+        vaultBefore = self.nodes[0].getvault(vaultId)
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+
+        # Partial loan payback in DFI
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': "1@DFI"
+        })
+        self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(vaultId)
+        [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
+        [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
+
+        assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - (10 * Decimal('0.95'))))
 
         # Payback of loan token other than DUSD
         vaultId2 = self.nodes[0].createvault(account0, 'LOAN150')
