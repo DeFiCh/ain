@@ -394,43 +394,30 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
 
 void CLoanView::RevertInterestRateToV1()
 {
-    std::vector<std::pair<std::pair<CVaultId, DCT_ID>, CInterestRateV2>> rates;
+    std::vector<std::pair<CVaultId, DCT_ID>> pairs;
 
-    ForEach<LoanInterestV2ByVault, std::pair<CVaultId, DCT_ID>, CInterestRateV2>([&](const std::pair<CVaultId, DCT_ID>& pair, CInterestRateV2 rate) {
-        rate.interestPerBlock /= HIGH_PRECISION_SCALER;
-        rate.interestToHeight /= HIGH_PRECISION_SCALER;
-        rates.emplace_back(pair, std::move(rate));
+    ForEach<LoanInterestV2ByVault, std::pair<CVaultId, DCT_ID>, CInterestRateV2>([&](const std::pair<CVaultId, DCT_ID>& pair, CLazySerialize<CInterestRateV2>) {
+        pairs.emplace_back(pair);
         return true;
     });
 
-    for (auto it = rates.begin(); it != rates.end(); it = rates.erase(it)) {
-        EraseBy<LoanInterestV2ByVault>(it->first);
-        WriteBy<LoanInterestByVault>(it->first, ConvertInterestRateToV1(it->second));
+    for (auto it = pairs.begin(); it != pairs.end(); it = pairs.erase(it)) {
+        EraseBy<LoanInterestV2ByVault>(*it);
     }
 }
 
 void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
 {
-    std::vector<std::pair<std::pair<CVaultId, DCT_ID>, CInterestRate>> rates;
-
-    ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, CInterestRate>([&](const std::pair<CVaultId, DCT_ID>& id, CInterestRate rate) {
-        rates.emplace_back(id, std::move(rate));
-        return true;
-    });
-
-    for (auto it = rates.begin(); it != rates.end(); it = rates.erase(it)) {
-        auto vaultId = it->first.first;
-        auto tokenId = it->first.second;
-        auto newRate = ConvertInterestRateToV2(it->second);
-
+    ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
+        auto newRate = ConvertInterestRateToV2(rate);
         newRate.interestPerBlock *= HIGH_PRECISION_SCALER;
         newRate.interestToHeight *= HIGH_PRECISION_SCALER;
-        WriteBy<LoanInterestV2ByVault>(it->first, newRate);
+        WriteBy<LoanInterestV2ByVault>(std::make_pair(vaultId, tokenId), newRate);
 
         const auto vault = view.GetVault(vaultId);
-        auto loanToken = GetLoanTokenByID(tokenId);
         StoreInterest(height, vaultId, vault->schemeId, tokenId, 0);
-    }
+        return true;
+    });
 }
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
