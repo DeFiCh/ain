@@ -5,6 +5,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/balances.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
 #include <masternodes/res.h>
@@ -2674,6 +2675,26 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
+        auto allowDFIPayback = false;
+        auto tokenDUSD = mnview.GetToken("DUSD");
+        if (tokenDUSD) {
+            const auto pAttributes = mnview.GetAttributes();
+            if (pAttributes) {
+                const auto& attrs = pAttributes->attributes;
+                CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
+                try {
+                    const auto& value = attrs.at(activeKey);
+                    auto valueV0 = boost::get<const CValueV0>(&value);
+                    if (valueV0) {
+                        const auto active = boost::get<const bool>(valueV0);
+                        if (active || *active) {
+                            allowDFIPayback = true;
+                        }
+                    }
+                } catch (const std::out_of_range&) {}
+            }
+        }
+
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
@@ -2681,8 +2702,12 @@ public:
 
             if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
             {
+                if (!allowDFIPayback || !tokenDUSD) {
+                    return Res::Err("Payback of DUSD loans with DFI not currently active");
+                }
+
                 // set tokenId to DUSD and calculate the DFI amount in DUSD
-                tokenId = mnview.GetToken("DUSD")->first;
+                tokenId = tokenDUSD->first;
                 paybackAmount = mnview.GetAmountInCurrency(paybackAmount, {"DFI","USD"});
             }
 

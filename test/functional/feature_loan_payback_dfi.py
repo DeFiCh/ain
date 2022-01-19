@@ -137,6 +137,17 @@ class PaybackLoanTest (DefiTestFramework):
             'amounts': "1@BTC"
         })
 
+        # Should not be able to payback loan before DFI payback enabled
+        assert_raises_rpc_error(-32600, "Payback of DUSD loans with DFI not currently active", self.nodes[0].paybackloan, {
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': "1@DFI"
+        })
+
+        # Enable loan payback
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'true'}})
+        self.nodes[0].generate(1)
+
         vaultBefore = self.nodes[0].getvault(vaultId)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
 
