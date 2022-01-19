@@ -39,15 +39,23 @@ static ResVal<int32_t> VerifyInt32(const std::string& str) {
     return {int32, Res::Ok()};
 }
 
-static ResVal<CAmount> VerifyPct(const std::string& str) {
+static ResVal<CAmount> VerifyFloat(const std::string& str) {
     CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
-        return Res::Err("Percentage must be a positive integer or float");
+        return Res::Err("Amount must be a float");
     }
-    if (amount > COIN) {
+    return {amount, Res::Ok()};
+}
+
+static ResVal<CAmount> VerifyPct(const std::string& str) {
+    auto resVal = VerifyFloat(str);
+    if (!resVal) {
+        return resVal;
+    }
+    if (*resVal.val > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
-    return ResVal<CAmount>(amount, Res::Ok());
+    return resVal;
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
@@ -91,9 +99,21 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
 
     auto type = itype->second;
 
-    auto typeId = VerifyInt32(keys[2]);
-    if (!typeId) {
-        return std::move(typeId);
+    uint32_t typeId{0};
+    if (type != AttributeTypes::Param) {
+        auto id = VerifyInt32(keys[2]);
+        if (!id) {
+            return std::move(id);
+        }
+
+        typeId = *id.val;
+    } else {
+        auto id = allowedParamIDs.find(keys[2]);
+        if (id == allowedParamIDs.end()) {
+            return Res::Err("Unsupported ID");
+        }
+
+        typeId = id->second;
     }
 
     auto ikey = allowedKeys.find(type);
@@ -141,12 +161,35 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         } else {
             return Res::Err("Unrecognised key");
         }
+    } else if (type == AttributeTypes::Param) {
+        if (typeId == ParamIDs::DFIP2201) {
+            if (typeKey == DFIP2201Keys::Active) {
+                if (value != "true" && value != "false") {
+                    return Res::Err("DFIP2201 actve value must be either \"true\" or \"false\"");
+                }
+                valueV0 = value == "true";
+            } else if (typeKey == DFIP2201Keys::Premium) {
+                auto res = VerifyPct(value);
+                if (!res) {
+                    return std::move(res);
+                }
+                valueV0 = *res.val;
+            } else if (typeKey == DFIP2201Keys::MinSwap) {
+                auto res = VerifyFloat(value);
+                if (!res) {
+                    return std::move(res);
+                }
+                valueV0 = *res.val;
+            } else {
+                return Res::Err("Unrecognised key");
+            }
+        }
     } else {
         return Res::Err("Unrecognised type");
     }
 
     if (applyVariable) {
-        return applyVariable(CDataStructureV0{type, uint32_t(*typeId.val), typeKey}, valueV0);
+        return applyVariable(CDataStructureV0{type, typeId, typeKey}, valueV0);
     }
     return Res::Ok();
 }
@@ -185,9 +228,10 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         try {
+            const std::string id = attrV0->type == AttributeTypes::Param ? displayParamsIDs.at(attrV0->typeId) : KeyBuilder(attrV0->typeId);
             auto key = KeyBuilder(displayVersions.at(VersionTypes::v0),
                                   displayTypes.at(attrV0->type),
-                                  attrV0->typeId,
+                                  id,
                                   displayKeys.at(attrV0->type).at(attrV0->key));
 
             if (auto bool_val = boost::get<const bool>(valV0)) {
@@ -247,6 +291,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 }
                 continue;
             }
+        }
+        if (attrV0->type == AttributeTypes::Param) {
+            if (attrV0->typeId == ParamIDs::DFIP2201) {
+                return Res::Ok();
+            }
+            return Res::Err("Unrecognised param id");
         }
         return Res::Err("Unrecognised type");
     }
