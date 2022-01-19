@@ -769,6 +769,41 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+static UniValue clearmempool(const JSONRPCRequest& request)
+{
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan("clearmempool",
+               "\nClears the memory pool and returns a list of the removed transactions.\n",
+               {},
+               RPCResult{
+                       "[                     (json array of string)\n"
+                       "  \"hash\"              (string) The transaction hash\n"
+                       "  ,...\n"
+                       "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("clearmempool", "")
+                       + HelpExampleRpc("clearmempool", "")
+               }
+    ).Check(request);
+
+    std::vector<uint256> vtxid;
+    mempool.queryHashes(vtxid);
+
+    UniValue removed(UniValue::VARR);
+    for (const uint256& hash : vtxid)
+        removed.push_back(hash.ToString());
+
+    LOCK(cs_main);
+    mempool.clear();
+
+    std::vector<uint256> vHashOut;
+    pwallet->ZapSelectTx(vtxid, vHashOut);
+
+    return removed;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -778,6 +813,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"blockchain",  "clearmempool",          &clearmempool,          {} },
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {
