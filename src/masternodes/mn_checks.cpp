@@ -2676,11 +2676,12 @@ public:
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
         auto allowDFIPayback = false;
+        std::map<CAttributeType, CAttributeValue> attrs;
         auto tokenDUSD = mnview.GetToken("DUSD");
         if (tokenDUSD) {
             const auto pAttributes = mnview.GetAttributes();
             if (pAttributes) {
-                const auto& attrs = pAttributes->attributes;
+                attrs = pAttributes->attributes;
                 CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
                 try {
                     const auto& value = attrs.at(activeKey);
@@ -2699,6 +2700,7 @@ public:
         {
             DCT_ID tokenId = kv.first;
             auto paybackAmount = kv.second;
+            CAmount dfiUSDPrice{0};
 
             if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
             {
@@ -2706,9 +2708,26 @@ public:
                     return Res::Err("Payback of DUSD loans with DFI not currently active");
                 }
 
-                // set tokenId to DUSD and calculate the DFI amount in DUSD
+                // Get DFI price in USD
+                const std::pair<std::string, std::string> dfiUsd{"DFI","USD"};
+                bool useNextPrice{false}, requireLivePrice{true};
+                const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+                if (!resVal) {
+                    return std::move(resVal);
+                }
+
+                // Apply 1% penalty
+                CAmount penalty{99000000}; // Update from Gov var
+                dfiUSDPrice = MultiplyAmounts(*resVal.val, penalty);
+
+                // Set tokenId to DUSD
                 tokenId = tokenDUSD->first;
-                paybackAmount = mnview.GetAmountInCurrency(paybackAmount, {"DFI","USD"});
+
+                // Calculate the DFI amount in DUSD
+                paybackAmount = MultiplyAmounts(dfiUSDPrice, kv.second);
+                if (dfiUSDPrice > COIN && paybackAmount < kv.second) {
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(dfiUSDPrice));
+                }
             }
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -2787,8 +2806,10 @@ public:
                 // if DFI payback overpay loan and interest amount
                 if (paybackAmount > subLoan + subInterest)
                 {
-                    bool useNextPrice = false, requireLivePrice = true, reverseDirectionWithCeil = true;
-                    subInDFI = mnview.GetAmountInCurrency(subInterest + subLoan, {"DFI","USD"}, useNextPrice, requireLivePrice, reverseDirectionWithCeil);
+                    subInDFI = DivideAmounts(subLoan + subInterest, dfiUSDPrice);
+                    if (MultiplyAmounts(subInDFI, dfiUSDPrice) != subLoan + subInterest) {
+                        subInDFI += 1;
+                    }
                 }
                 else
                 {

@@ -920,25 +920,13 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool reverseDirectionWithCeil)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
         auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
         if (!priceResult)
             return std::move(priceResult);
 
         auto price = priceResult.val.get();
-
-        if (reverseDirectionWithCeil)
-        {
-            if (price == 0)
-                return Res::Err("Price is zero (%s - %s/%s)", GetDecimaleString(price), priceFeedId.first, priceFeedId.second);
-            auto amountInCurrency = DivideAmounts(amount, price);
-            if (MultiplyAmounts(amountInCurrency, price) != amount)
-                amountInCurrency += 1;
-
-            return ResVal<CAmount>(amountInCurrency, Res::Ok());
-        }
-
         auto amountInCurrency = MultiplyAmounts(price, amount);
         if (price > COIN && amountInCurrency < amount)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
