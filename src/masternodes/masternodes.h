@@ -368,7 +368,7 @@ class CCustomCSView
             CUndosView              ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity, ByDailyLoanReward,
-                                        ByPoolLoanReward,
+                                        ByPoolLoanReward, ByTokenDexFeePct,
             CGovView                ::  ByName, ByHeightVars,
             CAnchorConfirmsView     ::  BtcTx,
             COracleView             ::  ByName, FixedIntervalBlockKey, FixedIntervalPriceKey, PriceDeviation,
