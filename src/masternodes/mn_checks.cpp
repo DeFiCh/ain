@@ -2688,7 +2688,7 @@ public:
                     auto valueV0 = boost::get<const CValueV0>(&value);
                     if (valueV0) {
                         const auto active = boost::get<const bool>(valueV0);
-                        if (active || *active) {
+                        if (active != nullptr && *active) {
                             allowDFIPayback = true;
                         }
                     }
