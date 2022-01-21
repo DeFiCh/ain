@@ -122,14 +122,12 @@ class LowInterestTest (DefiTestFramework):
     idDOGE = 0
     tokenInterest = 0
     loanInterest = 0
-    totalInterest = 0
     vault_loans = {}
 
     getcontext().prec = 8
 
     def setup(self):
         print('Generating initial chain...')
-        self.FCHheight = self.nodes[0].getblockchaininfo()["softforks"]["fortcanninghill"]["height"]
         self.nodes[0].generate(100) # get initial UTXO balance from immature to trusted -> check getbalances()
         self.account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
@@ -214,7 +212,6 @@ class LowInterestTest (DefiTestFramework):
             self.account0: ["1000000@" + self.symboldUSD, "1000@" + self.symbolDOGE]
         }, self.account0, [])
         self.nodes[0].generate(1)
-        self.loanInterest = Decimal(1)
         self.totalInterest = self.loanInterest + self.tokenInterest
         # Create loan schemes and vaults
         self.nodes[0].createloanscheme(150, Decimal(self.loanInterest*100), 'LOAN150')
