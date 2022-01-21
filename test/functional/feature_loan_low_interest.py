@@ -212,7 +212,6 @@ class LowInterestTest (DefiTestFramework):
             self.account0: ["1000000@" + self.symboldUSD, "1000@" + self.symbolDOGE]
         }, self.account0, [])
         self.nodes[0].generate(1)
-        self.totalInterest = self.loanInterest + self.tokenInterest
         # Create loan schemes and vaults
         self.nodes[0].createloanscheme(150, Decimal(self.loanInterest*100), 'LOAN150')
         self.nodes[0].generate(1)
