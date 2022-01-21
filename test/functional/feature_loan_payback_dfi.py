@@ -10,7 +10,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import calendar
 import time
-from decimal import Decimal
+from decimal import Decimal, ROUND_UP
 
 
 class PaybackLoanTest (DefiTestFramework):
@@ -155,7 +155,7 @@ class PaybackLoanTest (DefiTestFramework):
             'amounts': "1@DFI"
         })
 
-        # Disable loan payback
+        # Enable loan payback
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'true'}})
         self.nodes[0].generate(1)
 
@@ -196,6 +196,52 @@ class PaybackLoanTest (DefiTestFramework):
         [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
 
         assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - (10 * Decimal('0.95'))))
+
+        vaultBefore = vaultAfter
+        [balanceDFIBefore, _] = self.nodes[0].getaccount(account0)[0].split('@')
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+
+        # Overpay loan payback in DFI
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': "250@DFI"
+        })
+        self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(vaultId)
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(account0)[0].split('@')
+
+        assert_equal(len(vaultAfter['loanAmounts']), 0)
+        assert_equal(len(vaultAfter['interestAmounts']), 0)
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), (Decimal(amountBefore) / Decimal('9.5')).quantize(Decimal('1E-8'), rounding=ROUND_UP))
+
+        # Exact amount loan payback in DFI
+
+        # take new loan of 2000DUSD
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': "2000@" + symboldUSD
+        })
+        self.nodes[0].generate(10)
+
+        vaultBefore = self.nodes[0].getvault(vaultId)
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+        [balanceDFIBefore, _] = self.nodes[0].getaccount(account0)[0].split('@')
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId,
+            'from': account0,
+            'amounts': "210.52871908@DFI"
+        })
+        self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(vaultId)
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(account0)[0].split('@')
+
+        assert_equal(len(vaultAfter['loanAmounts']), 0)
+        assert_equal(len(vaultAfter['interestAmounts']), 0)
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('210.52871908'))
 
         # Payback of loan token other than DUSD
         vaultId2 = self.nodes[0].createvault(account0, 'LOAN150')
