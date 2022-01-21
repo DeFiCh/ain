@@ -36,9 +36,6 @@ class Amount():
     def symbol(self):
         return self._symbol
 
-    def is_same_token(self, other):
-        return self.symbol == other.symbol
-
     def __add__(self, other):
         if self.symbol != other.symbol:
             raise Exception("Cant add Amounts of different symbol")
