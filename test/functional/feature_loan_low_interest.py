@@ -8,58 +8,111 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
+from test_framework.authproxy import JSONRPCException
 
 import calendar
 import time
 from decimal import Decimal, getcontext, ROUND_UP
 
+FCH_HEIGHT = 1000
+BLOCKS_PER_DAY = Decimal('2880')
+
 class Loan():
-    def __init__(self, amount, vaultId, loanToken, height=0, returnedInterest=0, interestPerBlock=0):
-        self.__amount = amount
-        self.__height = height
-        self.__returnedInterest = returnedInterest
-        self.__vaultId = vaultId
-        self.__loanToken = loanToken
-        self.__interestPerBlock = interestPerBlock
-        self.__isLoanTaken = False
+    def __init__(self, node, amount, token_loan_symbol, vault_id):
+        self._node = node
+        self._amount = amount
+        self._loan_token_symbol = token_loan_symbol
+        self._vault_id = vault_id
+        self._height = self.node.getblockcount()+1
+        self.__fetch_total_interest()
+        self.__takeLoan()
+        self.__calculate_ipb()
 
-    def getAmount(self): return self.__amount
-    def getHeight(self): return self.__height
-    def getReturnedInterest(self): return self.__returnedInterest
-    def getVaultId(self): return self.__vaultId
-    def getLoanToken(self): return self.__loanToken
-    def getInterestPerBlock(self): return self.__interestPerBlock
+    @property
+    def amount(self):
+        return self._amount
 
-    def setReturnedInterest(self, returnedInterest):
-        self.__returnedInterest = returnedInterest
+    @property
+    def node(self):
+        return self._node
 
-    def takeLoan(self, node):
-        loanAmount = str(self.__amount) + "@" + self.__loanToken
-        node.takeloan({
-                    'vaultId': self.__vaultId,
-                    'amounts': loanAmount})
-        self.__height = node.getblockcount()+1
-        self.__isLoanTaken = True
+    @property
+    def loan_token_symbol(self):
+        return self._loan_token_symbol
 
-    def getBlocksSinceLoan(self, node):
-        return (node.getblockcount() - self.__height) + 1
+    @property
+    def vault_id(self):
+        return self._vault_id
 
-    # only add FCHheight and currentHeight when recalculation needs to be done
-    def calculateInterestPerBlock(self, tokenInterest, loanInterest, blocksPerDay):
-        if self.__isLoanTaken:
-            self.__interestPerBlock = self.__amount * ((loanInterest + tokenInterest) / (blocksPerDay * 365))
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def total_interest(self):
+        return self._total_interest
+
+    @property
+    def ipb_pre_fork(self):
+        return self._ipb_pre_fork
+
+    @property
+    def ipb_post_fork(self):
+        return self._ipb_post_fork
+
+    def __calculate_ipb(self):
+        self._ipb_post_fork = self.amount * ((self.total_interest) / (BLOCKS_PER_DAY * 365))
+        self._ipb_pre_fork = self.ipb_post_fork.quantize(Decimal('1E-8'), rounding=ROUND_UP)
+
+
+    def __fetch_total_interest(self):
+        vault = self.node.getvault(self.vault_id)
+        scheme_id = vault["loanSchemeId"]
+        loan_scheme = self.node.getloanscheme(scheme_id)
+        loan_interest = loan_scheme["interestrate"]
+        token = self.node.getloantoken(self.loan_token_symbol)
+        token_interest = token["interest"]
+        self._total_interest = (loan_interest + token_interest) / 100
+
+    def __takeLoan(self):
+        amount_str = str(self.amount) + "@" + self.loan_token_symbol
+        self.node.takeloan({
+                    'vaultId': self.vault_id,
+                    'amounts': amount_str})
+
+    def get_total_interest(self):
+        current_height = self.node.getblockcount()
+        if current_height < FCH_HEIGHT:
+            loan_blocks = current_height - self.height + 1
+            return loan_blocks * self.ipb_pre_fork
         else:
-            raise Exception("Loan has not been taken")
+            loan_blocks_pre = 0
+            total_interest_pre = 0
+            loan_blocks_post = current_height - self.height + 1
+            if self.height < FCH_HEIGHT:
+                loan_blocks_pre = FCH_HEIGHT - self.height
+                total_interest_pre = loan_blocks_pre * self.ipb_pre_fork
+                loan_blocks_post = current_height - FCH_HEIGHT
+            total_interest_post = loan_blocks_post * self.ipb_post_fork
+            total = total_interest_pre + total_interest_post
+            return (total).quantize(Decimal('1E-8'), rounding=ROUND_UP)
+
+    def payback(self):
+        total_payback = self.get_total_interest() + self.amount
+        self._amount = 0
+        self.__calculate_ipb()
+        return total_payback.quantize(Decimal('1E-8'), rounding=ROUND_UP)
+
+
 
 class LowInterestTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=2', '-fortcanningheight=3', '-fortcanningmuseumheight=4', '-fortcanningparkheight=5', '-fortcanninghillheight=432', '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet']
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=2', '-fortcanningheight=3', '-fortcanningmuseumheight=4', '-fortcanningparkheight=5', f'-fortcanninghillheight={FCH_HEIGHT}', '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet']
         ]
 
-    blocksPerDay = Decimal('2880')
     account0 = ''
     symbolDFI = "DFI"
     symbolDOGE = "DOGE"
@@ -69,15 +122,10 @@ class LowInterestTest (DefiTestFramework):
     idDOGE = 0
     tokenInterest = 0
     loanInterest = 0
-    loans = []
-    FCHheight = 0
+    totalInterest = 0
+    vault_loans = {}
 
     getcontext().prec = 8
-    def tokenInterestPercentage(self):
-        return Decimal(self.tokenInterest/100)
-
-    def loanInterestPercentage(self):
-        return Decimal(self.loanInterest/100)
 
     def setup(self):
         print('Generating initial chain...')
@@ -86,7 +134,7 @@ class LowInterestTest (DefiTestFramework):
         self.account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
         # UTXO -> token
-        self.nodes[0].utxostoaccount({self.account0: "10000000@" + self.symbolDFI})
+        self.nodes[0].utxostoaccount({self.account0: "199999900@" + self.symbolDFI})
         self.nodes[0].generate(1)
 
         # Setup oracles
@@ -95,7 +143,7 @@ class LowInterestTest (DefiTestFramework):
                         {"currency": "USD", "token": "DOGE"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "0.01@DOGE"},
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "0.0001@DOGE"},
                           {"currency": "USD", "tokenAmount": "10@DFI"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
@@ -109,14 +157,13 @@ class LowInterestTest (DefiTestFramework):
                     'mintable': True,
                     'interest': 0})
 
-        self.tokenInterest = 1
-
+        self.tokenInterest = Decimal(1)
         self.nodes[0].setloantoken({
                     'symbol': self.symbolDOGE,
                     'name': "DOGE token",
                     'fixedIntervalPriceId': "DOGE/USD",
                     'mintable': True,
-                    'interest': self.tokenInterest})
+                    'interest': Decimal(self.tokenInterest*100)})
         self.nodes[0].generate(1)
 
         # Set token ids
@@ -125,7 +172,7 @@ class LowInterestTest (DefiTestFramework):
         self.idDOGE = list(self.nodes[0].gettoken(self.symbolDOGE).keys())[0]
 
         # Mint tokens
-        self.nodes[0].minttokens("100000@DOGE")
+        self.nodes[0].minttokens("1000000@DOGE")
         self.nodes[0].generate(1)
         self.nodes[0].minttokens("2000000@" + self.symboldUSD) # necessary for pools
         self.nodes[0].generate(1)
@@ -167,269 +214,148 @@ class LowInterestTest (DefiTestFramework):
             self.account0: ["1000000@" + self.symboldUSD, "1000@" + self.symbolDOGE]
         }, self.account0, [])
         self.nodes[0].generate(1)
-        self.loanInterest = 1
-
+        self.loanInterest = Decimal(1)
+        self.totalInterest = self.loanInterest + self.tokenInterest
         # Create loan schemes and vaults
-        self.nodes[0].createloanscheme(150, self.loanInterest, 'LOAN150')
+        self.nodes[0].createloanscheme(150, Decimal(self.loanInterest*100), 'LOAN150')
         self.nodes[0].generate(1)
 
-
-    # Interest amount per block is under 1Sat so it is rounded to 1Sat and added in each block
-    def interest_under_one_satoshi_pre_FCH(self):
-        # Init vault
-        vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
+    def get_new_vault(self, loan_scheme=None, amount=10000):
+        vault_id = self.nodes[0].createvault(self.account0, loan_scheme)
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
+        self.nodes[0].deposittovault(vault_id, self.account0, str(amount)+"@DFI") # enough collateral to take loans
+        self.nodes[0].generate(1)
+        return vault_id
+
+    def test_loan(self, amount, loan_token, vault_id):
+        loan = Loan(node=self.nodes[0],
+                    amount=Decimal(amount),
+                    token_loan_symbol=loan_token,
+                    vault_id=vault_id)
+        if vault_id not in self.vault_loans:
+            self.vault_loans[vault_id] = []
+
+        self.vault_loans[vault_id].append(loan)
         self.nodes[0].generate(1)
 
-        # Init loan
-        loan = Loan(amount=Decimal('0.1314'),
-                    vaultId=vaultId,
-                    loanToken=self.symbolDOGE,
-                    interestPerBlock=Decimal('0.00000001'))
+        # Generate interest over n blocks
+        self.nodes[0].generate(100)
 
-        loan.takeLoan(self.nodes[0])
-        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(loan.vault_id)
 
-        # Generate interest over 5 blocks
-        self.nodes[0].generate(5)
+        interestAmount = 0
+        for loan in self.vault_loans[vault_id]:
+            interestAmount += loan.get_total_interest()
 
-        vault = self.nodes[0].getvault(loan.getVaultId())
-
-        blocksSinceLoan = loan.getBlocksSinceLoan(self.nodes[0])
-        interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
         returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
         assert_equal(returnedInterest, interestAmount)
 
-        # save loan for later use
-        loan.setReturnedInterest(returnedInterest)
-        self.loans.append(loan)
+        return interestAmount
 
-    # interest generated by loan is higher than 1Sat so calculations must be the same as post-fork
-    def interest_over_one_satoshi_pre_FCH(self):
-        # Init vault
-        vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
-        self.nodes[0].generate(1)
-
-        # Init loan
-        loan = Loan(amount=Decimal('13.14'),
-                    vaultId=vaultId,
-                    loanToken=self.symbolDOGE)
-
-        loan.takeLoan(self.nodes[0])
-        self.nodes[0].generate(1)
-
-        loan.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
-
-        # Generate interest over 5 blocks
-        self.nodes[0].generate(5)
-
-        vault = self.nodes[0].getvault(loan.getVaultId())
-
-        blocksSinceLoan = loan.getBlocksSinceLoan(self.nodes[0])
-        interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
-        returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        assert_equal(returnedInterest, interestAmount)
-
-        # save loan for later use
-        loan.setReturnedInterest(returnedInterest)
-        self.loans.append(loan)
-
-    # Interest amount per block is under 1Sat interest is kept to 0.25 Sat/block and only total interest is ceiled
-    def interest_under_one_satoshi_post_FCH(self):
-        # Go to block 134 and check FCH is active
-        self.nodes[0].generate(7)
+    def go_to_FCH(self):
+        blocksUntilFCH = FCH_HEIGHT - self.nodes[0].getblockcount() + 2
+        self.nodes[0].generate(blocksUntilFCH)
         blockChainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockChainInfo["softforks"]["fortcanninghill"]["active"], True)
 
-        # Init vault
-        vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
-        self.nodes[0].generate(1)
-
-        # Init loan
-        loan = Loan(amount=Decimal('0.1314'), vaultId=vaultId, loanToken=self.symbolDOGE)
-        loan.takeLoan(self.nodes[0])
-        self.nodes[0].generate(1)
-
-        loan.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
-
-
-        self.nodes[0].generate(5)
-        vault = self.nodes[0].getvault(loan.getVaultId())
-
-        blocksSinceLoan = loan.getBlocksSinceLoan(self.nodes[0])
-        interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
-        returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        # ceiling
-        interestAmountCeil = interestAmount.quantize(Decimal('1E-8'), rounding=ROUND_UP)
-        assert_equal(returnedInterest, interestAmountCeil)
-
-        # save loan for later use
-        loan.setReturnedInterest(returnedInterest)
-        self.loans.append(loan)
-
-    # Interest generated by loan is higher than 1Sat so calculations must be the same as pre-fork
-    def interest_over_one_satoshi_post_FCH(self):
-        # Init vault
-        vaultId = self.nodes[0].createvault(self.account0, 'LOAN150')
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, "10@DFI")
-        self.nodes[0].generate(1)
-
-        # Init loan
-        loan = Loan(amount=Decimal('13.14'), vaultId=vaultId, loanToken=self.symbolDOGE)
-        loan.takeLoan(self.nodes[0])
-        self.nodes[0].generate(1)
-
-        loan.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
-
-
-        self.nodes[0].generate(5)
-        vault = self.nodes[0].getvault(loan.getVaultId())
-
-        blocksSinceLoan = loan.getBlocksSinceLoan(self.nodes[0])
-        interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
-        returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        # ceiling
-        interestAmountCeil = interestAmount.quantize(Decimal('1E-8'), rounding=ROUND_UP)
-        assert_equal(returnedInterest, interestAmountCeil)
-
-        # save loan for later use
-        loan.setReturnedInterest(returnedInterest)
-        self.loans.append(loan)
-
-        # compare results of pre/post fork calculations when interest per block is bigger than 1Sat
-        assert_equal(self.loans[1].getReturnedInterest(), loan.getReturnedInterest())
-
-    # Take another loan in vault0 post fork and see how interests add up
-    # (1Sat + Loan4 interest) will be added each block
-    def interest_adding_pre_and_post_FCH(self):
-        loan0 = self.loans[0]
-        # Get vault0
-        vaultId = loan0.getVaultId()
-
-        # Init loan
-        loan = Loan(amount=Decimal('0.1314'), vaultId=vaultId, loanToken=self.symbolDOGE)
-        loan.takeLoan(self.nodes[0])
-        self.nodes[0].generate(1)
-
-        loan.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
-        loan0.calculateInterestPerBlock(self.loanInterestPercentage(), self.tokenInterestPercentage(), self.blocksPerDay)
-
-        self.nodes[0].generate(1)
-        vault = self.nodes[0].getvault(loan.getVaultId())
-
-        # calculate interests pre FCH for loan0
-        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight()
-        interestPreFCHLoan0 = Decimal(blocksPreFCHLoan0) * Decimal("0.00000001")
-        # calculate interest post FCH for loan0
-        blocksPostFCHLoan0 = self.nodes[0].getblockcount() - self.FCHheight
-        interestPostFCHLoan0 = Decimal(blocksPostFCHLoan0) * loan0.getInterestPerBlock()
-        # total interests for loan0
-        interestAmount0 = interestPostFCHLoan0 + interestPreFCHLoan0
-
-        # calculate interest for current loan post FCH
-        blocksSinceLoan = loan.getBlocksSinceLoan(self.nodes[0])
-        interestAmount = Decimal(blocksSinceLoan) * loan.getInterestPerBlock()
-        # total interests loan0 and current loan
-        totalInterest = interestAmount0 + interestAmount
-        totalInterestCeil = totalInterest.quantize(Decimal('1E-8'), rounding=ROUND_UP)
-
-        returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        assert_equal(returnedInterest, totalInterestCeil)
-        # save loan for later use
-        loan.setReturnedInterest(returnedInterest)
-        self.loans.append(loan)
-
     # Payback full loan and test vault keeps empty loan and interest amounts
-    def payback_pre_FCH(self):
-        # Get loans data
-        loan0 = self.loans[0]
-        loan4 = self.loans[4]
-        vaultId = loan4.getVaultId() # same as loan0
+    def payback_vault(self, vault_id):
 
-        # calculate interests pre FCH for loan0
-        blocksPreFCHLoan0 = self.FCHheight - loan0.getHeight()
-        interestPreFCHLoan0 = Decimal(blocksPreFCHLoan0) * Decimal("0.00000001")
-        # calculate interest post FCH for loan0
-        blocksPostFCHLoan0 = self.nodes[0].getblockcount() - self.FCHheight
-        interestPostFCHLoan0 = Decimal(blocksPostFCHLoan0) * loan0.getInterestPerBlock()
-        # total interests for loan0
-        interestAmount0 = interestPostFCHLoan0 + interestPreFCHLoan0
-        interestAmountCeil0 = interestAmount0.quantize(Decimal('1E-8'), rounding=ROUND_UP)
+        payback_amount = 0
+        for loan in self.vault_loans[vault_id]:
+            payback_amount += loan.payback()
 
-        blocksSinceLoan4 = loan4.getBlocksSinceLoan(self.nodes[0])
-        interestAmount4 = Decimal(blocksSinceLoan4) * loan4.getInterestPerBlock()
-        interestAmountCeil4 = interestAmount4.quantize(Decimal('1E-8'), rounding=ROUND_UP)
-
-        paybackAmount = loan0.getAmount() + interestAmountCeil0 + loan4.getAmount() + interestAmountCeil4
-
-        vault = self.nodes[0].getvault(vaultId)
-        assert_equal(paybackAmount, Decimal(vault["loanAmounts"][0].split('@')[0]))
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(payback_amount, Decimal(vault["loanAmounts"][0].split('@')[0]))
 
         self.nodes[0].paybackloan({
-                        'vaultId': vaultId,
+                        'vaultId': vault_id,
                         'from': self.account0,
-                        'amounts': [str(paybackAmount) +"@" + loan4.getLoanToken()]})
+                        'amounts': [str(payback_amount) +"@DOGE"]})
         self.nodes[0].generate(1)
 
-        vault = self.nodes[0].getvault(vaultId)
+        vault = self.nodes[0].getvault(vault_id)
         # Check loan is fully payed back
         assert_equal(vault["loanAmounts"], [])
         assert_equal(vault["interestAmounts"], [])
         # Generate blocks and check again
-        self.nodes[0].generate(5)
-        vault = self.nodes[0].getvault(vaultId)
+        self.nodes[0].generate(100)
+        vault = self.nodes[0].getvault(vault_id)
         # Check loan is fully payed back
         assert_equal(vault["loanAmounts"], [])
         assert_equal(vault["interestAmounts"], [])
 
-    def dont_accumulate_on_paid_loan(self):
-        # generate some blocks to see if interest gets accumulated
-        self.nodes[0].generate(10)
-
-        # Create new vault to compare interest calculation
-        vaultIdPostFCH = self.nodes[0].createvault(self.account0, 'LOAN150')
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultIdPostFCH, self.account0, "10@DFI")
-        self.nodes[0].generate(1)
-
-        # Get vault0 which has a paid loan
-        loan0 = self.loans[0]
-        vaultIdPaid = loan0.getVaultId()
-
-        # Init loans
-        loanPaid = Loan(amount=Decimal('0.1314'), vaultId=vaultIdPaid, loanToken=self.symbolDOGE)
-        loanPostFCH = Loan(amount=Decimal('0.1314'), vaultId=vaultIdPostFCH, loanToken=self.symbolDOGE)
-        loanPaid.takeLoan(self.nodes[0])
-        loanPostFCH.takeLoan(self.nodes[0])
-
-        self.nodes[0].generate(5)
-        vaultPaid = self.nodes[0].getvault(vaultIdPaid)
-        vaultPostFCH = self.nodes[0].getvault(vaultIdPostFCH)
-        assert_equal(vaultPaid["loanAmounts"], vaultPostFCH["loanAmounts"])
-        assert_equal(vaultPaid["interestAmounts"], vaultPostFCH["interestAmounts"])
-
     def run_test(self):
-
         self.setup()
 
-        # pre FCH
-        self.interest_under_one_satoshi_pre_FCH()
-        self.interest_over_one_satoshi_pre_FCH()
-        # post FCH
-        self.interest_under_one_satoshi_post_FCH()
-        self.interest_over_one_satoshi_post_FCH()
-        self.interest_adding_pre_and_post_FCH()
-        # Payback
-        self.payback_pre_FCH()
-        # Take loan on paid back vault
-        self.dont_accumulate_on_paid_loan()
+        # PRE FCH
+        # LOAN0: IPB(Interest Per Block) is 0.25Sat so it is rounded to 1Sat and added in each block
+        vault_id_0 = self.get_new_vault()
+        interest0 = self.test_loan(Decimal('0.001314'), self.symbolDOGE, vault_id_0)
 
+        # LOAN1: IPB is 25Sat, rounding DOES NOT affect calculations they should be the same as post-fork
+        vault_id_1 = self.get_new_vault()
+        interest1 = self.test_loan(Decimal('0.1314'), self.symbolDOGE, vault_id_1)
+
+        # LOAN2: 100@DOGE loan, IPB rounding DOES affect calculations they should be DIFFERENT as post-fork
+        vault_id_2 = self.get_new_vault()
+        interest2 = self.test_loan(Decimal('100'), self.symbolDOGE, vault_id_2)
+
+        # limit tests pre
+        vault_id_a = self.get_new_vault()
+        self.test_loan(Decimal('0.000001'), self.symbolDOGE, vault_id_a)
+        self.go_to_FCH()
+
+        # POST FCH
+        # LOAN3: IPB is 0.25Sat only TOTAL interest is ceiled
+        vault_id_3 = self.get_new_vault()
+        interest3 = self.test_loan(Decimal('0.001314'), self.symbolDOGE, vault_id_3)
+        assert(interest3 != interest0)
+
+        # LOAN4: IPB is 25Sat, rounding does NOT affect calculations they should be the same as pre FCH
+        vault_id_4 = self.get_new_vault()
+        interest4 = self.test_loan(Decimal('0.1314'), self.symbolDOGE, vault_id_4)
+        assert_equal(interest4, interest1)
+
+        # LOAN5: 100@DOGE loan, IPB rounding DOES affect calculations they should be DIFFERENT from pre-fork in LOAN2
+        vault_id_5 = self.get_new_vault()
+        interest5 = self.test_loan(Decimal('100'), self.symbolDOGE, vault_id_5)
+        assert(interest5 != interest2)
+
+        # LOAN6: take loan on existing vault with one loan already taken pre fork
+        self.test_loan(Decimal('0.001314'), self.symbolDOGE, vault_id_0)
+
+        self.payback_vault(vault_id_0)
+
+        # Test if after paying loan interest keep being added
+        self.nodes[0].generate(100)
+        vault_id_6 = self.get_new_vault()
+        interest7 = self.test_loan(Decimal('0.001314'), self.symbolDOGE, vault_id_0)
+        interest8 = self.test_loan(Decimal('0.001314'), self.symbolDOGE, vault_id_6)
+        assert_equal(interest7, interest8)
+
+        getcontext().prec = 20
+        # limit tests post
+        # low ammount of loan
+        vault_id_x = self.get_new_vault(amount=198910000)
+        self.test_loan(Decimal('0.00000001'), self.symbolDOGE, vault_id_x)
+        try:
+            self.test_loan(Decimal('0.000000009'), self.symbolDOGE, vault_id_x)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Invalid amount' in errorString)
+
+        self.payback_vault(vault_id_x)
+
+        # hig ammount of loan
+        self.test_loan(Decimal('999999999'), self.symbolDOGE, vault_id_x)
+        self.nodes[0].generate(100)
+        self.payback_vault(vault_id_x)
+        try:
+            self.test_loan(Decimal('9999999999'), self.symbolDOGE, vault_id_x)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Invalid amount' in errorString)
 
 if __name__ == '__main__':
     LowInterestTest().main()
