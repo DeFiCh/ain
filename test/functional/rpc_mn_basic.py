@@ -151,8 +151,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         mempool = self.nodes[0].getrawmempool()
-        assert(idnode0 in mempool and fundingTx in mempool)
-        assert_equal(len(mempool), 3) # + auto auth
+        assert_equal(len(mempool), 1) # auto auth
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createmasternode(collateral0)
