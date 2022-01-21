@@ -90,7 +90,7 @@ class Loan():
             total_interest_pre = 0
             loan_blocks_post = current_height - self.height + 1
             if self.height < FCH_HEIGHT:
-                loan_blocks_pre = FCH_HEIGHT - self.height
+                loan_blocks_pre = FCH_HEIGHT - self.height + 1
                 total_interest_pre = loan_blocks_pre * self.ipb_pre_fork
                 loan_blocks_post = current_height - FCH_HEIGHT
             total_interest_post = loan_blocks_post * self.ipb_post_fork
@@ -224,7 +224,7 @@ class LowInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         return vault_id
 
-    def test_loan(self, amount, loan_token, vault_id):
+    def test_loan(self, amount, loan_token, vault_id, blocks=100):
         loan = Loan(node=self.nodes[0],
                     amount=Decimal(amount),
                     token_loan_symbol=loan_token,
@@ -233,10 +233,9 @@ class LowInterestTest (DefiTestFramework):
             self.vault_loans[vault_id] = []
 
         self.vault_loans[vault_id].append(loan)
-        self.nodes[0].generate(1)
 
         # Generate interest over n blocks
-        self.nodes[0].generate(100)
+        self.nodes[0].generate(blocks)
 
         vault = self.nodes[0].getvault(loan.vault_id)
 
@@ -335,7 +334,7 @@ class LowInterestTest (DefiTestFramework):
         # limit tests post
         # low ammount of loan
         vault_id_x = self.get_new_vault(amount=198910000)
-        self.test_loan(Decimal('0.00000001'), self.symbolDOGE, vault_id_x)
+        self.test_loan(Decimal('0.00000001'), self.symbolDOGE, vault_id_x, 241)
         try:
             self.test_loan(Decimal('0.000000009'), self.symbolDOGE, vault_id_x)
         except JSONRPCException as e:
@@ -345,7 +344,7 @@ class LowInterestTest (DefiTestFramework):
         self.payback_vault(vault_id_x)
 
         # hig ammount of loan
-        self.test_loan(Decimal('999999999'), self.symbolDOGE, vault_id_x)
+        self.test_loan(Decimal('999999999'), self.symbolDOGE, vault_id_x, 314)
         self.nodes[0].generate(100)
         self.payback_vault(vault_id_x)
         try:
