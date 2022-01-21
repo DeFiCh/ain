@@ -257,7 +257,7 @@ class PriceUpdateTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(vaultId1, account, "900@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the vault must be in DFI" in errorString)
+        assert("At least 50% of the collateral must be in DFI" in errorString)
 
         vault = self.nodes[0].getvault(vaultId1)
         self.nodes[0].withdrawfromvault(vaultId1, account, "100@BTC")
