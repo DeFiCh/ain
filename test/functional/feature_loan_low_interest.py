@@ -14,14 +14,55 @@ import calendar
 import time
 from decimal import Decimal, getcontext, ROUND_UP
 
-FCH_HEIGHT = 1000
+FCH_HEIGHT = 1200
 BLOCKS_PER_DAY = Decimal('2880')
+class Amount():
+    def __init__(self, *args):
+        if len(args) == 2:
+            self._quantity = Decimal(args[0])
+            self._symbol =args[1]
+        elif len(args) == 1:
+            split_amount = args[0].split('@')
+            self._quantity = Decimal(split_amount[0])
+            self._symbol = split_amount[1]
+        else:
+            raise Exception("Wrong number of arguments")
+
+    @property
+    def quantity(self):
+        return self._quantity
+
+    @property
+    def symbol(self):
+        return self._symbol
+
+    def is_same_token(self, other):
+        return self.symbol == other.symbol
+
+    def __add__(self, other):
+        if self.symbol != other.symbol:
+            raise Exception("Cant add Amounts of different symbol")
+        total = self._quantity + other.quantity
+        return Amount(total, self.symbol)
+
+    def __iadd__(self, other):
+        if self.symbol != other.symbol:
+            raise Exception("Cant add Amounts of different symbol")
+        self._quantity += other.quantity
+        return self
+
+    def __eq__(self, other):
+        return self.quantity == other.quantity and self.symbol == other.symbol
+
+    def __str__(self):
+        return str(self.quantity) + "@" + self.symbol
+    def __repr__(self):
+        return str(self.quantity) + "@" + self.symbol
 
 class Loan():
-    def __init__(self, node, amount, token_loan_symbol, vault_id):
+    def __init__(self, node, amount: Amount, vault_id):
         self._node = node
-        self._amount = amount
-        self._loan_token_symbol = token_loan_symbol
+        self._amount: Amount = amount
         self._vault_id = vault_id
         self._height = self.node.getblockcount()+1
         self.__fetch_total_interest()
@@ -35,10 +76,6 @@ class Loan():
     @property
     def node(self):
         return self._node
-
-    @property
-    def loan_token_symbol(self):
-        return self._loan_token_symbol
 
     @property
     def vault_id(self):
@@ -61,7 +98,7 @@ class Loan():
         return self._ipb_post_fork
 
     def __calculate_ipb(self):
-        self._ipb_post_fork = self.amount * ((self.total_interest) / (BLOCKS_PER_DAY * 365))
+        self._ipb_post_fork = self.amount.quantity * ((self.total_interest) / (BLOCKS_PER_DAY * 365))
         self._ipb_pre_fork = self.ipb_post_fork.quantize(Decimal('1E-8'), rounding=ROUND_UP)
 
 
@@ -70,12 +107,12 @@ class Loan():
         scheme_id = vault["loanSchemeId"]
         loan_scheme = self.node.getloanscheme(scheme_id)
         loan_interest = loan_scheme["interestrate"]
-        token = self.node.getloantoken(self.loan_token_symbol)
+        token = self.node.getloantoken(self.amount.symbol)
         token_interest = token["interest"]
         self._total_interest = (loan_interest + token_interest) / 100
 
     def __takeLoan(self):
-        amount_str = str(self.amount) + "@" + self.loan_token_symbol
+        amount_str = str(self.amount)
         self.node.takeloan({
                     'vaultId': self.vault_id,
                     'amounts': amount_str})
@@ -84,7 +121,7 @@ class Loan():
         current_height = self.node.getblockcount()
         if current_height < FCH_HEIGHT:
             loan_blocks = current_height - self.height + 1
-            return loan_blocks * self.ipb_pre_fork
+            return Amount(loan_blocks * self.ipb_pre_fork, self.amount.symbol)
         else:
             loan_blocks_pre = 0
             total_interest_pre = 0
@@ -95,13 +132,13 @@ class Loan():
                 loan_blocks_post = current_height - FCH_HEIGHT
             total_interest_post = loan_blocks_post * self.ipb_post_fork
             total = total_interest_pre + total_interest_post
-            return (total).quantize(Decimal('1E-8'), rounding=ROUND_UP)
+            return Amount(total, self.amount.symbol)
 
     def payback(self):
         total_payback = self.get_total_interest() + self.amount
-        self._amount = 0
+        self._amount = Amount(0, self._amount.symbol)
         self.__calculate_ipb()
-        return total_payback.quantize(Decimal('1E-8'), rounding=ROUND_UP)
+        return total_payback
 
 
 
@@ -225,9 +262,9 @@ class LowInterestTest (DefiTestFramework):
         return vault_id
 
     def test_loan(self, amount, loan_token, vault_id, blocks=100):
+        is_post_FCH = self.nodes[0].getblockcount() > FCH_HEIGHT
         loan = Loan(node=self.nodes[0],
-                    amount=Decimal(amount),
-                    token_loan_symbol=loan_token,
+                    amount=Amount(Decimal(amount), loan_token),
                     vault_id=vault_id)
         if vault_id not in self.vault_loans:
             self.vault_loans[vault_id] = []
@@ -239,14 +276,24 @@ class LowInterestTest (DefiTestFramework):
 
         vault = self.nodes[0].getvault(loan.vault_id)
 
-        interestAmount = 0
+        interest_amounts_dict = {}
         for loan in self.vault_loans[vault_id]:
-            interestAmount += loan.get_total_interest()
+            if loan.amount.symbol not in interest_amounts_dict:
+                interest_amounts_dict[loan.amount.symbol] = loan.get_total_interest()
+            else:
+                interest_amounts_dict[loan.amount.symbol] += loan.get_total_interest()
 
-        returnedInterest = Decimal(vault["interestAmounts"][0].split('@')[0])
-        assert_equal(returnedInterest, interestAmount)
+        if is_post_FCH:
+            for key in interest_amounts_dict:
+                interest_amounts_dict[key]= Amount(interest_amounts_dict[key].quantity.quantize(Decimal('1E-8'), rounding=ROUND_UP), key)
 
-        return interestAmount
+        returnedInterest = None
+        for interest_amount in vault["interestAmounts"]:
+            if loan_token in interest_amount:
+                returnedInterest = Amount(interest_amount)
+        assert_equal(returnedInterest, interest_amounts_dict[loan_token])
+
+        return loan.get_total_interest()
 
     def go_to_FCH(self):
         blocksUntilFCH = FCH_HEIGHT - self.nodes[0].getblockcount() + 2
@@ -255,31 +302,38 @@ class LowInterestTest (DefiTestFramework):
         assert_equal(blockChainInfo["softforks"]["fortcanninghill"]["active"], True)
 
     # Payback full loan and test vault keeps empty loan and interest amounts
-    def payback_vault(self, vault_id):
-
-        payback_amount = 0
+    def payback_vault(self, vault_id, loan_token_symbol='DOGE'):
+        is_post_FCH = self.nodes[0].getblockcount() > FCH_HEIGHT
+        payback_amount = Amount(Decimal(0), loan_token_symbol)
         for loan in self.vault_loans[vault_id]:
-            payback_amount += loan.payback()
+            if loan.amount.symbol == loan_token_symbol:
+                payback_amount += loan.payback()
+        if is_post_FCH:
+            payback_amount = Amount(payback_amount.quantity.quantize(Decimal('1E-8'), rounding=ROUND_UP), loan_token_symbol)
 
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(payback_amount, Decimal(vault["loanAmounts"][0].split('@')[0]))
+        vault_token_amount = None
+        for amount in vault["loanAmounts"]:
+            if loan_token_symbol in amount:
+                vault_token_amount = Amount(amount)
+        assert_equal(payback_amount, vault_token_amount)
 
         self.nodes[0].paybackloan({
                         'vaultId': vault_id,
                         'from': self.account0,
-                        'amounts': [str(payback_amount) +"@DOGE"]})
+                        'amounts': str(payback_amount)})
         self.nodes[0].generate(1)
 
         vault = self.nodes[0].getvault(vault_id)
         # Check loan is fully payed back
-        assert_equal(vault["loanAmounts"], [])
-        assert_equal(vault["interestAmounts"], [])
+        for amount in vault["loanAmounts"]:
+            assert(loan_token_symbol not in amount)
         # Generate blocks and check again
         self.nodes[0].generate(100)
         vault = self.nodes[0].getvault(vault_id)
         # Check loan is fully payed back
-        assert_equal(vault["loanAmounts"], [])
-        assert_equal(vault["interestAmounts"], [])
+        for amount in vault["loanAmounts"]:
+            assert(loan_token_symbol not in amount)
 
     def run_test(self):
         self.setup()
@@ -293,13 +347,20 @@ class LowInterestTest (DefiTestFramework):
         vault_id_1 = self.get_new_vault()
         interest1 = self.test_loan(Decimal('0.1314'), self.symbolDOGE, vault_id_1)
 
+        self.payback_vault(vault_id_1)
+
         # LOAN2: 100@DOGE loan, IPB rounding DOES affect calculations they should be DIFFERENT as post-fork
         vault_id_2 = self.get_new_vault()
         interest2 = self.test_loan(Decimal('100'), self.symbolDOGE, vault_id_2)
 
         # limit tests pre
         vault_id_a = self.get_new_vault()
-        self.test_loan(Decimal('0.000001'), self.symbolDOGE, vault_id_a)
+        self.test_loan(Decimal('0.00000001'), self.symbolDOGE, vault_id_a)
+        vault_id_b = self.get_new_vault()
+        self.test_loan(Decimal('0.00000001'), self.symboldUSD, vault_id_b)
+        vault_id_c = self.get_new_vault()
+        self.test_loan(Decimal('2345.225'), self.symbolDOGE, vault_id_c)
+
         self.go_to_FCH()
 
         # POST FCH
@@ -333,7 +394,7 @@ class LowInterestTest (DefiTestFramework):
         getcontext().prec = 20
         # limit tests post
         # low ammount of loan
-        vault_id_x = self.get_new_vault(amount=198910000)
+        vault_id_x = self.get_new_vault(amount=198000000)
         self.test_loan(Decimal('0.00000001'), self.symbolDOGE, vault_id_x, 241)
         try:
             self.test_loan(Decimal('0.000000009'), self.symbolDOGE, vault_id_x)
@@ -352,6 +413,12 @@ class LowInterestTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('Invalid amount' in errorString)
+
+        self.test_loan(Decimal('0.00000001'), self.symboldUSD, vault_id_x, 241)
+        self.test_loan(Decimal('123.34518'), self.symboldUSD, vault_id_2, 241)
+
+        self.payback_vault(vault_id_2)
+
 
 if __name__ == '__main__':
     LowInterestTest().main()
