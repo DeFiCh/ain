@@ -73,7 +73,7 @@ class TestNode():
         self.chain = chain
         self.rpchost = rpchost
         self.rpc_timeout = timewait
-        self.binary = defid
+        self.binary = defid.split()
         self.coverage_dir = coverage_dir
         self.cwd = cwd
         if extra_conf is not None:
@@ -85,8 +85,7 @@ class TestNode():
         # Configuration for logging is set as command-line args rather than in the defi.conf file.
         # This means that starting a defid using the temp dir to debug a failed test won't
         # spam debug.log.
-        self.args = [
-            self.binary,
+        self.args = self.binary + [
             "-datadir=" + self.datadir,
             "-logtimemicros",
             "-logthreadnames",
