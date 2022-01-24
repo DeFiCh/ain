@@ -634,14 +634,14 @@ public:
         CTokenAmount tokenAmount{id, amount};
         // if "from" not supplied it will only add balance on "to" address
         if (!from.empty()) {
-            auto res = mnview.SubBalance(from, tokenAmount);
+            auto res = mnview.SubBalance(from, tokenAmount, height);
             if (!res)
                 return res;
         }
 
         // if "to" not supplied it will only sub balance from "form" address
         if (!to.empty()) {
-            auto res = mnview.AddBalance(to,tokenAmount);
+            auto res = mnview.AddBalance(to, tokenAmount, height);
             if (!res)
                 return res;
         }
@@ -773,16 +773,8 @@ public:
         return Res::Ok();
     }
 
-    // we need proxy view to prevent add/sub balance record
-    void CalculateOwnerRewards(const CScript& owner) const {
-        CCustomCSView view(mnview);
-        view.CalculateOwnerRewards(owner, height);
-        view.Flush();
-    }
-
     Res subBalanceDelShares(const CScript& owner, const CBalances& balance) const {
-        CalculateOwnerRewards(owner);
-        auto res = mnview.SubBalances(owner, balance);
+        auto res = mnview.SubBalances(owner, balance, height);
         if (!res) {
             return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, res.msg);
         }
@@ -790,8 +782,7 @@ public:
     }
 
     Res addBalanceSetShares(const CScript& owner, const CBalances& balance) const {
-        CalculateOwnerRewards(owner);
-        auto res = mnview.AddBalances(owner, balance);
+        auto res = mnview.AddBalances(owner, balance, height);
         return !res ? res : setShares(owner, balance.balances);
     }
 
@@ -1085,8 +1076,7 @@ public:
             if (!minted) {
                 return minted;
             }
-            CalculateOwnerRewards(*mintable.val);
-            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{kv.first, kv.second});
+            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{kv.first, kv.second}, height);
             if (!res) {
                 return res;
             }
@@ -1224,8 +1214,7 @@ public:
         }
 
         for (const auto& kv : obj.from) {
-            CalculateOwnerRewards(kv.first);
-            auto res = mnview.SubBalances(kv.first, kv.second);
+            auto res = mnview.SubBalances(kv.first, kv.second, height);
             if (!res) {
                 return res;
             }
@@ -1280,9 +1269,8 @@ public:
 
         auto res = pool.RemoveLiquidity(amount.nValue, [&] (CAmount amountA, CAmount amountB) {
 
-            CalculateOwnerRewards(from);
             CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
-            return mnview.AddBalances(from, balances);
+            return mnview.AddBalances(from, balances, height);
         });
 
         return !res ? res : mnview.SetPoolPair(amount.nTokenId, height, pool);
@@ -1417,7 +1405,7 @@ public:
                 return Res::Err("Only Bitcoin can be swapped in " + obj.name);
             }
 
-            auto res = mnview.SubBalance(script, {id, amount});
+            auto res = mnview.SubBalance(script, {id, amount}, height);
             if (!res) {
                 return res;
             }
@@ -1452,12 +1440,12 @@ public:
 
             const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, resVal.val.get()), amount);
 
-            res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI});
+            res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI}, height);
             if (!res) {
                 return res;
             }
 
-            res = mnview.AddBalance(script, {{0}, totalDFI});
+            res = mnview.AddBalance(script, {{0}, totalDFI}, height);
             if (!res) {
                 return res;
             }
@@ -1652,7 +1640,6 @@ public:
 
             // subtract the balance from tokenFrom to dedicate them for the order
             CScript txidAddr(order.creationTx.begin(), order.creationTx.end());
-            CalculateOwnerRewards(order.ownerAddress);
             res = TransferTokenBalance(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
         }
 
@@ -1697,7 +1684,6 @@ public:
         }
 
         // locking takerFee in offer txidaddr
-        CalculateOwnerRewards(makeoffer.ownerAddress);
         res = TransferTokenBalance(DCT_ID{0}, makeoffer.takerFee, makeoffer.ownerAddress, txidAddr);
 
         return !res ? res : mnview.ICXMakeOffer(makeoffer);
@@ -1774,7 +1760,6 @@ public:
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
-                CalculateOwnerRewards(offer->ownerAddress);
                 res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
@@ -1790,7 +1775,6 @@ public:
                 return res;
 
             // burn makerDeposit
-            CalculateOwnerRewards(order->ownerAddress);
             res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
             if (!res)
                 return res;
@@ -1801,7 +1785,6 @@ public:
                 return Res::Err("tx must have at least one input from offer owner");
 
             srcAddr = offer->ownerAddress;
-            CalculateOwnerRewards(offer->ownerAddress);
 
             auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx);
             if (!exthtlc)
@@ -1939,7 +1922,6 @@ public:
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
-                CalculateOwnerRewards(offer->ownerAddress);
                 res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
@@ -1955,7 +1937,6 @@ public:
                 return res;
 
             // burn makerDeposit
-            CalculateOwnerRewards(order->ownerAddress);
             res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
         }
 
@@ -2003,15 +1984,13 @@ public:
             return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
 
         // claim DFC HTLC to receiveAddress
-        CalculateOwnerRewards(order->ownerAddress);
         CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
+
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
-        {
-            CalculateOwnerRewards(offer->ownerAddress);
             res = TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, offer->ownerAddress);
-        }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
             res = TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, order->ownerAddress);
+
         if (!res)
             return res;
 
@@ -2100,7 +2079,6 @@ public:
         if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0) {
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(order->creationTx.begin(), order->creationTx.end());
-            CalculateOwnerRewards(order->ownerAddress);
             res = TransferTokenBalance(order->idToken, order->amountToFill, txidAddr, order->ownerAddress);
             if (!res)
                 return res;
@@ -2148,7 +2126,6 @@ public:
         {
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
-            CalculateOwnerRewards(offer->ownerAddress);
             res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
             if (!res)
                 return res;
@@ -2156,7 +2133,6 @@ public:
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
-            CalculateOwnerRewards(offer->ownerAddress);
             if (isPreEunosPaya)
             {
                 res = TransferTokenBalance(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
@@ -2523,10 +2499,9 @@ public:
         if (mnview.GetLoanTokens(obj.vaultId))
             return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
 
-        CalculateOwnerRewards(obj.to);
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
             for (const auto& col : collaterals->balances) {
-                auto res = mnview.AddBalance(obj.to, {col.first, col.second});
+                auto res = mnview.AddBalance(obj.to, {col.first, col.second}, height);
                 if (!res)
                     return res;
             }
@@ -2539,7 +2514,7 @@ public:
 
         // return half fee, the rest is burned at creation
         auto feeBack = consensus.vaultCreationFee / 2;
-        res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
+        res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack}, height);
         return !res ? res : mnview.EraseVault(obj.vaultId);
     }
 
@@ -2611,8 +2586,7 @@ public:
             return Res::Err("Cannot deposit to vault under liquidation");
 
         //check balance
-        CalculateOwnerRewards(obj.from);
-        res = mnview.SubBalance(obj.from, obj.amount);
+        res = mnview.SubBalance(obj.from, obj.amount, height);
         if (!res)
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
 
@@ -2694,7 +2668,7 @@ public:
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
         }
 
-        return mnview.AddBalance(obj.to, obj.amount);
+        return mnview.AddBalance(obj.to, obj.amount, height);
     }
 
     Res operator()(const CLoanTakeLoanMessage& obj) const {
@@ -2769,8 +2743,7 @@ public:
 
             const auto& address = !obj.to.empty() ? obj.to
                                                   : vault->ownerAddress;
-            CalculateOwnerRewards(address);
-            res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
+            res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second}, height);
             if (!res)
                 return res;
         }
@@ -2939,8 +2912,6 @@ public:
                     return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
-            CalculateOwnerRewards(obj.from);
-
             if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
             {
                 res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
@@ -2949,7 +2920,7 @@ public:
 
                 // subtract loan amount first, interest is burning below
                 LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
-                res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+                res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan}, height);
                 if (!res)
                     return res;
 
@@ -3035,12 +3006,10 @@ public:
                 return Res::Err("Bid override should be higher than last one");
 
             // immediate refund previous bid
-            CalculateOwnerRewards(bid->first);
-            mnview.AddBalance(bid->first, bid->second);
+            mnview.AddBalance(bid->first, bid->second, height);
         }
         //check balance
-        CalculateOwnerRewards(obj.from);
-        res = mnview.SubBalance(obj.from, obj.amount);
+        res = mnview.SubBalance(obj.from, obj.amount, height);
         return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
@@ -3053,7 +3022,7 @@ class CCustomTxRevertVisitor : public CCustomTxVisitor
 {
     Res EraseHistory(const CScript& owner) const {
         // notify account changes, no matter Sub or Add
-       return mnview.AddBalance(owner, {});
+       return mnview.AddBalance(owner, {}, 0);
     }
 
 public:
@@ -3816,13 +3785,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         poolPrice = obj.maxPrice;
     }
 
-    if (!testOnly) {
-        CCustomCSView mnview(view);
-        mnview.CalculateOwnerRewards(obj.from, height);
-        mnview.CalculateOwnerRewards(obj.to, height);
-        mnview.Flush();
-    }
-
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
         // Also used to generate pool specific error messages for RPC users
@@ -3892,14 +3854,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
             auto& subView = i == 0 ? view : intermediateView;
-            res = subView.SubBalance(obj.from, swapAmount);
+            res = subView.SubBalance(obj.from, swapAmount, height);
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
+            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult, height);
             if (!res) {
                 return res;
             }
@@ -3907,7 +3869,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount, height);
                 if (!res) {
                     return res;
                 }
@@ -3915,7 +3877,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // burn the dex out amount
             if (dexfeeOutAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount, height);
                 if (!res) {
                     return res;
                 }

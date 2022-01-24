@@ -132,9 +132,13 @@ public:
     uint256 vaultID;
 
     CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
+    using CCustomCSView::AddBalance;
+    using CCustomCSView::SubBalance;
+    bool Flush();
+
+protected:
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
 };
 
 class CAccountsHistoryEraser : public CCustomCSView
