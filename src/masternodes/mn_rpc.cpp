@@ -711,6 +711,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
     return result;
 }
 
+
 UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     RPCHelpMan{"isappliedcustomtx",
                "\nChecks that custom transaction was affected on chain\n",
@@ -769,6 +770,55 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+
+static std::string GetContractCall(const std::string& str) {
+    if (str == "DFIP2201") {
+        return "dbtcdfiswap";
+    }
+
+    return str;
+}
+
+UniValue listsmartcontracts(const JSONRPCRequest& request) {
+    RPCHelpMan{"listsmartcontracts",
+               "\nReturns information on smart contracts\n",
+               {
+               },
+               RPCResult{
+                       "(array) JSON array with smart contract information\n"
+                       "\"name\":\"name\"         smart contract name\n"
+                       "\"address\":\"address\"   smart contract address\n"
+                       "\"token id\":x.xxxxxxxx   smart contract balance per token\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listsmartcontracts", "")
+                       + HelpExampleRpc("listsmartcontracts", "")
+               },
+    }.Check(request);
+
+    UniValue arr(UniValue::VARR);
+    for (const auto& item : Params().GetConsensus().smartContracts) {
+        UniValue obj(UniValue::VOBJ);
+        CTxDestination dest;
+        ExtractDestination(item.second, dest);
+        obj.pushKV("name", item.first);
+        obj.pushKV("call", GetContractCall(item.first));
+        obj.pushKV("address", EncodeDestination(dest));
+
+        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+            if (owner != item.second) {
+                return false;
+            }
+            obj.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+            return true;
+        }, BalanceKey{item.second, {0}});
+
+        arr.push_back(obj);
+    }
+    return arr;
+}
+
+
 static UniValue clearmempool(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
@@ -813,6 +863,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
     {"blockchain",  "clearmempool",          &clearmempool,          {} },
 };
 
