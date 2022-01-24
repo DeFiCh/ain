@@ -8,7 +8,6 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
-from test_framework.authproxy import JSONRPCException
 
 import calendar
 import time
@@ -297,7 +296,7 @@ class LowInterestTest (DefiTestFramework):
         self.nodes[0].paybackloan({
                         'vaultId': vault_id,
                         'from': self.account0,
-                        'amounts': '2345.38563200@DOGE'})
+                        'amounts': expected_payback+'@DOGE'})
         self.nodes[0].generate(1)
         vault_data = self.nodes[0].getvault(vault_id)
         assert_equal(vault_data["interestAmounts"], [])
