@@ -16,6 +16,7 @@
 #include <hash.h>
 #include <index/blockfilterindex.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -1883,8 +1884,15 @@ static UniValue getblockstats(const JSONRPCRequest& request)
 
         CAmount tx_total_out = 0;
         if (loop_outputs) {
-            for (const CTxOut& out : tx->vout) {
-                tx_total_out += out.nValue;
+            auto mintingOutputsStart = ~0u;
+            if (auto accountToUtxos = GetAccountToUtxosMsg(*tx)) {
+                mintingOutputsStart = accountToUtxos->mintingOutputsStart;
+            }
+            for (size_t i = 0; i < tx->vout.size(); ++i) {
+                const auto& out = tx->vout[i];
+                if (i < mintingOutputsStart) {
+                    tx_total_out += out.nValue;
+                }
                 utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
             }
         }
