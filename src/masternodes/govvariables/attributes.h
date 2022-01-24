@@ -38,8 +38,6 @@ enum PoolKeys : uint8_t {
     TokenBFeePCT = 'b',
 };
 
-using CValueV0 = boost::variant<bool, CAmount>;
-
 struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
@@ -71,15 +69,8 @@ struct CDataStructureV1 {
      bool operator<(const CDataStructureV1& o) const { return false; }
 };
 
-struct CValueV1 {
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {}
-};
-
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<CValueV0, CValueV1>;
+using CAttributeValue = boost::variant<bool, CAmount>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -97,6 +88,17 @@ public:
 
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
+
+    template<typename T>
+    T GetValue(const CAttributeType& key, T value) {
+        auto it = attributes.find(key);
+        if (it != attributes.end()) {
+            if (auto val = boost::get<const T>(&it->second)) {
+                value = *val;
+            }
+        }
+        return std::move(value);
+    }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
