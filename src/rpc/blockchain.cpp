@@ -16,6 +16,7 @@
 #include <hash.h>
 #include <index/blockfilterindex.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -1893,6 +1894,18 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             continue;
         }
 
+        CAmount accountToUtxos{0};
+        std::vector<unsigned char> metadata;
+        auto txType = GuessCustomTxType(*tx, metadata);
+        if (txType == CustomTxType::AccountToUtxos) {
+            auto txMessage = customTypeToMessage(txType);
+            CustomMetadataParse(pindex->nHeight, Params().GetConsensus(), metadata, txMessage);
+            auto obj = boost::get<CAccountToUtxosMessage>(txMessage);
+            for (const auto& bal : obj.balances.balances) {
+                accountToUtxos += bal.second;
+            }
+        }
+
         inputs += tx->vin.size(); // Don't count coinbase's fake input
         total_out += tx_total_out; // Don't count coinbase reward
 
@@ -1930,7 +1943,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
                 utxo_size_inc -= GetSerializeSize(prevoutput, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
             }
 
-            CAmount txfee = tx_total_in - tx_total_out;
+            CAmount txfee = tx_total_in - tx_total_out + accountToUtxos;
             assert(MoneyRange(txfee));
             if (do_medianfee) {
                 fee_array.push_back(txfee);
