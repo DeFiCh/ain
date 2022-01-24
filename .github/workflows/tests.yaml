@@ -39,7 +39,14 @@ jobs:
       TRAVIS_COMMIT: ${{ github.sha }}
     steps:
     - name: Checkout
+      if: github.event_name != 'pull_request'
       uses: actions/checkout@v1
+
+    - name: Checkout-PR
+      if: github.event_name == 'pull_request'
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     # This script has been modified to pipe variables to GITHUB_ENV, which allows them to be
     # used by subsequent steps.
