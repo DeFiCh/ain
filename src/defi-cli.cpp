@@ -109,7 +109,7 @@ static int AppInitRPC(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     if (argc < 2 || HelpRequested(gArgs) || gArgs.IsArgSet("-version")) {
-        std::string strUsage = PACKAGE_NAME " RPC client version " + FormatFullVersion() + "\n";
+        std::string strUsage = PACKAGE_NAME " RPC client version " + FormatVersionAndSuffix() + "\n";
         if (!gArgs.IsArgSet("-version")) {
             strUsage += "\n"
                 "Usage:  defi-cli [options] <command> [params]  Send command to " PACKAGE_NAME "\n"
