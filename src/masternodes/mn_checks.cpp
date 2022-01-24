@@ -1344,26 +1344,13 @@ public:
     }
 
     Res operator()(const CSmartContractMessage& obj) const {
-        const auto pAttributes = mnview.GetAttributes();
-        if (!pAttributes) {
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes) {
             return Res::Err("DFIP2201 smart contract is not enabled");
         }
 
-        const auto& attrs = pAttributes->attributes;
         CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
-        try {
-            const auto& value = attrs.at(activeKey);
-            auto valueV0 = boost::get<const CValueV0>(&value);
-
-            if (!valueV0) {
-                throw std::out_of_range("");
-            }
-
-            const auto active = boost::get<const bool>(valueV0);
-            if (!active || !*active) {
-                throw std::out_of_range("");
-            }
-        } catch (const std::out_of_range&) {
+        if (!attributes->GetValue(activeKey, false)) {
             return Res::Err("DFIP2201 smart contract is not enabled");
         }
 
@@ -1393,16 +1380,7 @@ public:
             }
 
             CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::MinSwap};
-            CAmount minSwap{0};
-            try {
-                const auto& value = attrs.at(minSwapKey);
-                auto valueV0 = boost::get<const CValueV0>(&value);
-                if (valueV0) {
-                    if (auto storedMinSwap = boost::get<const CAmount>(valueV0)) {
-                        minSwap = *storedMinSwap;
-                    }
-                }
-            } catch (const std::out_of_range&) {}
+            auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
             if (minSwap && amount < minSwap) {
                 return Res::Err("Below minimum swapable amount, must be at least " + ValueFromAmount(minSwap).getValStr() + " BTC");
@@ -1431,26 +1409,17 @@ public:
                 return std::move(resVal);
             }
 
-            CDataStructureV0 feePctKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
-            CAmount feePct{2500000};
-            try {
-                const auto& value = attrs.at(feePctKey);
-                auto valueV0 = boost::get<const CValueV0>(&value);
-                if (valueV0) {
-                    if (auto storedFeePct = boost::get<const CAmount>(valueV0)) {
-                        feePct = *storedFeePct;
-                    }
-                }
-            } catch (const std::out_of_range&) {}
+            CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+            auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
 
-            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), feePct + COIN);
+            const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
 
             resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
             if (!resVal) {
                 return std::move(resVal);
             }
 
-            const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, resVal.val.get()), amount);
+            const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
 
             res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI});
             if (!res) {
@@ -2828,22 +2797,10 @@ public:
         auto allowDFIPayback = false;
         std::map<CAttributeType, CAttributeValue> attrs;
         auto tokenDUSD = mnview.GetToken("DUSD");
-        if (tokenDUSD) {
-            const auto pAttributes = mnview.GetAttributes();
-            if (pAttributes) {
-                attrs = pAttributes->attributes;
-                CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
-                try {
-                    const auto& value = attrs.at(activeKey);
-                    auto valueV0 = boost::get<const CValueV0>(&value);
-                    if (valueV0) {
-                        const auto active = boost::get<const bool>(valueV0);
-                        if (active != nullptr && *active) {
-                            allowDFIPayback = true;
-                        }
-                    }
-                } catch (const std::out_of_range&) {}
-            }
+        auto attributes = mnview.GetAttributes();
+        if (tokenDUSD && attributes) {
+            CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
+            allowDFIPayback = attributes->GetValue(activeKey, false);
         }
 
         for (const auto& kv : obj.amounts.balances)
@@ -2867,17 +2824,9 @@ public:
                 }
 
                 // Apply penalty
-                CAmount penalty{99000000}; // Update from Gov var
                 CDataStructureV0 penaltyKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFIFeePCT};
-                try {
-                    const auto& value = attrs.at(penaltyKey);
-                    auto valueV0 = boost::get<const CValueV0>(&value);
-                    if (valueV0) {
-                        if (auto storedPenalty = boost::get<const CAmount>(valueV0)) {
-                            penalty = COIN - *storedPenalty;
-                        }
-                    }
-                } catch (const std::out_of_range&) {}
+                auto penalty = COIN - attributes->GetValue(penaltyKey, COIN / 100);
+
                 dfiUSDPrice = MultiplyAmounts(*resVal.val, penalty);
 
                 // Set tokenId to DUSD

@@ -133,20 +133,20 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     UniValue univalue;
     auto typeKey = itype->second;
 
-    CValueV0 valueV0;
+    CAttributeValue attribValue;
 
     if (type == AttributeTypes::Token) {
         if (typeKey == TokenKeys::PaybackDFI) {
             if (value != "true" && value != "false") {
                 return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
             }
-            valueV0 = value == "true";
+            attribValue = value == "true";
         } else if (typeKey == TokenKeys::PaybackDFIFeePCT) {
             auto res = VerifyPct(value);
             if (!res) {
                 return std::move(res);
             }
-            valueV0 = *res.val;
+            attribValue = *res.val;
         } else {
             return Res::Err("Unrecognised key");
         }
@@ -157,7 +157,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!res) {
                 return std::move(res);
             }
-            valueV0 = *res.val;
+            attribValue = *res.val;
         } else {
             return Res::Err("Unrecognised key");
         }
@@ -167,19 +167,19 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (value != "true" && value != "false") {
                     return Res::Err("DFIP2201 actve value must be either \"true\" or \"false\"");
                 }
-                valueV0 = value == "true";
+                attribValue = value == "true";
             } else if (typeKey == DFIP2201Keys::Premium) {
                 auto res = VerifyPct(value);
                 if (!res) {
                     return std::move(res);
                 }
-                valueV0 = *res.val;
+                attribValue = *res.val;
             } else if (typeKey == DFIP2201Keys::MinSwap) {
                 auto res = VerifyFloat(value);
                 if (!res) {
                     return std::move(res);
                 }
-                valueV0 = *res.val;
+                attribValue = *res.val;
             } else {
                 return Res::Err("Unrecognised key");
             }
@@ -189,7 +189,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     }
 
     if (applyVariable) {
-        return applyVariable(CDataStructureV0{type, typeId, typeKey}, valueV0);
+        return applyVariable(CDataStructureV0{type, typeId, typeKey}, attribValue);
     }
     return Res::Ok();
 }
@@ -223,10 +223,6 @@ UniValue ATTRIBUTES::Export() const {
         if (!attrV0) {
             continue;
         }
-        auto valV0 = boost::get<const CValueV0>(&attribute.second);
-        if (!valV0) {
-            continue;
-        }
         try {
             const std::string id = attrV0->type == AttributeTypes::Param ? displayParamsIDs.at(attrV0->typeId) : KeyBuilder(attrV0->typeId);
             auto key = KeyBuilder(displayVersions.at(VersionTypes::v0),
@@ -234,9 +230,9 @@ UniValue ATTRIBUTES::Export() const {
                                   id,
                                   displayKeys.at(attrV0->type).at(attrV0->key));
 
-            if (auto bool_val = boost::get<const bool>(valV0)) {
+            if (auto bool_val = boost::get<const bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
-            } else if (auto amount = boost::get<const CAmount>(valV0)) {
+            } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
                 auto uvalue = ValueFromAmount(*amount);
                 ret.pushKV(key, KeyBuilder(uvalue.get_real()));
             }
@@ -257,30 +253,26 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         if (!attrV0) {
             return Res::Err("Unsupported version");
         }
-        auto valV0 = boost::get<const CValueV0>(&attribute.second);
-        if (!valV0) {
-            return Res::Err("Unsupported value");
-        }
         if (attrV0->type == AttributeTypes::Token) {
             uint32_t tokenId = attrV0->typeId;
             if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
                 return Res::Err("No such loan token (%d)", tokenId);
             }
             if (attrV0->key == TokenKeys::PaybackDFI) {
-                if (!boost::get<const bool>(valV0)) {
+                if (!boost::get<const bool>(&attribute.second)) {
                     return Res::Err("Unsupported value");
                 }
                 continue;
             }
             if (attrV0->key == TokenKeys::PaybackDFIFeePCT) {
-                if (!boost::get<const CAmount>(valV0)) {
+                if (!boost::get<const CAmount>(&attribute.second)) {
                     return Res::Err("Unsupported value");
                 }
                 continue;
             }
         }
         if (attrV0->type == AttributeTypes::Poolpairs) {
-            if (!boost::get<const CAmount>(valV0)) {
+            if (!boost::get<const CAmount>(&attribute.second)) {
                 return Res::Err("Unsupported value");
             }
             uint32_t poolId = attrV0->typeId;
@@ -317,12 +309,10 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
                                         pool->idTokenA : pool->idTokenB;
 
-            if (auto valV0 = boost::get<const CValueV0>(&attribute.second)) {
-                auto valuePct = boost::get<const CAmount>(*valV0);
-                auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
-                if (!res) {
-                    return res;
-                }
+            auto valuePct = boost::get<const CAmount>(attribute.second);
+            auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
+            if (!res) {
+                return res;
             }
         }
     }
