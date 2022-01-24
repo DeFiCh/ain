@@ -22,6 +22,7 @@
 #include <validation.h>
 #include <version.h>
 #include <warnings.h>
+#include <BRPeer.h>
 
 #include <univalue.h>
 
@@ -511,7 +512,65 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
     obj.pushKV("warnings",       GetWarnings("statusbar"));
     return obj;
 }
+static UniValue getversioninfo(const JSONRPCRequest& request){
+    RPCHelpMan{"getversioninfo",
+               "Returns an object containing various version info about the node.\n",
+               {},
+               RPCResult{
+                       "{\n"
+                       " \"name\": DeFiChain                       (string) Node name\n"
+                       " \"version\": \"xxxxx\",                   (string) Node version string\n"
+                       " \"numericVersion\": xxxxx,                (number) Node numeric version\n"
+                       " \"fullVersion\": \"DefiChain:x.x.x\",     (string) Full node version string including name and version\n"
+                       " \"userAgent\": \"/DefiChain:x.x.x/\",     (string) P2P user agent string (subversion string conforming to BIP-14)\n"
+                       " \"protoVersion\": \"xxxxx\",              (number) Operating protocol version\n"
+                       " \"protoVersionMin\": \"xxxxx\",           (number) Minimum protocol that's supported by the node\n"
+                       " \"rpcVersion\": \"xxxxx\",                (string) RPC version\n"
+                       " \"rpcVersionMin\": \"xxxxx\",             (string) Minimum RPC version supported\n"
+                       " \"spv\":\n"
+                       " \"{\n"
+                       "    \"btc\":\n"
+                       "       \"{\n"
+                       "          \"userAgent\": \"xxxxx\",          (string) BTC SPV agent string\n"
+                       "          \"protoVersion\": \"xxxxx\",       (number) BTC SPV protocol version\n"
+                       "          \"protoVersionMin\": \"xxxxx\",    (number) Minimum BTC SPV protocol that's supported by the node\n"
+                       "       \"}\n"
+                       " \"}\"\n"
+                       "}"
+               },
+               RPCExamples{
+                       HelpExampleCli("getversioninfo", "")
+                       + HelpExampleRpc("getversioninfo", "")
+               },
+    }.Check(request);
 
+    UniValue nodeInfoObj(UniValue::VOBJ);
+
+    
+
+    UniValue btcInfoObj(UniValue::VOBJ);
+    btcInfoObj.pushKV("version", BR_PROTOCOL_VERSION);
+    btcInfoObj.pushKV("min", BR_MIN_PROTO_VERSION);
+    btcInfoObj.pushKV("userAgent", USER_AGENT);
+
+    UniValue spvInfoObj(UniValue::VOBJ);
+    spvInfoObj.pushKV("btc", btcInfoObj);
+
+    std::ostringstream strFullVersion;
+    strFullVersion << CLIENT_NAME << ":" << FormatVersion(CLIENT_VERSION);
+
+    nodeInfoObj.pushKV("name", CLIENT_NAME);
+    nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
+    nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
+    nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
+    nodeInfoObj.pushKV("userAgent",strSubVersion);
+    nodeInfoObj.pushKV("protoVersion",PROTOCOL_VERSION);
+    nodeInfoObj.pushKV("protoVersionMin",MIN_PEER_PROTO_VERSION);
+    nodeInfoObj.pushKV("rpcVersion","1");
+    nodeInfoObj.pushKV("rpcVersionMin","1");
+    nodeInfoObj.pushKV("spv",spvInfoObj);
+    return nodeInfoObj;
+}
 static UniValue setban(const JSONRPCRequest& request)
 {
     const RPCHelpMan help{"setban",
@@ -730,6 +789,7 @@ static const CRPCCommand commands[] =
     { "network",            "getaddednodeinfo",       &getaddednodeinfo,       {"node"} },
     { "network",            "getnettotals",           &getnettotals,           {} },
     { "network",            "getnetworkinfo",         &getnetworkinfo,         {} },
+    { "network",            "getversioninfo",         &getversioninfo,         {} },
     { "network",            "setban",                 &setban,                 {"subnet", "command", "bantime", "absolute"} },
     { "network",            "listbanned",             &listbanned,             {} },
     { "network",            "clearbanned",            &clearbanned,            {} },
