@@ -42,7 +42,7 @@ jobs:
       if: github.event_name != 'pull_request'
       uses: actions/checkout@v1
 
-    - name: Checkout-PR
+    - name: Checkout pull request head commit
       if: github.event_name == 'pull_request'
       uses: actions/checkout@v2
       with:
