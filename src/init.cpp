@@ -898,7 +898,7 @@ void InitLogging()
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 
-    std::string version_string = FormatFullVersion();
+    std::string version_string = FormatVersionAndSuffix();
 #ifdef DEBUG
     version_string += " (debug build)";
 #else
@@ -1403,7 +1403,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             return InitError(strprintf(_("User Agent comment (%s) contains unsafe characters.").translated, cmt));
         uacomments.push_back(cmt);
     }
-    strSubVersion = FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, uacomments);
+    strSubVersion = FormatUserAgentString(CLIENT_NAME, CLIENT_VERSION, uacomments);
     if (strSubVersion.size() > MAX_SUBVERSION_LENGTH) {
         return InitError(strprintf(_("Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.").translated,
             strSubVersion.size(), MAX_SUBVERSION_LENGTH));
