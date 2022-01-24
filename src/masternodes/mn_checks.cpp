@@ -1431,19 +1431,19 @@ public:
                 return std::move(resVal);
             }
 
-            CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
-            CAmount premium{2500000};
+            CDataStructureV0 feePctKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+            CAmount feePct{2500000};
             try {
-                const auto& value = attrs.at(premiumKey);
+                const auto& value = attrs.at(feePctKey);
                 auto valueV0 = boost::get<const CValueV0>(&value);
                 if (valueV0) {
-                    if (auto storedPremium = boost::get<const CAmount>(valueV0)) {
-                        premium = *storedPremium;
+                    if (auto storedFeePct = boost::get<const CAmount>(valueV0)) {
+                        feePct = *storedFeePct;
                     }
                 }
             } catch (const std::out_of_range&) {}
 
-            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), premium + COIN);
+            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), feePct + COIN);
 
             resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
             if (!resVal) {

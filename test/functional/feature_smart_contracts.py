@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, disconnect_nodes
 from decimal import Decimal
 import time
 
@@ -143,7 +143,8 @@ class SmartContractTest(DefiTestFramework):
 
         # Fund smart contract
         tx = self.nodes[1].executesmartcontract(dfip, '18336.225@0')
-        self.nodes[1].generate(1)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Check smart contract details and balance
@@ -164,8 +165,9 @@ class SmartContractTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, 'amount 18336.22500000 is less than 18336.22500001', self.nodes[1].executesmartcontract, dfip, '18336.22500001@2', address)
 
         # Test again for full amount in community balance
-        self.nodes[1].executesmartcontract(dfip, '18336.22500000@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '18336.22500000@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(18336.22500000, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
         assert('0' not in self.nodes[0].listsmartcontracts())
@@ -176,11 +178,13 @@ class SmartContractTest(DefiTestFramework):
                   {'currency': 'USD', 'tokenAmount': '40000@BTC'}]
         self.nodes[0].setoracledata(oracle, int(time.time()), prices)
         self.nodes[0].generate(10)
+        self.sync_blocks()
 
         # Test default 2.5% premium
         block = self.nodes[0].getblockcount() + 1
-        self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(2049.999795, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -189,8 +193,9 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.05'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(2099.99979, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -199,8 +204,9 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.001'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.09999999@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(2001.9997998, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -209,8 +215,9 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000001'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[1].executesmartcontract(dfip, '0.1@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.1@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(2000.00002, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -219,15 +226,17 @@ class SmartContractTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000000'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[1].executesmartcontract(dfip, '0.1@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.1@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(2000, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Swap min amount
         self.rollback(block)
-        self.nodes[1].executesmartcontract(dfip, '0.00001@2', address)
-        self.nodes[1].generate(1)
+        tx = self.nodes[1].executesmartcontract(dfip, '0.00001@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(0.205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -235,8 +244,10 @@ class SmartContractTest(DefiTestFramework):
         self.rollback(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
         self.nodes[0].generate(1)
-        self.nodes[1].executesmartcontract(dfip, '0.00000001@2', address)
-        self.nodes[1].generate(1)
+        self.sync_blocks()
+        tx = self.nodes[1].executesmartcontract(dfip, '0.00000001@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(0.000205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
@@ -244,8 +255,10 @@ class SmartContractTest(DefiTestFramework):
         self.rollback(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
         self.nodes[0].generate(1)
-        self.nodes[1].executesmartcontract(dfip, '0.00000001@2', address)
-        self.nodes[1].generate(1)
+        self.sync_blocks()
+        tx = self.nodes[1].executesmartcontract(dfip, '0.00000001@2', address)
+        self.nodes[0].sendrawtransaction(self.nodes[1].getrawtransaction(tx))
+        self.nodes[0].generate(1)
         self.sync_blocks()
         assert_equal(0.000205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
