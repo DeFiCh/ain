@@ -463,6 +463,22 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 2);
     }
+
+    {
+        CCustomCSView view(*pcustomcsview);
+        view.WriteBy<TestBackward>(TestBackward{5}, 1);
+        view.WriteBy<TestBackward>(TestBackward{6}, 2);
+
+        auto start = TestBackward{0};
+        auto it = view.LowerBound<TestBackward>(start);
+        while (!it.Valid()) {
+            start.n++;
+            it.Seek(start);
+        }
+        BOOST_REQUIRE(it.Valid());
+        BOOST_CHECK_EQUAL(start.n, 5);
+        BOOST_CHECK_EQUAL(it.Key().n, 5);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

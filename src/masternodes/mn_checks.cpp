@@ -2533,7 +2533,7 @@ public:
         }
 
         // delete all interest to vault
-        res = mnview.DeleteInterest(obj.vaultId);
+        res = mnview.DeleteInterest(obj.vaultId, height);
         if (!res)
             return res;
 
@@ -2840,7 +2840,7 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId);
+            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
@@ -2867,12 +2867,12 @@ public:
 
             if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
             {
-                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId);
+                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 if (!newRate)
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
                 if (newRate->interestPerBlock == 0)
-                        return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
+                    return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
             res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
@@ -3220,6 +3220,19 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 }
 
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
+    {
+        TBytes dummy;
+        switch(GuessCustomTxType(tx, dummy))
+        {
+            case CustomTxType::TakeLoan: case CustomTxType::PaybackLoan: case CustomTxType::DepositToVault:
+            case CustomTxType::WithdrawFromVault: case CustomTxType::UpdateVault:
+                return Res::Err("This type of transaction is not possible around hard fork height");
+                break;
+            default:
+                break;
+        }
+    }
     try {
         return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
     } catch (const std::exception& e) {

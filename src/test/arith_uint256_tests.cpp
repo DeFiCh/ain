@@ -119,6 +119,8 @@ BOOST_AUTO_TEST_CASE( basics ) // constructors, equality, inequality
     tmpL = ~R1L; BOOST_CHECK(tmpL == ~R1L);
     tmpL = ~R2L; BOOST_CHECK(tmpL == ~R2L);
     tmpL = ~MaxL; BOOST_CHECK(tmpL == ~MaxL);
+
+    BOOST_CHECK(OneL == base_uint<256>(base_uint<128>(OneL)));
 }
 
 static void shiftArrayRight(unsigned char* to, const unsigned char* from, unsigned int arrayLength, unsigned int bitsToShift)
@@ -336,10 +338,14 @@ BOOST_AUTO_TEST_CASE( multiply )
 
     BOOST_CHECK(MaxL * MaxL == OneL);
 
-    BOOST_CHECK((R1L * 0) == 0);
-    BOOST_CHECK((R1L * 1) == R1L);
-    BOOST_CHECK((R1L * 3).ToString() == "7759b1c0ed14047f961ad09b20ff83687876a0181a367b813634046f91def7d4");
-    BOOST_CHECK((R2L * 0x87654321UL).ToString() == "23f7816e30c4ae2017257b7a0fa64d60402f5234d46e746b61c960d09a26d070");
+    BOOST_CHECK((R1L * 0u) == 0u);
+    BOOST_CHECK((R1L * 1u) == R1L);
+    BOOST_CHECK((R1L * 3u).ToString() == "7759b1c0ed14047f961ad09b20ff83687876a0181a367b813634046f91def7d4");
+    BOOST_CHECK((R2L * 0x87654321).ToString() == "23f7816e30c4ae2017257b7a0fa64d60402f5234d46e746b61c960d09a26d070");
+
+    BOOST_CHECK((R1L * 10000000) == (R1L * arith_uint256(10000000)));
+    BOOST_CHECK((R1L * COIN) == (R1L * arith_uint256(COIN)));
+    BOOST_CHECK((R1L * (COIN * COIN)) == (R1L * arith_uint256(COIN * COIN)));
 }
 
 BOOST_AUTO_TEST_CASE( divide )
