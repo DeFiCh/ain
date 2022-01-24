@@ -3056,6 +3056,13 @@ public:
         return EraseHistory(obj.from);
     }
 
+    Res operator()(const CSmartContractMessage& obj) const {
+        for (const auto& account : obj.accounts) {
+            EraseHistory(account.first);
+        }
+        return Res::Ok();
+    }
+
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
         for (const auto& account : obj.to) {
             EraseHistory(account.first);
