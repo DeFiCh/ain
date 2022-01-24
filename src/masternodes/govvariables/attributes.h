@@ -13,8 +13,19 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
+    Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
+};
+
+enum ParamIDs : uint8_t  {
+    DFIP2201  = 'a',
+};
+
+enum DFIP2201Keys : uint8_t  {
+    Active    = 'a',
+    Premium   = 'b',
+    MinSwap   = 'c',
 };
 
 enum TokenKeys : uint8_t  {
@@ -106,6 +117,11 @@ private:
     const std::map<std::string, uint8_t> allowedTypes{
         {"token",       AttributeTypes::Token},
         {"poolpairs",   AttributeTypes::Poolpairs},
+        {"params",      AttributeTypes::Param},
+    };
+
+    const std::map<std::string, uint8_t> allowedParamIDs{
+        {"dfip2201",         ParamIDs::DFIP2201}
     };
 
     const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
@@ -121,6 +137,13 @@ private:
                 {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
             }
         },
+        {
+            AttributeTypes::Param, {
+                {"active",              DFIP2201Keys::Active},
+                {"minswap",             DFIP2201Keys::MinSwap},
+                {"premium",             DFIP2201Keys::Premium},
+            }
+        },
     };
 
     // For formatting in export
@@ -131,6 +154,11 @@ private:
     const std::map<uint8_t, std::string> displayTypes{
         {AttributeTypes::Token,     "token"},
         {AttributeTypes::Poolpairs, "poolpairs"},
+        {AttributeTypes::Param,     "params"},
+    };
+
+    const std::map<uint8_t, std::string> displayParamsIDs{
+        {ParamIDs::DFIP2201,       "dfip2201"}
     };
 
     const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
@@ -144,6 +172,13 @@ private:
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
                 {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
+            }
+        },
+        {
+            AttributeTypes::Param, {
+                {DFIP2201Keys::Active,       "active"},
+                {DFIP2201Keys::Premium,      "premium"},
+                {DFIP2201Keys::MinSwap,      "minswap"},
             }
         },
     };

@@ -161,6 +161,11 @@ public:
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
 
+    void operator()(const CSmartContractMessage& obj) const {
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("accounts", accountsInfo(obj.accounts));
+    }
+
     void operator()(const CCreatePoolPairMessage& obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))

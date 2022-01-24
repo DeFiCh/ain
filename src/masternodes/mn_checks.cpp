@@ -20,6 +20,7 @@
 #include <masternodes/govvariables/oracle_block_interval.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <rpc/util.h> /// AmountFromValue
 #include <txmempool.h>
 #include <streams.h>
 #include <validation.h>
@@ -48,6 +49,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
+        case CustomTxType::SmartContract:       return "SmartContract";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
@@ -128,6 +130,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToUtxos:          return CAccountToUtxosMessage{};
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
+        case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -208,6 +211,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostFortCanningFork() const {
         if(static_cast<int>(height) < consensus.FortCanningHeight) {
             return Res::Err("called before FortCanning height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningHillFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHillHeight) {
+            return Res::Err("called before FortCanningHill height");
         }
         return Res::Ok();
     }
@@ -321,6 +331,11 @@ public:
 
     Res operator()(CAnyAccountsToAccountsMessage& obj) const {
         auto res = isPostBayfrontGardensFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CSmartContractMessage& obj) const {
+        auto res = isPostFortCanningHillFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1326,6 +1341,131 @@ public:
         // transfer
         auto res = subBalanceDelShares(obj.from, SumAllTransfers(obj.to));
         return !res ? res : addBalancesSetShares(obj.to);
+    }
+
+    Res operator()(const CSmartContractMessage& obj) const {
+        const auto pAttributes = mnview.GetAttributes();
+        if (!pAttributes) {
+            return Res::Err("DFIP2201 smart contract is not enabled");
+        }
+
+        const auto& attrs = pAttributes->attributes;
+        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
+        try {
+            const auto& value = attrs.at(activeKey);
+            auto valueV0 = boost::get<const CValueV0>(&value);
+
+            if (!valueV0) {
+                throw std::out_of_range("");
+            }
+
+            const auto active = boost::get<const bool>(valueV0);
+            if (!active || !*active) {
+                throw std::out_of_range("");
+            }
+        } catch (const std::out_of_range&) {
+            return Res::Err("DFIP2201 smart contract is not enabled");
+        }
+
+        if (obj.accounts.empty()) {
+            return Res::Err("No address and amount entries found");
+        }
+
+        if (obj.name == Params().GetConsensus().smartContracts.begin()->first) {
+            if (obj.accounts.size() != 1) {
+                return Res::Err("Only one address entry expected for " + obj.name);
+            }
+
+            if (obj.accounts.begin()->second.balances.size() != 1) {
+                return Res::Err("Only one amount entry expected for " + obj.name);
+            }
+
+            const auto& script = obj.accounts.begin()->first;
+            if (!HasAuth(script)) {
+                return Res::Err("Must have at least one input from supplied address");
+            }
+
+            const auto& id = obj.accounts.begin()->second.balances.begin()->first;
+            const auto& amount = obj.accounts.begin()->second.balances.begin()->second;
+
+            if (amount <= 0) {
+                return Res::Err("Amount out of range");
+            }
+
+            CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::MinSwap};
+            CAmount minSwap{0};
+            try {
+                const auto& value = attrs.at(minSwapKey);
+                auto valueV0 = boost::get<const CValueV0>(&value);
+                if (valueV0) {
+                    if (auto storedMinSwap = boost::get<const CAmount>(valueV0)) {
+                        minSwap = *storedMinSwap;
+                    }
+                }
+            } catch (const std::out_of_range&) {}
+
+            if (minSwap && amount < minSwap) {
+                return Res::Err("Below minimum swapable amount, must be at least " + ValueFromAmount(minSwap).getValStr() + " BTC");
+            }
+
+            const auto token = mnview.GetToken(id);
+            if (!token) {
+                return Res::Err("Specified token not found");
+            }
+
+            if (token->symbol != "BTC" || token->name != "Bitcoin" || !token->IsDAT()) {
+                return Res::Err("Only Bitcoin can be swapped in " + obj.name);
+            }
+
+            auto res = mnview.SubBalance(script, {id, amount});
+            if (!res) {
+                return res;
+            }
+
+            const std::pair<std::string, std::string> btcUsd{"BTC","USD"};
+            const std::pair<std::string, std::string> dfiUsd{"DFI","USD"};
+
+            bool useNextPrice{false}, requireLivePrice{true};
+            auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
+            if (!resVal) {
+                return std::move(resVal);
+            }
+
+            CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+            CAmount premium{2500000};
+            try {
+                const auto& value = attrs.at(premiumKey);
+                auto valueV0 = boost::get<const CValueV0>(&value);
+                if (valueV0) {
+                    if (auto storedPremium = boost::get<const CAmount>(valueV0)) {
+                        premium = *storedPremium;
+                    }
+                }
+            } catch (const std::out_of_range&) {}
+
+            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), premium + COIN);
+
+            resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+            if (!resVal) {
+                return std::move(resVal);
+            }
+
+            const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, resVal.val.get()), amount);
+
+            res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI});
+            if (!res) {
+                return res;
+            }
+
+            res = mnview.AddBalance(script, {{0}, totalDFI});
+            if (!res) {
+                return res;
+            }
+
+            return Res::Ok();
+        }
+
+        return Res::Err("Specified smart contract not found");
     }
 
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
