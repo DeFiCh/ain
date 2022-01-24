@@ -38,7 +38,7 @@ jobs:
       TRAVIS_BUILD_DIR: ${{ github.workspace }}
       TRAVIS_COMMIT: ${{ github.sha }}
     steps:
-    - name: Checkout
+    - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
       uses: actions/checkout@v2
 
