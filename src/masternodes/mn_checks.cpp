@@ -1431,19 +1431,19 @@ public:
                 return std::move(resVal);
             }
 
-            CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
-            CAmount premium{2500000};
+            CDataStructureV0 feePctKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+            CAmount feePct{2500000};
             try {
-                const auto& value = attrs.at(premiumKey);
+                const auto& value = attrs.at(feePctKey);
                 auto valueV0 = boost::get<const CValueV0>(&value);
                 if (valueV0) {
-                    if (auto storedPremium = boost::get<const CAmount>(valueV0)) {
-                        premium = *storedPremium;
+                    if (auto storedFeePct = boost::get<const CAmount>(valueV0)) {
+                        feePct = *storedFeePct;
                     }
                 }
             } catch (const std::out_of_range&) {}
 
-            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), premium + COIN);
+            const auto& btcPrice = MultiplyAmounts(resVal.val.get(), feePct + COIN);
 
             resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
             if (!resVal) {
@@ -2533,7 +2533,7 @@ public:
         }
 
         // delete all interest to vault
-        res = mnview.DeleteInterest(obj.vaultId);
+        res = mnview.DeleteInterest(obj.vaultId, height);
         if (!res)
             return res;
 
@@ -2902,7 +2902,7 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId);
+            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
@@ -2931,12 +2931,12 @@ public:
 
             if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
             {
-                rate = mnview.GetInterestRate(obj.vaultId, tokenId);
-                if (!rate)
+                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
+                if (!newRate)
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                if (rate->interestPerBlock == 0)
-                        return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
+                if (newRate->interestPerBlock == 0)
+                    return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
             CalculateOwnerRewards(obj.from);
@@ -3145,6 +3145,13 @@ public:
         return EraseHistory(obj.from);
     }
 
+    Res operator()(const CSmartContractMessage& obj) const {
+        for (const auto& account : obj.accounts) {
+            EraseHistory(account.first);
+        }
+        return Res::Ok();
+    }
+
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
         for (const auto& account : obj.to) {
             EraseHistory(account.first);
@@ -3302,6 +3309,19 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 }
 
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
+    {
+        TBytes dummy;
+        switch(GuessCustomTxType(tx, dummy))
+        {
+            case CustomTxType::TakeLoan: case CustomTxType::PaybackLoan: case CustomTxType::DepositToVault:
+            case CustomTxType::WithdrawFromVault: case CustomTxType::UpdateVault:
+                return Res::Err("This type of transaction is not possible around hard fork height");
+                break;
+            default:
+                break;
+        }
+    }
     try {
         return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
     } catch (const std::exception& e) {

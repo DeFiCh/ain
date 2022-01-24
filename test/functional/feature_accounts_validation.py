@@ -46,6 +46,10 @@ class AccountsValidatingTest(DefiTestFramework):
         node.generate(1)
         self.sync_all()
 
+        stats = node.getblockstats(blockcount + 1)
+        assert_equal(stats["total_out"], 18199952120)
+        assert_equal(stats["totalfee"], 25880)
+
         # Check the blockchain has extended as expected
         assert_equal(node1.getblockcount(), blockcount + 1)
 

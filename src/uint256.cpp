@@ -63,16 +63,11 @@ std::string base_blob<BITS>::ToString() const
     return (GetHex());
 }
 
+// Explicit instantiations for base_blob<128>
+template class base_blob<128>;
+
 // Explicit instantiations for base_blob<160>
-template base_blob<160>::base_blob(const std::vector<unsigned char>&);
-template std::string base_blob<160>::GetHex() const;
-template std::string base_blob<160>::ToString() const;
-template void base_blob<160>::SetHex(const char*);
-template void base_blob<160>::SetHex(const std::string&);
+template class base_blob<160>;
 
 // Explicit instantiations for base_blob<256>
-template base_blob<256>::base_blob(const std::vector<unsigned char>&);
-template std::string base_blob<256>::GetHex() const;
-template std::string base_blob<256>::ToString() const;
-template void base_blob<256>::SetHex(const char*);
-template void base_blob<256>::SetHex(const std::string&);
+template class base_blob<256>;
