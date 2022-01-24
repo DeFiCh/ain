@@ -14,7 +14,6 @@ import time
 from decimal import Decimal
 
 FCH_HEIGHT = 1200
-BLOCKS_PER_DAY = Decimal('2880')
 
 class LowInterestTest (DefiTestFramework):
     def set_test_params(self):
@@ -34,7 +33,6 @@ class LowInterestTest (DefiTestFramework):
     idDOGE = 0
     tokenInterest = 0
     loanInterest = 0
-    vault_loans = {}
 
     def test_load_account0_with_DFI(self):
         print('loading up account0 with DFI token...')
