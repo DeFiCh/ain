@@ -2825,9 +2825,71 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
+        auto allowDFIPayback = false;
+        std::map<CAttributeType, CAttributeValue> attrs;
+        auto tokenDUSD = mnview.GetToken("DUSD");
+        if (tokenDUSD) {
+            const auto pAttributes = mnview.GetAttributes();
+            if (pAttributes) {
+                attrs = pAttributes->attributes;
+                CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
+                try {
+                    const auto& value = attrs.at(activeKey);
+                    auto valueV0 = boost::get<const CValueV0>(&value);
+                    if (valueV0) {
+                        const auto active = boost::get<const bool>(valueV0);
+                        if (active != nullptr && *active) {
+                            allowDFIPayback = true;
+                        }
+                    }
+                } catch (const std::out_of_range&) {}
+            }
+        }
+
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
+            auto paybackAmount = kv.second;
+            CAmount dfiUSDPrice{0};
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
+            {
+                if (!allowDFIPayback || !tokenDUSD) {
+                    return Res::Err("Payback of DUSD loans with DFI not currently active");
+                }
+
+                // Get DFI price in USD
+                const std::pair<std::string, std::string> dfiUsd{"DFI","USD"};
+                bool useNextPrice{false}, requireLivePrice{true};
+                const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+                if (!resVal) {
+                    return std::move(resVal);
+                }
+
+                // Apply penalty
+                CAmount penalty{99000000}; // Update from Gov var
+                CDataStructureV0 penaltyKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFIFeePCT};
+                try {
+                    const auto& value = attrs.at(penaltyKey);
+                    auto valueV0 = boost::get<const CValueV0>(&value);
+                    if (valueV0) {
+                        if (auto storedPenalty = boost::get<const CAmount>(valueV0)) {
+                            penalty = COIN - *storedPenalty;
+                        }
+                    }
+                } catch (const std::out_of_range&) {}
+                dfiUSDPrice = MultiplyAmounts(*resVal.val, penalty);
+
+                // Set tokenId to DUSD
+                tokenId = tokenDUSD->first;
+
+                // Calculate the DFI amount in DUSD
+                paybackAmount = MultiplyAmounts(dfiUSDPrice, kv.second);
+                if (dfiUSDPrice > COIN && paybackAmount < kv.second) {
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(dfiUSDPrice));
+                }
+            }
+
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -2846,17 +2908,19 @@ public:
 
             LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
-            auto subLoan = kv.second - subInterest;
+            auto subLoan = paybackAmount - subInterest;
 
-            if (kv.second < subInterest)
+            if (paybackAmount < subInterest)
             {
-                subInterest = kv.second;
+                subInterest = paybackAmount;
                 subLoan = 0;
             }
             else if (it->second - subLoan < 0)
+            {
                 subLoan = it->second;
+            }
 
-            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subLoan});
             if (!res)
                 return res;
 
@@ -2875,24 +2939,49 @@ public:
                     return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
 
-            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
-            if (!res)
-                return res;
-
             CalculateOwnerRewards(obj.from);
-            // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
-            if (!res)
-                return res;
 
-            // burn interest Token->USD->DFI->burnAddress
-            if (subInterest)
+            if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
             {
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
-                res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
+                res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
                 if (!res)
                     return res;
+
+                // subtract loan amount first, interest is burning below
+                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+                if (!res)
+                    return res;
+
+                // burn interest Token->USD->DFI->burnAddress
+                if (subInterest)
+                {
+                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                    res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
+                }
             }
+            else
+            {
+                CAmount subInDFI;
+                // if DFI payback overpay loan and interest amount
+                if (paybackAmount > subLoan + subInterest)
+                {
+                    subInDFI = DivideAmounts(subLoan + subInterest, dfiUSDPrice);
+                    if (MultiplyAmounts(subInDFI, dfiUSDPrice) != subLoan + subInterest) {
+                        subInDFI += 1;
+                    }
+                }
+                else
+                {
+                    subInDFI = kv.second;
+                }
+
+                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
+                res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
+            }
+
+            if (!res)
+                return res;
         }
 
         return Res::Ok();
