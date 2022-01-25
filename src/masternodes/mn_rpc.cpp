@@ -206,11 +206,6 @@ CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) :
     pwallet(std::move(pwallet)) {
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(CWalletCoinsUnlocker&& m) : 
-    pwallet(std::move(m.pwallet)),
-    coins(std::move(m.coins)) {
-}
-
 CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {
     if (!coins.empty()) {
         LOCK(pwallet->cs_wallet);
