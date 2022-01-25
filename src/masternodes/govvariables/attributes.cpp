@@ -8,6 +8,8 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <util/strencodings.h>
 
+extern UniValue AmountsToJSON(TAmounts const & diffs);
+
 template<typename T>
 static std::string KeyBuilder(const T& value){
     std::ostringstream oss;
@@ -205,6 +207,11 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     for (const auto& pair : objMap) {
         auto res = ProcessVariable(
             pair.first, pair.second.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& value) {
+                if (auto attrV0 = boost::get<const CDataStructureV0>(&attribute)) {
+                    if (attrV0->type == AttributeTypes::Live) {
+                        return Res::Err("Live attribute cannot be set externally");
+                    }
+                }
                 attributes[attribute] = value;
                 return Res::Ok();
             }
@@ -224,7 +231,11 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         try {
-            const std::string id = attrV0->type == AttributeTypes::Param ? displayParamsIDs.at(attrV0->typeId) : KeyBuilder(attrV0->typeId);
+            const auto id = attrV0->type == AttributeTypes::Param
+                         || attrV0->type == AttributeTypes::Live
+                            ? displayParamsIDs.at(attrV0->typeId)
+                            : KeyBuilder(attrV0->typeId);
+
             auto key = KeyBuilder(displayVersions.at(VersionTypes::v0),
                                   displayTypes.at(attrV0->type),
                                   id,
@@ -235,6 +246,8 @@ UniValue ATTRIBUTES::Export() const {
             } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
                 auto uvalue = ValueFromAmount(*amount);
                 ret.pushKV(key, KeyBuilder(uvalue.get_real()));
+            } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
+                ret.pushKV(key, AmountsToJSON(balances->balances));
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched

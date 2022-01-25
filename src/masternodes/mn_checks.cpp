@@ -20,7 +20,6 @@
 #include <masternodes/govvariables/oracle_block_interval.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
-#include <rpc/util.h> /// AmountFromValue
 #include <txmempool.h>
 #include <streams.h>
 #include <validation.h>
@@ -1383,7 +1382,7 @@ public:
             auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
             if (minSwap && amount < minSwap) {
-                return Res::Err("Below minimum swapable amount, must be at least " + ValueFromAmount(minSwap).getValStr() + " BTC");
+                return Res::Err("Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
             }
 
             const auto token = mnview.GetToken(id);
@@ -1400,8 +1399,8 @@ public:
                 return res;
             }
 
-            const std::pair<std::string, std::string> btcUsd{"BTC","USD"};
-            const std::pair<std::string, std::string> dfiUsd{"DFI","USD"};
+            const CTokenCurrencyPair btcUsd{"BTC","USD"};
+            const CTokenCurrencyPair dfiUsd{"DFI","USD"};
 
             bool useNextPrice{false}, requireLivePrice{true};
             auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
@@ -2794,11 +2793,12 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
+        auto penaltyPct = COIN;
         auto allowDFIPayback = false;
-        std::map<CAttributeType, CAttributeValue> attrs;
         auto tokenDUSD = mnview.GetToken("DUSD");
         auto attributes = mnview.GetAttributes();
-        if (tokenDUSD && attributes) {
+        if (tokenDUSD && attributes)
+        {
             CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
             allowDFIPayback = attributes->GetValue(activeKey, false);
         }
@@ -2811,32 +2811,29 @@ public:
 
             if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
             {
-                if (!allowDFIPayback || !tokenDUSD) {
+                if (!allowDFIPayback || !tokenDUSD)
                     return Res::Err("Payback of DUSD loans with DFI not currently active");
-                }
 
                 // Get DFI price in USD
-                const std::pair<std::string, std::string> dfiUsd{"DFI","USD"};
+                const CTokenCurrencyPair dfiUsd{"DFI","USD"};
                 bool useNextPrice{false}, requireLivePrice{true};
                 const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
-                if (!resVal) {
+                if (!resVal)
                     return std::move(resVal);
-                }
 
                 // Apply penalty
                 CDataStructureV0 penaltyKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFIFeePCT};
-                auto penalty = COIN - attributes->GetValue(penaltyKey, COIN / 100);
+                penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
 
-                dfiUSDPrice = MultiplyAmounts(*resVal.val, penalty);
+                dfiUSDPrice = MultiplyAmounts(*resVal.val, penaltyPct);
 
                 // Set tokenId to DUSD
                 tokenId = tokenDUSD->first;
 
                 // Calculate the DFI amount in DUSD
                 paybackAmount = MultiplyAmounts(dfiUSDPrice, kv.second);
-                if (dfiUSDPrice > COIN && paybackAmount < kv.second) {
+                if (dfiUSDPrice > COIN && paybackAmount < kv.second)
                     return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(dfiUSDPrice));
-                }
             }
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -2912,18 +2909,30 @@ public:
             else
             {
                 CAmount subInDFI;
+                auto subAmount = subLoan + subInterest;
                 // if DFI payback overpay loan and interest amount
-                if (paybackAmount > subLoan + subInterest)
+                if (paybackAmount > subAmount)
                 {
-                    subInDFI = DivideAmounts(subLoan + subInterest, dfiUSDPrice);
-                    if (MultiplyAmounts(subInDFI, dfiUSDPrice) != subLoan + subInterest) {
+                    subInDFI = DivideAmounts(subAmount, dfiUSDPrice);
+                    if (MultiplyAmounts(subInDFI, dfiUSDPrice) != subAmount)
                         subInDFI += 1;
-                    }
                 }
                 else
                 {
                     subInDFI = kv.second;
                 }
+
+                CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+                auto balances = attributes->GetValue(liveKey, CBalances{});
+                auto penaltyDFI = MultiplyAmounts(subInDFI, COIN - penaltyPct);
+
+                balances.Add(CTokenAmount{tokenId, subAmount});
+                balances.Add(CTokenAmount{DCT_ID{0}, penaltyDFI});
+                attributes->attributes[liveKey] = balances;
+
+                res = mnview.SetVariable(*attributes);
+                if (!res)
+                    return res;
 
                 LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
                 res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
