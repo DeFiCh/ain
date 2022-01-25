@@ -202,7 +202,13 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : pwallet(std::move(pwallet)) {
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+    pwallet(std::move(pwallet)) {
+}
+
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(CWalletCoinsUnlocker&& m) : 
+    pwallet(std::move(m.pwallet)),
+    coins(std::move(m.coins)) {
 }
 
 CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {

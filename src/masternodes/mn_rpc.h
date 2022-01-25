@@ -39,6 +39,7 @@ class CWalletCoinsUnlocker {
     std::vector<COutPoint> coins;
 public:
     explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
+    CWalletCoinsUnlocker(CWalletCoinsUnlocker&& m);
     ~CWalletCoinsUnlocker();
     CWallet* operator->();
     CWallet& operator*();
