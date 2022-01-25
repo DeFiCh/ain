@@ -2797,6 +2797,7 @@ public:
 
         auto penaltyPct = COIN;
         auto allowDFIPayback = false;
+        auto shouldSetVariable = false;
         auto tokenDUSD = mnview.GetToken("DUSD");
         auto attributes = mnview.GetAttributes();
         if (tokenDUSD && attributes)
@@ -2932,9 +2933,7 @@ public:
                 balances.Add(CTokenAmount{DCT_ID{0}, penaltyDFI});
                 attributes->attributes[liveKey] = balances;
 
-                res = mnview.SetVariable(*attributes);
-                if (!res)
-                    return res;
+                shouldSetVariable = true;
 
                 LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
                 res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
@@ -2944,7 +2943,7 @@ public:
                 return res;
         }
 
-        return Res::Ok();
+        return shouldSetVariable ? mnview.SetVariable(*attributes) : Res::Ok();
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {
