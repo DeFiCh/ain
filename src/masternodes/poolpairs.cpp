@@ -218,8 +218,8 @@ void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint3
     }
 }
 
-template<typename TIterator>
-void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t endHeight, uint32_t & height) {
+template<typename TIterator, typename ValueType>
+void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t endHeight, ValueType & value, uint32_t & height) {
 
     static const auto poolStartHeight = uint32_t(Params().GetConsensus().FortCanningHillHeight);
     poolKey.height = std::max(poolKey.height, poolStartHeight);
@@ -228,7 +228,9 @@ void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t end
         poolKey.height++;
         it.Seek(poolKey);
     }
+
     if (it.Valid() && it.Key().poolID == poolKey.poolID) {
+        value = it.Value();
         height = it.Key().height;
     } else {
         height = UINT_MAX;
@@ -248,15 +250,14 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     PoolHeightKey poolKey = {poolId, begin};
 
     CAmount poolReward = 0;
-    CAmount poolLoanReward = 0;
-
     auto nextPoolReward = begin;
     auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
-    FindSuitablePoolRewards(itPoolReward, poolKey, end, nextPoolReward);
+    FindSuitablePoolRewards(itPoolReward, poolKey, end, poolReward, nextPoolReward);
 
+    CAmount poolLoanReward = 0;
     auto nextPoolLoanReward = begin;
     auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
-    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, nextPoolLoanReward);
+    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, poolLoanReward, nextPoolLoanReward);
 
     CAmount totalLiquidity = 0;
     auto nextTotalLiquidity = begin;
@@ -265,13 +266,13 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     CBalances customRewards;
     auto nextCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
-    FindSuitablePoolRewards(itCustomRewards, poolKey, end, nextCustomRewards);
+    FindSuitablePoolRewards(itCustomRewards, poolKey, end, customRewards, nextCustomRewards);
 
     PoolSwapValue poolSwap;
     auto nextPoolSwap = UINT_MAX;
     auto poolSwapHeight = UINT_MAX;
     auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
-    FindSuitablePoolRewards(itPoolSwap, poolKey, end, nextPoolSwap);
+    FindSuitablePoolRewards(itPoolSwap, poolKey, end, poolSwap, nextPoolSwap);
 
     for (auto height = begin; height < end;) {
         // find suitable pool liquidity

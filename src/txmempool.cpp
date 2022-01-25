@@ -604,6 +604,7 @@ void CTxMemPool::_clear()
 {
     mapLinks.clear();
     mapTx.clear();
+    vTxHashes.clear();
     mapNextTx.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
