@@ -427,6 +427,10 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
 
+        result = self.nodes[0].getpoolpair(idGS)
+        assert_equal(result[idGS]['dexFeePctTokenA'], Decimal('0.05'))
+        assert_equal(result[idGS]['dexFeePctTokenB'], Decimal('0.08'))
+
         self.nodes[0].poolswap({
             "from": accountGN0,
             "tokenFrom": symbolGOLD,
