@@ -950,7 +950,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!res)
         return std::move(res);
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
     return ResVal<CCollateralLoans>(result, Res::Ok());
@@ -993,7 +993,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = GetInterestRate(vaultId, loanTokenId);
+        auto rate = GetInterestRate(vaultId, loanTokenId, height);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
 
