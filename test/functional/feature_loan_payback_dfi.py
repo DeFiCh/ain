@@ -232,7 +232,7 @@ class PaybackLoanTest (DefiTestFramework):
         self.nodes[0].paybackloan({
             'vaultId': vaultId,
             'from': account0,
-            'amounts': "210.52871908@DFI"
+            'amounts': "210.52871906@DFI"
         })
         self.nodes[0].generate(1)
 
@@ -241,7 +241,7 @@ class PaybackLoanTest (DefiTestFramework):
 
         assert_equal(len(vaultAfter['loanAmounts']), 0)
         assert_equal(len(vaultAfter['interestAmounts']), 0)
-        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('210.52871908'))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('210.52871906'))
 
         # Payback of loan token other than DUSD
         vaultId2 = self.nodes[0].createvault(account0, 'LOAN150')
