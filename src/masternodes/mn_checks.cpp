@@ -2844,7 +2844,7 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
             auto subLoan = kv.second - subInterest;
 
@@ -2860,7 +2860,7 @@ public:
             if (!res)
                 return res;
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
@@ -2888,7 +2888,7 @@ public:
             // burn interest Token->USD->DFI->burnAddress
             if (subInterest)
             {
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
                 res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
                 if (!res)
                     return res;
