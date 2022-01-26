@@ -391,6 +391,7 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
+    // TODO: The whole block of the fork condition can be removed safely after FCH.
     if (height < Params().GetConsensus().FortCanningHillHeight) {
         if (in.nValue <= 0)
             return Res::Err("Input amount should be positive!");
