@@ -128,7 +128,7 @@ class PoolPairTest (DefiTestFramework):
         },[])
         self.nodes[0].generate(1)
         silver_account = self.nodes[0].getaccount(silver_swaps_add)
-        assert_equal(silver_account[0], '9.89980339@SILVER#128')
+        assert_equal(silver_account[0], '9.89980399@SILVER#128')
 
         # THIS IS FAILING
         self.nodes[0].poolswap({
