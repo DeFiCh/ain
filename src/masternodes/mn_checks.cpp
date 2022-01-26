@@ -2683,7 +2683,7 @@ public:
                             return Res::Err("At least 50%% of the collateral must be in DFI");
                     } else {
                         if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                            return Res::Err("At least 50%% of the collateral must be in DFI");
+                            return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
                     }
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2794,7 +2794,7 @@ public:
                     return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             } else {
                 if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
+                    return Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.");
             }
 
             if (collateralsLoans.val->ratio() < scheme->ratio)
