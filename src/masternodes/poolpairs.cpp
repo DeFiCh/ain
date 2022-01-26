@@ -221,9 +221,6 @@ void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint3
 template<typename TIterator>
 void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t endHeight, uint32_t & height) {
 
-    static const auto poolStartHeight = uint32_t(Params().GetConsensus().FortCanningHillHeight);
-    poolKey.height = std::max(poolKey.height, poolStartHeight);
-
     while (!it.Valid() && poolKey.height < endHeight) {
         poolKey.height++;
         it.Seek(poolKey);
