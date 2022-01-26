@@ -218,6 +218,27 @@ void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint3
     }
 }
 
+template<typename TIterator, typename ValueType>
+void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t endHeight, ValueType & value, uint32_t & height) {
+
+    static const auto poolStartHeight = uint32_t(Params().GetConsensus().FortCanningHillHeight);
+    poolKey.height = std::max(poolKey.height, poolStartHeight);
+
+    auto maxHeight = 0u;
+    while ((!it.Valid() || it.Key().poolID != poolKey.poolID) && poolKey.height < endHeight) {
+        maxHeight = poolKey.height;
+        it.Seek(poolKey);
+        poolKey.height++;
+    }
+
+    if (it.Valid() && it.Key().poolID == poolKey.poolID) {
+        value = it.Value();
+        height = std::max(maxHeight, it.Key().height);
+    } else {
+        height = UINT_MAX;
+    }
+}
+
 void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
     if (begin >= end) {
         return;
@@ -231,27 +252,32 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     PoolHeightKey poolKey = {poolId, begin};
 
     CAmount poolReward = 0;
-    CAmount poolLoanReward = 0;
-    auto nextPoolReward = begin;
-    auto nextPoolLoanReward = begin;
+    auto startPoolReward = begin;
     auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
+    FindSuitablePoolRewards(itPoolReward, poolKey, end, poolReward, startPoolReward);
+    auto nextPoolReward = startPoolReward;
+
+    CAmount poolLoanReward = 0;
+    auto startPoolLoanReward = begin;
     auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
+    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, poolLoanReward, startPoolLoanReward);
+    auto nextPoolLoanReward = startPoolLoanReward;
 
     CAmount totalLiquidity = 0;
     auto nextTotalLiquidity = begin;
     auto itTotalLiquidity = LowerBound<ByTotalLiquidity>(poolKey);
 
     CBalances customRewards;
-    auto nextCustomRewards = begin;
+    auto startCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
+    FindSuitablePoolRewards(itCustomRewards, poolKey, end, customRewards, startCustomRewards);
+    auto nextCustomRewards = startCustomRewards;
 
     PoolSwapValue poolSwap;
     auto nextPoolSwap = UINT_MAX;
     auto poolSwapHeight = UINT_MAX;
     auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
-    if (itPoolSwap.Valid() && itPoolSwap.Key().poolID == poolId) {
-        nextPoolSwap = itPoolSwap.Key().height;
-    }
+    FindSuitablePoolRewards(itPoolSwap, poolKey, end, poolSwap, nextPoolSwap);
 
     for (auto height = begin; height < end;) {
         // find suitable pool liquidity
@@ -276,7 +302,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         }
         const auto liquidity = onLiquidity();
         // daily rewards
-        if (poolReward != 0) {
+        if (height >= startPoolReward && poolReward != 0) {
             CAmount providerReward = 0;
             if (height < newCalcHeight) { // old calculation
                 uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
@@ -286,7 +312,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
             onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
-        if (poolLoanReward != 0) {
+        if (height >= startPoolLoanReward && poolLoanReward != 0) {
             CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
             onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
         }
@@ -309,9 +335,11 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
         }
         // custom rewards
-        for (const auto& reward : customRewards.balances) {
-            if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(RewardType::Pool, {reward.first, providerReward}, height);
+        if (height >= startCustomRewards) {
+            for (const auto& reward : customRewards.balances) {
+                if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
+                    onReward(RewardType::Pool, {reward.first, providerReward}, height);
+                }
             }
         }
         ++height;
