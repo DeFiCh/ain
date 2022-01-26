@@ -3656,7 +3656,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
     std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
 
     // Record best pair
-    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, -1};
 
     // Loop through all common pairs
     for (const auto& path : poolPaths) {
@@ -3766,6 +3766,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     // No composite swap allowed before Fort Canning
     if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
         poolIDs.clear();
+    }
+
+    if (obj.amountFrom <= 0) {
+        return Res::Err("Input amount should be positive");
     }
 
     // Single swap if no pool IDs provided
