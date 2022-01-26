@@ -1349,7 +1349,7 @@ public:
             return Res::Err("Attributes unavailable");
 
         CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
-       
+
         if (!attributes->GetValue(activeKey, false))
             return Res::Err("DFIP2201 smart contract is not enabled");
 
@@ -2653,7 +2653,7 @@ public:
                             return Res::Err("At least 50%% of the collateral must be in DFI");
                     } else {
                         if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                            return Res::Err("At least 50%% of the collateral must be in DFI");
+                            return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
                     }
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2764,7 +2764,7 @@ public:
                     return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             } else {
                 if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
+                    return Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.");
             }
 
             if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2855,7 +2855,7 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
             auto subLoan = paybackAmount - subInterest;
 
@@ -2873,7 +2873,7 @@ public:
             if (!res)
                 return res;
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
@@ -2897,7 +2897,7 @@ public:
                     return res;
 
                 // subtract loan amount first, interest is burning below
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
                 res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
                 if (!res)
                     return res;
@@ -2905,7 +2905,7 @@ public:
                 // burn interest Token->USD->DFI->burnAddress
                 if (subInterest)
                 {
-                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
                     res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
                 }
             }
@@ -2935,7 +2935,7 @@ public:
 
                 shouldSetVariable = true;
 
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
                 res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
             }
 
@@ -3273,10 +3273,10 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         TBytes dummy;
         switch(GuessCustomTxType(tx, dummy))
         {
-            case CustomTxType::TakeLoan: 
-            case CustomTxType::PaybackLoan: 
+            case CustomTxType::TakeLoan:
+            case CustomTxType::PaybackLoan:
             case CustomTxType::DepositToVault:
-            case CustomTxType::WithdrawFromVault: 
+            case CustomTxType::WithdrawFromVault:
             case CustomTxType::UpdateVault:
                 return Res::Err("This type of transaction is not possible around hard fork height");
                 break;
