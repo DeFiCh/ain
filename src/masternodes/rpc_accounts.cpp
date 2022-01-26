@@ -1,4 +1,5 @@
 #include <masternodes/accountshistory.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -1782,12 +1783,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
-    UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances) {
-        tokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    result.pushKV("tokens", tokens);
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
 
     if (auctionFee) {
@@ -1798,16 +1794,28 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         result.pushKV("paybackburn", ValueFromAmount(paybackFee));
     }
 
-    UniValue dexfeetokens(UniValue::VARR);
-    for (const auto& item : dexfeeburn.balances) {
-        dexfeetokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
+    auto dexfeetokens = AmountsToJSON(dexfeeburn.balances);
     if (!dexfeetokens.empty()) {
         result.pushKV("dexfeetokens", dexfeetokens);
     }
 
     LOCK(cs_main);
+
+    if (auto attributes = pcustomcsview->GetAttributes()) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        UniValue dfipaybacktokens{UniValue::VARR};
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                result.pushKV("dfipaybackfee", ValueFromAmount(balance.second));
+            } else {
+                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
+            }
+        }
+        if (!dfipaybacktokens.empty()) {
+            result.pushKV("dfipaybacktokens", dfipaybacktokens);
+        }
+    }
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {

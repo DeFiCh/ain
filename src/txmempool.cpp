@@ -611,6 +611,8 @@ void CTxMemPool::_clear()
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = false;
     rollingMinimumFeeRate = 0;
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
     ++nTransactionsUpdated;
 }
 
