@@ -39,11 +39,13 @@ class PoolPairTest (DefiTestFramework):
             "name": "Gold token",
             "collateralAddress": self.account0
         })
+        self.nodes[0].generate(1)
         self.nodes[0].createtoken({
             "symbol": self.symbolSILVER,
             "name": "Silver token",
             "collateralAddress": self.account0
         })
+        self.nodes[0].generate(1)
         self.nodes[0].createtoken({
             "symbol": self.symbolDOGE,
             "name": "DOGE token",
@@ -86,6 +88,7 @@ class PoolPairTest (DefiTestFramework):
             "ownerAddress": owner,
             "pairSymbol": "GS",
         }, [])
+        self.nodes[0].generate(1)
         self.nodes[0].createpoolpair({
             "tokenA": self.symbol_key_SILVER,
             "tokenB": self.symbol_key_DOGE,
@@ -128,7 +131,7 @@ class PoolPairTest (DefiTestFramework):
         },[])
         self.nodes[0].generate(1)
         silver_account = self.nodes[0].getaccount(silver_swaps_add)
-        assert_equal(silver_account[0], '9.89980399@SILVER#128')
+        assert_equal(silver_account[0], '9.89980399@SILVER#129')
 
         # THIS IS FAILING
         self.nodes[0].poolswap({
