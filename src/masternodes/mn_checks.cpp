@@ -3761,7 +3761,6 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 // testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
-    CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
 
     // No composite swap allowed before Fort Canning
@@ -3792,6 +3791,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         mnview.Flush();
     }
 
+    // Set amount to be swapped in pool
+    CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
+
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
         // Also used to generate pool specific error messages for RPC users
@@ -3810,16 +3812,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
-        // Set amount to be swapped in pool
-        CTokenAmount swapAmount{obj.idTokenFrom, obj.amountFrom};
-
-        // If set use amount from previous loop
-        if (swapAmountResult.nValue != 0) {
-            swapAmount = swapAmountResult;
-        }
-
         // Check if last pool swap
         bool lastSwap = i + 1 == poolIDs.size();
+
+        const auto swapAmount = swapAmountResult;
 
         if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
             if (obj.idTokenTo == swapAmount.nTokenId) {
