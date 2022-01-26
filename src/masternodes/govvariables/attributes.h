@@ -6,6 +6,7 @@
 #define DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
 
 #include <amount.h>
+#include <masternodes/balances.h>
 #include <masternodes/gv.h>
 
 enum VersionTypes : uint8_t {
@@ -13,6 +14,7 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
+    Live      = 'l',
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
@@ -20,6 +22,11 @@ enum AttributeTypes : uint8_t {
 
 enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
+    Economy   = 'e',
+};
+
+enum EconomyKeys : uint8_t {
+    PaybackDFITokens = 'a',
 };
 
 enum DFIP2201Keys : uint8_t  {
@@ -37,8 +44,6 @@ enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
 };
-
-using CValueV0 = boost::variant<bool, CAmount>;
 
 struct CDataStructureV0 {
     uint8_t type;
@@ -71,15 +76,8 @@ struct CDataStructureV1 {
      bool operator<(const CDataStructureV1& o) const { return false; }
 };
 
-struct CValueV1 {
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {}
-};
-
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<CValueV0, CValueV1>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -98,6 +96,17 @@ public:
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
+    template<typename T>
+    T GetValue(const CAttributeType& key, T value) {
+        auto it = attributes.find(key);
+        if (it != attributes.end()) {
+            if (auto val = boost::get<const T>(&it->second)) {
+                value = std::move(*val);
+            }
+        }
+        return std::move(value);
+    }
+
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
@@ -115,9 +124,9 @@ private:
     };
 
     const std::map<std::string, uint8_t> allowedTypes{
-        {"token",       AttributeTypes::Token},
-        {"poolpairs",   AttributeTypes::Poolpairs},
         {"params",      AttributeTypes::Param},
+        {"poolpairs",   AttributeTypes::Poolpairs},
+        {"token",       AttributeTypes::Token},
     };
 
     const std::map<std::string, uint8_t> allowedParamIDs{
@@ -152,13 +161,15 @@ private:
     };
 
     const std::map<uint8_t, std::string> displayTypes{
-        {AttributeTypes::Token,     "token"},
-        {AttributeTypes::Poolpairs, "poolpairs"},
+        {AttributeTypes::Live,      "live"},
         {AttributeTypes::Param,     "params"},
+        {AttributeTypes::Poolpairs, "poolpairs"},
+        {AttributeTypes::Token,     "token"},
     };
 
     const std::map<uint8_t, std::string> displayParamsIDs{
-        {ParamIDs::DFIP2201,       "dfip2201"}
+        {ParamIDs::DFIP2201,       "dfip2201"},
+        {ParamIDs::Economy,        "economy"},
     };
 
     const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
@@ -179,6 +190,11 @@ private:
                 {DFIP2201Keys::Active,       "active"},
                 {DFIP2201Keys::Premium,      "premium"},
                 {DFIP2201Keys::MinSwap,      "minswap"},
+            }
+        },
+        {
+            AttributeTypes::Live, {
+                {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
             }
         },
     };

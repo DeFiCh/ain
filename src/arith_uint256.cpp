@@ -5,11 +5,15 @@
 
 #include <arith_uint256.h>
 
+#include <util/strencodings.h>
 #include <uint256.h>
 #include <crypto/common.h>
 
 #include <stdio.h>
 #include <string.h>
+
+template<unsigned int BITS>
+constexpr int base_uint<BITS>::WIDTH;
 
 template <unsigned int BITS>
 base_uint<BITS>::base_uint(const std::string& str)
@@ -62,6 +66,27 @@ base_uint<BITS>& base_uint<BITS>::operator*=(uint32_t b32)
         pn[i] = n & 0xffffffff;
         carry = n >> 32;
     }
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(int32_t b32)
+{
+    (*this) *= uint32_t(b32);
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(int64_t b64)
+{
+    (*this) *= base_uint(b64);
+    return *this;
+}
+
+template <unsigned int BITS>
+base_uint<BITS>& base_uint<BITS>::operator*=(uint64_t b64)
+{
+    (*this) *= base_uint(b64);
     return *this;
 }
 
@@ -148,13 +173,21 @@ double base_uint<BITS>::getdouble() const
 template <unsigned int BITS>
 std::string base_uint<BITS>::GetHex() const
 {
-    return ArithToUint256(*this).GetHex();
+    base_blob<BITS> b;
+
+    for(int x=0; x<WIDTH; ++x)
+        WriteLE32(b.begin() + x*4, pn[x]);
+    return b.GetHex();
 }
 
 template <unsigned int BITS>
 void base_uint<BITS>::SetHex(const char* psz)
 {
-    *this = UintToArith256(uint256S(psz));
+    base_blob<BITS> a;
+
+    a.SetHex(psz);
+    for(int x=0; x<WIDTH; ++x)
+        pn[x] = ReadLE32(a.begin() + x*4);
 }
 
 template <unsigned int BITS>
@@ -207,22 +240,11 @@ base_uint<BITS> base_uint<BITS>::sqrt() const
     return res;
 }
 
+// Explicit instantiations for base_uint<128>
+template class base_uint<128>;
+
 // Explicit instantiations for base_uint<256>
-template base_uint<256>::base_uint(const std::string&);
-template base_uint<256>& base_uint<256>::operator<<=(unsigned int);
-template base_uint<256>& base_uint<256>::operator>>=(unsigned int);
-template base_uint<256>& base_uint<256>::operator*=(uint32_t b32);
-template base_uint<256>& base_uint<256>::operator*=(const base_uint<256>& b);
-template base_uint<256>& base_uint<256>::operator/=(const base_uint<256>& b);
-template int base_uint<256>::CompareTo(const base_uint<256>&) const;
-template bool base_uint<256>::EqualTo(uint64_t) const;
-template double base_uint<256>::getdouble() const;
-template std::string base_uint<256>::GetHex() const;
-template std::string base_uint<256>::ToString() const;
-template void base_uint<256>::SetHex(const char*);
-template void base_uint<256>::SetHex(const std::string&);
-template unsigned int base_uint<256>::bits() const;
-template base_uint<256> base_uint<256>::sqrt() const;
+template class base_uint<256>;
 
 // This implementation directly uses shifts instead of going
 // through an intermediate MPI representation.

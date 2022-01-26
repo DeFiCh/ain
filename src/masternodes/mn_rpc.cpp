@@ -202,7 +202,8 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : pwallet(std::move(pwallet)) {
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+    pwallet(std::move(pwallet)) {
 }
 
 CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {
@@ -441,6 +442,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         }
         throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Test %sTx execution failed:\n%s", ToString(txType), res.msg));
     }
+}
+
+void RPCCheckFortCanningHillConstraint(int height)
+{
+    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This type of transaction is not possible around hard fork height");
 }
 
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {

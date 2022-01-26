@@ -258,18 +258,19 @@ class PoolPairTest (DefiTestFramework):
         # exchange tokens each other should work
         self.nodes[0].poolswap({
             "from": accountGN0,
-            "tokenFrom": symbolSILVER,
-            "amountFrom": 200,
-            "to": accountGN0,
-            "tokenTo": symbolGOLD,
-            "maxPrice": maxPrice,
-        })
-        self.nodes[0].poolswap({
-            "from": accountGN0,
             "tokenFrom": symbolGOLD,
             "amountFrom": 200,
             "to": accountGN0,
             "tokenTo": symbolSILVER,
+            "maxPrice": maxPrice,
+        })
+        self.nodes[0].generate(1)
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolGOLD,
             "maxPrice": maxPrice,
         })
         self.nodes[0].generate(1)
@@ -426,6 +427,10 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
+
+        result = self.nodes[0].getpoolpair(idGS)
+        assert_equal(result[idGS]['dexFeePctTokenA'], Decimal('0.05'))
+        assert_equal(result[idGS]['dexFeePctTokenB'], Decimal('0.08'))
 
         self.nodes[0].poolswap({
             "from": accountGN0,
