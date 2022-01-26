@@ -3896,9 +3896,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     // Reject if price paid post-swap above max price provided
     if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
-        const CAmount userMaxPrice = obj.maxPrice.integer * COIN + obj.maxPrice.fraction;
-        if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
-            return Res::Err("Price is higher than indicated.");
+        if (swapAmountResult.nValue != 0) {
+            const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
+            if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
+                return Res::Err("Price is higher than indicated.");
+            }
         }
     }
 
