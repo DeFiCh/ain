@@ -1182,6 +1182,9 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
+        if (obj.amountFrom <= 0)
+            return Res::Err("Input amount should be positive");
+
         return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
     }
 
@@ -1194,6 +1197,9 @@ public:
         if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
             return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
+
+        if (obj.swapInfo.amountFrom <= 0)
+            return Res::Err("Input amount should be positive");
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
