@@ -224,14 +224,16 @@ void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t end
     static const auto poolStartHeight = uint32_t(Params().GetConsensus().FortCanningHillHeight);
     poolKey.height = std::max(poolKey.height, poolStartHeight);
 
-    while (!it.Valid() && poolKey.height < endHeight) {
-        poolKey.height++;
+    auto maxHeight = 0u;
+    while ((!it.Valid() || it.Key().poolID != poolKey.poolID) && poolKey.height < endHeight) {
+        maxHeight = poolKey.height;
         it.Seek(poolKey);
+        poolKey.height++;
     }
 
     if (it.Valid() && it.Key().poolID == poolKey.poolID) {
         value = it.Value();
-        height = it.Key().height;
+        height = std::max(maxHeight, it.Key().height);
     } else {
         height = UINT_MAX;
     }
@@ -250,23 +252,28 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     PoolHeightKey poolKey = {poolId, begin};
 
     CAmount poolReward = 0;
-    auto nextPoolReward = begin;
+
+    auto startPoolReward = begin;
     auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
-    FindSuitablePoolRewards(itPoolReward, poolKey, end, poolReward, nextPoolReward);
+    FindSuitablePoolRewards(itPoolReward, poolKey, end, poolReward, startPoolReward);
+    auto nextPoolReward = startPoolReward;
 
     CAmount poolLoanReward = 0;
-    auto nextPoolLoanReward = begin;
+    auto startPoolLoanReward = begin;
     auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
-    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, poolLoanReward, nextPoolLoanReward);
+    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, poolLoanReward, startPoolLoanReward);
+    auto nextPoolLoanReward = startPoolLoanReward;
 
     CAmount totalLiquidity = 0;
     auto nextTotalLiquidity = begin;
     auto itTotalLiquidity = LowerBound<ByTotalLiquidity>(poolKey);
 
     CBalances customRewards;
-    auto nextCustomRewards = begin;
+    auto startCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
-    FindSuitablePoolRewards(itCustomRewards, poolKey, end, customRewards, nextCustomRewards);
+
+    FindSuitablePoolRewards(itCustomRewards, poolKey, end, customRewards, startCustomRewards);
+    auto nextCustomRewards = startCustomRewards;
 
     PoolSwapValue poolSwap;
     auto nextPoolSwap = UINT_MAX;
@@ -297,7 +304,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         }
         const auto liquidity = onLiquidity();
         // daily rewards
-        if (poolReward != 0) {
+        if (height >= startPoolReward && poolReward != 0) {
             CAmount providerReward = 0;
             if (height < newCalcHeight) { // old calculation
                 uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
@@ -307,7 +314,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
             onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
-        if (poolLoanReward != 0) {
+        if (height >= startPoolLoanReward && poolLoanReward != 0) {
             CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
             onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
         }
@@ -330,9 +337,11 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
         }
         // custom rewards
-        for (const auto& reward : customRewards.balances) {
-            if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(RewardType::Pool, {reward.first, providerReward}, height);
+        if (height >= startCustomRewards) {
+            for (const auto& reward : customRewards.balances) {
+                if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
+                    onReward(RewardType::Pool, {reward.first, providerReward}, height);
+                }
             }
         }
         ++height;
@@ -412,8 +421,11 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
-    if (in.nValue <= 0)
-        return Res::Err("Input amount should be positive!");
+    // TODO: The whole block of the fork condition can be removed safely after FCH.
+    if (height < Params().GetConsensus().FortCanningHillHeight) {
+        if (in.nValue <= 0)
+            return Res::Err("Input amount should be positive!");
+    }
 
     if (!status)
         return Res::Err("Pool trading is turned off!");
