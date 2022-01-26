@@ -9,16 +9,7 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
-from test_framework.authproxy import JSONRPCException
-from test_framework.util import (
-    assert_equal,
-    connect_nodes_bi,
-    disconnect_nodes,
-    assert_raises_rpc_error,
-)
-
-from decimal import Decimal
+from test_framework.util import assert_equal
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
@@ -57,10 +48,6 @@ class PoolPairTest (DefiTestFramework):
         self.symbol_key_SILVER = "SILVER#" + str(self.get_id_token(self.symbolSILVER))
         self.symbol_key_DOGE = "DOGE#" + str(self.get_id_token(self.symbolDOGE))
 
-        self.idGold = list(self.nodes[0].gettoken(self.symbol_key_GOLD).keys())[0]
-        self.idSilver = list(self.nodes[0].gettoken(self.symbol_key_SILVER).keys())[0]
-        self.idDOGE = list(self.nodes[0].gettoken(self.symbol_key_DOGE).keys())[0]
-
     def mint_tokens(self, amount=1000):
 
         self.nodes[0].utxostoaccount({self.account0: "199999900@DFI"})
@@ -70,7 +57,6 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].minttokens(str(amount) + "@" + self.symbol_key_DOGE)
         self.account_gs = self.nodes[0].getnewaddress("")
         self.account_sd = self.nodes[0].getnewaddress("")
-        self.account_dg = self.nodes[0].getnewaddress("")
         self.nodes[0].generate(1)
         self.nodes[0].accounttoaccount(self.account0, {self.account_gs: "50000000@" + self.symbol_key_GOLD})
         self.nodes[0].accounttoaccount(self.account0, {self.account_gs: "50000000@" + self.symbol_key_SILVER})
