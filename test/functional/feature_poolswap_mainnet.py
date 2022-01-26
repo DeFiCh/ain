@@ -22,10 +22,11 @@ from decimal import Decimal
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
+        self.FC_HEIGHT = 170
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-simulatemainnet', '-jellyfish_regtest=1']
+                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FC_HEIGHT), '-simulatemainnet', '-jellyfish_regtest=1']
             ]
 
     def create_tokens(self):
@@ -92,7 +93,7 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].createpoolpair({
             "tokenA": self.symbol_key_SILVER,
             "tokenB": self.symbol_key_DOGE,
-            "commission": 1,
+            "commission": 0.05,
             "status": True,
             "ownerAddress": owner,
             "pairSymbol": "DS",
@@ -110,53 +111,117 @@ class PoolPairTest (DefiTestFramework):
 
 
     def setup(self):
-        self.nodes[0].generate(120)
+        self.nodes[0].generate(self.FC_HEIGHT)
         self.create_tokens()
         self.mint_tokens(100000000)
         self.create_pool_pairs()
         self.add_liquidity()
 
 
+    def test_simple_swap_1Satoshi(self):
+        from_address = self.account_gs
+        from_account = self.nodes[0].getaccount(from_address)
+        to_address = self.nodes[0].getnewaddress("")
+        assert_equal(from_account[1], '45000000.00000000@GOLD#128')
+
+        self.nodes[0].poolswap({
+            "from": self.account_gs,
+            "tokenFrom": self.symbol_key_GOLD,
+            "amountFrom": 0.00000001,
+            "to": to_address,
+            "tokenTo": self.symbol_key_SILVER,
+        },[])
+        self.nodes[0].generate(1)
+        from_account = self.nodes[0].getaccount(from_address)
+        to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999999@GOLD#128')
+        assert_equal(to_account, [])
+
+    def test_200_simple_swaps_1Satoshi(self):
+        from_address = self.account_gs
+        from_account = self.nodes[0].getaccount(from_address)
+        to_address = self.nodes[0].getnewaddress("")
+        assert_equal(from_account[1], '44999999.99999999@GOLD#128')
+
+        for _ in range(200):
+            self.nodes[0].poolswap({
+                "from": self.account_gs,
+                "tokenFrom": self.symbol_key_GOLD,
+                "amountFrom": 0.00000001,
+                "to": to_address,
+                "tokenTo": self.symbol_key_SILVER,
+            },[])
+        self.nodes[0].generate(1)
+        from_account = self.nodes[0].getaccount(from_address)
+        to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999799@GOLD#128')
+        assert_equal(to_account, [])
+
+    def test_compositeswap_1Satoshi(self):
+        from_address = self.account_gs
+        from_account = self.nodes[0].getaccount(from_address)
+        to_address = self.nodes[0].getnewaddress("")
+        assert_equal(from_account[1], '44999999.99999799@GOLD#128')
+
+        testPoolSwapRes =  self.nodes[0].testpoolswap({
+            "from": from_address,
+            "tokenFrom": self.symbol_key_GOLD,
+            "amountFrom": 0.00000001,
+            "to": to_address,
+            "tokenTo": self.symbol_key_DOGE,
+        }, "auto", True)
+        assert_equal(testPoolSwapRes["amount"], '0.00000000@130')
+        assert_equal(len(testPoolSwapRes["pools"]), 2)
+
+        self.nodes[0].compositeswap({
+            "from": self.account_gs,
+            "tokenFrom": self.symbol_key_GOLD,
+            "amountFrom": 0.00000001,
+            "to": to_address,
+            "tokenTo": self.symbol_key_DOGE,
+        },[])
+        self.nodes[0].generate(1)
+        from_account = self.nodes[0].getaccount(from_address)
+        to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999798@GOLD#128')
+        assert_equal(to_account, [])
+
+    def test_200_compositeswaps_1Satoshi(self):
+        from_address = self.account_gs
+        from_account = self.nodes[0].getaccount(from_address)
+        to_address = self.nodes[0].getnewaddress("")
+        assert_equal(from_account[1], '44999999.99999798@GOLD#128')
+
+        for _ in range(200):
+            testPoolSwapRes = self.nodes[0].testpoolswap({
+                "from": from_address,
+                "tokenFrom": self.symbol_key_GOLD,
+                "amountFrom": 0.00000001,
+                "to": to_address,
+                "tokenTo": self.symbol_key_DOGE,
+            }, "auto", True)
+            assert_equal(testPoolSwapRes["amount"], '0.00000000@130')
+            assert_equal(len(testPoolSwapRes["pools"]), 2)
+            self.nodes[0].compositeswap({
+                "from": self.account_gs,
+                "tokenFrom": self.symbol_key_GOLD,
+                "amountFrom": 0.00000001,
+                "to": to_address,
+                "tokenTo": self.symbol_key_DOGE,
+            },[])
+        self.nodes[0].generate(1)
+        from_account = self.nodes[0].getaccount(from_address)
+        to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999598@GOLD#128')
+        assert_equal(to_account, [])
 
     def run_test(self):
         self.setup()
 
-        silver_swaps_add = self.nodes[0].getnewaddress("")
-        self.nodes[0].poolswap({
-            "from": self.account_gs,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": 100,
-            "to": silver_swaps_add,
-            "tokenTo": self.symbol_key_SILVER,
-        },[])
-        self.nodes[0].generate(1)
-        silver_account = self.nodes[0].getaccount(silver_swaps_add)
-        assert_equal(silver_account[0], '9.89980399@SILVER#129')
-
-        # THIS IS FAILING
-        self.nodes[0].poolswap({
-            "from": self.account_gs,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": 100,
-            "to": self.account_sd,
-            "tokenTo": self.symbol_key_DOGE,
-        },[])
-
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
-            "from": self.account_gs,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": 100,
-            "to": self.account_dg,
-            "tokenTo": self.symbol_key_DOGE,
-        }, "auto", True)
-
-        testPoolSwapVerbose =  self.nodes[0].testpoolswap({
-            "from": self.account_gs,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": 0.00000001,
-            "to": self.account_dg,
-            "tokenTo": self.symbol_key_DOGE,
-        }, "auto", True)
+        self.test_simple_swap_1Satoshi()
+        self.test_200_simple_swaps_1Satoshi()
+        self.test_compositeswap_1Satoshi()
+        self.test_200_compositeswaps_1Satoshi()
 
 if __name__ == '__main__':
     PoolPairTest ().main ()
