@@ -1181,9 +1181,6 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        if (obj.amountFrom <= 0)
-            return Res::Err("Input amount should be positive");
-
         return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
     }
 
@@ -1196,9 +1193,6 @@ public:
         if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
             return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
-
-        if (obj.swapInfo.amountFrom <= 0)
-            return Res::Err("Input amount should be positive");
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
@@ -3662,7 +3656,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
     std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
 
     // Record best pair
-    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, -1};
 
     // Loop through all common pairs
     for (const auto& path : poolPaths) {
@@ -3772,6 +3766,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     // No composite swap allowed before Fort Canning
     if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
         poolIDs.clear();
+    }
+
+    if (obj.amountFrom <= 0) {
+        return Res::Err("Input amount should be positive");
     }
 
     // Single swap if no pool IDs provided
