@@ -258,18 +258,19 @@ class PoolPairTest (DefiTestFramework):
         # exchange tokens each other should work
         self.nodes[0].poolswap({
             "from": accountGN0,
-            "tokenFrom": symbolSILVER,
-            "amountFrom": 200,
-            "to": accountGN0,
-            "tokenTo": symbolGOLD,
-            "maxPrice": maxPrice,
-        })
-        self.nodes[0].poolswap({
-            "from": accountGN0,
             "tokenFrom": symbolGOLD,
             "amountFrom": 200,
             "to": accountGN0,
             "tokenTo": symbolSILVER,
+            "maxPrice": maxPrice,
+        })
+        self.nodes[0].generate(1)
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolGOLD,
             "maxPrice": maxPrice,
         })
         self.nodes[0].generate(1)
