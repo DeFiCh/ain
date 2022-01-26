@@ -2897,7 +2897,7 @@ public:
                     return res;
 
                 // subtract loan amount first, interest is burning below
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
                 res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
                 if (!res)
                     return res;
@@ -2905,7 +2905,7 @@ public:
                 // burn interest Token->USD->DFI->burnAddress
                 if (subInterest)
                 {
-                    LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
                     res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
                 }
             }
@@ -2935,7 +2935,7 @@ public:
 
                 shouldSetVariable = true;
 
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
                 res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
             }
 
