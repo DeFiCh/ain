@@ -1267,7 +1267,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto height = ::ChainActive().Height() + 1;
-    RPCCheckFortCanningHillConstraint(height);
 
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
@@ -1362,8 +1361,6 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
-
-    RPCCheckFortCanningHillConstraint(height);
 
     std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128>> > interest;
 
