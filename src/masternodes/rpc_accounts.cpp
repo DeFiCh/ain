@@ -1719,8 +1719,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntFee{0};
     CAmount auctionFee{0};
     CAmount paybackFee{0};
+    CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    UniValue dfipaybacktokens{UniValue::VARR};
+
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1785,37 +1788,26 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
-
-    if (auctionFee) {
-        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    }
-
-    if (paybackFee) {
-        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    }
-
-    auto dexfeetokens = AmountsToJSON(dexfeeburn.balances);
-    if (!dexfeetokens.empty()) {
-        result.pushKV("dexfeetokens", dexfeetokens);
-    }
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     LOCK(cs_main);
 
     if (auto attributes = pcustomcsview->GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
         auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
-        UniValue dfipaybacktokens{UniValue::VARR};
         for (const auto& balance : tokenBalances.balances) {
             if (balance.first == DCT_ID{0}) {
-                result.pushKV("dfipaybackfee", ValueFromAmount(balance.second));
+                dfiPaybackFee = balance.second;
             } else {
                 dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
             }
         }
-        if (!dfipaybacktokens.empty()) {
-            result.pushKV("dfipaybacktokens", dfipaybacktokens);
-        }
     }
+
+    result.pushKV("dfipaybackfee", dfiPaybackFee);
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
