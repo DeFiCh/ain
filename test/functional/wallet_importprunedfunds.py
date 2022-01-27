@@ -23,7 +23,7 @@ class ImportPrunedFundsTest(DefiTestFramework):
         self.log.info("Mining blocks...")
         self.nodes[0].generate(101)
 
-        self.sync_all()
+        self.sync_blocks()
 
         # address
         address1 = self.nodes[0].getnewaddress()
@@ -36,8 +36,6 @@ class ImportPrunedFundsTest(DefiTestFramework):
         # Check only one address
         address_info = self.nodes[0].getaddressinfo(address1)
         assert_equal(address_info['ismine'], True)
-
-        self.sync_all()
 
         # Node 1 sync test
         assert_equal(self.nodes[1].getblockcount(), 101)
@@ -71,7 +69,7 @@ class ImportPrunedFundsTest(DefiTestFramework):
         rawtxn3 = self.nodes[0].gettransaction(txnid3)['hex']
         proof3 = self.nodes[0].gettxoutproof([txnid3])
 
-        self.sync_all()
+        self.sync_blocks()
 
         # Import with no affiliated address
         assert_raises_rpc_error(-5, "No addresses", self.nodes[1].importprunedfunds, rawtxn1, proof1)

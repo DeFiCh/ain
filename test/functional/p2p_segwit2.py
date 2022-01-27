@@ -49,7 +49,6 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
-    connect_nodes,
 )
 
 # The versionbit bit used to signal activation of SegWit
@@ -165,12 +164,6 @@ class SegWitTest2(DefiTestFramework):
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
-
-    def setup_network(self):
-        self.setup_nodes()
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[0], 2)
-        self.sync_all()
 
     # Helper functions
 

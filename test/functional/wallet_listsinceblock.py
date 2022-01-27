@@ -17,7 +17,7 @@ class ListSinceBlockTest (DefiTestFramework):
 
     def run_test(self):
         self.nodes[2].generate(101)
-        self.sync_all()
+        self.sync_blocks()
 
         self.test_no_blockhash()
         self.test_invalid_blockhash()
@@ -28,7 +28,7 @@ class ListSinceBlockTest (DefiTestFramework):
     def test_no_blockhash(self):
         txid = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), 1)
         blockhash, = self.nodes[2].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         txs = self.nodes[0].listtransactions()
         assert_array_result(txs, {"txid": txid}, {
@@ -98,8 +98,8 @@ class ListSinceBlockTest (DefiTestFramework):
         self.nodes[2].generate(7)
         self.log.info('lastblockhash=%s' % (lastblockhash))
 
-        self.sync_all(self.nodes[:2])
-        self.sync_all(self.nodes[2:])
+        self.sync_blocks(self.nodes[:2])
+        self.sync_blocks(self.nodes[2:])
 
         self.join_network()
 
@@ -142,7 +142,7 @@ class ListSinceBlockTest (DefiTestFramework):
         node wallet.
         '''
 
-        self.sync_all()
+        self.sync_blocks()
 
         # Split network into two
         self.split_network()
@@ -182,7 +182,7 @@ class ListSinceBlockTest (DefiTestFramework):
 
         self.join_network()
 
-        self.sync_all()
+        self.sync_blocks()
 
         # gettransaction should work for txid1
         assert self.nodes[0].gettransaction(txid1)['txid'] == txid1, "gettransaction failed to find txid1"
@@ -221,7 +221,7 @@ class ListSinceBlockTest (DefiTestFramework):
            3 (aa1, aa2, aa3).
         '''
 
-        self.sync_all()
+        self.sync_blocks()
 
         # Split network into two
         self.split_network()
@@ -261,7 +261,7 @@ class ListSinceBlockTest (DefiTestFramework):
 
         self.join_network()
 
-        self.sync_all()
+        self.sync_blocks()
 
         # gettransaction should work for txid1
         self.nodes[0].gettransaction(txid1)

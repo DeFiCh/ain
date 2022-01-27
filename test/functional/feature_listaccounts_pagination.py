@@ -16,22 +16,17 @@ class AccountsValidatingTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
             ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
         ]
-    def synchronize(self, node: int, full: bool = False):
-        self.nodes[node].generate(1)
-        self.sync_blocks([self.nodes[0], self.nodes[1]])
-        if full:
-            self.sync_mempools([self.nodes[0], self.nodes[1]])
     def run_test(self):
         node = self.nodes[0]
         node1 = self.nodes[1]
         node.generate(101)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(node.getblockcount(), 101) # eunos
         # Get addresses and set up account
         account = node.getnewaddress()
         node.utxostoaccount({account: "10@0"})
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         addressInfo = node.getaddressinfo(account)
         accountkey1 = addressInfo["scriptPubKey"] + "@0" #key of the first account
         accounts = node1.listaccounts()
@@ -52,7 +47,7 @@ class AccountsValidatingTest(DefiTestFramework):
         account2 = node.getnewaddress()
         node.utxostoaccount({account2: "10@0"})
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         addressInfo = node.getaddressinfo(account2)
         accountkey2 = addressInfo["scriptPubKey"] + "@0" #key of the second account
         accounts = node1.listaccounts()
@@ -81,11 +76,11 @@ class AccountsValidatingTest(DefiTestFramework):
         #Add another account from other node
         account3 = node1.getnewaddress()
         node.sendtoaddress(account3, 50)
-        self.synchronize(0, full=True)
-        self.synchronize(1, full=True)
+        node.generate(1)
+        self.sync_blocks()
         node1.utxostoaccount({account3: "10@0"})
         node1.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         addressInfo = node1.getaddressinfo(account3)
         accounts = node.listaccounts()
         #make sure we have three account in the system

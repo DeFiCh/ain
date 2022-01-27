@@ -279,7 +279,7 @@ class MempoolPackagesTest(DefiTestFramework):
 
         # Mine these in a block
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # Now generate tx8, with a big fee
         inputs = [ {'txid' : tx1_id, 'vout': 0}, {'txid' : txid, 'vout': 0} ]
