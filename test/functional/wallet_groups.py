@@ -40,7 +40,7 @@ class WalletGroupTest(DefiTestFramework):
         [self.nodes[0].sendtoaddress(addr, 0.5) for addr in addrs]
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # For each node, send 0.2 coins back to 0;
         # - node[1] should pick one 0.5 UTXO and leave the rest
@@ -85,7 +85,7 @@ class WalletGroupTest(DefiTestFramework):
             self.nodes[0].sendrawtransaction(signed_tx['hex'])
             self.nodes[0].generate(1)
 
-        self.sync_all()
+        self.sync_blocks()
 
         # Check that we can create a transaction that only requires ~100 of our
         # utxos, without pulling in all outputs and creating a transaction that

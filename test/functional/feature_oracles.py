@@ -93,15 +93,13 @@ class OraclesTest(DefiTestFramework):
                     tpjs, tpps), True):
                 raise Exception("prices are not equal")
 
-    def synchronize(self, node: int, full: bool = False):
+    def synchronize(self, node: int):
         self.nodes[node].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
-        if full:
-            self.sync_mempools([self.nodes[0], self.nodes[1], self.nodes[2]])
 
     def run_test(self):
         self.nodes[0].generate(200)
-        self.sync_all()
+        self.sync_blocks()
 
         # === stop node #3 for future revert ===
         self.stop_node(3)
@@ -117,7 +115,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(oracle_address1, 50)
         self.nodes[0].sendtoaddress(oracle_address2, 50)
 
-        self.synchronize(0, full=True)
+        self.synchronize(0)
 
         send_money_tx1, send_money_tx2 = \
             [self.find_address_tx(self.nodes[2], address) for address in [oracle_address1, oracle_address2]]
@@ -156,7 +154,7 @@ class OraclesTest(DefiTestFramework):
         assert_raises_rpc_error(-5, 'Need foundation member authorization',
                                 self.nodes[2].removeoracle, oracle_id1)
 
-        self.synchronize(node=0, full=True)
+        self.synchronize(node=0)
 
         all_oracles = self.nodes[1].listoracles()
         assert_equal(all_oracles, [oracle_id1])
@@ -345,7 +343,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[2].setoracledata(oracle_id1, timestamp - 7200, token_prices1)
         self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency":"USD", "tokenAmount":"7@PT"}])
 
-        self.synchronize(node=2, full=True)
+        self.synchronize(node=2)
 
         pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
 
@@ -379,8 +377,6 @@ class OraclesTest(DefiTestFramework):
 
         self.nodes[0].removeoracle(oracle_id1)
         self.nodes[0].removeoracle(oracle_id2)
-
-        self.synchronize(node=0, full=True)
 
 if __name__ == '__main__':
     OraclesTest().main()

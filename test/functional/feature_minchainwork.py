@@ -82,7 +82,7 @@ class MinimumChainWorkTest(DefiTestFramework):
         # insufficient work chain, in which case we'd need to reconnect them to
         # continue the test.
 
-        self.sync_all()
+        self.sync_blocks()
         self.log.info("Blockcounts: %s", [n.getblockcount() for n in self.nodes])
 
 if __name__ == '__main__':

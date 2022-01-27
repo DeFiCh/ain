@@ -58,7 +58,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # 4 * 0.5, fee is 1DFI in regtest
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
@@ -464,7 +464,7 @@ class VaultTest (DefiTestFramework):
         address = self.nodes[0].getnewaddress()
         self.nodes[1].sendtokenstoaddress({}, { address: '1.50@BTC'})
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         vaultId4 = self.nodes[0].createvault(address, 'LOAN000A')
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId4, address, '1.25@BTC') # 1.25@BTC as collateral factor 0.8

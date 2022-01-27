@@ -283,7 +283,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         # two halves that can work on competing chains.
         for i in range(self.num_nodes - 1):
             connect_nodes_bi(self.nodes, i, i + 1)
-        self.sync_all()
+        self.sync_blocks()
 
     def setup_nodes(self):
         """Override this method to customize test node setup"""
@@ -504,8 +504,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         """
         disconnect_nodes(self.nodes[1], 2)
         disconnect_nodes(self.nodes[2], 1)
-        self.sync_all(self.nodes[:2])
-        self.sync_all(self.nodes[2:])
+        self.sync_blocks(self.nodes[:2])
+        self.sync_blocks(self.nodes[2:])
 
     def join_network(self):
         """
