@@ -61,10 +61,6 @@ class WalletBackupTest(DefiTestFramework):
         connect_nodes(self.nodes[1], 3)
         connect_nodes(self.nodes[2], 3)
         connect_nodes(self.nodes[2], 0)
-        self.sync_all()
-        # TestNode.Mocktime = int(time.time())
-        # TestNode.Mocktime = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]  + 1
-        # set_node_times(self.nodes, TestNode.Mocktime)
 
     def one_send(self, from_node, to_address):
         if (randint(1,2) == 1):
@@ -148,7 +144,7 @@ class WalletBackupTest(DefiTestFramework):
 
         # Generate 101 more blocks, so any fees paid mature
         self.nodes[3].generate(101)
-        self.sync_all()
+        self.sync_blocks()
 
         balance0 = self.nodes[0].getbalance()
         balance1 = self.nodes[1].getbalance()

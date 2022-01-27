@@ -24,7 +24,6 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
-    connect_nodes_bi,
     hex_str_to_bytes,
     set_node_times,
 )
@@ -50,24 +49,19 @@ class BumpFeeTest(DefiTestFramework):
         self.nodes[1].encryptwallet(WALLET_PASSPHRASE)
         self.nodes[1].walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)
 
-        connect_nodes_bi(self.nodes, 0, 1)
-        self.sync_all()
-
         peer_node, rbf_node = self.nodes
         rbf_node_address = rbf_node.getnewaddress()
 
         # fund rbf node with 10 coins of 0.001 btc (100,000 satoshis)
         self.log.info("Mining blocks...")
         peer_node.generate(110)
-        self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
 
         # we need to move time to sync
         set_node_times([rbf_node], TestNode.Mocktime)
-        self.sync_all()
         peer_node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(rbf_node.getbalance(), Decimal("0.025"))
 
         self.log.info("Running tests")
