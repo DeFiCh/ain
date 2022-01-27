@@ -2895,6 +2895,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             LogPrintf("Pruning undo data finished.\n");
             LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
         }
+        // we can safety delete old interest keys
+        if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
+            CCustomCSView view(mnview);
+            mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
+                view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
+                return true;
+            });
+            view.Flush();
+        }
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
