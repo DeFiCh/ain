@@ -1336,15 +1336,15 @@ UniValue getinterest(const JSONRPCRequest& request) {
                 {
                     "{...}     (object) Json object with interest information\n"
                     "            - `interestPerBlock`: Interest per block is always ceiled\n"
-                    "               to the min. unit of fi (8 decimals), which will be\n"
-                    "               used on actual utilization.\n"
-                    "             - `immatureInterestPerBlock`: Additional immature interest\n"
-                    "               that's already included in interestPerBlock. This will \n"
-                    "               only be charged if utilized on the block to bring it to \n"
-                    "               (min. unit) of the blockchain (fi). Otherwise, will \n"
-                    "               continue to mature.\n"
+                    "               to the min. unit of fi (8 decimals), however, interest\n"
+                    "               less than this will continue to accrue until actual utilization.\n"
+                    "             - `immatureInterestPerBlock`: Additional interest that's\n"
+                    "               already accounted in interestPerBlock above, however will \n"
+                    "               only be realized if utilized on the block to bring it to \n"
+                    "               the min. unit of the blockchain (fi). Otherwise, will \n"
+                    "               continue to accrue until matured.\n"
                     "               \n"
-                    "Charged interestPerBlock = interestPerBlock - immatureInterestPerBlock\n"
+                    "Realized interestPerBlock = interestPerBlock - immatureInterestPerBlock\n"
                 },
                 RPCExamples{
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
