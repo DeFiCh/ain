@@ -358,7 +358,6 @@ class LowInterestTest (DefiTestFramework):
         # No more interest from loan pre FCH is accumulated, new calc is applied
         self.nodes[0].generate(10)
         vault_data = self.nodes[0].getvault(vault_id)
-        breakpoint()
         assert_equal(vault_data["interestAmounts"][0], '0.00000033@DOGE')
 
         if not payback:
@@ -367,10 +366,45 @@ class LowInterestTest (DefiTestFramework):
         self.nodes[0].paybackloan({
                         'vaultId': vault_id,
                         'from': self.account0,
-                        'amounts': '0.00000033@DOGE'})
-        self.nodes[0].generate(1)
+                        'amounts': '0.00131434@DOGE'})
+        self.nodes[0].generate(100)
         vault_data = self.nodes[0].getvault(vault_id)
         assert_equal(vault_data["interestAmounts"], [])
+
+    def test_new_loan_with_interest_over_1satoshi_pre_post_fork(self, payback=True):
+        self.go_before_FCH(30)
+        vault_id = self.get_new_vault_and_deposit()
+        self.nodes[0].takeloan({
+                    'vaultId': vault_id,
+                    'amounts': "100@DOGE"})
+        self.nodes[0].generate(1)
+        vault_data = self.nodes[0].getvault(vault_id)
+        assert_equal(vault_data["interestAmounts"][0], '0.00019026@DOGE')
+
+        self.go_to_FCH()
+
+        self.nodes[0].takeloan({
+                    'vaultId': vault_id,
+                    'amounts': "100@DOGE"})
+        self.nodes[0].generate(10)
+        vault_data = self.nodes[0].getvault(vault_id)
+        assert_equal(vault_data["interestAmounts"][0], '0.00951298@DOGE')
+        # No more interest from loan pre FCH is accumulated, new calc is applied
+        self.nodes[0].generate(10)
+        vault_data = self.nodes[0].getvault(vault_id)
+        assert_equal(vault_data["interestAmounts"][0], '0.01331815@DOGE')
+
+        if not payback:
+            return
+        # Payback
+        self.nodes[0].paybackloan({
+                        'vaultId': vault_id,
+                        'from': self.account0,
+                        'amounts': '200.01331815@DOGE'})
+        self.nodes[0].generate(10)
+        vault_data = self.nodes[0].getvault(vault_id)
+        assert_equal(vault_data["interestAmounts"], [])
+
 
 
     def run_test(self):
@@ -405,8 +439,10 @@ class LowInterestTest (DefiTestFramework):
 
         self.test_1satoshi_loan_pre_post_fork(payback=True)
         self.test_new_loan_with_interest_lower_than_1satoshi_pre_post_fork(payback=True)
+        self.test_new_loan_with_interest_over_1satoshi_pre_post_fork(payback=True)
         self.test_1satoshi_loan_pre_post_fork()
         self.test_new_loan_with_interest_lower_than_1satoshi_pre_post_fork()
+        self.test_new_loan_with_interest_over_1satoshi_pre_post_fork()
 
 if __name__ == '__main__':
     LowInterestTest().main()
