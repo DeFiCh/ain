@@ -3431,10 +3431,6 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    if (IsDisabledTx(height, txType, consensus)) {
-        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
-    }
-
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
