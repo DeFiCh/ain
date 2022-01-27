@@ -1335,6 +1335,12 @@ UniValue getinterest(const JSONRPCRequest& request) {
                 RPCResult
                 {
                     "{...}     (object) Json object with interest information\n"
+                    "            - `interestPerBlock`: Interest per block is always ceiled\n"
+                    "               to the min. unit of fi (8 decimals), which will be\n"
+                    "               used on actual utilization.\n"
+                    "             - `immatureInterestPerBlock`: Running immature interest\n"
+                    "               that's already included in interestPerBlock, but will\n"
+                    "               continue to accumulate until the next fi (min. unit).\n"
                 },
                 RPCExamples{
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
@@ -1402,7 +1408,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
             auto subSatoshiInterest = (it->second.second - ((it->second.second / HIGH_PRECISION_SCALER) * HIGH_PRECISION_SCALER)).GetLow64();
-            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("%de-24", subSatoshiInterest)));
+            obj.pushKV("immatureInterestPerBlock", UniValue(UniValue::VNUM, strprintf("%de-24", subSatoshiInterest)));
         }
 
         ret.push_back(obj);
