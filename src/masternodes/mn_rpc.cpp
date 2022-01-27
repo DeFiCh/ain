@@ -446,8 +446,8 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
 
 void RPCCheckFortCanningHillConstraint(int height)
 {
-    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "This type of transaction is not possible around hard fork height");
+    if (height == Params().GetConsensus().FortCanningHillHeight)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction disabled during Fort Canning Hill migration. Please try again after next block.");
 }
 
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {

@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     BOOST_REQUIRE(optPool);
 
     // do not include FCH floor in swap
-    auto height = Params().GetConsensus().FortCanningHillHeight - 1;
+    auto height = Params().GetConsensus().FortCanningHillHeight;
 
     Res res{};
     { // basic fails

@@ -3267,22 +3267,58 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
     }
 }
 
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
-    if (height == Params().GetConsensus().FortCanningHillHeight -1 || height == Params().GetConsensus().FortCanningHillHeight)
-    {
-        TBytes dummy;
-        switch(GuessCustomTxType(tx, dummy))
-        {
+bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
+    // All the heights that are involved in disabled Txs
+    auto fortCanningParkHeight = static_cast<uint32_t>(consensus.FortCanningParkHeight);
+    auto fortCanningHillHeight = static_cast<uint32_t>(consensus.FortCanningHillHeight);
+
+    if (height < fortCanningParkHeight)
+        return false;
+
+    // Likely not even needed now that we do a full key migration, 
+    // but we can block for additional safety.
+    if (height == fortCanningHillHeight) {
+        switch (type) {
             case CustomTxType::TakeLoan:
             case CustomTxType::PaybackLoan:
             case CustomTxType::DepositToVault:
             case CustomTxType::WithdrawFromVault:
             case CustomTxType::UpdateVault:
-                return Res::Err("This type of transaction is not possible around hard fork height");
-                break;
+                return true;
             default:
                 break;
-        }
+            }
+    }
+    // ICXCreateOrder      = '1',
+    // ICXMakeOffer        = '2',
+    // ICXSubmitDFCHTLC    = '3',
+    // ICXSubmitEXTHTLC    = '4',
+    // ICXClaimDFCHTLC     = '5',
+    // ICXCloseOrder       = '6',
+    // ICXCloseOffer       = '7',
+
+    // Leaving close orders, as withdrawal of existing should be ok?
+    switch (type) {
+        case CustomTxType::ICXCreateOrder:
+        case CustomTxType::ICXMakeOffer:
+        case CustomTxType::ICXSubmitDFCHTLC:
+        case CustomTxType::ICXSubmitEXTHTLC:
+        case CustomTxType::ICXClaimDFCHTLC:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Params& consensus) {
+    TBytes dummy;
+    auto txType = GuessCustomTxType(tx, dummy);
+    return IsDisabledTx(height, txType, consensus);
+}
+
+Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+    if (IsDisabledTx(height, tx, consensus)) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
         return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
@@ -3397,41 +3433,12 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     }
 }
 
-
-bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
-    if (height < consensus.FortCanningParkHeight)
-        return false;
-
-    // ICXCreateOrder      = '1',
-    // ICXMakeOffer        = '2',
-    // ICXSubmitDFCHTLC    = '3',
-    // ICXSubmitEXTHTLC    = '4',
-    // ICXClaimDFCHTLC     = '5',
-    // ICXCloseOrder       = '6',
-    // ICXCloseOffer       = '7',
-
-    // Leaving close orders, as withdrawal of existing should be ok?
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
-            return false;
-    }
-}
-
-
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
-
-
     const auto metadataValidation = height >= consensus.FortCanningHeight;
 
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);

@@ -418,6 +418,12 @@ void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
         StoreInterest(height, vaultId, vault->schemeId, tokenId, 0);
         return true;
     });
+
+    // Can be a part of the prev loop, but let's keep it separate.
+    ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
+        view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
+        return true;
+    });
 }
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
