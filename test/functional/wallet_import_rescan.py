@@ -192,7 +192,7 @@ class ImportRescanTest(DefiTestFramework):
         )
         self.nodes[0].reset_mocktime() # reset generate's inner Mocktime to mint with those from set_node_times()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # For each variation of wallet key import, invoke the import RPC and
         # check the results from getbalance and listtransactions.

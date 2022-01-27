@@ -86,7 +86,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
                         break
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         start_block_count = self.nodes[0].getblockcount()
 
@@ -137,7 +137,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
             self.nodes[0].generate(1)
 
-        self.sync_all(enabled_nodes)
+        self.sync_blocks(enabled_nodes)
 
         # check that RPC getaccounts is equal of
         node1_wallet_rpc = []
@@ -178,7 +178,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         self.sync_mempools(enabled_nodes)
         self.nodes[0].generate(1)
-        self.sync_all(enabled_nodes)
+        self.sync_blocks(enabled_nodes)
 
         wallet2_addr1_balance = self.nodes[0].getaccount(wallet2_addr1, {}, True)
         wallet2_addr2_balance = self.nodes[0].getaccount(wallet2_addr2, {}, True)
@@ -197,7 +197,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         self.sync_mempools(enabled_nodes)
         self.nodes[0].generate(1)
-        self.sync_all(enabled_nodes)
+        self.sync_blocks(enabled_nodes)
 
         wallet1_change_addr_balance = self.nodes[0].getaccount(wallet1_change_addr, {}, True)
 
@@ -212,7 +212,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
             self.nodes[0].sendtoaddress(wallet2_addr2, 1)
 
         self.nodes[0].generate(1)
-        self.sync_all(enabled_nodes)
+        self.sync_blocks(enabled_nodes)
 
         # send tokens from wallet2 to wallet1 with manual "from" param
         accsFrom = {}
@@ -225,7 +225,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         self.sync_mempools(enabled_nodes)
         self.nodes[0].generate(1)
-        self.sync_all(enabled_nodes)
+        self.sync_blocks(enabled_nodes)
 
         # check that wallet2 is empty
         wallet2_addr1_balance = self.nodes[0].getaccount(wallet2_addr1, {}, True)

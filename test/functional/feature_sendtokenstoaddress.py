@@ -61,7 +61,7 @@ class SendTokensToAddressTest (DefiTestFramework):
         self.nodes[0].sendtokenstoaddress({}, to, "forward")
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         wallet1_addr1_balance = self.nodes[0].getaccount(wallet1_addr1, {}, True)
         wallet1_addr2_balance = self.nodes[0].getaccount(wallet1_addr2, {}, True)
@@ -79,7 +79,7 @@ class SendTokensToAddressTest (DefiTestFramework):
         self.nodes[1].sendtokenstoaddress({}, to, "pie")
 
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         wallet1_addr1_balance = self.nodes[0].getaccount(wallet1_addr1, {}, True)
         wallet1_addr2_balance = self.nodes[0].getaccount(wallet1_addr2, {}, True)
@@ -96,7 +96,7 @@ class SendTokensToAddressTest (DefiTestFramework):
         self.nodes[1].sendtokenstoaddress({}, to, "crumbs")
 
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         wallet1_addr1_balance = self.nodes[0].getaccount(wallet1_addr1, {}, True)
         wallet1_addr2_balance = self.nodes[0].getaccount(wallet1_addr2, {}, True)
