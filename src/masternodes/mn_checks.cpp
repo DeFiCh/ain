@@ -3270,25 +3270,10 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
     // All the heights that are involved in disabled Txs
     auto fortCanningParkHeight = static_cast<uint32_t>(consensus.FortCanningParkHeight);
-    auto fortCanningHillHeight = static_cast<uint32_t>(consensus.FortCanningHillHeight);
 
     if (height < fortCanningParkHeight)
         return false;
 
-    // Likely not even needed now that we do a full key migration, 
-    // but we can block for additional safety.
-    if (height == fortCanningHillHeight) {
-        switch (type) {
-            case CustomTxType::TakeLoan:
-            case CustomTxType::PaybackLoan:
-            case CustomTxType::DepositToVault:
-            case CustomTxType::WithdrawFromVault:
-            case CustomTxType::UpdateVault:
-                return true;
-            default:
-                break;
-            }
-    }
     // ICXCreateOrder      = '1',
     // ICXMakeOffer        = '2',
     // ICXSubmitDFCHTLC    = '3',
