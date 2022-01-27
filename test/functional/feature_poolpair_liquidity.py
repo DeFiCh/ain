@@ -61,7 +61,7 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer silver
         self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER})
         self.nodes[1].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         # create pool
         self.nodes[0].createpoolpair({
@@ -133,7 +133,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(amountGold, initialGold - 100)
         assert_equal(amountSilver, initialSilver - 1100)
 
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
         accountGoldInfo = self.nodes[1].getaccount(accountGold, {}, True)
 
         assert_equal(str(accountGoldInfo[idGS]), "99.99999000")
@@ -157,7 +157,7 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer tokens
         self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]})
         self.nodes[0].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         accountGoldInfo = self.nodes[3].getaccount(accountGold, {}, True)
@@ -172,10 +172,10 @@ class PoolLiquidityTest (DefiTestFramework):
             "*": ["50@" + symbolGOLD, "400@" + symbolSILVER]
         }, accountTest, [])
 
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_mempools([self.nodes[0], self.nodes[3]])
 
         self.nodes[0].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         pool = self.nodes[3].getpoolpair("GS", True)
@@ -324,9 +324,9 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(gsAmountAcc2 * poolReserveB / poolLiquidity)
 
         # transfer
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
         self.nodes[3].removepoolliquidity(accountTest, str(gsAmountAcc2)+"@GS", [])
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_mempools([self.nodes[0], self.nodes[3]])
         self.nodes[0].generate(1)
 
         accountTestInfo = self.nodes[0].getaccount(accountTest, {}, True)
@@ -354,6 +354,11 @@ class PoolLiquidityTest (DefiTestFramework):
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
+
+        # Wipe mempool
+        self.nodes[0].clearmempool()
+        self.nodes[1].clearmempool()
+        self.nodes[2].clearmempool()
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)

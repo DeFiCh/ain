@@ -26,7 +26,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         # CREATION:
         #========================
@@ -52,10 +52,10 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "PRE_ENABLED")
         assert_equal(self.nodes[0].getmasternode(idnode0)[idnode0]["state"], "PRE_ENABLED")
         self.nodes[0].generate(10)
+        self.sync_blocks()
+
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "ENABLED")
         assert_equal(self.nodes[1].listmasternodes()[idnode0]["operatorAuthAddress"], collateral0)
-
-        self.sync_all()
 
         # UPDATING
         #========================
@@ -70,7 +70,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         #self.nodes[0].updatemasternode(idnode0, collateral1)
         #self.nodes[0].generate(1)
-        #self.sync_all()
+        #self.sync_blocks()
 
         #assert_equal(self.nodes[1].listmasternodes()[idnode0]["operatorAuthAddress"], collateral1)
 
@@ -90,7 +90,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
         self.nodes[0].generate(40)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "RESIGNED")
 
         # Spend unlocked collateral

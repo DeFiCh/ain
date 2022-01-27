@@ -82,11 +82,9 @@ void CGovView::EraseStoredVariables(const uint32_t height)
     }
 }
 
-std::map<std::string, std::string> CGovView::GetAttributes() const {
+std::shared_ptr<ATTRIBUTES> CGovView::GetAttributes() const {
     if (const auto var = GetVariable("ATTRIBUTES")) {
-        if (const auto attrs = dynamic_cast<ATTRIBUTES*>(var.get())) {
-            return attrs->attributes;
-        }
+        return std::dynamic_pointer_cast<ATTRIBUTES>(var);
     }
     return {};
 }

@@ -334,6 +334,7 @@ CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator)
     // of transactions in the pool
     nCheckFrequency = 0;
     accountsViewDirty = false;
+    forceRebuildForReorg = false;
 }
 
 bool CTxMemPool::isSpent(const COutPoint& outpoint) const
@@ -591,6 +592,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     }
 
     if (pcustomcsview) {
+        accountsViewDirty |= forceRebuildForReorg;
         rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
     }
 
@@ -602,12 +604,15 @@ void CTxMemPool::_clear()
 {
     mapLinks.clear();
     mapTx.clear();
+    vTxHashes.clear();
     mapNextTx.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = false;
     rollingMinimumFeeRate = 0;
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
     ++nTransactionsUpdated;
 }
 
@@ -615,9 +620,7 @@ void CTxMemPool::clear()
 {
     LOCK(cs);
     _clear();
-    if (pcustomcsview) {
-        accountsView().Discard();
-    }
+    acview.reset();
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight, const CChainParams& chainparams)
@@ -947,7 +950,8 @@ void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, M
     for (txiter it : stage) {
         removeUnchecked(it, reason);
     }
-    accountsViewDirty = accountsViewDirty || !stage.empty();
+    accountsViewDirty |= !stage.empty();
+    forceRebuildForReorg |= reason == MemPoolRemovalReason::REORG;
 }
 
 int CTxMemPool::Expire(int64_t time) {
@@ -1126,6 +1130,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
 
     viewDuplicate.Flush();
     accountsViewDirty = false;
+    forceRebuildForReorg = false;
 }
 
 uint64_t CTxMemPool::CalculateDescendantMaximum(txiter entry) const {

@@ -9,6 +9,12 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
+        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenA)) {
+            poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenB)) {
+            poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
+        }
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
         poolObj.pushKV("commission", ValueFromAmount(pool.commission));
@@ -1050,15 +1056,28 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
+            if (poolSwapMsg.amountFrom <= 0)
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
+
             CPoolPair pp = poolPair->second;
-            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
+            auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
+
+            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
                 auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
                 if (!resPP) {
                     return resPP;
                 }
 
-                return Res::Ok(tokenAmount.ToString());
-            }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
+                auto resultAmount = tokenAmount;
+                if (targetHeight >= Params().GetConsensus().FortCanningHillHeight) {
+                    if (auto dexfeeOutPct = mnview_dummy.GetDexFeePct(poolPair->first, tokenAmount.nTokenId)) {
+                        auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                        resultAmount.nValue -= dexfeeOutAmount;
+                    }
+                }
+
+                return Res::Ok(resultAmount.ToString());
+            }, targetHeight);
 
             if (!res)
                 throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);

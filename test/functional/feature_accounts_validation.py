@@ -21,7 +21,7 @@ class AccountsValidatingTest(DefiTestFramework):
         node = self.nodes[0]
         node1 = self.nodes[1]
         node.generate(101)
-        self.sync_all()
+        self.sync_blocks()
 
         assert_equal(node.getblockcount(), 101) # eunos
 
@@ -30,7 +30,7 @@ class AccountsValidatingTest(DefiTestFramework):
         destination = node.getnewaddress()
         node.utxostoaccount({account: "10@0"})
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # Check we have expected balance
         assert_equal(node1.getaccount(account)[0], "10.00000000@DFI")
@@ -44,7 +44,11 @@ class AccountsValidatingTest(DefiTestFramework):
 
         # Generate a block
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
+
+        stats = node.getblockstats(blockcount + 1)
+        assert_equal(stats["total_out"], 18199952120)
+        assert_equal(stats["totalfee"], 25880)
 
         # Check the blockchain has extended as expected
         assert_equal(node1.getblockcount(), blockcount + 1)

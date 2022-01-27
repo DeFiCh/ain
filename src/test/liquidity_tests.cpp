@@ -73,12 +73,20 @@ Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmo
     return mnview.SetPoolPair(idPool, 1, *optPool);
 }
 
-BOOST_FIXTURE_TEST_SUITE(liquidity_tests, TestingSetup)
+struct CLiquidityRewardsTest : public TestingSetup
+{
+    CLiquidityRewardsTest()
+    {
+        const_cast<int&>(Params().GetConsensus().FortCanningHillHeight) = 7;
+    }
+};
+
+BOOST_FIXTURE_TEST_SUITE(liquidity_tests, CLiquidityRewardsTest)
 
 BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 {
-    auto FAIL_onMint = [](CAmount)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
-    auto FAIL_onSwap = [](const CTokenAmount &)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
+    auto FAIL_onMint = [](CAmount) { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
+    auto FAIL_onSwap = [](const CTokenAmount &, const CTokenAmount &) { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
 
     CCustomCSView mnview(*pcustomcsview);
 
@@ -86,9 +94,6 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     std::tie(idA, idB, idPool) = CreatePoolNTokens(mnview, "AAA", "BBB");
     auto optPool = mnview.GetPoolPair(idPool);
     BOOST_REQUIRE(optPool);
-
-    // do not include FCH floor in swap
-    auto height = Params().GetConsensus().FortCanningHillHeight - 1;
 
     Res res{};
     { // basic fails
@@ -130,11 +135,11 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK(!res.ok && res.msg == "amounts too low, zero liquidity");
 
         // we can't swap forward even 1 satoshi
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 1}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 1}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
 
         // and backward too
-        res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
+        res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
 
         // thats all, we can't place anything here until removing. trading disabled due to reserveB < SLOPE_SWAP_RATE
@@ -165,14 +170,18 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             BOOST_CHECK(liq == 1001 - CPoolPair::MINIMUM_LIQUIDITY);
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
-            BOOST_CHECK_EQUAL(ta.nValue, 1000);
+        auto dexfeeInPct = 5 * COIN / 100;
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+            auto trade = MultiplyAmounts(1000000, pool.commission);
+            auto amount = 1000000 - trade;
+            BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
+            BOOST_CHECK_EQUAL(ta.nValue, 999);
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 10000);
-        BOOST_CHECK_EQUAL(pool.reserveA, 991001);
-        BOOST_CHECK_EQUAL(pool.reserveB, 1);
+        BOOST_CHECK_EQUAL(pool.reserveA, 941501);
+        BOOST_CHECK_EQUAL(pool.reserveB, 2);
     }
 
     // trying to swap moooore than reserved (sliding), but on "resonable" reserves
@@ -181,15 +190,18 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
-            BOOST_CHECK_EQUAL(ta.nValue, 66442954); // pre-optimization: 66464593
+        auto dexfeeInPct = 1 * COIN / 100;
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+            auto trade = MultiplyAmounts(2*COIN, pool.commission);
+            auto amount = 2*COIN - trade;
+            BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
+            BOOST_CHECK_EQUAL(ta.nValue, 66218498); // pre-optimization: 66464593
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
-        BOOST_CHECK_EQUAL(pool.reserveA, 298000000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 33557046); // pre-optimization: 33535407
-
+        BOOST_CHECK_EQUAL(pool.reserveA, 296020000);
+        BOOST_CHECK_EQUAL(pool.reserveB, 33781502); // pre-optimization: 33535407
     }
 
     {
@@ -198,14 +210,18 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
-            BOOST_CHECK_EQUAL(ta.nValue, 66442953021); // pre-optimization: 66465256146
+        auto dexfeeInPct = 12 * COIN / 100;
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+            auto trade = MultiplyAmounts(2*COIN, pool.commission);
+            auto amount = 2*COIN - trade;
+            BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
+            BOOST_CHECK_EQUAL(ta.nValue, 63535589264); // pre-optimization: 66465256146
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 2000000);
-        BOOST_CHECK_EQUAL(pool.reserveA, 298000000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 33557046979); // pre-optimization: 33534743854
+        BOOST_CHECK_EQUAL(pool.reserveA, 274240000);
+        BOOST_CHECK_EQUAL(pool.reserveB, 36464410736); // pre-optimization: 33534743854
     }
     {
 //        printf("1 COIN (1:1000)\n");
@@ -213,14 +229,15 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
-            BOOST_CHECK_EQUAL(ta.nValue, 49748743719); // pre-optimization: 49773755285
+        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+            BOOST_CHECK_EQUAL(df.nValue, 0);
+            BOOST_CHECK_EQUAL(ta.nValue, 49748743718); // pre-optimization: 49773755285
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 199000000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 50251256281); // pre-optimization: 50226244715
+        BOOST_CHECK_EQUAL(pool.reserveB, 50251256282); // pre-optimization: 50226244715
     }
     {
 //        printf("COIN/1000 (1:1000) (no slope due to commission)\n");
@@ -228,14 +245,15 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
-            BOOST_CHECK_EQUAL(ta.nValue, 98902087); // pre-optimization: 99000000
+        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+            BOOST_CHECK_EQUAL(df.nValue, 0);
+            BOOST_CHECK_EQUAL(ta.nValue, 98902086); // pre-optimization: 99000000
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000);
         BOOST_CHECK_EQUAL(pool.reserveA, 100099000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 99901097913); // pre-optimization: 99901000000
+        BOOST_CHECK_EQUAL(pool.reserveB, 99901097914); // pre-optimization: 99901000000
 
 //       printf("comissionA = %ld\n", pool.blockCommissionA);
 //       printf("reserveA = %ld\n", pool.reserveA);
@@ -391,7 +409,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         return true;
     });
 
-    mnview.SetDailyReward(3, COIN);
+    mnview.SetDailyReward(4, COIN);
 
     auto oldRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
         constexpr const uint32_t PRECISION = 10000;
@@ -407,6 +425,14 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         return std::make_pair(feeA, feeB);
     };
 
+    // fixes the bug
+    const int bugFixHeight = Params().GetConsensus().FortCanningHillHeight;
+    BOOST_REQUIRE(bugFixHeight < 10);
+
+    int rewardsCount = 0;
+    int commissionACount = 0;
+    int commissionBCount = 0;
+
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&]() -> CAmount {
             return mnview.GetBalance(shareAddress[0], idPool).nValue;
@@ -415,12 +441,15 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
                 case RewardType::Coinbase:
+                    rewardsCount++;
                     BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     break;
                 case RewardType::Commission:
                     if (amount.nTokenId == pool.idTokenA) {
+                        commissionACount++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        commissionBCount++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                     break;
@@ -433,8 +462,12 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         return true;
     });
 
+    BOOST_CHECK_EQUAL(rewardsCount, 10 * (10 - bugFixHeight));
+    BOOST_CHECK_EQUAL(commissionACount, 10);
+    BOOST_CHECK_EQUAL(commissionBCount, 10);
+
     // new calculation
-    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 6;
+    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 8;
 
     auto newRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
         return COIN / 2880 * pool.rewardPct / COIN * liquidity / pool.totalLiquidity;
@@ -448,11 +481,20 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         pool.swapEvent = true;
+        mnview.SetPoolPair(idPool, 8, pool);
         pool.ownerAddress = shareAddress[1];
         pool.rewards = CBalances{TAmounts{{DCT_ID{idPool.v+1}, COIN}}};
-        mnview.SetPoolPair(idPool, 8, pool);
+        mnview.UpdatePoolPair(idPool, 8, pool.status, pool.commission, pool.ownerAddress, pool.rewards);
         return false;
     });
+
+    int oldRewardsCount = 0;
+    int newRewardsCount = 0;
+    int poolRewardsCount = 0;
+    int oldCommissionACount = 0;
+    int newCommissionACount = 0;
+    int oldCommissionBCount = 0;
+    int newCommissionBCount = 0;
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&] () -> CAmount {
@@ -463,22 +505,29 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
                 if (height >= Params().GetConsensus().BayfrontGardensHeight) {
                     if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
+                            poolRewardsCount++;
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
                         }
                     } else if (type == RewardType::Coinbase) {
+                        newRewardsCount++;
                         BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
+                        newCommissionACount++;
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        newCommissionBCount++;
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).second);
                     }
                 } else {
                     if (type & RewardType::Rewards) {
+                        oldRewardsCount++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
+                        oldCommissionACount++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        oldCommissionBCount++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                 }
@@ -487,6 +536,14 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         );
         return false;
     });
+
+    BOOST_CHECK_EQUAL(oldRewardsCount, 1);
+    BOOST_CHECK_EQUAL(newRewardsCount, 2);
+    BOOST_CHECK_EQUAL(poolRewardsCount, 2);
+    BOOST_CHECK_EQUAL(oldCommissionACount, 1);
+    BOOST_CHECK_EQUAL(newCommissionACount, 1);
+    BOOST_CHECK_EQUAL(oldCommissionBCount, 1);
+    BOOST_CHECK_EQUAL(newCommissionBCount, 1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

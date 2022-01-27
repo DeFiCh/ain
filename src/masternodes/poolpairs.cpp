@@ -218,6 +218,27 @@ void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint3
     }
 }
 
+template<typename TIterator, typename ValueType>
+void FindSuitablePoolRewards(TIterator & it, PoolHeightKey poolKey, uint32_t endHeight, ValueType & value, uint32_t & height) {
+
+    static const auto poolStartHeight = uint32_t(Params().GetConsensus().FortCanningHillHeight);
+    poolKey.height = std::max(poolKey.height, poolStartHeight);
+
+    auto maxHeight = 0u;
+    while ((!it.Valid() || it.Key().poolID != poolKey.poolID) && poolKey.height < endHeight) {
+        maxHeight = poolKey.height;
+        it.Seek(poolKey);
+        poolKey.height++;
+    }
+
+    if (it.Valid() && it.Key().poolID == poolKey.poolID) {
+        value = it.Value();
+        height = std::max(maxHeight, it.Key().height);
+    } else {
+        height = UINT_MAX;
+    }
+}
+
 void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
     if (begin >= end) {
         return;
@@ -231,27 +252,32 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     PoolHeightKey poolKey = {poolId, begin};
 
     CAmount poolReward = 0;
-    CAmount poolLoanReward = 0;
-    auto nextPoolReward = begin;
-    auto nextPoolLoanReward = begin;
+    auto startPoolReward = begin;
     auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
+    FindSuitablePoolRewards(itPoolReward, poolKey, end, poolReward, startPoolReward);
+    auto nextPoolReward = startPoolReward;
+
+    CAmount poolLoanReward = 0;
+    auto startPoolLoanReward = begin;
     auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
+    FindSuitablePoolRewards(itPoolLoanReward, poolKey, end, poolLoanReward, startPoolLoanReward);
+    auto nextPoolLoanReward = startPoolLoanReward;
 
     CAmount totalLiquidity = 0;
     auto nextTotalLiquidity = begin;
     auto itTotalLiquidity = LowerBound<ByTotalLiquidity>(poolKey);
 
     CBalances customRewards;
-    auto nextCustomRewards = begin;
+    auto startCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
+    FindSuitablePoolRewards(itCustomRewards, poolKey, end, customRewards, startCustomRewards);
+    auto nextCustomRewards = startCustomRewards;
 
     PoolSwapValue poolSwap;
     auto nextPoolSwap = UINT_MAX;
     auto poolSwapHeight = UINT_MAX;
     auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
-    if (itPoolSwap.Valid() && itPoolSwap.Key().poolID == poolId) {
-        nextPoolSwap = itPoolSwap.Key().height;
-    }
+    FindSuitablePoolRewards(itPoolSwap, poolKey, end, poolSwap, nextPoolSwap);
 
     for (auto height = begin; height < end;) {
         // find suitable pool liquidity
@@ -276,7 +302,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         }
         const auto liquidity = onLiquidity();
         // daily rewards
-        if (poolReward != 0) {
+        if (height >= startPoolReward && poolReward != 0) {
             CAmount providerReward = 0;
             if (height < newCalcHeight) { // old calculation
                 uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
@@ -286,7 +312,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
             onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
-        if (poolLoanReward != 0) {
+        if (height >= startPoolLoanReward && poolLoanReward != 0) {
             CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
             onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
         }
@@ -309,9 +335,11 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
         }
         // custom rewards
-        for (const auto& reward : customRewards.balances) {
-            if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(RewardType::Pool, {reward.first, providerReward}, height);
+        if (height >= startCustomRewards) {
+            for (const auto& reward : customRewards.balances) {
+                if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
+                    onReward(RewardType::Pool, {reward.first, providerReward}, height);
+                }
             }
         }
         ++height;
@@ -387,12 +415,15 @@ Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAm
     return onReclaim(resAmountA, resAmountB);
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &)> onTransfer, int height) {
+Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &, const CTokenAmount &)> onTransfer, int height) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
-    if (in.nValue <= 0)
-        return Res::Err("Input amount should be positive!");
+    // TODO: The whole block of the fork condition can be removed safely after FCH.
+    if (height < Params().GetConsensus().FortCanningHillHeight) {
+        if (in.nValue <= 0)
+            return Res::Err("Input amount should be positive!");
+    }
 
     if (!status)
         return Res::Err("Pool trading is turned off!");
@@ -415,7 +446,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     // claim trading fee
     if (commission) {
-        CAmount const tradeFee = (arith_uint256(in.nValue) * arith_uint256(commission) / arith_uint256(COIN)).GetLow64(); /// @todo check overflow (COIN vs PRECISION cause commission was normalized to COIN)
+        CAmount const tradeFee = MultiplyAmounts(in.nValue, commission);
         in.nValue -= tradeFee;
         if (forward) {
             blockCommissionA += tradeFee;
@@ -423,8 +454,18 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
             blockCommissionB += tradeFee;
         }
     }
+
+    CTokenAmount dexfeeInAmount{in.nTokenId, 0};
+    if (dexfeeInPct > 0 && height >= Params().GetConsensus().FortCanningHillHeight) {
+        if (dexfeeInPct > COIN) {
+            return Res::Err("Dex fee input percentage over 100%%");
+        }
+        dexfeeInAmount.nValue = MultiplyAmounts(in.nValue, dexfeeInPct);
+        in.nValue -= dexfeeInAmount.nValue;
+    }
+
     auto checkRes = SafeAdd(reserveF, in.nValue);
-    if (!checkRes.ok) {
+    if (!checkRes) {
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
@@ -432,7 +473,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     swapEvent = true; // (!!!)
 
-    return onTransfer({ forward ? idTokenB : idTokenA, result });
+    return onTransfer(dexfeeInAmount, { forward ? idTokenB : idTokenA, result });
 }
 
 CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, int height) {
@@ -694,4 +735,23 @@ void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript
     ForEach<ByShare, PoolShareKey, uint32_t>([&callback] (PoolShareKey const & poolShareKey, uint32_t height) {
         return callback(poolShareKey.poolID, poolShareKey.owner, height);
     }, startKey);
+}
+
+Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
+    if (feePct < 0 || feePct > COIN) {
+        return Res::Err("Token dex fee should be in percentage");
+    }
+    WriteBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), uint32_t(feePct));
+    return Res::Ok();
+}
+
+CAmount CPoolPairView::GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const {
+    uint32_t feePct;
+    if (ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)) {
+        return feePct;
+    }
+    return 0;
 }

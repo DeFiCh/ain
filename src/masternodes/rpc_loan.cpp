@@ -1266,8 +1266,8 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-
     auto height = ::ChainActive().Height() + 1;
+
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
@@ -1362,10 +1362,10 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
-    std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
+    std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128>> > interest;
 
     LogPrint(BCLog::LOAN,"%s():\n", __func__);
-    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
+    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRateV2 rate)
     {
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId)
@@ -1378,19 +1378,32 @@ UniValue getinterest(const JSONRPCRequest& request) {
             return true;
 
         LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
-        interest[tokenId].first += TotalInterest(rate, height);
+        interest[tokenId].first += TotalInterestCalculation(rate, height);
         interest[tokenId].second += rate.interestPerBlock;
 
         return true;
-    });
+    };
+
+    if (height >= Params().GetConsensus().FortCanningHillHeight) {
+        pcustomcsview->ForEachVaultInterestV2(vaultInterest);
+    } else {
+        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV2(rate));
+        });
+    }
 
     UniValue obj(UniValue::VOBJ);
-    for (std::map<DCT_ID, std::pair<CAmount, CAmount> >::iterator it=interest.begin(); it!=interest.end(); ++it)
+    for (std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128> > >::iterator it=interest.begin(); it!=interest.end(); ++it)
     {
         auto token = pcustomcsview->GetToken(it->first);
         obj.pushKV("token", token->CreateSymbolKey(it->first));
-        obj.pushKV("totalInterest", ValueFromAmount(it->second.first));
-        obj.pushKV("interestPerBlock", ValueFromAmount(it->second.second));
+        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(it->second.first, height)));
+        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(it->second.second, height)));
+        if (height >= Params().GetConsensus().FortCanningHillHeight)
+        {
+            auto subSatoshiInterest = (it->second.second - ((it->second.second / HIGH_PRECISION_SCALER) * HIGH_PRECISION_SCALER)).GetLow64();
+            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("0.%de-8", subSatoshiInterest)));
+        }
 
         ret.push_back(obj);
     }

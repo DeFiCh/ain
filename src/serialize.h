@@ -24,6 +24,8 @@
 #include <prevector.h>
 #include <span.h>
 
+#include <variant>
+
 static const unsigned int MAX_DESER_SIZE = 0x08000000;    // 128M (for submit 64M block via rpc!), old value 32M (0x02000000)
 
 /**
@@ -616,7 +618,11 @@ template<typename Stream, typename T> void Unserialize(Stream& os, std::shared_p
 template<typename Stream, typename T> void Serialize(Stream& os, const std::unique_ptr<const T>& p);
 template<typename Stream, typename T> void Unserialize(Stream& os, std::unique_ptr<const T>& p);
 
-
+/**
+ * variant
+ */
+template<typename Stream, typename T, typename ...Args> void Serialize(Stream& os, const std::variant<T, Args...>& var);
+template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, std::variant<T, Args...>& var);
 
 /**
  * If none of the specialized versions above matched, default to calling member function.
@@ -928,6 +934,58 @@ struct CSerActionUnserialize
 
 
 
+/**
+ * variant
+ */
+template<typename Stream, typename V>
+void UnserializeVariant(Stream&, V&, int, int)
+{
+}
+
+template<typename Stream, typename V, typename T, typename ...Args>
+void UnserializeVariant(Stream& s, V& variant, int target, int index)
+{
+    if (index == target) {
+        T value;
+        Unserialize(s, value);
+        variant = value;
+    } else {
+        UnserializeVariant<Stream, V, Args...>(s, variant, target, index + 1);
+    }
+}
+
+template<typename Stream, typename T, typename ...Args>
+void Unserialize(Stream& s, std::variant<T, Args...>& var)
+{
+    int index;
+    Unserialize(s, index);
+    using Variant = std::variant<T, Args...>;
+    UnserializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
+}
+
+template<typename Stream, typename V>
+void SerializeVariant(Stream&, const V&, int, int)
+{
+}
+
+template<typename Stream, typename V, typename T, typename ...Args>
+void SerializeVariant(Stream& s, const V& variant, int target, int index)
+{
+    if (index == target) {
+        Serialize(s, std::get<T>(variant));
+    } else {
+        SerializeVariant<Stream, V, Args...>(s, variant, target, index + 1);
+    }
+}
+
+template<typename Stream, typename T, typename ...Args>
+void Serialize(Stream& s, const std::variant<T, Args...>& var)
+{
+    int index = var.index();
+    Serialize(s, index);
+    using Variant = std::variant<T, Args...>;
+    SerializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
+}
 
 
 

@@ -129,6 +129,9 @@ extern std::mutex log_mutex;
 #define REJECT_DUST        0x41 // one or more output amounts are below the 'dust' threshold
 #define REJECT_LOWFEE      0x42 // transaction does not have enough fee/priority to be relayed or mined
 
+#define BR_PROTOCOL_VERSION   70013
+#define BR_MIN_PROTO_VERSION  70002 // peers earlier than this protocol version not supported (need v0.9 txFee relay rules)
+
 typedef enum {
     BRPeerStatusDisconnected = 0,
     BRPeerStatusConnecting,

@@ -202,7 +202,8 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : pwallet(std::move(pwallet)) {
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+    pwallet(std::move(pwallet)) {
 }
 
 CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {
@@ -705,6 +706,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
     return result;
 }
 
+
 UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     RPCHelpMan{"isappliedcustomtx",
                "\nChecks that custom transaction was affected on chain\n",
@@ -763,6 +765,90 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+
+static std::string GetContractCall(const std::string& str) {
+    if (str == "DFIP2201") {
+        return "dbtcdfiswap";
+    }
+
+    return str;
+}
+
+UniValue listsmartcontracts(const JSONRPCRequest& request) {
+    RPCHelpMan{"listsmartcontracts",
+               "\nReturns information on smart contracts\n",
+               {
+               },
+               RPCResult{
+                       "(array) JSON array with smart contract information\n"
+                       "\"name\":\"name\"         smart contract name\n"
+                       "\"address\":\"address\"   smart contract address\n"
+                       "\"token id\":x.xxxxxxxx   smart contract balance per token\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listsmartcontracts", "")
+                       + HelpExampleRpc("listsmartcontracts", "")
+               },
+    }.Check(request);
+
+    UniValue arr(UniValue::VARR);
+    for (const auto& item : Params().GetConsensus().smartContracts) {
+        UniValue obj(UniValue::VOBJ);
+        CTxDestination dest;
+        ExtractDestination(item.second, dest);
+        obj.pushKV("name", item.first);
+        obj.pushKV("call", GetContractCall(item.first));
+        obj.pushKV("address", EncodeDestination(dest));
+
+        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+            if (owner != item.second) {
+                return false;
+            }
+            obj.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+            return true;
+        }, BalanceKey{item.second, {0}});
+
+        arr.push_back(obj);
+    }
+    return arr;
+}
+
+
+static UniValue clearmempool(const JSONRPCRequest& request)
+{
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan("clearmempool",
+               "\nClears the memory pool and returns a list of the removed transactions.\n",
+               {},
+               RPCResult{
+                       "[                     (json array of string)\n"
+                       "  \"hash\"              (string) The transaction hash\n"
+                       "  ,...\n"
+                       "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("clearmempool", "")
+                       + HelpExampleRpc("clearmempool", "")
+               }
+    ).Check(request);
+
+    std::vector<uint256> vtxid;
+    mempool.queryHashes(vtxid);
+
+    UniValue removed(UniValue::VARR);
+    for (const uint256& hash : vtxid)
+        removed.push_back(hash.ToString());
+
+    LOCK(cs_main);
+    mempool.clear();
+
+    std::vector<uint256> vHashOut;
+    pwallet->ZapSelectTx(vtxid, vHashOut);
+
+    return removed;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -772,6 +858,8 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
+    {"blockchain",  "clearmempool",          &clearmempool,          {} },
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {

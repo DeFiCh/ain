@@ -152,7 +152,7 @@ namespace {
             for (const auto& loan : loanTokens->balances) {
                 auto token = pcustomcsview->GetLoanTokenByID(loan.first);
                 if (!token) continue;
-                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
+                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first, height);
                 if (!rate) continue;
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);

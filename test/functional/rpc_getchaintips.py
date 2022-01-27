@@ -28,8 +28,8 @@ class GetChainTipsTest (DefiTestFramework):
         self.split_network()
         self.nodes[0].generate(10)
         self.nodes[2].generate(20)
-        self.sync_all(self.nodes[:2])
-        self.sync_all(self.nodes[2:])
+        self.sync_blocks(self.nodes[:2])
+        self.sync_blocks(self.nodes[2:])
 
         tips = self.nodes[1].getchaintips ()
         assert_equal (len (tips), 1)

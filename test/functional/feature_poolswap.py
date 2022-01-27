@@ -37,8 +37,6 @@ class PoolPairTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
-        #self.nodes[0].generate(100)
-        #self.sync_all()
         self.setup_tokens()
         # Stop node #3 for future revert
         self.stop_node(3)
@@ -258,18 +256,19 @@ class PoolPairTest (DefiTestFramework):
         # exchange tokens each other should work
         self.nodes[0].poolswap({
             "from": accountGN0,
-            "tokenFrom": symbolSILVER,
-            "amountFrom": 200,
-            "to": accountGN0,
-            "tokenTo": symbolGOLD,
-            "maxPrice": maxPrice,
-        })
-        self.nodes[0].poolswap({
-            "from": accountGN0,
             "tokenFrom": symbolGOLD,
             "amountFrom": 200,
             "to": accountGN0,
             "tokenTo": symbolSILVER,
+            "maxPrice": maxPrice,
+        })
+        self.nodes[0].generate(1)
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolGOLD,
             "maxPrice": maxPrice,
         })
         self.nodes[0].generate(1)
@@ -421,6 +420,67 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'}})
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
+
+        result = self.nodes[0].getpoolpair(idGS)
+        assert_equal(result[idGS]['dexFeePctTokenA'], Decimal('0.05'))
+        assert_equal(result[idGS]['dexFeePctTokenB'], Decimal('0.08'))
+
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": swap_from,
+            "to": destination,
+            "tokenTo": symbolSILVER,
+        })
+        commission = round((swap_from * 0.1), 8)
+        amountA = swap_from - commission
+        dexinfee = round(amountA * 0.05, 8)
+        amountA = amountA - dexinfee
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        reserveA = pool['reserveA']
+        reserveB = pool['reserveB']
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        assert_equal(pool['reserveA'] - reserveA, amountA)
+        swapped = self.nodes[0].getaccount(destination, {}, True)[idSilver]
+        amountB = reserveB - pool['reserveB']
+        dexoutfee = round(amountB * Decimal(0.08), 8)
+        assert_equal(amountB - dexoutfee, swapped)
+        assert_equal(self.nodes[0].listaccounthistory(accountGN0, {'token':symbolGOLD})[0]['amounts'], ['-200.00000000@'+symbolGOLD])
+
+        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
+
+        # set 1% token dex fee and commission
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'}})
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'})
+
+        self.nodes[0].updatepoolpair({"pool": "GS", "commission": 0.01})
+        self.nodes[0].generate(1)
+
+        # swap 1 sat
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 0.00000001,
+            "to": destination,
+            "tokenTo": symbolGOLD,
+        })
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        reserveA = pool['reserveA']
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        assert_equal(reserveA, pool['reserveA'])
 
         # REVERTING:
         #========================

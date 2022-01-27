@@ -28,7 +28,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         # Stop node #2 for future revert
         self.stop_node(2)
@@ -151,8 +151,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         mempool = self.nodes[0].getrawmempool()
-        assert(idnode0 in mempool and fundingTx in mempool)
-        assert_equal(len(mempool), 3) # + auto auth
+        assert_equal(len(mempool), 1) # auto auth
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createmasternode(collateral0)

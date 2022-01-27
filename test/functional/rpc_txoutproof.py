@@ -6,7 +6,7 @@
 
 from test_framework.messages import CMerkleBlock, FromHex, ToHex
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class MerkleBlockTest(DefiTestFramework):
     def set_test_params(self):
@@ -18,18 +18,10 @@ class MerkleBlockTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    def setup_network(self):
-        self.setup_nodes()
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[0], 2)
-        connect_nodes(self.nodes[0], 3)
-
-        self.sync_all()
-
     def run_test(self):
         self.log.info("Mining blocks...")
         self.nodes[0].generate(105)
-        self.sync_all()
+        self.sync_blocks()
 
         chain_height = self.nodes[1].getblockcount()
         assert_equal(chain_height, 105)
@@ -46,7 +38,7 @@ class MerkleBlockTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
         blockhash = self.nodes[0].getblockhash(chain_height + 1)
-        self.sync_all()
+        self.sync_blocks()
 
         txlist = []
         blocktxn = self.nodes[0].getblock(blockhash, True)["tx"]
@@ -61,7 +53,7 @@ class MerkleBlockTest(DefiTestFramework):
         tx3 = self.nodes[1].createrawtransaction([txin_spent], {self.nodes[0].getnewaddress(): 49.98})
         txid3 = self.nodes[0].sendrawtransaction(self.nodes[1].signrawtransactionwithwallet(tx3)["hex"])
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         txid_spent = txin_spent["txid"]
         txid_unspent = txid1 if txin_spent["txid"] != txid1 else txid2
