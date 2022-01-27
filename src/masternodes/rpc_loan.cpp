@@ -1402,7 +1402,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
             auto subSatoshiInterest = (it->second.second - ((it->second.second / HIGH_PRECISION_SCALER) * HIGH_PRECISION_SCALER)).GetLow64();
-            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("0.%de-8", subSatoshiInterest)));
+            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("%de-24", subSatoshiInterest)));
         }
 
         ret.push_back(obj);
