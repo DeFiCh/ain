@@ -1,4 +1,5 @@
 #include <masternodes/mn_rpc.h>
+#include <boost/multiprecision/cpp_int.hpp>
 
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern UniValue listauctions(const JSONRPCRequest& request);
@@ -1325,6 +1326,47 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     return (ret);
 }
 
+std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
+    struct HighPrecisionInterestValue {
+        typedef boost::multiprecision::int128_t int128;
+        typedef int64_t int64;
+
+        int128 value;
+        HighPrecisionInterestValue(base_uint<128> val) {
+            value = int128("0x" + val.GetHex());
+        }
+
+        int64 GetInterestPerBlockSat()
+        {
+            return int64(value / HIGH_PRECISION_SCALER);
+        }
+
+        int64 GetInterestPerBlockSubSat()
+        {
+            return int64(value % HIGH_PRECISION_SCALER);
+        }
+
+        int64 GetInterestPerBlockMagnitude()
+        {
+            return int64(value / HIGH_PRECISION_SCALER / COIN);
+        }
+
+        int128 GetInterestPerBlockDecimal()
+        {
+            auto v = GetInterestPerBlockSat();
+            return v == 0 ? value : int128(value % (int128(HIGH_PRECISION_SCALER) * COIN));
+        }
+
+        std::string GetInterestPerBlockString() {
+            std::ostringstream result;
+            result << GetInterestPerBlockMagnitude() << ".";
+            result << std::setw(24) << std::setfill('0') << GetInterestPerBlockDecimal();
+            return result.str();
+        }
+    };
+    return HighPrecisionInterestValue(value).GetInterestPerBlockString();
+}
+
 UniValue getinterest(const JSONRPCRequest& request) {
     RPCHelpMan{"getinterest",
                 "Returns the global and per block interest by loan scheme.\n",
@@ -1395,19 +1437,23 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue obj(UniValue::VOBJ);
     for (std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128> > >::iterator it=interest.begin(); it!=interest.end(); ++it)
     {
-        auto token = pcustomcsview->GetToken(it->first);
-        obj.pushKV("token", token->CreateSymbolKey(it->first));
-        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(it->second.first, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(it->second.second, height)));
-        if (height >= Params().GetConsensus().FortCanningHillHeight)
-        {
-            auto subSatoshiInterest = (it->second.second - ((it->second.second / HIGH_PRECISION_SCALER) * HIGH_PRECISION_SCALER)).GetLow64();
-            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("%de-24", subSatoshiInterest)));
-        }
+        auto tokenId = it->first;
+        auto interestRate = it->second;
+        auto totalInterest = it->second.first;
+        auto interestPerBlock = it->second.second;
 
+        auto token = pcustomcsview->GetToken(tokenId);
+        obj.pushKV("token", token->CreateSymbolKey(tokenId));
+        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
+        if (height < Params().GetConsensus().FortCanningHillHeight)
+        {
+            obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
+        } else {
+            obj.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(interestPerBlock));
+            obj.pushKV("interestOnRealizedBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
+        }
         ret.push_back(obj);
     }
-
     return ret;
 }
 
