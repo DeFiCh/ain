@@ -1446,7 +1446,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
         obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
-        if (height < Params().GetConsensus().FortCanningHillHeight)
+        if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
             obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
         }
