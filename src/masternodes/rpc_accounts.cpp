@@ -1806,7 +1806,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    result.pushKV("dfipaybackfee", dfiPaybackFee);
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
