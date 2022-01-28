@@ -552,6 +552,18 @@ class LoanTakeLoanTest (DefiTestFramework):
             vault = self.nodes[0].getvault(vaultId4)
             assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA") # 100% interest
 
+        vault = self.nodes[0].getvault(vaultId4)
+        assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA")
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId4,
+            'from': "*",
+            'amounts': vault['loanAmounts'][0] # Has to pay whole loanAmounts to be able to close vault
+        })
+        self.nodes[0].generate(1)
+
+        self.nodes[0].closevault(vaultId4, address)
+        self.nodes[0].generate(1)
 
 
 if __name__ == '__main__':
