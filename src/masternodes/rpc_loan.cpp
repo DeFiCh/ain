@@ -1332,29 +1332,26 @@ std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
         typedef int64_t int64;
 
         int128 value;
+
         HighPrecisionInterestValue(base_uint<128> val) {
             value = int128("0x" + val.GetHex());
         }
 
-        int64 GetInterestPerBlockSat()
-        {
+        int64 GetInterestPerBlockSat() {
             return int64(value / HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockSubSat()
-        {
+        int64 GetInterestPerBlockSubSat() {
             return int64(value % HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockMagnitude()
-        {
+        int64 GetInterestPerBlockMagnitude() {
             return int64(value / HIGH_PRECISION_SCALER / COIN);
         }
 
-        int128 GetInterestPerBlockDecimal()
-        {
+        int128 GetInterestPerBlockDecimal() {
             auto v = GetInterestPerBlockSat();
-            return v == 0 ? value : int128(value % (int128(HIGH_PRECISION_SCALER) * COIN));
+            return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
         }
 
         std::string GetInterestPerBlockString() {
@@ -1377,6 +1374,13 @@ UniValue getinterest(const JSONRPCRequest& request) {
                 RPCResult
                 {
                     "{...}     (object) Json object with interest information\n"
+                    "            - `interestPerBlock`: Interest per block is always ceiled\n"
+                    "               to the min. unit of fi (8 decimals), however interest\n"
+                    "               less than this will continue to accrue until actual utilization\n"
+                    "               (eg. - payback of the loan), or until sub-fi maturity."
+                    "             - `realizedInterestPerBlock`: The actual realized interest\n"
+                    "               per block. This is continues to accumulate until\n"
+                    "               the min. unit of the blockchain (fi) can be realized. \n"
                 },
                 RPCExamples{
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
