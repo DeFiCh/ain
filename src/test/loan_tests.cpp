@@ -74,6 +74,13 @@ extern std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& 
 
 BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
+BOOST_AUTO_TEST_CASE(high_precision_interest_rate_tests)
+{
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(0)), "0.000000000000000000000000");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(1)), "0.000000000000000000000001");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(42058)), "0.000000000000000000042058");
+}
+
 BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 {
     CCustomCSView mnview(*pcustomcsview);
