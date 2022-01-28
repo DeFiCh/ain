@@ -16,13 +16,26 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1'],
                            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
 
+    def clearmempool(self, node: int):
+        try:
+            self.nodes[node].clearmempool()
+        except JSONRPCException as e:
+            return False
+        return True
+
     def rollback(self, count):
         block = self.nodes[0].getblockhash(count)
         self.nodes[0].invalidateblock(block)
         self.nodes[1].invalidateblock(block)
-        self.nodes[0].clearmempool()
-        self.nodes[1].clearmempool()
-        self.sync_all()
+        assert(len(self.nodes[0].getrawmempool()) > 0)
+        assert(len(self.nodes[1].getrawmempool()) > 0)
+        while not self.clearmempool(0):
+            pass
+        while not self.clearmempool(1):
+            pass
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        assert_equal(len(self.nodes[1].getrawmempool()), 0)
+        self.sync_blocks()
 
     def run_test(self):
         self.nodes[0].generate(101)
