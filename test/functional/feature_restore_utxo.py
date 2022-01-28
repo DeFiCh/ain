@@ -22,7 +22,7 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.nodes[1].invalidateblock(block)
         self.nodes[0].clearmempool()
         self.nodes[1].clearmempool()
-        self.sync_blocks()
+        self.sync_all()
 
     def run_test(self):
         self.nodes[0].generate(101)
