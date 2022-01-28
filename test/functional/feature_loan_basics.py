@@ -19,7 +19,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=220', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
@@ -510,6 +510,49 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vault = self.nodes[0].getvault(vaultId3)
         assert_equal(sorted(vault['loanAmounts']), sorted(['0.00003425@' + symbolTSLA, '0.00005324@' + symbolGOOGL]))
+
+
+        # Test 100% interest on 1 sat loan
+        address = self.nodes[0].getnewaddress()
+
+        vaultId4 = self.nodes[0].createvault(address)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].utxostoaccount({address: "100@" + symbolDFI})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(vaultId4, address, "100@DFI")
+        self.nodes[0].generate(1)
+
+        # take loan
+        self.nodes[0].takeloan({
+            'vaultId': vaultId4,
+            'amounts': "0.00000001@TSLA"
+        })
+        self.nodes[0].generate(1)
+
+        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId4)
+        assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA") # 100% interest
+
+        self.nodes[0].minttokens(["5@" + symbolTSLA])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].sendtokenstoaddress({}, {address2 :["5@" + symbolTSLA]})
+        self.nodes[0].generate(1)
+
+        for _ in range(1, 100):
+            self.nodes[0].paybackloan({
+                'vaultId': vaultId4,
+                'from': "*",
+                'amounts': "0.00000001@" + symbolTSLA
+            })
+            self.nodes[0].generate(1)
+
+            vault = self.nodes[0].getvault(vaultId4)
+            assert_equal(vault['loanAmounts'][0], "0.00000002@TSLA") # 100% interest
+
+
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
