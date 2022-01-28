@@ -1445,12 +1445,10 @@ UniValue getinterest(const JSONRPCRequest& request) {
         auto token = pcustomcsview->GetToken(tokenId);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
+        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
         if (height < Params().GetConsensus().FortCanningHillHeight)
         {
-            obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
-        } else {
-            obj.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(interestPerBlock));
-            obj.pushKV("interestOnRealizedBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
         }
         ret.push_back(obj);
     }
