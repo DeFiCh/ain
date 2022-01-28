@@ -76,6 +76,7 @@ BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
 BOOST_AUTO_TEST_CASE(high_precision_interest_rate_tests)
 {
+    // TODO (Need to shove these into base_uint to get them to build)
     BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(0)), "0.000000000000000000000000");
     BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(1)), "0.000000000000000000000001");
     BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(1)), "0.000000000000000000000001");
