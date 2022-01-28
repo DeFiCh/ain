@@ -1335,6 +1335,13 @@ UniValue getinterest(const JSONRPCRequest& request) {
                 RPCResult
                 {
                     "{...}     (object) Json object with interest information\n"
+                    "            - `interestPerBlock`: Interest per block is always ceiled\n"
+                    "               to the min. unit of fi (8 decimals), however interest\n"
+                    "               less than this will continue to accrue until actual utilization\n"
+                    "               (eg. - payback of the loan), or until sub-fi maturity."
+                    "             - `realizedInterestPerBlock`: The actual realized interest\n"
+                    "               per block. This is continues to accumulate until\n"
+                    "               the min. unit of the blockchain (fi) can be realized. \n"
                 },
                 RPCExamples{
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
@@ -1395,19 +1402,21 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue obj(UniValue::VOBJ);
     for (std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128> > >::iterator it=interest.begin(); it!=interest.end(); ++it)
     {
-        auto token = pcustomcsview->GetToken(it->first);
-        obj.pushKV("token", token->CreateSymbolKey(it->first));
-        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(it->second.first, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(it->second.second, height)));
+        auto tokenId = it->first;
+        auto interestRate = it->second;
+        auto totalInterest = it->second.first;
+        auto interestPerBlock = it->second.second;
+
+        auto token = pcustomcsview->GetToken(tokenId);
+        obj.pushKV("token", token->CreateSymbolKey(tokenId));
+        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
+        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
-            auto subSatoshiInterest = (it->second.second - ((it->second.second / HIGH_PRECISION_SCALER) * HIGH_PRECISION_SCALER)).GetLow64();
-            obj.pushKV("immatureInterest", UniValue(UniValue::VNUM, strprintf("%de-24", subSatoshiInterest)));
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
         }
-
         ret.push_back(obj);
     }
-
     return ret;
 }
 
