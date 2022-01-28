@@ -353,7 +353,7 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
