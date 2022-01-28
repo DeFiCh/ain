@@ -1,6 +1,7 @@
 
 #include <chainparams.h>
 #include <masternodes/loan.h>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include <cmath>
 
@@ -479,4 +480,42 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
         return penalty;
 
     return 5 * COIN / 100;
+}
+
+std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
+    struct HighPrecisionInterestValue {
+        typedef boost::multiprecision::int128_t int128;
+        typedef int64_t int64;
+
+        int128 value;
+
+        HighPrecisionInterestValue(base_uint<128> val) {
+            value = int128("0x" + val.GetHex());
+        }
+
+        int64 GetInterestPerBlockSat() {
+            return int64(value / HIGH_PRECISION_SCALER);
+        }
+
+        int64 GetInterestPerBlockSubSat() {
+            return int64(value % HIGH_PRECISION_SCALER);
+        }
+
+        int64 GetInterestPerBlockMagnitude() {
+            return int64(value / HIGH_PRECISION_SCALER / COIN);
+        }
+
+        int128 GetInterestPerBlockDecimal() {
+            auto v = GetInterestPerBlockSat();
+            return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
+        }
+
+        std::string GetInterestPerBlockString() {
+            std::ostringstream result;
+            result << GetInterestPerBlockMagnitude() << ".";
+            result << std::setw(24) << std::setfill('0') << GetInterestPerBlockDecimal();
+            return result.str();
+        }
+    };
+    return HighPrecisionInterestValue(value).GetInterestPerBlockString();
 }

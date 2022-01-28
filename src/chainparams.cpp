@@ -128,7 +128,7 @@ public:
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -354,8 +354,8 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -939,10 +939,10 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fort canning park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
-    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
