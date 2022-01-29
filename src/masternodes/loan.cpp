@@ -510,8 +510,13 @@ std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
 
         std::string GetInterestPerBlockString() {
             std::ostringstream result;
-            result << GetInterestPerBlockMagnitude() << ".";
-            result << std::setw(24) << std::setfill('0') << GetInterestPerBlockDecimal();
+            auto mag = GetInterestPerBlockMagnitude();
+            auto dec = GetInterestPerBlockDecimal();
+            // While these can happen theoretically, they should be out of range of
+            // operating interest. If this happens, something else went wrong.
+            assert(mag >= 0);
+            assert(dec >= 0);
+            result << mag << "." << std::setw(24) << std::setfill('0') << dec;
             return result.str();
         }
     };
