@@ -90,8 +90,8 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
         block = self.nodes[0].getblockcount() + 1
-        node0_utxos = len(self.nodes[0].listunspent())
-        node1_utxos = len(self.nodes[1].listunspent())
+        #node0_utxos = len(self.nodes[0].listunspent())
+        #node1_utxos = len(self.nodes[1].listunspent())
 
         # Test rollbacks
         for x in range(50):
