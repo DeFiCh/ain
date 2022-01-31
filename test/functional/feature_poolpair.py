@@ -32,7 +32,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         # Stop node #3 for future revert
         self.stop_node(3)

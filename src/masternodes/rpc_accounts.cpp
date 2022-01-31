@@ -1,4 +1,5 @@
 #include <masternodes/accountshistory.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -1718,8 +1719,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntFee{0};
     CAmount auctionFee{0};
     CAmount paybackFee{0};
+    CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    UniValue dfipaybacktokens{UniValue::VARR};
+
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1782,32 +1786,28 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
-    UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances) {
-        tokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    result.pushKV("tokens", tokens);
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
-
-    if (auctionFee) {
-        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    }
-
-    if (paybackFee) {
-        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    }
-
-    UniValue dexfeetokens(UniValue::VARR);
-    for (const auto& item : dexfeeburn.balances) {
-        dexfeetokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    if (!dexfeetokens.empty()) {
-        result.pushKV("dexfeetokens", dexfeetokens);
-    }
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     LOCK(cs_main);
+
+    if (auto attributes = pcustomcsview->GetAttributes()) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
+            }
+        }
+    }
+
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {

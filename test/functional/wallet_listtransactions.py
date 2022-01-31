@@ -29,10 +29,10 @@ class ListTransactionsTest(DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(1)  # Get out of IBD
-        self.sync_all()
+        self.sync_blocks()
         # Simple send, 0 to 1:
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
-        self.sync_all()
+        self.sync_mempools()
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
                             {"category": "send", "amount": Decimal("-0.1"), "confirmations": 0})
@@ -41,7 +41,7 @@ class ListTransactionsTest(DefiTestFramework):
                             {"category": "receive", "amount": Decimal("0.1"), "confirmations": 0})
         # mine a block, confirmations should change:
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_array_result(self.nodes[0].listtransactions(),
                             {"txid": txid},
                             {"category": "send", "amount": Decimal("-0.1"), "confirmations": 1})
@@ -64,7 +64,7 @@ class ListTransactionsTest(DefiTestFramework):
                    self.nodes[0].getnewaddress(): 0.33,
                    self.nodes[1].getnewaddress(): 0.44}
         txid = self.nodes[1].sendmany("", send_to)
-        self.sync_all()
+        self.sync_mempools()
         assert_array_result(self.nodes[1].listtransactions(),
                             {"category": "send", "amount": Decimal("-0.11")},
                             {"txid": txid})
@@ -95,7 +95,7 @@ class ListTransactionsTest(DefiTestFramework):
         self.nodes[0].importaddress(multisig["redeemScript"], "watchonly", False, True)
         txid = self.nodes[1].sendtoaddress(multisig["address"], 0.1)
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert len(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=False)) == 0
         assert_array_result(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=True),
                             {"category": "receive", "amount": Decimal("0.1")},

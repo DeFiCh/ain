@@ -105,7 +105,7 @@ class PSBTTest(DefiTestFramework):
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx['hex'])['hex']
         txid = self.nodes[0].sendrawtransaction(signed_tx)
         self.nodes[0].generate(6)
-        self.sync_all()
+        self.sync_blocks()
 
         # Find the output pos
         p2sh_pos = -1
@@ -184,7 +184,7 @@ class PSBTTest(DefiTestFramework):
         txid1 = self.nodes[0].sendtoaddress(node1_addr, 13)
         txid2 = self.nodes[0].sendtoaddress(node2_addr, 13)
         blockhash = self.nodes[0].generate(6)[0]
-        self.sync_all()
+        self.sync_blocks()
         vout1 = find_output(self.nodes[1], txid1, 13, blockhash=blockhash)
         vout2 = find_output(self.nodes[2], txid2, 13, blockhash=blockhash)
 
@@ -204,7 +204,7 @@ class PSBTTest(DefiTestFramework):
         finalized = self.nodes[0].finalizepsbt(combined)['hex']
         self.nodes[0].sendrawtransaction(finalized)
         self.nodes[0].generate(6)
-        self.sync_all()
+        self.sync_blocks()
 
         # Test additional args in walletcreatepsbt
         # Make sure both pre-included and funded inputs
@@ -335,7 +335,7 @@ class PSBTTest(DefiTestFramework):
         addr3 = self.nodes[1].getnewaddress("", "p2sh-segwit")
         txid3 = self.nodes[0].sendtoaddress(addr3, 11)
         vout3 = find_output(self.nodes[0], txid3, 11)
-        self.sync_all()
+        self.sync_mempools()
 
         def test_psbt_input_keys(psbt_input, keys):
             """Check that the psbt input has only the expected keys."""
@@ -373,7 +373,7 @@ class PSBTTest(DefiTestFramework):
         txid4 = self.nodes[0].sendtoaddress(addr4, 5)
         vout4 = find_output(self.nodes[0], txid4, 5)
         self.nodes[0].generate(6)
-        self.sync_all()
+        self.sync_blocks()
         psbt2 = self.nodes[1].createpsbt([{"txid":txid4, "vout":vout4}], {self.nodes[0].getnewaddress():Decimal('4.999')})
         psbt2 = self.nodes[1].walletprocesspsbt(psbt2)['psbt']
         psbt2_decoded = self.nodes[0].decodepsbt(psbt2)
@@ -387,7 +387,7 @@ class PSBTTest(DefiTestFramework):
         txid = self.nodes[0].sendtoaddress(addr, 7)
         addrinfo = self.nodes[1].getaddressinfo(addr)
         blockhash = self.nodes[0].generate(6)[0]
-        self.sync_all()
+        self.sync_blocks()
         vout = find_output(self.nodes[0], txid, 7, blockhash=blockhash)
         psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], {self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')})
         analyzed = self.nodes[0].analyzepsbt(psbt)

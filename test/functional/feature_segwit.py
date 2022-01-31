@@ -79,7 +79,6 @@ class SegWitTest(DefiTestFramework):
     def setup_network(self):
         super().setup_network()
         connect_nodes(self.nodes[0], 2)
-        self.sync_all()
 
     def success_mine(self, node, txid, sign, redeem_script=""):
         send_to_witness(1, node, getutxo(txid), self.pubkey[0], False, Decimal("49.998"), sign, redeem_script)
@@ -140,8 +139,7 @@ class SegWitTest(DefiTestFramework):
                     p2sh_ids[n][v].append(send_to_witness(v, self.nodes[0], find_spendable_utxo(self.nodes[0], 50), self.pubkey[n], True, Decimal("49.999")))
 
         self.nodes[0].generate(1)  # block 163
-        # self.sync_blocks()
-        self.sync_all()
+        self.sync_blocks()
 
         # Make sure all nodes recognize the transactions as theirs
         assert_equal(self.nodes[0].getbalance(), balance_presetup - 60 * 50 + 20 * Decimal("49.999") + 50)

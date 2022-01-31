@@ -43,8 +43,6 @@ namespace {
 
     bool WillLiquidateNext(const CVaultId& vaultId, const CVaultData& vault) {
         auto height = ::ChainActive().Height();
-        RPCCheckFortCanningHillConstraint(height);
-
         auto blockTime = ::ChainActive()[height]->GetBlockTime();
 
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);

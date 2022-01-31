@@ -1056,6 +1056,9 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
+            if (poolSwapMsg.amountFrom <= 0)
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
+
             CPoolPair pp = poolPair->second;
             auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
 
