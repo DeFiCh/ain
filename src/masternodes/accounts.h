@@ -5,10 +5,10 @@
 #ifndef DEFI_MASTERNODES_ACCOUNTS_H
 #define DEFI_MASTERNODES_ACCOUNTS_H
 
-#include <flushablestorage.h>
-#include <masternodes/res.h>
-#include <masternodes/balances.h>
 #include <amount.h>
+#include <flushablestorage.h>
+#include <masternodes/balances.h>
+#include <masternodes/res.h>
 #include <script/script.h>
 
 class CAccountsView : public virtual CStorageView

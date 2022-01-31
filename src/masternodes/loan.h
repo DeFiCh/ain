@@ -268,9 +268,8 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value);
 
-class CLoanTakeLoanMessage
+struct CLoanTakeLoanMessage
 {
-public:
     CVaultId vaultId;
     CScript to;
     CBalances amounts;
@@ -285,9 +284,8 @@ public:
     }
 };
 
-class CLoanPaybackLoanMessage
+struct CLoanPaybackLoanMessage
 {
-public:
     CVaultId vaultId;
     CScript from;
     CBalances amounts;

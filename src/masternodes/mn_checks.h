@@ -6,22 +6,19 @@
 #define DEFI_MASTERNODES_MN_CHECKS_H
 
 #include <consensus/params.h>
-#include <masternodes/masternodes.h>
 #include <consensus/tx_check.h>
-#include <vector>
+#include <masternodes/gv.h>
+#include <masternodes/masternodes.h>
+
 #include <cstring>
-
 #include <variant>
+#include <vector>
 
-class CBlock;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
 
 class CCustomCSView;
-class CAccountsHistoryView;
-class CCustomTxVisitor;
-class CVaultHistoryView;
 class CHistoryWriters;
 class CHistoryErasers;
 
@@ -215,10 +212,8 @@ struct CSetForcedRewardAddressMessage {
     CKeyID rewardAddress;
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nodeId);
         READWRITE(rewardAddressType);
         READWRITE(rewardAddress);
@@ -229,10 +224,8 @@ struct CRemForcedRewardAddressMessage {
     uint256 nodeId;
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nodeId);
     }
 };
@@ -299,6 +292,15 @@ struct CCreatePoolPairMessage {
     CPoolPairMessage poolPair;
     std::string pairSymbol;
     CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(pairSymbol);
+        READWRITE(poolPair);
+        if (!s.eof())
+            READWRITE(rewards);
+    }
 };
 
 struct CUpdatePoolPairMessage {
@@ -307,15 +309,53 @@ struct CUpdatePoolPairMessage {
     CAmount commission;
     CScript ownerAddress;
     CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(poolId.v);
+        READWRITE(status);
+        READWRITE(commission);
+        READWRITE(ownerAddress);
+        if (!s.eof())
+            READWRITE(rewards);
+    }
 };
 
 struct CGovernanceMessage {
-    std::set<std::shared_ptr<GovVariable>> govs;
+    std::unordered_map<std::string, std::shared_ptr<GovVariable>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        std::string name;
+        while(!s.empty()) {
+            s >> name;
+            auto& gov = govs[name];
+            auto var = GovVariable::Create(name);
+            if (!var) break;
+            s >> *var;
+            gov = std::move(var);
+        }
+    }
 };
 
 struct CGovernanceHeightMessage {
+    std::string govName;
     std::shared_ptr<GovVariable> govVar;
     uint32_t startHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!s.empty()) {
+            s >> govName;
+            if ((govVar = GovVariable::Create(govName))) {
+                s >> *govVar;
+                s >> startHeight;
+            }
+        }
+    }
 };
 
 struct CCustomTxMessageNone {};
@@ -382,7 +422,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& t
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
-Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
+Res SwapToDFIOverUSD(CCustomCSView& mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
 
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
@@ -483,7 +523,7 @@ public:
     std::vector<std::pair<std::string, std::string>> errors;
 
     CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
-    : obj(obj), height(height) {}
+        : obj(obj), height(height) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view, bool testOnly = false);
     Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
