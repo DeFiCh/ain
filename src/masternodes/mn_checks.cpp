@@ -2694,6 +2694,7 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
+            auto tokenLoanBalanceAmount = kv.second;
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -2701,11 +2702,11 @@ public:
             if (!loanToken->mintable)
                 return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
 
-            res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
+            res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, tokenLoanBalanceAmount});
             if (!res)
                 return res;
 
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, tokenLoanBalanceAmount);
             if (!res)
                 return res;
 
@@ -2722,9 +2723,9 @@ public:
             for (int i = 0; i < 2; i++) {
                 // check active and next price
                 auto price = priceFeed.val->priceRecord[int(i > 0)];
-                auto amount = MultiplyAmounts(price, kv.second);
-                if (price > COIN && amount < kv.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
+                auto amount = MultiplyAmounts(price, tokenLoanBalanceAmount);
+                if (price > COIN && amount < tokenLoanBalanceAmount)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(tokenLoanBalanceAmount), GetDecimaleString(price));
 
                 auto& totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
                 auto prevLoans = totalLoans;
@@ -2733,14 +2734,14 @@ public:
                     return Res::Err("Exceed maximum loans");
             }
 
-            res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+            res = mnview.AddMintedTokens(loanToken->creationTx, tokenLoanBalanceAmount);
             if (!res)
                 return res;
 
             const auto& address = !obj.to.empty() ? obj.to
                                                   : vault->ownerAddress;
             CalculateOwnerRewards(address);
-            res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
+            res = mnview.AddBalance(address, CTokenAmount{tokenId, tokenLoanBalanceAmount});
             if (!res)
                 return res;
         }
@@ -2809,10 +2810,11 @@ public:
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
-            auto paybackAmount = kv.second;
+            auto tokenLoanBalance = kv.second;
+            auto paybackAmount = tokenLoanBalance;
             CAmount dfiUSDPrice{0};
 
-            if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
+            if (height >= Params().GetConsensus().FortCanningHillHeight && tokenId == DCT_ID{0})
             {
                 if (!allowDFIPayback || !tokenDUSD)
                     return Res::Err("Payback of DUSD loans with DFI not currently active");
@@ -2834,9 +2836,9 @@ public:
                 tokenId = tokenDUSD->first;
 
                 // Calculate the DFI amount in DUSD
-                paybackAmount = MultiplyAmounts(dfiUSDPrice, kv.second);
-                if (dfiUSDPrice > COIN && paybackAmount < kv.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(dfiUSDPrice));
+                paybackAmount = MultiplyAmounts(dfiUSDPrice, paybackAmount);
+                if (dfiUSDPrice > COIN && paybackAmount < tokenLoanBalance)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(paybackAmount), GetDecimaleString(dfiUSDPrice));
             }
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -2890,7 +2892,7 @@ public:
 
             CalculateOwnerRewards(obj.from);
 
-            if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
+            if (height < Params().GetConsensus().FortCanningHillHeight || tokenId != DCT_ID{0})
             {
                 res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
                 if (!res)
@@ -2922,15 +2924,15 @@ public:
                 }
                 else
                 {
-                    subInDFI = kv.second;
+                    subInDFI = tokenLoanBalance;
                 }
 
                 CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                 auto balances = attributes->GetValue(liveKey, CBalances{});
-                auto penaltyDFI = MultiplyAmounts(subInDFI, COIN - penaltyPct);
+                auto tokenEquivalentDFI = MultiplyAmounts(subInDFI, COIN - penaltyPct);
 
                 balances.Add(CTokenAmount{tokenId, subAmount});
-                balances.Add(CTokenAmount{DCT_ID{0}, penaltyDFI});
+                balances.Add(CTokenAmount{DCT_ID{0}, tokenEquivalentDFI});
                 attributes->attributes[liveKey] = balances;
 
                 shouldSetVariable = true;
@@ -3877,19 +3879,23 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
             intermediateView.Flush();
 
-            // burn the dex in amount
-            if (dexfeeInAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
-                if (!res) {
-                    return res;
+            // Attributes already can only be set after FCH, but add
+            // a guard just to be safe.
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                // burn the dex in amount
+                if (dexfeeInAmount.nValue > 0) {
+                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                    if (!res) {
+                        return res;
+                    }
                 }
-            }
 
-            // burn the dex out amount
-            if (dexfeeOutAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
-                if (!res) {
-                    return res;
+                // burn the dex out amount
+                if (dexfeeOutAmount.nValue > 0) {
+                    res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                    if (!res) {
+                        return res;
+                    }
                 }
             }
 

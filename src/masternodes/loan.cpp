@@ -304,9 +304,19 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
-    } else
-        rate.interestPerBlock += InterestPerBlockCalculation(loanIncreased, token->interest, scheme->rate, height);
-
+    } else {
+         CAmount amountDiff = InterestPerBlockCalculation(loanIncreased, token->interest, scheme->rate, height).GetLow64();
+         CAmount existing = rate.interestPerBlock.GetLow64();
+         CAmount newRatePerBlock = existing;
+         
+         // Recreate the missed bugs from 2.5.0
+         if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+            newRatePerBlock += float(amountDiff);
+         } else {
+             newRatePerBlock += amountDiff;
+         }
+        rate.interestPerBlock = newRatePerBlock;
+    }
     rate.height = height;
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);
@@ -347,9 +357,17 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
     } else {
-        auto interestPerBlock = InterestPerBlockCalculation(loanDecreased, token->interest, scheme->rate, height);
-        rate.interestPerBlock = rate.interestPerBlock < interestPerBlock ? 0
-                              : rate.interestPerBlock - interestPerBlock;
+        CAmount amountDiff = InterestPerBlockCalculation(loanDecreased, token->interest, scheme->rate, height).GetLow64();
+        CAmount existing = rate.interestPerBlock.GetLow64();
+        CAmount newRatePerBlock = existing;
+
+         // Recreate the missed bugs from 2.5.0
+        if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+            newRatePerBlock -= float(amountDiff);
+        } else {
+            newRatePerBlock -= amountDiff;
+        }
+        rate.interestPerBlock = newRatePerBlock > 0 ? newRatePerBlock : 0;
     }
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);
