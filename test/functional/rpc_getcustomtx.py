@@ -17,9 +17,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120']] # Will not find historical TXs
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122'], # Wallet TXs
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-txindex=1'], # Transaction index
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122']] # Will not find historical TXs
 
     def check_result(self, result):
         # Get block hash and height
@@ -814,6 +814,20 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         self.check_result(result)
         assert_equal(result['type'], "RemoveOracleAppoint")
         assert_equal(result['results']['oracleId'], appoint_oracle_tx)
+
+        setgov_tx = self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/active':'true','v0/params/dfip2201/minswap':'0.001','v0/params/dfip2201/premium':'0.025'}})
+        self.nodes[0].generate(1)
+        self.sync_blocks(self.nodes[0:2])
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(setgov_tx)
+        self.check_result(result)
+        assert_equal(result['type'], "SetGovVariable")
+        attributes = result['results']['ATTRIBUTES']
+        assert_equal(len(attributes), 3)
+        assert_equal(attributes['v0/params/dfip2201/active'], 'true')
+        assert_equal(attributes['v0/params/dfip2201/premium'], '0.025')
+        assert_equal(attributes['v0/params/dfip2201/minswap'], '0.001')
 
 if __name__ == '__main__':
     TokensRPCGetCustomTX().main ()
