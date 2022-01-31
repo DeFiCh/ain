@@ -30,7 +30,7 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     git diff >/dev/null 2>/dev/null
 
     # if latest commit is tagged and not dirty, then override using the tag name
-    RAWDESC=$(git describe --abbrev=0 2>/dev/null)
+    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
     if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 $RAWDESC 2>/dev/null)" ]; then
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
