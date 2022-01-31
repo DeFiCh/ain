@@ -1504,7 +1504,7 @@ public:
                     return Res::Err("%s: %s", var->GetName(), res.msg);
                 }
 
-                return Res::Ok();
+                continue;
             }
 
             res = var->Apply(mnview, height);
