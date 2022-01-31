@@ -22,7 +22,7 @@ class LoanGetInterestTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1',
-                '-fortcanningheight=50', '-fortcanningmuseumheight=50', '-fortcanninghillheight=50', '-eunosheight=50', '-txindex=1']
+                '-fortcanningheight=50', '-fortcanningmuseumheight=200', '-fortcanninghillheight=250', '-eunosheight=50', '-txindex=1']
         ]
 
     def setup(self):
@@ -127,8 +127,8 @@ class LoanGetInterestTest (DefiTestFramework):
         self.nodes[0].generate(25) # Accrue interest
 
         getInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
-        assert_equal(getInterest[0]['totalInterest'], Decimal('0.99923902'))
-        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.03843227'))
+        assert_equal(getInterest[0]['totalInterest'], Decimal('0.99923876'))
+        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.03843226'))
 
         self.nodes[0].deposittovault(vaultId, self.account0, "100@DFI")
         self.nodes[0].generate(1)
@@ -140,9 +140,31 @@ class LoanGetInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         getInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
-        assert_equal(getInterest[0]['totalInterest'], Decimal('1.08571163'))
-        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.04804034'))
+        assert_equal(getInterest[0]['totalInterest'], Decimal('1.08571134'))
+        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.04804032'))
 
+        self.nodes[0].generate(10) # Activate FCM
+
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': "500@" + self.symboldUSD
+        })
+        self.nodes[0].generate(1)
+
+        getInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
+        assert_equal(getInterest[0]['totalInterest'], Decimal('1.62376293'))
+        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.05764839'))
+
+        self.nodes[0].generate(50) # Activate FCH
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': "300@" + self.symboldUSD
+        })
+        self.nodes[0].generate(1)
+
+        getInterest = self.nodes[0].getinterest("LOAN150", "DUSD")
+        assert_equal(getInterest[0]['totalInterest'], Decimal('4.56959566'))
+        assert_equal(getInterest[0]['interestPerBlock'], Decimal('0.06341323'))
 
 if __name__ == '__main__':
     LoanGetInterestTest().main()
