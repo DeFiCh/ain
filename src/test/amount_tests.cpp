@@ -147,4 +147,11 @@ BOOST_AUTO_TEST_CASE(CTokenAmount_Sub_Negative_Result_Test)
     BOOST_CHECK_EQUAL(amount.Sub(val).msg, "amount 0.00000010 is less than 0.00000011");
 }
 
+BOOST_AUTO_TEST_CASE(CAmount_Float_Test)
+{
+    CAmount amount1 = 16765189, amount2 = 237824;
+    // https://en.wikipedia.org/wiki/Floating-point_arithmetic
+    BOOST_CHECK_EQUAL(CAmount(amount1 + float(amount2)), amount1 + amount2 - 1);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
