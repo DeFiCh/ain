@@ -46,7 +46,7 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
     fi
 
-    if [ "$CURRENT_BRANCH" != "hotfix" ]; then
+    if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ]; then
         # if it's hotfix branch, don't mark dirty.
         # otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
