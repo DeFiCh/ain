@@ -8,6 +8,7 @@
 #include <flushablestorage.h>
 
 #include <amount.h>
+#include <masternodes/balances.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 #include <serialize.h>
@@ -99,6 +100,50 @@ public:
         READWRITE(decimal);
         READWRITE(limit);
         READWRITE(flags);
+    }
+};
+
+struct CCreateTokenMessage : public CToken {
+    using CToken::CToken;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CToken, *this);
+    }
+};
+
+struct CUpdateTokenPreAMKMessage {
+    uint256 tokenTx;
+    bool isDAT;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(isDAT);
+    }
+};
+
+struct CUpdateTokenMessage {
+    uint256 tokenTx;
+    CToken token;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(token);
+    }
+};
+
+struct CMintTokensMessage : public CBalances {
+    using CBalances::CBalances;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CBalances, *this);
     }
 };
 

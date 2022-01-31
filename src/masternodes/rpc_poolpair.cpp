@@ -562,20 +562,21 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    CPoolPairMessage poolPairMsg;
+    CCreatePoolPairMessage poolPairMsg{};
     poolPairMsg.idTokenA = idtokenA;
     poolPairMsg.idTokenB = idtokenB;
     poolPairMsg.commission = commission;
     poolPairMsg.status = status;
     poolPairMsg.ownerAddress = ownerAddress;
+    poolPairMsg.pairSymbol = pairSymbol;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        poolPairMsg.rewards = rewards;
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg << pairSymbol;
-
-    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        metadata << rewards;
-    }
+             << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -709,14 +710,19 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
 
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
-             // serialize poolId as raw integer
-             << poolId.v << status << commission << ownerAddress;
+    CUpdatePoolPairMessage msg{};
+    msg.poolId = poolId;
+    msg.status = status;
+    msg.commission = commission;
+    msg.ownerAddress = ownerAddress;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        metadata << rewards;
+        msg.rewards = rewards;
     }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);

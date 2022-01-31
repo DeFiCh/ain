@@ -176,5 +176,94 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     }
 }
 
+BOOST_AUTO_TEST_CASE(hardfork_guard)
+{
+    auto& consensus = Params().GetConsensus();
+
+    const std::map<int, std::string> forks = {
+        { consensus.AMKHeight,              "called before AMK height" },
+        { consensus.BayfrontHeight,         "called before Bayfront height" },
+        { consensus.BayfrontGardensHeight,  "called before Bayfront Gardens height" },
+        { consensus.EunosHeight,            "called before Eunos height" },
+        { consensus.FortCanningHeight,      "called before FortCanning height" },
+        { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+    };
+
+    auto parseValidator = [&](int height, auto msg, std::string error = {}) -> bool {
+        if (height != 0) {
+            auto it = forks.find(height);
+            if (it == forks.end())
+                return false;
+            error = it->second;
+            height--;
+        }
+        CCustomTxMessage message = msg;
+        CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+        stream << msg;
+        return CustomMetadataParse(height, consensus, {}, message).msg == error
+            && (height == 0
+            || CustomMetadataParse(height + 1, consensus, ToByteVector(stream), message).ok);
+    };
+
+    BOOST_REQUIRE(parseValidator(0, CCreateMasterNodeMessage{},
+                                 "CDataStream::read(): end of data: iostream error"));
+    BOOST_REQUIRE(parseValidator(0, CResignMasterNodeMessage{},
+                                 "CDataStream::read(): end of data: iostream error"));
+    BOOST_REQUIRE(parseValidator(0, CSetForcedRewardAddressMessage{},
+                                 "tx is disabled for Fort Canning"));
+    BOOST_REQUIRE(parseValidator(0, CRemForcedRewardAddressMessage{},
+                                 "tx is disabled for Fort Canning"));
+    BOOST_REQUIRE(parseValidator(0, CUpdateMasterNodeMessage{},
+                                 "tx is disabled for Fort Canning"));
+
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CCreateTokenMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CUpdateTokenPreAMKMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CMintTokensMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CUtxosToAccountMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CAccountToUtxosMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CAccountToAccountMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CUpdateTokenMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CPoolSwapMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CLiquidityMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CRemoveLiquidityMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CCreatePoolPairMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CUpdatePoolPairMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontHeight, CGovernanceMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.BayfrontGardensHeight, CAnyAccountsToAccountsMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CAppointOracleMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CRemoveOracleAppointMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CUpdateOracleAppointMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CSetOracleDataMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXCreateOrderMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXMakeOfferMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXSubmitDFCHTLCMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXSubmitEXTHTLCMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXClaimDFCHTLCMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXCloseOrderMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.EunosHeight, CICXCloseOfferMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CGovernanceHeightMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CPoolSwapMessageV2{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanSetCollateralTokenMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanSetLoanTokenMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanUpdateLoanTokenMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanSchemeMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CDefaultLoanSchemeMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CDestroyLoanSchemeMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CVaultMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CCloseVaultMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CUpdateVaultMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CDepositToVaultMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CWithdrawFromVaultMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanTakeLoanMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CLoanPaybackLoanMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CAuctionBidMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningHillHeight, CSmartContractMessage{}));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 

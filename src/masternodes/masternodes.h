@@ -129,6 +129,71 @@ public:
     friend bool operator!=(CMasternode const & a, CMasternode const & b);
 };
 
+struct CCreateMasterNodeMessage {
+    char operatorType;
+    CKeyID operatorAuthAddress;
+    uint16_t timelock{0};
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+
+        // Only available after EunosPaya
+        if (!s.eof()) {
+            READWRITE(timelock);
+        }
+    }
+};
+
+struct CResignMasterNodeMessage : public uint256 {
+    using uint256::uint256;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(uint256, *this);
+    }
+};
+
+struct CSetForcedRewardAddressMessage {
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(nodeId);
+        READWRITE(rewardAddressType);
+        READWRITE(rewardAddress);
+    }
+};
+
+struct CRemForcedRewardAddressMessage {
+    uint256 nodeId;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(nodeId);
+    }
+};
+
+struct CUpdateMasterNodeMessage {
+    uint256 mnId;
+    char operatorType;
+    CKeyID operatorAuthAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(mnId);
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+    }
+};
 
 struct MNBlockTimeKey
 {
