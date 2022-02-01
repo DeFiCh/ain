@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan - payback loan."""
+"""Test Loan - payback loan dfi."""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
@@ -13,7 +13,7 @@ import time
 from decimal import Decimal, ROUND_UP
 
 
-class PaybackLoanTest (DefiTestFramework):
+class PaybackDFILoanTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -287,4 +287,4 @@ class PaybackLoanTest (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    PaybackLoanTest().main()
+    PaybackDFILoanTest().main()
