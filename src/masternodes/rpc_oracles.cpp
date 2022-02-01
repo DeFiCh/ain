@@ -1036,14 +1036,9 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
                        "                   2. Deviation is over the limit to be considered stable.\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
+                        HelpExampleCli("getfixedintervalprice", "TSLA/USD")
                 },
     }.Check(request);
-
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-    if (request.params[0].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameter, argument fixedIntervalPriceId must be non-null");
 
     auto fixedIntervalStr = request.params[0].getValStr();
 

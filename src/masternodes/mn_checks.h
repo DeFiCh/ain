@@ -66,6 +66,7 @@ enum class CustomTxType : uint8_t
     AccountToUtxos        = 'b',
     AccountToAccount      = 'B',
     AnyAccountsToAccounts = 'a',
+    SmartContract         = 'K',
     //set governance variable
     SetGovVariable        = 'G',
     SetGovVariableHeight  = 'j',
@@ -123,6 +124,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToUtxos:
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
+        case CustomTxType::SmartContract:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
@@ -345,6 +347,7 @@ using CCustomTxMessage = std::variant<
     CAccountToUtxosMessage,
     CAccountToAccountMessage,
     CAnyAccountsToAccountsMessage,
+    CSmartContractMessage,
     CGovernanceMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,

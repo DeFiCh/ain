@@ -78,7 +78,7 @@ class ZMQTest (DefiTestFramework):
         num_blocks = 5
         self.log.info("Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks})
         genhashes = self.nodes[0].generate(nblocks=num_blocks, address=ADDRESS_BCRT1_UNSPENDABLE)
-        self.sync_all()
+        self.sync_blocks()
 
         for x in range(num_blocks):
             # Should receive the coinbase txid.
@@ -104,7 +104,7 @@ class ZMQTest (DefiTestFramework):
         if self.is_wallet_compiled():
             self.log.info("Wait for tx from second node")
             payment_txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
-            self.sync_all()
+            self.sync_mempools()
 
             # Should receive the broadcasted txid.
             txid = hashtx.receive()

@@ -119,6 +119,8 @@ protected:
     std::set<CKeyID> genesisTeam;
 };
 
+const auto SMART_CONTRACT_DFIP_2201 = "DFIP2201";
+
 /**
  * Creates and returns a std::unique_ptr<CChainParams> of the chosen chain.
  * @returns a CChainParams* of the chosen chain.

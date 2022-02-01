@@ -932,16 +932,16 @@ CAmount CCollateralLoans::precisionRatio() const
 
 ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
-        auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
-        if (!priceResult)
-            return std::move(priceResult);
+    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
+    if (!priceResult)
+        return priceResult;
 
-        auto price = priceResult.val.value();
-        auto amountInCurrency = MultiplyAmounts(price, amount);
-        if (price > COIN && amountInCurrency < amount)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
+    auto price = *priceResult.val;
+    auto amountInCurrency = MultiplyAmounts(price, amount);
+    if (price > COIN && amountInCurrency < amount)
+        return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
 
-        return ResVal<CAmount>(amountInCurrency, Res::Ok());
+    return ResVal<CAmount>(amountInCurrency, Res::Ok());
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
@@ -960,7 +960,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!res)
         return std::move(res);
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
     return ResVal<CCollateralLoans>(result, Res::Ok());
@@ -1003,7 +1003,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = GetInterestRate(vaultId, loanTokenId);
+        auto rate = GetInterestRate(vaultId, loanTokenId, height);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
 

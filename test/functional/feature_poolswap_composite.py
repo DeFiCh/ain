@@ -11,6 +11,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     disconnect_nodes,
+    assert_raises_rpc_error
 )
 
 from decimal import Decimal
@@ -20,8 +21,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110'],
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200']]
 
     def run_test(self):
 
@@ -270,6 +271,44 @@ class PoolPairCompositeTest(DefiTestFramework):
         psTestTokenId = testCPoolSwapRes[1]
         assert_equal(psTestTokenId, idDOGE)
 
+        customPathPoolSwap = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_USDC, poolDOGE_USDC])
+
+        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
+
+        psTestAmount = customPathPoolSwap[0]
+        psTestTokenId = customPathPoolSwap[1]
+        assert_equal(psTestTokenId, idDOGE)
+
+        poolLTC_DFI = list(self.nodes[0].getpoolpair("LTC-DFI").keys())[0]
+        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
+        customPathPoolSwap = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_DFI, poolDOGE_DFI])
+
+        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
+
+        psTestTokenId = customPathPoolSwap[1]
+        assert_equal(psTestTokenId, idDOGE)
+
+        assert_raises_rpc_error(-32600, "Custom pool path is invalid.", self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": ltc_to_doge_from,
+            "to": destination,
+            "tokenTo": symbolDOGE,
+        }, [poolLTC_DFI, "100"])
+
         self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
@@ -433,6 +472,40 @@ class PoolPairCompositeTest(DefiTestFramework):
         dest_balance = self.nodes[0].getaccount(destination, {}, True)
         assert_equal(dest_balance[idLTC], Decimal('29.74793123'))
         assert_equal(len(dest_balance), 1)
+
+        # Fund source and move to Fort Canning Hill height
+        self.nodes[0].sendtoaddress(source, 0.1)
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Get base TX for composite swap error tests
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolTSLA,
+            "amountFrom": tsla_to_ltc_from,
+            "to": destination,
+            "tokenTo": 0
+            }, [])
+
+        rawtx_verbose = self.nodes[0].getrawtransaction(tx, 1)
+        metadata = rawtx_verbose['vout'][0]['scriptPubKey']['hex']
+        rawtx = self.nodes[0].getrawtransaction(tx)
+        self.nodes[0].clearmempool()
+
+        updated_metadata = metadata.replace('020206', '0402060206')
+        updated_rawtx = rawtx.replace('5a' + metadata, '5c6a4c59' + updated_metadata[6:])
+
+        assert_raises_rpc_error(-26, "Too many pool IDs provided, max 3 allowed, 4 provided", self.nodes[0].sendrawtransaction, updated_rawtx)
+
+        updated_metadata = metadata.replace('020206', '03020602')
+        updated_rawtx = rawtx.replace('5a' + metadata, '5b6a4c58' + updated_metadata[6:])
+
+        assert_raises_rpc_error(-26, "Final swap should have idTokenTo as destination, not source", self.nodes[0].sendrawtransaction, updated_rawtx)
+
+        updated_metadata = metadata.replace('020206', '0102')
+        updated_rawtx = rawtx.replace('5a' + metadata, '596a4c56' + updated_metadata[6:])
+
+        assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided", self.nodes[0].sendrawtransaction, updated_rawtx)
+        self.nodes[0].clearmempool()
 
 if __name__ == '__main__':
     PoolPairCompositeTest().main()

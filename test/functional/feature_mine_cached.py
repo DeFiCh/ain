@@ -30,12 +30,12 @@ class IsMineCachedTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         self.nodes[0].generate(101)
-        self.sync_all()
+        self.sync_blocks()
 
         wallet0_addr = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].utxostoaccount({wallet0_addr: "10@0"})
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         to = {}
         wallet1_addr = self.nodes[1].getnewaddress("", "legacy")

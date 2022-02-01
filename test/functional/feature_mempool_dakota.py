@@ -25,7 +25,7 @@ class MempoolDakotaTest(DefiTestFramework):
         node = self.nodes[0]
         node1 = self.nodes[1]
         node.generate(101)
-        self.sync_all()
+        self.sync_blocks()
 
         assert_equal(node.getblockcount(), 101) # Dakota height
 
@@ -33,13 +33,12 @@ class MempoolDakotaTest(DefiTestFramework):
         wallet1_addr = node1.getnewaddress("", "legacy")
         node.sendtoaddress(wallet1_addr, "3.1")
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         collateral = node1.createmasternode(wallet1_addr)
-        node.generate(1)
-        self.sync_all()
         assert_raises_rpc_error(-26, "collateral-locked", node1.utxostoaccount, {wallet1_addr: "0.09@0"})
+        self.sync_mempools()
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(node1.listmasternodes({}, False)[collateral], "PRE_ENABLED")
         assert_equal(node1.getmasternode(collateral)[collateral]["state"], "PRE_ENABLED")
         node.generate(10)
@@ -47,7 +46,7 @@ class MempoolDakotaTest(DefiTestFramework):
 
         node1.utxostoaccount({wallet1_addr: "0.09@0"})
         node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
 if __name__ == '__main__':
     MempoolDakotaTest().main ()

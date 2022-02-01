@@ -100,7 +100,7 @@ static int AppInitRawTx(int argc, char* argv[])
 
     if (argc < 2 || HelpRequested(gArgs)) {
         // First part of help message is specific to this utility
-        std::string strUsage = PACKAGE_NAME " defi-tx utility version " + FormatFullVersion() + "\n\n" +
+        std::string strUsage = PACKAGE_NAME " defi-tx utility version " + FormatVersionAndSuffix() + "\n\n" +
             "Usage:  defi-tx [options] <hex-tx> [commands]  Update hex-encoded defi transaction\n" +
             "or:     defi-tx [options] -create [commands]   Create hex-encoded defi transaction\n" +
             "\n";
