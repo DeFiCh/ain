@@ -74,6 +74,27 @@ extern std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& 
 
 BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
+BOOST_AUTO_TEST_CASE(high_precision_interest_rate_tests)
+{
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(0)), "0.000000000000000000000000");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(1)), "0.000000000000000000000001");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(1)), "0.000000000000000000000001");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(42058)), "0.000000000000000000042058");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(95129375)), "0.000000000000000095129375");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(117009132)), "0.000000000000000117009132");
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(11700913242)), "0.000000000000011700913242");
+
+    base_uint<128> num;
+    num.SetHex("21012F95D4094B33"); // 2378234398782343987
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(num)), "0.000002378234398782343987");
+    num.SetHex("3CDC4CA64879921C03BF061156E455BC"); // 80897539693407360060932882613242451388
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(num)), "80897539693407.360060932882613242451388");
+    num.SetHex("10E5FBB8CA9E273D0B0353C23D90A6"); // 87741364994776235347880977943597222
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(num)), "87741364994.776235347880977943597222");
+    num.SetHex("2D5C78FF9C3FE70F9F0B0C7"); // 877413626032608048611111111
+    BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(base_uint<128>(num)), "877.413626032608048611111111");
+}
+
 BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 {
     CCustomCSView mnview(*pcustomcsview);
@@ -91,32 +112,32 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     auto vault_id = NextTx();
     BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, 1 * COIN));
 
-    auto rate = mnview.GetInterestRate(vault_id, token_id);
+    auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
     BOOST_CHECK_EQUAL(rate->height, 1);
 
     auto interestPerBlock = rate->interestPerBlock;
     BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, 1 * COIN));
 
-    rate = mnview.GetInterestRate(vault_id, token_id);
+    rate = mnview.GetInterestRate(vault_id, token_id, 5);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->height, 5);
-    BOOST_CHECK_EQUAL(rate->interestToHeight, 4 * interestPerBlock);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 4 * interestPerBlock.GetLow64());
 
     auto interestToHeight = rate->interestToHeight;
     interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, interestToHeight + interestPerBlock));
-    rate = mnview.GetInterestRate(vault_id, token_id);
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight + interestPerBlock).GetLow64()));
+    rate = mnview.GetInterestRate(vault_id, token_id, 6);
 
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
 
     BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
 
-    rate = mnview.GetInterestRate(vault_id, token_id);
+    rate = mnview.GetInterestRate(vault_id, token_id, 6);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(collateralization_ratio)

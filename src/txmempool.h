@@ -549,6 +549,7 @@ private:
     std::vector<indexed_transaction_set::const_iterator> GetSortedDepthAndScore() const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     bool accountsViewDirty;
+    bool forceRebuildForReorg;
     std::unique_ptr<CCustomCSView> acview;
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);

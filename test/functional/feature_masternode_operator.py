@@ -38,10 +38,9 @@ class TestMasternodeOperator(DefiTestFramework):
         self.log.info("Mining blocks ...")
         startNode0 = self.nodes[0].getblockcount() + 1
         self.nodes[0].generate(10)
-        print(self.nodes[0].getblockcount())
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[1].generate(10)
-        self.sync_all()
+        self.sync_blocks()
 
         minters = set()
         for x in range(startNode0, startNode0 + 10):

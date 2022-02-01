@@ -37,7 +37,7 @@ class RpcCreateMultiSigTest(DefiTestFramework):
 
         self.log.info('Generating blocks ...')
         node0.generate(149)
-        self.sync_all()
+        self.sync_blocks()
 
         self.moved = 0
         for self.nkeys in [3, 5]:
@@ -84,7 +84,7 @@ class RpcCreateMultiSigTest(DefiTestFramework):
     def checkbalances(self):
         node0, node1, node2 = self.nodes
         node0.generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         bal0 = node0.getbalance()
         bal1 = node1.getbalance()

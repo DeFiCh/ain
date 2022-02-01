@@ -73,7 +73,7 @@ class KeypoolRestoreTest(DefiTestFramework):
             shutil.copyfile(wallet_backup_path, wallet_path)
             self.start_node(idx, self.extra_args[idx])
             connect_nodes_bi(self.nodes, 0, idx)
-            self.sync_all()
+            self.sync_blocks()
 
             self.log.info("Verify keypool is restored and balance is correct")
             assert_equal(self.nodes[idx].getbalance(), 15)
