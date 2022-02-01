@@ -56,9 +56,9 @@ class RawTransactionsTest(DefiTestFramework):
         self.fee_tolerance = 2 * self.min_relay_tx_fee / 1000
 
         self.nodes[2].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[0].generate(121)
-        self.sync_all()
+        self.sync_blocks()
 
         self.test_change_position()
         self.test_simple()
@@ -112,7 +112,7 @@ class RawTransactionsTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 5.0)
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
     def test_simple(self):
         ###############
@@ -477,9 +477,9 @@ class RawTransactionsTest(DefiTestFramework):
 
         # send 1.2 BTC to msig addr
         self.nodes[0].sendtoaddress(mSigObj, 1.2)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         oldBalance = self.nodes[1].getbalance()
         inputs = []
@@ -489,9 +489,9 @@ class RawTransactionsTest(DefiTestFramework):
 
         signedTx = self.nodes[2].signrawtransactionwithwallet(fundedTx['hex'])
         self.nodes[2].sendrawtransaction(signedTx['hex'])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # make sure funds are received at node1
         assert_equal(oldBalance+Decimal('1.10000000'), self.nodes[1].getbalance())
@@ -515,7 +515,7 @@ class RawTransactionsTest(DefiTestFramework):
         # Again lock the watchonly UTXO or nodes[0] may spend it, because
         # lockunspent is memory-only and thus lost on restart
         self.nodes[0].lockunspent(False, [{"txid": self.watchonly_txid, "vout": self.watchonly_vout}])
-        self.sync_all()
+        self.sync_blocks()
 
         # drain the keypool
         self.nodes[1].getnewaddress()
@@ -546,7 +546,7 @@ class RawTransactionsTest(DefiTestFramework):
         signedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'])
         self.nodes[1].sendrawtransaction(signedTx['hex'])
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # make sure funds are received at node1
         assert_equal(oldBalance+Decimal('51.10000000'), self.nodes[0].getbalance())
@@ -558,14 +558,14 @@ class RawTransactionsTest(DefiTestFramework):
 
         #empty node1, send some small coins from node0 to node1
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         for i in range(0,20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         #fund a tx with ~20 small inputs
         inputs = []
@@ -588,14 +588,14 @@ class RawTransactionsTest(DefiTestFramework):
 
         #again, empty node1, send some small coins from node0 to node1
         self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         for i in range(0,20):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         #fund a tx with ~20 small inputs
         oldBalance = self.nodes[0].getbalance()
@@ -606,9 +606,9 @@ class RawTransactionsTest(DefiTestFramework):
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
         fundedAndSignedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'])
         self.nodes[1].sendrawtransaction(fundedAndSignedTx['hex'])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(oldBalance+Decimal('50.19000000'), self.nodes[0].getbalance()) #0.19+block reward
 
     def test_op_return(self):
@@ -670,7 +670,7 @@ class RawTransactionsTest(DefiTestFramework):
         assert signedtx["complete"]
         self.nodes[0].sendrawtransaction(signedtx["hex"])
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
     def test_option_feerate(self):
         #######################

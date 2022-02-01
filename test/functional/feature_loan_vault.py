@@ -18,8 +18,8 @@ class VaultTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-jellyfish_regtest=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-jellyfish_regtest=1']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-jellyfish_regtest=1'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-jellyfish_regtest=1']
             ]
 
     def run_test(self):
@@ -58,7 +58,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # 4 * 0.5, fee is 1DFI in regtest
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
@@ -464,7 +464,7 @@ class VaultTest (DefiTestFramework):
         address = self.nodes[0].getnewaddress()
         self.nodes[1].sendtokenstoaddress({}, { address: '1.50@BTC'})
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         vaultId4 = self.nodes[0].createvault(address, 'LOAN000A')
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId4, address, '1.25@BTC') # 1.25@BTC as collateral factor 0.8
@@ -499,7 +499,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(vaultId4, accountDFI, "0.26@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the collateral must be in DFI" in errorString)
+        assert("At least 50% of the minimum required collateral must be in DFI" in errorString)
 
         # Should be able to take 0.33@TSLA and respect 50% DFI ratio
         self.nodes[0].takeloan({

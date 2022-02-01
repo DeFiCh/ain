@@ -4,7 +4,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
 #include <masternodes/mn_checks.h>
@@ -129,7 +128,7 @@ public:
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -244,7 +243,7 @@ public:
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("8UAhRuUFCyFUHEPD7qvtj8Zy2HxF5HH5nb", *this)));
 
         consensus.smartContracts.clear();
-        consensus.smartContracts["DFIP2201"] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
@@ -354,8 +353,8 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -460,7 +459,7 @@ public:
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
 
         consensus.smartContracts.clear();
-        consensus.smartContracts["DFIP2201"] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
@@ -641,7 +640,7 @@ public:
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this)));
 
         consensus.smartContracts.clear();
-        consensus.smartContracts["DFIP2201"] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
@@ -828,7 +827,7 @@ public:
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("mxiaFfAnCoXEUy4RW8NgsQM7yU5YRCiFSh", *this)));
 
         consensus.smartContracts.clear();
-        consensus.smartContracts["DFIP2201"] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
@@ -936,10 +935,10 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fort canning park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
-    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

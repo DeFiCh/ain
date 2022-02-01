@@ -62,7 +62,7 @@ class WalletHDTest(DefiTestFramework):
         change_addrV= self.nodes[1].getaddressinfo(change_addr)
         assert_equal(change_addrV["hdkeypath"], "m/0'/1'/1'") #second internal child key
 
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
 
         self.log.info("Restore backup ...")
@@ -85,7 +85,7 @@ class WalletHDTest(DefiTestFramework):
             assert_equal(hd_info_2["hdseedid"], masterkeyid)
         assert_equal(hd_add, hd_add_2)
         connect_nodes_bi(self.nodes, 0, 1)
-        self.sync_all()
+        self.sync_blocks()
 
         # Needs rescan
         self.stop_node(1)
@@ -101,7 +101,7 @@ class WalletHDTest(DefiTestFramework):
         shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
         self.start_node(1, extra_args=self.extra_args[1])
         connect_nodes_bi(self.nodes, 0, 1)
-        self.sync_all()
+        self.sync_blocks()
         # Wallet automatically scans blocks older than key on startup
         assert_equal(self.nodes[1].getbalance(), NUM_HD_ADDS + 1)
         out = self.nodes[1].rescanblockchain(0, 1)

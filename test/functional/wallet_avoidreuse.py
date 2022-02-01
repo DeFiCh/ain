@@ -85,12 +85,12 @@ class AvoidReuseTest(DefiTestFramework):
         self.test_immutable()
 
         self.nodes[0].generate(110)
-        self.sync_all()
+        self.sync_blocks()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
-        self.sync_all()
+        self.sync_mempools()
         self.test_fund_send_fund_senddirty()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
-        self.sync_all()
+        self.sync_mempools()
         self.test_fund_send_fund_send()
 
     def test_persistence(self):
@@ -144,7 +144,7 @@ class AvoidReuseTest(DefiTestFramework):
 
         self.nodes[0].sendtoaddress(fundaddr, 10)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # listunspent should show 1 single, unused 10 btc output
         assert_unspent(self.nodes[1], total_count=1, total_sum=10, reused_supported=True, reused_count=0)
@@ -164,7 +164,7 @@ class AvoidReuseTest(DefiTestFramework):
 
         self.nodes[0].sendtoaddress(fundaddr, 10)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # listunspent should show 2 total outputs (5, 10 btc), one unused (5), one reused (10)
         assert_unspent(self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10)
@@ -197,7 +197,7 @@ class AvoidReuseTest(DefiTestFramework):
 
         self.nodes[0].sendtoaddress(fundaddr, 10)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # listunspent should show 1 single, unused 10 btc output
         assert_unspent(self.nodes[1], total_count=1, total_sum=10, reused_supported=True, reused_count=0)
@@ -215,7 +215,7 @@ class AvoidReuseTest(DefiTestFramework):
 
         self.nodes[0].sendtoaddress(fundaddr, 10)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # listunspent should show 2 total outputs (5, 10 btc), one unused (5), one reused (10)
         assert_unspent(self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10)

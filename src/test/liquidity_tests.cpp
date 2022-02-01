@@ -73,7 +73,15 @@ Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmo
     return mnview.SetPoolPair(idPool, 1, *optPool);
 }
 
-BOOST_FIXTURE_TEST_SUITE(liquidity_tests, TestingSetup)
+struct CLiquidityRewardsTest : public TestingSetup
+{
+    CLiquidityRewardsTest()
+    {
+        const_cast<int&>(Params().GetConsensus().FortCanningHillHeight) = 7;
+    }
+};
+
+BOOST_FIXTURE_TEST_SUITE(liquidity_tests, CLiquidityRewardsTest)
 
 BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 {
@@ -86,9 +94,6 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     std::tie(idA, idB, idPool) = CreatePoolNTokens(mnview, "AAA", "BBB");
     auto optPool = mnview.GetPoolPair(idPool);
     BOOST_REQUIRE(optPool);
-
-    // do not include FCH floor in swap
-    auto height = Params().GetConsensus().FortCanningHillHeight - 1;
 
     Res res{};
     { // basic fails
@@ -226,13 +231,13 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(df.nValue, 0);
-            BOOST_CHECK_EQUAL(ta.nValue, 49748743719); // pre-optimization: 49773755285
+            BOOST_CHECK_EQUAL(ta.nValue, 49748743718); // pre-optimization: 49773755285
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000000);
         BOOST_CHECK_EQUAL(pool.reserveA, 199000000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 50251256281); // pre-optimization: 50226244715
+        BOOST_CHECK_EQUAL(pool.reserveB, 50251256282); // pre-optimization: 50226244715
     }
     {
 //        printf("COIN/1000 (1:1000) (no slope due to commission)\n");
@@ -242,13 +247,13 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(df.nValue, 0);
-            BOOST_CHECK_EQUAL(ta.nValue, 98902087); // pre-optimization: 99000000
+            BOOST_CHECK_EQUAL(ta.nValue, 98902086); // pre-optimization: 99000000
             return Res::Ok();
-        }, height);
+        });
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(pool.blockCommissionA, 1000);
         BOOST_CHECK_EQUAL(pool.reserveA, 100099000);
-        BOOST_CHECK_EQUAL(pool.reserveB, 99901097913); // pre-optimization: 99901000000
+        BOOST_CHECK_EQUAL(pool.reserveB, 99901097914); // pre-optimization: 99901000000
 
 //       printf("comissionA = %ld\n", pool.blockCommissionA);
 //       printf("reserveA = %ld\n", pool.reserveA);

@@ -604,12 +604,15 @@ void CTxMemPool::_clear()
 {
     mapLinks.clear();
     mapTx.clear();
+    vTxHashes.clear();
     mapNextTx.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = false;
     rollingMinimumFeeRate = 0;
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
     ++nTransactionsUpdated;
 }
 

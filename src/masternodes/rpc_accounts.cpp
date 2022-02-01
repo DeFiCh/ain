@@ -1,4 +1,5 @@
 #include <masternodes/accountshistory.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -1687,9 +1688,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-
 }
-
 
 UniValue getburninfo(const JSONRPCRequest& request) {
     RPCHelpMan{"getburninfo",
@@ -1720,8 +1719,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntFee{0};
     CAmount auctionFee{0};
     CAmount paybackFee{0};
+    CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    UniValue dfipaybacktokens{UniValue::VARR};
+
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1784,32 +1786,28 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
-    UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances) {
-        tokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    result.pushKV("tokens", tokens);
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
-
-    if (auctionFee) {
-        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    }
-
-    if (paybackFee) {
-        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    }
-
-    UniValue dexfeetokens(UniValue::VARR);
-    for (const auto& item : dexfeeburn.balances) {
-        dexfeetokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    if (!dexfeetokens.empty()) {
-        result.pushKV("dexfeetokens", dexfeetokens);
-    }
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     LOCK(cs_main);
+
+    if (auto attributes = pcustomcsview->GetAttributes()) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
+            }
+        }
+    }
+
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
@@ -1823,6 +1821,100 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet, 
+        const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+    CUtxosToAccountMessage msg{};
+    msg.to = {{contractPair.second, {{{{0}, amount.nValue}}}}};
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
+                << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(amount.nValue, scriptMeta));
+
+    // change
+    CCoinControl coinControl;
+    CTxDestination dest;
+    ExtractDestination(Params().GetConsensus().foundationShareScript, dest);
+    coinControl.destChange = dest;
+
+    // Only use inputs from dest
+    coinControl.matchDestination = dest;
+
+    // fund
+    fund(rawTx, pwallet, {}, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight);
+
+    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+}
+
+UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
+         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+    if (request.params[2].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "BTC source address must be provided for " + contractPair.first);
+    }
+    CTxDestination dest = DecodeDestination(request.params[2].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+    const auto script = GetScriptForDestination(dest);
+
+    CSmartContractMessage msg{};
+    msg.name = contractPair.first;
+    msg.accounts = {{script, {{{amount.nTokenId, amount.nValue}}}}};
+    // encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SmartContract)
+                << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{script};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet) {
+    auto contracts = Params().GetConsensus().smartContracts;
+    const auto& contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
+    assert(contractPair != contracts.end());
+
+    CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[1].get_str(), "amount");
+
+    if (amount.nTokenId.v == 0) {
+        return HandleSendDFIP2201DFIInput(request, std::move(pwallet), *contractPair, amount);
+    } else {
+        return HandleSendDFIP2201BTCInput(request, std::move(pwallet), *contractPair, amount);
+    }
+}
 
 UniValue executesmartcontract(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
@@ -1861,92 +1953,11 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     const auto& contractName = request.params[0].get_str();
-    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[1].get_str(), "amount");
-
     if (contractName == "dbtcdfiswap") {
-        const auto& contractPair= Params().GetConsensus().smartContracts.begin();
-        if (amount.nTokenId.v == 0) {
-            CUtxosToAccountMessage msg{};
-            msg.to = {{contractPair->second, {{{{0}, amount.nValue}}}}};
-
-            CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-            metadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
-                     << msg;
-            CScript scriptMeta;
-            scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-            int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
-            const auto txVersion = GetTransactionVersion(targetHeight);
-            CMutableTransaction rawTx(txVersion);
-
-            rawTx.vout.push_back(CTxOut(amount.nValue, scriptMeta));
-
-            // change
-            CCoinControl coinControl;
-            CTxDestination dest;
-            ExtractDestination(Params().GetConsensus().foundationShareScript, dest);
-            coinControl.destChange = dest;
-
-            // Only use inputs from dest
-            coinControl.matchDestination = dest;
-
-            // fund
-            fund(rawTx, pwallet, {}, &coinControl);
-
-            // check execution
-            execTestTx(CTransaction(rawTx), targetHeight);
-
-            return signsend(rawTx, pwallet, {})->GetHash().GetHex();
-        } else {
-            if (request.params[2].isNull()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "BTC source address must be provided for " + contractPair->first);
-            }
-
-            CTxDestination dest = DecodeDestination(request.params[2].get_str());
-            if (!IsValidDestination(dest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-            }
-            const auto script = GetScriptForDestination(dest);
-
-            CSmartContractMessage msg{};
-            msg.name = contractPair->first;
-            msg.accounts = {{script, {{{amount.nTokenId, amount.nValue}}}}};
-
-            // encode
-            CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-            metadata << static_cast<unsigned char>(CustomTxType::SmartContract)
-                     << msg;
-            CScript scriptMeta;
-            scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-            int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
-            const auto txVersion = GetTransactionVersion(targetHeight);
-            CMutableTransaction rawTx(txVersion);
-
-            rawTx.vout.emplace_back(0, scriptMeta);
-
-            CTransactionRef optAuthTx;
-            std::set<CScript> auth{script};
-            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
-
-            // Set change address
-            CCoinControl coinControl;
-            coinControl.destChange = dest;
-
-            // fund
-            fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-            // check execution
-            execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-
-            return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-        }
+        return HandleSendDFIP2201(request, std::move(pwallet));
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Specified smart contract not found");
     }
-
     return NullUniValue;
 }
 

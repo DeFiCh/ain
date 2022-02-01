@@ -9,6 +9,12 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
+        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenA)) {
+            poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenB)) {
+            poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
+        }
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
         poolObj.pushKV("commission", ValueFromAmount(pool.commission));
@@ -1049,6 +1055,9 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
+
+            if (poolSwapMsg.amountFrom <= 0)
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
             auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
