@@ -224,17 +224,6 @@ inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount toke
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
-static base_uint<128> InterestPerBlockCalculation(CAmount amount, CAmount tokenInterest, CAmount schemeInterest, uint32_t height)
-{
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
-        return InterestPerBlockCalculationV2(amount, tokenInterest, schemeInterest);
-
-    if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight)
-        return std::ceil(InterestPerBlockCalculationV1<float>(amount, tokenInterest, schemeInterest));
-
-    return InterestPerBlockCalculationV1<CAmount>(amount, tokenInterest, schemeInterest);
-}
-
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height)
 {
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
@@ -305,9 +294,15 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
+        rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
+
+    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+        CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
+        interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
+        rate.interestPerBlock = interestPerBlock;
+
     } else
-        rate.interestPerBlock += InterestPerBlockCalculation(loanIncreased, token->interest, scheme->rate, height);
+        rate.interestPerBlock += InterestPerBlockCalculationV1<CAmount>(loanIncreased, token->interest, scheme->rate);
 
     rate.height = height;
 
@@ -347,9 +342,15 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = InterestPerBlockCalculation(amounts.balances[id], token->interest, scheme->rate, height);
+        rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
+
+    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+        CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
+        CAmount newInterestPerBlock = std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate));
+        rate.interestPerBlock = std::max(CAmount{0}, interestPerBlock - newInterestPerBlock);
+
     } else {
-        auto interestPerBlock = InterestPerBlockCalculation(loanDecreased, token->interest, scheme->rate, height);
+        auto interestPerBlock = InterestPerBlockCalculationV1<CAmount>(loanDecreased, token->interest, scheme->rate);
         rate.interestPerBlock = rate.interestPerBlock < interestPerBlock ? 0
                               : rate.interestPerBlock - interestPerBlock;
     }
