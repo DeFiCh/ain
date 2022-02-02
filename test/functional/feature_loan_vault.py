@@ -24,7 +24,6 @@ class VaultTest (DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(120)
-        self.nodes[1].generate(120)
         self.nodes[0].createloanscheme(175, 3, 'LOAN0001')
         self.nodes[0].createloanscheme(150, 2.5, 'LOAN000A')
         self.nodes[0].createloanscheme(200, 2, 'LOAN0002')
@@ -65,27 +64,13 @@ class VaultTest (DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
         vaultId3 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
 
-        ownerAddress3 = self.nodes[1].getnewaddress('', 'legacy')
-        vaultId4 = self.nodes[1].createvault(ownerAddress3, 'LOAN0002')
-        vaultId5 = self.nodes[1].createvault(ownerAddress3, 'LOAN0003')
-        self.nodes[1].generate(1)
-        self.sync_all()
-
-        mineList = self.nodes[1].listvaults(options={'ownerAddress':'mine'})
-        assert(len(mineList) == 2)
-        self.nodes[1].closevault(vaultId4, ownerAddress3)
-        self.nodes[1].generate(1)
-        self.nodes[1].closevault(vaultId5, ownerAddress3)
-        self.nodes[1].generate(1)
-        self.sync_blocks()
-
         # check listvaults
         listVaults = self.nodes[0].listvaults()
-        assert(len(listVaults) == 5)
+        assert(len(listVaults) == 4)
 
         # check listVaults filter by ownerAddres
         listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2 })
-        assert(len(listVaults) == 4)
+        assert(len(listVaults) == 3)
         for vault in listVaults:
             assert(vault["ownerAddress"] == ownerAddress2)
 
@@ -155,7 +140,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].createvault(ownerAddress1, 'LOAN0002') # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 249" in errorString)
+        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 126" in errorString)
 
         # update
         try:
@@ -163,7 +148,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(vaultId2, params) # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 249" in errorString)
+        assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 126" in errorString)
 
         # update vault scheme
         newAddress = self.nodes[0].getnewaddress('', 'legacy')
@@ -382,7 +367,7 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['state'], "inLiquidation")
-        assert_equal(vault1['liquidationHeight'], 444)
+        assert_equal(vault1['liquidationHeight'], 324)
         assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
         assert_equal(vault1['batchCount'], 1)
 
