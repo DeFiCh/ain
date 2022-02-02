@@ -4,7 +4,7 @@
 
 #include <masternodes/consensus/governance.h>
 #include <masternodes/gv.h>
-#include <masternodes/mn_checks.h>
+#include <masternodes/masternodes.h>
 
 Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) const {
 

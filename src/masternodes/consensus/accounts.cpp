@@ -2,9 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <masternodes/accounts.h>
 #include <masternodes/balances.h>
 #include <masternodes/consensus/accounts.h>
-#include <masternodes/mn_checks.h>
 
 Res CAccountsConsensus::operator()(const CUtxosToAccountMessage& obj) const {
     // check enough tokens are "burnt"

@@ -167,6 +167,7 @@ DEFI_CORE_H = \
   masternodes/consensus/tokens.h \
   masternodes/consensus/txvisitor.h \
   masternodes/consensus/vaults.h \
+  masternodes/customtx.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -612,6 +613,7 @@ libdefi_common_a_SOURCES = \
   core_write.cpp \
   key.cpp \
   key_io.cpp \
+  masternodes/customtx.cpp \
   merkleblock.cpp \
   netaddress.cpp \
   netbase.cpp \

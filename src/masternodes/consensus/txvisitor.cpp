@@ -8,9 +8,10 @@
 
 #include <masternodes/accounts.h>
 #include <masternodes/consensus/txvisitor.h>
+#include <masternodes/customtx.h>
 #include <masternodes/icxorder.h>
+#include <masternodes/loan.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
@@ -294,4 +295,41 @@ bool CCustomTxVisitor::OraclePriceFeed(const CTokenCurrencyPair& priceFeed) cons
         return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
     });
     return found;
+}
+
+ResVal<CCollateralLoans> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const {
+
+    auto collateralsLoans = mnview.GetLoanCollaterals(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);
+    if (!collateralsLoans)
+        return collateralsLoans;
+
+    if (collateralsLoans.val->ratio() < scheme.ratio)
+        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme.ratio);
+
+    return collateralsLoans;
+}
+
+Res CCustomTxVisitor::CheckNextCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals) const {
+
+    for (int i = 0; i < 2; i++) {
+        // check ratio against current and active price
+        bool useNextPrice = i > 0, requireLivePrice = true;
+        auto collateralsLoans = CheckCollateralRatio(vaultId, scheme, collaterals, useNextPrice, requireLivePrice);
+        if (!collateralsLoans)
+            return std::move(collateralsLoans);
+
+        uint64_t totalDFI = 0;
+        for (auto& col : collateralsLoans.val->collaterals)
+            if (col.nTokenId == DCT_ID{0})
+                totalDFI += col.nValue;
+
+        if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
+            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                return Res::Err("At least 50%% of the collateral must be in DFI.");
+        } else {
+            if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme.ratio / 2)
+                return Res::Err("At least 50%% of the minimum required collateral must be in DFI.");
+        }
+    }
+    return Res::Ok();
 }

@@ -9,10 +9,13 @@
 #include <masternodes/balances.h>
 #include <masternodes/oracles.h>
 #include <masternodes/res.h>
+#include <masternodes/vault.h>
 
 struct CBalances;
 class CCoinsViewCache;
+class CCollateralLoans;
 class CCustomCSView;
+struct CLoanSchemeData;
 class CScript;
 class CTokenImplementation;
 class CTransaction;
@@ -57,6 +60,8 @@ protected:
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript& from, const CScript& to) const;
+    ResVal<CCollateralLoans> CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const;
+    Res CheckNextCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals) const;
 };
 
 #endif // DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H

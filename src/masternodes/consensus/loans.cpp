@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
+#include <consensus/params.h>
 #include <masternodes/accounts.h>
 #include <masternodes/consensus/loans.h>
 #include <masternodes/govvariables/attributes.h>
@@ -361,34 +361,9 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
             return res;
     }
 
+    LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
-
-    for (int i = 0; i < 2; i++) {
-        // check ratio against current and active price
-        bool useNextPrice = i > 0, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
-        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-        if (!collateralsLoans)
-            return std::move(collateralsLoans);
-
-        uint64_t totalDFI = 0;
-        for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
-
-        if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
-        } else {
-            if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                return Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.");
-        }
-
-        if (collateralsLoans.val->ratio() < scheme->ratio)
-            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
-    }
-
-    return Res::Ok();
+    return CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals);
 }
 
 Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
@@ -427,7 +402,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
         auto paybackAmount = kv.second;
         CAmount dfiUSDPrice{0};
 
-        if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0}) {
+        if (height >= consensus.FortCanningHillHeight && kv.first == DCT_ID{0}) {
             if (!allowDFIPayback || !tokenDUSD)
                 return Res::Err("Payback of DUSD loans with DFI not currently active");
 
@@ -500,7 +475,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
 
         CalculateOwnerRewards(obj.from);
 
-        if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0}) {
+        if (height < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
             res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
             if (!res)
                 return res;

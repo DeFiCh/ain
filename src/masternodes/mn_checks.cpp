@@ -29,65 +29,6 @@
 
 #include <algorithm>
 
-#define CustomTxTypeString(Type)          case CustomTxType::Type: return #Type
-#define CustomTxType2Strings(Type, Name)  case CustomTxType::Type: return #Name
-
-std::string ToString(CustomTxType type) {
-    switch (type) {
-        CustomTxTypeString(CreateMasternode);
-        CustomTxTypeString(ResignMasternode);
-        CustomTxTypeString(SetForcedRewardAddress);
-        CustomTxTypeString(RemForcedRewardAddress);
-        CustomTxTypeString(UpdateMasternode);
-        CustomTxTypeString(CreateToken);
-        CustomTxTypeString(UpdateToken);
-        CustomTxTypeString(UpdateTokenAny);
-        CustomTxTypeString(MintToken);
-        CustomTxTypeString(CreatePoolPair);
-        CustomTxTypeString(UpdatePoolPair);
-        CustomTxTypeString(PoolSwap);
-        CustomTxTypeString(AddPoolLiquidity);
-        CustomTxTypeString(RemovePoolLiquidity);
-        CustomTxTypeString(UtxosToAccount);
-        CustomTxTypeString(AccountToUtxos);
-        CustomTxTypeString(AccountToAccount);
-        CustomTxTypeString(AnyAccountsToAccounts);
-        CustomTxTypeString(SmartContract);
-        CustomTxTypeString(SetGovVariable);
-        CustomTxTypeString(SetGovVariableHeight);
-        CustomTxTypeString(AppointOracle);
-        CustomTxTypeString(RemoveOracleAppoint);
-        CustomTxTypeString(UpdateOracleAppoint);
-        CustomTxTypeString(SetOracleData);
-        CustomTxTypeString(ICXCreateOrder);
-        CustomTxTypeString(ICXMakeOffer);
-        CustomTxTypeString(ICXSubmitDFCHTLC);
-        CustomTxTypeString(ICXSubmitEXTHTLC);
-        CustomTxTypeString(ICXClaimDFCHTLC);
-        CustomTxTypeString(ICXCloseOrder);
-        CustomTxTypeString(ICXCloseOffer);
-        CustomTxTypeString(SetLoanCollateralToken);
-        CustomTxTypeString(SetLoanToken);
-        CustomTxTypeString(UpdateLoanToken);
-        CustomTxTypeString(LoanScheme);
-        CustomTxTypeString(DefaultLoanScheme);
-        CustomTxTypeString(DestroyLoanScheme);
-        CustomTxTypeString(Vault);
-        CustomTxTypeString(CloseVault);
-        CustomTxTypeString(UpdateVault);
-        CustomTxTypeString(DepositToVault);
-        CustomTxTypeString(WithdrawFromVault);
-        CustomTxTypeString(TakeLoan);
-        CustomTxTypeString(PaybackLoan);
-        CustomTxTypeString(AuctionBid);
-        CustomTxTypeString(Reject);
-        CustomTxTypeString(None);
-        CustomTxType2Strings(PoolSwapV2, PoolSwap);
-        CustomTxType2Strings(AutoAuthPrep, AutoAuth);
-    }
-    return "None";
-}
-
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType)
     {
@@ -373,11 +314,11 @@ public:
     }
 
     Res operator()(const CCreatePoolPairMessage& obj) const {
-        auto pool = mnview.GetPoolPair(obj.poolPair.idTokenA, obj.poolPair.idTokenB);
+        auto pool = mnview.GetPoolPair(obj.idTokenA, obj.idTokenB);
         if (!pool) {
             return Res::Err("no such poolPair tokenA %s, tokenB %s",
-                            obj.poolPair.idTokenA.ToString(),
-                            obj.poolPair.idTokenB.ToString());
+                            obj.idTokenA.ToString(),
+                            obj.idTokenB.ToString());
         }
         return mnview.RevertCreateToken(tx.GetHash());
     }

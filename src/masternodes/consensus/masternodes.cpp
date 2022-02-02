@@ -2,9 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
+#include <consensus/params.h>
 #include <masternodes/consensus/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <masternodes/masternodes.h>
 #include <primitives/transaction.h>
 
 Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const {
@@ -12,10 +12,10 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
     if (!res)
         return res;
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosHeight) && !HasAuth(tx.vout[1].scriptPubKey))
+    if (height >= static_cast<uint32_t>(consensus.EunosHeight) && !HasAuth(tx.vout[1].scriptPubKey))
         return Res::Err("masternode creation needs owner auth");
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight)) {
         switch(obj.timelock) {
             case CMasternode::ZEROYEAR:
             case CMasternode::FIVEYEAR:
@@ -43,7 +43,7 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
     node.operatorAuthAddress = obj.operatorAuthAddress;
 
     // Set masternode version2 after FC for new serialisation
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight))
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
         node.version = CMasternode::VERSION0;
 
     res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
@@ -51,11 +51,11 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
     if (!res)
         return res;
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight))
+    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight))
         for (uint8_t i{0}; i < SUBNODE_COUNT; ++i)
             mnview.SetSubNodesBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), i, time);
 
-    else if (height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight))
+    else if (height >= static_cast<uint32_t>(consensus.DakotaCrescentHeight))
         mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
 
     return Res::Ok();

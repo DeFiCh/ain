@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
+#include <consensus/params.h>
 #include <masternodes/balances.h>
 #include <masternodes/consensus/poolpairs.h>
 #include <masternodes/masternodes.h>
@@ -19,11 +19,12 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage& obj) const {
     if (!HasFoundationAuth())
         return Res::Err("tx not from foundation member");
 
-    if (obj.poolPair.commission < 0 || obj.poolPair.commission > COIN)
+    if (obj.commission < 0 || obj.commission > COIN)
         return Res::Err("wrong commission");
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?
-    CPoolPair poolPair(obj.poolPair);
+    CPoolPair poolPair{};
+    static_cast<CPoolPairMessageBase&>(poolPair) = obj;
     auto pairSymbol = obj.pairSymbol;
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
@@ -105,7 +106,7 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2& obj) const {
     if (!HasAuth(obj.swapInfo.from))
         return Res::Err("tx must have at least one input from account owner");
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3)
+    if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) && obj.poolIDs.size() > 3)
         return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
 
     return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);

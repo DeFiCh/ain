@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
+#include <consensus/params.h>
 #include <masternodes/consensus/oracles.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/oracles.h>
@@ -42,7 +42,7 @@ Res COraclesConsensus::operator()(const CSetOracleDataMessage& obj) const {
     if (!HasAuth(oracle.val->oracleAddress))
         return Res::Err("tx must have at least one input from account owner");
 
-    if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
+    if (height >= uint32_t(consensus.FortCanningHeight)) {
         for (const auto& tokenPrice : obj.tokenPrices)
             for (const auto& price : tokenPrice.second) {
                 if (price.second <= 0)

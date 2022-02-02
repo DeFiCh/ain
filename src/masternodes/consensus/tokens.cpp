@@ -3,8 +3,9 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <coins.h>
+#include <consensus/params.h>
 #include <masternodes/consensus/tokens.h>
-#include <masternodes/mn_checks.h>
+#include <masternodes/masternodes.h>
 #include <masternodes/tokens.h>
 #include <primitives/transaction.h>
 

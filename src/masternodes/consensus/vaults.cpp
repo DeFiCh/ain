@@ -2,7 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
 #include <masternodes/accounts.h>
 #include <masternodes/consensus/vaults.h>
 #include <masternodes/masternodes.h>
@@ -116,18 +115,16 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage& obj) const {
 
     // don't allow scheme change when vault is going to be in liquidation
     if (vault->schemeId != obj.schemeId)
-        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
+            auto scheme = mnview.GetLoanScheme(obj.schemeId);
+            LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
             for (int i = 0; i < 2; i++) {
-                LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
                 bool useNextPrice = i > 0, requireLivePrice = true;
-                auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+                auto collateralsLoans = CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
                 if (!collateralsLoans)
                     return std::move(collateralsLoans);
-
-                auto scheme = mnview.GetLoanScheme(obj.schemeId);
-                if (collateralsLoans.val->ratio() < scheme->ratio)
-                    return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
             }
+        }
 
     vault->schemeId = obj.schemeId;
     vault->ownerAddress = obj.ownerAddress;
@@ -162,19 +159,11 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage& obj) const {
     if (!res)
         return res;
 
-    bool useNextPrice = false, requireLivePrice = false;
-    auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-
     LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
-    auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-    if (!collateralsLoans)
-        return std::move(collateralsLoans);
-
+    bool useNextPrice = false, requireLivePrice = false;
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
-    if (collateralsLoans.val->ratio() < scheme->ratio)
-        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
-
-    return Res::Ok();
+    auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+    return CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
 }
 
 Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage& obj) const {
@@ -209,34 +198,10 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage& obj) const {
     if (!collaterals)
         return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
 
+    LogPrint(BCLog::LOAN,"CWithdrawFromVaultMessage():\n");
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
-
-    for (int i = 0; i < 2; i++) {
-        // check collaterals for active and next price
-        bool useNextPrice = i > 0, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"CWithdrawFromVaultMessage():\n");
-        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-        if (!collateralsLoans)
-            return std::move(collateralsLoans);
-
-        uint64_t totalDFI = 0;
-        for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
-
-        if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                return Res::Err("At least 50%% of the collateral must be in DFI");
-        } else {
-            if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
-        }
-
-        if (collateralsLoans.val->ratio() < scheme->ratio)
-            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
-    }
-
-    return mnview.AddBalance(obj.to, obj.amount);
+    res = CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals);
+    return !res ? res : mnview.AddBalance(obj.to, obj.amount);
 }
 
 Res CVaultsConsensus::operator()(const CAuctionBidMessage& obj) const {
