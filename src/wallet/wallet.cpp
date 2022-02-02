@@ -2489,12 +2489,6 @@ CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-static void PrintUTXOSet(std::vector<COutput>& vCoins) {
-    for (const auto& coin : vCoins) {
-        LogPrintf("XXX UTXOS hash %s vout %d\n", coin.tx->GetHash().ToString(), coin.i);
-    }
-}
-
 void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<COutput>& vCoins, bool fOnlySafe, const CCoinControl* coinControl, const CAmount& nMinimumAmount, const CAmount& nMaximumAmount, const CAmount& nMinimumSumAmount, const uint64_t nMaximumCount) const
 {
     AssertLockHeld(cs_wallet);
@@ -2626,12 +2620,10 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
 
             // Checks the maximum number of UTXO's.
             if (nMaximumCount > 0 && vCoins.size() >= nMaximumCount) {
-                PrintUTXOSet(vCoins);
                 return;
             }
         }
     }
-    PrintUTXOSet(vCoins);
 }
 
 /// @todo tokens: used only in listCoins by qt, so, limit with token = 0????
