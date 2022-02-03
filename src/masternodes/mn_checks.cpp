@@ -1290,9 +1290,6 @@ public:
         }
 
         const auto symbolLength = height >= static_cast<uint32_t>(consensus.FortCanningHeight) ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
-        if (pairSymbol.length() > symbolLength) {
-            return Res::Err("pairSymbol is larger than %s", symbolLength);
-        }
         if (pairSymbol.empty()) {
             pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {

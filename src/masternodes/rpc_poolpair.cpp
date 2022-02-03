@@ -594,6 +594,11 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         targetHeight = ::ChainActive().Height() + 1;
     }
 
+    const auto symbolLength = targetHeight >= Params().GetConsensus().FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+    if(pairSymbol.length() > symbolLength){
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
+    }
+
     CPoolPairMessage poolPairMsg;
     poolPairMsg.idTokenA = idtokenA;
     poolPairMsg.idTokenB = idtokenB;
