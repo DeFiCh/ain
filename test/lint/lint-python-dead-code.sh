@@ -13,7 +13,11 @@ if ! command -v vulture > /dev/null; then
     exit 0
 fi
 
-vulture \
-    --min-confidence 60 \
-    $(git rev-parse --show-toplevel) \
-    $(dirname "${BASH_SOURCE[0]}")/lint-python-dead-code-whitelist
+# --min-confidence 100 will only report code that is guaranteed to be unused within the analyzed files.
+# Any value below 100 introduces the risk of false positives, which would create an unacceptable maintenance burden.
+if ! vulture \
+    --min-confidence 100 \
+    $(git ls-files -- "*.py"); then
+    echo "Python dead code detection found some issues"
+    exit 1
+fi
