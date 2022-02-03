@@ -383,8 +383,11 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
         auto coin = coins.find(txin.prevout);
-        if (coin == coins.end() || coin->second.IsSpent()) {
-            TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
+        if (coin == coins.end()) {
+            TxInErrorToJSON(txin, vErrors, "Input not found");
+            continue;
+        } else if (coin->second.IsSpent()) {
+            TxInErrorToJSON(txin, vErrors, "Input already spent");
             continue;
         }
         const CScript& prevPubKey = coin->second.out.scriptPubKey;
