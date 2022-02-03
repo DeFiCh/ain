@@ -836,18 +836,29 @@ static UniValue clearmempool(const JSONRPCRequest& request)
     std::vector<uint256> vtxid;
     mempool.queryHashes(vtxid);
 
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+        std::vector<uint256> vHashOut;
+        if (pwallet->ZapSelectTx(vtxid, vHashOut) != DBErrors::LOAD_OK) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not delete mempool transactions from wallet");
+        }
+    }
+
+    {
+        LOCK(mempool.cs);
+        mempool.clear();
+    }
+
     UniValue removed(UniValue::VARR);
-    for (const uint256& hash : vtxid)
+    for (const uint256& hash : vtxid) {
         removed.push_back(hash.ToString());
-
-    LOCK(cs_main);
-    mempool.clear();
-
-    std::vector<uint256> vHashOut;
-    pwallet->ZapSelectTx(vtxid, vHashOut);
+    }
 
     return removed;
 }
+
 
 static const CRPCCommand commands[] =
 {
