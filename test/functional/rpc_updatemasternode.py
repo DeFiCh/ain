@@ -330,10 +330,15 @@ class TestForcedRewardAddress(DefiTestFramework):
         mn6_owner = self.nodes[0].getnewaddress("", "legacy")
 
         mn1 = self.nodes[0].createmasternode(mn1_owner)
+        self.nodes[0].generate(1)
         mn2 = self.nodes[0].createmasternode(mn2_owner)
+        self.nodes[0].generate(1)
         mn3 = self.nodes[0].createmasternode(mn3_owner)
+        self.nodes[0].generate(1)
         mn4 = self.nodes[0].createmasternode(mn4_owner)
+        self.nodes[0].generate(1)
         mn5 = self.nodes[0].createmasternode(mn5_owner)
+        self.nodes[0].generate(1)
         mn6 = self.nodes[0].createmasternode(mn6_owner)
         self.nodes[0].generate(11)
 
