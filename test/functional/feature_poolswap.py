@@ -354,6 +354,8 @@ class PoolPairTest (DefiTestFramework):
         }, [])
         self.nodes[0].generate(1)
 
+        idBL = list(self.nodes[0].gettoken("BTC-LTC").keys())[0]
+
         self.nodes[0].addpoolliquidity({
             accountGN0: ["1@" + symbolBTC, "100@" + symbolLTC]
         }, accountGN0, [])
@@ -481,6 +483,14 @@ class PoolPairTest (DefiTestFramework):
 
         pool = self.nodes[0].getpoolpair("GS")[idGS]
         assert_equal(reserveA, pool['reserveA'])
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'}})
+        self.nodes[0].generate(1)
+
+        print(self.nodes[0].getblockcount())
+        print(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'])
+
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'})
 
         # REVERTING:
         #========================
