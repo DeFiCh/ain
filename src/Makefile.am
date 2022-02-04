@@ -684,7 +684,6 @@ defid_LDADD = \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
@@ -750,7 +749,6 @@ defi_wallet_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_ZMQ) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
   $(LIBUNIVALUE)
@@ -786,6 +784,7 @@ CLEANFILES = $(EXTRA_LIBRARIES)
 CLEANFILES += *.gcda *.gcno
 CLEANFILES += compat/*.gcda compat/*.gcno
 CLEANFILES += consensus/*.gcda consensus/*.gcno
+CLEANFILES += crc32c/src/*.gcda crc32c/src/*.gcno
 CLEANFILES += crypto/*.gcda crypto/*.gcno
 CLEANFILES += policy/*.gcda policy/*.gcno
 CLEANFILES += primitives/*.gcda primitives/*.gcno
@@ -831,9 +830,8 @@ if HARDEN
 	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py < $(bin_PROGRAMS)
 endif
 
-if EMBEDDED_LEVELDB
+include Makefile.crc32c.include
 include Makefile.leveldb.include
-endif
 
 if ENABLE_TESTS
 include Makefile.test.include
