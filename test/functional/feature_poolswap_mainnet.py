@@ -9,7 +9,9 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
+from decimal import Decimal
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
@@ -102,6 +104,37 @@ class PoolPairTest (DefiTestFramework):
         self.mint_tokens(100000000)
         self.create_pool_pairs()
         self.add_liquidity()
+
+    def test_swap_with_wrong_amounts(self):
+        from_address = self.account_gs
+        from_account = self.nodes[0].getaccount(from_address)
+        to_address = self.nodes[0].getnewaddress("")
+        assert_equal(from_account[1], '45000000.00000000@GOLD#128')
+        # try swap negative amount
+        try:
+            self.nodes[0].poolswap({
+                "from": self.account_gs,
+                "tokenFrom": self.symbol_key_GOLD,
+                "amountFrom": Decimal('-0.00000001'),
+                "to": to_address,
+                "tokenTo": self.symbol_key_SILVER,
+            },[])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Amount out of range' in errorString)
+
+        #try swap too small amount
+        try:
+            self.nodes[0].poolswap({
+                "from": self.account_gs,
+                "tokenFrom": self.symbol_key_GOLD,
+                "amountFrom": Decimal('0.000000001'),
+                "to": to_address,
+                "tokenTo": self.symbol_key_SILVER,
+            },[])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Invalid amount' in errorString)
 
 
     def test_simple_swap_1Satoshi(self):
@@ -204,6 +237,7 @@ class PoolPairTest (DefiTestFramework):
     def run_test(self):
         self.setup()
 
+        self.test_swap_with_wrong_amounts()
         self.test_simple_swap_1Satoshi()
         self.test_200_simple_swaps_1Satoshi()
         self.test_compositeswap_1Satoshi()
