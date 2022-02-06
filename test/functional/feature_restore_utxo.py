@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, disconnect_nodes
 import time
 
 class TestRestoreUTXOs(DefiTestFramework):
@@ -18,46 +18,12 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1'],
                            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
 
-    def clearmempool(self, node: int):
-        try:
-            self.nodes[node].clearmempool()
-        except JSONRPCException as e:
-            return False
-        return True
-
-    def account_to_account(self, node: int, soure, destination):
-        try:
-            self.nodes[node].accounttoaccount(soure, {destination: "1@BTC"})
-        except JSONRPCException as e:
-            return False
-        return True
-
-    def account_to_account_loop(self, node: int, soure, destination):
-        count = 0
-        while not self.account_to_account(node, soure, destination):
-            if count == 5:
-                return False
-            else:
-                count += 1
-                time.sleep(1)
-        return True
-
-
     def rollback(self, count):
-        block = self.nodes[0].getblockhash(count)
-        self.nodes[0].invalidateblock(block)
+        block = self.nodes[1].getblockhash(count)
         self.nodes[1].invalidateblock(block)
-        assert(len(self.nodes[0].getrawmempool()) > 0)
-        assert(len(self.nodes[1].getrawmempool()) > 0)
-        while not self.clearmempool(0):
-            pass
-        while not self.clearmempool(1):
-            pass
-        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        self.nodes[1].clearmempool()
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
-        assert_equal(self.nodes[0].getblockcount(), count - 1)
         assert_equal(self.nodes[1].getblockcount(), count - 1)
-        self.sync_blocks()
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -82,6 +48,7 @@ class TestRestoreUTXOs(DefiTestFramework):
         # Fund account
         self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {node1_source: "1@BTC"})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check UTXO
         assert_equal(len(self.nodes[1].listunspent()), 1)
@@ -103,25 +70,18 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.nodes[1].clearmempool()
 
         # Set up for rollback tests
-        node0_source = self.nodes[0].getnewaddress("", "legacy")
-        node0_destination = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {node0_source: "1@BTC"})
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-        block = self.nodes[0].getblockcount() + 1
-        node0_utxos = len(self.nodes[0].listunspent())
+        disconnect_nodes(self.nodes[0], 1)
+        block = self.nodes[1].getblockcount() + 1
         node1_utxos = len(self.nodes[1].listunspent())
 
         # Test rollbacks
-        for x in range(50):
-            assert(self.account_to_account_loop(0, node0_source, node0_destination))
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            assert(self.account_to_account_loop(1, node1_source, node1_destination))
-            self.nodes[1].generate(1)
-            self.sync_blocks()
+        for _ in range(2):
+            for _ in range(5):
+                self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
+                self.nodes[1].generate(1)
+                self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
+                self.nodes[1].generate(1)
             self.rollback(block)
-            assert_equal(len(self.nodes[0].listunspent()), node0_utxos)
             assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
 
 if __name__ == '__main__':
