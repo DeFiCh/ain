@@ -3970,57 +3970,12 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             state = CValidationState();
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
+                    // The block violates a consensus rule.
+                    if (state.GetReason() != ValidationInvalidReason::BLOCK_MUTATED) {
+                        InvalidChainFound(vpindexToConnect.front());
+                    }
                     fContinue = false;
-                    if (state.GetRejectReason() == "high-hash"
-                    || (pindexConnect == pindexMostWork
-                    && pindexConnect->nHeight >= chainparams.GetConsensus().FortCanningParkHeight
-                    && state.GetRejectCode() == REJECT_CUSTOMTX)) {
-                        UpdateMempoolForReorg(disconnectpool, false);
-                        return false;
-                    }
                     fInvalidFound = true;
-                    InvalidChainFound(vpindexToConnect.front());
-                    if (state.GetReason() == ValidationInvalidReason::BLOCK_MUTATED) {
-                        // prior EunosHeight we shoutdown node on mutated block
-                        if (ShutdownRequested()) {
-                            return false;
-                        }
-                        // now block cannot be part of blockchain either
-                        // but it can be produced by outdated/malicious masternode
-                        // so we should not shutdown entire network
-                        if (auto blockIndex = ChainActive()[vpindexToConnect.front()->nHeight]) {
-                            auto checkPoint = GetLastCheckpoint(chainparams.Checkpoints());
-                            if (checkPoint && blockIndex->nHeight > checkPoint->nHeight) {
-                                disconnectBlocksTo(blockIndex);
-                            }
-                        }
-                    }
-                    if (pindexConnect == pindexMostWork
-                    && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
-                    || state.GetRejectCode() == REJECT_CUSTOMTX)) {
-                        // NOTE: Invalidate blocks back to last checkpoint
-                        auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-                        //calculate the latest suitable checkpoint block height
-                        auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
-                        auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
-
-                        CBlockIndex *blockIndex = nullptr;
-                        //check spv and anchors are available and try it first
-                        if (spv::pspv && panchors) {
-                            auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
-                            if (fallbackAnchor && (fallbackAnchor->anchor.height > fallbackCheckpointBlockHeight)) {
-                                blockIndex = LookupBlockIndex(fallbackAnchor->anchor.blockHash);
-                            }
-                        }
-                        if (!blockIndex && fallbackCheckpointBlockHeight > 0) {// it doesn't makes sense backward to genesis
-                            blockIndex = LookupBlockIndex(checkpointIt->second);
-                        }
-                        //fallback
-                        if (blockIndex) {
-                            if (!disconnectBlocksTo(blockIndex))
-                                return false;
-                        }
-                    }
                     break;
                 } else {
                     // A system error occurred (disk space, database error, ...).
