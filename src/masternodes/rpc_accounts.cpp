@@ -1203,6 +1203,91 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     return slice;
 }
 
+UniValue getaccounthistory(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"getaccounthistory",
+               "\nReturns information about account history.\n",
+               {
+                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Single account ID (CScript or address)."},
+                    {"blockHeight", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Height to iterate from (downto genesis block)."},
+                    {"txn", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "for order in block."},
+               },
+               RPCResult{
+                       "{}  An object with account history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getaccounthistory", "cscript 160 10")
+                       + HelpExampleCli("getaccounthistory", "cscript, 160, 10")
+               },
+    }.Check(request);
+
+    std::string accountId = request.params[0].getValStr();
+    CScript owner = DecodeScript(accountId);
+    uint32_t blockHeight = std::stoul(request.params[1].getValStr());
+    uint32_t txn = std::stoul(request.params[2].getValStr());
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    LOCK(cs_main);
+    CCustomCSView view(*pcustomcsview);
+    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+
+    UniValue ret(UniValue::VOBJ);
+
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
+        if (owner == key.owner && blockHeight == key.blockHeight && txn == key.txn) {
+            const auto & value = valueLazy.get();
+            ret = accounthistoryToJSON(key, value);
+        }
+        return false;
+    };
+
+    AccountHistoryKey startKey{owner, blockHeight, txn};
+
+    // revert previous tx to restore account balances to maxBlockHeight
+    paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
+        if (startKey.blockHeight > key.blockHeight) {
+            return false;
+        }
+        if (owner != key.owner) {
+            return false;
+        }
+        CScopeAccountReverter(view, key.owner, value.diff);
+        return true;
+    }, {owner, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
+
+    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+
+    if(ret.empty()) {
+        uint32_t count = 100;
+        isminetype filter = ISMINE_ALL;
+        searchInWallet(pwallet, owner, filter,
+            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
+                return index->nHeight > blockHeight;
+            },
+            [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                if (accountId == EncodeDestination(entry.destination) && blockHeight == index->nHeight && txn == entry.vout) {
+                    ret = outputEntryToJSON(entry, index, pwtx);
+                    return true;
+                }
+                else {
+                    return --count != 0;
+                }
+            }
+        );
+    }
+
+    return ret;
+}
+
 UniValue listburnhistory(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -1974,6 +2059,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "getaccounthistory",     &getaccounthistory,     {"owner", "blockHeight", "txn"}},
     {"accounts",    "listburnhistory",       &listburnhistory,       {"options"}},
     {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
