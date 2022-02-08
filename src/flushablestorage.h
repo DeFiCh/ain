@@ -498,10 +498,6 @@ public:
     template<typename By, typename KeyType, typename ValueType>
     void ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = {}) {
         for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
-            if (ShutdownRequested()) {
-                break;
-            }
-
             if (!callback(it.Key(), it.Value())) {
                 break;
             }
