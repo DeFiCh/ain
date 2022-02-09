@@ -387,7 +387,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
     if (!IsVaultPriceValid(mnview, obj.vaultId, height))
         return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
-    auto penaltyPct = COIN;
     auto allowDFIPayback = false;
     auto shouldSetVariable = false;
     auto tokenDUSD = mnview.GetToken("DUSD");
@@ -400,7 +399,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
     for (const auto& kv : obj.amounts.balances) {
         DCT_ID tokenId = kv.first;
         auto paybackAmount = kv.second;
-        CAmount dfiUSDPrice{0};
+        CAmount dfiUSDPrice{0}, penaltyPct{COIN};
 
         if (height >= consensus.FortCanningHillHeight && kv.first == DCT_ID{0}) {
             if (!allowDFIPayback || !tokenDUSD)

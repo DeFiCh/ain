@@ -74,16 +74,8 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
         return std::move(resVal);
 
     const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
-
     res = mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI});
-    if (!res)
-        return res;
-
-    res = mnview.AddBalance(script, {{0}, totalDFI});
-    if (!res)
-        return res;
-
-    return Res::Ok();
+    return !res ? res : mnview.AddBalance(script, {{0}, totalDFI});
 }
 
 Res CSmartContractsConsensus::operator()(const CSmartContractMessage& obj) const {
