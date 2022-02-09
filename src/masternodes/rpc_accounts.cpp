@@ -1211,24 +1211,24 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
                {
                     {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Single account ID (CScript or address)."},
-                    {"blockHeight", RPCArg::Type::STR, RPCArg::Optional::NO,
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
                         "Height to iterate from (downto genesis block)."},
-                    {"txn", RPCArg::Type::STR, RPCArg::Optional::NO,
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
                         "for order in block."},
                },
                RPCResult{
                        "{}  An object with account history information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getaccounthistory", "cscript 160 10")
-                       + HelpExampleCli("getaccounthistory", "cscript, 160, 10")
+                       HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2")
+                       + HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")
                },
     }.Check(request);
 
     std::string accountId = request.params[0].getValStr();
     CScript owner = DecodeScript(accountId);
-    uint32_t blockHeight = std::stoul(request.params[1].getValStr());
-    uint32_t txn = std::stoul(request.params[2].getValStr());
+    uint32_t blockHeight = request.params[1].get_int();
+    uint32_t txn = request.params[2].get_int();
 
     if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
