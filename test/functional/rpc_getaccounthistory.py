@@ -55,34 +55,28 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         # Get node 0 results
         results = self.nodes[0].listaccounthistory(collateral_a)
 
-        # Expect two sends, two receives and one mint tokens
-        assert_equal(len(results), 5)
+        # An account history from listaccounthistory and gettaccounthistory must be matched
+        expected = results[0]
+        self.log.info("owner:%s blockHeight:%s txn:%s", expected['owner'], expected['blockHeight'], expected['txn'])
 
-        # Account history from listaccounthistory and gettaccounthistory must be matched
-        for txs in results:
-            self.log.info("owner:%s blockHeight:%s txn:%s", txs['owner'], txs['blockHeight'], txs['txn'])
-            history = self.nodes[0].getaccounthistory(txs['owner'], txs['blockHeight'], txs['txn'])
-            assert_equal('owner' in history, True)
-            assert_equal(history['owner'], txs['owner'])
-            assert_equal(history['blockHeight'], txs['blockHeight'])
-            assert_equal(history['txn'], txs['txn'])
-            assert_equal(history['txid'], txs['txid'])
+        history = self.nodes[0].getaccounthistory(expected['owner'], expected['blockHeight'], expected['txn'])
+        assert_equal(history['owner'], expected['owner'])
+        assert_equal(history['blockHeight'], expected['blockHeight'])
+        assert_equal(history['txn'], expected['txn'])
+        assert_equal(history['type'], expected['type'])
 
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
 
-        # Expect one mint token TX
-        assert_equal(len(results), 1)
+        # An account history from listaccounthistory and gettaccounthistory must be matched
+        expected = results[0]
+        self.log.info("owner:%s blockHeight:%s txn:%s", expected['owner'], expected['blockHeight'], expected['txn'])
 
-        # Account history from listaccounthistory and gettaccounthistory must be matched
-        for txs in results:
-            self.log.info("owner:%s blockHeight:%s txn:%s", txs['owner'], txs['blockHeight'], txs['txn'])
-            history = self.nodes[1].getaccounthistory(txs['owner'], txs['blockHeight'], txs['txn'])
-            assert_equal('owner' in history, True)
-            assert_equal(history['owner'], txs['owner'])
-            assert_equal(history['blockHeight'], txs['blockHeight'])
-            assert_equal(history['txn'], txs['txn'])
-            assert_equal(history['txid'], txs['txid'])
+        history = self.nodes[1].getaccounthistory(expected['owner'], expected['blockHeight'], expected['txn'])
+        assert_equal(history['owner'], expected['owner'])
+        assert_equal(history['blockHeight'], expected['blockHeight'])
+        assert_equal(history['txn'], expected['txn'])
+        assert_equal(history['type'], expected['type'])
 
 if __name__ == '__main__':
     TokensRPCGetAccountHistory().main ()

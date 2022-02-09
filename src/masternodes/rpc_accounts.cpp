@@ -1225,8 +1225,8 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    std::string accountId = request.params[0].getValStr();
-    CScript owner = DecodeScript(accountId);
+    std::string ownerHexStr = request.params[0].getValStr();
+    CScript owner = DecodeScript(ownerHexStr);
     uint32_t blockHeight = request.params[1].get_int();
     uint32_t txn = request.params[2].get_int();
 
@@ -1240,12 +1240,12 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
-    UniValue ret(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ);
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (owner == key.owner && blockHeight == key.blockHeight && txn == key.txn) {
             const auto & value = valueLazy.get();
-            ret = accounthistoryToJSON(key, value);
+            result = accounthistoryToJSON(key, value);
         }
         return false;
     };
@@ -1266,26 +1266,7 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
 
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
-    if(ret.empty()) {
-        uint32_t count = 100;
-        isminetype filter = ISMINE_ALL;
-        searchInWallet(pwallet, owner, filter,
-            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return index->nHeight > blockHeight;
-            },
-            [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                if (accountId == EncodeDestination(entry.destination) && blockHeight == index->nHeight && txn == entry.vout) {
-                    ret = outputEntryToJSON(entry, index, pwtx);
-                    return true;
-                }
-                else {
-                    return --count != 0;
-                }
-            }
-        );
-    }
-
-    return ret;
+    return result;
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {
