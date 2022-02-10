@@ -1204,7 +1204,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 }
 
 UniValue getaccounthistory(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"getaccounthistory",
                "\nReturns information about account history.\n",
@@ -1225,46 +1224,21 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    std::string ownerHexStr = request.params[0].getValStr();
-    CScript owner = DecodeScript(ownerHexStr);
-    uint32_t blockHeight = request.params[1].get_int();
-    uint32_t txn = request.params[2].get_int();
-
     if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
-    pwallet->BlockUntilSyncedToCurrentChain();
+    auto owner = DecodeScript(request.params[0].getValStr());
+    uint32_t blockHeight = request.params[1].get_int();
+    uint32_t txn = request.params[2].get_int();
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
-    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
     UniValue result(UniValue::VOBJ);
-
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
-        if (owner == key.owner && blockHeight == key.blockHeight && txn == key.txn) {
-            const auto & value = valueLazy.get();
-            result = accounthistoryToJSON(key, value);
-        }
-        return false;
-    };
-
-    AccountHistoryKey startKey{owner, blockHeight, txn};
-
-    // revert previous tx to restore account balances to maxBlockHeight
-    paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
-        if (startKey.blockHeight > key.blockHeight) {
-            return false;
-        }
-        if (owner != key.owner) {
-            return false;
-        }
-        CScopeAccountReverter(view, key.owner, value.diff);
-        return true;
-    }, {owner, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
-
-    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    AccountHistoryKey AccountKey{owner, blockHeight, txn};
+    if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
+        result = accounthistoryToJSON(AccountKey, *value);
+    }
 
     return result;
 }
