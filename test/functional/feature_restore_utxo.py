@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, disconnect_nodes
 
 class TestRestoreUTXOs(DefiTestFramework):
     def set_test_params(self):
@@ -17,12 +17,11 @@ class TestRestoreUTXOs(DefiTestFramework):
                            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
 
     def rollback(self, count):
-        block = self.nodes[0].getblockhash(count)
-        self.nodes[0].invalidateblock(block)
+        block = self.nodes[1].getblockhash(count)
         self.nodes[1].invalidateblock(block)
-        self.nodes[0].clearmempool()
         self.nodes[1].clearmempool()
-        self.sync_blocks()
+        assert_equal(len(self.nodes[1].getrawmempool()), 0)
+        assert_equal(self.nodes[1].getblockcount(), count - 1)
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -47,6 +46,7 @@ class TestRestoreUTXOs(DefiTestFramework):
         # Fund account
         self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {node1_source: "1@BTC"})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check UTXO
         assert_equal(len(self.nodes[1].listunspent()), 1)
@@ -68,22 +68,19 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.nodes[1].clearmempool()
 
         # Set up for rollback tests
-        node0_source = self.nodes[0].getnewaddress("", "legacy")
-        node0_destination = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {node0_source: "1@BTC"})
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-        block = self.nodes[0].getblockcount() + 1
+        disconnect_nodes(self.nodes[0], 1)
+        block = self.nodes[1].getblockcount() + 1
+        node1_utxos = len(self.nodes[1].listunspent())
 
         # Test rollbacks
-        for x in range(50):
-            self.nodes[0].accounttoaccount(node0_source, {node0_destination: "1@BTC"})
-            self.nodes[0].generate(1)
-            self.sync_blocks()
-            self.nodes[1].accounttoaccount(node1_source, {node1_destination: "1@BTC"})
-            self.nodes[1].generate(1)
-            self.sync_blocks()
+        for _ in range(2):
+            for _ in range(5):
+                self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
+                self.nodes[1].generate(1)
+                self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
+                self.nodes[1].generate(1)
             self.rollback(block)
+            assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
 
 if __name__ == '__main__':
     TestRestoreUTXOs().main()
