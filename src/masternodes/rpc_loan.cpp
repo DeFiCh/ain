@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-#include "masternodes/govvariables/attributes.h"
+#include <masternodes/govvariables/attributes.h>
 
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern UniValue listauctions(const JSONRPCRequest& request);
