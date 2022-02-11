@@ -17,7 +17,7 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
     MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
-    MAKE_COMPILER=${MAKE_COMPILER:-"CC=clang CXX=clang++"}
+    MAKE_COMPILER=${MAKE_COMPILER:-"CC=clang-11 CXX=clang++-11"}
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
