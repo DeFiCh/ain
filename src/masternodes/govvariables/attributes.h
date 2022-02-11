@@ -8,8 +8,12 @@
 #include <amount.h>
 #include <masternodes/balances.h>
 #include <masternodes/gv.h>
+#include <masternodes/oracles.h>
 
 #include <variant>
+
+class CLoanSetLoanTokenImplementation;
+class CLoanSetCollateralTokenImplementation;
 
 enum VersionTypes : uint8_t {
     v0 = 0,
@@ -38,8 +42,13 @@ enum DFIP2201Keys : uint8_t  {
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI       = 'a',
-    PaybackDFIFeePCT = 'b',
+    PaybackDFI            = 'a',
+    PaybackDFIFeePCT      = 'b',
+    FixedIntervalPriceId  = 'c',
+    LoanCollateralEnabled = 'd',
+    LoanCollateralFactor  = 'e',
+    LoanMintingEnabled    = 'f',
+    LoanMintingInterest   = 'g',
 };
 
 enum PoolKeys : uint8_t {
@@ -77,12 +86,15 @@ struct CDataStructureV1 {
 };
 
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair>;
+
+std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id);
+std::optional<CLoanSetCollateralTokenImplementation> GetCollateralTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id);
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
-    virtual ~ATTRIBUTES() override {}
+    ~ATTRIBUTES() override = default;
 
     std::string GetName() const override {
         return TypeName();
@@ -116,6 +128,7 @@ public:
     }
 
     std::map<CAttributeType, CAttributeValue> attributes;
+    uint32_t time{0};
 
 private:
     // Defined allowed arguments
@@ -136,8 +149,13 @@ private:
     inline static const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
         {
             AttributeTypes::Token, {
-                {"payback_dfi",         TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
+                {"payback_dfi",             TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
+                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
+                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
+                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
+                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
+                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
             }
         },
         {
@@ -175,8 +193,13 @@ private:
     inline static const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,       "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
+                {TokenKeys::PaybackDFI,            "payback_dfi"},
+                {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
+                {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
+                {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
+                {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
+                {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
+                {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
             }
         },
         {

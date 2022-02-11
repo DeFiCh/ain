@@ -6,20 +6,19 @@
 
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
+#include <masternodes/mn_checks.h> /// GetAggregatePrice
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
 
-template<typename T>
-static std::string KeyBuilder(const T& value){
-    std::ostringstream oss;
-    oss << value;
-    return oss.str();
-}
-
-template<typename T, typename ... Args >
-static std::string KeyBuilder(const T& value, const Args& ... args){
-    return KeyBuilder(value) + '/' + KeyBuilder(args...);
+static inline std::string trim_all_ws(std::string s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
 }
 
 static std::vector<std::string> KeyBreaker(const std::string& str){
@@ -58,6 +57,26 @@ static ResVal<CAmount> VerifyPct(const std::string& str) {
         return Res::Err("Percentage exceeds 100%%");
     }
     return resVal;
+}
+
+static ResVal<CTokenCurrencyPair> VerifyCurrencyPair(const std::string& str) {
+    const auto value = KeyBreaker(str);
+    if (value.size() != 2) {
+        return Res::Err("Exactly two entires expected for currency pair");
+    }
+    auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    if (token.empty() || currency.empty()) {
+        return Res::Err("Empty token / currency");
+    }
+    return {{token, currency}, Res::Ok()};
+}
+
+static ResVal<std::string> VerifyBool(const std::string& str) {
+    if (str != "true" && str != "false") {
+        return Res::Err(R"(Value must be either "true" or "false")");
+    }
+    return {str, Res::Ok()};
 }
 
 static Res ShowError(const std::string& key, const std::map<std::string, uint8_t>& keys) {
@@ -139,12 +158,43 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
 
     if (type == AttributeTypes::Token) {
         if (typeKey == TokenKeys::PaybackDFI) {
-            if (value != "true" && value != "false") {
-                return Res::Err("Payback DFI value must be either \"true\" or \"false\"");
+            auto res = VerifyBool(value);
+            if (!res) {
+                return std::move(res);
             }
-            attribValue = value == "true";
+            attribValue = *res.val == "true";
         } else if (typeKey == TokenKeys::PaybackDFIFeePCT) {
             auto res = VerifyPct(value);
+            if (!res) {
+                return std::move(res);
+            }
+            attribValue = *res.val;
+        } else if (typeKey == TokenKeys::FixedIntervalPriceId) {
+            auto res = VerifyCurrencyPair(value);
+            if (!res) {
+                return std::move(res);
+            }
+            attribValue = *res.val;
+        } else if (typeKey == TokenKeys::LoanCollateralEnabled) {
+            auto res = VerifyBool(value);
+            if (!res) {
+                return std::move(res);
+            }
+            attribValue = *res.val == "true";
+        } else if (typeKey == TokenKeys::LoanCollateralFactor) {
+            auto res = VerifyPct(value);
+            if (!res) {
+                return std::move(res);
+            }
+            attribValue = *res.val;
+        } else if (typeKey == TokenKeys::LoanMintingEnabled) {
+            auto res = VerifyBool(value);
+            if (!res) {
+                return std::move(res);
+            }
+            attribValue = *res.val == "true";
+        } else if (typeKey == TokenKeys::LoanMintingInterest) {
+            auto res = VerifyFloat(value);
             if (!res) {
                 return std::move(res);
             }
@@ -166,10 +216,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     } else if (type == AttributeTypes::Param) {
         if (typeId == ParamIDs::DFIP2201) {
             if (typeKey == DFIP2201Keys::Active) {
-                if (value != "true" && value != "false") {
-                    return Res::Err("DFIP2201 actve value must be either \"true\" or \"false\"");
+                auto res = VerifyBool(value);
+                if (!res) {
+                    return std::move(res);
                 }
-                attribValue = value == "true";
+                attribValue = *res.val == "true";
             } else if (typeKey == DFIP2201Keys::Premium) {
                 auto res = VerifyPct(value);
                 if (!res) {
@@ -248,6 +299,8 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, KeyBuilder(uvalue.get_real()));
             } else if (auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
+            } else if (auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -273,6 +326,24 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     uint32_t tokenId = attrV0->typeId;
                     if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
                         return Res::Err("No such loan token (%d)", tokenId);
+                    }
+                } else if (attrV0->key == TokenKeys::LoanCollateralEnabled ||
+                           attrV0->key == TokenKeys::LoanCollateralFactor ||
+                           attrV0->key == TokenKeys::LoanMintingEnabled ||
+                           attrV0->key == TokenKeys::LoanMintingInterest) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                        return Res::Err("Cannot be set before GreatWorld");
+                    }
+                } else if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                        return Res::Err("Cannot be set before GreatWorld");
+                    }
+                    if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                        if (!OraclePriceFeed(const_cast<CCustomCSView&>(view), *currencyPair)) {
+                            return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first, currencyPair->second);
+                        }
+                    } else {
+                        return Res::Err("Unrecognised value for FixedIntervalPriceId");
                     }
                 } else {
                     return Res::Err("Unsupported key");
@@ -319,21 +390,90 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
-        if (attrV0 && attrV0->type == AttributeTypes::Poolpairs) {
-            uint32_t poolId = attrV0->typeId;
-            auto pool = mnview.GetPoolPair(DCT_ID{poolId});
-            if (!pool) {
-                return Res::Err("No such pool (%d)", poolId);
-            }
-            auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
-                                        pool->idTokenA : pool->idTokenB;
+        if (attrV0) {
+            if (attrV0->type == AttributeTypes::Poolpairs) {
+                uint32_t poolId = attrV0->typeId;
+                auto pool = mnview.GetPoolPair(DCT_ID{poolId});
+                if (!pool) {
+                    return Res::Err("No such pool (%d)", poolId);
+                }
+                auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                               pool->idTokenA : pool->idTokenB;
 
-            auto valuePct = std::get<CAmount>(attribute.second);
-            auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
-            if (!res) {
-                return res;
+                auto valuePct = std::get<CAmount>(attribute.second);
+                auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
+                if (!res) {
+                    return res;
+                }
+            } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::FixedIntervalPriceId) {
+                if (const auto& currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                    CFixedIntervalPrice fixedIntervalPrice;
+                    fixedIntervalPrice.priceFeedId = *currencyPair;
+                    fixedIntervalPrice.timestamp = time;
+                    fixedIntervalPrice.priceRecord[1] = -1;
+                    const auto aggregatePrice = GetAggregatePrice(mnview,
+                                                            fixedIntervalPrice.priceFeedId.first,
+                                                            fixedIntervalPrice.priceFeedId.second,
+                                                            time);
+                    if (aggregatePrice) {
+                        fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+                    }
+                    mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+                }
             }
         }
     }
     return Res::Ok();
+}
+
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> GetLoanTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id) {
+    if (const auto token = view.GetToken(id)) {
+        if (const auto attributes = view.GetAttributes()) {
+            CLoanView::CLoanSetLoanTokenImpl loanToken;
+
+            // Get currency pair from map
+            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+
+            if (loanToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
+                // Get interest from map
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+
+                // Get mintable from map
+                CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                loanToken.mintable = attributes->GetValue(mintableKey, bool{});
+
+                loanToken.symbol = token->symbol;
+                loanToken.name = token->name;
+
+                return loanToken;
+            }
+        }
+    }
+
+    return {};
+}
+
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id) {
+    if (const auto attributes = view.GetAttributes()) {
+        CLoanSetCollateralTokenImplementation collToken;
+
+        // Get currency pair from map
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+
+        if (collToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
+            // Get factor from map
+            CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
+            collToken.factor = attributes->GetValue(factorKey, CAmount{});
+
+            collToken.idToken = id;
+
+            return collToken;
+        }
+    }
+
+    return {};
 }

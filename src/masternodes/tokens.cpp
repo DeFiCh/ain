@@ -71,9 +71,9 @@ std::optional<CTokensView::CTokenImpl> CTokensView::GetTokenGuessId(const std::s
         }
     } else {
         auto pair = GetToken(key);
-        if (pair) {
+        if (pair && pair->second) {
             id = pair->first;
-            return std::move(pair->second);
+            return pair->second;
         }
     }
     return {};

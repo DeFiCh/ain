@@ -307,6 +307,7 @@ public:
 
     std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
     Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
+    Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken);
     Res UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
@@ -315,6 +316,7 @@ public:
     std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res EraseLoanToken(const DCT_ID& id);
     void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);

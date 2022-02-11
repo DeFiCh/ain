@@ -205,59 +205,58 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[1].get_obj();
     UniValue const & txInputs = request.params[2];
 
-    CTokenImplementation tokenImpl;
+    std::optional<CTokenImplementation> token;
     CTxDestination ownerDest;
     CScript owner;
     int targetHeight;
     {
         LOCK(cs_main);
         DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        token = pcustomcsview->GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
-        tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        if (tokenImpl.IsPoolShare()) {
+        if (token->IsPoolShare()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is the LPS token! Can't alter pool share's tokens!", tokenStr));
         }
 
-        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
         if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+                               strprintf("Can't extract destination for token's %s collateral", token->symbol));
         }
         owner = authCoin.out.scriptPubKey;
         targetHeight = ::ChainActive().Height() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
-        tokenImpl.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token->symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     }
     if (!metaObj["name"].isNull()) {
-        tokenImpl.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token->name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     }
     if (!metaObj["isDAT"].isNull()) {
-        tokenImpl.flags = metaObj["isDAT"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::DAT :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::DAT;
+        token->flags = metaObj["isDAT"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::DAT :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::DAT;
     }
     if (!metaObj["tradeable"].isNull()) {
-        tokenImpl.flags = metaObj["tradeable"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Tradeable :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
+        token->flags = metaObj["tradeable"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Tradeable :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
     }
     if (!metaObj["mintable"].isNull()) {
-        tokenImpl.flags = metaObj["mintable"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
+        token->flags = metaObj["mintable"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Mintable :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::Mintable;
     }
     if (!metaObj["finalize"].isNull()) {
-        tokenImpl.flags = metaObj["finalize"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Finalized :
-                              tokenImpl.flags;
+        token->flags = metaObj["finalize"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Finalized :
+                       token->flags;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -290,11 +289,11 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     // tx type and serialized data differ:
     if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
-                 << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
+                 << token->creationTx <<  metaObj["isDAT"].getBool();
     }
     else {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny)
-                 << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
+                 << token->creationTx << static_cast<CToken>(*token); // casting to base token's data
     }
 
     CScript scriptMeta;
@@ -670,9 +669,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            auto& tokenImpl = static_cast<CTokenImplementation const& >(*token);
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-            if (tokenImpl.IsDAT()) {
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+            if (token->IsDAT()) {
                 needFoundersAuth = true;
             }
             auths.insert(authCoin.out.scriptPubKey);

@@ -18,8 +18,8 @@ class VaultTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-jellyfish_regtest=1'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-jellyfish_regtest=1']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-greatworldheight=400', '-jellyfish_regtest=1'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-greatworldheight=400', '-jellyfish_regtest=1']
             ]
 
     def run_test(self):
@@ -592,6 +592,76 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].closevault(vaultId5, address)
         self.nodes[0].generate(1)
 
+        result = self.nodes[0].listcollateraltokens()
+        assert_equal(result[0]['token'], 'DFI')
+        assert_equal(result[0]['factor'], Decimal('1.00000000'))
+        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
+        assert_equal(result[1]['token'], 'BTC')
+        assert_equal(result[1]['factor'], Decimal('0.80000000'))
+        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
+
+        result = self.nodes[0].listloantokens()
+        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
+        assert_equal(result[0]['token']['2']['isLoanToken'], True)
+        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
+        assert_equal(result[0]['interest'], Decimal('2.00000000'))
+        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
+        assert_equal(result[1]['token']['3']['isLoanToken'], True)
+        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
+        assert_equal(result[1]['interest'], Decimal('1.00000000'))
+
+        # Move to hard fork
+        self.nodes[0].generate(401 - self.nodes[0].getblockcount())
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/token/0/fixed_interval_price_id'], 'DFI/USD')
+        assert_equal(result['v0/token/0/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/0/loan_collateral_factor'], '1')
+        assert_equal(result['v0/token/1/fixed_interval_price_id'], 'BTC/USD')
+        assert_equal(result['v0/token/1/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/1/loan_collateral_factor'], '0.8')
+        assert_equal(result['v0/token/2/fixed_interval_price_id'], 'TSLA/USD')
+        assert_equal(result['v0/token/2/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/2/loan_minting_interest'], '2')
+        assert_equal(result['v0/token/3/fixed_interval_price_id'], 'DUSD/USD')
+        assert_equal(result['v0/token/3/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/3/loan_minting_interest'], '1')
+
+        result = self.nodes[0].listcollateraltokens()
+        assert_equal(result[0]['token'], 'DFI')
+        assert_equal(result[0]['factor'], Decimal('1.00000000'))
+        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
+        assert_equal(result[1]['token'], 'BTC')
+        assert_equal(result[1]['factor'], Decimal('0.80000000'))
+        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
+
+        result = self.nodes[0].listloantokens()
+        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
+        assert_equal(result[0]['token']['2']['isLoanToken'], True)
+        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
+        assert_equal(result[0]['interest'], Decimal('2.00000000'))
+        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
+        assert_equal(result[1]['token']['3']['isLoanToken'], True)
+        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
+        assert_equal(result[1]['interest'], Decimal('1.00000000'))
+
+        # Try and call disabled RPC calls
+        assert_raises_rpc_error(-32600, 'called after GreatWorld height', self.nodes[0].setloantoken, {
+                                    'symbol': "DUSD",
+                                    'name': "DUSD stable token",
+                                    'fixedIntervalPriceId': "DUSD/USD",
+                                    'mintable': True,
+                                    'interest': 1})
+        assert_raises_rpc_error(-32600, 'called after GreatWorld height', self.nodes[0].updateloantoken, "DUSD", {
+                                    'symbol': "DUSD",
+                                    'name': "DUSD stable token",
+                                    'fixedIntervalPriceId': "DUSD/USD",
+                                    'mintable': True,
+                                    'interest': 1})
+        assert_raises_rpc_error(-32600, 'called after GreatWorld height', self.nodes[0].setcollateraltoken, {
+                                    'token': idDFI,
+                                    'factor': 1,
+                                    'fixedIntervalPriceId': "DFI/USD"})
 
 if __name__ == '__main__':
     VaultTest().main()

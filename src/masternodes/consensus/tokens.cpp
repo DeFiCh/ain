@@ -34,9 +34,6 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage& obj) const {
 }
 
 Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage& obj) const {
-    if (static_cast<int>(height) >= consensus.BayfrontHeight)
-        return Res::Err("called post Bayfront height");
-
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair)
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());

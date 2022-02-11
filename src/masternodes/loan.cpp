@@ -1,6 +1,9 @@
 
 #include <chainparams.h>
 #include <masternodes/loan.h>
+#include <masternodes/govvariables/attributes.h>
+#include <masternodes/masternodes.h>
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <cmath>
@@ -28,6 +31,15 @@ Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & col
     return Res::Ok();
 }
 
+Res CLoanView::EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken)
+{
+    CollateralTokenKey key{collToken.idToken, collToken.activateAfterBlock};
+    EraseBy<LoanSetCollateralTokenKey>(key);
+    EraseBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx);
+
+    return Res::Ok();
+}
+
 Res CLoanView::UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
 {
     if (collateralToken.factor > COIN)
@@ -49,8 +61,12 @@ void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKe
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid() && it.Key().id == key.id)
+    if (it.Valid() && it.Key().id == key.id) {
         return GetLoanCollateralToken(it.Value());
+    } else if (const auto view = dynamic_cast<const CCustomCSView*>(this)) {
+        return GetCollateralTokenFromAttributes(*view, key.id);
+    }
+
     return {};
 }
 
@@ -64,7 +80,14 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
 {
-    return ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
+    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
+    if (loanToken) {
+        return loanToken;
+    } else if (const auto view = dynamic_cast<const CCustomCSView*>(this)) {
+        return GetLoanTokenFromAttributes(*view, id);
+    }
+
+    return {};
 }
 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
@@ -88,6 +111,13 @@ Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID c
         return Res::Err("interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
+
+    return Res::Ok();
+}
+
+Res CLoanView::EraseLoanToken(const DCT_ID& id)
+{
+    EraseBy<LoanSetLoanTokenKey>(id);
 
     return Res::Ok();
 }

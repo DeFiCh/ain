@@ -273,18 +273,6 @@ Res CCustomTxVisitor::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& t
     return Res::Ok();
 }
 
-bool CCustomTxVisitor::OraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
-    // Allow hard coded DUSD/USD
-    if (priceFeed.first == "DUSD" && priceFeed.second == "USD")
-        return true;
-
-    bool found = false;
-    mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
-        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
-    });
-    return found;
-}
-
 ResVal<CCollateralLoans> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const {
 
     auto collateralsLoans = mnview.GetLoanCollaterals(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);

@@ -114,6 +114,7 @@ class CCustomMetadataParseVisitor
             { consensus.EunosPayaHeight,        "called before EunosPaya height" },
             { consensus.FortCanningHeight,      "called before FortCanning height" },
             { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+            { consensus.GreatWorldHeight,       "called before GreatWorld height" },
         };
         if (startHeight && int(height) < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -200,8 +201,24 @@ public:
     }
 
     template<typename T>
+    Res DisabledAfter() const {
+        if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
+            return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called post Bayfront height") : Res::Ok();
+        else if constexpr (IsOneOf<T, CLoanSetCollateralTokenMessage,
+                CLoanSetLoanTokenMessage,
+                CLoanUpdateLoanTokenMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight) ? Res::Err("called after GreatWorld height") : Res::Ok();
+
+        return Res::Ok();
+    }
+
+    template<typename T>
     Res operator()(T& obj) const {
         auto res = EnabledAfter<T>();
+        if (!res)
+            return res;
+
+        res = DisabledAfter<T>();
         if (!res)
             return res;
 

@@ -38,7 +38,7 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
     if (collToken.activateAfterBlock < height)
         return Res::Err("activateAfterBlock cannot be less than current height!");
 
-    if (!OraclePriceFeed(collToken.fixedIntervalPriceId))
+    if (!OraclePriceFeed(mnview, collToken.fixedIntervalPriceId))
         return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
 
     CFixedIntervalPrice fixedIntervalPrice;
@@ -89,7 +89,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     if (!HasFoundationAuth())
         return Res::Err("tx not from foundation member!");
 
-    if (!OraclePriceFeed(loanToken.fixedIntervalPriceId))
+    if (!OraclePriceFeed(mnview, loanToken.fixedIntervalPriceId))
         return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
     CTokenImplementation token;
@@ -137,7 +137,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
         pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
     if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
-        if (!OraclePriceFeed(obj.fixedIntervalPriceId))
+        if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
 
         loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;

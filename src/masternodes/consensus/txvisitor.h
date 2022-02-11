@@ -55,7 +55,6 @@ protected:
     Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
     Res AddBalancesSetShares(const CAccounts& accounts) const;
     Res SubBalancesDelShares(const CAccounts& accounts) const;
-    bool OraclePriceFeed(const CTokenCurrencyPair& priceFeed) const;
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript& from, const CScript& to) const;

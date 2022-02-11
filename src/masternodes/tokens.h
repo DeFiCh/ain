@@ -160,8 +160,6 @@ public:
     CTokenImplementation()
         : CToken()
         , minted(0)
-        , creationTx()
-        , destructionTx()
         , creationHeight(-1)
         , destructionHeight(-1)
     {}

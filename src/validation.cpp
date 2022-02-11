@@ -14,12 +14,14 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
@@ -2841,6 +2843,63 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
             }
             cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+        }
+
+        // Migrate loan and collateral tokens to Gov vars. Do so at +1 height so that
+        // GetLastHeight() in Gov var Validate() has a height equal to the GW fork.
+        if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight + 1) {
+
+            std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
+            std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
+
+            cache.ForEachLoanToken([&](const DCT_ID& key, const CLoanSetLoanToken& loanToken) {
+                loanTokens[key] = loanToken;
+                return true;
+            });
+
+            cache.ForEachLoanCollateralToken([&](const CollateralTokenKey& key, const uint256& collTokenTx) {
+                auto collToken = cache.GetLoanCollateralToken(collTokenTx);
+                if (collToken) {
+                    collateralTokens.push_back(*collToken);
+                }
+                return true;
+            });
+
+            std::map<std::string, std::string> attrs;
+            int loanCount = 0, collateralCount = 0;
+            for (const auto& [id, token] : loanTokens) {
+                std::string prefix{"v0/token/" + std::to_string(id.v) + '/'};
+                attrs[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                attrs[prefix + "loan_minting_enabled"] = token.mintable ? "true" : "false";
+                attrs[prefix + "loan_minting_interest"] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+                cache.EraseLoanToken(id);
+                ++loanCount;
+            }
+
+            for (const auto& token : collateralTokens) {
+                std::string prefix{"v0/token/" + std::to_string(token.idToken.v) + '/'};
+                attrs[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                attrs[prefix + "loan_collateral_enabled"] = "true";
+                attrs[prefix + "loan_collateral_factor"] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+                cache.EraseLoanCollateralToken(token);
+                ++collateralCount;
+            }
+
+            if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
+                if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+                    var->time = pindex->nTime;
+
+                    UniValue obj(UniValue::VOBJ);
+                    for (const auto& [key, value] : attrs) {
+                        obj.pushKV(key, value);
+                    }
+
+                    CCustomCSView govCache(cache);
+                    if (var->Import(obj) && var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        govCache.Flush();
+                    }
+                }
+            }
         }
 
         // construct undo
