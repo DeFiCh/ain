@@ -18,9 +18,13 @@ setup_vars() {
 
     MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
     MAKE_COMPILER=${MAKE_COMPILER:-"CC=clang CXX=clang++"}
-    MAKE_CONF_ARGS="${MAKE_COMPILER}${MAKE_CONF_ARGS:-}"
+    MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
+    MAKE_DEBUG=${MAKE_DEBUG:-0}
+    if [[ "${MAKE_DEBUG}" == 1 ]]; then
+      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
+    fi
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
