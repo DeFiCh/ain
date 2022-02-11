@@ -346,7 +346,7 @@ git_version() {
             # prefix it with the last available tag.
             git fetch --tags
             local last_tag
-            last_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
+            last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
             echo "> last tag: ${last_tag}"
             if [[ -n "${last_tag}" ]]; then
                 IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
@@ -366,7 +366,7 @@ git_version() {
 
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
     fi
 }
 
