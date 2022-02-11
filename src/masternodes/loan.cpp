@@ -481,7 +481,7 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
+boost::optional<std::string> GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
     struct HighPrecisionInterestValue {
         typedef boost::multiprecision::int128_t int128;
         typedef int64_t int64;
@@ -509,14 +509,15 @@ std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
             return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
         }
 
-        std::string GetInterestPerBlockString() {
+        boost::optional<std::string> GetInterestPerBlockString() {
             std::ostringstream result;
             auto mag = GetInterestPerBlockMagnitude();
             auto dec = GetInterestPerBlockDecimal();
             // While these can happen theoretically, they should be out of range of
             // operating interest. If this happens, something else went wrong.
-            assert(mag >= 0);
-            assert(dec >= 0);
+            if (mag < 0 || dec < 0)
+                return {};
+
             result << mag << "." << std::setw(24) << std::setfill('0') << dec;
             return result.str();
         }

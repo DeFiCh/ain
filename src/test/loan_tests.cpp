@@ -78,12 +78,12 @@ BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
 {
     std::map<boost::variant<base_uint<128>, std::string>, std::string> testMap = {
-        { base_uint<128>(0), "0.000000000000000000000000" },
-        { base_uint<128>(1), "0.000000000000000000000001" },
-        { base_uint<128>(42058), "0.000000000000000000042058" },
-        { base_uint<128>(95129375), "0.000000000000000095129375" },
-        { base_uint<128>(117009132), "0.000000000000000117009132" },
-        { base_uint<128>(11700913242), "0.000000000000011700913242" },
+        { 0, "0.000000000000000000000000" },
+        { 1, "0.000000000000000000000001" },
+        { 42058, "0.000000000000000000042058" },
+        { 95129375, "0.000000000000000095129375" },
+        { 117009132, "0.000000000000000117009132" },
+        { 11700913242, "0.000000000000011700913242" },
         // 2378234398782343987
         { "21012F95D4094B33", "0.000002378234398782343987" }, 
         // 80897539693407360060932882613242451388
@@ -92,12 +92,17 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         { "10E5FBB8CA9E273D0B0353C23D90A6" , "87741364994.776235347880977943597222" },
         // 877413626032608048611111111
         { "2D5C78FF9C3FE70F9F0B0C7" , "877.413626032608048611111111" },
-        { base_uint<128>(std::numeric_limits<uint64_t>().min()), "0.000000000000000000000000" },
-        { base_uint<128>(std::numeric_limits<uint64_t>().max()), "0.000018446744073709551615" },
-        { base_uint<128>(std::numeric_limits<int64_t>().min()), "0.000009223372036854775808" },
-        { base_uint<128>(std::numeric_limits<int64_t>().max()), "0.000009223372036854775807" },
-        // .... Full list by rotating 1s all over.
-        // ... 
+        { std::numeric_limits<uint64_t>::min(), "0.000000000000000000000000" },
+        { std::numeric_limits<uint64_t>::max(), "0.000018446744073709551615" },
+        { std::numeric_limits<int64_t>::min(), "0.000009223372036854775808" },
+        { std::numeric_limits<int64_t>::max(), "0.000009223372036854775807" },
+
+        // Full list by rotating 1s all over.. The reason for rotating full set of 1s is
+        // because we use arbitrary bit ranges to achieve COIN * 3 precision. Any common mistakes
+        // would be due to improper cast and 1s being interpreted as 2s complement and as such
+        // result in a negative error. This checks verifies the entire range to ensure this
+        // doesn't happen, along with a verification.
+        //
         { "80000000000000000000000000000000", "170141183460469.231731687303715884105728" },
         { "40000000000000000000000000000000", "85070591730234.615865843651857942052864" },
         { "20000000000000000000000000000000", "42535295865117.307932921825928971026432" },
@@ -238,7 +243,8 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         else if (typeKind == 1) input = base_uint<128>(boost::get<std::string>(key));
         else BOOST_TEST_FAIL("unknown type");
 
-        BOOST_CHECK_EQUAL(GetInterestPerBlockHighPrecisionString(input), expectedResult);
+        auto res = GetInterestPerBlockHighPrecisionString(input);
+        BOOST_CHECK_EQUAL(*res, expectedResult);
     }
 
     // Quick way to generate the nums and verify 

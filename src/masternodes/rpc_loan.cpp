@@ -1413,7 +1413,9 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
-            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
+            auto realizedInterestStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+            assert(realizedInterestStr);
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, *realizedInterestStr));
         }
         ret.push_back(obj);
     }

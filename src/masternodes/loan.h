@@ -266,7 +266,7 @@ CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
-std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value);
+boost::optional<std::string> GetInterestPerBlockHighPrecisionString(base_uint<128> value);
 
 class CLoanTakeLoanMessage
 {
