@@ -21,8 +21,8 @@ setup_vars() {
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
-    MAKE_DEBUG=${MAKE_DEBUG:-0}
-    if [[ "${MAKE_DEBUG}" == 1 ]]; then
+    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
+    if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
     fi
 
