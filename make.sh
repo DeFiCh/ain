@@ -17,7 +17,8 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
     MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
-    MAKE_CONF_ARGS=${MAKE_CONF_ARGS:-}
+    MAKE_COMPILER=${MAKE_COMPILER:-"CC=clang CXX=clang++"}
+    MAKE_CONF_ARGS="${MAKE_COMPILER}${MAKE_CONF_ARGS:-}"
     MAKE_ARGS=${MAKE_ARGS:-}
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
 
@@ -79,7 +80,7 @@ build_deps() {
     local make_deps_args=${MAKE_DEPS_ARGS:-}
     local make_jobs=${MAKE_JOBS}
 
-    echo "> build-deps"
+    echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
     pushd ./depends >/dev/null
     # XREF: #make-deps
     # shellcheck disable=SC2086
@@ -92,10 +93,11 @@ build_conf() {
     local make_conf_opts=${MAKE_CONF_ARGS:-}
     local make_jobs=${MAKE_JOBS}
 
-    echo "> build-conf: ${target}"
+    echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     ./autogen.sh
     # XREF: #make-configure
+    # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
     # shellcheck disable=SC2086
     ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
 }
@@ -105,7 +107,7 @@ build_make() {
     local make_args=${MAKE_ARGS:-}
     local make_jobs=${MAKE_JOBS}
 
-    echo "> build: ${target}"
+    echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
     # shellcheck disable=SC2086
     make -j${make_jobs} ${make_args}
 }
