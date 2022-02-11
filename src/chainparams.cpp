@@ -4,7 +4,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
 #include <masternodes/mn_checks.h>
@@ -65,7 +64,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint3
     genesis.nTime           = nTime;
     genesis.nBits           = nBits;
     genesis.nVersion        = nVersion;
-    genesis.height          = 0;
+    genesis.deprecatedHeight = 0;
     genesis.stakeModifier   = uint256S("0");
     genesis.mintedBlocks    = 0;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
@@ -126,6 +125,10 @@ public:
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosKampungHeight = 895743;
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
+        consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
+        consensus.FortCanningMuseumHeight = 1430640;
+        consensus.FortCanningParkHeight = 1503143;
+        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -166,18 +169,20 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.wallet_xpub = "xpub68vVWYqkpwYT8ZxBhN2buFMTPNFzrJQV19QZmhuwQqKQZHxcXVg36GZCrwPhb7KPpivsGXxvd7g82sJXYnKNqi2ZuHJvhqcwF418YEfGMrv";
         consensus.spv.anchors_address = "1FtZwEZKknoquUb6DyQHFZ6g6oomXJYEcb";
         consensus.spv.minConfirmations = 6;
+
+        consensus.vaultCreationFee = 2 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
@@ -187,15 +192,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -238,6 +241,9 @@ public:
         consensus.accountDestruction.clear();
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("dJEbxbfufyPF14SC93yxiquECEfq4YSd9L", *this)));
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("8UAhRuUFCyFUHEPD7qvtj8Zy2HxF5HH5nb", *this)));
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
@@ -305,6 +311,7 @@ public:
                 {850000, uint256S("2d7d58ae18a74f73b9836a8fffd3f65ce409536e654a6c644ce735215238a004")},
                 {875000, uint256S("44d3b3ba8e920cef86b7ec096ab0a2e608d9fedc14a59611a76a5e40aa53145e")},
                 {895741, uint256S("61bc1d73c720990dde43a3fec1f703a222ec5c265e6d491efd60eeec1bdb6dc3")},
+                {1505965,uint256S("f7474c805de4f05673df2103bd5d8b8dea09b0d22f808ee957a9ceefc0720609")},
             }
         };
 
@@ -344,6 +351,10 @@ public:
         consensus.EunosHeight = 354950;
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 463300;
+        consensus.FortCanningHeight = 686200;
+        consensus.FortCanningMuseumHeight = 724000;
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -384,18 +395,20 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY";
         consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL";
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
+
+        consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -405,15 +418,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -446,6 +457,9 @@ public:
         consensus.accountDestruction.clear();
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("trnZD2qPU1c3WryBi8sWX16mEaq9WkGHeg", *this))); // cVUZfDj1B1o7eVhxuZr8FQLh626KceiGQhZ8G6YCUdeW3CAV49ti
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
@@ -524,6 +538,10 @@ public:
         consensus.EunosHeight = 150;
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 300;
+        consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -562,18 +580,20 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
         consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL"; /// @note devnet matter
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
+
+        consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -583,15 +603,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -620,6 +638,9 @@ public:
         // now it is for devnet and regtest only, 2 first of genesis MNs acts as foundation members
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this)));
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this)));
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
@@ -672,7 +693,7 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    explicit CRegTestParams(const ArgsManager& args) {
+    explicit CRegTestParams() {
         strNetworkID = "regtest";
         bool isJellyfish = false;
         isJellyfish = gArgs.GetBoolArg("-jellyfish_regtest", false);
@@ -696,6 +717,10 @@ public:
         consensus.EunosHeight = 10000000;
         consensus.EunosKampungHeight = 10000000;
         consensus.EunosPayaHeight = 10000000;
+        consensus.FortCanningHeight = 10000000;
+        consensus.FortCanningMuseumHeight = 10000000;
+        consensus.FortCanningParkHeight = 10000000;
+        consensus.FortCanningHillHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -734,18 +759,20 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60;
+        consensus.mn.anchoringAdditionalTimeDepth = 15 * 60; // 15 minutes
         consensus.mn.anchoringTeamChange = 15; // Number of blocks
 
         consensus.token.creationFee = 1 * COIN;
         consensus.token.collateralAmount = 10 * COIN;
 
-        consensus.spv.creationFee = 1000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
         consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
+
+        consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
@@ -755,15 +782,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -776,7 +801,7 @@ public:
         m_assumed_blockchain_size = 0;
         m_assumed_chain_state_size = 0;
 
-        UpdateActivationParametersFromArgs(args);
+        UpdateActivationParametersFromArgs();
 
         base58Prefixes[PUBKEY_ADDRESS] = {0x6f};
         base58Prefixes[SCRIPT_ADDRESS] = {0xc4};
@@ -800,6 +825,9 @@ public:
         consensus.accountDestruction.clear();
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("2MxJf6Ak8MGrLoGdekrU6AusW29szZUFphH", *this)));
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("mxiaFfAnCoXEUy4RW8NgsQM7yU5YRCiFSh", *this)));
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
@@ -871,7 +899,7 @@ public:
         consensus.vDeployments[d].nStartTime = nStartTime;
         consensus.vDeployments[d].nTimeout = nTimeout;
     }
-    void UpdateActivationParametersFromArgs(const ArgsManager& args);
+    void UpdateActivationParametersFromArgs();
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
@@ -893,7 +921,7 @@ boost::optional<int> UpdateHeightValidation(const std::string& argName, const st
     return {};
 }
 
-void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
+void CRegTestParams::UpdateActivationParametersFromArgs()
 {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
@@ -907,10 +935,20 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
 
-    if (!args.IsArgSet("-vbparams")) return;
+    if (gArgs.GetBoolArg("-simulatemainnet", false)) {
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
+        consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+    }
 
-    for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
+    if (!gArgs.IsArgSet("-vbparams")) return;
+
+    for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {
         std::vector<std::string> vDeploymentParams;
         boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
         if (vDeploymentParams.size() != 3) {
@@ -954,7 +992,7 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
     else if (chain == CBaseChainParams::DEVNET)
         return std::unique_ptr<CChainParams>(new CDevNetParams());
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
+        return std::unique_ptr<CChainParams>(new CRegTestParams());
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 

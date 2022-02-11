@@ -31,7 +31,7 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
 /// Check PoS signatures (PoS block hashes are signed with coinstake out pubkey)
 bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     if (blockHeader.sig.empty()) {
-        if (blockHeader.height == 0) {
+        if (blockHeader.GetHash() == Params().GetConsensus().hashGenesisBlock) {
             return true;
         }
         LogPrintf("CheckBlockSignature: Bad Block - PoS signature is empty\n");
@@ -47,9 +47,9 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState, const int height) {
     /// @todo may be this is tooooo optimistic? need more validation?
-    if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
+    if (height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
     }
 
@@ -70,19 +70,19 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
+        if (!nodePtr || !nodePtr->IsActive(height)) {
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        if (blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
-            timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
+        if (height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+            timelock = mnView->GetTimelock(masternodeID, *nodePtr, height);
         }
 
         // Check against EunosPayaHeight here for regtest, does not hurt other networks.
         // Redundant checks, but intentionally kept for easier fork accounting.
-        if (blockHeader.height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
-            const auto usedHeight = blockHeader.height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : blockHeader.height;
+        if (height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+            const auto usedHeight = height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : height;
 
             // Get block times
             subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
@@ -90,7 +90,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
 
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),height,
                          masternodeID, params, subNodesBlockTime, timelock, ctxState)) {
         return false;
     }
@@ -103,17 +103,17 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
 
     // this is our own check of own minted block (just to remember)
     CheckContextState ctxState;
-    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState);
+    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState, pindexPrev->nHeight + 1);
 }
 
-unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos)
+unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust)
 {
     if (params.fNoRetargeting)
         return pindexLast->nBits;
 
     // Limit adjustment step
     int64_t nActualTimespan = pindexLast->GetBlockTime() - nFirstBlockTime;
-    const auto& nTargetTimespan = eunos ? params.nTargetTimespanV2 : params.nTargetTimespan;
+    const auto& nTargetTimespan = newDifficultyAdjust ? params.nTargetTimespanV2 : params.nTargetTimespan;
     if (nActualTimespan < nTargetTimespan/4)
         nActualTimespan = nTargetTimespan/4;
     if (nActualTimespan > nTargetTimespan*4)
@@ -141,9 +141,15 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
 
     int nHeight{pindexLast->nHeight + 1};
-    bool eunos{nHeight > params.EunosHeight};
-    const auto interval = eunos ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
-    bool skipChange = eunos ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
+    bool newDifficultyAdjust{nHeight > params.EunosHeight};
+
+    // Restore previous difficulty adjust on testnet after FC
+    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+        newDifficultyAdjust = false;
+    }
+
+    const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
+    bool skipChange = newDifficultyAdjust ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
     if (skipChange)
@@ -174,7 +180,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     const CBlockIndex* pindexFirst = pindexLast->GetAncestor(nHeightFirst);
     assert(pindexFirst);
 
-    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, eunos);
+    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
 }
 
 boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {

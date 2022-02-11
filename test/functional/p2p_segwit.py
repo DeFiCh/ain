@@ -199,7 +199,7 @@ class SegWitTest(DefiTestFramework):
         self.setup_nodes()
         connect_nodes(self.nodes[0], 1)
         connect_nodes(self.nodes[0], 2)
-        self.sync_all()
+        self.sync_blocks()
 
     # Helper functions
 

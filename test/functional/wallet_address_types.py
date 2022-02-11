@@ -88,7 +88,7 @@ class AddressTypeTest(DefiTestFramework):
         for i, j in itertools.product(range(self.num_nodes), repeat=2):
             if i > j:
                 connect_nodes_bi(self.nodes, i, j)
-        self.sync_all()
+        self.sync_blocks()
 
     def get_balances(self, confirmed=True):
         """Return a list of confirmed or unconfirmed balances."""

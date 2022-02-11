@@ -283,7 +283,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         # two halves that can work on competing chains.
         for i in range(self.num_nodes - 1):
             connect_nodes_bi(self.nodes, i, i + 1)
-        self.sync_all()
+        self.sync_blocks()
 
     def setup_nodes(self):
         """Override this method to customize test node setup"""
@@ -326,9 +326,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         assert('-txnotokens=0' in self.extra_args[1])
         self.nodes[0].generate(25)
         self.nodes[1].generate(25)
-        self.sync_all()
-        self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
+        self.nodes[0].generate(98)
+        self.sync_blocks()
 
         if my_tokens is not None:
             '''
@@ -368,13 +368,15 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 "name": "shiny gold",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
             })
+            self.nodes[0].generate(1)
+            self.sync_blocks()
             self.nodes[1].createtoken({
                 "symbol": "SILVER",
                 "name": "just silver",
                 "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
             })
-            self.sync_mempools()
-            self.nodes[0].generate(1)
+            self.nodes[1].generate(1)
+            self.sync_blocks()
             # At this point, tokens was created
             tokens = self.nodes[0].listtokens()
             assert_equal(len(tokens), 3)
@@ -383,9 +385,11 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
 
             self.nodes[0].minttokens("1000@" + symbolGOLD)
-            self.nodes[1].minttokens("2000@" + symbolSILVER)
-            self.sync_mempools()
             self.nodes[0].generate(1)
+            self.sync_blocks()
+            self.nodes[1].minttokens("2000@" + symbolSILVER)
+            self.nodes[1].generate(1)
+            self.sync_blocks()
 
     def import_deterministic_coinbase_privkeys(self):
         for n in self.nodes:
@@ -500,8 +504,8 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         """
         disconnect_nodes(self.nodes[1], 2)
         disconnect_nodes(self.nodes[2], 1)
-        self.sync_all(self.nodes[:2])
-        self.sync_all(self.nodes[2:])
+        self.sync_blocks(self.nodes[:2])
+        self.sync_blocks(self.nodes[2:])
 
     def join_network(self):
         """

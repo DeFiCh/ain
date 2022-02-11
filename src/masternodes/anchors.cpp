@@ -85,20 +85,21 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
     return {};
 }
 
-bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
+bool CAnchor::CheckAuthSigs(CTeam const & team) const
 {
     // Sigs must meet quorum size.
-    auto quorum = GetMinAnchorQuorum(team);
+    const auto quorum = GetMinAnchorQuorum(team);
     if (sigs.size() < quorum) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
-    auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
-    if (height >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
-        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, GetMinAnchorQuorum(team), uniqueKeys);
+    // Number of unique sigs must meet the required quorum.
+    const auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
+    if (uniqueKeys < quorum) {
+        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, quorum, uniqueKeys);
     }
 
-    return uniqueKeys;
+    return true;
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const
@@ -545,7 +546,7 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         // Validate the anchor sigs
-        if (!rec.anchor.CheckAuthSigs(*anchorTeam, anchorCreationHeight)) {
+        if (!rec.anchor.CheckAuthSigs(*anchorTeam)) {
             LogPrint(BCLog::ANCHORING, "Signature validation fails. Deleting anchor txHash %s\n", rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
@@ -778,8 +779,9 @@ bool ValidateAnchor(const CAnchor & anchor)
             if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaHeight)) {
                 return true;
             } else {
-                return error("%s: Post fork anchor created before fork height. Anchor %ld fork %d",
-                             __func__, anchorCreationHeight, Params().GetConsensus().DakotaHeight);
+                LogPrint(BCLog::ANCHORING, "%s: Post fork anchor created before fork height. Anchor %ld fork %d\n",
+                         __func__, anchorCreationHeight, Params().GetConsensus().DakotaHeight);
+                return false;
             }
         }
     }
@@ -866,11 +868,24 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
                      __func__, HexStr(*prefix), HexStr(hashPrefix), anchorCreationHeight);
     }
 
-    // Recreate the creation height of the anchor
+    // Get start anchor height
     int anchorHeight = static_cast<int>(anchorCreationHeight) - Params().GetConsensus().mn.anchoringFrequency;
-    while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + Params().GetConsensus().mn.anchoringTimeDepth > anchorCreationBlock->nTime) {
+
+    // Recreate the creation height of the anchor
+    int64_t timeDepth = Params().GetConsensus().mn.anchoringTimeDepth;
+    while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
         --anchorHeight;
     }
+
+    // Recreate deeper anchor depth
+    if (anchorCreationHeight >= Params().GetConsensus().FortCanningHeight) {
+        timeDepth += Params().GetConsensus().mn.anchoringAdditionalTimeDepth;
+        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
+            --anchorHeight;
+        }
+    }
+
+    // Wind back further by anchoring frequency
     while (anchorHeight > 0 && anchorHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
         --anchorHeight;
     }
@@ -996,7 +1011,7 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
     }
 
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
-    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive()) {
+    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height)) {
         LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
         return false;
     }
@@ -1047,7 +1062,7 @@ void CAnchorAwaitingConfirms::ReVote()
         return;
     }
 
-    const auto operatorDetails = AmISignerNow(currentTeam);
+    const auto operatorDetails = AmISignerNow(height, currentTeam);
 
     for (const auto& keys : operatorDetails) {
         CAnchorIndex::UnrewardedResult unrewarded = panchors->GetUnrewarded();

@@ -81,6 +81,17 @@ CAmount AmountFromValue(const UniValue& value)
     return amount;
 }
 
+bool AmountFromValue(const UniValue& value, CAmount& amount)
+{
+    if (!value.isNum() && !value.isStr())
+        return false;
+    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+        return false;
+    if (!MoneyRange(amount))
+        return false;
+    return true;
+}
+
 uint256 ParseHashV(const UniValue& v, std::string strName)
 {
     std::string strHex(v.get_str());
@@ -620,6 +631,7 @@ std::string RPCArg::ToStringObj(const bool oneline) const
         }
         return res + "...]";
     case Type::OBJ:
+        return res + "obj";
     case Type::OBJ_USER_KEYS:
         // Currently unused, so avoid writing dead code
         assert(false);

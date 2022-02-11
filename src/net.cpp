@@ -89,6 +89,7 @@ std::map<CNetAddr, LocalServiceInfo> mapLocalHost GUARDED_BY(cs_mapLocalHost);
 static bool vfLimited[NET_MAX] GUARDED_BY(cs_mapLocalHost) = {};
 std::string strSubVersion;
 
+
 void CConnman::AddOneShot(const std::string& strDest)
 {
     LOCK(cs_vOneShots);
@@ -573,15 +574,10 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes, bool& complete
 
         // absorb network data
         int handled;
-        if (!msg.in_data) {
+        if (!msg.in_data)
             handled = msg.readHeader(pch, nBytes);
-            // NOTE: for compatibility with current working nodes, remove after Dakota
-            if (memcmp(msg.hdr.pchMessageStart, Params().MessageStart(), CMessageHeader::MESSAGE_START_SIZE) == 0) {
-                memcpy(msg.hdr.pchMessageStart, Params().MessageStartPostAMK(), CMessageHeader::MESSAGE_START_SIZE);
-            }
-        } else {
+        else
             handled = msg.readData(pch, nBytes);
-        }
 
         if (handled < 0)
             return false;
@@ -1463,7 +1459,7 @@ static void ThreadMapPort()
             }
         }
 
-        std::string strDesc = PACKAGE_NAME " " + FormatFullVersion();
+        std::string strDesc = PACKAGE_NAME " " + FormatVersionAndSuffix();
 
         do {
             r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, port.c_str(), port.c_str(), lanaddr, strDesc.c_str(), "TCP", 0, "0");

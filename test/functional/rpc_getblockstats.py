@@ -46,13 +46,11 @@ class GetblockstatsTest(DefiTestFramework):
         address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=True)
         self.nodes[0].generate(1)
-        self.sync_all()
 
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=True)
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=False)
         self.nodes[0].settxfee(amount=0.003)
         self.nodes[0].sendtoaddress(address=address, amount=1, subtractfeefromamount=True)
-        self.sync_all()
         self.nodes[0].generate(1)
 
         self.expected_stats = self.get_stats()
@@ -83,7 +81,6 @@ class GetblockstatsTest(DefiTestFramework):
 
         # Set the timestamps from the file so that the nodes can get out of Initial Block Download
         self.nodes[0].setmocktime(mocktime)
-        self.sync_all()
 
         for b in blocks:
             self.nodes[0].submitblock(b)
@@ -96,7 +93,6 @@ class GetblockstatsTest(DefiTestFramework):
         else:
             self.load_test_data(test_data)
 
-        self.sync_all()
         stats = self.get_stats()
 
         # Make sure all valid statistics are included but nothing else is

@@ -5,10 +5,8 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/accounts.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/vaulthistory.h>
 #include <key_io.h>
-
-/// @Note it's in own database
-const unsigned char CAccountsHistoryView::ByAccountHistoryKey::prefix = 'h';
 
 void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start)
 {
@@ -37,75 +35,68 @@ CBurnHistoryStorage::CBurnHistoryStorage(const fs::path& dbName, std::size_t cac
 {
 }
 
-CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView)
-    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), txid(txid), type(type), historyView(historyView), burnView(burnView)
+CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type,
+                                               CHistoryWriters* writers)
+    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn),
+    txid(txid), type(type), writers(writers)
 {
 }
 
 Res CAccountsHistoryWriter::AddBalance(CScript const & owner, CTokenAmount amount)
 {
     auto res = CCustomCSView::AddBalance(owner, amount);
-    if (historyView && res.ok && amount.nValue != 0) {
-        diffs[owner][amount.nTokenId] += amount.nValue;
+    if (writers && amount.nValue != 0 && res.ok) {
+        writers->AddBalance(owner, amount, vaultID);
     }
-    if (burnView && res.ok && amount.nValue != 0 && owner == Params().GetConsensus().burnAddress) {
-        burnDiffs[owner][amount.nTokenId] += amount.nValue;
-    }
-    return res;
-}
 
-Res CAccountsHistoryWriter::AddFeeBurn(CScript const & owner, CAmount amount)
-{
-    if (burnView && amount != 0) {
-        burnDiffs[owner][DCT_ID{0}] += amount;
-    }
-    return Res::Ok();
+    return res;
 }
 
 Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amount)
 {
     auto res = CCustomCSView::SubBalance(owner, amount);
-    if (historyView && res.ok && amount.nValue != 0) {
-        diffs[owner][amount.nTokenId] -= amount.nValue;
+    if (writers && res.ok && amount.nValue != 0) {
+        writers->SubBalance(owner, amount, vaultID);
     }
-    if (burnView && res.ok && amount.nValue != 0 && owner == Params().GetConsensus().burnAddress) {
-        burnDiffs[owner][amount.nTokenId] -= amount.nValue;
-    }
+
     return res;
 }
 
 bool CAccountsHistoryWriter::Flush()
 {
-    if (historyView) {
-        for (const auto& diff : diffs) {
-            historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
-        }
-    }
-    if (burnView) {
-        for (const auto& diff : burnDiffs) {
-            burnView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
-        }
+    if (writers) {
+        writers->Flush(height, txid, txn, type, vaultID);
     }
     return CCustomCSView::Flush();
 }
 
-CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView)
-    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), historyView(historyView), burnView(burnView)
+CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers)
+    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), erasers(erasers)
 {
 }
 
 Res CAccountsHistoryEraser::AddBalance(CScript const & owner, CTokenAmount)
 {
-    if (historyView) {
-        accounts.insert(owner);
-    }
-    if (burnView && owner == Params().GetConsensus().burnAddress) {
-        burnAccounts.insert(owner);
-    }
+    erasers.AddBalance(owner, vaultID);
     return Res::Ok();
 }
 
 Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
+{
+    erasers.SubBalance(owner, vaultID);
+    return Res::Ok();
+}
+
+bool CAccountsHistoryEraser::Flush()
+{
+    erasers.Flush(height, txn, vaultID);
+    return Res::Ok(); // makes sure no changes are applyed to underlaying view
+}
+
+CHistoryErasers::CHistoryErasers(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
+    : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
+
+void CHistoryErasers::AddBalance(const CScript& owner, const uint256& vaultID)
 {
     if (historyView) {
         accounts.insert(owner);
@@ -113,10 +104,32 @@ Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
     if (burnView && owner == Params().GetConsensus().burnAddress) {
         burnAccounts.insert(owner);
     }
-    return Res::Ok();
+    if (vaultView && !vaultID.IsNull()) {
+        vaults.insert(vaultID);
+    }
 }
 
-bool CAccountsHistoryEraser::Flush()
+void CHistoryErasers::SubFeeBurn(const CScript& owner)
+{
+    if (burnView) {
+        burnAccounts.insert(owner);
+    }
+}
+
+void CHistoryErasers::SubBalance(const CScript& owner, const uint256& vaultID)
+{
+    if (historyView) {
+        accounts.insert(owner);
+    }
+    if (burnView && owner == Params().GetConsensus().burnAddress) {
+        burnAccounts.insert(owner);
+    }
+    if (vaultView && !vaultID.IsNull()) {
+        vaults.insert(vaultID);
+    }
+}
+
+void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn, const uint256& vaultID)
 {
     if (historyView) {
         for (const auto& account : accounts) {
@@ -128,7 +141,69 @@ bool CAccountsHistoryEraser::Flush()
             burnView->EraseAccountHistory({account, height, txn});
         }
     }
-    return CCustomCSView::Flush();
+}
+
+CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
+    : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
+
+void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
+{
+    if (historyView) {
+        diffs[owner][amount.nTokenId] += amount.nValue;
+    }
+    if (burnView && owner == Params().GetConsensus().burnAddress) {
+        burnDiffs[owner][amount.nTokenId] += amount.nValue;
+    }
+    if (vaultView && !vaultID.IsNull()) {
+        vaultDiffs[vaultID][owner][amount.nTokenId] += amount.nValue;
+    }
+}
+
+void CHistoryWriters::AddFeeBurn(const CScript& owner, const CAmount amount)
+{
+    if (burnView && amount != 0) {
+        burnDiffs[owner][DCT_ID{0}] += amount;
+    }
+}
+
+void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
+{
+    if (historyView) {
+        diffs[owner][amount.nTokenId] -= amount.nValue;
+    }
+    if (burnView && owner == Params().GetConsensus().burnAddress) {
+        burnDiffs[owner][amount.nTokenId] -= amount.nValue;
+    }
+    if (vaultView && !vaultID.IsNull()) {
+        vaultDiffs[vaultID][owner][amount.nTokenId] -= amount.nValue;
+    }
+}
+
+void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID)
+{
+    if (historyView) {
+        for (const auto& diff : diffs) {
+            historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+        }
+    }
+    if (burnView) {
+        for (const auto& diff : burnDiffs) {
+            burnView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+        }
+    }
+    if (vaultView) {
+        for (const auto& diff : vaultDiffs) {
+            for (const auto& addresses : diff.second) {
+                vaultView->WriteVaultHistory({height, diff.first, txn, addresses.first}, {txid, type, addresses.second});
+            }
+        }
+        if (!schemeID.empty()) {
+            vaultView->WriteVaultScheme({vaultID, height}, {type, txid, schemeID, txn});
+        }
+        if (!globalLoanScheme.identifier.empty()) {
+            vaultView->WriteGlobalScheme({height, txn, globalLoanScheme.schemeCreationTxid}, {globalLoanScheme, type, txid});
+        }
+    }
 }
 
 std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;

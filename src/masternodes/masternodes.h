@@ -11,13 +11,15 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/gv.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
-#include <masternodes/gv.h>
+#include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
+#include <masternodes/vault.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
@@ -59,6 +61,11 @@ public:
         TENYEAR = 520
     };
 
+    enum Version : int32_t {
+        PRE_FORT_CANNING = -1,
+        VERSION0 = 0,
+    };
+
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
@@ -70,12 +77,16 @@ public:
     CKeyID operatorAuthAddress;
     char operatorType;
 
+    //! Consensus-enforced address for operator rewards.
+    CKeyID rewardAddress;
+    char rewardAddressType{0};
+
     //! MN creation block height
     int32_t creationHeight;
     //! Resign height
     int32_t resignHeight;
     //! Was used to set a ban height but is now unused
-    int32_t unusedVariable;
+    int32_t version;
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
@@ -84,9 +95,7 @@ public:
     //! empty constructor
     CMasternode();
 
-    State GetState() const;
     State GetState(int height) const;
-    bool IsActive() const;
     bool IsActive(int height) const;
 
     static std::string GetHumanReadableState(State state);
@@ -105,10 +114,16 @@ public:
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
-        READWRITE(unusedVariable);
+        READWRITE(version);
 
         READWRITE(resignTx);
         READWRITE(banTx);
+
+        // Only available after FortCanning
+        if (version > PRE_FORT_CANNING) {
+            READWRITE(rewardAddress);
+            READWRITE(rewardAddressType);
+        }
     }
 
     //! equality test
@@ -173,8 +188,8 @@ public:
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
     void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
 
-    void IncrementMintedBy(CKeyID const & minter);
-    void DecrementMintedBy(CKeyID const & minter);
+    void IncrementMintedBy(const uint256& nodeId);
+    void DecrementMintedBy(const uint256& nodeId);
 
     boost::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
     boost::optional<std::pair<CKeyID, uint256>> AmIOwner() const;
@@ -186,6 +201,9 @@ public:
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
     Res UnCreateMasternode(uint256 const & nodeId);
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
+    Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
+    Res RemForcedRewardAddress(uint256 const & nodeId, int height);
+    Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
 
     // Get blocktimes for non-subnode and subnode with fork logic
     std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
@@ -205,16 +223,16 @@ public:
     uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
 
     // tags
-    struct ID { static const unsigned char prefix; };
-    struct Operator { static const unsigned char prefix; };
-    struct Owner { static const unsigned char prefix; };
+    struct ID       { static constexpr uint8_t prefix() { return 'M'; } };
+    struct Operator { static constexpr uint8_t prefix() { return 'o'; } };
+    struct Owner    { static constexpr uint8_t prefix() { return 'w'; } };
 
     // For storing last staked block time
-    struct Staker { static const unsigned char prefix; };
-    struct SubNode { static const unsigned char prefix; };
+    struct Staker   { static constexpr uint8_t prefix() { return 'X'; } };
+    struct SubNode  { static constexpr uint8_t prefix() { return 'Z'; } };
 
     // Store long term time lock
-    struct Timelock { static const unsigned char prefix; };
+    struct Timelock { static constexpr uint8_t prefix() { return 'K'; } };
 };
 
 class CLastHeightView : public virtual CStorageView
@@ -222,6 +240,8 @@ class CLastHeightView : public virtual CStorageView
 public:
     int GetLastHeight() const;
     void SetLastHeight(int height);
+
+    struct Height { static constexpr uint8_t prefix() { return 'H'; } };
 };
 
 class CFoundationsDebtView : public virtual CStorageView
@@ -229,6 +249,8 @@ class CFoundationsDebtView : public virtual CStorageView
 public:
     CAmount GetFoundationsDebt() const;
     void SetFoundationsDebt(CAmount debt);
+
+    struct Debt { static constexpr uint8_t prefix() { return 'd'; } };
 };
 
 class CTeamView : public virtual CStorageView
@@ -243,8 +265,9 @@ public:
     boost::optional<CTeam> GetAuthTeam(int height) const;
     boost::optional<CTeam> GetConfirmTeam(int height) const;
 
-    struct AuthTeam { static const unsigned char prefix; };
-    struct ConfirmTeam { static const unsigned char prefix; };
+    struct AuthTeam     { static constexpr uint8_t prefix() { return 'v'; } };
+    struct ConfirmTeam  { static constexpr uint8_t prefix() { return 'V'; } };
+    struct CurrentTeam  { static constexpr uint8_t prefix() { return 't'; } };
 };
 
 class CAnchorRewardsView : public virtual CStorageView
@@ -259,7 +282,7 @@ public:
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
     void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, CLazySerialize<RewardTxHash>)> callback);
 
-    struct BtcTx { static const unsigned char prefix; };
+    struct BtcTx { static constexpr uint8_t prefix() { return 'r'; } };
 };
 
 class CAnchorConfirmsView : public virtual CStorageView
@@ -273,8 +296,45 @@ public:
     void EraseAnchorConfirmData(const uint256 btcTxHash);
     void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback);
 
-    struct BtcTx { static const unsigned char prefix; };
+    struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
+
+class CCollateralLoans { // in USD
+
+    double calcRatio(uint64_t maxRatio) const;
+
+public:
+    uint64_t totalCollaterals;
+    uint64_t totalLoans;
+    std::vector<CTokenAmount> collaterals;
+    std::vector<CTokenAmount> loans;
+
+    uint32_t ratio() const;
+    CAmount precisionRatio() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(totalCollaterals);
+        READWRITE(totalLoans);
+        READWRITE(collaterals);
+        READWRITE(loans);
+    }
+};
+
+template<typename T>
+inline void CheckPrefix()
+{
+}
+
+template<typename T1, typename T2, typename... TN>
+inline void CheckPrefix()
+{
+    static_assert(T1::prefix() != T2::prefix(), "prefixes are equal");
+    CheckPrefix<T1, TN...>();
+    CheckPrefix<T2, TN...>();
+}
 
 class CCustomCSView
         : public CMasternodesView
@@ -291,23 +351,67 @@ class CCustomCSView
         , public CAnchorConfirmsView
         , public COracleView
         , public CICXOrderView
+        , public CLoanView
+        , public CVaultView
 {
+    void CheckPrefixes()
+    {
+        CheckPrefix<
+            CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
+            CLastHeightView         ::  Height,
+            CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
+            CFoundationsDebtView    ::  Debt,
+            CAnchorRewardsView      ::  BtcTx,
+            CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
+            CAccountsView           ::  ByBalanceKey, ByHeightKey,
+            CCommunityBalancesView  ::  ById,
+            CUndosView              ::  ByUndoKey,
+            CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
+                                        ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity, ByDailyLoanReward,
+                                        ByPoolLoanReward, ByTokenDexFeePct,
+            CGovView                ::  ByName, ByHeightVars,
+            CAnchorConfirmsView     ::  BtcTx,
+            COracleView             ::  ByName, FixedIntervalBlockKey, FixedIntervalPriceKey, PriceDeviation,
+            CICXOrderView           ::  ICXOrderCreationTx, ICXMakeOfferCreationTx, ICXSubmitDFCHTLCCreationTx,
+                                        ICXSubmitEXTHTLCCreationTx, ICXClaimDFCHTLCCreationTx, ICXCloseOrderCreationTx,
+                                        ICXCloseOfferCreationTx, ICXOrderOpenKey, ICXOrderCloseKey, ICXMakeOfferOpenKey,
+                                        ICXMakeOfferCloseKey, ICXSubmitDFCHTLCOpenKey, ICXSubmitDFCHTLCCloseKey,
+                                        ICXSubmitEXTHTLCOpenKey, ICXSubmitEXTHTLCCloseKey, ICXClaimDFCHTLCKey,
+                                        ICXOrderStatus, ICXOfferStatus, ICXSubmitDFCHTLCStatus, ICXSubmitEXTHTLCStatus, ICXVariables,
+            CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
+                                        LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
+                                        DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
+            CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
+        >();
+    }
+private:
+    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 
-    CCustomCSView() = default;
+    CCustomCSView()
+    {
+        CheckPrefixes();
+    }
 
     CCustomCSView(CStorageKV & st)
         : CStorageView(new CFlushableStorageKV(st))
-    {}
+    {
+        CheckPrefixes();
+    }
+
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView & other)
         : CStorageView(new CFlushableStorageKV(other.DB()))
-    {}
+    {
+        CheckPrefixes();
+    }
 
     // cause depends on current mns:
-    CTeamView::CTeam CalcNextTeam(uint256 const & stakeModifier);
+    CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
@@ -322,6 +426,12 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
+    ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true);
+
+    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
+
+    ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
+
     void SetDbVersion(int version);
 
     int GetDbVersion() const;
@@ -332,9 +442,11 @@ public:
     CFlushableStorageKV& GetStorage() {
         return static_cast<CFlushableStorageKV&>(DB());
     }
+
+    struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
 
-std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;

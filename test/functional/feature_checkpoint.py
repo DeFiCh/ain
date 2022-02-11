@@ -22,7 +22,7 @@ class CheckpointTest (DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         # Stop node #1 for future revert
         self.stop_node(1)

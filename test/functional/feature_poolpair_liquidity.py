@@ -61,7 +61,7 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer silver
         self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER})
         self.nodes[1].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         # create pool
         self.nodes[0].createpoolpair({
@@ -133,7 +133,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(amountGold, initialGold - 100)
         assert_equal(amountSilver, initialSilver - 1100)
 
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
         accountGoldInfo = self.nodes[1].getaccount(accountGold, {}, True)
 
         assert_equal(str(accountGoldInfo[idGS]), "99.99999000")
@@ -157,7 +157,7 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer tokens
         self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]})
         self.nodes[0].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         accountGoldInfo = self.nodes[3].getaccount(accountGold, {}, True)
@@ -172,10 +172,10 @@ class PoolLiquidityTest (DefiTestFramework):
             "*": ["50@" + symbolGOLD, "400@" + symbolSILVER]
         }, accountTest, [])
 
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_mempools([self.nodes[0], self.nodes[3]])
 
         self.nodes[0].generate(1)
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         pool = self.nodes[3].getpoolpair("GS", True)
@@ -324,9 +324,9 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(gsAmountAcc2 * poolReserveB / poolLiquidity)
 
         # transfer
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_blocks([self.nodes[0], self.nodes[3]])
         self.nodes[3].removepoolliquidity(accountTest, str(gsAmountAcc2)+"@GS", [])
-        self.sync_all([self.nodes[0], self.nodes[3]])
+        self.sync_mempools([self.nodes[0], self.nodes[3]])
         self.nodes[0].generate(1)
 
         accountTestInfo = self.nodes[0].getaccount(accountTest, {}, True)
@@ -355,11 +355,71 @@ class PoolLiquidityTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
+        # Wipe mempool
+        self.nodes[0].clearmempool()
+        self.nodes[1].clearmempool()
+        self.nodes[2].clearmempool()
+
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
         # assert_equal(len(self.nodes[0].getrawmempool()), 13) # removed txs for block
 
+        # Test liquidity reward when pool status is false
+        symbolBTC = "BTC"
+        symbolDFI = "DFI"
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        self.nodes[0].createtoken({
+            "symbol": symbolBTC,
+            "name": "BTC token",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        self.nodes[0].generate(1)
+
+        idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
+        idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
+
+        pool_pair_tx = self.nodes[0].createpoolpair({
+            "tokenA": idBTC,
+            "tokenB": idDFI,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "BTC-DFI",
+        }, [])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].minttokens(["100@" + symbolBTC])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].utxostoaccount({address: "100@DFI"})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].addpoolliquidity({
+            address: ["100@" + symbolBTC, "100@" + symbolDFI]
+        }, address)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 1 })
+        self.nodes[0].generate(1)
+
+        pool_pair_id = list(self.nodes[0].getpoolpair("BTC-DFI").keys())[0]
+        self.nodes[0].setgov({ "LP_SPLITS": { pool_pair_id: 1 }})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].updatepoolpair({
+            "pool": pool_pair_tx,
+            "status": False
+        })
+        self.nodes[0].generate(1)
+
+        rewards = self.nodes[0].getaccount(address, {}, True)
+        self.nodes[0].generate(1)
+        rewardsAfter = self.nodes[0].getaccount(address, {}, True)
+
+        assert(rewardsAfter['0'] > rewards['0']) # Liquidity pool providers should keep getting rewards while pool status is false
 
 if __name__ == '__main__':
     PoolLiquidityTest ().main ()

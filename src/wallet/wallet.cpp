@@ -2853,7 +2853,7 @@ bool CWallet::SignTransaction(CMutableTransaction& tx)
     return true;
 }
 
-bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl)
+bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl& coinControl)
 {
     std::vector<CRecipient> vecSend;
 
@@ -2891,6 +2891,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             if (lockUnspents) {
                 LockCoin(txin.prevout);
             }
+        }
+    }
+
+    if (lockUnspents) {
+        for (const auto& coin : coinControl.m_linkedCoins) {
+            LockCoin(coin.first);
         }
     }
 

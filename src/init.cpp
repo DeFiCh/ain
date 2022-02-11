@@ -28,6 +28,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -417,7 +418,8 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", DEFAULT_ACINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-vaultindex", strprintf("Maintain a full vault history index, tracking all vault changes. Used by the listvaulthistory rpc call (default: %u)", DEFAULT_VAULTINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -461,16 +463,20 @@ void SetupServerArgs()
     gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-bayfrontgardensheight", "Bayfront Gardens fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-clarkequayheight", "ClarkeQuay fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-eunosheight", "Eunos fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-eunospayaheight", "EunosPaya fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-bayfrontgardensheight", "Bayfront Gardens fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-clarkequayheight", "ClarkeQuay fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-eunosheight", "Eunos fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-eunospayaheight", "EunosPaya fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningheight", "Fort Canning fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningmuseumheight", "Fort Canning Museum fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningparkheight", "Fort Canning Park fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanninghillheight", "Fort Canning Hill fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -892,7 +898,7 @@ void InitLogging()
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 
-    std::string version_string = FormatFullVersion();
+    std::string version_string = FormatVersionAndSuffix();
 #ifdef DEBUG
     version_string += " (debug build)";
 #else
@@ -1070,7 +1076,8 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    fCheckpointsEnabled = gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED);
+    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
+        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())
@@ -1396,7 +1403,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             return InitError(strprintf(_("User Agent comment (%s) contains unsafe characters.").translated, cmt));
         uacomments.push_back(cmt);
     }
-    strSubVersion = FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, uacomments);
+    strSubVersion = FormatUserAgentString(CLIENT_NAME, CLIENT_VERSION, uacomments);
     if (strSubVersion.size() > MAX_SUBVERSION_LENGTH) {
         return InitError(strprintf(_("Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments.").translated,
             strSubVersion.size(), MAX_SUBVERSION_LENGTH));
@@ -1627,6 +1634,12 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+
+                // Create vault history DB
+                pvaultHistoryDB.reset();
+                if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
+                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                }
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1996,30 +2009,43 @@ bool AppInitMain(InitInterfaces& interfaces)
                 continue;
             }
 
-            auto const rewardAddressStr = gArgs.GetArg("-rewardaddress", "");
-            CTxDestination const rewardAddress = rewardAddressStr.empty() ? CNoDestination{} :
-                                                    DecodeDestination(rewardAddressStr, chainparams);
-            if (IsValidDestination(rewardAddress)) {
-                coinbaseScript = GetScriptForDestination(rewardAddress);
-                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", rewardAddressStr);
-            } else {
-                // determine coinbase script for minting thread
-                CTxDestination ownerDest;
-                auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
-                if (optMasternodeID) {
-                    auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
-                    assert(nodePtr); // this should not happen if MN was found by operator's id
-                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
-                }
-                if (IsValidDestination(ownerDest)) {
-                    coinbaseScript = GetScriptForDestination(ownerDest);
-                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
-                } else {
-                    LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            // determine coinbase script for minting thread
+            auto const customRewardAddressStr = gArgs.GetArg("-rewardaddress", "");
+            CTxDestination const customRewardDest = customRewardAddressStr.empty() ?
+                CNoDestination{} :
+                DecodeDestination(customRewardAddressStr, chainparams);
+
+            CTxDestination ownerDest;
+            CTxDestination rewardDest;
+            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
+            if (optMasternodeID) {
+                auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
+                assert(nodePtr); // this should not happen if MN was found by operator's id
+                ownerDest = nodePtr->ownerType == PKHashType ?
+                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                if (nodePtr->rewardAddressType != 0) {
+                    rewardDest = nodePtr->rewardAddressType == PKHashType ?
+                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
                 }
             }
 
+            if (IsValidDestination(rewardDest)) {
+                coinbaseScript = GetScriptForDestination(rewardDest);
+                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(rewardDest));
+            }
+            else if (IsValidDestination(customRewardDest)) {
+                coinbaseScript = GetScriptForDestination(customRewardDest);
+                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", customRewardAddressStr);
+            }
+            else if (IsValidDestination(ownerDest)) {
+                coinbaseScript = GetScriptForDestination(ownerDest);
+                LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
+            }
+            else {
+                LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            }
             stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;
         }

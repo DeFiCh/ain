@@ -192,7 +192,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     result.pushKV("cost", cost);
     if (send) {
         result.pushKV("sendResult", sendResult);
-        result.pushKV("sendMessage", DecodeSendResult(sendResult));
+        result.pushKV("sendMessage", sendResult != 0 ? DecodeSendResult(sendResult) : "");
     }
 
     return result;
@@ -255,7 +255,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     }
     CMutableBtcTransaction mtx;
     // output[0] - anchor address with creation fee
-    mtx.vout.push_back(CBtcTxOut(consensus.spv.creationFee, CScript(scriptBytes.begin(), scriptBytes.end())));
+    mtx.vout.push_back(CBtcTxOut(spv::P2PKH_DUST, CScript(scriptBytes.begin(), scriptBytes.end())));
 
     // output[1] - metadata (first part with OP_RETURN)
     mtx.vout.push_back(CBtcTxOut(0, metaScripts[0]));
@@ -432,6 +432,8 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
             {"maxBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max btc height, optional (default = -1)"},
             {"minConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "min anchor confirmations, optional (default = -1)"},
             {"maxConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max anchor confirmations, optional (default = -1)"},
+            {"startBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max anchor confirmations, optional (default = -1)"},
+            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "number of records to return (default = unlimited)"},
         },
         RPCResult{
             "\"array\"                  Returns array of anchors\n"
@@ -445,13 +447,14 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
-    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM }, true);
+    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM }, true);
 
-
-    int minBtcHeight = request.params.size() > 0 && !request.params[0].isNull() ? request.params[0].get_int() : -1;
-    int maxBtcHeight = request.params.size() > 1 && !request.params[1].isNull() ? request.params[1].get_int() : -1;
-    int minConfs  = request.params.size() > 2 && !request.params[2].isNull() ? request.params[2].get_int() : -1;
-    int maxConfs  = request.params.size() > 3 && !request.params[3].isNull() ? request.params[3].get_int() : -1;
+    const int minBtcHeight = request.params.size() > 0 ? request.params[0].get_int() : -1;
+    const int maxBtcHeight = request.params.size() > 1 ? request.params[1].get_int() : -1;
+    const int minConfs = request.params.size() > 2 ? request.params[2].get_int() : -1;
+    const int maxConfs = request.params.size() > 3 ? request.params[3].get_int() : -1;
+    const int startBtcHeight = request.params.size() > 4 ? request.params[4].get_int() : -1;
+    const int limit = request.params.size() > 5 ? request.params[5].get_int() : std::numeric_limits<int>::max();
 
     // ! before cs_main lock
     uint32_t const tmp = spv::pspv->GetLastBlockHeight();
@@ -461,13 +464,16 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
 
     panchors->UpdateLastHeight(tmp); // may be unnecessary but for sure
     auto const * cur = panchors->GetActiveAnchor();
+    auto count = limit;
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &cur, minBtcHeight, maxBtcHeight, minConfs, maxConfs](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&](const CAnchorIndex::AnchorRec & rec) {
         // from tip to genesis:
         auto confs = panchors->GetAnchorConfirmations(&rec);
-        if ( (maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs) )
+        if ((maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs))
             return true; // continue
-        if ( (minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) || (maxConfs >= 0 && confs > maxConfs) )
+        if ((minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) ||
+            (maxConfs >= 0 && confs > maxConfs) ||
+            (startBtcHeight >= 0 && static_cast<THeight>(rec.btcHeight) < startBtcHeight))
             return false; // break
 
         UniValue anchor(UniValue::VOBJ);
@@ -480,7 +486,7 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
         }
 
         result.push_back(anchor);
-        return true;
+        return --count != 0;
     });
     return result;
 }
@@ -1047,7 +1053,7 @@ UniValue spv_claimhtlc(const JSONRPCRequest& request)
         RPCResult{
             "{\n"
             "  \"txid\"                    (string) The transaction id\n"
-            "  \"sendmessage\"             (string) Send message result\n"
+            "  \"sendmessage\"             (string) Error message on failure\n"
             "}\n"
         },
         RPCExamples{
@@ -1066,8 +1072,13 @@ UniValue spv_claimhtlc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
     }
 
-    return spv::pspv->CreateHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
+    const auto pair = spv::pspv->PrepareHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
             request.params[2].get_str(), request.params[3].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[3].get_int64(), true);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("txid", pair.first);
+    result.pushKV("sendmessage", pair.second);
+    return result;
 }
 
 UniValue spv_refundhtlc(const JSONRPCRequest& request)
@@ -1084,7 +1095,7 @@ UniValue spv_refundhtlc(const JSONRPCRequest& request)
         RPCResult{
             "{\n"
             "  \"txid\"                    (string) The transaction id\n"
-            "  \"sendmessage\"             (string) Send message result\n"
+            "  \"sendmessage\"             (string) Error message on failure\n"
             "}\n"
         },
         RPCExamples{
@@ -1103,8 +1114,49 @@ UniValue spv_refundhtlc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
     }
 
-    return spv::pspv->CreateHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
+    const auto pair = spv::pspv->PrepareHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
             "", request.params[3].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[3].get_int64(), false);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("txid", pair.first);
+    result.pushKV("sendmessage", pair.second);
+    return result;
+}
+
+UniValue spv_refundhtlcall(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_refundhtlcall",
+               "\nGets all HTLC contracts stored in wallet and creates refunds transactions for all that have expired\n",
+               {
+                   {"destinationaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination for funds in the HTLC"},
+                   {"feerate", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Feerate (satoshis) per KB (Default: " + std::to_string(spv::DEFAULT_BTC_FEE_PER_KB) + ")"},
+               },
+               RPCResult{
+                   "{\n"
+                   "  \"txid\"                    (string) The transaction id\n"
+                   "}\n"
+               },
+               RPCExamples{
+        HelpExampleCli("spv_refundhtlcall", "100000")
+        + HelpExampleRpc("spv_refundhtlcall", "100000")
+               },
+               }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    if (!spv::pspv->IsConnected())
+    {
+        throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
+    }
+
+    const auto feeRate = request.params[1].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[1].get_int64();
+
+    return spv::pspv->RefundAllHTLC(pwallet, request.params[0].get_str().c_str(), feeRate);
 }
 
 UniValue spv_fundaddress(const JSONRPCRequest& request)
@@ -1117,7 +1169,7 @@ UniValue spv_fundaddress(const JSONRPCRequest& request)
             {"address", RPCArg::Type::NUM, RPCArg::Optional::NO, "Bitcoin address to fund"},
         },
         RPCResult{
-            "\"txid\"                  (string) The transaction id.\n"
+            "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
         },
         RPCExamples{
             HelpExampleCli("spv_fundaddress", "\"address\"")
@@ -1530,7 +1582,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
-  { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs" }  },
+  { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs", "startBtcHeight", "limit" }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
   { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
   { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },
@@ -1546,6 +1598,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_createhtlc",             &spv_createhtlc,            { "seller_key", "refund_key", "hash", "timeout" }  },
   { "spv",      "spv_claimhtlc",              &spv_claimhtlc,             { "scriptaddress", "destinationaddress", "seed", "feerate" }  },
   { "spv",      "spv_refundhtlc",             &spv_refundhtlc,            { "scriptaddress", "destinationaddress", "feerate" }  },
+  { "spv",      "spv_refundhtlcall",          &spv_refundhtlcall,         { "destinationaddress", "feerate" }  },
   { "spv",      "spv_listhtlcoutputs",        &spv_listhtlcoutputs,       { "address" }  },
   { "spv",      "spv_decodehtlcscript",       &spv_decodehtlcscript,      { "redeemscript" }  },
   { "spv",      "spv_gethtlcseed",            &spv_gethtlcseed,           { "address" }  },

@@ -126,6 +126,7 @@ BASE_SCRIPTS = [
     'feature_auth_return_change.py',
     'feature_setgov.py',
     'interface_zmq.py',
+    'feature_restore_utxo.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
@@ -135,6 +136,8 @@ BASE_SCRIPTS = [
     'rpc_getchaintips.py',
     'rpc_misc.py',
     'rpc_mn_basic.py',
+    'feature_smart_contracts.py',
+    'feature_reject_customtxs.py',
     'feature_initdist.py',
     'feature_tokens_basic.py',
     'feature_tokens_minting.py',
@@ -157,10 +160,20 @@ BASE_SCRIPTS = [
     'feature_poolpair_liquidity.py',
     'feature_icx_orderbook.py',
     'feature_icx_orderbook_errors.py',
+    'feature_loan_setcollateraltoken.py',
+    'feature_loan_setloantoken.py',
+    'feature_loan_basics.py',
+    'feature_loan_payback_dfi.py',
+    'feature_loan_get_interest.py',
+    'feature_loan_listauctions.py',
+    'feature_loan_auctions.py',
+    'feature_loan_dusd_as_collateral.py',
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
+    'feature_poolswap_composite.py',
     'feature_poolswap_mechanism.py',
+    'feature_poolswap_mainnet.py',
     'feature_prevent_bad_tx_propagation.py',
     'feature_masternode_operator.py',
     'feature_mine_cached.py',
@@ -228,6 +241,7 @@ BASE_SCRIPTS = [
     'wallet_fallbackfee.py',
     'feature_minchainwork.py',
     'rpc_getblockstats.py',
+    'feature_median_time.py',
     'wallet_create_tx.py',
     'p2p_fingerprint.py',
     'feature_uacomment.py',
@@ -240,7 +254,19 @@ BASE_SCRIPTS = [
     'rpc_deriveaddresses.py --usecli',
     'rpc_scantxoutset.py',
     'rpc_getcustomtx.py',
+    'rpc_listvaulthistory.py',
     'feature_logging.py',
+    'feature_loan_scheme.py',
+    #'feature_forced_reward_address.py',
+    'feature_loan_vault.py',
+    'feature_loan_deposittovault.py',
+    'feature_loan_interest.py',
+    'feature_loan_estimateloan.py',
+    'feature_loan_priceupdate.py',
+    'feature_loan_vaultstate.py',
+    'feature_loan.py',
+    'feature_loan_low_interest.py',
+    'feature_loan_estimatecollateral.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
@@ -257,6 +283,8 @@ BASE_SCRIPTS = [
     'feature_burn_address.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
+    'feature_update_mn.py',
+    'feature_block_reward.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
@@ -317,7 +345,7 @@ def main():
     logging.basicConfig(format='%(message)s', level=logging_level)
 
     # Create base test directory
-    tmpdir = "%s/test_runner_₿_🏃_%s" % (args.tmpdirprefix, datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+    tmpdir = "%s/test_runner_%s" % (args.tmpdirprefix, datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     os.makedirs(tmpdir)
 

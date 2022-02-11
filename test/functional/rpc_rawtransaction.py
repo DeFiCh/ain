@@ -17,7 +17,7 @@ from decimal import Decimal
 from io import BytesIO
 from test_framework.messages import CTransaction, ToHex
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes_bi, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_raises_rpc_error, hex_str_to_bytes
 
 class multidict(dict):
     """Dictionary that allows duplicate keys.
@@ -51,22 +51,18 @@ class RawTransactionsTest(DefiTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
-    def setup_network(self):
-        super().setup_network()
-        connect_nodes_bi(self.nodes, 0, 2)
-
     def run_test(self):
         self.log.info('prepare some coins for multiple *rawtransaction commands')
         self.nodes[2].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[0].generate(101)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(5)
-        self.sync_all()
+        self.sync_blocks()
 
         self.log.info('Test getrawtransactions on genesis block')
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(0))
@@ -215,7 +211,7 @@ class RawTransactionsTest(DefiTestFramework):
         # make a tx by sending then generate 2 blocks; block1 has the tx in it
         tx = self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), 1)
         block1, block2 = self.nodes[2].generate(2)
-        self.sync_all()
+        self.sync_blocks()
         # We should be able to get the raw transaction by providing the correct block
         gottx = self.nodes[0].getrawtransaction(tx, True, block1)
         assert_equal(gottx['txid'], tx)
@@ -261,9 +257,9 @@ class RawTransactionsTest(DefiTestFramework):
 
         # send 1.2 BTC to msig adr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[2].getbalance(), bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
 
@@ -282,9 +278,9 @@ class RawTransactionsTest(DefiTestFramework):
         txId = self.nodes[0].sendtoaddress(mSigObj, 2.2)
         decTx = self.nodes[0].gettransaction(txId)
         rawTx = self.nodes[0].decoderawtransaction(decTx['hex'])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         #THIS IS AN INCOMPLETE FEATURE
         #NODE2 HAS TWO OF THREE KEY AND THE FUNDS SHOULD BE SPENDABLE AND COUNT AT BALANCE CALCULATION
@@ -305,9 +301,9 @@ class RawTransactionsTest(DefiTestFramework):
         assert_equal(rawTxSigned['complete'], True) #node2 can sign the tx compl., own two of three keys
         self.nodes[2].sendrawtransaction(rawTxSigned['hex'])
         rawTx = self.nodes[0].decoderawtransaction(rawTxSigned['hex'])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # 2of2 test for combining transactions
@@ -325,9 +321,9 @@ class RawTransactionsTest(DefiTestFramework):
         txId = self.nodes[0].sendtoaddress(mSigObj, 2.2)
         decTx = self.nodes[0].gettransaction(txId)
         rawTx2 = self.nodes[0].decoderawtransaction(decTx['hex'])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         assert_equal(self.nodes[2].getbalance(), bal) # the funds of a 2of2 multisig tx should not be marked as spendable
 
@@ -350,9 +346,9 @@ class RawTransactionsTest(DefiTestFramework):
         self.log.debug(rawTxComb)
         self.nodes[2].sendrawtransaction(rawTxComb)
         rawTx2 = self.nodes[0].decoderawtransaction(rawTxComb)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # decoderawtransaction tests
@@ -439,7 +435,7 @@ class RawTransactionsTest(DefiTestFramework):
         rawTx = self.nodes[0].getrawtransaction(txId, True)
         vout = next(o for o in rawTx['vout'] if o['value'] == Decimal('1.00000000'))
 
-        self.sync_all()
+        self.sync_mempools()
         inputs = [{ "txid" : txId, "vout" : vout['n'] }]
         outputs = { self.nodes[0].getnewaddress() : Decimal("0.99999000") } # 1000 sat fee
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)

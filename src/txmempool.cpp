@@ -333,6 +333,8 @@ CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator)
     // accepting transactions becomes O(N^2) where N is the number
     // of transactions in the pool
     nCheckFrequency = 0;
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
 }
 
 bool CTxMemPool::isSpent(const COutPoint& outpoint) const
@@ -570,59 +572,28 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 {
     AssertLockHeld(cs);
 
-    setEntries staged;
     std::vector<const CTxMemPoolEntry*> entries;
     for (const auto& tx : vtx) {
         auto it = mapTx.find(tx->GetHash());
         if (it != mapTx.end()) {
-            staged.insert(it);
             entries.push_back(&*it);
         }
     }
     // Before the txs in the new block have been removed from the mempool, update policy estimates
     if (minerPolicyEstimator) {minerPolicyEstimator->processBlock(nBlockHeight, entries);}
 
-    for (auto& it : staged) {
-        auto& tx = it->GetTx();
-        removeConflicts(tx);
-        ClearPrioritisation(tx.GetHash());
+    for (const auto& tx : vtx) {
+        auto it = mapTx.find(tx->GetHash());
+        if (it != mapTx.end()) {
+            RemoveStaged({it}, true, MemPoolRemovalReason::BLOCK);
+        }
+        removeConflicts(*tx);
+        ClearPrioritisation(tx->GetHash());
     }
 
-    RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
-
-    if (pcustomcsview) { // can happen in tests
-        // check entire mempool
-        CAmount txfee = 0;
-        accountsView().Discard();
-        CCustomCSView viewDuplicate(accountsView());
-        CCoinsViewCache mempoolDuplicate(&::ChainstateActive().CoinsTip());
-
-        setEntries staged;
-        // Check custom TX consensus types are now not in conflict with account layer
-        auto& txsByEntryTime = mapTx.get<entry_time>();
-        for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
-            CValidationState state;
-            const auto& tx = it->GetTx();
-            if (!Consensus::CheckTxInputs(tx, state, mempoolDuplicate, &viewDuplicate, nBlockHeight, txfee, Params())) {
-                LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
-                staged.insert(mapTx.project<0>(it));
-                continue;
-            }
-            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight);
-            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
-                staged.insert(mapTx.project<0>(it));
-            }
-        }
-
-        for (auto& it : staged) {
-            auto& tx = it->GetTx();
-            removeConflicts(tx);
-            ClearPrioritisation(tx.GetHash());
-        }
-
-        RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
-        viewDuplicate.Flush();
+    if (pcustomcsview) {
+        accountsViewDirty |= forceRebuildForReorg;
+        rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
     }
 
     lastRollingFeeUpdate = GetTime();
@@ -633,12 +604,15 @@ void CTxMemPool::_clear()
 {
     mapLinks.clear();
     mapTx.clear();
+    vTxHashes.clear();
     mapNextTx.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = false;
     rollingMinimumFeeRate = 0;
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
     ++nTransactionsUpdated;
 }
 
@@ -646,9 +620,7 @@ void CTxMemPool::clear()
 {
     LOCK(cs);
     _clear();
-    if (pcustomcsview) {
-        accountsView().Discard();
-    }
+    acview.reset();
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight, const CChainParams& chainparams)
@@ -975,27 +947,11 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
 void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, MemPoolRemovalReason reason) {
     AssertLockHeld(cs);
     UpdateForRemoveFromMempool(stage, updateDescendants);
-    std::set<uint256> txids;
     for (txiter it : stage) {
-        txids.insert(it->GetTx().GetHash());
         removeUnchecked(it, reason);
     }
-    if (pcustomcsview && !txids.empty()) {
-        auto& view = accountsView();
-        std::map<uint32_t, uint256> orderedTxs;
-        auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, view.GetStorage().GetRaw());
-        for (; it.Valid() && !txids.empty(); it.Next()) {
-            auto& key = it.Key();
-            auto itTx = txids.find(key.txid);
-            if (itTx != txids.end()) {
-                orderedTxs.emplace(key.height, key.txid);
-                txids.erase(itTx);
-            }
-        }
-        for (auto it = orderedTxs.rbegin(); it != orderedTxs.rend(); ++it) {
-            view.OnUndoTx(it->second, it->first);
-        }
-    }
+    accountsViewDirty |= !stage.empty();
+    forceRebuildForReorg |= reason == MemPoolRemovalReason::REORG;
 }
 
 int CTxMemPool::Expire(int64_t time) {
@@ -1132,6 +1088,49 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     if (maxFeeRateRemoved > CFeeRate(0)) {
         LogPrint(BCLog::MEMPOOL, "Removed %u txn, rolling minimum fee bumped to %s\n", nTxnRemoved, maxFeeRateRemoved.ToString());
     }
+}
+
+void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
+{
+    if (!pcustomcsview || !accountsViewDirty) {
+        return;
+    }
+
+    CAmount txfee = 0;
+    accountsView().Discard();
+    CCustomCSView viewDuplicate(accountsView());
+
+    setEntries staged;
+    std::vector<CTransactionRef> vtx;
+    // Check custom TX consensus types are now not in conflict with account layer
+    auto& txsByEntryTime = mapTx.get<entry_time>();
+    for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
+        CValidationState state;
+        const auto& tx = it->GetTx();
+        if (!Consensus::CheckTxInputs(tx, state, coinsCache, &viewDuplicate, height, txfee, Params())) {
+            LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
+            staged.insert(mapTx.project<0>(it));
+            vtx.push_back(it->GetSharedTx());
+            continue;
+        }
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
+        if (!res && (res.code & CustomTxErrCodes::Fatal)) {
+            LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
+            staged.insert(mapTx.project<0>(it));
+            vtx.push_back(it->GetSharedTx());
+        }
+    }
+
+    RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
+
+    for (const auto& tx : vtx) {
+        removeConflicts(*tx);
+        ClearPrioritisation(tx->GetHash());
+    }
+
+    viewDuplicate.Flush();
+    accountsViewDirty = false;
+    forceRebuildForReorg = false;
 }
 
 uint64_t CTxMemPool::CalculateDescendantMaximum(txiter entry) const {

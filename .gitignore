@@ -1,10 +1,11 @@
 .code
 .idea
 .vscode
+.clangd
 build
 
 *.tar.gz
-
+*.tmp
 *.exe
 *.pdb
 src/defi
@@ -132,3 +133,6 @@ dist/
 
 # VSCode extension LocalHistory
 .history
+
+# compile_commands.json
+compile_commands.json

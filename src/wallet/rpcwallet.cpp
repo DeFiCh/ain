@@ -398,7 +398,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
             "                             dirty if they have previously been used in a transaction."},
                 },
                 RPCResult{
-            "\"txid\"                  (string) The transaction id.\n"
+            "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
                     HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")

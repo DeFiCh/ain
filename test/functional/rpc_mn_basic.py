@@ -28,7 +28,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         # Stop node #2 for future revert
         self.stop_node(2)
@@ -148,9 +148,10 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.nodes[2].generate(35)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
+
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
-        # fundingTx is removed for a block
-        assert_equal(len(self.nodes[0].getrawmempool()), 1) # auto auth
+        mempool = self.nodes[0].getrawmempool()
+        assert_equal(len(mempool), 1) # auto auth
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createmasternode(collateral0)
@@ -205,6 +206,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # test getmasternodeblocks
         self.nodes[0].generate(1)
         node0_keys = self.nodes[0].get_genesis_keys()
+        blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress}, 2)
+        assert_equal(len(blocks), 2)
+
         blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress})
         assert_equal(list(blocks.keys())[0], '162')
 

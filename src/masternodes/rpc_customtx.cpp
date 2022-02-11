@@ -67,7 +67,7 @@ public:
 
     void operator()(const CCreateMasterNodeMessage& obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == 1 ?
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
                                                 CTxDestination(PKHash(obj.operatorAuthAddress)) :
                                                 CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
@@ -75,6 +75,26 @@ public:
 
     void operator()(const CResignMasterNodeMessage& obj) const {
         rpcInfo.pushKV("id", obj.GetHex());
+    }
+
+    void operator()(const CSetForcedRewardAddressMessage& obj) const {
+        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
+        rpcInfo.pushKV("rewardAddress", EncodeDestination(
+                obj.rewardAddressType == 1 ?
+                    CTxDestination(PKHash(obj.rewardAddress)) :
+                    CTxDestination(WitnessV0KeyHash(obj.rewardAddress)))
+        );
+    }
+
+    void operator()(const CRemForcedRewardAddressMessage& obj) const {
+        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
+    }
+
+    void operator()(const CUpdateMasterNodeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.mnId.GetHex());
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
+                                                CTxDestination(PKHash(obj.operatorAuthAddress)) :
+                                                CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
     }
 
     void operator()(const CCreateTokenMessage& obj) const {
@@ -131,7 +151,7 @@ public:
         rpcInfo.pushKV("to", dest);
     }
 
-    void operator()(CAccountToAccountMessage& obj) const {
+    void operator()(const CAccountToAccountMessage& obj) const {
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
@@ -141,17 +161,19 @@ public:
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
 
+    void operator()(const CSmartContractMessage& obj) const {
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("accounts", accountsInfo(obj.accounts));
+    }
+
     void operator()(const CCreatePoolPairMessage& obj) const {
-        auto tokenA = mnview.GetToken(obj.poolPair.idTokenA);
-        auto tokenB = mnview.GetToken(obj.poolPair.idTokenB);
-        auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash());
-        if (!tokenA || !tokenB || !tokenPair) {
-            return;
-        }
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
-        tokenInfo(tokenPair->second);
-        rpcInfo.pushKV("tokenA", tokenA->name);
-        rpcInfo.pushKV("tokenB", tokenB->name);
+        if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
+            tokenInfo(tokenPair->second);
+        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
+            rpcInfo.pushKV("tokenA", tokenA->name);
+        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
+            rpcInfo.pushKV("tokenB", tokenB->name);
         rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
         rpcInfo.pushKV("status", obj.poolPair.status);
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
@@ -186,10 +208,31 @@ public:
         rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
     }
 
+    void operator()(const CPoolSwapMessageV2& obj) const {
+        (*this)(obj.swapInfo);
+        std::string str;
+        for (auto& id : obj.poolIDs) {
+            if (auto token = mnview.GetToken(id)) {
+                if (!str.empty()) {
+                    str += '/';
+                }
+                str += token->symbol;
+            }
+        }
+        if (!str.empty()) {
+            rpcInfo.pushKV("compositeDex", str);
+        }
+    }
+
     void operator()(const CGovernanceMessage& obj) const {
         for (const auto& var : obj.govs) {
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
+    }
+
+    void operator()(const CGovernanceHeightMessage& obj) const {
+        rpcInfo.pushKV(obj.govVar->GetName(), obj.govVar->Export());
+        rpcInfo.pushKV("startHeight", static_cast<uint64_t>(obj.startHeight));
     }
 
     void operator()(const CAppointOracleMessage& obj) const {
@@ -230,22 +273,19 @@ public:
     }
 
     void operator()(const CICXCreateOrderMessage& obj) const {
-        auto token = mnview.GetToken(obj.idToken);
-        if (!token) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The token %s does not exist", obj.idToken.ToString()));
-        }
-
         if (obj.orderType == CICXOrder::TYPE_INTERNAL)
         {
             rpcInfo.pushKV("type","DFC");
-            rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            if (auto token = mnview.GetToken(obj.idToken))
+                rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
             rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
         }
         else if (obj.orderType == CICXOrder::TYPE_EXTERNAL)
         {
             rpcInfo.pushKV("type","EXTERNAL");
             rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
-            rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            if (auto token = mnview.GetToken(obj.idToken))
+                rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
         }
 
@@ -298,6 +338,112 @@ public:
 
     void operator()(const CICXCloseOfferMessage& obj) const {
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
+    }
+
+    void operator()(const CLoanSetCollateralTokenMessage& obj) const {
+        if (auto token = mnview.GetToken(obj.idToken))
+            rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
+        rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
+        if (obj.activateAfterBlock)
+            rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
+    }
+
+    void operator()(const CLoanSetLoanTokenMessage& obj) const {
+        rpcInfo.pushKV("symbol", obj.symbol);
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
+        rpcInfo.pushKV("mintable", obj.mintable);
+        rpcInfo.pushKV("interest", ValueFromAmount(obj.interest));
+    }
+
+    void operator()(const CLoanUpdateLoanTokenMessage& obj) const {
+        rpcInfo.pushKV("id", obj.tokenTx.ToString());
+        rpcInfo.pushKV("symbol", obj.symbol);
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
+        rpcInfo.pushKV("mintable", obj.mintable);
+        rpcInfo.pushKV("interest", ValueFromAmount(obj.interest));
+    }
+
+    void operator()(const CLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+        rpcInfo.pushKV("mincolratio", static_cast<uint64_t>(obj.ratio));
+        rpcInfo.pushKV("interestrate", ValueFromAmount(obj.rate));
+        rpcInfo.pushKV("updateHeight", obj.updateHeight);
+    }
+
+    void operator()(const CDefaultLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+    }
+
+    void operator()(const CDestroyLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+        rpcInfo.pushKV("destroyHeight", obj.destroyHeight);
+    }
+
+    void operator()(const CVaultMessage& obj) const {
+        // Add Vault attributes
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("loanSchemeId", obj.schemeId);
+    }
+
+    void operator()(const CCloseVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+    }
+
+    void operator()(const CUpdateVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("loanSchemeId", obj.schemeId);
+    }
+
+    void operator()(const CDepositToVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        rpcInfo.pushKV("amount", obj.amount.ToString());
+    }
+
+    void operator()(const CWithdrawFromVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+        rpcInfo.pushKV("amount", obj.amount.ToString());
+    }
+
+    void operator()(const CLoanTakeLoanMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        if (!obj.to.empty())
+            rpcInfo.pushKV("to", ScriptToString(obj.to));
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        for (auto const & kv : obj.amounts.balances) {
+            if (auto token = mnview.GetToken(kv.first)) {
+                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
+                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
+                }
+            }
+        }
+    }
+
+    void operator()(const CLoanPaybackLoanMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        for (auto const & kv : obj.amounts.balances) {
+            if (auto token = mnview.GetToken(kv.first)) {
+                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
+                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
+                }
+            }
+        }
+    }
+
+    void operator()(const CAuctionBidMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("index", int64_t(obj.index));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
     void operator()(const CCustomTxMessageNone&) const {

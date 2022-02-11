@@ -34,47 +34,31 @@ typedef enum {
     SelectionPie,
 } AccountSelectionMode;
 
-// It helps to lock inputs preventing auto auth to select same one
-// it should be created before the first use of funding (straight or by GetAuthInputsSmart())
-struct LockedCoinsScopedGuard {
-    CWallet* const pwallet;
-    std::set<COutPoint> lockedCoinsBackup;
-
-    LockedCoinsScopedGuard(CWallet* const pwl) : pwallet(pwl)
-    {
-        LOCK(pwallet->cs_wallet);
-        lockedCoinsBackup = pwallet->setLockedCoins;
-    }
-
-    ~LockedCoinsScopedGuard()
-    {
-        LOCK(pwallet->cs_wallet);
-        if (lockedCoinsBackup.empty()) {
-            pwallet->UnlockAllCoins();
-        } else {
-            std::vector<COutPoint> diff;
-            std::set_difference(pwallet->setLockedCoins.begin(), pwallet->setLockedCoins.end(), lockedCoinsBackup.begin(), lockedCoinsBackup.end(), std::back_inserter(diff));
-            for (auto const& coin : diff) {
-                pwallet->UnlockCoin(coin);
-            }
-        }
-    }
+class CWalletCoinsUnlocker {
+    std::shared_ptr<CWallet> pwallet;
+    std::vector<COutPoint> coins;
+public:
+    explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
+    CWalletCoinsUnlocker(const CWalletCoinsUnlocker&) = delete;
+    CWalletCoinsUnlocker(CWalletCoinsUnlocker&&) = default;
+    ~CWalletCoinsUnlocker();
+    CWallet* operator->();
+    CWallet& operator*();
+    operator CWallet*();
+    void AddLockedCoin(const COutPoint& coin);
 };
 
 // common functions
 bool IsSkippedTx(const uint256& hash);
 int chainHeight(interfaces::Chain::Lock& locked_chain);
-std::vector<CTxIn> GetInputs(UniValue const& inputs);
-CMutableTransaction fund(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
-CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
-CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
-CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx /* = {}*/);
-CWallet* GetWallet(const JSONRPCRequest& request);
-std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
+CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
+CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
+CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
 std::string ScriptToString(CScript const& script);
 CAccounts GetAllMineAccounts(CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
-void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsigned char>& metadata, CCustomTxMessage txMessage, const CCoinsViewCache& coins = g_chainstate->CoinsTip());
+void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
 

@@ -37,14 +37,14 @@ namespace pos {
     bool CheckHeaderSignature(const CBlockHeader& block);
 
 /// Check kernel hash target and coinstake signature
-    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState);
+    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState, const int height);
 
 /// Check kernel hash target and coinstake signature. Check that block coinstakeTx matches header
     bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView);
 
     unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params);
 
-    unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos = false);
+    unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust = false);
 
     boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
 

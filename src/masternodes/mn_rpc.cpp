@@ -14,8 +14,9 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
+    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -106,7 +107,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
@@ -131,10 +132,18 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTra
     if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
+    for (auto& txin : mtx.vin) {
+        if (!coinControl.IsSelected(txin.prevout)) {
+            pwallet.AddLockedCoin(txin.prevout);
+        }
+    }
+    for (const auto& coin : coinControl.m_linkedCoins) {
+        pwallet.AddLockedCoin(coin.first);
+    }
     return mtx;
 }
 
-CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
 
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
@@ -174,7 +183,7 @@ CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransact
     return MakeTransactionRef(std::move(mtx));
 }
 
-CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
+static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
 
     if (optAuthTx) {
         send(optAuthTx, {});
@@ -193,7 +202,36 @@ CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+    pwallet(std::move(pwallet)) {
+}
+
+CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {
+    if (!coins.empty()) {
+        LOCK(pwallet->cs_wallet);
+        for (auto& coin : coins) {
+            pwallet->UnlockCoin(coin);
+        }
+    }
+}
+
+CWallet* CWalletCoinsUnlocker::operator->() {
+    return pwallet.get();
+}
+
+CWallet& CWalletCoinsUnlocker::operator*() {
+    return *pwallet;
+}
+
+CWalletCoinsUnlocker::operator CWallet*() {
+    return pwallet.get();
+}
+
+void CWalletCoinsUnlocker::AddLockedCoin(const COutPoint& coin) {
+    coins.push_back(coin);
+}
+
+CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx) {
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
 
@@ -214,7 +252,7 @@ int chainHeight(interfaces::Chain::Lock& locked_chain)
     return 0;
 }
 
-std::vector<CTxIn> GetInputs(UniValue const& inputs) {
+static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     std::vector<CTxIn> vin{};
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
@@ -242,13 +280,11 @@ boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static boost::optional<CTxIn> GetAuthInputOnly(CWallet* const pwallet, CTxDestination const& auth) {
+static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
-    cctl.m_avoid_address_reuse = false;
     cctl.m_min_depth = 1;
-    cctl.m_max_depth = 999999999;
     cctl.matchDestination = auth;
     cctl.m_tokenFilter = {DCT_ID{0}};
 
@@ -263,10 +299,11 @@ static boost::optional<CTxIn> GetAuthInputOnly(CWallet* const pwallet, CTxDestin
     // any selected inputs should be mark as locked
     CTxIn txin(vecOutputs[0].tx->GetHash(), vecOutputs[0].i);
     pwallet->LockCoin(txin.prevout);
+    pwallet.AddLockedCoin(txin.prevout);
     return txin;
 }
 
-CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & auths, int32_t txVersion) {
+static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScript> const & auths, int32_t txVersion) {
     CMutableTransaction mtx(txVersion);
     CCoinControl coinControl;
 
@@ -309,7 +346,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
     return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
-static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
+static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
@@ -323,7 +360,7 @@ static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) 
     return {};
 }
 
-std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
 
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -385,18 +422,20 @@ std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion,
     return result;
 }
 
-void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsigned char>& metadata, CCustomTxMessage txMessage, const CCoinsViewCache& coins) {
+void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
+    std::vector<unsigned char> metadata;
+    auto txType = GuessCustomTxType(tx, metadata);
+    auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, height);
         CCustomCSView view(*pcustomcsview);
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage);
+        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime);
     }
     if (!res) {
-        std::vector<unsigned char> data;
-        auto txType = GuessCustomTxType(tx, data);
-        if (data != metadata) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "tx <-> metadata mismatch");
-        }
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
             throw JSONRPCError(RPC_INVALID_REQUEST,
                                strprintf("Test %sTx execution failed: not enough balance on owner's account, call utxostoaccount to increase it.\n%s", ToString(txType), res.msg));
@@ -405,19 +444,18 @@ void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsig
     }
 }
 
-CWallet* GetWallet(const JSONRPCRequest& request) {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
+CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
+    auto wallet = GetWalletForJSONRPCRequest(request);
 
-    EnsureWalletIsAvailable(pwallet, request.fHelp);
-    return pwallet;
+    EnsureWalletIsAvailable(wallet.get(), request.fHelp);
+    return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nSet special 'governance' variables:: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -440,7 +478,7 @@ UniValue setgov(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("setgov", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}'")
-                       + HelpExampleRpc("setgov", "'{\"LP_DAILY_DFI_REWARD\":109440}'")
+                       + HelpExampleRpc("setgov", "'{\"ICX_TAKERFEE_PER_BTC\":109440}'")
                },
     }.Check(request);
 
@@ -448,7 +486,6 @@ UniValue setgov(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -456,9 +493,13 @@ UniValue setgov(const JSONRPCRequest& request) {
     if (request.params.size() > 0 && request.params[0].isObject()) {
         for (const std::string& name : request.params[0].getKeys()) {
             auto gv = GovVariable::Create(name);
-            if(!gv)
+            if (!gv) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
-            gv->Import(request.params[0][name]);
+            }
+            const auto res = gv->Import(request.params[0][name]);
+            if (!res) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+            }
             varStream << name << *gv;
         }
     }
@@ -493,19 +534,110 @@ UniValue setgov(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        execTestTx(CTransaction(rawTx), targetHeight, ToByteVector(varStream), CGovernanceMessage{}, coins);
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue setgovheight(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"setgovheight",
+               "\nChange governance variable at height: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
+               {
+                       {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
+                        {
+                                {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Variable name is the key, value is the data. Exact data type depends on variable name."},
+                        },
+                       },
+                       {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "Start height for the changes to take effect."},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("setgovheight", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}' 100000")
+                       + HelpExampleRpc("setgovheight", "'{\"ICX_TAKERFEE_PER_BTC\":109440}', 100000")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VNUM, UniValue::VARR}, true);
+
+    CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
+    const auto keys = request.params[0].getKeys();
+    if (!keys.empty()) {
+        const std::string& name = request.params[0].getKeys()[0];
+        auto gv = GovVariable::Create(name);
+        if (!gv) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+        }
+        const auto res = gv->Import(request.params[0][name]);
+        if (!res) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
+        }
+        varStream << name << *gv;
+    } else {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
+    }
+
+    const uint32_t startHeight = request.params[1].get_int();
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SetGovVariableHeight)
+             << varStream
+             << startHeight;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const & txInputs = request.params[2];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
-               "\nReturns information about governance variable. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nReturns information about governance variable:\n"
+               "ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
@@ -531,12 +663,56 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
+UniValue listgovs(const JSONRPCRequest& request) {
+    RPCHelpMan{"listgovs",
+               "\nReturns information about all governance variables including pending changes\n",
+               {},
+               RPCResult{
+                       "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listgovs", "")
+                       + HelpExampleRpc("listgovs", "")
+               },
+    }.Check(request);
+
+    std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
+                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
+
+    LOCK(cs_main);
+
+    // Get all stored Gov var changes
+    auto pending = pcustomcsview->GetAllStoredVariables();
+
+    UniValue result(UniValue::VARR);
+    for (const auto& name : vars) {
+        UniValue innerResult(UniValue::VARR);
+        auto var = pcustomcsview->GetVariable(name);
+        if (var) {
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV(var->GetName(),var->Export());
+            innerResult.push_back(ret);
+        }
+
+        // Get and add any pending changes
+        for (const auto& items : pending[name]) {
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV(std::to_string(items.first),items.second->Export());
+            innerResult.push_back(ret);
+        }
+        result.push_back(innerResult);
+    }
+
+    return result;
+}
+
+
 UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     RPCHelpMan{"isappliedcustomtx",
                "\nChecks that custom transaction was affected on chain\n",
                {
-                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A transaction hash"},
-                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The height of block which contain tx"}
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A transaction hash"},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO, "The height of block which contain tx"}
                },
                RPCResult{
                        "(bool) The boolean indicate that custom transaction was affected on chain\n"
@@ -589,13 +765,113 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+
+static std::string GetContractCall(const std::string& str) {
+    if (str == "DFIP2201") {
+        return "dbtcdfiswap";
+    }
+
+    return str;
+}
+
+UniValue listsmartcontracts(const JSONRPCRequest& request) {
+    RPCHelpMan{"listsmartcontracts",
+               "\nReturns information on smart contracts\n",
+               {
+               },
+               RPCResult{
+                       "(array) JSON array with smart contract information\n"
+                       "\"name\":\"name\"         smart contract name\n"
+                       "\"address\":\"address\"   smart contract address\n"
+                       "\"token id\":x.xxxxxxxx   smart contract balance per token\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listsmartcontracts", "")
+                       + HelpExampleRpc("listsmartcontracts", "")
+               },
+    }.Check(request);
+
+    UniValue arr(UniValue::VARR);
+    for (const auto& item : Params().GetConsensus().smartContracts) {
+        UniValue obj(UniValue::VOBJ);
+        CTxDestination dest;
+        ExtractDestination(item.second, dest);
+        obj.pushKV("name", item.first);
+        obj.pushKV("call", GetContractCall(item.first));
+        obj.pushKV("address", EncodeDestination(dest));
+
+        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+            if (owner != item.second) {
+                return false;
+            }
+            obj.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+            return true;
+        }, BalanceKey{item.second, {0}});
+
+        arr.push_back(obj);
+    }
+    return arr;
+}
+
+
+static UniValue clearmempool(const JSONRPCRequest& request)
+{
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan("clearmempool",
+               "\nClears the memory pool and returns a list of the removed transactions.\n",
+               {},
+               RPCResult{
+                       "[                     (json array of string)\n"
+                       "  \"hash\"              (string) The transaction hash\n"
+                       "  ,...\n"
+                       "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("clearmempool", "")
+                       + HelpExampleRpc("clearmempool", "")
+               }
+    ).Check(request);
+
+    SyncWithValidationInterfaceQueue();
+
+    std::vector<uint256> vtxid;
+    {
+        LOCK(mempool.cs);
+        mempool.queryHashes(vtxid);
+        mempool.clear();
+    }
+
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+        std::vector<uint256> vHashOut;
+        if (pwallet->ZapSelectTx(vtxid, vHashOut) != DBErrors::LOAD_OK) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not delete mempool transactions from wallet");
+        }
+    }
+
+    UniValue removed(UniValue::VARR);
+    for (const uint256& hash : vtxid) {
+        removed.push_back(hash.ToString());
+    }
+
+    return removed;
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
 //  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
+    {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
+    {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
+    {"blockchain",  "clearmempool",          &clearmempool,          {} },
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {

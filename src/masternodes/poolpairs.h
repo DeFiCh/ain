@@ -39,17 +39,19 @@ struct PoolPrice {
         READWRITE(integer);
         READWRITE(fraction);
     }
+
+    bool operator!=(const PoolPrice& rhs) const {
+        return integer != rhs.integer || fraction != rhs.fraction;
+    }
 };
+
+static constexpr auto POOLPRICE_MAX = PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
 
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
     CAmount amountFrom;
     PoolPrice maxPrice;
-
-    std::string ToString() const {
-        return "(" + from.GetHex() + ":" + std::to_string(amountFrom) +"@"+ idTokenFrom.ToString() + "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
-    }
 
     ADD_SERIALIZE_METHODS
 
@@ -61,6 +63,19 @@ struct CPoolSwapMessage {
         READWRITE(to);
         READWRITE(idTokenTo);
         READWRITE(maxPrice);
+    }
+};
+
+struct CPoolSwapMessageV2 {
+    CPoolSwapMessage swapInfo;
+    std::vector<DCT_ID> poolIDs;
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(swapInfo);
+        READWRITE(poolIDs);
     }
 };
 
@@ -99,6 +114,7 @@ public:
     CAmount blockCommissionB = 0;
 
     CAmount rewardPct = 0;       // pool yield farming reward %%
+    CAmount rewardLoanPct = 0;
     bool swapEvent = false;
 
     // serialized
@@ -111,16 +127,17 @@ public:
     Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection = false);
     Res RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim);
 
-    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, int height = INT_MAX);
+    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
 private:
-    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, bool postBayfrontGardens = false);
+    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, int height);
 
-    inline void ioProofer() const { // may be it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
+    inline void ioProofer() const { // Maybe it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
         if (reserveA < 0 || reserveB < 0 ||
             totalLiquidity < 0 ||
             blockCommissionA < 0 || blockCommissionB < 0 ||
-            rewardPct < 0 || commission < 0
+            rewardPct < 0 || commission < 0 ||
+            rewardLoanPct < 0
             ) {
             throw std::ios_base::failure("negative pool's 'CAmounts'");
         }
@@ -182,6 +199,7 @@ enum RewardType
     Rewards = 128,
     Coinbase = Rewards | 1,
     Pool = Rewards | 2,
+    LoanTokenDEXReward = Rewards | 4,
 };
 
 std::string RewardToString(RewardType type);
@@ -207,41 +225,38 @@ public:
 
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 
+    Res SetLoanDailyReward(const uint32_t height, const CAmount reward);
     Res SetDailyReward(uint32_t height, CAmount reward);
     Res SetRewardPct(DCT_ID const & poolId, uint32_t height, CAmount rewardPct);
+    Res SetRewardLoanPct(DCT_ID const & poolId, uint32_t height, CAmount rewardLoanPct);
     bool HasPoolPair(DCT_ID const & poolId) const;
 
-    CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
+    Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
+    CAmount GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const;
+
+    std::pair<CAmount, CAmount> UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
     // tags
-    struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
-    struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID
-    struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
-    struct ByIDPair { static const unsigned char prefix; }; // lsTokenID -> tokenA+tokenB
-    struct ByPoolSwap { static const unsigned char prefix; };
-    struct ByReserves { static const unsigned char prefix; };
-    struct ByRewardPct { static const unsigned char prefix; };
-    struct ByPoolReward { static const unsigned char prefix; };
-    struct ByDailyReward { static const unsigned char prefix; };
-    struct ByCustomReward { static const unsigned char prefix; };
-    struct ByTotalLiquidity { static const unsigned char prefix; };
+    struct ByID             { static constexpr uint8_t prefix() { return 'i'; } };
+    struct ByPair           { static constexpr uint8_t prefix() { return 'j'; } };
+    struct ByShare          { static constexpr uint8_t prefix() { return 'k'; } };
+    struct ByIDPair         { static constexpr uint8_t prefix() { return 'C'; } };
+    struct ByPoolSwap       { static constexpr uint8_t prefix() { return 'P'; } };
+    struct ByReserves       { static constexpr uint8_t prefix() { return 'R'; } };
+    struct ByRewardPct      { static constexpr uint8_t prefix() { return 'Q'; } };
+    struct ByPoolReward     { static constexpr uint8_t prefix() { return 'I'; } };
+    struct ByDailyReward    { static constexpr uint8_t prefix() { return 'B'; } };
+    struct ByCustomReward   { static constexpr uint8_t prefix() { return 'A'; } };
+    struct ByTotalLiquidity { static constexpr uint8_t prefix() { return 'f'; } };
+    struct ByDailyLoanReward{ static constexpr uint8_t prefix() { return 'q'; } };
+    struct ByRewardLoanPct  { static constexpr uint8_t prefix() { return 'U'; } };
+    struct ByPoolLoanReward { static constexpr uint8_t prefix() { return 'W'; } };
+    struct ByTokenDexFeePct { static constexpr uint8_t prefix() { return 'l'; } };
 };
 
 struct CLiquidityMessage {
     CAccounts from; // from -> balances
     CScript shareAddress;
-
-    std::string ToString() const {
-        if (from.empty()) {
-            return "empty transfer";
-        }
-        std::string result;
-        for (const auto& kv : from) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        result += " to " + shareAddress.GetHex();
-        return result;
-    }
 
     ADD_SERIALIZE_METHODS;
 
@@ -255,11 +270,6 @@ struct CLiquidityMessage {
 struct CRemoveLiquidityMessage {
     CScript from;
     CTokenAmount amount;
-
-    std::string ToString() const {
-        std::string result = "(" + from.GetHex() + "->" + amount.ToString() + ")";
-        return result;
-    }
 
     ADD_SERIALIZE_METHODS;
 

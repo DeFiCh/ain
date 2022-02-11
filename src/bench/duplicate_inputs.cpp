@@ -61,7 +61,7 @@ static void DuplicateInputs(benchmark::State& state)
     while (state.KeepRunning()) {
         CValidationState cvstate{};
         CheckContextState ctxState;
-        assert(!CheckBlock(block, cvstate, chainparams.GetConsensus(), ctxState, false, false));
+        assert(!CheckBlock(block, cvstate, chainparams.GetConsensus(), ctxState, false, nHeight, false));
         assert(cvstate.GetRejectReason() == "bad-txns-inputs-duplicate");
     }
 }

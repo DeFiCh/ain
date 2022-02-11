@@ -98,12 +98,12 @@ class Dfip8Test(DefiTestFramework):
         result = self.nodes[0].listcommunitybalances()
 
         assert_equal(result['AnchorReward'], Decimal('112.97249134'))
-        assert_equal(result['Burnt'], Decimal('348746.10119870'))
+        assert_equal(result['Burnt'], Decimal('348746.10120472'))
 
         getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
 
         assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.06853592'))
-        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('211.57039810'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('211.57039811'))
 
 if __name__ == '__main__':
     Dfip8Test().main()

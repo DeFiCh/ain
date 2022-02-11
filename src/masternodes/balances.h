@@ -164,13 +164,6 @@ struct CAccountToUtxosMessage {
 
     ADD_SERIALIZE_METHODS;
 
-    std::string ToString() const {
-        if (balances.balances.empty()) {
-            return "empty transfer";
-        }
-        return "from " + from.GetHex() + " to UTXOs " + balances.ToString();
-    }
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(from);
@@ -185,17 +178,6 @@ struct CAccountToAccountMessage {
     CScript from;
     CAccounts to; // to -> balances
 
-    std::string ToString() const {
-        if (to.empty()) {
-            return "empty transfer";
-        }
-        std::string result = "from " + from.GetHex() + " to ";
-        for (const auto& kv : to) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        return result;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -209,21 +191,6 @@ struct CAnyAccountsToAccountsMessage {
     CAccounts from; // from -> balances
     CAccounts to; // to -> balances
 
-    std::string ToString() const {
-        if (from.empty() || to.empty()) {
-            return "empty transfer";
-        }
-        std::string result = "from ";
-        for (const auto& kv : from) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        result += " to ";
-        for (const auto& kv : to) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        return result;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -236,22 +203,24 @@ struct CAnyAccountsToAccountsMessage {
 struct CUtxosToAccountMessage {
     CAccounts to; // to -> balances
 
-    std::string ToString() const {
-        if (to.empty()) {
-            return "empty transfer";
-        }
-        std::string result = "from UTXOs to ";
-        for (const auto& kv : to) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
-        return result;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(to);
+    }
+};
+
+struct CSmartContractMessage {
+    std::string name;
+    CAccounts accounts;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(accounts);
     }
 };
 

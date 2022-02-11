@@ -449,30 +449,30 @@ public:
     Res ICXSetTakerFeePerBTC(CAmount amount);
     CAmount ICXGetTakerFeePerBTC();
 
-    struct ICXOrderCreationTx { static const unsigned char prefix; };
-    struct ICXMakeOfferCreationTx { static const unsigned char prefix; };
-    struct ICXSubmitDFCHTLCCreationTx { static const unsigned char prefix; };
-    struct ICXSubmitEXTHTLCCreationTx { static const unsigned char prefix; };
-    struct ICXClaimDFCHTLCCreationTx { static const unsigned char prefix; };
-    struct ICXCloseOrderCreationTx { static const unsigned char prefix; };
-    struct ICXCloseOfferCreationTx { static const unsigned char prefix; };
+    struct ICXOrderCreationTx         { static constexpr uint8_t prefix() { return '1'; } };
+    struct ICXMakeOfferCreationTx     { static constexpr uint8_t prefix() { return '2'; } };
+    struct ICXSubmitDFCHTLCCreationTx { static constexpr uint8_t prefix() { return '3'; } };
+    struct ICXSubmitEXTHTLCCreationTx { static constexpr uint8_t prefix() { return '4'; } };
+    struct ICXClaimDFCHTLCCreationTx  { static constexpr uint8_t prefix() { return '5'; } };
+    struct ICXCloseOrderCreationTx    { static constexpr uint8_t prefix() { return '6'; } };
+    struct ICXCloseOfferCreationTx    { static constexpr uint8_t prefix() { return '7'; } };
 
-    struct ICXOrderOpenKey { static const unsigned char prefix; };
-    struct ICXOrderCloseKey { static const unsigned char prefix; };
-    struct ICXMakeOfferOpenKey { static const unsigned char prefix; };
-    struct ICXMakeOfferCloseKey { static const unsigned char prefix; };
-    struct ICXSubmitDFCHTLCOpenKey { static const unsigned char prefix; };
-    struct ICXSubmitDFCHTLCCloseKey { static const unsigned char prefix; };
-    struct ICXSubmitEXTHTLCOpenKey { static const unsigned char prefix; };
-    struct ICXSubmitEXTHTLCCloseKey { static const unsigned char prefix; };
-    struct ICXClaimDFCHTLCKey { static const unsigned char prefix; };
+    struct ICXOrderOpenKey            { static constexpr uint8_t prefix() { return 0x01; } };
+    struct ICXOrderCloseKey           { static constexpr uint8_t prefix() { return 0x02; } };
+    struct ICXMakeOfferOpenKey        { static constexpr uint8_t prefix() { return 0x03; } };
+    struct ICXMakeOfferCloseKey       { static constexpr uint8_t prefix() { return 0x04; } };
+    struct ICXSubmitDFCHTLCOpenKey    { static constexpr uint8_t prefix() { return 0x05; } };
+    struct ICXSubmitDFCHTLCCloseKey   { static constexpr uint8_t prefix() { return 0x06; } };
+    struct ICXSubmitEXTHTLCOpenKey    { static constexpr uint8_t prefix() { return 0x07; } };
+    struct ICXSubmitEXTHTLCCloseKey   { static constexpr uint8_t prefix() { return 0x08; } };
+    struct ICXClaimDFCHTLCKey         { static constexpr uint8_t prefix() { return 0x09; } };
 
-    struct ICXOrderStatus { static const unsigned char prefix; };
-    struct ICXOfferStatus { static const unsigned char prefix; };
-    struct ICXSubmitDFCHTLCStatus { static const unsigned char prefix; };
-    struct ICXSubmitEXTHTLCStatus { static const unsigned char prefix; };
+    struct ICXOrderStatus             { static constexpr uint8_t prefix() { return 0x0A; } };
+    struct ICXOfferStatus             { static constexpr uint8_t prefix() { return 0x0B; } };
+    struct ICXSubmitDFCHTLCStatus     { static constexpr uint8_t prefix() { return 0x0C; } };
+    struct ICXSubmitEXTHTLCStatus     { static constexpr uint8_t prefix() { return 0x0D; } };
 
-    struct ICXVariables { static const unsigned char prefix; };
+    struct ICXVariables               { static constexpr uint8_t prefix() { return 0x0F; } };
 };
 
 #endif // DEFI_MASTERNODES_ICXORDER_H

@@ -25,10 +25,10 @@ class OraclesTest(DefiTestFramework):
         # node2: non foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214']]
 
     @staticmethod
     def find_address_tx(node, address):
@@ -93,15 +93,13 @@ class OraclesTest(DefiTestFramework):
                     tpjs, tpps), True):
                 raise Exception("prices are not equal")
 
-    def synchronize(self, node: int, full: bool = False):
+    def synchronize(self, node: int):
         self.nodes[node].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
-        if full:
-            self.sync_mempools([self.nodes[0], self.nodes[1], self.nodes[2]])
 
     def run_test(self):
         self.nodes[0].generate(200)
-        self.sync_all()
+        self.sync_blocks()
 
         # === stop node #3 for future revert ===
         self.stop_node(3)
@@ -117,7 +115,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(oracle_address1, 50)
         self.nodes[0].sendtoaddress(oracle_address2, 50)
 
-        self.synchronize(0, full=True)
+        self.synchronize(0)
 
         send_money_tx1, send_money_tx2 = \
             [self.find_address_tx(self.nodes[2], address) for address in [oracle_address1, oracle_address2]]
@@ -156,7 +154,7 @@ class OraclesTest(DefiTestFramework):
         assert_raises_rpc_error(-5, 'Need foundation member authorization',
                                 self.nodes[2].removeoracle, oracle_id1)
 
-        self.synchronize(node=0, full=True)
+        self.synchronize(node=0)
 
         all_oracles = self.nodes[1].listoracles()
         assert_equal(all_oracles, [oracle_id1])
@@ -209,6 +207,10 @@ class OraclesTest(DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10.1@PT"}, {"currency": "USD", "tokenAmount": "5@GOLD"}]
         self.nodes[2].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
+        oracle_id3 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.synchronize(node=0)
+
+        self.nodes[2].setoracledata(oracle_id3, timestamp, oracle1_prices)
         self.synchronize(node=2)
 
         oracle_data_json = self.nodes[1].getoracledata(oracle_id1)
@@ -222,6 +224,9 @@ class OraclesTest(DefiTestFramework):
 
         assert (math.isclose(
             self.nodes[1].getprice({"currency":"USD", "token":"GOLD"}), decimal.Decimal(5)))
+
+        # Make sure that DUSD-USD always returns 1
+        assert_equal(self.nodes[1].getprice({"currency":"USD", "token":"DUSD"}), decimal.Decimal("1.00000000"))
 
         price_feeds1 = [
             {"currency": "USD", "token": "PT"},
@@ -320,6 +325,13 @@ class OraclesTest(DefiTestFramework):
                                         price_feeds=price_feeds1,
                                         token_prices=token_prices1)
 
+        # === check date in range 0 -> now+300s (5 minutes) ===
+        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
+
+        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
+        assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
+                                self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
+
         # === check expired price feed ===
         token_prices1 = [
             {"currency":"USD", "tokenAmount":"11@GOLD"},
@@ -329,20 +341,27 @@ class OraclesTest(DefiTestFramework):
         ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp - 7200, token_prices1)
+        self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency":"USD", "tokenAmount":"7@PT"}])
 
-        self.synchronize(node=2, full=True)
+        self.synchronize(node=2)
 
         pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
 
-        assert_equal(len(pt_in_usd_raw_prices), 1)
+        assert_equal(len(pt_in_usd_raw_prices), 2)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
+        assert_equal(pt_in_usd_raw_prices[1]['state'], 'expired')
 
-        # === check date in range 0 -> now+300s (5 minutes) ===
-        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
+        # === check price not be zero
+        token_prices1 = [{"currency":"USD", "tokenAmount":"1@PT"}]
+        tx = self.nodes[2].setoracledata(oracle_id1, timestamp, token_prices1)
+        rawTx = self.nodes[2].getrawtransaction(tx)
+        self.nodes[2].clearmempool()
 
-        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
-        assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
-                                self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
+        # HACK replace token amount to 0
+        rawTx = rawTx.replace('e1f50500', '00000000')
+        signedTx = self.nodes[2].signrawtransactionwithwallet(rawTx)
+        assert_equal(signedTx['complete'], True)
+        assert_raises_rpc_error(-26, 'Amount out of range', self.nodes[2].sendrawtransaction, signedTx['hex'])
 
         # === check for invalid oracle id
         assert_raises_rpc_error(-20, 'oracle <{}> not found'.format(invalid_oracle_id),
@@ -358,9 +377,6 @@ class OraclesTest(DefiTestFramework):
 
         self.nodes[0].removeoracle(oracle_id1)
         self.nodes[0].removeoracle(oracle_id2)
-
-        self.synchronize(node=0, full=True)
-
 
 if __name__ == '__main__':
     OraclesTest().main()

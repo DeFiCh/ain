@@ -59,6 +59,7 @@ struct Params {
     uint32_t foundationShare;
     std::set<CScript> foundationMembers;
     std::set<CScript> accountDestruction;
+    std::map<std::string, CScript> smartContracts;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -89,6 +90,11 @@ struct Params {
     int EunosHeight;
     int EunosKampungHeight;
     int EunosPayaHeight;
+    int FortCanningHeight;
+    int FortCanningMuseumHeight;
+    int FortCanningParkHeight;
+    int FortCanningHillHeight;
+
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */
@@ -103,8 +109,7 @@ struct Params {
         uint32_t community; // Community fund
         uint32_t anchor; // Anchor reward
         uint32_t liquidity; // Liquidity mining
-        uint32_t swap; // Atomic swap
-        uint32_t futures; // Futures
+        uint32_t loan; // Loans
         uint32_t options; // Options
         uint32_t unallocated; // Reserved
     };
@@ -133,6 +138,17 @@ struct Params {
         static const uint32_t blocks = 60 * 60 * 24 / pos.nTargetSpacing;
         return blocks;
     }
+
+    uint32_t blocksCollateralizationRatioCalculation() const {
+        static const uint32_t blocks = 15 * 60 / pos.nTargetSpacing;
+        return blocks;
+    }
+
+    uint32_t blocksCollateralAuction() const {
+        static const uint32_t blocks = 6 * 60 * 60 / pos.nTargetSpacing;
+        return blocks;
+    }
+
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nTargetTimespan / nTargetSpacing) which is also used for BIP9 deployments.
@@ -157,6 +173,7 @@ struct Params {
         int anchoringFrequency; // create every Nth block
 
         int anchoringTimeDepth; // Min age of anchored blocks
+        int anchoringAdditionalTimeDepth; // Additional min age of anchored blocks
         int anchoringTeamChange; // How many blocks before team is changed
     };
     MnParams mn;
@@ -177,6 +194,8 @@ struct Params {
         int minConfirmations;
     };
     SpvParams spv;
+
+    CAmount vaultCreationFee;
 
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
