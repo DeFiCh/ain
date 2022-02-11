@@ -362,7 +362,6 @@ git_version() {
 
     echo "> git branch: ${current_branch}"
     echo "> version: ${IMAGE_VERSION}"
-    echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV" # GitHub Actions
 
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
