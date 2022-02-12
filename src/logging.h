@@ -16,6 +16,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
 static const bool DEFAULT_LOGIPS        = false;
@@ -168,50 +169,35 @@ static inline void LogPrint(const BCLog::LogFlags& category, const Args&... args
     }
 }
 
-class ILogFilter
-{
-public:
-    virtual ~ILogFilter(){};
-    virtual bool filter() = 0;
-};
-
-// Implementation that logs at most every millis_ milliseconds
-class TimeThrottledFilter : public ILogFilter
-{
-private:
-    std::atomic_uint64_t millis_{0};
-    std::atomic_uint64_t last_time_millis_{0};
-
-public:
-    TimeThrottledFilter() = delete;
-    explicit TimeThrottledFilter(uint64_t millis) : millis_(millis)
-    {
-    }
-
-    bool filter() override
-    {
-        int64_t current_time = GetTimeMillis();
-        // First call or at least millis_ ms to last call
-        if ((last_time_millis_ == 0) || ((current_time - last_time_millis_) > millis_)) {
-            last_time_millis_ = current_time;
-            return false;
-        }
-        return true;
-    }
-};
-
+/** Implementation that logs at most every x milliseconds. If the category is enabled, it does not time throttle */
 template <typename... Args>
-static inline void LogPrintThrottled(const BCLog::LogFlags& category, ILogFilter& time_throttled_filter, const Args&... args)
+static inline void LogPrintCategoryOrThrottled(const BCLog::LogFlags& category, std::string message_key, uint64_t milliseconds, const Args&... args)
 {
-    // Log everything directly if category is enabled..
+    // Map containing pairs of message key and timestamp of last log
+    // In case different threads use the same message key, use thread_local
+    thread_local std::unordered_map<std::string, uint64_t> last_log_timestamps;
+
+    // Log directly if category is enabled..
     if (LogAcceptCategory((category))) {
         LogPrintf(args...);
-    } else { // .. and otherwise time throttle
-        if (!time_throttled_filter.filter()) {
+    } else { // .. and otherwise time throttle logging
+
+        int64_t current_time = GetTimeMillis();
+        auto it = last_log_timestamps.find(message_key);
+
+        if (it != last_log_timestamps.end()) {
+            if ((current_time - it->second) > milliseconds)
+            {
+                LogPrintf(args...);
+                it->second = current_time;
+            }
+        }        
+        else {
+            // No entry yet -> log directly and save timestamp
+            last_log_timestamps.insert(std::make_pair(message_key, current_time));
             LogPrintf(args...);
         }
     }
 }
-
 
 #endif // DEFI_LOGGING_H

@@ -899,13 +899,6 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
-    std::map<CKeyID, std::unique_ptr<ILogFilter>> timeThrottledLogFilter;
-
-
-    for (auto it = args.begin(); it != args.end();) {
-        timeThrottledLogFilter[it->operatorID] = MakeUnique<TimeThrottledFilter>(1000 * 60 * 10); // logs at most every 10 minutes
-        ++it;
-    }
 
     auto wallets = GetWallets();
 
@@ -968,10 +961,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     nMinted[arg.operatorID]++;
                 }
                 else if (status == Staker::Status::initWaiting) {
-                    LogPrintThrottled(BCLog::STAKING, *timeThrottledLogFilter[arg.operatorID], "ThreadStaker: (%s) waiting init...\n", operatorName);
+                    LogPrintCategoryOrThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 }
                 else if (status == Staker::Status::stakeWaiting) {
-                    LogPrintThrottled(BCLog::STAKING, *timeThrottledLogFilter[arg.operatorID], "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
+                    LogPrintCategoryOrThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10,"ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             }
             catch (const std::runtime_error &e) {
