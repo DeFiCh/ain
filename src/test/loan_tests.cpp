@@ -97,11 +97,11 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         { std::numeric_limits<int64_t>::min(), "0.000009223372036854775808" },
         { std::numeric_limits<int64_t>::max(), "0.000009223372036854775807" },
 
-        // Full list by rotating 1s all over.. The reason for rotating full set of 1s is
-        // because we use arbitrary bit ranges to achieve COIN * 3 precision. Any common mistakes
-        // would be due to improper cast and 1s being interpreted as 2s complement and as such
-        // result in a negative error. This checks verifies the entire range to ensure this
-        // doesn't happen, along with a verification.
+        // Full list by rotating 1s all over.. The reason for adding this to full spectrum
+        // test is since we use arbitrary bit ranges to achieve COIN ^ 3 precision. One vector of
+        // common mistakes would be due to improper cast and the first high 1 bit being interpreted
+        // as 2s complement and as such result in a negative error. This check verifies the entire
+        // range to ensure this doesn't happen.
         //
         { "80000000000000000000000000000000", "170141183460469.231731687303715884105728" },
         { "40000000000000000000000000000000", "85070591730234.615865843651857942052864" },
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         { "00000000000000000000000000000001", "0.000000000000000000000001" },
     };
 
-    for (auto kv: testMap) {
+    for (const auto& kv: testMap) {
         auto key = kv.first;
         auto expectedResult = kv.second;
 
@@ -244,6 +244,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         else BOOST_TEST_FAIL("unknown type");
 
         auto res = GetInterestPerBlockHighPrecisionString(input);
+        if (!res) BOOST_TEST_FAIL("negatives detected");
         BOOST_CHECK_EQUAL(*res, expectedResult);
     }
 

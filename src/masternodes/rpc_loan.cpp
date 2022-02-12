@@ -1400,7 +1400,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
     }
 
     UniValue obj(UniValue::VOBJ);
-    for (std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128> > >::iterator it=interest.begin(); it!=interest.end(); ++it)
+    for (auto it=interest.begin(); it != interest.end(); ++it)
     {
         auto tokenId = it->first;
         auto interestRate = it->second;
@@ -1414,7 +1414,11 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
             auto realizedInterestStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
-            assert(realizedInterestStr);
+            // Ideally would be better to have a universal graceful shutdown methodology to force the node to
+            // stop for these unexpected state errors that violate operating params but still not enough
+            // memory inconsistency to crash risking wallet and data corruption.
+            if (!realizedInterestStr)
+                throw JSONRPCError(RPC_MISC_ERROR, "Invalid GetInterestPerBlockHighPrecisionString.");
             obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, *realizedInterestStr));
         }
         ret.push_back(obj);

@@ -481,35 +481,35 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-boost::optional<std::string> GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
+boost::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
     struct HighPrecisionInterestValue {
         typedef boost::multiprecision::int128_t int128;
         typedef int64_t int64;
 
         int128 value;
 
-        HighPrecisionInterestValue(base_uint<128> val) {
+        explicit HighPrecisionInterestValue(const base_uint<128>& val) {
             value = int128("0x" + val.GetHex());
         }
 
-        int64 GetInterestPerBlockSat() {
+        int64 GetInterestPerBlockSat() const {
             return int64(value / HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockSubSat() {
+        int64 GetInterestPerBlockSubSat() const {
             return int64(value % HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockMagnitude() {
+        int64 GetInterestPerBlockMagnitude() const {
             return int64(value / HIGH_PRECISION_SCALER / COIN);
         }
 
-        int128 GetInterestPerBlockDecimal() {
+        int128 GetInterestPerBlockDecimal() const {
             auto v = GetInterestPerBlockSat();
             return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
         }
 
-        boost::optional<std::string> GetInterestPerBlockString() {
+        boost::optional<std::string> GetInterestPerBlockString() const {
             std::ostringstream result;
             auto mag = GetInterestPerBlockMagnitude();
             auto dec = GetInterestPerBlockDecimal();
