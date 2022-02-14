@@ -495,6 +495,9 @@ public:
 
     ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
 
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const override;
+    [[nodiscard]] std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const override;
+
     void SetDbVersion(int version);
 
     int GetDbVersion() const;

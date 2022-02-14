@@ -391,89 +391,39 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (attrV0) {
-            if (attrV0->type == AttributeTypes::Poolpairs) {
-                uint32_t poolId = attrV0->typeId;
-                auto pool = mnview.GetPoolPair(DCT_ID{poolId});
-                if (!pool) {
-                    return Res::Err("No such pool (%d)", poolId);
-                }
-                auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
-                               pool->idTokenA : pool->idTokenB;
+            continue;
+        }
 
-                auto valuePct = std::get<CAmount>(attribute.second);
-                auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
-                if (!res) {
-                    return res;
+        if (attrV0->type == AttributeTypes::Poolpairs) {
+            uint32_t poolId = attrV0->typeId;
+            auto pool = mnview.GetPoolPair(DCT_ID{poolId});
+            if (!pool) {
+                return Res::Err("No such pool (%d)", poolId);
+            }
+            auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                           pool->idTokenA : pool->idTokenB;
+
+            auto valuePct = std::get<CAmount>(attribute.second);
+            auto res = mnview.SetDexFeePct(DCT_ID{poolId}, tokenId, valuePct);
+            if (!res) {
+                return res;
+            }
+        } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::FixedIntervalPriceId) {
+            if (const auto& currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                CFixedIntervalPrice fixedIntervalPrice;
+                fixedIntervalPrice.priceFeedId = *currencyPair;
+                fixedIntervalPrice.timestamp = time;
+                fixedIntervalPrice.priceRecord[1] = -1;
+                const auto aggregatePrice = GetAggregatePrice(mnview,
+                                                              fixedIntervalPrice.priceFeedId.first,
+                                                              fixedIntervalPrice.priceFeedId.second,
+                                                              time);
+                if (aggregatePrice) {
+                    fixedIntervalPrice.priceRecord[1] = aggregatePrice;
                 }
-            } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::FixedIntervalPriceId) {
-                if (const auto& currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
-                    CFixedIntervalPrice fixedIntervalPrice;
-                    fixedIntervalPrice.priceFeedId = *currencyPair;
-                    fixedIntervalPrice.timestamp = time;
-                    fixedIntervalPrice.priceRecord[1] = -1;
-                    const auto aggregatePrice = GetAggregatePrice(mnview,
-                                                            fixedIntervalPrice.priceFeedId.first,
-                                                            fixedIntervalPrice.priceFeedId.second,
-                                                            time);
-                    if (aggregatePrice) {
-                        fixedIntervalPrice.priceRecord[1] = aggregatePrice;
-                    }
-                    mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-                }
+                mnview.SetFixedIntervalPrice(fixedIntervalPrice);
             }
         }
     }
     return Res::Ok();
-}
-
-
-std::optional<CLoanView::CLoanSetLoanTokenImpl> GetLoanTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id) {
-    if (const auto token = view.GetToken(id)) {
-        if (const auto attributes = view.GetAttributes()) {
-            CLoanView::CLoanSetLoanTokenImpl loanToken;
-
-            // Get currency pair from map
-            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-
-            if (loanToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
-                // Get interest from map
-                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-                loanToken.interest = attributes->GetValue(interestKey, CAmount{});
-
-                // Get mintable from map
-                CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-                loanToken.mintable = attributes->GetValue(mintableKey, bool{});
-
-                loanToken.symbol = token->symbol;
-                loanToken.name = token->name;
-
-                return loanToken;
-            }
-        }
-    }
-
-    return {};
-}
-
-std::optional<CLoanView::CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id) {
-    if (const auto attributes = view.GetAttributes()) {
-        CLoanSetCollateralTokenImplementation collToken;
-
-        // Get currency pair from map
-        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-        collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-
-        if (collToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
-            // Get factor from map
-            CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
-            collToken.factor = attributes->GetValue(factorKey, CAmount{});
-
-            collToken.idToken = id;
-
-            return collToken;
-        }
-    }
-
-    return {};
 }

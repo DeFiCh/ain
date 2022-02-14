@@ -268,7 +268,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                 // Find collateral tokens
                 if (key->type == AttributeTypes::Token && key->key == TokenKeys::LoanCollateralEnabled) {
                     if (const auto& value = std::get_if<bool>(&map.second); value) {
-                        if (const auto collToken = GetCollateralTokenFromAttributes(*pcustomcsview, {key->typeId})) {
+                        if (const auto collToken = pcustomcsview->GetCollateralTokenFromAttributes({key->typeId})) {
                             ret.push_back(setCollateralTokenToJSON(*collToken));
                         }
                     }
@@ -546,7 +546,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
                     const auto id = DCT_ID{key->typeId};
                     const auto token = pcustomcsview->GetToken(id);
                     if (token) {
-                        if (const auto loanToken = GetLoanTokenFromAttributes(*pcustomcsview, {key->typeId})) {
+                        if (const auto loanToken = pcustomcsview->GetLoanTokenFromAttributes({key->typeId})) {
                             ret.push_back(setLoanTokenToJSON(*loanToken, id, *token));
                         }
                     }

@@ -63,11 +63,9 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollater
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
     if (it.Valid() && it.Key().id == key.id) {
         return GetLoanCollateralToken(it.Value());
-    } else if (const auto view = dynamic_cast<const CCustomCSView*>(this)) {
-        return GetCollateralTokenFromAttributes(*view, key.id);
     }
 
-    return {};
+    return GetCollateralTokenFromAttributes(key.id);
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
@@ -83,11 +81,9 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_
     auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
     if (loanToken) {
         return loanToken;
-    } else if (const auto view = dynamic_cast<const CCustomCSView*>(this)) {
-        return GetLoanTokenFromAttributes(*view, id);
     }
 
-    return {};
+    return GetLoanTokenFromAttributes(id);
 }
 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)

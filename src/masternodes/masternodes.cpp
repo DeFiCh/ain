@@ -4,6 +4,7 @@
 
 #include <masternodes/masternodes.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 
 #include <chainparams.h>
@@ -1087,4 +1088,55 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
     }
 
     return operatorDetails;
+}
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
+    if (const auto token = GetToken(id)) {
+        if (const auto attributes = GetAttributes()) {
+            CLoanView::CLoanSetLoanTokenImpl loanToken;
+
+            // Get currency pair from map
+            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+
+            if (loanToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
+                // Get interest from map
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+
+                // Get mintable from map
+                CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                loanToken.mintable = attributes->GetValue(mintableKey, bool{});
+
+                loanToken.symbol = token->symbol;
+                loanToken.name = token->name;
+
+                return loanToken;
+            }
+        }
+    }
+
+    return {};
+}
+
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
+    if (const auto attributes = GetAttributes()) {
+        CLoanSetCollateralTokenImplementation collToken;
+
+        // Get currency pair from map
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+
+        if (collToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
+            // Get factor from map
+            CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
+            collToken.factor = attributes->GetValue(factorKey, CAmount{});
+
+            collToken.idToken = id;
+
+            return collToken;
+        }
+    }
+
+    return {};
 }

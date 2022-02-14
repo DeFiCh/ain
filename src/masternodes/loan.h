@@ -351,6 +351,9 @@ public:
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
+
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };
     struct LoanSetLoanTokenCreationTx       { static constexpr uint8_t prefix() { return 0x12; } };

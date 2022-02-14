@@ -12,9 +12,6 @@
 
 #include <variant>
 
-class CLoanSetLoanTokenImplementation;
-class CLoanSetCollateralTokenImplementation;
-
 enum VersionTypes : uint8_t {
     v0 = 0,
 };
@@ -87,9 +84,6 @@ struct CDataStructureV1 {
 
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair>;
-
-std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id);
-std::optional<CLoanSetCollateralTokenImplementation> GetCollateralTokenFromAttributes(const CCustomCSView& view, const DCT_ID& id);
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
