@@ -547,6 +547,8 @@ class VaultTest (DefiTestFramework):
 
         # Deposit collaterals. 50% of BTC
         address = self.nodes[0].getnewaddress()
+        self.nodes[0].generate(1)
+        self.sync_blocks()
         self.owner_addresses.append(address)
         self.nodes[1].sendtokenstoaddress({}, { address: '1.50@BTC'})
         self.nodes[1].generate(1)
@@ -554,6 +556,7 @@ class VaultTest (DefiTestFramework):
         vault_id = self.nodes[0].createvault(address, 'LOAN000A')
         self.vaults.append(vault_id)
         self.nodes[0].generate(1)
+        self.sync_blocks()
         self.nodes[0].deposittovault(vault_id, address, '1.25@BTC') # 1.25@BTC as collateral factor 0.8
         self.nodes[0].deposittovault(vault_id, self.accountDFI, '1@DFI')
         self.nodes[0].generate(1)
