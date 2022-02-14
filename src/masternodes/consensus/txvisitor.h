@@ -51,7 +51,6 @@ protected:
     ResVal<CBalances> MintedTokens(uint32_t mintingOutputsStart) const;
     Res SetShares(const CScript& owner, const TAmounts& balances) const;
     Res DelShares(const CScript& owner, const TAmounts& balances) const;
-    DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
     Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
     Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
     Res AddBalancesSetShares(const CAccounts& accounts) const;

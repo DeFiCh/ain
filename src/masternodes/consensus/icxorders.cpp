@@ -389,9 +389,12 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
         return res;
 
     // maker bonus only on fair dBTC/BTC (1:1) trades for now
-    DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
-    if (order->idToken == BTC && order->orderPrice == COIN) {
-        res = TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+    auto tokenBTC = mnview.GetToken(CICXOrder::TOKEN_BTC);
+    assert(tokenBTC);
+    if (order->idToken == tokenBTC->first && order->orderPrice == COIN) {
+        // maker bonus should be in DFI
+        auto tokenId = static_cast<int>(height) < consensus.GreatWorldHeight ? tokenBTC->first : DCT_ID{0};
+        res = TransferTokenBalance(tokenId, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
         if (!res)
             return res;
     }
