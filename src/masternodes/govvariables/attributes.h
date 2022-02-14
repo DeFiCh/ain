@@ -119,21 +119,21 @@ public:
 
 private:
     // Defined allowed arguments
-    const std::map<std::string, uint8_t> allowedVersions{
+    inline static const std::map<std::string, uint8_t> allowedVersions{
         {"v0",          VersionTypes::v0},
     };
 
-    const std::map<std::string, uint8_t> allowedTypes{
+    inline static const std::map<std::string, uint8_t> allowedTypes{
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
     };
 
-    const std::map<std::string, uint8_t> allowedParamIDs{
+    inline static const std::map<std::string, uint8_t> allowedParamIDs{
         {"dfip2201",         ParamIDs::DFIP2201}
     };
 
-    const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
+    inline static const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
         {
             AttributeTypes::Token, {
                 {"payback_dfi",         TokenKeys::PaybackDFI},
@@ -156,23 +156,23 @@ private:
     };
 
     // For formatting in export
-    const std::map<uint8_t, std::string> displayVersions{
+    inline static const std::map<uint8_t, std::string> displayVersions{
         {VersionTypes::v0,          "v0"},
     };
 
-    const std::map<uint8_t, std::string> displayTypes{
+    inline static const std::map<uint8_t, std::string> displayTypes{
         {AttributeTypes::Live,      "live"},
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
     };
 
-    const std::map<uint8_t, std::string> displayParamsIDs{
+    inline static const std::map<uint8_t, std::string> displayParamsIDs{
         {ParamIDs::DFIP2201,       "dfip2201"},
         {ParamIDs::Economy,        "economy"},
     };
 
-    const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
+    inline static const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
         {
             AttributeTypes::Token, {
                 {TokenKeys::PaybackDFI,       "payback_dfi"},
