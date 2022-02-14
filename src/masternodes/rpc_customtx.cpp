@@ -291,7 +291,7 @@ public:
         rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
         rpcInfo.pushKV("orderPrice", ValueFromAmount(obj.orderPrice));
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(obj.amountToFill) * arith_uint256(obj.orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcedAmount = MultiplyAmounts(obj.amountToFill, obj.orderPrice);
         rpcInfo.pushKV("amountToFillInToAsset", ValueFromAmount(calcedAmount));
         rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
     }

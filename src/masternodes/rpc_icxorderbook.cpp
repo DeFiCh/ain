@@ -35,7 +35,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
     orderObj.pushKV("amountFrom", ValueFromAmount(order.amountFrom));
     orderObj.pushKV("amountToFill", ValueFromAmount(order.amountToFill));
     orderObj.pushKV("orderPrice", ValueFromAmount(order.orderPrice));
-    CAmount calcedAmount(static_cast<CAmount>((arith_uint256(order.amountToFill) * arith_uint256(order.orderPrice) / arith_uint256(COIN)).GetLow64()));
+    auto calcedAmount = MultiplyAmounts(order.amountToFill, order.orderPrice);
     orderObj.pushKV("amountToFillInToAsset", ValueFromAmount(calcedAmount));
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expireHeight", static_cast<int>(order.creationHeight + order.expiry));
@@ -63,7 +63,7 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
     orderObj.pushKV("orderTx", makeoffer.orderTx.GetHex());
     orderObj.pushKV("status", status == CICXMakeOffer::STATUS_OPEN ? "OPEN" : status == CICXMakeOffer::STATUS_CLOSED ? "CLOSED" : "EXPIRED");
     orderObj.pushKV("amount", ValueFromAmount(makeoffer.amount));
-    CAmount calcedAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice) ).GetLow64()));
+    auto calcedAmount = DivideAmounts(makeoffer.amount, order->orderPrice);
     orderObj.pushKV("amountInFromAsset", ValueFromAmount(calcedAmount));
     orderObj.pushKV("ownerAddress",ScriptToString(makeoffer.ownerAddress));
     if (order->orderType == CICXOrder::TYPE_EXTERNAL)
@@ -101,12 +101,12 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
     orderObj.pushKV("amount", ValueFromAmount(dfchtlc.amount));
     if (order->orderType == CICXOrder::TYPE_INTERNAL)
     {
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(dfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcedAmount = MultiplyAmounts(dfchtlc.amount, order->orderPrice);
         orderObj.pushKV("amountInEXTAsset", ValueFromAmount(calcedAmount));
     }
     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
     {
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(dfchtlc.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+        auto calcedAmount = DivideAmounts(dfchtlc.amount, order->orderPrice);
         orderObj.pushKV("amountInEXTAsset", ValueFromAmount(calcedAmount));
     }
     orderObj.pushKV("hash", dfchtlc.hash.GetHex());
@@ -134,12 +134,12 @@ UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, u
     orderObj.pushKV("amount", ValueFromAmount(exthtlc.amount));
     if (order->orderType == CICXOrder::TYPE_INTERNAL)
     {
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+        auto calcedAmount = DivideAmounts(exthtlc.amount, order->orderPrice);
         orderObj.pushKV("amountInDFCAsset", ValueFromAmount(calcedAmount));
     }
     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
     {
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcedAmount = MultiplyAmounts(exthtlc.amount, order->orderPrice);
         orderObj.pushKV("amountInDFCAsset", ValueFromAmount(calcedAmount));
     }
     orderObj.pushKV("hash", exthtlc.hash.GetHex());

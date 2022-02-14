@@ -342,7 +342,7 @@ Res CPoolPair::AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(
 
     CAmount liquidity{0};
     if (totalLiquidity == 0) {
-        liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
+        liquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
         if (liquidity <= MINIMUM_LIQUIDITY) { // ensure that it'll be non-zero
             return Res::Err("liquidity too low");
         }
@@ -350,8 +350,8 @@ Res CPoolPair::AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(
         // MINIMUM_LIQUIDITY is a hack for non-zero division
         totalLiquidity = MINIMUM_LIQUIDITY;
     } else {
-        CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
-        CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
+        CAmount liqA = (arith_uint256(amountA) * totalLiquidity / reserveA).GetLow64();
+        CAmount liqB = (arith_uint256(amountB) * totalLiquidity / reserveB).GetLow64();
         liquidity = std::min(liqA, liqB);
 
         if (liquidity == 0) {
@@ -393,8 +393,8 @@ Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAm
     }
 
     CAmount resAmountA, resAmountB;
-    resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
-    resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
+    resAmountA = (arith_uint256(liqAmount) * reserveA / totalLiquidity).GetLow64();
+    resAmountB = (arith_uint256(liqAmount) * reserveB / totalLiquidity).GetLow64();
 
     reserveA -= resAmountA; // safe due to previous math
     reserveB -= resAmountB;

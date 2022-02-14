@@ -136,16 +136,16 @@ DCT_ID CCustomTxVisitor::FindTokenByPartialSymbolName(const std::string& symbol)
 
 static CAmount GetDFIperBTC(const CPoolPair& BTCDFIPoolPair) {
     if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
-        return (arith_uint256(BTCDFIPoolPair.reserveA) * arith_uint256(COIN) / BTCDFIPoolPair.reserveB).GetLow64();
-    return (arith_uint256(BTCDFIPoolPair.reserveB) * arith_uint256(COIN) / BTCDFIPoolPair.reserveA).GetLow64();
+        return DivideAmounts(BTCDFIPoolPair.reserveA, BTCDFIPoolPair.reserveB);
+    return DivideAmounts(BTCDFIPoolPair.reserveB, BTCDFIPoolPair.reserveA);
 }
 
 CAmount CCustomTxVisitor::CalculateTakerFee(CAmount amount) const {
     auto BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
     auto pair = mnview.GetPoolPair(BTC, DCT_ID{0});
     assert(pair);
-    return (arith_uint256(amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
-          * arith_uint256(GetDFIperBTC(pair->second)) / arith_uint256(COIN)).GetLow64();
+    return (arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN
+          * GetDFIperBTC(pair->second) / COIN).GetLow64();
 }
 
 ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplementation& token) const {

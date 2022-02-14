@@ -841,7 +841,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
                 }
                 ++numLiveOracles;
                 sumWeights += oracle.weightage;
-                weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
+                weightedSum += arith_uint256(amount) * oracle.weightage;
             }
         }
         return true;
@@ -857,7 +857,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
         return Res::Err("all live oracles which meet specified request, have zero weight");
     }
 
-    ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+    ResVal<CAmount> res((weightedSum / sumWeights).GetLow64(), Res::Ok());
     LogPrint(BCLog::LOAN, "%s(): %s/%s=%lld\n", __func__, token, currency, *res.val);
     return res;
 }

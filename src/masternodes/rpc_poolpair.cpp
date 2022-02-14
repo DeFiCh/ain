@@ -23,13 +23,13 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         if (pool.reserveB == 0) {
             poolObj.pushKV("reserveA/reserveB", "0");
         } else {
-            poolObj.pushKV("reserveA/reserveB", ValueFromAmount((arith_uint256(pool.reserveA) * arith_uint256(COIN) / pool.reserveB).GetLow64()));
+            poolObj.pushKV("reserveA/reserveB", ValueFromAmount(DivideAmounts(pool.reserveA, pool.reserveB)));
         }
 
         if (pool.reserveA == 0) {
             poolObj.pushKV("reserveB/reserveA", "0");
         } else {
-            poolObj.pushKV("reserveB/reserveA", ValueFromAmount((arith_uint256(pool.reserveB) * arith_uint256(COIN) / pool.reserveA).GetLow64()));
+            poolObj.pushKV("reserveB/reserveA", ValueFromAmount(DivideAmounts(pool.reserveB, pool.reserveA)));
         }
         poolObj.pushKV("tradeEnabled", pool.reserveA >= CPoolPair::SLOPE_SWAP_RATE && pool.reserveB >= CPoolPair::SLOPE_SWAP_RATE);
 
@@ -79,7 +79,7 @@ UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmoun
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("poolID", poolId.ToString());
     poolObj.pushKV("owner", ScriptToString(provider));
-    CAmount percentage = (arith_uint256(amount * 100) * arith_uint256(COIN) / arith_uint256(poolPair.totalLiquidity)).GetLow64();
+    CAmount percentage = (arith_uint256(amount) * 100 * COIN / poolPair.totalLiquidity).GetLow64();
     poolObj.pushKV("%", ValueFromAmount(percentage));
 
     if (verbose) {
