@@ -390,7 +390,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
-        if (attrV0) {
+        if (!attrV0) {
             continue;
         }
 
