@@ -444,7 +444,7 @@ UniValue gettoken(const JSONRPCRequest& request) {
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true);
+        return tokenToJSON(id, *token, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }

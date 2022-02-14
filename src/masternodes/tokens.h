@@ -187,11 +187,11 @@ public:
     static const unsigned char DB_TOKEN_LASTID; // = 'L';
 
     using CTokenImpl = CTokenImplementation;
-    std::unique_ptr<CToken> GetToken(DCT_ID id) const;
-    std::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetToken(std::string const & symbol) const;
+    std::optional<CTokenImpl> GetToken(DCT_ID id) const;
+    std::optional<std::pair<DCT_ID, std::optional<CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
+    std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 

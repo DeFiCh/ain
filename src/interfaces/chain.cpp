@@ -285,7 +285,7 @@ public:
         LOCK(cs_main);
         return pcustomcsview->GetMasternode(nodeId);
     }
-    std::unique_ptr<CToken> existTokenGuessId(const std::string & str, DCT_ID & id) const override
+    std::optional<CToken> existTokenGuessId(const std::string & str, DCT_ID & id) const override
     {
         LOCK(cs_main);
         return pcustomcsview->GetTokenGuessId(str, id);

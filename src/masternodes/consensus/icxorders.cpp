@@ -442,7 +442,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage& obj) const {
     closeorder.creationTx = tx.GetHash();
     closeorder.creationHeight = height;
 
-    std::unique_ptr<CICXOrderImplemetation> order;
+    std::optional<CICXOrderImplemetation> order;
     if (!(order = mnview.GetICXOrderByCreationTx(closeorder.orderTx)))
         return Res::Err("order with creation tx %s does not exists!", closeorder.orderTx.GetHex());
 
@@ -483,7 +483,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     closeoffer.creationTx = tx.GetHash();
     closeoffer.creationHeight = height;
 
-    std::unique_ptr<CICXMakeOfferImplemetation> offer;
+    std::optional<CICXMakeOfferImplemetation> offer;
     if (!(offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx)))
         return Res::Err("offer with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
 
@@ -493,7 +493,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     if (!mnview.HasICXMakeOfferOpen(offer->orderTx, offer->creationTx))
         return Res::Err("offer with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
 
-    std::unique_ptr<CICXOrderImplemetation> order;
+    std::optional<CICXOrderImplemetation> order;
     if (!(order = mnview.GetICXOrderByCreationTx(offer->orderTx)))
         return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 

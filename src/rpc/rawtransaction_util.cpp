@@ -60,7 +60,7 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
         return {{tokenId, parsed.val->first}, Res::Ok()};
     } catch (...) {
         // assuming it's token symbol, read DCT_ID from DB
-        std::unique_ptr<CToken> token = chain.existTokenGuessId(parsed.val->second, tokenId);
+        auto token = chain.existTokenGuessId(parsed.val->second, tokenId);
         if (!token) {
             return Res::Err("Invalid Defi token: %s", parsed.val->second);
         }

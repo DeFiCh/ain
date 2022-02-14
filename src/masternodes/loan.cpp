@@ -5,12 +5,9 @@
 
 #include <cmath>
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
 {
-    auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
-    if (collToken)
-        return std::make_unique<CLoanSetCollateralTokenImpl>(*collToken);
-    return {};
+    return ReadBy<LoanSetCollateralTokenCreationTx, CLoanSetCollateralTokenImpl>(txid);
 }
 
 Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken)
@@ -49,7 +46,7 @@ void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKe
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
     if (it.Valid() && it.Key().id == key.id)
@@ -57,7 +54,7 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollat
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
@@ -65,12 +62,9 @@ std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint25
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
 {
-    auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
-    if (loanToken)
-        return std::make_unique<CLoanSetLoanTokenImpl>(*loanToken);
-    return {};
+    return ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
 }
 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)

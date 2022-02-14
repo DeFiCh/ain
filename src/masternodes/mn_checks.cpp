@@ -468,7 +468,7 @@ public:
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
-        std::unique_ptr<CICXOrderImplemetation> order;
+        std::optional<CICXOrderImplemetation> order;
         if (!(order = mnview.GetICXOrderByCreationTx(obj.orderTx)))
             return Res::Err("order with creation tx %s does not exists!", obj.orderTx.GetHex());
 
@@ -481,7 +481,7 @@ public:
     }
 
     Res operator()(const CICXCloseOfferMessage& obj) const {
-        std::unique_ptr<CICXMakeOfferImplemetation> offer;
+        std::optional<CICXMakeOfferImplemetation> offer;
         if (!(offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx)))
             return Res::Err("offer with creation tx %s does not exists!", obj.offerTx.GetHex());
 

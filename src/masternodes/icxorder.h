@@ -390,7 +390,7 @@ public:
     using CICXCloseOfferImpl = CICXCloseOfferImplemetation;
 
     //Order
-    std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
+    std::optional<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
     uint8_t GetICXOrderStatus(OrderKey const & key) const;
     Res ICXCreateOrder(CICXOrderImpl const & order);
     Res ICXUpdateOrder(CICXOrderImpl const & order);
@@ -398,10 +398,10 @@ public:
     void ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXOrderImpl> HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid);
+    std::optional<CICXOrderImpl> HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid);
 
     //MakeOffer
-    std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
+    std::optional<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
     uint8_t GetICXMakeOfferStatus(TxidPairKey const & key) const;
     Res ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer);
@@ -409,40 +409,40 @@ public:
     void ForEachICXMakeOfferOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
     void ForEachICXMakeOfferClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
     void ForEachICXMakeOfferExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXMakeOfferImpl> HasICXMakeOfferOpen(uint256 const & ordertxid, uint256 const & offertxid);
+    std::optional<CICXMakeOfferImpl> HasICXMakeOfferOpen(uint256 const & ordertxid, uint256 const & offertxid);
 
     //SubmitDFCHTLC
-    std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
     Res ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
     Res ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc, uint8_t const);
     void ForEachICXSubmitDFCHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXSubmitDFCHTLCImpl> HasICXSubmitDFCHTLCOpen(uint256 const & offertxid);
+    std::optional<CICXSubmitDFCHTLCImpl> HasICXSubmitDFCHTLCOpen(uint256 const & offertxid);
     bool ExistedICXSubmitDFCHTLC(uint256 const & offertxid, bool isPreEunosPaya);
 
 
     //SubmitEXTHTLC
-    std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
     Res ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
     Res ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & exthtlc, uint8_t const);
     void ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXSubmitEXTHTLCImpl> HasICXSubmitEXTHTLCOpen(uint256 const & offertxid);
+    std::optional<CICXSubmitEXTHTLCImpl> HasICXSubmitEXTHTLCOpen(uint256 const & offertxid);
     bool ExistedICXSubmitEXTHTLC(uint256 const & offertxid, bool isPreEunosPaya);
 
     //ClaimDFCHTLC
-    std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
     Res ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, uint256 const & offertxid, CICXOrderImpl const & order);
     void ForEachICXClaimDFCHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
 
     //CloseOrder
-    std::unique_ptr<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(uint256 const & txid) const;
+    std::optional<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(uint256 const & txid) const;
     Res ICXCloseOrder(CICXCloseOrderImpl const & closeorder);
 
     //CloseOrder
-    std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
+    std::optional<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
     Res ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
 
     // ICX_TAKERFEE_PER_BTC
