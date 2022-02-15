@@ -79,6 +79,10 @@ static ResVal<std::string> VerifyBool(const std::string& str) {
     return {str, Res::Ok()};
 }
 
+static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
+    return view.GetToken(DCT_ID{id}).has_value();
+}
+
 static Res ShowError(const std::string& key, const std::map<std::string, uint8_t>& keys) {
     std::string error{"Unrecognised " + key + " argument provided, valid " + key + "s are:"};
     for (const auto& pair : keys) {
@@ -255,15 +259,15 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     std::map<std::string, UniValue> objMap;
     val.getObjMap(objMap);
 
-    for (const auto& pair : objMap) {
+    for (const auto& [key, value] : objMap) {
         auto res = ProcessVariable(
-            pair.first, pair.second.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& value) {
+                key, value.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& attrValue) {
                 if (auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live) {
                         return Res::Err("Live attribute cannot be set externally");
                     }
                 }
-                attributes[attribute] = value;
+                attributes[attribute] = attrValue;
                 return Res::Ok();
             }
         );
@@ -334,9 +338,19 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
                         return Res::Err("Cannot be set before GreatWorld");
                     }
+                    if (!VerifyToken(view, attrV0->typeId)) {
+                        return Res::Err("No such token (%d)", attrV0->typeId);
+                    }
+                    CDataStructureV0 intervalPriceKey{AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                    if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                        return Res::Err("Fixed interval price currency pair must be set first");
+                    }
                 } else if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
                     if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
                         return Res::Err("Cannot be set before GreatWorld");
+                    }
+                    if (!VerifyToken(view, attrV0->typeId)) {
+                        return Res::Err("No such token (%d)", attrV0->typeId);
                     }
                     if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                         if (!OraclePriceFeed(const_cast<CCustomCSView&>(view), *currencyPair)) {
@@ -410,6 +424,10 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             }
         } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::FixedIntervalPriceId) {
             if (const auto& currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                // Already exists, skip.
+                if (mnview.GetFixedIntervalPrice(*currencyPair)) {
+                    continue;
+                }
                 CFixedIntervalPrice fixedIntervalPrice;
                 fixedIntervalPrice.priceFeedId = *currencyPair;
                 fixedIntervalPrice.timestamp = time;

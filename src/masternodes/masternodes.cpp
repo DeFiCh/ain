@@ -1094,19 +1094,20 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
     if (const auto token = GetToken(id)) {
         if (const auto attributes = GetAttributes()) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
+            const auto maxAmount{std::numeric_limits<CAmount>::max()};
 
             // Get currency pair from map
             CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
             loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
 
-            if (loanToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
-                // Get interest from map
-                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-                loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+            // Get interest from map
+            CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+            loanToken.interest = attributes->GetValue(interestKey, maxAmount);
 
+            if (loanToken.fixedIntervalPriceId != CTokenCurrencyPair{} && loanToken.interest != maxAmount) {
                 // Get mintable from map
                 CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-                loanToken.mintable = attributes->GetValue(mintableKey, bool{});
+                loanToken.mintable = attributes->GetValue(mintableKey, false);
 
                 loanToken.symbol = token->symbol;
                 loanToken.name = token->name;
@@ -1122,16 +1123,17 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
     if (const auto attributes = GetAttributes()) {
         CLoanSetCollateralTokenImplementation collToken;
+        const auto maxAmount{std::numeric_limits<CAmount>::max()};
 
         // Get currency pair from map
         CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
         collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
 
-        if (collToken.fixedIntervalPriceId != CTokenCurrencyPair{}) {
-            // Get factor from map
-            CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
-            collToken.factor = attributes->GetValue(factorKey, CAmount{});
+        // Get factor from map
+        CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
+        collToken.factor = attributes->GetValue(factorKey, maxAmount);
 
+        if (collToken.fixedIntervalPriceId != CTokenCurrencyPair{} && collToken.factor != maxAmount) {
             collToken.idToken = id;
 
             return collToken;

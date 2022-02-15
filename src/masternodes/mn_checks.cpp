@@ -203,7 +203,7 @@ public:
     template<typename T>
     Res DisabledAfter() const {
         if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
-            return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called post Bayfront height") : Res::Ok();
+            return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
         else if constexpr (IsOneOf<T, CLoanSetCollateralTokenMessage,
                 CLoanSetLoanTokenMessage,
                 CLoanUpdateLoanTokenMessage>())
@@ -816,7 +816,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     if (height >= consensusParams.AMKHeight) {
         auto const cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
-            return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
+            return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be paid only in Defi coins");
 
         auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
         if (cbValues.begin()->second != anchorReward) {

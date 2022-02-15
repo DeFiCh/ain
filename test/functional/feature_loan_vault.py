@@ -22,6 +22,60 @@ class VaultTest (DefiTestFramework):
                 ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-greatworldheight=400', '-jellyfish_regtest=1']
             ]
 
+    def move_to_gw_fork(self):
+        result = self.nodes[0].listcollateraltokens()
+        assert_equal(result[0]['token'], 'DFI')
+        assert_equal(result[0]['factor'], Decimal('1.00000000'))
+        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
+        assert_equal(result[1]['token'], 'BTC')
+        assert_equal(result[1]['factor'], Decimal('0.80000000'))
+        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
+
+        result = self.nodes[0].listloantokens()
+        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
+        assert_equal(result[0]['token']['2']['isLoanToken'], True)
+        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
+        assert_equal(result[0]['interest'], Decimal('2.00000000'))
+        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
+        assert_equal(result[1]['token']['3']['isLoanToken'], True)
+        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
+        assert_equal(result[1]['interest'], Decimal('1.00000000'))
+
+        # Move to hard fork
+        self.nodes[0].generate(401 - self.nodes[0].getblockcount())
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/token/0/fixed_interval_price_id'], 'DFI/USD')
+        assert_equal(result['v0/token/0/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/0/loan_collateral_factor'], '1')
+        assert_equal(result['v0/token/1/fixed_interval_price_id'], 'BTC/USD')
+        assert_equal(result['v0/token/1/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/1/loan_collateral_factor'], '0.8')
+        assert_equal(result['v0/token/2/fixed_interval_price_id'], 'TSLA/USD')
+        assert_equal(result['v0/token/2/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/2/loan_minting_interest'], '2')
+        assert_equal(result['v0/token/3/fixed_interval_price_id'], 'DUSD/USD')
+        assert_equal(result['v0/token/3/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/3/loan_minting_interest'], '1')
+
+        result = self.nodes[0].listcollateraltokens()
+        assert_equal(result[0]['token'], 'DFI')
+        assert_equal(result[0]['factor'], Decimal('1.00000000'))
+        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
+        assert_equal(result[1]['token'], 'BTC')
+        assert_equal(result[1]['factor'], Decimal('0.80000000'))
+        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
+
+        result = self.nodes[0].listloantokens()
+        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
+        assert_equal(result[0]['token']['2']['isLoanToken'], True)
+        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
+        assert_equal(result[0]['interest'], Decimal('2.00000000'))
+        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
+        assert_equal(result[1]['token']['3']['isLoanToken'], True)
+        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
+        assert_equal(result[1]['interest'], Decimal('1.00000000'))
+
     def run_test(self):
         self.nodes[0].generate(120)
         self.nodes[0].createloanscheme(175, 3, 'LOAN0001')
@@ -192,7 +246,6 @@ class VaultTest (DefiTestFramework):
         # Prepare tokens for deposittoloan/takeloan
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
-        print("Generating initial chain...")
         self.nodes[0].generate(25)
         self.sync_blocks()
         self.nodes[1].generate(102)
@@ -223,7 +276,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}, {"currency": "USD", "token": "GOOGL"}, {"currency": "USD", "token": "ETH"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
@@ -592,58 +645,15 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].closevault(vaultId5, address)
         self.nodes[0].generate(1)
 
-        result = self.nodes[0].listcollateraltokens()
-        assert_equal(result[0]['token'], 'DFI')
-        assert_equal(result[0]['factor'], Decimal('1.00000000'))
-        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
-        assert_equal(result[1]['token'], 'BTC')
-        assert_equal(result[1]['factor'], Decimal('0.80000000'))
-        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
-
-        result = self.nodes[0].listloantokens()
-        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
-        assert_equal(result[0]['token']['2']['isLoanToken'], True)
-        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
-        assert_equal(result[0]['interest'], Decimal('2.00000000'))
-        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
-        assert_equal(result[1]['token']['3']['isLoanToken'], True)
-        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
-        assert_equal(result[1]['interest'], Decimal('1.00000000'))
-
         # Move to hard fork
-        self.nodes[0].generate(401 - self.nodes[0].getblockcount())
+        self.move_to_gw_fork()
 
-        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result['v0/token/0/fixed_interval_price_id'], 'DFI/USD')
-        assert_equal(result['v0/token/0/loan_collateral_enabled'], 'true')
-        assert_equal(result['v0/token/0/loan_collateral_factor'], '1')
-        assert_equal(result['v0/token/1/fixed_interval_price_id'], 'BTC/USD')
-        assert_equal(result['v0/token/1/loan_collateral_enabled'], 'true')
-        assert_equal(result['v0/token/1/loan_collateral_factor'], '0.8')
-        assert_equal(result['v0/token/2/fixed_interval_price_id'], 'TSLA/USD')
-        assert_equal(result['v0/token/2/loan_minting_enabled'], 'true')
-        assert_equal(result['v0/token/2/loan_minting_interest'], '2')
-        assert_equal(result['v0/token/3/fixed_interval_price_id'], 'DUSD/USD')
-        assert_equal(result['v0/token/3/loan_minting_enabled'], 'true')
-        assert_equal(result['v0/token/3/loan_minting_interest'], '1')
+        # Invalidate fork block
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        assert_equal(len(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']), 0)
 
-        result = self.nodes[0].listcollateraltokens()
-        assert_equal(result[0]['token'], 'DFI')
-        assert_equal(result[0]['factor'], Decimal('1.00000000'))
-        assert_equal(result[0]['fixedIntervalPriceId'], 'DFI/USD')
-        assert_equal(result[1]['token'], 'BTC')
-        assert_equal(result[1]['factor'], Decimal('0.80000000'))
-        assert_equal(result[1]['fixedIntervalPriceId'], 'BTC/USD')
-
-        result = self.nodes[0].listloantokens()
-        assert_equal(result[0]['token']['2']['symbol'], 'TSLA')
-        assert_equal(result[0]['token']['2']['isLoanToken'], True)
-        assert_equal(result[0]['fixedIntervalPriceId'], 'TSLA/USD')
-        assert_equal(result[0]['interest'], Decimal('2.00000000'))
-        assert_equal(result[1]['token']['3']['symbol'], 'DUSD')
-        assert_equal(result[1]['token']['3']['isLoanToken'], True)
-        assert_equal(result[1]['fixedIntervalPriceId'], 'DUSD/USD')
-        assert_equal(result[1]['interest'], Decimal('1.00000000'))
+        # Move to hard fork again
+        self.move_to_gw_fork()
 
         # Try and call disabled RPC calls
         assert_raises_rpc_error(-32600, 'called after GreatWorld height', self.nodes[0].setloantoken, {
@@ -662,6 +672,171 @@ class VaultTest (DefiTestFramework):
                                     'token': idDFI,
                                     'factor': 1,
                                     'fixedIntervalPriceId': "DFI/USD"})
+
+        # Create new collateral token
+        symbolETH = "ETH"
+        self.nodes[0].createtoken({
+            "symbol": symbolETH,
+            "name": "Ethereum",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+        self.nodes[0].generate(1)
+
+        idETH = list(self.nodes[0].gettoken(symbolETH).keys())[0]
+
+        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "0.5@BTC"}, {"currency": "USD", "tokenAmount": "1@ETH"}, {"currency": "USD", "tokenAmount": "2@GOOGL"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle_prices)
+        self.nodes[0].generate(8)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_enabled':'true', f'v0/token/{idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].generate(1)
+
+        # Create new loan token
+        symbolGOOGL = "GOOGL"
+        self.nodes[0].createtoken({
+            "symbol": symbolGOOGL,
+            "name": "Google",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+        self.nodes[0].generate(1)
+
+        idGOOGL = list(self.nodes[0].gettoken(symbolGOOGL).keys())[0]
+
+        # Should not show up as loan token yet
+        assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], False)
+
+        # Set loan token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idGOOGL}/loan_minting_enabled':'true', f'v0/token/{idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Should now show up as loan token
+        assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], True)
+
+        # Create new vault
+        ownerAddress3 = self.nodes[0].getnewaddress("", "legacy")
+        vaultId6 = self.nodes[0].createvault(ownerAddress3)
+        self.nodes[0].generate(1)
+
+        # Fund with DFI
+        self.nodes[0].deposittovault(vaultId6, accountDFI, '5@DFI')
+        self.nodes[0].generate(1)
+
+        # Fund with ETH
+        self.nodes[0].minttokens("10@" + symbolETH)
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '5@ETH')
+        self.nodes[0].generate(1)
+
+        # Try and deposit more GOOGL to vault
+        self.nodes[0].minttokens("1@" + symbolGOOGL)
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-32600, 'Collateral token with id (7) does not exist!', self.nodes[0].deposittovault, vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@GOOGL')
+
+        # Try and take collateral token as loan
+        assert_raises_rpc_error(-32600, 'Loan token with id (6) does not exist!', self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@ETH"})
+
+        # Take loan
+        self.nodes[0].takeloan({'vaultId': vaultId6, 'amounts': "1@GOOGL"})
+        self.nodes[0].generate(1)
+
+        # Check collateral ratio
+        assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 375)
+
+        # Change collateral ratio
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/loan_collateral_factor':'1'}})
+        self.nodes[0].generate(2)
+
+        # Check new ratio
+        assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 500)
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/token/6/loan_collateral_factor'], '1')
+
+        # Change collateral currency pair
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'BTC/USD'}})
+        self.nodes[0].generate(1)
+
+        # Check new ratio and currency pair
+        assert_equal(self.nodes[0].getvault(vaultId6)['collateralRatio'], 375)
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/token/6/fixed_interval_price_id'], 'BTC/USD')
+
+        # Disable collateral token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/loan_collateral_enabled':'false'}})
+        self.nodes[0].generate(1)
+
+        # Check ETH collateral token disabled
+        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/token/6/loan_collateral_enabled'], 'false')
+
+        # Try and deposit disabled collateral to vault
+        assert_raises_rpc_error(-32600, 'Collateral token (6) is disabled', self.nodes[0].deposittovault, vaultId6, self.nodes[0].get_genesis_keys().ownerAuthAddress, '1@ETH')
+
+        # Reduce interest to zero
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/loan_minting_interest':'0'}})
+        self.nodes[0].generate(1)
+
+        # Take new loan with zero interest on the loan token
+        self.nodes[0].takeloan({'vaultId': vaultId6, 'amounts': "1@GOOGL"})
+        self.nodes[0].generate(1)
+
+        # Check interest is now zero
+        interest = self.nodes[0].getvault(vaultId6)['interestValue']
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getvault(vaultId6)['interestValue'], interest + Decimal('0.00000228'))
+
+        # Disable loan token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/loan_minting_enabled':'false'}})
+        self.nodes[0].generate(1)
+
+        # Check that taking loan now fails
+        assert_raises_rpc_error(-32600, 'Loan cannot be taken on token with id (7) as "mintable" is currently false', self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@GOOGL"})
+
+        # Set up for setting loan and collateral token by Gov height
+        symbolUSDT = "USDT"
+        symbolAAPL = "AAPL"
+        self.nodes[0].createtoken({
+            "symbol": symbolUSDT,
+            "name": "USDT Stable Coin",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+        self.nodes[0].generate(1)
+        self.nodes[0].createtoken({
+            "symbol": symbolAAPL,
+            "name": "Apple",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+        self.nodes[0].generate(1)
+        idUSDT = list(self.nodes[0].gettoken(symbolUSDT).keys())[0]
+        idAAPL = list(self.nodes[0].gettoken(symbolAAPL).keys())[0]
+
+        # Set collateral and loan tokens for 10 blocks time
+        activation_height = self.nodes[0].getblockcount() + 10
+        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/token/{idAAPL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idAAPL}/loan_minting_enabled':'true', f'v0/token/{idAAPL}/loan_minting_interest':'1',
+                                                  f'v0/token/{idUSDT}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idUSDT}/loan_collateral_enabled':'true', f'v0/token/{idUSDT}/loan_collateral_factor':'1'}}, activation_height)
+        self.nodes[0].generate(1)
+
+        # Check pending tokens
+        result = self.nodes[0].listgovs()[8][1][str(activation_height)]
+        assert_equal(result['v0/token/8/fixed_interval_price_id'], 'GOOGL/USD')
+        assert_equal(result['v0/token/8/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/8/loan_collateral_factor'], '1')
+        assert_equal(result['v0/token/9/fixed_interval_price_id'], 'GOOGL/USD')
+        assert_equal(result['v0/token/9/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/9/loan_minting_interest'], '1')
+
+        # Move to activation height
+        self.nodes[0].generate(activation_height - self.nodes[0].getblockcount())
+
+        # Check tokens
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/token/8/fixed_interval_price_id'], 'GOOGL/USD')
+        assert_equal(result['v0/token/8/loan_collateral_enabled'], 'true')
+        assert_equal(result['v0/token/8/loan_collateral_factor'], '1')
+        assert_equal(result['v0/token/9/fixed_interval_price_id'], 'GOOGL/USD')
+        assert_equal(result['v0/token/9/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/9/loan_minting_interest'], '1')
 
 if __name__ == '__main__':
     VaultTest().main()

@@ -40,19 +40,6 @@ Res CLoanView::EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collT
     return Res::Ok();
 }
 
-Res CLoanView::UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
-{
-    if (collateralToken.factor > COIN)
-        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
-    if (collateralToken.factor < 0)
-        return Res::Err("setCollateralToken factor must not be negative!");
-
-    CollateralTokenKey key{collateralToken.idToken, collateralToken.activateAfterBlock};
-    WriteBy<LoanSetCollateralTokenKey>(key, collateralToken.creationTx);
-
-    return Res::Ok();
-}
-
 void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start)
 {
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
@@ -481,11 +468,6 @@ Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 std::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
 {
     return ReadBy<LoanTokenAmount, CBalances>(vaultId);
-}
-
-void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback)
-{
-    ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
 }
 
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)

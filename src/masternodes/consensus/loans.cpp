@@ -44,7 +44,6 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
     CFixedIntervalPrice fixedIntervalPrice;
     fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
 
-    LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
     auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
     if (!price)
         return Res::Err(price.msg);
@@ -52,7 +51,6 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
     fixedIntervalPrice.priceRecord[1] = price;
     fixedIntervalPrice.timestamp = time;
 
-    LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     if (!resSetFixedPrice)
         return Res::Err(resSetFixedPrice.msg);
@@ -81,7 +79,6 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     fixedIntervalPrice.priceRecord[1] = nextPrice;
     fixedIntervalPrice.timestamp = time;
 
-    LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     if (!resSetFixedPrice)
         return Res::Err(resSetFixedPrice.msg);
@@ -94,7 +91,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
 
     CTokenImplementation token;
     token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
-    token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::DeprecatedLoanToken | (uint8_t)CToken::TokenFlags::DAT;
 
     token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);

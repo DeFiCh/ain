@@ -1398,8 +1398,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
             return true;
-
-        LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
+        
         interest[tokenId].first += TotalInterestCalculation(rate, height);
         interest[tokenId].second += rate.interestPerBlock;
 

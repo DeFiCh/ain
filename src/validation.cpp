@@ -2243,6 +2243,36 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     return batches;
 }
 
+bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
+    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
+        if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+            var->time = pindex.nTime;
+
+            UniValue obj(UniValue::VOBJ);
+            for (const auto& [key, value] : attrs) {
+                obj.pushKV(key, value);
+            }
+
+            auto res = var->Import(obj);
+            if (res) {
+                res = var->Validate(cache);
+                if (res) {
+                    res = var->Apply(cache, pindex.nHeight);
+                    if (res) {
+                        res = cache.SetVariable(*var);
+                    }
+                }
+            }
+
+            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2865,40 +2895,32 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 return true;
             });
 
-            std::map<std::string, std::string> attrs;
+            // Apply fixed_interval_price_id first
+            std::map<std::string, std::string> attrsFirst;
+            std::map<std::string, std::string> attrsSecond;
+
             int loanCount = 0, collateralCount = 0;
             for (const auto& [id, token] : loanTokens) {
                 std::string prefix{"v0/token/" + std::to_string(id.v) + '/'};
-                attrs[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-                attrs[prefix + "loan_minting_enabled"] = token.mintable ? "true" : "false";
-                attrs[prefix + "loan_minting_interest"] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+                attrsFirst[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                attrsSecond[prefix + "loan_minting_enabled"] = token.mintable ? "true" : "false";
+                attrsSecond[prefix + "loan_minting_interest"] = KeyBuilder(ValueFromAmount(token.interest).get_real());
                 cache.EraseLoanToken(id);
                 ++loanCount;
             }
 
             for (const auto& token : collateralTokens) {
                 std::string prefix{"v0/token/" + std::to_string(token.idToken.v) + '/'};
-                attrs[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-                attrs[prefix + "loan_collateral_enabled"] = "true";
-                attrs[prefix + "loan_collateral_factor"] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+                attrsFirst[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                attrsSecond[prefix + "loan_collateral_enabled"] = "true";
+                attrsSecond[prefix + "loan_collateral_factor"] = KeyBuilder(ValueFromAmount(token.factor).get_real());
                 cache.EraseLoanCollateralToken(token);
                 ++collateralCount;
             }
 
-            if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
-                if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
-                    var->time = pindex->nTime;
-
-                    UniValue obj(UniValue::VOBJ);
-                    for (const auto& [key, value] : attrs) {
-                        obj.pushKV(key, value);
-                    }
-
-                    CCustomCSView govCache(cache);
-                    if (var->Import(obj) && var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
-                        govCache.Flush();
-                    }
-                }
+            CCustomCSView govCache(cache);
+            if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+                govCache.Flush();
             }
         }
 
@@ -3169,7 +3191,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
@@ -3203,13 +3224,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto tokenValue = loan.second;
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
                 // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 // Putting this back in now for auction calculations.
                 loan.second += subInterest;

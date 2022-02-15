@@ -1,4 +1,7 @@
 #include <masternodes/mn_rpc.h>
+
+#include <masternodes/govvariables/attributes.h>
+
 #include <index/txindex.h>
 
 UniValue createtoken(const JSONRPCRequest& request) {
@@ -332,7 +335,14 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
-        tokenObj.pushKV("isLoanToken", token.IsLoanToken());
+
+        auto loanToken = token.IsLoanToken();
+        if (auto attributes = pcustomcsview->GetAttributes()) {
+            CDataStructureV0 loanTokenKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+            loanToken = attributes->GetValue(loanTokenKey, loanToken);
+        }
+
+        tokenObj.pushKV("isLoanToken", loanToken);
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("creationTx", token.creationTx.ToString());
