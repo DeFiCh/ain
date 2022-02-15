@@ -72,6 +72,13 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         for txs in results:
             assert(hasattr(txs['amounts'], '__len__') and (not isinstance(txs['amounts'], str)))
 
+        txn = results[0]['txn']
+        results = self.nodes[0].listaccounthistory(collateral_a, {"txn":txn})
+        for txs in results:
+            assert_equal(txs['owner'], collateral_a)
+            assert_equal(txs['txn'], txn)
+            self.log.info("txn is %d", txs['txn'])
+
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
 

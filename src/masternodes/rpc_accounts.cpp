@@ -964,6 +964,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
+                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Order in block, unlimited by default"},
                             },
                         },
                },
@@ -991,6 +993,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string tokenFilter;
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
+    uint32_t txn = std::numeric_limits<uint32_t>::max();
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1002,6 +1005,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"txn", UniValueType(UniValue::VNUM)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1030,6 +1034,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
+        if (!optionsObj["txn"].isNull()) {
+            txn = (uint32_t) optionsObj["txn"].get_int64();
         }
     }
 
@@ -1087,6 +1095,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
+        }
+
+        if(txn != std::numeric_limits<uint32_t>::max() && txn != key.txn) {
+            return true;
         }
 
         std::unique_ptr<CScopeAccountReverter> reverter;
@@ -1184,6 +1196,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                if(txn != std::numeric_limits<uint32_t>::max() && txn != entry.vout) {
+                    return true;
+                }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
