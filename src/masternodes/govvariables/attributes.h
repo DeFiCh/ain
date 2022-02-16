@@ -113,6 +113,10 @@ public:
         return std::move(value);
     }
 
+    [[nodiscard]] bool CheckKey(const CAttributeType& key) const {
+        return attributes.find(key) != attributes.end();
+    }
+
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 

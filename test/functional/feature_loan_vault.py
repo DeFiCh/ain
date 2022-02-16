@@ -688,10 +688,44 @@ class VaultTest (DefiTestFramework):
         oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "0.5@BTC"}, {"currency": "USD", "tokenAmount": "1@ETH"}, {"currency": "USD", "tokenAmount": "2@GOOGL"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle_prices)
-        self.nodes[0].generate(8)
+        self.nodes[0].generate(7)
 
+        # Test setting collateral token partially
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_enabled':'true'}})
+        self.nodes[0].generate(1)
+
+        # Should not show up as collateral token
+        assert_equal(len(self.nodes[0].listcollateraltokens()), 2)
+
+        # Revert
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+         # Test setting collateral token partially
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].generate(1)
+
+        # Should not show up as collateral token
+        assert_equal(len(self.nodes[0].listcollateraltokens()), 2)
+
+        # Revert
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        # Set collateral token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_enabled':'true', f'v0/token/{idETH}/loan_collateral_factor':'0.5'}})
         self.nodes[0].generate(1)
+
+        # Test setting it again, should not be a problem.
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_enabled':'true', f'v0/token/{idETH}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].generate(1)
+
+        # Should now show up as collateral token
+        result = self.nodes[0].listcollateraltokens()
+        assert_equal(len(result), 3)
+        assert_equal(result[2]['token'], 'ETH')
+        assert_equal(result[2]['factor'], Decimal('0.50000000'))
+        assert_equal(result[2]['fixedIntervalPriceId'], 'ETH/USD')
 
         # Create new loan token
         symbolGOOGL = "GOOGL"
@@ -708,12 +742,46 @@ class VaultTest (DefiTestFramework):
         # Should not show up as loan token yet
         assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], False)
 
+        # Test setting loan token partially.
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idGOOGL}/loan_minting_enabled':'true'}})
+        self.nodes[0].generate(1)
+
+        # Should not show up as loan token
+        assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], False)
+        assert_equal(len(self.nodes[0].listloantokens()), 2)
+
+        # Revert
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        # Test setting loan token partially.
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Should not show up as loan token
+        assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], False)
+        assert_equal(len(self.nodes[0].listloantokens()), 2)
+
+        # Revert
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
         # Set loan token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idGOOGL}/loan_minting_enabled':'true', f'v0/token/{idGOOGL}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Test setting it again, should not be a problem.
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/fixed_interval_price_id':'GOOGL/USD', f'v0/token/{idGOOGL}/loan_minting_enabled':'true', f'v0/token/{idGOOGL}/loan_minting_interest':'1'}})
         self.nodes[0].generate(1)
 
         # Should now show up as loan token
         assert_equal(self.nodes[0].gettoken(idGOOGL)[idGOOGL]['isLoanToken'], True)
+        result = self.nodes[0].listloantokens()
+        assert_equal(len(result), 3)
+        assert_equal(result[2]['token'][str(idGOOGL)]['symbol'], 'GOOGL')
+        assert_equal(result[2]['token'][str(idGOOGL)]['isLoanToken'], True)
+        assert_equal(result[2]['fixedIntervalPriceId'], 'GOOGL/USD')
+        assert_equal(result[2]['interest'], Decimal('1.00000000'))
 
         # Create new vault
         ownerAddress3 = self.nodes[0].getnewaddress("", "legacy")
@@ -784,9 +852,28 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getvault(vaultId6)['interestValue'], interest + Decimal('0.00000228'))
 
+        # Set loan token to also be a collateral token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/loan_collateral_enabled':'true', f'v0/token/{idGOOGL}/loan_collateral_factor':'0.5'}})
+        self.nodes[0].generate(1)
+
+        print(self.nodes[0].getvault(vaultId6)['collateralRatio'])
+
+        # Deposit GOOGL to vault
+        self.nodes[0].deposittovault(vaultId6, ownerAddress3, '1@GOOGL')
+        self.nodes[0].generate(1)
+
+        # Check collateral
+        result = self.nodes[0].getvault(vaultId6)
+        assert_equal(result['collateralRatio'], 212)
+        assert_equal(result['collateralAmounts'], ['5.00000000@DFI', '5.00000000@ETH', '1.00000000@GOOGL'])
+
         # Disable loan token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idGOOGL}/loan_minting_enabled':'false'}})
         self.nodes[0].generate(1)
+
+        # Check loan token is false, still shows up in listloantokens as per previous behaviour.
+        result = self.nodes[0].listloantokens()[2]
+        assert_equal(result['token'][str(idGOOGL)]['isLoanToken'], False)
 
         # Check that taking loan now fails
         assert_raises_rpc_error(-32600, 'Loan cannot be taken on token with id (7) as "mintable" is currently false', self.nodes[0].takeloan, {'vaultId': vaultId6, 'amounts': "1@GOOGL"})

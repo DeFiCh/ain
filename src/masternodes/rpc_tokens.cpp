@@ -336,12 +336,14 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
 
-        auto loanToken = token.IsLoanToken();
-        if (auto attributes = pcustomcsview->GetAttributes()) {
-            CDataStructureV0 loanTokenKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-            loanToken = attributes->GetValue(loanTokenKey, loanToken);
+        auto loanToken{token.IsLoanToken()};
+        if (!loanToken) {
+            if (auto attributes = pcustomcsview->GetAttributes()) {
+                CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            }
         }
-
         tokenObj.pushKV("isLoanToken", loanToken);
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));

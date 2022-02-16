@@ -2163,7 +2163,7 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
         // Change daily LP reward if it has changed
         auto var = cache.GetVariable(GovVar::TypeName());
         if (var) {
-            // Cast to avoid UniValue in GovVariable Export/ImportserliazedSplits.emplace(it.first.v, it.second);
+            // Cast to avoid UniValue in GovVariable Export/Import
             auto lpVar = dynamic_cast<GovVar*>(var.get());
             if (lpVar && lpVar->dailyReward != subsidy) {
                 lpVar->dailyReward = subsidy;

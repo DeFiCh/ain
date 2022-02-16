@@ -543,11 +543,15 @@ UniValue listloantokens(const JSONRPCRequest& request) {
 
                 // Find loan tokens
                 if (key->type == AttributeTypes::Token && key->key == TokenKeys::LoanMintingEnabled) {
-                    const auto id = DCT_ID{key->typeId};
-                    const auto token = pcustomcsview->GetToken(id);
-                    if (token) {
-                        if (const auto loanToken = pcustomcsview->GetLoanTokenFromAttributes({key->typeId})) {
-                            ret.push_back(setLoanTokenToJSON(*loanToken, id, *token));
+                    // Make sure interest is set
+                    CDataStructureV0 interestKey{AttributeTypes::Token, key->typeId, TokenKeys::LoanMintingInterest};
+                    if (attributes->CheckKey(interestKey)) {
+                        const auto id = DCT_ID{key->typeId};
+                        const auto token = pcustomcsview->GetToken(id);
+                        if (token) {
+                            if (const auto loanToken = pcustomcsview->GetLoanTokenFromAttributes({key->typeId})) {
+                                ret.push_back(setLoanTokenToJSON(*loanToken, id, *token));
+                            }
                         }
                     }
                 }
