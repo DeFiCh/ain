@@ -1211,7 +1211,7 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
                     {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Single account ID (CScript or address)."},
                     {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                        "Height to iterate from (downto genesis block)."},
+                        "Block Height to search in."},
                     {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
                         "for order in block."},
                },
