@@ -701,7 +701,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
 
-         # Test setting collateral token partially
+        # Test setting collateral token partially
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{idETH}/loan_collateral_factor':'0.5'}})
         self.nodes[0].generate(1)
 
