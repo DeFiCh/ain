@@ -72,11 +72,11 @@ static ResVal<CTokenCurrencyPair> VerifyCurrencyPair(const std::string& str) {
     return {{token, currency}, Res::Ok()};
 }
 
-static ResVal<std::string> VerifyBool(const std::string& str) {
+static ResVal<int> VerifyBool(const std::string& str) {
     if (str != "true" && str != "false") {
         return Res::Err(R"(Value must be either "true" or "false")");
     }
-    return {str, Res::Ok()};
+    return {str == "true", Res::Ok()};
 }
 
 static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
@@ -166,7 +166,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!res) {
                 return std::move(res);
             }
-            attribValue = *res.val == "true";
+            attribValue = bool(*res.val);
         } else if (typeKey == TokenKeys::PaybackDFIFeePCT) {
             auto res = VerifyPct(value);
             if (!res) {
@@ -184,7 +184,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!res) {
                 return std::move(res);
             }
-            attribValue = *res.val == "true";
+            attribValue = bool(*res.val);
         } else if (typeKey == TokenKeys::LoanCollateralFactor) {
             auto res = VerifyPct(value);
             if (!res) {
@@ -196,7 +196,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!res) {
                 return std::move(res);
             }
-            attribValue = *res.val == "true";
+            attribValue = bool(*res.val);
         } else if (typeKey == TokenKeys::LoanMintingInterest) {
             auto res = VerifyFloat(value);
             if (!res) {
@@ -224,7 +224,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (!res) {
                     return std::move(res);
                 }
-                attribValue = *res.val == "true";
+                attribValue = bool(*res.val);
             } else if (typeKey == DFIP2201Keys::Premium) {
                 auto res = VerifyPct(value);
                 if (!res) {
