@@ -2253,17 +2253,6 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
                 obj.pushKV(key, value);
             }
 
-            auto res = var->Import(obj);
-            if (res) {
-                res = var->Validate(cache);
-                if (res) {
-                    res = var->Apply(cache, pindex.nHeight);
-                    if (res) {
-                        res = cache.SetVariable(*var);
-                    }
-                }
-            }
-
             if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
                 return true;
             }
