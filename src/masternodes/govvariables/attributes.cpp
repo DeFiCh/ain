@@ -352,13 +352,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     if (!VerifyToken(view, attrV0->typeId)) {
                         return Res::Err("No such token (%d)", attrV0->typeId);
                     }
-                    if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
-                        if (!OraclePriceFeed(const_cast<CCustomCSView&>(view), *currencyPair)) {
-                            return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first, currencyPair->second);
-                        }
-                    } else {
-                        return Res::Err("Unrecognised value for FixedIntervalPriceId");
-                    }
                 } else {
                     return Res::Err("Unsupported key");
                 }
@@ -427,6 +420,8 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 // Already exists, skip.
                 if (mnview.GetFixedIntervalPrice(*currencyPair)) {
                     continue;
+                } else if (!OraclePriceFeed(mnview, *currencyPair)) {
+                    return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first, currencyPair->second);
                 }
                 CFixedIntervalPrice fixedIntervalPrice;
                 fixedIntervalPrice.priceFeedId = *currencyPair;
@@ -440,6 +435,8 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     fixedIntervalPrice.priceRecord[1] = aggregatePrice;
                 }
                 mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+            } else {
+                return Res::Err("Unrecognised value for FixedIntervalPriceId");
             }
         }
     }
