@@ -2900,27 +2900,32 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::map<std::string, std::string> attrsSecond;
 
             int loanCount = 0, collateralCount = 0;
-            for (const auto& [id, token] : loanTokens) {
-                std::string prefix{"v0/token/" + std::to_string(id.v) + '/'};
-                attrsFirst[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-                attrsSecond[prefix + "loan_minting_enabled"] = token.mintable ? "true" : "false";
-                attrsSecond[prefix + "loan_minting_interest"] = KeyBuilder(ValueFromAmount(token.interest).get_real());
-                cache.EraseLoanToken(id);
-                ++loanCount;
-            }
 
-            for (const auto& token : collateralTokens) {
-                std::string prefix{"v0/token/" + std::to_string(token.idToken.v) + '/'};
-                attrsFirst[prefix + "fixed_interval_price_id"] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-                attrsSecond[prefix + "loan_collateral_enabled"] = "true";
-                attrsSecond[prefix + "loan_collateral_factor"] = KeyBuilder(ValueFromAmount(token.factor).get_real());
-                cache.EraseLoanCollateralToken(token);
-                ++collateralCount;
-            }
+            try {
+                for (const auto& [id, token] : loanTokens) {
+                    std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token),id.v);
+                    attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                    attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+                    attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+                    cache.EraseLoanToken(id);
+                    ++loanCount;
+                }
 
-            CCustomCSView govCache(cache);
-            if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
-                govCache.Flush();
+                for (const auto& token : collateralTokens) {
+                    std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token), token.idToken.v);
+                    attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+                    attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+                    attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+                    cache.EraseLoanCollateralToken(token);
+                    ++collateralCount;
+                }
+
+                CCustomCSView govCache(cache);
+                if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+                    govCache.Flush();
+                }
+            } catch(std::out_of_range&) {
+                LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
             }
         }
 

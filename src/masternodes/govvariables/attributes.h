@@ -124,49 +124,6 @@ public:
     std::map<CAttributeType, CAttributeValue> attributes;
     uint32_t time{0};
 
-private:
-    // Defined allowed arguments
-    inline static const std::map<std::string, uint8_t> allowedVersions{
-        {"v0",          VersionTypes::v0},
-    };
-
-    inline static const std::map<std::string, uint8_t> allowedTypes{
-        {"params",      AttributeTypes::Param},
-        {"poolpairs",   AttributeTypes::Poolpairs},
-        {"token",       AttributeTypes::Token},
-    };
-
-    inline static const std::map<std::string, uint8_t> allowedParamIDs{
-        {"dfip2201",         ParamIDs::DFIP2201}
-    };
-
-    inline static const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
-        {
-            AttributeTypes::Token, {
-                {"payback_dfi",             TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
-                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
-                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
-                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
-                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
-                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
-            }
-        },
-        {
-            AttributeTypes::Poolpairs, {
-                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
-                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
-            }
-        },
-        {
-            AttributeTypes::Param, {
-                {"active",              DFIP2201Keys::Active},
-                {"minswap",             DFIP2201Keys::MinSwap},
-                {"premium",             DFIP2201Keys::Premium},
-            }
-        },
-    };
-
     // For formatting in export
     inline static const std::map<uint8_t, std::string> displayVersions{
         {VersionTypes::v0,          "v0"},
@@ -214,6 +171,49 @@ private:
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
             }
         },
+    };
+
+private:
+    // Defined allowed arguments
+    inline static const std::map<std::string, uint8_t> allowedVersions{
+            {"v0",          VersionTypes::v0},
+    };
+
+    inline static const std::map<std::string, uint8_t> allowedTypes{
+            {"params",      AttributeTypes::Param},
+            {"poolpairs",   AttributeTypes::Poolpairs},
+            {"token",       AttributeTypes::Token},
+    };
+
+    inline static const std::map<std::string, uint8_t> allowedParamIDs{
+            {"dfip2201",         ParamIDs::DFIP2201}
+    };
+
+    inline static const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
+            {
+                    AttributeTypes::Token, {
+                                                   {"payback_dfi",             TokenKeys::PaybackDFI},
+                                                   {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
+                                                   {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
+                                                   {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
+                                                   {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
+                                                   {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
+                                                   {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
+                                           }
+            },
+            {
+                    AttributeTypes::Poolpairs, {
+                                                   {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
+                                                   {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
+                                           }
+            },
+            {
+                    AttributeTypes::Param, {
+                                                   {"active",              DFIP2201Keys::Active},
+                                                   {"minswap",             DFIP2201Keys::MinSwap},
+                                                   {"premium",             DFIP2201Keys::Premium},
+                                           }
+            },
     };
 
     Res ProcessVariable(const std::string& key, const std::string& value,
