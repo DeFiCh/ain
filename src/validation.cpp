@@ -2896,7 +2896,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
                     attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
                     attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
-                    cache.EraseLoanToken(id);
                     ++loanCount;
                 }
 
@@ -2905,13 +2904,21 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
                     attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
                     attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
-                    cache.EraseLoanCollateralToken(token);
                     ++collateralCount;
                 }
 
                 CCustomCSView govCache(cache);
                 if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
                     govCache.Flush();
+
+                    // Erase old tokens afterwards to avoid invalid state during transition
+                    for (const auto& item : loanTokens) {
+                        cache.EraseLoanToken(item.first);
+                    }
+
+                    for (const auto& token : collateralTokens) {
+                        cache.EraseLoanCollateralToken(token);
+                    }
                 }
             } catch(std::out_of_range&) {
                 LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
@@ -3317,9 +3324,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                if (auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
-                }
+                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};

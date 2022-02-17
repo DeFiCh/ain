@@ -347,7 +347,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
                 return Res::Err("Exceed maximum loans");
         }
 
-        res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+        res = mnview.AddMintedTokens(tokenId, kv.second);
         if (!res)
             return res;
 
@@ -472,7 +472,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
         CalculateOwnerRewards(obj.from);
 
         if (height < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
-            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
+            res = mnview.SubMintedTokens(tokenId, subLoan);
             if (!res)
                 return res;
 
