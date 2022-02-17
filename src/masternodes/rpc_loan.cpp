@@ -1172,10 +1172,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     uint256 vaultId;
     CScript from;
     CBalances amounts;
-    std::vector<std::pair<DCT_ID, CBalances>> loans;
-
-    CLoanPaybackLoanMessage loanPayback;
-    CLoanPaybackLoanV2Message loanPaybackV2;
+    std::map<DCT_ID, CBalances> loans;
 
     if (!metaObj["vaultId"].isNull())
         vaultId = uint256S(metaObj["vaultId"].getValStr());
@@ -1188,42 +1185,38 @@ UniValue paybackloan(const JSONRPCRequest& request) {
         targetHeight = ::ChainActive().Height() + 1;
         // Get vault if exists, vault owner used as auth.
         auto vault = pcustomcsview->GetVault(vaultId);
-        if (!vault) {
+        if (!vault)
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + vaultId.GetHex());
-        }
     }
 
     if (!metaObj["amounts"].isNull() && !metaObj["loans"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" and \"loans\" cannot be set at the same time");
 
-    if (targetHeight < Params().GetConsensus().FortCanningRoadHeight)
-    {
-        if (!metaObj["amounts"].isNull())
-            amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
-    }
+    if (!metaObj["amounts"].isNull())
+        amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
+    else if (targetHeight < Params().GetConsensus().FortCanningRoadHeight)
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
 
     if (targetHeight >= Params().GetConsensus().FortCanningRoadHeight)
     {
-        if (!metaObj["amounts"].isNull())
+        if (metaObj["amounts"].isNull() && metaObj["loans"].isNull())
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" or \"loans\" must not be null");
+
+        for (auto& id : amounts.balances)
         {
-            amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
-            for (auto& id : amounts.balances)
+            CBalances amounts;
+            amounts.Add({id.first,id.second});
+            if (id.first == DCT_ID{0})
             {
-                CBalances amounts;
-                amounts.Add({id.first,id.second});
-                if (id.first == DCT_ID{0})
-                {
-                    auto tokenDUSD = pcustomcsview->GetToken("DUSD");
-                    if (tokenDUSD)
-                        loans.push_back({tokenDUSD->first,amounts});
-                }
-                else
-                    loans.push_back({id.first,amounts});
+                auto tokenDUSD = pcustomcsview->GetToken("DUSD");
+                if (tokenDUSD)
+                    loans[tokenDUSD->first] = amounts;
             }
+            else
+                loans[id.first] = amounts;
         }
-        else if (!metaObj["loans"].isNull())
+
+        if (loans.empty())
         {
             UniValue const & array = metaObj["loans"];
 
@@ -1233,38 +1226,42 @@ UniValue paybackloan(const JSONRPCRequest& request) {
 
                 DCT_ID id;
                 std::string tokenStr = trim_ws(obj["dToken"].getValStr());
+
                 auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
-                if (!token) {
+                if (!token)
                     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
-                }
+
                 if (!token->IsLoanToken())
                     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is not a loan token!", tokenStr));
-                auto loanToken = pcustomcsview->GetLoanTokenByID(id);
-                if (!loanToken) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
-                }
 
-                loans.push_back({id,DecodeAmounts(pwallet->chain(), obj["amounts"], "")});
+                auto loanToken = pcustomcsview->GetLoanTokenByID(id);
+                if (!loanToken)
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
+
+                loans[id] = DecodeAmounts(pwallet->chain(), obj["amounts"], "");
             }
         }
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" or \"loans\" must not be null");
     }
 
-    if (metaObj["from"].isNull()) {
+    if (metaObj["from"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
-    }
 
     auto fromStr = metaObj["from"].getValStr();
     if (fromStr == "*") {
-        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), amounts, SelectionPie);
+        CBalances balances;
+        for (const auto& amounts : loans)
+            balances.AddBalances(amounts.second.balances);
+
+        if (loans.empty())
+            balances = amounts;
+
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), balances, SelectionPie);
 
         for (auto& account : selectedAccounts) {
             auto it = amounts.balances.begin();
             while (it != amounts.balances.end()) {
-                if (account.second.balances[it->first] < it->second) {
+                if (account.second.balances[it->first] < it->second)
                     break;
-                }
                 it++;
             }
             if (it == amounts.balances.end()) {
@@ -1273,13 +1270,11 @@ UniValue paybackloan(const JSONRPCRequest& request) {
             }
         }
 
-        if (from.empty()) {
+        if (from.empty())
             throw JSONRPCError(RPC_INVALID_REQUEST,
                     "Not enough tokens on account, call sendtokenstoaddress to increase it.\n");
-        }
-    } else {
+    } else
         from = DecodeScript(fromStr);
-    }
 
     if (!::IsMine(*pwallet, from))
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -1288,21 +1283,11 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
     if (targetHeight >= Params().GetConsensus().FortCanningRoadHeight)
-    {
-        loanPaybackV2.vaultId = vaultId;
-        loanPaybackV2.from = from;
-        loanPaybackV2.loans = loans;
         metadata << static_cast<unsigned char>(CustomTxType::PaybackLoanV2)
-                 << loanPaybackV2;
-    }
+                 << CLoanPaybackLoanV2Message{vaultId, from, loans};
     else
-    {
-        loanPayback.vaultId = vaultId;
-        loanPayback.from = from;
-        loanPayback.amounts = amounts;
         metadata << static_cast<unsigned char>(CustomTxType::PaybackLoan)
-                 << loanPayback;
-    }
+                 << CLoanPaybackLoanMessage{vaultId, from, amounts};
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);

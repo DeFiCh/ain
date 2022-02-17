@@ -307,7 +307,7 @@ class CLoanPaybackLoanV2Message
 public:
     CVaultId vaultId;
     CScript from;
-    std::vector<std::pair<DCT_ID, CBalances>> loans;
+    std::map<DCT_ID, CBalances> loans;
 
     ADD_SERIALIZE_METHODS;
 
