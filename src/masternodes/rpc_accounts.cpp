@@ -1097,10 +1097,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return false;
         }
 
-        if(txn != std::numeric_limits<uint32_t>::max() && txn != key.txn) {
-            return true;
-        }
-
         std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
             reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
@@ -1126,6 +1122,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         const auto & value = valueLazy.get();
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        if(txn != std::numeric_limits<uint32_t>::max() && txn != key.txn) {
             return true;
         }
 
