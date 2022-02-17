@@ -99,6 +99,7 @@ enum class CustomTxType : uint8_t
     WithdrawFromVault      = 'J',
     TakeLoan               = 'X',
     PaybackLoan            = 'H',
+    PaybackLoanV2          = 'k',
     AuctionBid             = 'I'
 };
 
@@ -152,6 +153,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::WithdrawFromVault:
         case CustomTxType::TakeLoan:
         case CustomTxType::PaybackLoan:
+        case CustomTxType::PaybackLoanV2:
         case CustomTxType::AuctionBid:
         case CustomTxType::Reject:
         case CustomTxType::None:
@@ -368,6 +370,7 @@ typedef boost::variant<
     CWithdrawFromVaultMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
+    CLoanPaybackLoanV2Message,
     CAuctionBidMessage
 > CCustomTxMessage;
 
