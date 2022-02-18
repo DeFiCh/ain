@@ -1070,6 +1070,12 @@ static bool MaybePunishNode(NodeId nodeid, const CValidationState& state, bool v
     case ValidationInvalidReason::TX_MEMPOOL_POLICY:
         break;
     }
+    if (state.GetRejectCode() == REJECT_CUSTOMTX
+    || state.GetRejectReason() == "high-hash") {
+        LOCK(cs_main);
+        Misbehaving(nodeid, 100, message);
+        return true;
+    }
     if (message != "") {
         LogPrint(BCLog::NET, "peer=%d: %s\n", nodeid, message);
     }
