@@ -211,7 +211,9 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     int targetHeight;
     {
         DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        CCustomCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
@@ -229,7 +231,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                                strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
         }
         owner = authCoin.out.scriptPubKey;
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
@@ -644,7 +646,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue const & txInputs = request.params[1];
 
-    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+    CCustomCSView view(*pcustomcsview);
+
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -655,7 +659,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     bool needFoundersAuth = false;
     if (txInputs.isNull() || txInputs.empty()) {
         for (auto const & kv : minted.balances) {
-            auto token = pcustomcsview->GetToken(kv.first);
+            auto token = view.GetToken(kv.first);
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }

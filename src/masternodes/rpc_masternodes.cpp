@@ -242,7 +242,9 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        CCustomCSView view(*pcustomcsview);
+
+        auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
@@ -250,7 +252,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!::IsMine(*pwallet, ownerDest)) {
@@ -348,7 +350,9 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        CCustomCSView view(*pcustomcsview);
+
+        auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
@@ -356,7 +360,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!::IsMine(*pwallet, ownerDest)) {
@@ -440,7 +444,9 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        CCustomCSView view(*pcustomcsview);
+
+        auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
@@ -448,7 +454,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -533,13 +539,15 @@ UniValue updatemasternode(const JSONRPCRequest& request)
 
     int targetHeight;
     {
-        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        CCustomCSView view(*pcustomcsview);
+
+        auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     std::string operatorAddress = request.params[1].getValStr();
@@ -911,11 +919,12 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
     }
 
     std::set<uint256> masternodes;
+    CCustomCSView view(*pcustomcsview);
 
     auto pindex = WITH_LOCK(cs_main, return ::ChainActive().Tip());
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-        if (auto id = pcustomcsview->GetMasternodeIdByOperator(pindex->minterKey())) {
+        if (auto id = view.GetMasternodeIdByOperator(pindex->minterKey())) {
             masternodes.insert(*id);
         }
     }

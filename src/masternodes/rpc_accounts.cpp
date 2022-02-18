@@ -1224,8 +1224,6 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
     uint32_t blockHeight = request.params[1].get_int();
     uint32_t txn = request.params[2].get_int();
 
-    LOCK(cs_main);
-
     UniValue result(UniValue::VOBJ);
     AccountHistoryKey AccountKey{owner, blockHeight, txn};
     if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
@@ -1768,7 +1766,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CBalances dexfeeburn;
     UniValue dfipaybacktokens{UniValue::VARR};
 
-    LOCK(cs_main);
+    CCustomCSView view(*pcustomcsview);
 
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
@@ -1812,7 +1810,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
             for (auto const & diff : value.diff) {
-                if (pcustomcsview->GetLoanTokenByID(diff.first)) {
+                if (view.GetLoanTokenByID(diff.first)) {
                     dexfeeburn.Add({diff.first, diff.second});
                 } else {
                     burntTokens.Add({diff.first, diff.second});
@@ -1842,7 +1840,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("paybackburn", ValueFromAmount(paybackFee));
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
-    if (auto attributes = pcustomcsview->GetAttributes()) {
+    CAmount burnt{0};
+
+    if (auto attributes = view.GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
         auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
         for (const auto& balance : tokenBalances.balances) {
@@ -1856,9 +1856,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", dfipaybacktokens);
-
-    CAmount burnt{0};
-    CCustomCSView view(*pcustomcsview);
 
     auto height = view.GetLastHeight();
     auto postFortCanningHeight = height >= Params().GetConsensus().FortCanningHeight;

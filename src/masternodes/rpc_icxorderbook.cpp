@@ -1,9 +1,9 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const status, int currentHeight) {
+UniValue icxOrderToJSON(CCustomCSView& view, CICXOrderImplemetation const& order, uint8_t const status, int currentHeight) {
     UniValue orderObj(UniValue::VOBJ);
 
-    auto token = pcustomcsview->GetToken(order.idToken);
+    auto token = view.GetToken(order.idToken);
     if (!token)
         return (UniValue::VNULL);
 
@@ -54,10 +54,10 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
     return (ret);
 }
 
-UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t const status) {
+UniValue icxMakeOfferToJSON(CCustomCSView& view, CICXMakeOfferImplemetation const& makeoffer, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
 
-    auto order = pcustomcsview->GetICXOrderByCreationTx(makeoffer.orderTx);
+    auto order = view.GetICXOrderByCreationTx(makeoffer.orderTx);
     if (!order)
         return (UniValue::VNULL);
     orderObj.pushKV("orderTx", makeoffer.orderTx.GetHex());
@@ -76,11 +76,11 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
     return (ret);
 }
 
-UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
-    auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(dfchtlc.offerTx);
+UniValue icxSubmitDFCHTLCToJSON(CCustomCSView& view, CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
+    auto offer = view.GetICXMakeOfferByCreationTx(dfchtlc.offerTx);
     if (!offer)
         return (UniValue::VNULL);
-    auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+    auto order = view.GetICXOrderByCreationTx(offer->orderTx);
     if (!order)
         return (UniValue::VNULL);
 
@@ -119,11 +119,11 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
     return (ret);
 }
 
-UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
-    auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(exthtlc.offerTx);
+UniValue icxSubmitEXTHTLCToJSON(CCustomCSView& view, CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
+    auto offer = view.GetICXMakeOfferByCreationTx(exthtlc.offerTx);
     if (!offer)
         return (UniValue::VNULL);
-    auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+    auto order = view.GetICXOrderByCreationTx(offer->orderTx);
     if (!order)
         return (UniValue::VNULL);
 
@@ -1102,7 +1102,7 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     if (order)
     {
         auto status = view.GetICXOrderStatus({order->idToken,order->creationTx});
-        ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
+        ret.pushKVs(icxOrderToJSON(view, *order, status, currentHeight));
         return ret;
     }
 
@@ -1110,7 +1110,7 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     if (fillorder)
     {
         auto status = view.GetICXMakeOfferStatus({fillorder->orderTx,fillorder->creationTx});
-        ret.pushKVs(icxMakeOfferToJSON(*fillorder, status));
+        ret.pushKVs(icxMakeOfferToJSON(view, *fillorder, status));
         return ret;
     }
 
@@ -1189,7 +1189,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
             auto order = view.GetICXOrderByCreationTx(key.second);
             if (order)
             {
-                ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
+                ret.pushKVs(icxOrderToJSON(view, *order, status, currentHeight));
                 limit--;
             }
             return true;
@@ -1210,7 +1210,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
             auto offer = view.GetICXMakeOfferByCreationTx(key.second);
             if (offer)
             {
-                ret.pushKVs(icxMakeOfferToJSON(*offer, status));
+                ret.pushKVs(icxMakeOfferToJSON(view, *offer, status));
                 limit--;
             }
             return true;
@@ -1229,7 +1229,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         auto order = view.GetICXOrderByCreationTx(key.second);
         if (order)
         {
-            ret.pushKVs(icxOrderToJSON(*order, status, currentHeight));
+            ret.pushKVs(icxOrderToJSON(view, *order, status, currentHeight));
             limit--;
         }
         return true;
@@ -1299,7 +1299,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         auto dfchtlc = view.GetICXSubmitDFCHTLCByCreationTx(key.second);
         if (dfchtlc)
         {
-            ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
+            ret.pushKVs(icxSubmitDFCHTLCToJSON(view, *dfchtlc,status));
             limit--;
         }
         return true;
@@ -1310,7 +1310,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         auto exthtlc = view.GetICXSubmitEXTHTLCByCreationTx(key.second);
         if (exthtlc)
         {
-            ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
+            ret.pushKVs(icxSubmitEXTHTLCToJSON(view, *exthtlc, status));
             limit--;
         }
         return true;

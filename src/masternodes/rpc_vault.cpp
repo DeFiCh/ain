@@ -314,8 +314,10 @@ UniValue closevault(const JSONRPCRequest& request) {
     CCloseVaultMessage msg;
     msg.vaultId = ParseHashV(request.params[0], "vaultId");
     {
+        CCustomCSView view(*pcustomcsview);
+
         // decode vaultId
-        auto vault = pcustomcsview->GetVault(msg.vaultId);
+        auto vault = view.GetVault(msg.vaultId);
         if (!vault)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", msg.vaultId.GetHex()));
 
@@ -323,7 +325,7 @@ UniValue closevault(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
 
         ownerAddress = vault->ownerAddress;
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     msg.to = DecodeScript(request.params[1].getValStr());
@@ -601,8 +603,10 @@ UniValue updatevault(const JSONRPCRequest& request) {
     CVaultMessage vault;
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     {
+        CCustomCSView view(*pcustomcsview);
+
         // decode vaultId
-        auto storedVault = pcustomcsview->GetVault(vaultId);
+        auto storedVault = view.GetVault(vaultId);
         if (!storedVault)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
 
@@ -610,7 +614,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
 
         vault = *storedVault;
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CUpdateVaultMessage msg{
@@ -824,13 +828,15 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     int targetHeight;
     CScript ownerAddress;
     {
+        CCustomCSView view(*pcustomcsview);
+
         // decode vaultId
-        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vault = view.GetVault(vaultId);
         if (!vault)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
 
         ownerAddress = vault->ownerAddress;
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -1341,10 +1347,11 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
     };
 
     std::set<uint256> txs;
+    CCustomCSView view(*pcustomcsview);
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+    auto hasToken = [&](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
-            auto token = pcustomcsview->GetToken(diff.first);
+            auto token = view.GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
             if(tokenIdStr == tokenFilter) {
                 return true;
@@ -1355,7 +1362,7 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
 
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
-    maxBlockHeight = std::min(maxBlockHeight, uint32_t(pcustomcsview->GetLastHeight()));
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(view.GetLastHeight()));
     depth = std::min(depth, maxBlockHeight);
 
     const auto startBlock = maxBlockHeight - depth;

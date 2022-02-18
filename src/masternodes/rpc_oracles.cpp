@@ -471,14 +471,16 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     int targetHeight;
     CScript oracleAddress;
     {
+        CCustomCSView view(*pcustomcsview);
+
         // check if tx parameters are valid
-        auto oracleRes = pcustomcsview->GetOracleData(oracleId);
+        auto oracleRes = view.GetOracleData(oracleId);
         if (!oracleRes) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
         oracleAddress = oracleRes.val->oracleAddress;
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     // timestamp is checked at consensus level

@@ -9,10 +9,10 @@ UniValue poolToJSON(CCustomCSView& view, DCT_ID const& id, CPoolPair const& pool
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenA)) {
+        if (const auto dexFee = view.GetDexFeePct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
         }
-        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenB)) {
+        if (const auto dexFee = view.GetDexFeePct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
         }
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
@@ -123,11 +123,13 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
         tokenTo = metadataObj["tokenTo"].getValStr();
     }
     {
-        auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
+        CCustomCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
         if (!token)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
 
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
+        auto token2 = view.GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
 
@@ -546,15 +548,17 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
     {
-        auto token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
+        CCustomCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(tokenA, idtokenA);
         if (!token)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
 
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
+        auto token2 = view.GetTokenGuessId(tokenB, idtokenB);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CCreatePoolPairMessage poolPairMsg{};
@@ -666,17 +670,19 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     DCT_ID poolId;
     int targetHeight;
     {
-        auto token = pcustomcsview->GetTokenGuessId(poolStr, poolId);
+        CCustomCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(poolStr, poolId);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
 
-        auto pool = pcustomcsview->GetPoolPair(poolId);
+        auto pool = view.GetPoolPair(poolId);
         if (!pool) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!metaObj["status"].isNull()) {
