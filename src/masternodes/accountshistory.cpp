@@ -19,6 +19,11 @@ Res CAccountsHistoryView::WriteAccountHistory(const AccountHistoryKey& key, cons
     return Res::Ok();
 }
 
+std::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(AccountHistoryKey const & key) const
+{
+    return ReadBy<ByAccountHistoryKey, AccountHistoryValue>(key);
+}
+
 Res CAccountsHistoryView::EraseAccountHistory(const AccountHistoryKey& key)
 {
     EraseBy<ByAccountHistoryKey>(key);
