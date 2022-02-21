@@ -418,7 +418,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", DEFAULT_ACINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory, getaccounthistory and accounthistorycount rpc calls (default: %u)", DEFAULT_ACINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-vaultindex", strprintf("Maintain a full vault history index, tracking all vault changes. Used by the listvaulthistory rpc call (default: %u)", DEFAULT_VAULTINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +

@@ -1219,6 +1219,46 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     return slice;
 }
 
+UniValue getaccounthistory(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getaccounthistory",
+               "\nReturns information about account history.\n",
+               {
+                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Single account ID (CScript or address)."},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "Block Height to search in."},
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "for order in block."},
+               },
+               RPCResult{
+                       "{}  An object with account history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2")
+                       + HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")
+               },
+    }.Check(request);
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
+    }
+
+    auto owner = DecodeScript(request.params[0].getValStr());
+    uint32_t blockHeight = request.params[1].get_int();
+    uint32_t txn = request.params[2].get_int();
+
+    LOCK(cs_main);
+
+    UniValue result(UniValue::VOBJ);
+    AccountHistoryKey AccountKey{owner, blockHeight, txn};
+    if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
+        result = accounthistoryToJSON(AccountKey, *value);
+    }
+
+    return result;
+}
+
 UniValue listburnhistory(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -1994,6 +2034,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "getaccounthistory",     &getaccounthistory,     {"owner", "blockHeight", "txn"}},
     {"accounts",    "listburnhistory",       &listburnhistory,       {"options"}},
     {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
