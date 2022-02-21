@@ -20,23 +20,9 @@ struct AccountHistoryKeyNew {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        } else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
-
+        READWRITE(WrapBigEndianInv(blockHeight));
         READWRITE(owner);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(txn));
-            txn = ~txn;
-        } else {
-            uint32_t txn_ = ~txn;
-            READWRITE(WrapBigEndian(txn_));
-        }
+        READWRITE(WrapBigEndianInv(txn));
     }
 };
 

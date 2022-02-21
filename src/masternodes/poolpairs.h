@@ -212,14 +212,7 @@ struct PoolHeightKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(poolID);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-        }
+        READWRITE(WrapBigEndianInv(height));
     }
 };
 
