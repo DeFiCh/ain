@@ -86,6 +86,13 @@ class TokensRPCListAccountHistory(DefiTestFramework):
             assert_equal(txs['txn'], txn)
             self.log.info("test2: txn is %d", txs['txn'])
 
+        txn = 1
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":102, "txn":txn})
+        for txs in results:
+            assert_equal(txs['owner'], collateral_a)
+            assert_equal(txs['txn'], txn)
+            self.log.info("test3: txn is %d", txs['txn'])
+
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
 

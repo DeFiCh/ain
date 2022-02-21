@@ -1081,7 +1081,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
     maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
-    depth = std::min(depth, maxBlockHeight);
+    if(txn != std::numeric_limits<uint32_t>::max()) {
+        depth = 0;  // if txn is set, only one block is considered
+    }
+    else {
+        depth = std::min(depth, maxBlockHeight);
+    }
 
     const auto startBlock = maxBlockHeight - depth;
     auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
