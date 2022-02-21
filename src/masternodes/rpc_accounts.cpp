@@ -1125,10 +1125,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        if(txn != std::numeric_limits<uint32_t>::max() && txn != key.txn) {
-            return true;
-        }
-
         if (isMine) {
             // starts new account owned by the wallet
             if (lastOwner != key.owner) {
@@ -1171,7 +1167,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         return count != 0 || isMine;
     };
 
-    AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{account, maxBlockHeight, txn};
 
     if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
