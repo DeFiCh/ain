@@ -595,6 +595,11 @@ void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
 /*
  *  CTeamView
  */
+void CTeamView::EraseLegacyTeam()
+{
+    Erase(CurrentTeam::prefix());
+}
+
 void CTeamView::SetAnchorTeams(const CTeam& authTeam, const CTeam& confirmTeam, const int height)
 {
     // Called after fork height

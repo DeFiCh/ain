@@ -321,8 +321,11 @@ public:
     std::optional<CTeam> GetAuthTeam(int height) const;
     std::optional<CTeam> GetConfirmTeam(int height) const;
 
+    void EraseLegacyTeam();
+
     struct AuthTeam     { static constexpr uint8_t prefix() { return 'v'; } };
     struct ConfirmTeam  { static constexpr uint8_t prefix() { return 'V'; } };
+    struct CurrentTeam  { static constexpr uint8_t prefix() { return 't'; } };
 };
 
 class CAnchorRewardsView : public virtual CStorageView
@@ -414,7 +417,7 @@ class CCustomCSView
         CheckPrefix<
             CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
             CLastHeightView         ::  Height,
-            CTeamView               ::  AuthTeam, ConfirmTeam,
+            CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
             CFoundationsDebtView    ::  Debt,
             CAnchorRewardsView      ::  BtcTx,
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,

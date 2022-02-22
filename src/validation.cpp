@@ -1636,6 +1636,13 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
+// There is only one legacy anchor on testnet and mainnet, these have been hard coded to simplify
+// the anchor code. This function will return true if a TX on testnet or mainnet is a legacy anchor.
+static bool IsLegacyAnchorTx(std::string network, std::string hash) {
+    return (network == CBaseChainParams::MAIN && hash == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c") ||
+           (network == CBaseChainParams::TESTNET && hash == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5");
+}
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
@@ -1720,8 +1727,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
-            else if (tx.GetHash().ToString() == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c" || // Mainnet
-                     tx.GetHash().ToString() == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5") { // Testnet
+            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
                 if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
                     mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut());
                 } else {
@@ -2551,8 +2557,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
             } // Old anchor TXs.
-            else if (tx.GetHash().ToString() == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c" || // Mainnet
-                     tx.GetHash().ToString() == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5") { // Testnet
+            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
                 if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
                     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
                 } else {
@@ -2640,6 +2645,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
     if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
         cache.BayfrontFlagsCleanup();
+    }
+
+    // Remove team entry for legacy anchors
+    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+        mnview.EraseLegacyTeam();
     }
 
     // burn DFI on Eunos height
