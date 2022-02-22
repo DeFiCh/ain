@@ -1704,7 +1704,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             {
                 LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchorFinalizationMessagePlus finMsg;
+                CAnchorFinalizationMessage finMsg;
                 ss >> finMsg;
 
                 LogPrint(BCLog::ANCHORING, "%s: Add community balance %d\n", __func__, tx.GetValueOut());
@@ -1712,7 +1712,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
                 mnview.EraseAnchorConfirmData(finMsg.btcTxHash);
 
-                CAnchorConfirmMessage message(static_cast<CAnchorConfirmDataPlus &>(finMsg));
+                CAnchorConfirmMessage message(static_cast<CAnchorConfirmData &>(finMsg));
                 for (auto && sig : finMsg.sigs) {
                     message.signature = sig;
                     disconnectedAnchorConfirms.push_back(message);
@@ -1720,27 +1720,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
-            else if (IsAnchorRewardTx(tx, metadata))
-            {
-                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
-                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchorFinalizationMessage finMsg;
-                ss >> finMsg;
-
-                mnview.SetTeam(finMsg.currentTeam);
-
+            else if (tx.GetHash().ToString() == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c" || // Mainnet
+                     tx.GetHash().ToString() == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5") { // Testnet
                 if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
-                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
-                    LogPrint(BCLog::ANCHORING, "%s: post AMK logic, add community balance %d\n", __func__, tx.GetValueOut());
-                }
-                else { // pre-AMK logic:
+                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut());
+                } else {
                     assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
                     mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 }
-                mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
-                mnview.EraseAnchorConfirmData(finMsg.btcTxHash);
-
-                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
         }
 
@@ -2553,7 +2540,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
-                ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
+                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): %s", res.msg),
@@ -2563,19 +2550,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
-            } else if (IsAnchorRewardTx(tx, metadata)) {
-                if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
-                }
-                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata, chainparams.GetConsensus());
-                if (!res.ok) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): %s", res.msg),
-                                         REJECT_INVALID, res.dbgMsg);
-                }
-                rewardedAnchors.push_back(*res.val);
-                if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
+            } // Old anchor TXs.
+            else if (tx.GetHash().ToString() == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c" || // Mainnet
+                     tx.GetHash().ToString() == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5") { // Testnet
+                if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
+                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+                } else {
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 }
             }
         }
@@ -5072,7 +5053,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
                           auth.GetHash().ToString(),
                           auth.height,
                           auth.previousAnchor.ToString(),
-                          auth.nextTeam.size(),
+                          auth.heightAndHash.size(),
                           auth.GetSignHash().ToString()
                           );
 

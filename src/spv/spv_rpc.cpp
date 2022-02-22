@@ -415,7 +415,7 @@ void AnchorToUniv(const CAnchorIndex::AnchorRec& rec, UniValue& anchor)
     // If post-fork show creation height
     uint64_t anchorCreationHeight{0};
     std::shared_ptr<std::vector<unsigned char>> prefix;
-    if (rec.anchor.nextTeam.size() == 1 && GetAnchorEmbeddedData(*rec.anchor.nextTeam.begin(), anchorCreationHeight, prefix))
+    if (rec.anchor.heightAndHash.size() == 1 && GetAnchorEmbeddedData(*rec.anchor.heightAndHash.begin(), anchorCreationHeight, prefix))
     {
         anchor.pushKV("anchorCreationHeight", static_cast<int>(anchorCreationHeight));
     }
@@ -600,9 +600,9 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             }
         }
 
-        if (!teamData && prev->nextTeam.size() == 1) {
+        if (!teamData && prev->heightAndHash.size() == 1) {
             // Team entry
-            teamData = &(*prev->nextTeam.begin());
+            teamData = &(*prev->heightAndHash.begin());
 
             std::shared_ptr<std::vector<unsigned char>> prefix;
             GetAnchorEmbeddedData(*teamData, anchorCreationHeight, prefix);

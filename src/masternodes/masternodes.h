@@ -316,16 +316,13 @@ class CTeamView : public virtual CStorageView
 public:
     using CTeam = CAnchorData::CTeam;
 
-    void SetTeam(CTeam const & newTeam);
     void SetAnchorTeams(CTeam const & authTeam, CTeam const & confirmTeam, const int height);
 
-    CTeam GetCurrentTeam() const;
     std::optional<CTeam> GetAuthTeam(int height) const;
     std::optional<CTeam> GetConfirmTeam(int height) const;
 
     struct AuthTeam     { static constexpr uint8_t prefix() { return 'v'; } };
     struct ConfirmTeam  { static constexpr uint8_t prefix() { return 'V'; } };
-    struct CurrentTeam  { static constexpr uint8_t prefix() { return 't'; } };
 };
 
 class CAnchorRewardsView : public virtual CStorageView
@@ -348,11 +345,11 @@ class CAnchorConfirmsView : public virtual CStorageView
 public:
     using AnchorTxHash = uint256;
 
-    std::vector<CAnchorConfirmDataPlus> GetAnchorConfirmData();
+    std::vector<CAnchorConfirmData> GetAnchorConfirmData();
 
-    void AddAnchorConfirmData(const CAnchorConfirmDataPlus& data);
+    void AddAnchorConfirmData(const CAnchorConfirmData& data);
     void EraseAnchorConfirmData(const uint256 btcTxHash);
-    void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback);
+    void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmData>)> callback);
 
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
@@ -417,7 +414,7 @@ class CCustomCSView
         CheckPrefix<
             CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
             CLastHeightView         ::  Height,
-            CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
+            CTeamView               ::  AuthTeam, ConfirmTeam,
             CFoundationsDebtView    ::  Debt,
             CAnchorRewardsView      ::  BtcTx,
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
@@ -471,9 +468,6 @@ public:
     }
 
     void SetBackend(CCustomCSView & backend);
-
-    // cause depends on current mns:
-    CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
