@@ -1050,9 +1050,11 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
         int targetHeight = ::ChainActive().Height() + 1;
 
+        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        if (poolPair) path = "direct";
+
         // If no direct swap found search for composite swap
         if (path == "direct") {
-            auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
