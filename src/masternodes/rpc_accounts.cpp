@@ -1081,12 +1081,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
     maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
-    if(txn != std::numeric_limits<uint32_t>::max()) {
-        depth = 0;  // if txn is set, only one block is considered
-    }
-    else {
-        depth = std::min(depth, maxBlockHeight);
-    }
+    depth = std::min(depth, maxBlockHeight);
 
     const auto startBlock = maxBlockHeight - depth;
     auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
@@ -1197,7 +1192,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                if(txn != std::numeric_limits<uint32_t>::max() && txn > entry.vout) {
+                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && entry.vout > txn ) {
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;

@@ -73,26 +73,27 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         for txs in results:
             assert(hasattr(txs['amounts'], '__len__') and (not isinstance(txs['amounts'], str)))
 
-        txn = 1
-        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":txn})
+        # list {"maxBlockHeight":103, "txn":1}, should list without blockheight = 103, txn=2. i.e without MintToken
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":1})
+        #Note(surangap): the results here has 2 extra send receive entries with different txids. not sure where they come from.
         for txs in results:
-            assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'] >= txn, True)
             self.log.info("test 1: block %d, txn is %d", txs['blockHeight'], txs['txn'])
-
-        txn = 2
-        results = self.nodes[0].listaccounthistory(collateral_a, {"txn":txn})
-        for txs in results:
             assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'] >= txn, True)
+            assert_equal(txs['blockHeight'] <= 103, True)
+            if txs['blockHeight'] == 103:
+                assert_equal(txs['txn'] <= 1 , True) # for block 103 txn:1 applies.
+
+        # list {"maxBlockHeight":103, "txn":0}, should list without blockheight = 103, txn=1,2. i.e without any txs from 103 block
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":0})
+
+        for txs in results:
             self.log.info("test 2: block %d, txn is %d", txs['blockHeight'], txs['txn'])
-
-        txn = 1
-        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":102, "txn":txn})
-        for txs in results:
             assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'] >= txn, True)
-            self.log.info("test 3: block %d, txn is %d", txs['blockHeight'], txs['txn'])
+            assert_equal(txs['blockHeight'] <= 103, True)
+            if txs['blockHeight'] == 103:
+                assert_equal(txs['txn'] <= 0 , True)
+            else:
+                assert_equal(txs['txn'] >= 0 , True) # means txn:0 only applicable to block 103 only
 
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
