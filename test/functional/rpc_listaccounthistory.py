@@ -64,6 +64,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         found = False
         for txs in results:
             assert_equal(txs['owner'], collateral_a)
+            self.log.info("test 0: block %d, txn is %d", txs['blockHeight'], txs['txn'])
             if txs['type'] == 'MintToken':
                 found = True
         assert_equal(found, True)
@@ -73,25 +74,25 @@ class TokensRPCListAccountHistory(DefiTestFramework):
             assert(hasattr(txs['amounts'], '__len__') and (not isinstance(txs['amounts'], str)))
 
         txn = 1
-        results = self.nodes[0].listaccounthistory(collateral_a, {"txn":txn})
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":txn})
         for txs in results:
             assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'], txn)
-            self.log.info("test1: txn is %d", txs['txn'])
+            assert_equal(txs['txn'] >= txn, True)
+            self.log.info("test 1: block %d, txn is %d", txs['blockHeight'], txs['txn'])
 
         txn = 2
         results = self.nodes[0].listaccounthistory(collateral_a, {"txn":txn})
         for txs in results:
             assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'], txn)
-            self.log.info("test2: txn is %d", txs['txn'])
+            assert_equal(txs['txn'] >= txn, True)
+            self.log.info("test 2: block %d, txn is %d", txs['blockHeight'], txs['txn'])
 
         txn = 1
         results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":102, "txn":txn})
         for txs in results:
             assert_equal(txs['owner'], collateral_a)
-            assert_equal(txs['txn'], txn)
-            self.log.info("test3: txn is %d", txs['txn'])
+            assert_equal(txs['txn'] >= txn, True)
+            self.log.info("test 3: block %d, txn is %d", txs['blockHeight'], txs['txn'])
 
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)

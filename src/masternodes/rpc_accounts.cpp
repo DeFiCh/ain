@@ -1197,7 +1197,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                if(txn != std::numeric_limits<uint32_t>::max() && txn != entry.vout) {
+                if(txn != std::numeric_limits<uint32_t>::max() && txn > entry.vout) {
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
