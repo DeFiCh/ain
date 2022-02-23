@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan - payback loan."""
+"""Test Loan - payback loan dfi."""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
@@ -13,7 +13,7 @@ import time
 from decimal import Decimal, ROUND_UP
 
 
-class PaybackLoanTest (DefiTestFramework):
+class PaybackDFILoanTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -144,6 +144,9 @@ class PaybackLoanTest (DefiTestFramework):
             'amounts': "1@DFI"
         })
 
+        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: params, poolpairs, token,',
+                                self.nodes[0].setgov, {"ATTRIBUTES":{'v0/live/economy/dfi_payback_tokens':'1'}})
+
         # Disable loan payback
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'false'}})
         self.nodes[0].generate(1)
@@ -170,6 +173,10 @@ class PaybackLoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        info = self.nodes[0].getburninfo()
+        assert_equal(info['dfipaybackfee'], Decimal('0.01000000'))
+        assert_equal(info['dfipaybacktokens'], ['9.90000000@DUSD'])
+
         vaultAfter = self.nodes[0].getvault(vaultId)
         [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
         [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
@@ -191,6 +198,10 @@ class PaybackLoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        info = self.nodes[0].getburninfo()
+        assert_equal(info['dfipaybackfee'], Decimal('0.06000000'))
+        assert_equal(info['dfipaybacktokens'], ['19.40000000@DUSD'])
+
         vaultAfter = self.nodes[0].getvault(vaultId)
         [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
         [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
@@ -208,6 +219,13 @@ class PaybackLoanTest (DefiTestFramework):
             'amounts': "250@DFI"
         })
         self.nodes[0].generate(1)
+
+        info = self.nodes[0].getburninfo()
+        assert_equal(info['dfipaybackfee'], Decimal('10.48430642'))
+        assert_equal(info['dfipaybacktokens'], ['2000.01822015@DUSD'])
+
+        attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attribs['v0/live/economy/dfi_payback_tokens'], ['10.48430642@DFI', '2000.01822015@DUSD'])
 
         vaultAfter = self.nodes[0].getvault(vaultId)
         [balanceDFIAfter, _] = self.nodes[0].getaccount(account0)[0].split('@')
@@ -235,6 +253,10 @@ class PaybackLoanTest (DefiTestFramework):
             'amounts': "210.52871906@DFI"
         })
         self.nodes[0].generate(1)
+
+        info = self.nodes[0].getburninfo()
+        assert_equal(info['dfipaybackfee'], Decimal('21.01074237'))
+        assert_equal(info['dfipaybacktokens'], ['4000.04105121@DUSD'])
 
         vaultAfter = self.nodes[0].getvault(vaultId)
         [balanceDFIAfter, _] = self.nodes[0].getaccount(account0)[0].split('@')
@@ -265,4 +287,4 @@ class PaybackLoanTest (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    PaybackLoanTest().main()
+    PaybackDFILoanTest().main()

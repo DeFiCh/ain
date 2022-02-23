@@ -1,4 +1,5 @@
 #include <masternodes/accountshistory.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -1202,6 +1203,46 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     return slice;
 }
 
+UniValue getaccounthistory(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getaccounthistory",
+               "\nReturns information about account history.\n",
+               {
+                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Single account ID (CScript or address)."},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "Block Height to search in."},
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "for order in block."},
+               },
+               RPCResult{
+                       "{}  An object with account history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2")
+                       + HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")
+               },
+    }.Check(request);
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
+    }
+
+    auto owner = DecodeScript(request.params[0].getValStr());
+    uint32_t blockHeight = request.params[1].get_int();
+    uint32_t txn = request.params[2].get_int();
+
+    LOCK(cs_main);
+
+    UniValue result(UniValue::VOBJ);
+    AccountHistoryKey AccountKey{owner, blockHeight, txn};
+    if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
+        result = accounthistoryToJSON(AccountKey, *value);
+    }
+
+    return result;
+}
+
 UniValue listburnhistory(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -1718,8 +1759,13 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntFee{0};
     CAmount auctionFee{0};
     CAmount paybackFee{0};
+    CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    UniValue dfipaybacktokens{UniValue::VARR};
+
+    LOCK(cs_main);
+
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1762,7 +1808,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
             for (auto const & diff : value.diff) {
-                dexfeeburn.Add({diff.first, diff.second});
+                if (pcustomcsview->GetLoanTokenByID(diff.first)) {
+                    dexfeeburn.Add({diff.first, diff.second});
+                } else {
+                    burntTokens.Add({diff.first, diff.second});
+                }
             }
             return true;
         }
@@ -1782,32 +1832,26 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
-    UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances) {
-        tokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    result.pushKV("tokens", tokens);
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
-    if (auctionFee) {
-        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    if (auto attributes = pcustomcsview->GetAttributes()) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
+            }
+        }
     }
 
-    if (paybackFee) {
-        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    }
-
-    UniValue dexfeetokens(UniValue::VARR);
-    for (const auto& item : dexfeeburn.balances) {
-        dexfeetokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-
-    if (!dexfeetokens.empty()) {
-        result.pushKV("dexfeetokens", dexfeetokens);
-    }
-
-    LOCK(cs_main);
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
@@ -1974,6 +2018,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "getaccounthistory",     &getaccounthistory,     {"owner", "blockHeight", "txn"}},
     {"accounts",    "listburnhistory",       &listburnhistory,       {"options"}},
     {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},

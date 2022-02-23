@@ -51,7 +51,7 @@ class AnchorRewardsTest (DefiTestFramework):
     def mine_diff(self, height):
         if self.nodes[0].getblockcount() < height:
             self.nodes[0].generate(height - self.nodes[0].getblockcount())
-            self.sync_all()
+            self.sync_blocks()
 
     # Tiem is hours to move node time forward and blocks the number of blocks
     # to mine in each hour. Offset allows us to put check clock back.
@@ -329,7 +329,7 @@ class AnchorRewardsTest (DefiTestFramework):
         print ("Rollback!")
         self.nodes[2].generate(2)
         connect_nodes_bi(self.nodes, 1, 2)
-        self.sync_all()
+        self.sync_blocks()
 
         wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 1, timeout=10) # while rollback, it should appear w/o wait
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 0)
@@ -342,7 +342,7 @@ class AnchorRewardsTest (DefiTestFramework):
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('6.30000000')) # 2 more blocks on this chain
 
         self.nodes[1].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         # Reward after
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.10000000'))
@@ -356,7 +356,6 @@ class AnchorRewardsTest (DefiTestFramework):
         # Mine forward 6 hours, from 9 hours ago, 5 blocks an hour
         self.rotateandgenerate(6, 9, 5)
 
-        self.sync_all()
         wait_until(lambda: self.authsquorum(60), timeout=10)
 
         rewardAddress2 = self.nodes[0].getnewaddress("", "legacy")
@@ -374,7 +373,6 @@ class AnchorRewardsTest (DefiTestFramework):
         # Mine forward 3 hours, from 9 hours ago, 5 blocks an hour
         self.rotateandgenerate(3, 3, 15)
 
-        self.sync_all()
         wait_until(lambda: self.authsquorum(60), timeout=10)
 
         # for rollback. HERE, to deny cofirmations for node2
@@ -422,7 +420,7 @@ class AnchorRewardsTest (DefiTestFramework):
         print ("Rollback a rewards")
         self.nodes[2].generate(3)
         connect_nodes_bi(self.nodes, 1, 2)
-        self.sync_all()
+        self.sync_blocks()
         wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 1, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
 

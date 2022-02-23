@@ -41,10 +41,10 @@ class GetMiningInfoRPCTest(DefiTestFramework):
 
         self.log.info("Mining blocks ...")
         self.nodes[0].generate(10)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[1].generate(25)
         self.nodes[1].generatetoaddress(25, node0_keys.operatorAuthAddress)
-        self.sync_all()
+        self.sync_blocks()
 
         # getmininginfo() on node[0], should only return one master node in the response array
         resp0 = self.nodes[0].getmininginfo()

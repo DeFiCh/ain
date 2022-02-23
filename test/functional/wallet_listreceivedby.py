@@ -33,7 +33,7 @@ class ReceivedByTest(DefiTestFramework):
         # Send from node 0 to 1
         addr = self.nodes[1].getnewaddress()
         txid = self.nodes[0].sendtoaddress(addr, 0.1)
-        self.sync_all()
+        self.sync_mempools()
 
         # Check not listed in listreceivedbyaddress because has 0 confirmations
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
@@ -42,7 +42,7 @@ class ReceivedByTest(DefiTestFramework):
                             True)
         # Bury Tx under 10 block so it will be returned by listreceivedbyaddress
         self.nodes[1].generate(10)
-        self.sync_all()
+        self.sync_blocks()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                             {"address": addr},
                             {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
@@ -77,7 +77,7 @@ class ReceivedByTest(DefiTestFramework):
         other_addr = self.nodes[1].getnewaddress()
         txid2 = self.nodes[0].sendtoaddress(other_addr, 0.1)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         # Same test as above should still pass
         expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 11, "txids": [txid, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, addr)
@@ -102,7 +102,7 @@ class ReceivedByTest(DefiTestFramework):
         # Send from node 0 to 1
         addr = self.nodes[1].getnewaddress()
         txid = self.nodes[0].sendtoaddress(addr, 0.1)
-        self.sync_all()
+        self.sync_mempools()
 
         # Check balance is 0 because of 0 confirmations
         balance = self.nodes[1].getreceivedbyaddress(addr)
@@ -114,7 +114,7 @@ class ReceivedByTest(DefiTestFramework):
 
         # Bury Tx under 10 block so it will be returned by the default getreceivedbyaddress
         self.nodes[1].generate(10)
-        self.sync_all()
+        self.sync_blocks()
         balance = self.nodes[1].getreceivedbyaddress(addr)
         assert_equal(balance, Decimal("0.1"))
 
@@ -131,7 +131,7 @@ class ReceivedByTest(DefiTestFramework):
         balance_by_label = self.nodes[1].getreceivedbylabel(label)
 
         txid = self.nodes[0].sendtoaddress(addr, 0.1)
-        self.sync_all()
+        self.sync_mempools()
 
         # listreceivedbylabel should return received_by_label_json because of 0 confirmations
         assert_array_result(self.nodes[1].listreceivedbylabel(),
@@ -143,7 +143,7 @@ class ReceivedByTest(DefiTestFramework):
         assert_equal(balance, balance_by_label)
 
         self.nodes[1].generate(10)
-        self.sync_all()
+        self.sync_blocks()
         # listreceivedbylabel should return updated received list
         assert_array_result(self.nodes[1].listreceivedbylabel(),
                             {"label": label},

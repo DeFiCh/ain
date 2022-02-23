@@ -922,16 +922,16 @@ CAmount CCollateralLoans::precisionRatio() const
 
 ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
-        auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
-        if (!priceResult)
-            return std::move(priceResult);
+    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
+    if (!priceResult)
+        return priceResult;
 
-        auto price = priceResult.val.get();
-        auto amountInCurrency = MultiplyAmounts(price, amount);
-        if (price > COIN && amountInCurrency < amount)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
+    auto price = *priceResult.val;
+    auto amountInCurrency = MultiplyAmounts(price, amount);
+    if (price > COIN && amountInCurrency < amount)
+        return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
 
-        return ResVal<CAmount>(amountInCurrency, Res::Ok());
+    return ResVal<CAmount>(amountInCurrency, Res::Ok());
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,

@@ -5272,6 +5272,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
 
         if (tip->nHeight >= chainparams.GetConsensus().DakotaHeight) {
+            LOCK(cs_main);
             panchors->CheckPendingAnchors();
         }
     }

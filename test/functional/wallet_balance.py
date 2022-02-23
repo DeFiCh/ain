@@ -70,10 +70,10 @@ class WalletTest(DefiTestFramework):
 
         self.log.info("Mining blocks ...")
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[1].generate(1)
         self.nodes[1].generate(nblocks=101, address=ADDRESS_WATCHONLY)
-        self.sync_all()
+        self.sync_blocks()
 
         assert_equal(self.nodes[0].getbalances()['mine']['trusted'], 50)
         assert_equal(self.nodes[0].getwalletinfo()['balance'], 50)
@@ -98,11 +98,11 @@ class WalletTest(DefiTestFramework):
         self.nodes[0].sendrawtransaction(txs[0]['hex'])
         self.nodes[1].sendrawtransaction(txs[0]['hex'])  # sending on both nodes is faster than waiting for propagation
 
-        self.sync_all()
+        self.sync_mempools()
         txs = create_transactions(self.nodes[1], self.nodes[0].getnewaddress(), 60, [Decimal('0.01'), Decimal('0.02')])
         self.nodes[1].sendrawtransaction(txs[0]['hex'])
         self.nodes[0].sendrawtransaction(txs[0]['hex'])  # sending on both nodes is faster than waiting for propagation
-        self.sync_all()
+        self.sync_mempools()
 
         # First argument of getbalance must be set to "*"
         assert_raises_rpc_error(-32, "dummy first argument must be excluded or set to \"*\"", self.nodes[1].getbalance, "")
@@ -134,13 +134,13 @@ class WalletTest(DefiTestFramework):
         # Node 1 bumps the transaction fee and resends
         self.nodes[1].sendrawtransaction(txs[1]['hex'])
         self.nodes[0].sendrawtransaction(txs[1]['hex'])  # sending on both nodes is faster than waiting for propagation
-        self.sync_all()
+        self.sync_mempools()
 
         self.log.info("Test getbalance and getunconfirmedbalance with conflicted unconfirmed inputs")
         test_balances(fee_node_1=Decimal('0.02'))
 
         self.nodes[1].generate(nblocks=1, address=ADDRESS_WATCHONLY)
-        self.sync_all()
+        self.sync_blocks()
 
         # balances are correct after the transactions are confirmed
         assert_equal(self.nodes[0].getbalance(), Decimal('69.99'))  # node 1's send plus change from node 0's send
@@ -150,7 +150,7 @@ class WalletTest(DefiTestFramework):
         txs = create_transactions(self.nodes[1], self.nodes[0].getnewaddress(), Decimal('29.97'), [Decimal('0.01')])
         self.nodes[1].sendrawtransaction(txs[0]['hex'])
         self.nodes[1].generate(nblocks=2, address=ADDRESS_WATCHONLY)
-        self.sync_all()
+        self.sync_blocks()
 
         # getbalance with a minconf incorrectly excludes coins that have been spent more recently than the minconf blocks ago
         # TODO: fix getbalance tracking of coin spentness depth
@@ -166,7 +166,7 @@ class WalletTest(DefiTestFramework):
         dst = self.nodes[1].getnewaddress()
         self.nodes[1].unloadwallet('')
         self.nodes[0].sendtoaddress(dst, 0.1)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[1].loadwallet('')
         after = self.nodes[1].getunconfirmedbalance()
         assert_equal(before + Decimal('0.1'), after)
@@ -192,12 +192,12 @@ class WalletTest(DefiTestFramework):
         tx_replace = self.nodes[0].signrawtransactionwithwallet(tx_replace)['hex']
         # Total balance is given by the sum of outputs of the tx
         total_amount = sum([o['value'] for o in self.nodes[0].decoderawtransaction(tx_replace)['vout']])
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[1].sendrawtransaction(hexstring=tx_replace, maxfeerate=0)
 
         # Now confirm tx_replace
         block_reorg = self.nodes[1].generate(nblocks=1, address=ADDRESS_WATCHONLY)[0]
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[0].getbalance(minconf=0), total_amount)
 
         self.log.info('Put txs back into mempool of node 1 (not node 0)')
@@ -214,7 +214,7 @@ class WalletTest(DefiTestFramework):
         sync_blocks(self.nodes)
         self.nodes[1].sendrawtransaction(tx_orig)
         self.nodes[1].generate(nblocks=1, address=ADDRESS_WATCHONLY)
-        self.sync_all()
+        self.sync_blocks()
         assert_equal(self.nodes[0].getbalance(minconf=0), total_amount + 1)  # The reorg recovered our fee of 1 coin
 
 

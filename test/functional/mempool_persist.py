@@ -56,13 +56,13 @@ class MempoolPersistTest(DefiTestFramework):
 
         self.log.debug("Mine a single block to get out of IBD")
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         self.log.debug("Send 5 transactions from node2 (to its own address)")
         for i in range(5):
             last_txid = self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), Decimal("10"))
         node2_balance = self.nodes[2].getbalance()
-        self.sync_all()
+        self.sync_mempools()
 
         self.log.debug("Verify that node0 and node1 have 5 transactions in their mempools")
         assert_equal(len(self.nodes[0].getrawmempool()), 5)

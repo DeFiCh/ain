@@ -29,7 +29,7 @@ class InitDistTest (DefiTestFramework):
 
         for i in range(self.num_nodes - 1):
             connect_nodes_bi(self.nodes, i, i + 1)
-        self.sync_all()
+        self.sync_blocks()
 
     def run_test(self):
 
@@ -38,7 +38,7 @@ class InitDistTest (DefiTestFramework):
         assert(self.nodes[0].getbalance() == 0)
         assert(self.nodes[1].getbalance() == 0)
         self.nodes[2].generate(100)
-        self.sync_all()
+        self.sync_blocks()
 
         assert(self.nodes[0].getbalance() == 50)
         utxo0 = self.nodes[0].listunspent()
@@ -48,9 +48,9 @@ class InitDistTest (DefiTestFramework):
 
         addr = self.nodes[1].getnewaddress("", "legacy")
         self.nodes[0].sendtoaddress(addr, 42)
-        self.sync_all()
+        self.sync_mempools()
         self.nodes[2].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         assert(self.nodes[0].getbalance() >= 7.99)
         assert(self.nodes[1].getbalance() == 42)
