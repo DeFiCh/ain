@@ -111,6 +111,7 @@ DEFI_TESTS =\
   test/hash_tests.cpp \
   test/key_io_tests.cpp \
   test/key_tests.cpp \
+  test/libain_dex_tests.cpp \
   test/limitedmap_tests.cpp \
   test/liquidity_tests.cpp \
   test/loan_tests.cpp \
@@ -192,7 +193,7 @@ test_test_defi_LDADD += $(LIBDEFI_WALLET)
 endif
 
 test_test_defi_LDADD += $(LIBDEFI_SERVER) $(LIBDEFI_CLI) $(LIBDEFI_COMMON) $(LIBDEFI_UTIL) $(LIBDEFI_CONSENSUS) $(LIBDEFI_CRYPTO) $(LIBUNIVALUE) \
-  $(LIBDEFI_SPV) $(LIBLEVELDB) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
+  $(LIBDEFI_SPV) $(LIBLEVELDB) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(LIBAIN_RS_LIBS)
 test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 test_test_defi_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS)
