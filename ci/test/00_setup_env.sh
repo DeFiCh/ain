@@ -31,6 +31,7 @@ export DOCKER_PACKAGES=${DOCKER_PACKAGES:-build-essential libtool autotools-dev 
 export GOAL=${GOAL:-install}
 export DIR_QA_ASSETS=${DIR_QA_ASSETS:-${BASE_BUILD_DIR}/qa-assets}
 export PATH=${BASE_ROOT_DIR}/ci/retry:$PATH
+export WASM_PATH=${BASE_ROOT_DIR}/depends/${HOST}/wasm
 export CI_RETRY_EXE=${CI_RETRY_EXE:retry}
 
 # This is required so Github actions can see the env vars in the next step
@@ -55,6 +56,7 @@ export CI_RETRY_EXE=${CI_RETRY_EXE:retry}
   echo "DOCKER_PACKAGES=${DOCKER_PACKAGES}"
   echo "GOAL=${GOAL}"
   echo "DIR_QA_ASSETS=${DIR_QA_ASSETS}"
+  echo "WASM_PATH=${WASM_PATH}"
   echo "PATH=${PATH}"
   echo "CI_RETRY_EXE=${CI_RETRY_EXE}"
 } >> $GITHUB_ENV
