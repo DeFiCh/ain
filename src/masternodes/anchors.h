@@ -429,7 +429,7 @@ struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus
         , sigs()
     {}
 
-    size_t CheckConfirmSigs(const uint32_t height);
+    size_t CheckConfirmSigs(CAnchorData::CTeam const & team, const uint32_t height);
 
     ADD_SERIALIZE_METHODS;
 

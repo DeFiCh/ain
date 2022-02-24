@@ -291,260 +291,6 @@ public:
     }
 };
 
-class CCustomTxRevertVisitor
-{
-    uint32_t height;
-    CCustomCSView& mnview;
-    const CTransaction& tx;
-    const CCoinsViewCache& coins;
-    const Consensus::Params& consensus;
-
-    Res EraseHistory(const CScript& owner) const {
-        // notify account changes, no matter Sub or Add
-       return mnview.AddBalance(owner, {});
-    }
-
-public:
-
-    CCustomTxRevertVisitor(const CTransaction& tx,
-                          uint32_t height,
-                          const CCoinsViewCache& coins,
-                          CCustomCSView& mnview,
-                          const Consensus::Params& consensus)
-        : height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
-
-    template<typename T>
-    Res operator()(const T&) const {
-        return Res::Ok();
-    }
-
-    Res operator()(const CCreateMasterNodeMessage& obj) const {
-        return mnview.UnCreateMasternode(tx.GetHash());
-    }
-
-    Res operator()(const CResignMasterNodeMessage& obj) const {
-        return mnview.UnResignMasternode(obj, tx.GetHash());
-    }
-
-    Res operator()(const CCreateTokenMessage& obj) const {
-        return mnview.RevertCreateToken(tx.GetHash());
-    }
-
-    Res operator()(const CCreatePoolPairMessage& obj) const {
-        auto pool = mnview.GetPoolPair(obj.idTokenA, obj.idTokenB);
-        if (!pool) {
-            return Res::Err("no such poolPair tokenA %s, tokenB %s",
-                            obj.idTokenA.ToString(),
-                            obj.idTokenB.ToString());
-        }
-        return mnview.RevertCreateToken(tx.GetHash());
-    }
-
-    Res operator()(const CMintTokensMessage& obj) const {
-        for (const auto& kv : obj.balances) {
-            DCT_ID tokenId = kv.first;
-            auto token = mnview.GetToken(tokenId);
-            if (!token) {
-                return Res::Err("token %s does not exist!", tokenId.ToString());
-            }
-            auto tokenImpl = static_cast<const CTokenImplementation&>(*token);
-            const Coin& coin = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1));
-            EraseHistory(coin.out.scriptPubKey);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CPoolSwapMessage& obj) const {
-        EraseHistory(obj.to);
-        return EraseHistory(obj.from);
-    }
-
-    Res operator()(const CPoolSwapMessageV2& obj) const {
-        return (*this)(obj.swapInfo);
-    }
-
-    Res operator()(const CLiquidityMessage& obj) const {
-        for (const auto& kv : obj.from) {
-            EraseHistory(kv.first);
-        }
-        return EraseHistory(obj.shareAddress);
-    }
-
-    Res operator()(const CRemoveLiquidityMessage& obj) const {
-        return EraseHistory(obj.from);
-    }
-
-    Res operator()(const CUtxosToAccountMessage& obj) const {
-        for (const auto& account : obj.to) {
-            EraseHistory(account.first);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CAccountToUtxosMessage& obj) const {
-        return EraseHistory(obj.from);
-    }
-
-    Res operator()(const CAccountToAccountMessage& obj) const {
-        for (const auto& account : obj.to) {
-            EraseHistory(account.first);
-        }
-        return EraseHistory(obj.from);
-    }
-
-    Res operator()(const CSmartContractMessage& obj) const {
-        for (const auto& account : obj.accounts) {
-            EraseHistory(account.first);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
-        for (const auto& account : obj.to) {
-            EraseHistory(account.first);
-        }
-        for (const auto& account : obj.from) {
-            EraseHistory(account.first);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CICXCreateOrderMessage& obj) const {
-        if (obj.orderType == CICXOrder::TYPE_INTERNAL) {
-            auto hash = tx.GetHash();
-            EraseHistory({hash.begin(), hash.end()});
-            EraseHistory(obj.ownerAddress);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CICXMakeOfferMessage& obj) const {
-        auto hash = tx.GetHash();
-        EraseHistory({hash.begin(), hash.end()});
-        return EraseHistory(obj.ownerAddress);
-    }
-
-    Res operator()(const CICXSubmitDFCHTLCMessage& obj) const {
-        auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
-        if (!offer)
-            return Res::Err("offer with creation tx %s does not exists!", obj.offerTx.GetHex());
-
-        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order)
-            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-
-        EraseHistory(offer->ownerAddress);
-        if (order->orderType == CICXOrder::TYPE_INTERNAL) {
-            CScript orderTxidAddr(order->creationTx.begin(), order->creationTx.end());
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-            EraseHistory(orderTxidAddr);
-            EraseHistory(offerTxidAddr);
-            EraseHistory(consensus.burnAddress);
-        }
-        auto hash = tx.GetHash();
-        return EraseHistory({hash.begin(), hash.end()});
-    }
-
-    Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
-        auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
-        if (!offer)
-            return Res::Err("order with creation tx %s does not exists!", obj.offerTx.GetHex());
-
-        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order)
-            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-
-        if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-            EraseHistory(offerTxidAddr);
-            EraseHistory(offer->ownerAddress);
-            EraseHistory(consensus.burnAddress);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
-        auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(obj.dfchtlcTx);
-        if (!dfchtlc)
-            return Res::Err("dfc htlc with creation tx %s does not exists!", obj.dfchtlcTx.GetHex());
-
-        auto offer = mnview.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
-        if (!offer)
-            return Res::Err("offer with creation tx %s does not exists!", dfchtlc->offerTx.GetHex());
-
-        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order)
-            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-
-        CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
-        EraseHistory(htlcTxidAddr);
-        EraseHistory(order->ownerAddress);
-        if (order->orderType == CICXOrder::TYPE_INTERNAL)
-            EraseHistory(offer->ownerAddress);
-        return Res::Ok();
-    }
-
-    Res operator()(const CICXCloseOrderMessage& obj) const {
-        std::optional<CICXOrderImplemetation> order;
-        if (!(order = mnview.GetICXOrderByCreationTx(obj.orderTx)))
-            return Res::Err("order with creation tx %s does not exists!", obj.orderTx.GetHex());
-
-        if (order->orderType == CICXOrder::TYPE_INTERNAL) {
-            CScript txidAddr(order->creationTx.begin(), order->creationTx.end());
-            EraseHistory(txidAddr);
-            EraseHistory(order->ownerAddress);
-        }
-        return Res::Ok();
-    }
-
-    Res operator()(const CICXCloseOfferMessage& obj) const {
-        std::optional<CICXMakeOfferImplemetation> offer;
-        if (!(offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx)))
-            return Res::Err("offer with creation tx %s does not exists!", obj.offerTx.GetHex());
-
-        CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
-        EraseHistory(txidAddr);
-        return EraseHistory(offer->ownerAddress);
-    }
-
-    Res operator()(const CDepositToVaultMessage& obj) const {
-        return EraseHistory(obj.from);
-    }
-
-    Res operator()(const CCloseVaultMessage& obj) const {
-        return EraseHistory(obj.to);
-    }
-
-    Res operator()(const CLoanTakeLoanMessage& obj) const {
-        const auto vault = mnview.GetVault(obj.vaultId);
-        if (!vault)
-            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
-
-        return EraseHistory(!obj.to.empty() ? obj.to : vault->ownerAddress);
-    }
-
-    Res operator()(const CWithdrawFromVaultMessage& obj) const {
-        return EraseHistory(obj.to);
-    }
-
-    Res operator()(const CLoanPaybackLoanMessage& obj) const {
-        const auto vault = mnview.GetVault(obj.vaultId);
-        if (!vault)
-            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
-
-        EraseHistory(obj.from);
-        EraseHistory(consensus.burnAddress);
-        return EraseHistory(vault->ownerAddress);
-    }
-
-    Res operator()(const CAuctionBidMessage& obj) const {
-        if (auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index))
-            EraseHistory(bid->first);
-
-        return EraseHistory(obj.from);
-    }
-};
-
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
     try {
         return std::visit(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
@@ -617,16 +363,6 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     }
 }
 
-Res CustomTxRevert(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage) {
-    try {
-        return std::visit(CCustomTxRevertVisitor(tx, height, coins, mnview, consensus), txMessage);
-    } catch (const std::bad_variant_access& e) {
-        return Res::Err(e.what());
-    } catch (...) {
-        return Res::Err("unexpected error");
-    }
-}
-
 bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     static const std::map<uint32_t, uint256> skippedTx = {
         { 471222, uint256S("0ab0b76352e2d865761f4c53037041f33e1200183d55cdf6b09500d6f16b7329") },
@@ -635,89 +371,34 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CHistoryErasers& erasers) {
-    if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
-        return Res::Ok();
-    }
-    auto res = Res::Ok();
-    std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
-    switch(txType)
-    {
-        case CustomTxType::CreateMasternode:
-        case CustomTxType::ResignMasternode:
-        case CustomTxType::CreateToken:
-        case CustomTxType::CreatePoolPair:
-            // Enable these in the future
-        case CustomTxType::None:
-            return res;
-        default:
-            break;
-    }
-    auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryEraser view(mnview, height, txn, erasers);
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
-        res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
-
-        // Track burn fee
-        if (txType == CustomTxType::CreateToken
-        || txType == CustomTxType::CreateMasternode
-        || txType == CustomTxType::Vault) {
-            erasers.SubFeeBurn(tx.vout[0].scriptPubKey);
-        }
-    }
-    if (!res) {
-        res.msg = strprintf("%sRevertTx: %s", ToString(txType), res.msg);
-        return res;
-    }
-    return (view.Flush(), res);
-}
-
-void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& view, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
+void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& txMessage, const CustomTxType txType, const uint32_t height, const uint32_t txn, const uint256& txid) {
     if (txType == CustomTxType::Vault) {
         auto obj = std::get<CVaultMessage>(txMessage);
-        writers->schemeID = obj.schemeId;
-        view.vaultID = txid;
+        writers->AddVault(txid, obj.schemeId);
     } else if (txType == CustomTxType::CloseVault) {
         auto obj = std::get<CCloseVaultMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::UpdateVault) {
         auto obj = std::get<CUpdateVaultMessage>(txMessage);
-        view.vaultID = obj.vaultId;
-        if (!obj.schemeId.empty()) {
-            writers->schemeID = obj.schemeId;
-        }
+        writers->AddVault(obj.vaultId, obj.schemeId);
     } else if (txType == CustomTxType::DepositToVault) {
         auto obj = std::get<CDepositToVaultMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::WithdrawFromVault) {
         auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::TakeLoan) {
         auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::PaybackLoan) {
         auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::AuctionBid) {
         auto obj = std::get<CAuctionBidMessage>(txMessage);
-        view.vaultID = obj.vaultId;
+        writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::LoanScheme) {
         auto obj = std::get<CLoanSchemeMessage>(txMessage);
-        writers->globalLoanScheme.identifier = obj.identifier;
-        writers->globalLoanScheme.ratio = obj.ratio;
-        writers->globalLoanScheme.rate = obj.rate;
-        if (!obj.updateHeight) {
-            writers->globalLoanScheme.schemeCreationTxid = txid;
-        } else {
-            writers->vaultView->ForEachGlobalScheme([&writers](VaultGlobalSchemeKey const & key, CLazySerialize<VaultGlobalSchemeValue> value) {
-                if (value.get().loanScheme.identifier != writers->globalLoanScheme.identifier) {
-                    return true;
-                }
-                writers->globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
-                return false;
-            }, {height, txn, {}});
-        }
+        writers->AddLoanScheme(obj, txid, height, txn);
     }
 }
 
@@ -740,8 +421,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
-        if (pvaultHistoryDB && writers) {
-           PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
+        if (writers) {
+           PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 
@@ -775,15 +456,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    // construct undo
-    auto& flushable = view.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-    // flush changes
+    mnview.AddUndo(view, tx.GetHash(), height);
     view.Flush();
-    // write undo
-    if (!undo.before.empty()) {
-        mnview.SetUndo(UndoKey{height, tx.GetHash()}, undo);
-    }
     return res;
 }
 
@@ -873,14 +547,14 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
     int anchorHeight = height - 1;
-    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
-    if (!uniqueKeys) {
-        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
-    }
-
     auto team = mnview.GetConfirmTeam(anchorHeight);
     if (!team) {
         return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", anchorHeight);
+    }
+
+    auto uniqueKeys = finMsg.CheckConfirmSigs(*team, anchorHeight);
+    if (!uniqueKeys) {
+        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
 
     auto quorum = GetMinAnchorQuorum(*team);
@@ -1205,8 +879,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     return poolResult;
 }
 
-Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
 {
+    auto token = mnview.GetToken(tokenId);
+    if (!token)
+        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
+
     CPoolSwapMessage obj;
 
     obj.from = from;
@@ -1217,19 +895,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     obj.maxPrice = POOLPRICE_MAX;
 
     auto poolSwap = CPoolSwap(obj, height);
-    auto token = mnview.GetToken(tokenId);
-    if (!token)
-        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
-    // TODO: Optimize double look up later when first token is DUSD.
+    // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
+    if (token->symbol == "DUSD")
+        return poolSwap.ExecuteSwap(mnview, {});
+
     auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
-
-    // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
-    if (tokenId == dUsdToken->first) {
-        return poolSwap.ExecuteSwap(mnview, {});
-    }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
     if (!pooldUSDDFI)
@@ -1240,9 +913,7 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
         return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
 
     // swap tokenID -> USD -> DFI
-    auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
-
-    return res;
+    return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
 }
 
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)

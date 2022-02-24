@@ -50,7 +50,6 @@ public:
 
 // common functions
 bool IsSkippedTx(const uint256& hash);
-int chainHeight(interfaces::Chain::Lock& locked_chain);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);

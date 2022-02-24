@@ -241,10 +241,7 @@ struct SubNodeBlockTimeKey
 
 class CMasternodesView : public virtual CStorageView
 {
-    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
-
 public:
-//    CMasternodesView() = default;
 
     std::optional<CMasternode> GetMasternode(uint256 const & id) const;
     std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
@@ -262,8 +259,6 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-    Res UnCreateMasternode(uint256 const & nodeId);
-    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
     Res RemForcedRewardAddress(uint256 const & nodeId, int height);
     Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
@@ -447,7 +442,7 @@ class CCustomCSView
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
-private:
+
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
@@ -460,18 +455,22 @@ public:
         CheckPrefixes();
     }
 
-    CCustomCSView(CStorageKV & st)
-        : CStorageView(new CFlushableStorageKV(st))
+    CCustomCSView(CStorageView&) = delete;
+    CCustomCSView(CCustomCSView&&) = default;
+    CCustomCSView(const CCustomCSView&) = delete;
+
+    CCustomCSView(std::shared_ptr<CStorageKV> st) : CStorageView(st)
     {
         CheckPrefixes();
     }
 
     // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB()))
+    CCustomCSView(CCustomCSView & other) : CStorageView(other)
     {
         CheckPrefixes();
     }
+
+    void SetBackend(CCustomCSView & backend);
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
@@ -481,6 +480,8 @@ public:
 
     /// @todo newbase move to networking?
     void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec* anchor, const uint256 & btcTxHash, const CKey &masternodeKey);
+
+    void AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height);
 
     // simplified version of undo, without any unnecessary undo data
     void OnUndoTx(uint256 const & txid, uint32_t height);
@@ -504,18 +505,11 @@ public:
 
     uint256 MerkleRoot();
 
-    // we construct it as it
-    CFlushableStorageKV& GetStorage() {
-        return static_cast<CFlushableStorageKV&>(DB());
-    }
-
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
 
 std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
 
-/** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
-extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
 
 #endif // DEFI_MASTERNODES_MASTERNODES_H

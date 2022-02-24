@@ -4639,7 +4639,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     walletInstance->TopUpKeyPool();
 
     auto locked_chain = chain.lock();
-    LOCK(walletInstance->cs_wallet);
+    LOCK2(walletInstance->cs_wallet, locked_chain->mutex());
 
     int rescan_height = 0;
     if (!gArgs.GetBoolArg("-rescan", false))

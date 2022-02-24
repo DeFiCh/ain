@@ -119,8 +119,6 @@ struct CFixedIntervalPrice
 class COracleView : public virtual CStorageView
 {
 public:
-    ~COracleView() override = default;
-
     /// register new oracle instance
     Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 

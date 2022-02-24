@@ -105,7 +105,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -213,9 +213,10 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     CScript owner;
     int targetHeight;
     {
-        LOCK(cs_main);
         DCT_ID id;
-        token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        CCustomCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
@@ -232,7 +233,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                                strprintf("Can't extract destination for token's %s collateral", token->symbol));
         }
         owner = authCoin.out.scriptPubKey;
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
@@ -421,14 +422,10 @@ UniValue listtokens(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue ret(UniValue::VOBJ);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         ret.pushKVs(tokenToJSON(id, token, verbose));
-
-        limit--;
-        return limit != 0;
+        return --limit != 0;
     }, start);
 
     return ret;
@@ -449,8 +446,6 @@ UniValue gettoken(const JSONRPCRequest& request) {
                        + HelpExampleRpc("gettoken", "GOLD")
                },
     }.Check(request);
-
-    LOCK(cs_main);
 
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
@@ -550,15 +545,14 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 
     if (tx)
     {
-        LOCK(cs_main);
-
         // Found a block hash but no block index yet
         if (!hashBlock.IsNull() && !blockindex) {
+            LOCK(cs_main);
             blockindex = LookupBlockIndex(hashBlock);
         }
 
         // Default to next block height
-        nHeight = ::ChainActive().Height() + 1;
+        nHeight = pcustomcsview->GetLastHeight() + 1;
 
         // Get actual height if blockindex avaiable
         if (blockindex) {
@@ -607,8 +601,6 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     }
 
     if (!hashBlock.IsNull()) {
-        LOCK(cs_main);
-
         result.pushKV("blockhash", hashBlock.GetHex());
         if (blockindex) {
             result.pushKV("blockHeight", blockindex->nHeight);
@@ -665,7 +657,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue const & txInputs = request.params[1];
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    CCustomCSView view(*pcustomcsview);
+
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -675,9 +669,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     bool needFoundersAuth = false;
     if (txInputs.isNull() || txInputs.empty()) {
-        LOCK(cs_main);
         for (auto const & kv : minted.balances) {
-            auto token = pcustomcsview->GetToken(kv.first);
+            auto token = view.GetToken(kv.first);
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
@@ -766,7 +759,6 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 
     if (tx)
     {
-        LOCK(cs_main);
         // Default to INT_MAX
         nHeight = std::numeric_limits<int>::max();
 
