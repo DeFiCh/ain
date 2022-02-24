@@ -2694,6 +2694,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // update governance variables
     ProcessGovEvents(pindex, cache, chainparams);
 
+    // Migrate loan and collateral tokens to Gov vars.
+    ProcessTokenToGovVar(pindex, cache, chainparams);
+
     mnview.AddUndo(cache, {}, pindex->nHeight);
     cache.Flush();
 
@@ -3305,6 +3308,71 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    // Migrate at +1 height so that GetLastHeight() in Gov var
+    // Validate() has a height equal to the GW fork.
+    if (pindex->nHeight != chainparams.GetConsensus().GreatWorldHeight + 1) {
+        return;
+    }
+
+    std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
+    std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
+
+    cache.ForEachLoanToken([&](const DCT_ID& key, const CLoanSetLoanToken& loanToken) {
+        loanTokens[key] = loanToken;
+        return true;
+    });
+
+    cache.ForEachLoanCollateralToken([&](const CollateralTokenKey& key, const uint256& collTokenTx) {
+        auto collToken = cache.GetLoanCollateralToken(collTokenTx);
+        if (collToken) {
+            collateralTokens.push_back(*collToken);
+        }
+        return true;
+    });
+
+    // Apply fixed_interval_price_id first
+    std::map<std::string, std::string> attrsFirst;
+    std::map<std::string, std::string> attrsSecond;
+
+    int loanCount = 0, collateralCount = 0;
+
+    try {
+        for (const auto& [id, token] : loanTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token),id.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+            ++loanCount;
+        }
+
+        for (const auto& token : collateralTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token), token.idToken.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+            ++collateralCount;
+        }
+
+        CCustomCSView govCache(cache);
+        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+            govCache.Flush();
+
+            // Erase old tokens afterwards to avoid invalid state during transition
+            for (const auto& item : loanTokens) {
+                cache.EraseLoanToken(item.first);
+            }
+
+            for (const auto& token : collateralTokens) {
+                cache.EraseLoanCollateralToken(token);
+            }
+        }
+    } catch(std::out_of_range&) {
+        LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
+    }
 }
 
 bool CChainState::FlushStateToDisk(
