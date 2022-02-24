@@ -167,7 +167,7 @@ class VaultTest (DefiTestFramework):
 
         self.idDFI = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
-        self.idETH = idETH = list(self.nodes[0].gettoken(self.symbolETH).keys())[0]
+        self.idETH = list(self.nodes[0].gettoken(self.symbolETH).keys())[0]
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
         self.idUSDT = list(self.nodes[0].gettoken(self.symbolUSDT).keys())[0]
         self.idAAPL = list(self.nodes[0].gettoken(self.symbolAAPL).keys())[0]
