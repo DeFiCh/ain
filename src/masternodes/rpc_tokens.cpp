@@ -216,7 +216,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         DCT_ID id;
         CCustomCSView view(*pcustomcsview);
 
-        auto token = view.GetTokenGuessId(tokenStr, id);
+        token = view.GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
