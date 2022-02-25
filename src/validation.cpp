@@ -1636,6 +1636,13 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
+// There is only one legacy anchor on testnet and mainnet, these have been hard coded to simplify
+// the anchor code. This function will return true if a TX on testnet or mainnet is a legacy anchor.
+static bool IsLegacyAnchorTx(std::string network, std::string hash) {
+    return (network == CBaseChainParams::MAIN && hash == "5a673c7d05f8ce67d3573e0f9afe154712d74926085421edc8c3cd4262fb4e0c") ||
+           (network == CBaseChainParams::TESTNET && hash == "cbe358052c4434066f9526b694facc6790802e9b198f57c76bbf71283bb7b5a5");
+}
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
@@ -1704,7 +1711,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             {
                 LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchorFinalizationMessagePlus finMsg;
+                CAnchorFinalizationMessage finMsg;
                 ss >> finMsg;
 
                 LogPrint(BCLog::ANCHORING, "%s: Add community balance %d\n", __func__, tx.GetValueOut());
@@ -1712,7 +1719,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
                 mnview.EraseAnchorConfirmData(finMsg.btcTxHash);
 
-                CAnchorConfirmMessage message(static_cast<CAnchorConfirmDataPlus &>(finMsg));
+                CAnchorConfirmMessage message(static_cast<CAnchorConfirmData &>(finMsg));
                 for (auto && sig : finMsg.sigs) {
                     message.signature = sig;
                     disconnectedAnchorConfirms.push_back(message);
@@ -1720,27 +1727,13 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
-            else if (IsAnchorRewardTx(tx, metadata))
-            {
-                LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
-                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchorFinalizationMessage finMsg;
-                ss >> finMsg;
-
-                mnview.SetTeam(finMsg.currentTeam);
-
+            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
                 if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
-                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
-                    LogPrint(BCLog::ANCHORING, "%s: post AMK logic, add community balance %d\n", __func__, tx.GetValueOut());
-                }
-                else { // pre-AMK logic:
+                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut());
+                } else {
                     assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
                     mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 }
-                mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
-                mnview.EraseAnchorConfirmData(finMsg.btcTxHash);
-
-                LogPrint(BCLog::ANCHORING, "%s: disconnected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
             }
         }
 
@@ -2553,7 +2546,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
-                ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
+                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): %s", res.msg),
@@ -2563,19 +2556,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
-            } else if (IsAnchorRewardTx(tx, metadata)) {
-                if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
-                }
-                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata, chainparams.GetConsensus());
-                if (!res.ok) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): %s", res.msg),
-                                         REJECT_INVALID, res.dbgMsg);
-                }
-                rewardedAnchors.push_back(*res.val);
-                if (!fJustCheck) {
-                    LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
+            } // Old anchor TXs.
+            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
+                if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
+                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+                } else {
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 }
             }
         }
@@ -2659,6 +2645,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
     if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
         cache.BayfrontFlagsCleanup();
+    }
+
+    // Remove team entry for legacy anchors
+    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+        mnview.EraseLegacyTeam();
     }
 
     // burn DFI on Eunos height
@@ -5072,7 +5063,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
                           auth.GetHash().ToString(),
                           auth.height,
                           auth.previousAnchor.ToString(),
-                          auth.nextTeam.size(),
+                          auth.heightAndHash.size(),
                           auth.GetSignHash().ToString()
                           );
 

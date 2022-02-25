@@ -950,7 +950,7 @@ UniValue listanchors(const JSONRPCRequest& request)
     CCustomCSView view(*pcustomcsview);
     auto confirms = view.CAnchorConfirmsView::GetAnchorConfirmData();
 
-    std::sort(confirms.begin(), confirms.end(), [](CAnchorConfirmDataPlus a, CAnchorConfirmDataPlus b) {
+    std::sort(confirms.begin(), confirms.end(), [](CAnchorConfirmData a, CAnchorConfirmData b) {
         return a.anchorHeight < b.anchorHeight;
     });
 

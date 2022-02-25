@@ -595,18 +595,9 @@ void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
 /*
  *  CTeamView
  */
-void CTeamView::SetTeam(const CTeamView::CTeam & newTeam)
+void CTeamView::EraseLegacyTeam()
 {
-    Write(CurrentTeam::prefix(), newTeam);
-}
-
-CTeamView::CTeam CTeamView::GetCurrentTeam() const
-{
-    CTeam team;
-    if (Read(CurrentTeam::prefix(), team) && team.size() > 0)
-        return team;
-
-    return Params().GetGenesisTeam();
+    Erase(CurrentTeam::prefix());
 }
 
 void CTeamView::SetAnchorTeams(const CTeam& authTeam, const CTeam& confirmTeam, const int height)
@@ -675,7 +666,7 @@ void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRe
  *  CAnchorConfirmsView
  */
 
-void CAnchorConfirmsView::AddAnchorConfirmData(const CAnchorConfirmDataPlus& data)
+void CAnchorConfirmsView::AddAnchorConfirmData(const CAnchorConfirmData& data)
 {
     WriteBy<BtcTx>(data.btcTxHash, data);
 }
@@ -685,16 +676,16 @@ void CAnchorConfirmsView::EraseAnchorConfirmData(uint256 btcTxHash)
     EraseBy<BtcTx>(btcTxHash);
 }
 
-void CAnchorConfirmsView::ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback)
+void CAnchorConfirmsView::ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmData>)> callback)
 {
-    ForEach<BtcTx, AnchorTxHash, CAnchorConfirmDataPlus>(callback);
+    ForEach<BtcTx, AnchorTxHash, CAnchorConfirmData>(callback);
 }
 
-std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
+std::vector<CAnchorConfirmData> CAnchorConfirmsView::GetAnchorConfirmData()
 {
-    std::vector<CAnchorConfirmDataPlus> confirms;
+    std::vector<CAnchorConfirmData> confirms;
 
-    ForEachAnchorConfirmData([&confirms](const CAnchorConfirmsView::AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus> data) {
+    ForEachAnchorConfirmData([&confirms](const CAnchorConfirmsView::AnchorTxHash &, CLazySerialize<CAnchorConfirmData> data) {
         confirms.push_back(data);
         return true;
     });
@@ -716,32 +707,6 @@ int CCustomCSView::GetDbVersion() const
 void CCustomCSView::SetDbVersion(int version)
 {
     Write(DbVersion::prefix(), version);
-}
-
-CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 & stakeModifier)
-{
-    if (stakeModifier == uint256())
-        return Params().GetGenesisTeam();
-
-    int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
-
-    std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    ForEachMasternode([&] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive(height))
-            return true;
-
-        CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
-        ss << id << stakeModifier;
-        priorityMN.insert(std::make_pair(UintToArith256(Hash(ss.begin(), ss.end())), node.operatorAuthAddress));
-        return true;
-    });
-
-    CTeam newTeam;
-    auto && it = priorityMN.begin();
-    for (int i = 0; i < anchoringTeamSize && it != priorityMN.end(); ++i, ++it) {
-        newTeam.insert(it->second);
-    }
-    return newTeam;
 }
 
 enum AnchorTeams {
@@ -821,9 +786,9 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
 void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor, const uint256 & btcTxHash, const CKey& masternodeKey)
 {
     auto prev = panchors->GetAnchorByTx(anchor->anchor.previousAnchor);
-    auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor->anchor, prev ? prev->anchor.height : 0, btcTxHash, masternodeKey, anchor->btcHeight);
+    const auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor->anchor, prev ? prev->anchor.height : 0, btcTxHash, masternodeKey, anchor->btcHeight);
 
-    if (panchorAwaitingConfirms->Add(*confirmMessage)) {
+    if (confirmMessage && panchorAwaitingConfirms->Add(*confirmMessage)) {
         LogPrint(BCLog::ANCHORING, "%s: Create message %s\n", __func__, confirmMessage->GetHash().GetHex());
         RelayAnchorConfirm(confirmMessage->GetHash(), *g_connman);
     }

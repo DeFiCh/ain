@@ -32,7 +32,7 @@ static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 uint256 CAnchorData::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
-    ss << previousAnchor << height << blockHash << nextTeam; // << salt_;
+    ss << previousAnchor << height << blockHash << heightAndHash; // << salt_;
     return Hash(ss.begin(), ss.end());
 }
 
@@ -259,23 +259,24 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
             curHeight = it->height;
             curSignHash = it->GetSignHash();
 
-            if (it->nextTeam.size() == 1)
+            if (it->heightAndHash.size() != 1) {
+                continue;
+            }
+
+            // Team data reference
+            const CKeyID& teamData = *it->heightAndHash.begin();
+
+            uint64_t anchorCreationHeight;
+            std::shared_ptr<std::vector<unsigned char>> prefix;
+
+            // Check this is post-fork anchor auth
+            if (GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix))
             {
-                // Team data reference
-                const CKeyID& teamData = *it->nextTeam.begin();
-
-                uint64_t anchorCreationHeight;
-                std::shared_ptr<std::vector<unsigned char>> prefix;
-
-                // Check this is post-fork anchor auth
-                if (GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix))
-                {
-                    // Get anchor team at time of creating this auth
-                    auto team = pcustomcsview->GetAuthTeam(anchorCreationHeight);
-                    if (team) {
-                        // Now we can set the appropriate quorum size
-                        quorum = GetMinAnchorQuorum(*team);
-                    }
+                // Get anchor team at time of creating this auth
+                auto team = pcustomcsview->GetAuthTeam(anchorCreationHeight);
+                if (team) {
+                    // Now we can set the appropriate quorum size
+                    quorum = GetMinAnchorQuorum(*team);
                 }
             }
 
@@ -425,21 +426,6 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
         return true;
     }
     return false;
-}
-
-CAnchorData::CTeam CAnchorIndex::GetNextTeam(const uint256 & btcPrevTx) const
-{
-    AssertLockHeld(cs_main);
-
-    if (btcPrevTx.IsNull())
-        return Params().GetGenesisTeam();
-
-    AnchorRec const * prev = GetAnchorByTx(btcPrevTx);
-    if (!prev) {
-        LogPrintf("Can't get previous anchor with btc hash %s\n",  btcPrevTx.ToString());
-        return CAnchorData::CTeam{};
-    }
-    return prev->anchor.nextTeam;
 }
 
 CAnchorIndex::AnchorRec const * CAnchorIndex::GetAnchorByBtcTx(uint256 const & txHash) const
@@ -757,15 +743,15 @@ bool ValidateAnchor(const CAnchor & anchor)
     AssertLockHeld(cs_main);
 
     // Check sig size to avoid storing bogus anchors with large number of sigs
-    if (anchor.nextTeam.size() != 1) {
+    if (anchor.heightAndHash.size() != 1) {
         return error("%s: Incorrect anchor team size. Found: %d",
-                     __func__, anchor.nextTeam.size());
+                     __func__, anchor.heightAndHash.size());
     }
 
     if (anchor.sigs.size() <= static_cast<size_t>(Params().GetConsensus().mn.anchoringTeamSize))
     {
         // Team entry
-        const CKeyID& teamData = *anchor.nextTeam.begin();
+        const CKeyID& teamData = *anchor.heightAndHash.begin();
 
         uint64_t anchorCreationHeight;
         std::shared_ptr<std::vector<unsigned char>> prefix;
@@ -827,12 +813,12 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
     }
 
     // Should already be checked before adding to pending, double check here.
-    if (anchor.nextTeam.empty() || anchor.nextTeam.size() != 1) {
-        return error("%s: nextTeam empty or incorrect size. %d elements in team.", __func__, anchor.nextTeam.size());
+    if (anchor.heightAndHash.size() != 1) {
+        return error("%s: heightAndHash incorrect size. 1 expected %d found.", __func__, anchor.heightAndHash.size());
     }
 
     // Team entry
-    const CKeyID& teamData = *anchor.nextTeam.begin();
+    const CKeyID& teamData = *anchor.heightAndHash.begin();
 
     std::shared_ptr<std::vector<unsigned char>> prefix;
 
@@ -901,13 +887,6 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
 uint256 CAnchorConfirmData::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, 0};
-    ss << btcTxHash << anchorHeight << prevAnchorHeight << rewardKeyID << rewardKeyType;
-    return Hash(ss.begin(), ss.end());
-}
-
-uint256 CAnchorConfirmDataPlus::GetSignHash() const
-{
-    CDataStream ss{SER_GETHASH, 0};
     ss << btcTxHash << anchorHeight << prevAnchorHeight << rewardKeyID << rewardKeyType << dfiBlockHash << btcTxHeight;
     return Hash(ss.begin(), ss.end());
 }
@@ -915,20 +894,20 @@ uint256 CAnchorConfirmDataPlus::GetSignHash() const
 std::optional<CAnchorConfirmMessage> CAnchorConfirmMessage::CreateSigned(const CAnchor& anchor, const THeight prevAnchorHeight,
                                                                            const uint256 &btcTxHash, CKey const & key, const THeight btcTxHeight)
 {
-    // Potential post-fork unrewarded anchor
-    if (anchor.nextTeam.size() == 1)
-    {
-        // Team data reference
-        const CKeyID& teamData = *anchor.nextTeam.begin();
-
-        uint64_t anchorCreationHeight;
-        std::shared_ptr<std::vector<unsigned char>> prefix;
-
-        // Get anchor creation height
-        GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix);
+    if (anchor.heightAndHash.size() != 1) {
+        return {};
     }
 
-    CAnchorConfirmMessage message(CAnchorConfirmDataPlus{btcTxHash, anchor.height, prevAnchorHeight, anchor.rewardKeyID,
+    // Team data reference
+    const CKeyID& teamData = *anchor.heightAndHash.begin();
+
+    uint64_t anchorCreationHeight;
+    std::shared_ptr<std::vector<unsigned char>> prefix;
+
+    // Get anchor creation height
+    GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix);
+
+    CAnchorConfirmMessage message(CAnchorConfirmData{btcTxHash, anchor.height, prevAnchorHeight, anchor.rewardKeyID,
                                                          anchor.rewardKeyType, anchor.blockHash, btcTxHeight});
 
     if (!key.SignCompact(message.GetSignHash(), message.signature)) {
@@ -951,12 +930,7 @@ CKeyID CAnchorConfirmMessage::GetSigner() const
     return (!signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature)) ? pubKey.GetID() : CKeyID{};
 }
 
-bool CAnchorFinalizationMessage::CheckConfirmSigs()
-{
-    return CheckSigs(GetSignHash(), sigs, currentTeam);
-}
-
-size_t CAnchorFinalizationMessagePlus::CheckConfirmSigs(CAnchorData::CTeam const & team,  const uint32_t height)
+size_t CAnchorFinalizationMessage::CheckConfirmSigs(CAnchorData::CTeam const & team,  const uint32_t height)
 {
     return CheckSigs(GetSignHash(), sigs, team);
 }
