@@ -3342,18 +3342,18 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
 
     try {
         for (const auto& [id, token] : loanTokens) {
-            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token),id.v);
-            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
-            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token),id.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
             ++loanCount;
         }
 
         for (const auto& token : collateralTokens) {
-            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions.at(VersionTypes::v0), ATTRIBUTES::displayTypes.at(AttributeTypes::Token), token.idToken.v);
-            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
-            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
-            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys.at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token), token.idToken.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
             ++collateralCount;
         }
 

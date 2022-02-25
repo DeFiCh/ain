@@ -6,20 +6,19 @@
 
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
+#include <masternodes/mn_checks.h> /// GetAggregatePrice
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
 
-template<typename T>
-static std::string KeyBuilder(const T& value){
-    std::ostringstream oss;
-    oss << value;
-    return oss.str();
-}
-
-template<typename T, typename ... Args >
-static std::string KeyBuilder(const T& value, const Args& ... args){
-    return KeyBuilder(value) + '/' + KeyBuilder(args...);
+static inline std::string trim_all_ws(std::string s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
 }
 
 static std::vector<std::string> KeyBreaker(const std::string& str){
@@ -83,27 +82,32 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
 
 const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
-            {
-                    AttributeTypes::Token, {
-                                                   {"payback_dfi",         TokenKeys::PaybackDFI},
-                                                   {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
-                                                   {"dex_in_fee_pct",      TokenKeys::DexInFeePct},
-                                                   {"dex_out_fee_pct",     TokenKeys::DexOutFeePct},
-                                           }
-            },
-            {
-                    AttributeTypes::Poolpairs, {
-                                                   {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
-                                                   {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
-                                           }
-            },
-            {
-                    AttributeTypes::Param, {
-                                                   {"active",              DFIP2201Keys::Active},
-                                                   {"minswap",             DFIP2201Keys::MinSwap},
-                                                   {"premium",             DFIP2201Keys::Premium},
-                                           }
-            },
+        {
+            AttributeTypes::Token, {
+                {"payback_dfi",             TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
+                {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
+                {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
+                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
+                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
+                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
+                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
+                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
+            }
+        },
+        {
+            AttributeTypes::Poolpairs, {
+                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
+                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
+            }
+        },
+        {
+            AttributeTypes::Param, {
+                {"active",              DFIP2201Keys::Active},
+                {"minswap",             DFIP2201Keys::MinSwap},
+                {"premium",             DFIP2201Keys::Premium},
+            }
+        },
     };
     return keys;
 }
@@ -111,30 +115,35 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
 const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys() {
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
             {
-                    AttributeTypes::Token, {
-                                                   {TokenKeys::PaybackDFI,       "payback_dfi"},
-                                                   {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
-                                                   {TokenKeys::DexInFeePct,      "dex_in_fee_pct"},
-                                                   {TokenKeys::DexOutFeePct,     "dex_out_fee_pct"},
-                                           }
+                AttributeTypes::Token, {
+                    {TokenKeys::PaybackDFI,            "payback_dfi"},
+                    {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
+                    {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
+                    {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
+                    {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
+                    {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
+                    {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
+                    {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
+                    {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
+                }
             },
             {
-                    AttributeTypes::Poolpairs, {
-                                                   {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
-                                                   {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
-                                           }
+                AttributeTypes::Poolpairs, {
+                    {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
+                    {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
+                }
             },
             {
-                    AttributeTypes::Param, {
-                                                   {DFIP2201Keys::Active,        "active"},
-                                                   {DFIP2201Keys::Premium,       "premium"},
-                                                   {DFIP2201Keys::MinSwap,       "minswap"},
-                                           }
+                AttributeTypes::Param, {
+                    {DFIP2201Keys::Active,        "active"},
+                    {DFIP2201Keys::Premium,       "premium"},
+                    {DFIP2201Keys::MinSwap,       "minswap"},
+                }
             },
             {
-                    AttributeTypes::Live, {
-                                                   {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                                           }
+                AttributeTypes::Live, {
+                    {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
+                }
             },
     };
     return keys;
@@ -167,11 +176,28 @@ static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     return resVal;
 }
 
+static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
+    const auto value = KeyBreaker(str);
+    if (value.size() != 2) {
+        return Res::Err("Exactly two entires expected for currency pair");
+    }
+    auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    if (token.empty() || currency.empty()) {
+        return Res::Err("Empty token / currency");
+    }
+    return {CTokenCurrencyPair{token, currency}, Res::Ok()};
+}
+
 static ResVal<CAttributeValue> VerifyBool(const std::string& str) {
     if (str != "true" && str != "false") {
         return Res::Err(R"(Boolean value must be either "true" or "false")");
     }
     return {str == "true", Res::Ok()};
+}
+
+static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
+    return view.GetToken(DCT_ID{id}).has_value();
 }
 
 const std::map<uint8_t, std::map<uint8_t,
@@ -180,25 +206,30 @@ const std::map<uint8_t, std::map<uint8_t,
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>> parsers{
             {
-                    AttributeTypes::Token, {
-                                                   {TokenKeys::PaybackDFI,       VerifyBool},
-                                                   {TokenKeys::PaybackDFIFeePCT, VerifyPct},
-                                                   {TokenKeys::DexInFeePct,      VerifyPct},
-                                                   {TokenKeys::DexOutFeePct,     VerifyPct},
-                                           }
+                AttributeTypes::Token, {
+                    {TokenKeys::PaybackDFI,            VerifyBool},
+                    {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
+                    {TokenKeys::DexInFeePct,           VerifyPct},
+                    {TokenKeys::DexOutFeePct,          VerifyPct},
+                    {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
+                    {TokenKeys::LoanCollateralEnabled, VerifyBool},
+                    {TokenKeys::LoanCollateralFactor,  VerifyPct},
+                    {TokenKeys::LoanMintingEnabled,    VerifyBool},
+                    {TokenKeys::LoanMintingInterest,   VerifyFloat},
+                }
             },
             {
-                    AttributeTypes::Poolpairs, {
-                                                   {PoolKeys::TokenAFeePCT,      VerifyPct},
-                                                   {PoolKeys::TokenBFeePCT,      VerifyPct},
-                                           }
+                AttributeTypes::Poolpairs, {
+                    {PoolKeys::TokenAFeePCT,      VerifyPct},
+                    {PoolKeys::TokenBFeePCT,      VerifyPct},
+                }
             },
             {
-                    AttributeTypes::Param, {
-                                                   {DFIP2201Keys::Active,       VerifyBool},
-                                                   {DFIP2201Keys::Premium,      VerifyPct},
-                                                   {DFIP2201Keys::MinSwap,      VerifyFloat},
-                                           }
+                AttributeTypes::Param, {
+                    {DFIP2201Keys::Active,       VerifyBool},
+                    {DFIP2201Keys::Premium,      VerifyPct},
+                    {DFIP2201Keys::MinSwap,      VerifyFloat},
+                }
             },
     };
     return parsers;
@@ -296,15 +327,15 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     std::map<std::string, UniValue> objMap;
     val.getObjMap(objMap);
 
-    for (const auto& pair : objMap) {
+    for (const auto& [key, value] : objMap) {
         auto res = ProcessVariable(
-                pair.first, pair.second.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& value) {
+                key, value.get_str(), [this](const CAttributeType& attribute, const CAttributeValue& attrValue) {
                     if (auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                         if (attrV0->type == AttributeTypes::Live) {
                             return Res::Err("Live attribute cannot be set externally");
                         }
                     }
-                    attributes[attribute] = value;
+                    attributes[attribute] = attrValue;
                     return Res::Ok();
                 }
         );
@@ -340,6 +371,8 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, KeyBuilder(uvalue.get_real()));
             } else if (auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
+            } else if (auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -373,6 +406,31 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("Cannot be set before GreatWorld");
                         }
                         if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        break;
+                    case TokenKeys::LoanCollateralEnabled:
+                    case TokenKeys::LoanCollateralFactor:
+                    case TokenKeys::LoanMintingEnabled:
+                    case TokenKeys::LoanMintingInterest: {
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!VerifyToken(view, attrV0->typeId)) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        CDataStructureV0 intervalPriceKey{AttributeTypes::Token, attrV0->typeId,
+                                                          TokenKeys::FixedIntervalPriceId};
+                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                            return Res::Err("Fixed interval price currency pair must be set first");
+                        }
+                        break;
+                    }
+                    case TokenKeys::FixedIntervalPriceId:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!VerifyToken(view, attrV0->typeId)) {
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                         break;
@@ -445,6 +503,29 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 auto valuePct = std::get<CAmount>(attribute.second);
                 if (auto res = mnview.SetDexFeePct(tokenA, tokenB, valuePct); !res) {
                     return res;
+                }
+            } else if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
+                if (const auto& currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+                    // Already exists, skip.
+                    if (mnview.GetFixedIntervalPrice(*currencyPair)) {
+                        continue;
+                    } else if (!OraclePriceFeed(mnview, *currencyPair)) {
+                        return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first, currencyPair->second);
+                    }
+                    CFixedIntervalPrice fixedIntervalPrice;
+                    fixedIntervalPrice.priceFeedId = *currencyPair;
+                    fixedIntervalPrice.timestamp = time;
+                    fixedIntervalPrice.priceRecord[1] = -1;
+                    const auto aggregatePrice = GetAggregatePrice(mnview,
+                                                                  fixedIntervalPrice.priceFeedId.first,
+                                                                  fixedIntervalPrice.priceFeedId.second,
+                                                                  time);
+                    if (aggregatePrice) {
+                        fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+                    }
+                    mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+                } else {
+                    return Res::Err("Unrecognised value for FixedIntervalPriceId");
                 }
             }
         }

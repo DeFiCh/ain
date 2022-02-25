@@ -8,6 +8,7 @@
 #include <amount.h>
 #include <masternodes/balances.h>
 #include <masternodes/gv.h>
+#include <masternodes/oracles.h>
 
 #include <variant>
 
@@ -38,10 +39,15 @@ enum DFIP2201Keys : uint8_t  {
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI       = 'a',
-    PaybackDFIFeePCT = 'b',
-    DexInFeePct      = 'c',
-    DexOutFeePct     = 'd',
+    PaybackDFI            = 'a',
+    PaybackDFIFeePCT      = 'b',
+    DexInFeePct           = 'c',
+    DexOutFeePct          = 'd',
+    FixedIntervalPriceId  = 'e',
+    LoanCollateralEnabled = 'f',
+    LoanCollateralFactor  = 'g',
+    LoanMintingEnabled    = 'h',
+    LoanMintingInterest   = 'i',
 };
 
 enum PoolKeys : uint8_t {
@@ -79,12 +85,12 @@ struct CDataStructureV1 {
 };
 
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
-    virtual ~ATTRIBUTES() override {}
+    ~ATTRIBUTES() override = default;
 
     std::string GetName() const override {
         return TypeName();
@@ -109,6 +115,10 @@ public:
         return std::move(value);
     }
 
+    [[nodiscard]] bool CheckKey(const CAttributeType& key) const {
+        return attributes.find(key) != attributes.end();
+    }
+
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
@@ -118,6 +128,13 @@ public:
     }
 
     std::map<CAttributeType, CAttributeValue> attributes;
+    uint32_t time{0};
+
+    // For formatting in export
+    static const std::map<uint8_t, std::string>& displayVersions();
+    static const std::map<uint8_t, std::string>& displayTypes();
+    static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
 private:
     // Defined allowed arguments
@@ -127,12 +144,6 @@ private:
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
-
-    // For formatting in export
-    static const std::map<uint8_t, std::string>& displayVersions();
-    static const std::map<uint8_t, std::string>& displayTypes();
-    static const std::map<uint8_t, std::string>& displayParamsIDs();
-    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
