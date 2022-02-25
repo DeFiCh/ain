@@ -94,7 +94,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     } else {
         obj.pushKV("type", "receive");
     }
-    obj.pushKV("txn", (uint64_t) entry.vout);
+    obj.pushKV("txn", (uint64_t) pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
     TAmounts amounts({{DCT_ID{0},entry.amount}});
     obj.pushKV("amounts", AmountsToJSON(amounts));
@@ -1192,7 +1192,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && entry.vout > txn ) {
+                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && pwtx->nIndex > txn ) {
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
