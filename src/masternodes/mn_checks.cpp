@@ -3945,7 +3945,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
-        auto dexfeeInPct = view.GetDexFeePct(currentID, swapAmount.nTokenId);
+        auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
@@ -3954,11 +3954,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
 
-            if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                if (auto dexfeeOutPct = view.GetDexFeePct(currentID, tokenAmount.nTokenId)) {
-                    dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
-                    swapAmountResult.nValue -= dexfeeOutAmount.nValue;
-                }
+            auto dexfeeOutPct = view.GetDexFeeOutPct(currentID, tokenAmount.nTokenId);
+            if (dexfeeOutPct > 0) {
+                dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                swapAmountResult.nValue -= dexfeeOutAmount.nValue;
             }
 
             // If we're just testing, don't do any balance transfers.
