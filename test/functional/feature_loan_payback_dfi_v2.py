@@ -36,6 +36,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
         self.idDFI = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
+        self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
         self.nodes[0].utxostoaccount({self.account0: "2000000@" + self.symbolDFI})
 
 
