@@ -1,4 +1,3 @@
-#include "masternodes/masternodes.h"
 #include <masternodes/mn_rpc.h>
 
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
