@@ -1202,7 +1202,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     if(hasLoans) {
         try {
             array = metaObj["loans"].get_array();
-            for (uint i=0; i<array.size(); i++){
+            for (unsigned int i=0; i<array.size(); i++){
                 auto obj = array[i].get_obj();
                 auto tokenStr = trim_ws(obj["dToken"].getValStr());
 
