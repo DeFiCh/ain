@@ -2798,7 +2798,7 @@ public:
             amounts.Add({id, amount});
             if (id == DCT_ID{0})
             {
-                auto tokenDUSD = pcustomcsview->GetToken("DUSD");
+                auto tokenDUSD = mnview.GetToken("DUSD");
                 if (tokenDUSD)
                     loans[tokenDUSD->first] = amounts;
             }
