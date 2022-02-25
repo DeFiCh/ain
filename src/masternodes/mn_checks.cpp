@@ -2789,19 +2789,27 @@ public:
     }
 
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
-        auto tokenId = DCT_ID{0};
-        if (obj.amounts.balances.count(tokenId)) {
-            auto tokenDUSD = mnview.GetToken("DUSD");
-            if (!tokenDUSD)
-                return Res::Err("DUSD not found");
-            tokenId = tokenDUSD->first;
+        std::map<DCT_ID, CBalances> loans;
+        for (auto& balance: obj.amounts.balances) {
+            CBalances amounts;
+            auto id = balance.first;
+            auto amount = balance.second;
+
+            amounts.Add({id, amount});
+            if (id == DCT_ID{0})
+            {
+                auto tokenDUSD = pcustomcsview->GetToken("DUSD");
+                if (tokenDUSD)
+                    loans[tokenDUSD->first] = amounts;
+            }
+            else
+                loans[id] = amounts;
         }
         return (*this)(
             CLoanPaybackLoanV2Message{
                 obj.vaultId,
-                obj.from, {
-                    {tokenId, obj.amounts}
-                }
+                obj.from,
+                loans
             });
     }
 
@@ -2820,8 +2828,15 @@ public:
         if (!mnview.GetVaultCollaterals(obj.vaultId))
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
+        auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+        if (!loanAmounts)
+            return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+
         if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
+
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
@@ -2849,8 +2864,6 @@ public:
                     if (!allowDFIPayback || !dToken)
                         return Res::Err("Payback of %s loans with DFI not currently active", dToken->symbol);
 
-                    if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-                        return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
                     // Get DFI price in USD
                     const CTokenCurrencyPair dfiUsdPair{"DFI","USD"};
@@ -2890,7 +2903,7 @@ public:
                     }
                 }
                 else if (dTokenId != tokenId)
-                    return Res::Err("Loan token can be only payed back with same loan token or DFI!");
+                    return Res::Err("Loan token can only be paid back with same loan token or DFI!");
 
                 auto loanToken = mnview.GetLoanTokenByID(dTokenId);
                 if (!loanToken)
@@ -2931,7 +2944,7 @@ public:
                 if (!res)
                     return res;
 
-                if (subLoan < it->second)
+                if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
                 {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, dTokenId, height);
                     if (!newRate)
