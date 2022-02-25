@@ -311,6 +311,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
+    { "unsetgov", 0, "variables" },
+    { "unsetgov", 1, "inputs" },
+
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },

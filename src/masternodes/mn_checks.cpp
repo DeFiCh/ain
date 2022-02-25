@@ -56,6 +56,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
         case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
@@ -200,6 +201,9 @@ public:
         else
         if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
+        else
+        if constexpr (IsOneOf<T, CGovernanceUnsetMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
                                  CFutureSwapMessage>())
