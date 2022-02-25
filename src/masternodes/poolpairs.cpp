@@ -407,12 +407,6 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
-    // TODO: The whole block of the fork condition can be removed safely after FCH.
-    if (height < Params().GetConsensus().FortCanningHillHeight) {
-        if (in.nValue <= 0)
-            return Res::Err("Input amount should be positive!");
-    }
-
     if (!status)
         return Res::Err("Pool trading is turned off!");
 
@@ -444,7 +438,7 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     }
 
     CTokenAmount dexfeeInAmount{in.nTokenId, 0};
-    if (dexfeeInPct > 0 && height >= Params().GetConsensus().FortCanningHillHeight) {
+    if (dexfeeInPct > 0) {
         if (dexfeeInPct > COIN) {
             return Res::Err("Dex fee input percentage over 100%%");
         }
@@ -726,9 +720,6 @@ void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript
 }
 
 Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
-    if (!HasPoolPair(poolId)) {
-        return Res::Err("No such pool pair");
-    }
     if (feePct < 0 || feePct > COIN) {
         return Res::Err("Token dex fee should be in percentage");
     }
@@ -736,10 +727,16 @@ Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
     return Res::Ok();
 }
 
-CAmount CPoolPairView::GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const {
+CAmount CPoolPairView::GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const {
     uint32_t feePct;
-    if (ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)) {
-        return feePct;
-    }
-    return 0;
+    return ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)
+        || ReadBy<ByTokenDexFeePct>(std::make_pair(tokenId, DCT_ID{~0u}), feePct)
+        ? feePct : 0;
+}
+
+CAmount CPoolPairView::GetDexFeeOutPct(DCT_ID poolId, DCT_ID tokenId) const {
+    uint32_t feePct;
+    return ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)
+        || ReadBy<ByTokenDexFeePct>(std::make_pair(DCT_ID{~0u}, tokenId), feePct)
+        ? feePct : 0;
 }

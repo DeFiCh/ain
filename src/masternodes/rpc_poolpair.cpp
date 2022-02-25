@@ -9,11 +9,19 @@ UniValue poolToJSON(CCustomCSView& view, DCT_ID const& id, CPoolPair const& pool
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        if (const auto dexFee = view.GetDexFeePct(id, pool.idTokenA)) {
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
+            poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
         }
-        if (const auto dexFee = view.GetDexFeePct(id, pool.idTokenB)) {
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
+            poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenB)) {
+            poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenA)) {
+            poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
         }
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
@@ -1065,7 +1073,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
-            auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
+            auto dexfeeInPct = mnview_dummy.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
                 auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
@@ -1074,11 +1082,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 }
 
                 auto resultAmount = tokenAmount;
-                if (targetHeight >= Params().GetConsensus().FortCanningHillHeight) {
-                    if (auto dexfeeOutPct = mnview_dummy.GetDexFeePct(poolPair->first, tokenAmount.nTokenId)) {
-                        auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
-                        resultAmount.nValue -= dexfeeOutAmount;
-                    }
+                auto dexfeeOutPct = mnview_dummy.GetDexFeeOutPct(poolPair->first, tokenAmount.nTokenId);
+                if (dexfeeOutPct > 0) {
+                    auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                    resultAmount.nValue -= dexfeeOutAmount;
                 }
 
                 return Res::Ok(resultAmount.ToString());

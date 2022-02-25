@@ -40,6 +40,8 @@ enum DFIP2201Keys : uint8_t  {
 enum TokenKeys : uint8_t  {
     PaybackDFI       = 'a',
     PaybackDFIFeePCT = 'b',
+    DexInFeePct      = 'c',
+    DexOutFeePct     = 'd',
 };
 
 enum PoolKeys : uint8_t {
@@ -119,88 +121,21 @@ public:
 
 private:
     // Defined allowed arguments
-    inline static const std::map<std::string, uint8_t> allowedVersions{
-        {"v0",          VersionTypes::v0},
-    };
-
-    inline static const std::map<std::string, uint8_t> allowedTypes{
-        {"params",      AttributeTypes::Param},
-        {"poolpairs",   AttributeTypes::Poolpairs},
-        {"token",       AttributeTypes::Token},
-    };
-
-    inline static const std::map<std::string, uint8_t> allowedParamIDs{
-        {"dfip2201",         ParamIDs::DFIP2201}
-    };
-
-    inline static const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
-        {
-            AttributeTypes::Token, {
-                {"payback_dfi",         TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
-            }
-        },
-        {
-            AttributeTypes::Poolpairs, {
-                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
-                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
-            }
-        },
-        {
-            AttributeTypes::Param, {
-                {"active",              DFIP2201Keys::Active},
-                {"minswap",             DFIP2201Keys::MinSwap},
-                {"premium",             DFIP2201Keys::Premium},
-            }
-        },
-    };
+    static const std::map<std::string, uint8_t>& allowedVersions();
+    static const std::map<std::string, uint8_t>& allowedTypes();
+    static const std::map<std::string, uint8_t>& allowedParamIDs();
+    static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
+    static const std::map<uint8_t, std::map<uint8_t,
+            std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
     // For formatting in export
-    inline static const std::map<uint8_t, std::string> displayVersions{
-        {VersionTypes::v0,          "v0"},
-    };
-
-    inline static const std::map<uint8_t, std::string> displayTypes{
-        {AttributeTypes::Live,      "live"},
-        {AttributeTypes::Param,     "params"},
-        {AttributeTypes::Poolpairs, "poolpairs"},
-        {AttributeTypes::Token,     "token"},
-    };
-
-    inline static const std::map<uint8_t, std::string> displayParamsIDs{
-        {ParamIDs::DFIP2201,       "dfip2201"},
-        {ParamIDs::Economy,        "economy"},
-    };
-
-    inline static const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
-        {
-            AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,       "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
-            }
-        },
-        {
-            AttributeTypes::Poolpairs, {
-                {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
-                {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
-            }
-        },
-        {
-            AttributeTypes::Param, {
-                {DFIP2201Keys::Active,       "active"},
-                {DFIP2201Keys::Premium,      "premium"},
-                {DFIP2201Keys::MinSwap,      "minswap"},
-            }
-        },
-        {
-            AttributeTypes::Live, {
-                {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-            }
-        },
-    };
+    static const std::map<uint8_t, std::string>& displayVersions();
+    static const std::map<uint8_t, std::string>& displayTypes();
+    static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable = {}) const;
+                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
