@@ -59,4 +59,9 @@ struct CachableAmount
     }
 };
 
+struct CScriptHash
+{
+    uint32_t operator()(const CScript& script) const;
+};
+
 #endif // DEFI_WALLET_ISMINE_H
