@@ -230,10 +230,10 @@ Res CTokensView::AddMintedTokens(DCT_ID const &id, CAmount const & amount)
     }
 
     auto resMinted = SafeAdd(tokenImpl->minted, amount);
-    if (!resMinted.ok) {
+    if (!resMinted) {
         return Res::Err("overflow when adding to minted");
     }
-    tokenImpl->minted = *resMinted.val;
+    tokenImpl->minted = resMinted;
 
     WriteBy<ID>(id, *tokenImpl);
     return Res::Ok();

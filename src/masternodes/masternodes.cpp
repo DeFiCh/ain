@@ -967,12 +967,11 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 
-        auto prevLoans = result.totalLoans;
-        result.totalLoans += *amountInCurrency.val;
-
-        if (prevLoans > result.totalLoans)
+        auto totalLoans = SafeAdd<uint64_t>(result.totalLoans, *amountInCurrency);
+        if (!totalLoans)
             return Res::Err("Exceeded maximum loans");
 
+        result.totalLoans = totalLoans;
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
     return Res::Ok();
@@ -993,14 +992,13 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 
-        auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
+        auto amountFactor = MultiplyAmounts(token->factor, amountInCurrency);
 
-        auto prevCollaterals = result.totalCollaterals;
-        result.totalCollaterals += amountFactor;
-
-        if (prevCollaterals > result.totalCollaterals)
+        auto totalCollaterals = SafeAdd<uint64_t>(result.totalCollaterals, amountFactor);
+        if (!totalCollaterals)
             return Res::Err("Exceeded maximum collateral");
 
+        result.totalCollaterals = totalCollaterals;
         result.collaterals.push_back({tokenId, amountInCurrency});
     }
     return Res::Ok();
