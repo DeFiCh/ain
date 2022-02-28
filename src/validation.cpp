@@ -3749,12 +3749,10 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         return;
     }
 
-    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
-        auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
-        if (balance.nValue > 0) {
-            cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
-            cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
-        }
+    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    if (balance.nValue > 0) {
+        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
     }
 
     std::set<uint256> activeMasternodes;
