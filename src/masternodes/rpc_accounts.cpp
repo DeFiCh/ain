@@ -1064,7 +1064,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::set<CScript> rewardAccounts;
     std::queue<CRewardHistory> rewardsHistory;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue const & value) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> lazy) -> bool {
 
         if (startBlock > key.blockHeight) {
             return false;
@@ -1082,6 +1082,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!accountRecord && noRewards) {
             return true;
         }
+
+        auto& value = lazy.get();
 
         if (!noRewards) {
             auto& owner = *(rewardAccounts.insert(key.owner).first);
@@ -1459,7 +1461,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     std::set<CScript> rewardAccounts;
     std::queue<CRewardHistory> rewardsHistory;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue const & value) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> lazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
@@ -1467,6 +1469,8 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
             return true;
         }
+
+        auto& value = lazy.get();
 
         if (!noRewards) {
             auto& owner = *(rewardAccounts.insert(key.owner).first);

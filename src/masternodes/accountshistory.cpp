@@ -59,7 +59,7 @@ void CAccountsHistoryView::CreateMultiIndexIfNeeded()
     LogPrint(BCLog::BENCH, "    - Multi index took: %dms\n", GetTimeMillis() - startTime);
 }
 
-void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, AccountHistoryValue const &)> callback,
+void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback,
                                                  CScript const & owner, uint32_t height, uint32_t txn)
 {
     if (!owner.empty()) {
@@ -67,11 +67,13 @@ void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHisto
         return;
     }
 
-    ForEach<ByAccountHistoryKeyNew, AccountHistoryKeyNew, char>([&](AccountHistoryKeyNew const & newKey, char) {
+    ForEach<ByAccountHistoryKeyNew, AccountHistoryKeyNew, char>([&](AccountHistoryKeyNew const & newKey, CLazySerialize<char>) {
         auto key = Convert(newKey);
-        auto value = ReadAccountHistory(key);
-        assert(value);
-        return callback(key, *value);
+        return callback(key, CLazySerialize<AccountHistoryValue>{[&]() {
+            auto value = ReadAccountHistory(key);
+            assert(value);
+            return *value;
+        }});
     }, {height, owner, txn});
 }
 

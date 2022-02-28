@@ -199,11 +199,19 @@ private:
 template<typename T>
 class CLazySerialize {
     std::optional<T> value;
-    CStorageKVIterator& it;
+    std::function<T()> lazy;
 
 public:
-    CLazySerialize(const CLazySerialize&) = default;
-    explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
+    CLazySerialize(CLazySerialize&&) = default;
+    CLazySerialize(const CLazySerialize&) = delete;
+    explicit CLazySerialize(CStorageKVIterator& it) {
+        lazy = [&]() {
+            T value{};
+            BytesToDbType(it.Value(), value);
+            return value;
+        };
+    }
+    explicit CLazySerialize(std::function<T()> func) : lazy(func) {}
 
     operator T() & {
         return get();
@@ -213,10 +221,7 @@ public:
         return std::move(*value);
     }
     const T& get() {
-        if (!value) {
-            value = T{};
-            BytesToDbType(it.Value(), *value);
-        }
+        !value && (value = lazy());
         return *value;
     }
 };

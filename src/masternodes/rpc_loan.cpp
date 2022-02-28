@@ -1252,7 +1252,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     bool useNextPrice = false, requireLivePrice = true;
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
 
-    view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
+    view.ForEachVault([&](const CVaultId& vaultId, CLazySerialize<CVaultData>) {
         LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
         auto collaterals = view.GetVaultCollaterals(vaultId);
         if (!collaterals)
@@ -1267,7 +1267,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         return true;
     });
 
-    view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+    view.ForEachVaultAuction([&](const CVaultId&, CLazySerialize<CAuctionData>) {
         totalAuctions++;
         return true;
     }, height);

@@ -55,13 +55,17 @@ Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVau
     return StoreVault(vaultId, *vault);
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start, const CScript& ownerAddress)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, CLazySerialize<CVaultData>)> callback, const CVaultId& start, const CScript& ownerAddress)
 {
     if (ownerAddress.empty()) {
         ForEach<VaultKey, CVaultId, CVaultData>(callback, start);
     } else {
-        ForEach<OwnerVaultKey, std::pair<CScript, CVaultId>, char>([&](const std::pair<CScript, CVaultId>& key, const char) {
-            return callback(key.second, *GetVault(key.second));
+        ForEach<OwnerVaultKey, std::pair<CScript, CVaultId>, char>([&](const std::pair<CScript, CVaultId>& key, CLazySerialize<char>) {
+            return callback(key.second, CLazySerialize<CVaultData>{[&]() {
+                auto vault = GetVault(key.second);
+                assert(vault);
+                return *vault;
+            }});
         }, std::make_pair(ownerAddress, start));
     }
 }
@@ -157,11 +161,14 @@ std::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const CVaultId& vaultId
     return ReadBy<AuctionBatchKey, CAuctionBatch>(std::make_pair(vaultId, id));
 }
 
-void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId)
+void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, CLazySerialize<CAuctionData>)> callback, uint32_t height, const CVaultId& vaultId)
 {
-    ForEach<AuctionHeightKey, CAuctionKey, CAuctionData>([&](const CAuctionKey& auction, CAuctionData data) {
-        data.liquidationHeight = auction.height;
-        return callback(auction.vaultId, data);
+    ForEach<AuctionHeightKey, CAuctionKey, CAuctionData>([&](const CAuctionKey& auction, CLazySerialize<CAuctionData> lazy) {
+        return callback(auction.vaultId, CLazySerialize<CAuctionData>{[&]() mutable {
+            auto data = lazy.get();
+            data.liquidationHeight = auction.height;
+            return data;
+        }});
     }, CAuctionKey{vaultId, height});
 }
 
