@@ -75,7 +75,6 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         # list {"maxBlockHeight":103, "txn":1}, should list without blockheight = 103, txn=2. i.e without MintToken
         results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":1})
-        #Note(surangap): the results here has 2 extra send receive entries with different txids. not sure where they come from.
         for txs in results:
             self.log.info("test 1: block %d, txn is %d", txs['blockHeight'], txs['txn'])
             assert_equal(txs['owner'], collateral_a)
