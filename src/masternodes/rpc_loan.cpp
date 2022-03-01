@@ -1288,7 +1288,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     });
 
     pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
-        totalAuctions++;
+        if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
+            totalAuctions += data->batchCount;
+        } else {
+            LogPrintf("Warning: Vault in liquidation, but no auctions found\n");
+        }
         return true;
     }, height);
 
