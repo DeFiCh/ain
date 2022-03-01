@@ -94,7 +94,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Unsupported version");
     }
 
-    if (keys.size() != 4 || keys[1].empty() || keys[2].empty() || keys[3].empty()) {
+    if (keys.size() < 4 || keys[1].empty() || keys[2].empty() || keys[3].empty()) {
         return Res::Err("Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
     }
 
@@ -135,6 +135,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     UniValue univalue;
     auto typeKey = itype->second;
 
+    uint32_t typeKeyId = 0;
+
     CAttributeValue attribValue;
 
     if (type == AttributeTypes::Token) {
@@ -149,6 +151,28 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 return std::move(res);
             }
             attribValue = *res.val;
+        } else if (typeKey == TokenKeys::LoanPayback
+               ||  typeKey == TokenKeys::LoanPaybackFeePCT) {
+            if (keys.size() != 5 || keys[4].empty()) {
+                return Res::Err("Exact 5 keys are required {%d}", keys.size());
+            }
+            auto id = VerifyInt32(keys[4]);
+            if (!id) {
+                return std::move(id);
+            }
+            typeKeyId = *id.val;
+            if (typeKey == TokenKeys::LoanPayback) {
+                if (value != "true" && value != "false") {
+                    return Res::Err("Payback token value must be either \"true\" or \"false\"");
+                }
+                attribValue = value == "true";
+            } else {
+                auto res = VerifyPct(value);
+                if (!res) {
+                    return std::move(res);
+                }
+                attribValue = *res.val;
+            }
         } else {
             return Res::Err("Unrecognised key");
         }
@@ -191,7 +215,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     }
 
     if (applyVariable) {
-        return applyVariable(CDataStructureV0{type, typeId, typeKey}, attribValue);
+        return applyVariable(CDataStructureV0{type, typeId, typeKey, typeKeyId}, attribValue);
     }
     return Res::Ok();
 }
@@ -241,6 +265,10 @@ UniValue ATTRIBUTES::Export() const {
                                   id,
                                   displayKeys.at(attrV0->type).at(attrV0->key));
 
+            if (attrV0->IsExtendedSize()) {
+                key = KeyBuilder(key, attrV0->keyId);
+            }
+
             if (auto bool_val = boost::get<const bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
@@ -248,6 +276,11 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, KeyBuilder(uvalue.get_real()));
             } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
+            } else if (auto paybacks = boost::get<const CTokenPayback>(&attribute.second)) {
+                UniValue result(UniValue::VOBJ);
+                result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
+                result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
+                ret.pushKV(key, result);
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -273,6 +306,19 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     uint32_t tokenId = attrV0->typeId;
                     if (!view.GetLoanTokenByID(DCT_ID{tokenId})) {
                         return Res::Err("No such loan token (%d)", tokenId);
+                    }
+                } else if (attrV0->key == TokenKeys::LoanPayback
+                       ||  attrV0->key == TokenKeys::LoanPaybackFeePCT) {
+                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                        return Res::Err("Cannot be set before FortCanningRoad");
+                    }
+                    uint32_t loanTokenId = attrV0->typeId;
+                    if (!view.GetLoanTokenByID(DCT_ID{loanTokenId})) {
+                        return Res::Err("No such loan token (%d)", loanTokenId);
+                    }
+                    uint32_t tokenId = attrV0->keyId;
+                    if (!view.GetToken(DCT_ID{tokenId})) {
+                        return Res::Err("No such token (%d)", tokenId);
                     }
                 } else {
                     return Res::Err("Unsupported key");

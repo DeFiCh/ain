@@ -161,7 +161,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Payback of DUSD loans with DFI not currently active" in errorString)
+        assert("Payback of loan via DFI token is not currently active" in errorString)
 
     def setgov_attribute_to_false_and_payback(self):
         assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: params, poolpairs, token,',
@@ -172,7 +172,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of DUSD loans with DFI not currently active", self.nodes[0].paybackloan, {
+        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
             'vaultId': self.vaultId,
             'from': self.account0,
             'amounts': "1@DFI"
@@ -301,7 +301,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': "10@DFI"
         })
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of TSLA loans with DFI not currently active", self.nodes[0].paybackloan, {
+        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
             'vaultId': self.vaultId2,
             'from': self.account0,
             'loans': [{

@@ -27,6 +27,7 @@ enum ParamIDs : uint8_t  {
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
+    PaybackTokens    = 'b',
 };
 
 enum DFIP2201Keys : uint8_t  {
@@ -36,8 +37,10 @@ enum DFIP2201Keys : uint8_t  {
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI       = 'a',
-    PaybackDFIFeePCT = 'b',
+    PaybackDFI          = 'a',
+    PaybackDFIFeePCT    = 'b',
+    LoanPayback         = 'c',
+    LoanPaybackFeePCT   = 'd',
 };
 
 enum PoolKeys : uint8_t {
@@ -49,6 +52,7 @@ struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
     uint8_t key;
+    uint32_t keyId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -57,10 +61,21 @@ struct CDataStructureV0 {
         READWRITE(type);
         READWRITE(typeId);
         READWRITE(key);
+        if (IsExtendedSize()) {
+            READWRITE(keyId);
+        } else {
+            keyId = 0;
+        }
+    }
+
+    bool IsExtendedSize() const {
+        return type == AttributeTypes::Token
+            && (key == TokenKeys::LoanPayback
+            ||  key == TokenKeys::LoanPaybackFeePCT);
     }
 
     bool operator<(const CDataStructureV0& o) const {
-        return std::tie(type, typeId, key) < std::tie(o.type, o.typeId, o.key);
+        return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
     }
 };
 
@@ -74,8 +89,21 @@ struct CDataStructureV1 {
      bool operator<(const CDataStructureV1& o) const { return false; }
 };
 
+struct CTokenPayback {
+    CBalances tokensFee;
+    CBalances tokensPayback;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokensFee);
+        READWRITE(tokensPayback);
+    }
+};
+
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -136,6 +164,8 @@ private:
             AttributeTypes::Token, {
                 {"payback_dfi",         TokenKeys::PaybackDFI},
                 {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
+                {"loan_payback",        TokenKeys::LoanPayback},
+                {"loan_payback_fee_pct",TokenKeys::LoanPaybackFeePCT},
             }
         },
         {
@@ -175,6 +205,8 @@ private:
             AttributeTypes::Token, {
                 {TokenKeys::PaybackDFI,       "payback_dfi"},
                 {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
+                {TokenKeys::LoanPayback,      "loan_payback"},
+                {TokenKeys::LoanPaybackFeePCT,"loan_payback_fee_pct"},
             }
         },
         {
@@ -193,6 +225,7 @@ private:
         {
             AttributeTypes::Live, {
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
+                {EconomyKeys::PaybackTokens,     "payback_tokens"},
             }
         },
     };
