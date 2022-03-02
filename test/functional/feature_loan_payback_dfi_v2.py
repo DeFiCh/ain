@@ -387,6 +387,9 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        vaultBefore = self.nodes[0].getvault(self.vaultId2)
+        [amountBefore, _] = vaultBefore['loanAmounts'][1].split('@')
+
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId2,
             'from': self.account0,
@@ -397,11 +400,20 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        vaultAfter = self.nodes[0].getvault(self.vaultId2)
+        [amountAfter, _] = vaultAfter['loanAmounts'][1].split('@')
+        [interestAfter, _] = vaultAfter['interestAmounts'][1].split('@')
+        assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - Decimal('9.5')))
+
         [balanceDFIAfter, _] = self.nodes[0].getaccount(self.account0)[0].split('@')
         assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('1'))
 
     def payback_TSLA_and_dUSD_with_1_dfi(self):
         [balanceDFIBefore, _] = self.nodes[0].getaccount(self.account0)[0].split('@')
+        vaultBefore = self.nodes[0].getvault(self.vaultId2)
+        [amountTSLABefore, _] = vaultBefore['loanAmounts'][0].split('@')
+        [amountDUSDBefore, _] = vaultBefore['loanAmounts'][1].split('@')
+
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId2,
             'from': self.account0,
@@ -417,6 +429,14 @@ class PaybackDFILoanTest (DefiTestFramework):
             ]
         })
         self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(self.vaultId2)
+        [amountTSLAAfter, _] = vaultAfter['loanAmounts'][0].split('@')
+        [interestTSLAAfter, _] = vaultAfter['interestAmounts'][0].split('@')
+        [amountDUSDAfter, _] = vaultAfter['loanAmounts'][1].split('@')
+        [interestDUSDAfter, _] = vaultAfter['interestAmounts'][1].split('@')
+        assert_equal(Decimal(amountTSLAAfter) - Decimal(interestTSLAAfter), (Decimal(amountTSLABefore) - Decimal('0.99')))
+        assert_equal(Decimal(amountDUSDAfter) - Decimal(interestDUSDAfter), (Decimal(amountDUSDBefore) - Decimal('9.5')))
 
         [balanceDFIAfter, _] = self.nodes[0].getaccount(self.account0)[0].split('@')
         assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('2'))
@@ -447,7 +467,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             'from': self.account0,
             'loans': [{
                 'dToken': self.iddUSD,
-                'amounts': "8.53684423@DFI"
+                'amounts': "10@DFI"
             }]
         })
         self.nodes[0].generate(1)
@@ -472,6 +492,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
         [balanceBTCBefore, _] = self.nodes[0].getaccount(self.account0)[1].split('@')
+        vaultBefore = self.nodes[0].getvault(self.vaultId3)
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
 
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId3,
@@ -483,8 +505,43 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        vaultAfter = self.nodes[0].getvault(self.vaultId3)
+        [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
+        [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
+        assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - Decimal('7.5')))
+
         [balanceBTCAfter, _] = self.nodes[0].getaccount(self.account0)[1].split('@')
         assert_equal(Decimal(balanceBTCBefore) - Decimal(balanceBTCAfter), Decimal('10'))
+
+    def payback_dUSD_with_dUSD(self):
+        self.nodes[0].takeloan({
+            'vaultId': self.vaultId2,
+            'amounts': "100@" + self.symboldUSD
+        })
+        self.nodes[0].generate(1)
+
+        [balanceDUSDBefore, _] = self.nodes[0].getaccount(self.account0)[3].split('@')
+        vaultBefore = self.nodes[0].getvault(self.vaultId2)
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+
+        self.nodes[0].paybackloan({
+            'vaultId': self.vaultId2,
+            'from': self.account0,
+            'loans': [{
+                'dToken': self.iddUSD,
+                'amounts': "100@DUSD"
+            }]
+        })
+        self.nodes[0].generate(1)
+
+
+        vaultAfter = self.nodes[0].getvault(self.vaultId2)
+        [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
+        [interestAfter, _] = vaultAfter['interestAmounts'][0].split('@')
+        assert_equal(Decimal(amountAfter) - Decimal(interestAfter), (Decimal(amountBefore) - Decimal('100')))
+
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(self.account0)[3].split('@')
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('100'))
 
     def run_test(self):
         self.setup()
@@ -508,6 +565,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         self.setgov_enable_dTSLA_to_dBTC_payback()
         self.payback_TSLA_with_1_dBTC()
+        self.payback_dUSD_with_dUSD()
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()

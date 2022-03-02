@@ -2835,7 +2835,7 @@ public:
         if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
 
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+        if (static_cast<int>(height) < consensus.FortCanningRoadHeight && !IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
         auto shouldSetVariable = false;
@@ -2858,33 +2858,37 @@ public:
                 auto paybackAmount = kv.second;
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
+                auto paybackToken = mnview.GetToken(paybackTokenId);
+                if (!paybackToken)
+                    return Res::Err("Token with id (%s) does not exists", paybackTokenId.ToString());
+
                 if (loanTokenId != paybackTokenId)
                 {
+                    if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+                        return Res::Err("Cannot payback loan while any of the asset's price is invalid");
+
                     if (!attributes)
                         return Res::Err("Payback is not currently active");
 
-                    auto paybackToken = mnview.GetToken(paybackTokenId);
-                    if (!paybackToken)
-                        return Res::Err("Token with id (%s) does not exists", paybackTokenId.ToString());
-
                     // search in token to token
-                    CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
-                    auto allowTokenPayback = attributes->GetValue(activeKey, false);
-                    if (!allowTokenPayback) // fallback to DFI payback
+                    if (paybackTokenId != DCT_ID{0})
+                    {
+                        CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
+                        if (!attributes->GetValue(activeKey, false))
+                            return Res::Err("Payback of loan via %s token is not currently active", paybackToken->symbol);
+
+                        CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
+                        penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
+                    }
+                    else
                     {
                         CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFI};
-                        auto allowDFIPayback = attributes->GetValue(activeKey, false);
-
-                        if (paybackTokenId != DCT_ID{0} || !allowDFIPayback)
+                        if (!attributes->GetValue(activeKey, false))
                             return Res::Err("Payback of loan via %s token is not currently active", paybackToken->symbol);
 
                         CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFIFeePCT};
                         penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
-                    }
-                    else
-                    {
-                        CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
-                        penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
+
                     }
 
                     // Get token price in USD
@@ -2959,7 +2963,7 @@ public:
 
                 CalculateOwnerRewards(obj.from);
 
-                if (paybackTokenId != DCT_ID{0})
+                if (paybackTokenId == loanTokenId)
                 {
                     res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
                     if (!res)
@@ -2983,7 +2987,7 @@ public:
                     CAmount subInToken;
                     auto subAmount = subLoan + subInterest;
 
-                    // if DFI payback overpay loan and interest amount
+                    // if payback overpay loan and interest amount
                     if (paybackAmount > subAmount)
                     {
                         if (loanToken->symbol == "DUSD")
@@ -3029,7 +3033,7 @@ public:
 
                     shouldSetVariable = true;
 
-                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInToken, height);
+                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
                     res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
                 }
 
