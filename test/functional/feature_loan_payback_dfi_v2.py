@@ -94,6 +94,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].minttokens("1000000000@DUSD")
+        self.nodes[0].minttokens("1000000000@BTC")
+        self.nodes[0].minttokens("1000000000@TSLA")
         self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
 
@@ -109,9 +111,33 @@ class PaybackDFILoanTest (DefiTestFramework):
             "pairSymbol": "DUSD-DFI",
         })
         self.nodes[0].generate(1)
+        self.nodes[0].createpoolpair({
+            "tokenA": self.iddUSD,
+            "tokenB": self.idBTC,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "BTC-DUSD",
+        })
+        self.nodes[0].generate(1)
+        self.nodes[0].createpoolpair({
+            "tokenA": self.iddUSD,
+            "tokenB": self.idTSLA,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "TSLA-DUSD",
+        })
+        self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity(
-            {self.account0: ["30@" + self.symbolDFI, "300@" + self.symboldUSD]}, self.account0)
+            {self.account0: ["1000@" + self.symbolDFI, "1000@" + self.symboldUSD]}, self.account0)
+        self.nodes[0].generate(1)
+        self.nodes[0].addpoolliquidity(
+            {self.account0: ["1000@" + self.symbolBTC, "1000@" + self.symboldUSD]}, self.account0)
+        self.nodes[0].generate(1)
+        self.nodes[0].addpoolliquidity(
+            {self.account0: ["1000@" + self.symbolTSLA, "1000@" + self.symboldUSD]}, self.account0)
         self.nodes[0].generate(1)
 
     def setup_loanschemes(self):
@@ -317,6 +343,19 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idTSLA + '/payback_dfi_fee_pct':'0.01'}})
         self.nodes[0].generate(1)
 
+    def setgov_enable_dTSLA_to_dBTC_payback(self):
+        self.nodes[0].setgov({
+            "ATTRIBUTES":{
+                'v0/token/'+self.idTSLA+'/loan_payback/'+self.idBTC: 'true',
+                'v0/token/'+self.idTSLA+'/loan_payback_fee_pct/'+self.idBTC: '0.25'
+            }
+        })
+        self.nodes[0].generate(1)
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/token/'+self.idTSLA+'/loan_payback/'+self.idBTC], 'true')
+        assert_equal(attributes['v0/token/'+self.idTSLA+'/loan_payback_fee_pct/'+self.idBTC], '0.25')
+
+
     def payback_TSLA_with_1_dfi(self):
         vaultBefore = self.nodes[0].getvault(self.vaultId2)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
@@ -420,6 +459,33 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(len(vaultAfter['loanAmounts']), 0)
         assert_equal(len(vaultAfter['interestAmounts']), 0)
 
+    def payback_TSLA_with_1_dBTC(self):
+        self.vaultId3 = self.nodes[0].createvault(self.account0, 'LOAN150')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vaultId3, self.account0, "100@DFI")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+            'vaultId': self.vaultId3,
+            'amounts': "10@" + self.symbolTSLA
+        })
+        self.nodes[0].generate(1)
+        [balanceBTCBefore, _] = self.nodes[0].getaccount(self.account0)[1].split('@')
+
+        self.nodes[0].paybackloan({
+            'vaultId': self.vaultId3,
+            'from': self.account0,
+            'loans': [{
+                'dToken': self.idTSLA,
+                'amounts': "10@BTC"
+            }]
+        })
+        self.nodes[0].generate(1)
+
+        [balanceBTCAfter, _] = self.nodes[0].getaccount(self.account0)[1].split('@')
+        assert_equal(Decimal(balanceBTCBefore) - Decimal(balanceBTCAfter), Decimal('10'))
+
     def run_test(self):
         self.setup()
 
@@ -439,6 +505,9 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.payback_TSLA_and_dUSD_with_1_dfi()
         self.payback_TSLA_with_10_dfi()
         self.payback_dUSD_with_dfi()
+
+        self.setgov_enable_dTSLA_to_dBTC_payback()
+        self.payback_TSLA_with_1_dBTC()
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()
