@@ -110,8 +110,7 @@ public:
     void operator()(const CMintTokensMessage& obj) const {
         for (auto const & kv : obj.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
                     rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
                 }
             }
@@ -413,8 +412,7 @@ public:
             rpcInfo.pushKV("to", ScriptToString(obj.to));
         for (auto const & kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
                     rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
                 }
             }
@@ -426,8 +424,7 @@ public:
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         for (auto const & kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
                     rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
                 }
             }

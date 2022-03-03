@@ -71,9 +71,9 @@ std::optional<CTokensView::CTokenImpl> CTokensView::GetTokenGuessId(const std::s
         }
     } else {
         auto pair = GetToken(key);
-        if (pair) {
+        if (pair && pair->second) {
             id = pair->first;
-            return std::move(pair->second);
+            return pair->second;
         }
     }
     return {};
@@ -222,39 +222,37 @@ Res CTokensView::BayfrontFlagsCleanup()
     return Res::Ok();
 }
 
-Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::AddMintedTokens(DCT_ID const &id, CAmount const & amount)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    auto tokenImpl = GetToken(id);
+    if (!tokenImpl) {
+        return Res::Err("token with id %d does not exist!", id.v);
     }
-    CTokenImpl & tokenImpl = pair->second;
 
-    auto resMinted = SafeAdd(tokenImpl.minted, amount);
+    auto resMinted = SafeAdd(tokenImpl->minted, amount);
     if (!resMinted.ok) {
         return Res::Err("overflow when adding to minted");
     }
-    tokenImpl.minted = *resMinted.val;
+    tokenImpl->minted = *resMinted.val;
 
-    WriteBy<ID>(pair->first, tokenImpl);
+    WriteBy<ID>(id, *tokenImpl);
     return Res::Ok();
 }
 
-Res CTokensView::SubMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::SubMintedTokens(DCT_ID const &id, CAmount const & amount)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    auto tokenImpl = GetToken(id);
+    if (!tokenImpl) {
+        return Res::Err("token with id %d does not exist!", id.v);
     }
-    CTokenImpl & tokenImpl = pair->second;
 
-    auto resMinted = tokenImpl.minted - amount;
+    auto resMinted = tokenImpl->minted - amount;
     if (resMinted < 0) {
         return Res::Err("not enough tokens exist to subtract this amount");
     }
-    tokenImpl.minted = resMinted;
+    tokenImpl->minted = resMinted;
 
-    WriteBy<ID>(pair->first, tokenImpl);
+    WriteBy<ID>(id, *tokenImpl);
     return Res::Ok();
 }
 

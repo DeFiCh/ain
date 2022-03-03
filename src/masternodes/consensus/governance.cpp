@@ -3,6 +3,8 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/consensus/governance.h>
+
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/gv.h>
 #include <masternodes/masternodes.h>
 
@@ -36,21 +38,21 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
             return Res::Err("'%s': variable does not registered", gov.first);
 
         auto var = gov.second;
-        auto res = var->Validate(mnview);
-        if (!res)
-            return Res::Err("%s: %s", var->GetName(), res.msg);
+        Res res{};
 
-        if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
-            // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
-            const auto diff = height % mnview.GetIntervalBlock();
-            if (diff != 0) {
-                // Store as pending change
-                storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff});
-                continue;
-            }
-        } else if (var->GetName() == "ATTRIBUTES") {
+        if (var->GetName() == "ATTRIBUTES") {
             // Add to existing ATTRIBUTES instead of overwriting.
             auto govVar = mnview.GetVariable(var->GetName());
+
+            if (!govVar) {
+                return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
+            }
+
+            if (auto attrs = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+                attrs->time = time;
+            } else {
+                return Res::Err("%s: %s", var->GetName(), "Failed to cast to ATTRIBUTES");
+            }
 
             // Validate as complete set. Check for future conflicts between key pairs.
             if (!(res = govVar->Import(var->Export()))
@@ -58,6 +60,22 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
 
             var = govVar;
+        } else {
+            // After GW, some ATTRIBUTES changes require the context of its map to validate,
+            // moving this Validate() call to else statement from before this conditional.
+            res = var->Validate(mnview);
+            if (!res)
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+
+            if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+                const auto diff = height % mnview.GetIntervalBlock();
+                if (diff != 0) {
+                    // Store as pending change
+                    storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff});
+                    continue;
+                }
+            }
         }
 
         if (!(res = var->Apply(mnview, height))

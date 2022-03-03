@@ -20,7 +20,7 @@ DCT_ID CreateToken(CCustomCSView &mnview, const std::string& symbol, const std::
 {
     CTokenImplementation token;
     token.flags = (uint8_t)CToken::TokenFlags::Default;
-    token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::DeprecatedLoanToken | (uint8_t)CToken::TokenFlags::DAT;
 
     token.creationTx = NextTx();
     token.symbol = symbol;

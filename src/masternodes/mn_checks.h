@@ -88,6 +88,18 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
 Res SwapToDFIOverUSD(CCustomCSView& mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
 
+inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {
+    // Allow hard coded DUSD/USD
+    if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
+        return true;
+    }
+    bool found = false;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
+    });
+    return found;
+}
+
 class CPoolSwap {
     const CPoolSwapMessage& obj;
     uint32_t height;

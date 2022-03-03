@@ -14,12 +14,14 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
@@ -2194,6 +2196,25 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     return batches;
 }
 
+bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
+    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
+        if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+            var->time = pindex.nTime;
+
+            UniValue obj(UniValue::VOBJ);
+            for (const auto& [key, value] : attrs) {
+                obj.pushKV(key, value);
+            }
+
+            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2664,6 +2685,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // update governance variables
     ProcessGovEvents(pindex, cache, chainparams);
 
+    // Migrate loan and collateral tokens to Gov vars.
+    ProcessTokenToGovVar(pindex, cache, chainparams);
+
     mnview.AddUndo(cache, {}, pindex->nHeight);
     cache.Flush();
 
@@ -3040,7 +3064,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
@@ -3074,13 +3097,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto tokenValue = loan.second;
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
                 // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 // Putting this back in now for auction calculations.
                 loan.second += subInterest;
@@ -3175,9 +3196,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                if (auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
-                }
+                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
@@ -3280,6 +3299,71 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    // Migrate at +1 height so that GetLastHeight() in Gov var
+    // Validate() has a height equal to the GW fork.
+    if (pindex->nHeight != chainparams.GetConsensus().GreatWorldHeight + 1) {
+        return;
+    }
+
+    std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
+    std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
+
+    cache.ForEachLoanToken([&](const DCT_ID& key, const CLoanSetLoanToken& loanToken) {
+        loanTokens[key] = loanToken;
+        return true;
+    });
+
+    cache.ForEachLoanCollateralToken([&](const CollateralTokenKey& key, const uint256& collTokenTx) {
+        auto collToken = cache.GetLoanCollateralToken(collTokenTx);
+        if (collToken) {
+            collateralTokens.push_back(*collToken);
+        }
+        return true;
+    });
+
+    // Apply fixed_interval_price_id first
+    std::map<std::string, std::string> attrsFirst;
+    std::map<std::string, std::string> attrsSecond;
+
+    int loanCount = 0, collateralCount = 0;
+
+    try {
+        for (const auto& [id, token] : loanTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token),id.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+            ++loanCount;
+        }
+
+        for (const auto& token : collateralTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token), token.idToken.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+            ++collateralCount;
+        }
+
+        CCustomCSView govCache(cache);
+        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+            govCache.Flush();
+
+            // Erase old tokens afterwards to avoid invalid state during transition
+            for (const auto& item : loanTokens) {
+                cache.EraseLoanToken(item.first);
+            }
+
+            for (const auto& token : collateralTokens) {
+                cache.EraseLoanCollateralToken(token);
+            }
+        }
+    } catch(std::out_of_range&) {
+        LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
+    }
 }
 
 bool CChainState::FlushStateToDisk(

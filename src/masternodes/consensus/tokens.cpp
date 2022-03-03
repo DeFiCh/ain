@@ -34,9 +34,6 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage& obj) const {
 }
 
 Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage& obj) const {
-    if (static_cast<int>(height) >= consensus.BayfrontHeight)
-        return Res::Err("called post Bayfront height");
-
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair)
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
@@ -96,7 +93,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
     for (const auto& kv : obj.balances) {
         DCT_ID tokenId = kv.first;
 
-        auto token = mnview.GetToken(kv.first);
+        auto token = mnview.GetToken(tokenId);
         if (!token)
             return Res::Err("token %s does not exist!", tokenId.ToString());
 
@@ -106,7 +103,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
         if (!mintable)
             return std::move(mintable);
 
-        auto minted = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second);
+        auto minted = mnview.AddMintedTokens(tokenId, kv.second);
         if (!minted)
             return minted;
 

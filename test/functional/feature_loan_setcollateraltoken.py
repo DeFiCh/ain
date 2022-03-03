@@ -123,7 +123,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        collTokens = self.nodes[0].listcollateraltokens({'all': True})
+        collTokens = self.nodes[0].listcollateraltokens()
         assert_equal(len(collTokens), 2)
 
         collToken1 = [token for token in collTokens if token["tokenId"] == collTokenTx1][0]
@@ -138,7 +138,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        collTokens = self.nodes[0].listcollateraltokens({'all': True})
+        collTokens = self.nodes[0].listcollateraltokens()
         assert_equal(len(collTokens), 3)
 
         collToken2 = [token for token in collTokens if token["tokenId"] == collTokenTx2][0]
@@ -148,7 +148,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        collTokens = self.nodes[0].listcollateraltokens({'all': True})
+        collTokens = self.nodes[0].listcollateraltokens()
         assert_equal(len(collTokens), 3)
 
         collToken3 = [token for token in collTokens if token["tokenId"] == collTokenTx3][0]
@@ -189,8 +189,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         collTokens = self.nodes[0].listcollateraltokens()
-        assert_equal(len(collTokens), 2)
-        collTokens = self.nodes[0].listcollateraltokens({'all': True})
         assert_equal(len(collTokens), 4)
 
 if __name__ == '__main__':

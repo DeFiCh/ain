@@ -300,7 +300,7 @@ public:
 
     std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
     Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    Res UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
+    Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken);
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
@@ -308,6 +308,7 @@ public:
     std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res EraseLoanToken(const DCT_ID& id);
     void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
@@ -337,10 +338,12 @@ public:
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     std::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
-    void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
+
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };

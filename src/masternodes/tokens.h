@@ -33,7 +33,7 @@ public:
         DAT = 0x04,
         LPS = 0x08, // Liquidity Pool Share
         Finalized = 0x10, // locked forever
-        LoanToken = 0x20, // token created for loan
+        DeprecatedLoanToken = 0x20, // token created for loan
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -75,7 +75,7 @@ public:
     }
     inline bool IsLoanToken () const
     {
-        return flags & (uint8_t)TokenFlags::LoanToken;
+        return flags & (uint8_t)TokenFlags::DeprecatedLoanToken;
     }
     inline Res IsValidSymbol() const
     {
@@ -160,8 +160,6 @@ public:
     CTokenImplementation()
         : CToken()
         , minted(0)
-        , creationTx()
-        , destructionTx()
         , creationHeight(-1)
         , destructionHeight(-1)
     {}
@@ -200,8 +198,8 @@ public:
     Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
-    Res SubMintedTokens(uint256 const & tokenTx, CAmount const & amount);
+    Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);
+    Res SubMintedTokens(DCT_ID const & id, CAmount const & amount);
 
     // tags
     struct ID           { static constexpr uint8_t prefix() { return 'T'; } };

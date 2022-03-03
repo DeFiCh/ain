@@ -38,13 +38,12 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
     if (collToken.activateAfterBlock < height)
         return Res::Err("activateAfterBlock cannot be less than current height!");
 
-    if (!OraclePriceFeed(collToken.fixedIntervalPriceId))
+    if (!OraclePriceFeed(mnview, collToken.fixedIntervalPriceId))
         return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
 
     CFixedIntervalPrice fixedIntervalPrice;
     fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
 
-    LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
     auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
     if (!price)
         return Res::Err(price.msg);
@@ -52,7 +51,6 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
     fixedIntervalPrice.priceRecord[1] = price;
     fixedIntervalPrice.timestamp = time;
 
-    LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     if (!resSetFixedPrice)
         return Res::Err(resSetFixedPrice.msg);
@@ -81,7 +79,6 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     fixedIntervalPrice.priceRecord[1] = nextPrice;
     fixedIntervalPrice.timestamp = time;
 
-    LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     if (!resSetFixedPrice)
         return Res::Err(resSetFixedPrice.msg);
@@ -89,12 +86,12 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     if (!HasFoundationAuth())
         return Res::Err("tx not from foundation member!");
 
-    if (!OraclePriceFeed(loanToken.fixedIntervalPriceId))
+    if (!OraclePriceFeed(mnview, loanToken.fixedIntervalPriceId))
         return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
     CTokenImplementation token;
     token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
-    token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::DeprecatedLoanToken | (uint8_t)CToken::TokenFlags::DAT;
 
     token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
@@ -137,7 +134,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
         pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
     if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
-        if (!OraclePriceFeed(obj.fixedIntervalPriceId))
+        if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
 
         loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
@@ -350,7 +347,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
                 return Res::Err("Exceed maximum loans");
         }
 
-        res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+        res = mnview.AddMintedTokens(tokenId, kv.second);
         if (!res)
             return res;
 
@@ -475,7 +472,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
         CalculateOwnerRewards(obj.from);
 
         if (height < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
-            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
+            res = mnview.SubMintedTokens(tokenId, subLoan);
             if (!res)
                 return res;
 

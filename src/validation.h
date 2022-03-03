@@ -768,6 +768,8 @@ private:
     static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 
     static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+
+    static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
 };
 
 /** Mark a block as precious and reorganize.
