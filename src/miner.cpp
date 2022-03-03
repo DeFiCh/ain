@@ -173,7 +173,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
 
         if (createAnchorReward) {
-            CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+            CAnchorFinalizationMessage finMsg{confirms[0]};
 
             for (auto const &msg : confirms) {
                 finMsg.sigs.push_back(msg.signature);

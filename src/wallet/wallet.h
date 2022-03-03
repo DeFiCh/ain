@@ -396,9 +396,6 @@ public:
     }
 };
 
-//Get the marginal bytes of spending the specified output
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet, bool use_max_sig = false);
-
 /**
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
@@ -410,6 +407,7 @@ private:
 
   /** Constant used in hashBlock to indicate tx has been abandoned */
     static const uint256 ABANDON_HASH;
+    mutable std::unordered_map<unsigned int, bool> solvableVouts;
 
 public:
     /**
@@ -534,11 +532,13 @@ public:
     void SetTx(CTransactionRef arg)
     {
         tx = std::move(arg);
+        solvableVouts.clear();
     }
 
     //! make sure balances are recalculated
     void MarkDirty()
     {
+        solvableVouts.clear();
         m_amounts[DEBIT].Reset();
         m_amounts[CREDIT].Reset();
         m_amounts[IMMATURE_CREDIT].Reset();
@@ -564,10 +564,7 @@ public:
     TAmounts GetChange() const;
 
     // Get the marginal bytes if spending the specified output from this transaction
-    int GetSpendSize(unsigned int out, bool use_max_sig = false) const
-    {
-        return CalculateMaximumSignedInputSize(tx->vout[out], pwallet, use_max_sig);
-    }
+    int GetSpendSize(unsigned int out, bool use_max_sig = false) const;
 
     void GetAmounts(std::list<COutputEntry>& listReceived,
                     std::list<COutputEntry>& listSent, CAmount& nFee, const isminefilter& filter) const;
@@ -621,6 +618,7 @@ public:
     const uint256& GetHash() const { return tx->GetHash(); }
     bool IsCoinBase() const { return tx->IsCoinBase(); }
     bool IsImmatureCoinBase(interfaces::Chain::Lock& locked_chain) const;
+    bool IsSolvableOut(unsigned int out) const;
 };
 
 class COutput
@@ -859,6 +857,8 @@ private:
      */
     uint256 m_last_block_processed GUARDED_BY(cs_wallet);
 
+    mutable std::unordered_map<CScript, int, CScriptHash> maxInputSizeCache;
+
 public:
     /*
      * Main wallet lock.
@@ -967,7 +967,7 @@ public:
      * completion the coin set and corresponding actual target value is
      * assembled
      */
-    bool SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+    bool SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, const std::vector<OutputGroup>& groups,
         std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
 
     bool IsSpent(interfaces::Chain::Lock& locked_chain, const uint256& hash, unsigned int n) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -1354,6 +1354,9 @@ public:
 
     /** Implement lookup of key origin information through wallet key metadata. */
     bool GetKeyOrigin(const CKeyID& keyid, KeyOriginInfo& info) const override;
+
+    int CalculateMaximumSignedInputSize(const CTxOut& txout, bool use_max_sig = false) const;
+    int CalculateMaximumSignedInputSizeCached(const CTxOut& txout, bool use_max_sig = false) const;
 };
 
 /**

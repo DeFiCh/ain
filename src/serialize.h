@@ -484,9 +484,9 @@ public:
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        if (sizeof(I) == 2) {
+        if constexpr (sizeof(I) == 2) {
             ser_writedata16be(s, (uint16_t) m_val);
-        } else if (sizeof(I) == 4) {
+        } else if constexpr (sizeof(I) == 4) {
             ser_writedata32be(s, (uint32_t) m_val);
         }
     }
@@ -494,11 +494,33 @@ public:
     template<typename Stream>
     void Unserialize(Stream& s)
     {
-        if (sizeof(I) == 2) {
+        if constexpr (sizeof(I) == 2) {
             m_val = (uint16_t) ser_readdata16be(s);
-        } else if (sizeof(I) == 4) {
+        } else if constexpr (sizeof(I) == 4) {
             m_val = (uint32_t) ser_readdata32be(s);
         }
+    }
+};
+
+template<typename I>
+class BigEndianInv : public BigEndian<I>
+{
+public:
+    using BigEndian<I>::BigEndian;
+
+    template<typename Stream>
+    void Serialize(Stream& s) const
+    {
+        this->m_val = ~this->m_val;
+        BigEndian<I>::Serialize(s);
+        this->m_val = ~this->m_val;
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s)
+    {
+        BigEndian<I>::Unserialize(s);
+        this->m_val = ~this->m_val;
     }
 };
 
@@ -554,6 +576,9 @@ CVarInt<Mode, I> WrapVarInt(I& n) { return CVarInt<Mode, I>{n}; }
 
 template<typename I>
 BigEndian<I> WrapBigEndian(I& n) { return BigEndian<I>(n); }
+
+template<typename I>
+BigEndianInv<I> WrapBigEndianInv(I& n) { return BigEndianInv<I>(n); }
 
 /**
  * Forward declarations

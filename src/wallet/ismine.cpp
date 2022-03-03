@@ -194,13 +194,10 @@ isminetype IsMine(const CWallet& keystore, const CTxDestination& dest)
     return IsMine(keystore, script);
 }
 
-struct CScriptHash
+uint32_t CScriptHash::operator()(const CScript& script) const
 {
-    uint32_t operator()(const CScript & script) const
-    {
-        return MurmurHash3(0x1234, script.data(), script.size());
-    }
-};
+    return MurmurHash3(0x1234, script.data(), script.size());
+}
 
 struct CCacheInfo
 {
