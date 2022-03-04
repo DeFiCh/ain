@@ -12,7 +12,8 @@
 
 inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
     char const types[] = "IALOU";
-    if (memchr(types, ch, strlen(types)))
+    constexpr auto size = sizeof(types) - 1;
+    if (memchr(types, ch, size))
         return static_cast<CommunityAccountType>(ch);
     else
         return CommunityAccountType::None;

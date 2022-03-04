@@ -54,7 +54,7 @@ public:
     std::optional<AccountHistoryValue> ReadAccountHistory(AccountHistoryKey const & key) const;
     Res WriteAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
     Res EraseAccountHistory(AccountHistoryKey const & key);
-    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, AccountHistoryValue const &)> callback,
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback,
                                CScript const & owner = {}, uint32_t height = ~0u, uint32_t txn = ~0u);
 
     // tags

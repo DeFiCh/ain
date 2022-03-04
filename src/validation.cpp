@@ -1793,7 +1793,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // Make sure to initialize lastTxOut, otherwise it never finds the block and
         // ends up looping through uninitialized garbage value.
         uint32_t lastTxOut = 0;
-        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
+        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) -> bool
         {
             if (key.owner != Params().GetConsensus().burnAddress) {
                 return false;
