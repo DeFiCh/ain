@@ -194,11 +194,8 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     size_t off = 0, strLen = 0, len = 0;
-    uint64_t recvServices, fromServices, nonce;
-    UInt128 recvAddr, fromAddr;
-    uint16_t recvPort, fromPort;
     int r = 1;
-    
+
     if (85 > msgLen) {
         peer_log(peer, "malformed version message, length is %zu, should be >= 85", msgLen);
         r = 0;
@@ -210,20 +207,13 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
         off += sizeof(uint64_t);
         peer->timestamp = UInt64GetLE(&msg[off]);
         off += sizeof(uint64_t);
-        recvServices = UInt64GetLE(&msg[off]);
-        off += sizeof(uint64_t);
-        recvAddr = UInt128Get(&msg[off]);
-        off += sizeof(UInt128);
-        recvPort = UInt16GetBE(&msg[off]);
-        off += sizeof(uint16_t);
-        fromServices = UInt64GetLE(&msg[off]);
-        off += sizeof(uint64_t);
-        fromAddr = UInt128Get(&msg[off]);
-        off += sizeof(UInt128);
-        fromPort = UInt16GetBE(&msg[off]);
-        off += sizeof(uint16_t);
-        nonce = UInt64GetLE(&msg[off]);
-        off += sizeof(uint64_t);
+        off += sizeof(uint64_t); // recvServices
+        off += sizeof(UInt128);  // recvAddr
+        off += sizeof(uint16_t); // recvPort
+        off += sizeof(uint64_t); // fromServices
+        off += sizeof(UInt128);  // fromAddr
+        off += sizeof(uint16_t); // fromPort
+        off += sizeof(uint64_t); // nonce
         strLen = (size_t)BRVarInt(&msg[off], (off <= msgLen ? msgLen - off : 0), &len);
         off += len;
 
@@ -309,7 +299,7 @@ static int _BRPeerAcceptAddrMessage(BRPeer *peer, const uint8_t *msg, size_t msg
             if (! _BRPeerIsIPv4(&p)) continue; // ignore IPv6 for now
         
             // if address time is more than 10 min in the future or unknown, set to 5 days old
-            if (p.timestamp > now + 10*60 || p.timestamp == 0) p.timestamp = now - 5*24*60*60;
+            if (p.timestamp > static_cast<uint64_t>(now) + 10*60 || p.timestamp == 0) p.timestamp = now - 5*24*60*60;
             p.timestamp -= 2*60*60; // subtract two hours
             peers[peersCount++] = p; // add it to the list
         }
@@ -1498,7 +1488,7 @@ void BRPeerSendVersionMessage(BRPeer *peer)
     UInt64SetLE(&msg[off], ctx->nonce);
     off += sizeof(uint64_t);
     off += BRVarIntSet(&msg[off], (off <= sizeof(msg) ? sizeof(msg) - off : 0), userAgentLen);
-    strncpy((char *)&msg[off], USER_AGENT, userAgentLen); // user agent string
+    memcpy(&msg[off], USER_AGENT, userAgentLen); // user agent string
     off += userAgentLen;
     UInt32SetLE(&msg[off], 0); // last block received
     off += sizeof(uint32_t);

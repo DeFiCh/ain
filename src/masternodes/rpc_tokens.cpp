@@ -227,6 +227,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is the LPS token! Can't alter pool share's tokens!", tokenStr));
         }
 
+        LOCK(cs_main);
         const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
         if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -353,6 +354,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
         tokenObj.pushKV("destructionHeight", token.destructionHeight);
         if (!token.IsPoolShare()) {
+            LOCK(cs_main);
             const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
             tokenObj.pushKV("collateralAddress", ScriptToString(authCoin.out.scriptPubKey));
         } else {
@@ -669,6 +671,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     bool needFoundersAuth = false;
     if (txInputs.isNull() || txInputs.empty()) {
+        LOCK(cs_main); // needed for coins tip
         for (auto const & kv : minted.balances) {
             auto token = view.GetToken(kv.first);
             if (!token) {

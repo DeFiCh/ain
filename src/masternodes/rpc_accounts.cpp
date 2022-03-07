@@ -149,6 +149,7 @@ static void searchInWallet(CWallet const * pwallet,
     for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
         auto* pwtx = &(*it);
 
+        LockAssertion lock(cs_main); // for clang
         auto index = LookupBlockIndex(pwtx->hashBlock);
         if (!index || index->nHeight == 0) { // skip genesis block
             continue;
@@ -512,7 +513,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     }
 
     auto it = totalBalances.balances.lower_bound(start);
-    for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
+    for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
         std::string tokenIdStr = bal.nTokenId.ToString();
         if (symbol_lookup) {
@@ -1141,7 +1142,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         count = limit;
         searchInWallet(pwallet, account, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
+                uint32_t height = index->nHeight;
+                return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
@@ -1455,8 +1457,8 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     };
 
     uint64_t count = 0;
-    uint32_t lastHeight = view.GetLastHeight();
-    const auto currentHeight = lastHeight;
+    const auto currentHeight = view.GetLastHeight();
+    uint32_t lastHeight = currentHeight;
 
     std::set<CScript> rewardAccounts;
     std::queue<CRewardHistory> rewardsHistory;

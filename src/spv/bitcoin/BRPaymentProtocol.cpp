@@ -1394,7 +1394,7 @@ size_t BRPaymentProtocolEncryptedMessageDecrypt(BRPaymentProtocolEncryptedMessag
     if (! ctx->defaults[encrypted_msg_status_code]) {
         snprintf(ad, adLen, "%" PRIu64 "%s", msg->statusCode, (msg->statusMsg) ? msg->statusMsg : "");
     }
-    else if (msg->statusMsg) strncpy(ad, msg->statusMsg, adLen);
+    else if (msg->statusMsg) strcpy(ad, msg->statusMsg);
     
     outLen = BRChacha20Poly1305AEADDecrypt(out, outLen, cek, iv, msg->message, msg->msgLen, ad, strlen(ad));
     mem_clean(cek, sizeof(cek));

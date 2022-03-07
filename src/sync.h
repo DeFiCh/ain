@@ -195,8 +195,23 @@ using DebugLock = UniqueLock<typename std::remove_reference<typename std::remove
 #define AssertLockHeld(cs)
 #define AssertLockNotHeld(cs)
 
+template <typename Mutex, typename Base = typename Mutex::UniqueLock>
+class SCOPED_LOCKABLE UniqueLock : public Base
+{
+public:
+    explicit UniqueLock(Mutex& m) EXCLUSIVE_LOCK_FUNCTION(m) : Base(m) {}
+    UniqueLock(Mutex& m, std::defer_lock_t t) noexcept EXCLUSIVE_LOCK_FUNCTION(m) : Base(m, t) {} 
+    UniqueLock(Mutex& m, std::try_to_lock_t t) EXCLUSIVE_LOCK_FUNCTION(m) : Base(m, t) {}
+
+    ~UniqueLock() UNLOCK_FUNCTION()
+    {
+    }
+
+    using Base::operator bool;
+};
+
 template<typename T>
-using unique_lock_type = typename std::decay<T>::type::UniqueLock;
+using unique_lock_type = UniqueLock<std::decay_t<T>>;
 
 #define LOCK(cs) unique_lock_type<decltype(cs)> criticalblock1(cs)
 #define LOCK2(cs1, cs2)                                                   \
@@ -324,9 +339,7 @@ struct SCOPED_LOCKABLE LockAssertion
     template <typename Mutex>
     explicit LockAssertion(Mutex& mutex) EXCLUSIVE_LOCK_FUNCTION(mutex)
     {
-#ifdef DEBUG_LOCKORDER
         AssertLockHeld(mutex);
-#endif
     }
     ~LockAssertion() UNLOCK_FUNCTION() {}
 };

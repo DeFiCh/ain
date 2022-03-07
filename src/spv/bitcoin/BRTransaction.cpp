@@ -587,15 +587,12 @@ size_t BRTransactionSize(const BRTransaction *tx)
 
 size_t BRTransactionHTLCSize(const BRTransaction *tx, const size_t sigSize)
 {
-    BRTxInput *input;
     size_t size;
 
     size = (tx) ? 8 + BRVarIntSize(tx->inCount) + BRVarIntSize(tx->outCount) : 0;
 
     for (size_t i = 0; i < tx->inCount; i++)
     {
-        input = &tx->inputs[i];
-
         size += sigSize + TX_HTLC_INPUT_NOSIG;
     }
 

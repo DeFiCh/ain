@@ -463,7 +463,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     for (uint32_t i = 1; i < 10; i++) {
         for (uint32_t j = 1; j < 10; j++) {
             auto key = std::make_pair(DCT_ID{i}, j);
-            if (j >= bugFixHeight) {
+            if (static_cast<int>(j) >= bugFixHeight) {
                 BOOST_REQUIRE(rewards[key]);
             } else {
                 BOOST_REQUIRE(!rewards[key]);
@@ -515,7 +515,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 BOOST_CHECK_EQUAL(idPool.v, 1);
-                if (height >= Params().GetConsensus().BayfrontGardensHeight) {
+                if (static_cast<int>(height) >= Params().GetConsensus().BayfrontGardensHeight) {
                     if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
                             poolRewardsCount++;

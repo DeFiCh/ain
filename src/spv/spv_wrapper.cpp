@@ -246,6 +246,7 @@ void CSpvWrapper::Load()
     auto htlcAddresses = new BRUserAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook)
         {
             if (entry.second.purpose == "spv")
@@ -1355,6 +1356,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
     std::set<uint160> htlcAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
                 htlcAddresses.insert(std::get<ScriptHash>(entry.first));

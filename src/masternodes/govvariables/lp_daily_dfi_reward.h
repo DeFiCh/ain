@@ -11,17 +11,12 @@
 class LP_DAILY_DFI_REWARD : public GovVariable, public AutoRegistrator<GovVariable, LP_DAILY_DFI_REWARD>
 {
 public:
-    virtual ~LP_DAILY_DFI_REWARD() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "LP_DAILY_DFI_REWARD"; }
     static GovVariable * Create() { return new LP_DAILY_DFI_REWARD(); }
 

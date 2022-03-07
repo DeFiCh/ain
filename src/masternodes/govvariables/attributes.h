@@ -90,17 +90,12 @@ using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPai
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
-    ~ATTRIBUTES() override = default;
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
@@ -112,7 +107,7 @@ public:
                 value = *val;
             }
         }
-        return std::move(value);
+        return value;
     }
 
     [[nodiscard]] bool CheckKey(const CAttributeType& key) const {

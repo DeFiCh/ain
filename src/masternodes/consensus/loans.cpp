@@ -398,7 +398,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
         auto paybackAmount = kv.second;
         CAmount dfiUSDPrice{0}, penaltyPct{COIN};
 
-        if (height >= consensus.FortCanningHillHeight && kv.first == DCT_ID{0}) {
+        if (static_cast<int>(height) >= consensus.FortCanningHillHeight && kv.first == DCT_ID{0}) {
             if (!allowDFIPayback || !tokenDUSD)
                 return Res::Err("Payback of DUSD loans with DFI not currently active");
 
@@ -471,7 +471,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
 
         CalculateOwnerRewards(obj.from);
 
-        if (height < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
+        if (static_cast<int>(height) < consensus.FortCanningHillHeight || kv.first != DCT_ID{0}) {
             res = mnview.SubMintedTokens(tokenId, subLoan);
             if (!res)
                 return res;

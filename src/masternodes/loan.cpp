@@ -205,7 +205,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 std::optional<CInterestRateV2> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         return ReadBy<LoanInterestV2ByVault, CInterestRateV2>(std::make_pair(vaultId, id));
 
     if (auto rate = ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id)))
@@ -233,7 +233,7 @@ inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount toke
 
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height)
 {
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CAmount amount = (value / base_uint<128>(HIGH_PRECISION_SCALER)).GetLow64();
         amount += CAmount(value != base_uint<128>(amount) * HIGH_PRECISION_SCALER);
         return amount;
@@ -252,7 +252,7 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
 {
     base_uint<128> amountHP = amount;
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         amountHP *= HIGH_PRECISION_SCALER;
 
     return amountHP;
@@ -270,7 +270,7 @@ CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height)
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         WriteBy<LoanInterestV2ByVault>(pair, rate);
     else
         WriteBy<LoanInterestByVault>(pair, ConvertInterestRateToV1(rate));
@@ -298,12 +298,12 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         rate.interestToHeight = TotalInterestCalculation(rate, height);
     }
 
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
 
-    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+    } else if (static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
         CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
         interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
         rate.interestPerBlock = interestPerBlock;
@@ -346,12 +346,12 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
 
     rate.height = height;
 
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
 
-    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+    } else if (static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
         CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
         CAmount newInterestPerBlock = std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate));
         rate.interestPerBlock = std::max(CAmount{0}, interestPerBlock - newInterestPerBlock);
@@ -395,7 +395,7 @@ void DeleteInterest(CLoanView& view, const CVaultId& vaultId)
 
 Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         ::DeleteInterest<LoanInterestV2ByVault>(*this, vaultId);
     else
         ::DeleteInterest<LoanInterestByVault>(*this, vaultId);

@@ -28,6 +28,7 @@ namespace {
             case VaultState::MayLiquidate:
                 return "mayLiquidate";
             case VaultState::Unknown:
+            default:
                 return "unknown";
         }
     }
@@ -1228,7 +1229,7 @@ UniValue stateToJSON(VaultStateKey const & key, VaultStateValue const & value) {
     snapshot.pushKV("state", !value.auctionBatches.empty() ? "inLiquidation" : "active");
     snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
     snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
-    snapshot.pushKV("collateralRatio", value.ratio != -1 ? static_cast<int>(value.ratio) : static_cast<int>(value.collateralsValues.ratio()));
+    snapshot.pushKV("collateralRatio",static_cast<int>(value.ratio != static_cast<uint32_t>(-1) ? value.ratio : value.collateralsValues.ratio()));
     if (!value.auctionBatches.empty()) {
         snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
     }

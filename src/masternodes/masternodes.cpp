@@ -459,7 +459,7 @@ std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID & minte
     for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
         ForEachSubNode([&](const SubNodeBlockTimeKey &key, int64_t blockTime)
         {
-            if (height >= Params().GetConsensus().FortCanningHeight) {
+            if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHeight) {
                 if (key.masternodeID == nodeId && key.subnode == i) {
                     times[i] = blockTime;
                 }
@@ -495,7 +495,7 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
         auto lastHeight = height - 1;
 
         // Cannot expire below block count required to calculate average time
-        if (lastHeight < Params().GetConsensus().mn.newResignDelay) {
+        if (static_cast<int>(lastHeight) < Params().GetConsensus().mn.newResignDelay) {
             return *timelock;
         }
 

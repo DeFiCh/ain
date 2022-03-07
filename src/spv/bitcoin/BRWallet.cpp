@@ -128,13 +128,13 @@ inline static int _BRWalletTxIsAscending(BRWallet *wallet, const BRTransaction *
 
 inline static int _BRWalletTxCompare(BRWallet *wallet, const BRTransaction *tx1, const BRTransaction *tx2)
 {
-    size_t i = -1, j = -1;
+    size_t i = -1, j = -1, err = -1;
 
     if (_BRWalletTxIsAscending(wallet, tx1, tx2)) return 1;
     if (_BRWalletTxIsAscending(wallet, tx2, tx1)) return -1;
-    if ((i = _txChainIndex(tx1, wallet->internalChain)) != -1) j = _txChainIndex(tx2, wallet->internalChain);
-    if (j == -1 && (i = _txChainIndex(tx1, wallet->externalChain)) != -1) j = _txChainIndex(tx2, wallet->externalChain);
-    if (i != -1 && j != -1 && i != j) return (i > j) ? 1 : -1;
+    if ((i = _txChainIndex(tx1, wallet->internalChain)) != err) j = _txChainIndex(tx2, wallet->internalChain);
+    if (j == err && (i = _txChainIndex(tx1, wallet->externalChain)) != err) j = _txChainIndex(tx2, wallet->externalChain);
+    if (i != err && j != err && i != j) return (i > j) ? 1 : -1;
     return 0;
 }
 

@@ -185,7 +185,7 @@ inline static int _BRBlockHeightEq(const void *block, const void *otherBlock)
 struct BRPeerManagerStruct {
     const BRChainParams *params;
     BRWallet *wallet;
-    int isConnected, connectFailureCount, misbehavinCount, dnsThreadCount, peerThreadCount, maxConnectCount, isConnectRun;
+    uint32_t isConnected, connectFailureCount, misbehavinCount, dnsThreadCount, peerThreadCount, maxConnectCount, isConnectRun;
     BRPeer *peers, *downloadPeer, fixedPeer, **connectedPeers;
     char downloadPeerName[INET6_ADDRSTRLEN + 6];
     uint32_t earliestKeyTime, syncStartHeight, filterUpdateHeight, estimatedHeight;
@@ -264,7 +264,7 @@ static size_t _BRPeerManagerBlockLocators(BRPeerManager *manager, UInt256 locato
     // append 10 most recent block hashes, decending, then continue appending, doubling the step back each time,
     // finishing with the genesis block (top, -1, -2, -3, -4, -5, -6, -7, -8, -9, -11, -15, -23, -39, -71, -135, ..., 0)
     BRMerkleBlock *block = manager->lastBlock;
-    int32_t step = 1, i = 0, j;
+    uint32_t step = 1, i = 0, j;
     
     while (block && block->height > 0) {
         if (locators && i < locatorsCount) locators[i] = block->blockHash;
@@ -811,7 +811,7 @@ static void _peerConnected(void *info)
     BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     BRPeerCallbackInfo *peerInfo;
-    time_t now = time(NULL);
+    uint64_t now = time(NULL);
 
     manager->lock.lock();
     if (peer->timestamp > now + 2*60*60 || peer->timestamp < now - 2*60*60) peer->timestamp = now; // sanity check
@@ -985,7 +985,7 @@ static void _peerRelayedPeers(void *info, const BRPeer peers[], size_t peersCoun
 {
     BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
-    time_t now = time(NULL);
+    uint64_t now = time(NULL);
 
     manager->lock.lock();
     peer_log(peer, "relayed %zu peer(s)", peersCount);
@@ -1754,7 +1754,7 @@ void BRPeerManagerConnect(BRPeerManager *manager)
         if (ShutdownRequested()) {
             break;
         }
-        time_t now = time(NULL);
+        uint64_t now = time(NULL);
 
         if (array_count(manager->peers) < manager->maxConnectCount ||
             manager->peers[manager->maxConnectCount - 1].timestamp + 3*24*60*60 < now) {
@@ -1924,7 +1924,7 @@ static BRMerkleBlock *_BRPeerManagerLookupBlockFromBlockNumber(BRPeerManager *ma
     }
 
     // blockNumber not in the (abbreviated) chain - look through checkpoints
-    for (int i = 0; i < manager->params->checkpointsCount; i++)
+    for (uint32_t i = 0; i < manager->params->checkpointsCount; i++)
         if (manager->params->checkpoints[i].height == blockNumber) {
             UInt256 hash = UInt256Reverse(manager->params->checkpoints[i].hash);
             return (BRMerkleBlock *)BRSetGet(manager->blocks, &hash);

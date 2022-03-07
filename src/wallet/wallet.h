@@ -857,7 +857,7 @@ private:
      */
     uint256 m_last_block_processed GUARDED_BY(cs_wallet);
 
-    mutable std::unordered_map<CScript, int, CScriptHash> maxInputSizeCache;
+    mutable std::unordered_map<CScript, int, CScriptHash> maxInputSizeCache GUARDED_BY(cs_wallet);
 
 public:
     /*
@@ -1054,7 +1054,7 @@ public:
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 
     void GetKeyBirthTimes(interfaces::Chain::Lock& locked_chain, std::map<CKeyID, int64_t> &mapKeyBirth) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
-    unsigned int ComputeTimeSmart(const CWalletTx& wtx) const;
+    unsigned int ComputeTimeSmart(const CWalletTx& wtx) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Increment the next transaction order id
@@ -1356,7 +1356,7 @@ public:
     bool GetKeyOrigin(const CKeyID& keyid, KeyOriginInfo& info) const override;
 
     int CalculateMaximumSignedInputSize(const CTxOut& txout, bool use_max_sig = false) const;
-    int CalculateMaximumSignedInputSizeCached(const CTxOut& txout, bool use_max_sig = false) const;
+    int CalculateMaximumSignedInputSizeCached(const CTxOut& txout, bool use_max_sig = false) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 };
 
 /**

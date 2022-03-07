@@ -23,7 +23,7 @@ std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const & name) con
     auto var = GovVariable::Create(name);
     if (var) {
         /// @todo empty or NO variable??
-        ReadBy<ByName>(std::string(var->GetName()), *var);
+        ReadBy<ByName>(var->GetName(), *var);
         return var;
     }
     return {};

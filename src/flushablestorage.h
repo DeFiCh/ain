@@ -355,7 +355,7 @@ public:
     // second type of 'ReadBy' (may be 'GetBy'?)
     template<typename By, typename ResultType, typename KeyType>
     std::optional<ResultType> ReadBy(KeyType const & id) const {
-        ResultType result;
+        ResultType result{};
         if (ReadBy<By>(id, result))
             return result;
         return {};

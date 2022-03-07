@@ -111,18 +111,13 @@ struct GovVarKey {
 class GV_EXAMPLE : public GovVariable, public AutoRegistrator<GovVariable, GV_EXAMPLE>
 {
 public:
-    virtual ~GV_EXAMPLE() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     // implement this methods:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "GV_EXAMPLE"; }
     static GovVariable * Create() { return new GV_EXAMPLE(); }
 

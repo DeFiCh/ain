@@ -42,7 +42,7 @@ inline static uint32_t be32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 
 inline static uint64_t le64(uint64_t x) { return x; }
 inline static uint64_t be64(uint64_t x) {
     union conv { uint32_t u32[2]; uint64_t u64; };
-    return conv{ be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64;
+    return conv{{be32((uint32_t)((x) >> 32)), be32((uint32_t)(x))}}.u64;
 }
 #else // unknown endianess
 inline static uint32_t be32(uint32_t x) {
@@ -1232,7 +1232,7 @@ void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *
     
     BRPBKDF2(b, sizeof(b), BRSHA256, 256/8, pw, pwLen, salt, saltLen, 1);
     
-    for (int i = 0; i < p; i++) {
+    for (unsigned i = 0; i < p; i++) {
         for (unsigned j = 0; j < 32*r; j++) ((uint32_t *)x)[j] = le32(b[i*32*r + j]);
         
         for (unsigned j = 0; j < n; j += 2) {

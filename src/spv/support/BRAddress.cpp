@@ -260,7 +260,7 @@ const UInt160 BRHTLCScriptPKH(const uint8_t *script, size_t scriptLen, HTLCScrip
     if (! script || scriptLen == 0 || scriptLen > MAX_SCRIPT_LENGTH) return UINT160_ZERO;
 
     const uint8_t *elems[BRScriptElements(NULL, 0, script, scriptLen)], *r = NULL;
-    size_t l, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+    size_t l = 0, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
 
     UInt160 hash160 = UINT160_ZERO;
 

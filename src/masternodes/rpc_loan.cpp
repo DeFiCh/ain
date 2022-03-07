@@ -1397,7 +1397,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         return true;
     };
 
-    if (height >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         view.ForEachVaultInterestV2(vaultInterest);
     } else {
         view.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
@@ -1412,7 +1412,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(stat.totalInterest, height)));
         obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(stat.interestPerBlock, height)));
 
-        if (height >= Params().GetConsensus().FortCanningHillHeight)
+        if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         {
             obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(stat.interestPerBlock)));
         }

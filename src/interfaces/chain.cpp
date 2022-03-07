@@ -41,15 +41,10 @@ namespace {
 
 class LockImpl : public Chain::Lock
 {
-    CCriticalSection& m_mutex;
-
 public:
-    LockImpl(CCriticalSection& mutex) : m_mutex(mutex)
-    {
-    }
     std::optional<int> getHeight() override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         int height = ::ChainActive().Height();
         if (height >= 0) {
             return height;
@@ -58,7 +53,7 @@ public:
     }
     std::optional<int> getBlockHeight(const uint256& hash) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = LookupBlockIndex(hash);
         if (block && ::ChainActive().Contains(block)) {
             return block->nHeight;
@@ -73,34 +68,34 @@ public:
     }
     uint256 getBlockHash(int height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = ::ChainActive()[height];
         assert(block != nullptr);
         return block->GetBlockHash();
     }
     int64_t getBlockTime(int height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = ::ChainActive()[height];
         assert(block != nullptr);
         return block->GetBlockTime();
     }
     int64_t getBlockMedianTimePast(int height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = ::ChainActive()[height];
         assert(block != nullptr);
         return block->GetMedianTimePast();
     }
     bool haveBlockOnDisk(int height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = ::ChainActive()[height];
         return block && ((block->nStatus & BLOCK_HAVE_DATA) != 0) && block->nTx > 0;
     }
     std::optional<int> findFirstBlockWithTimeAndHeight(int64_t time, int height, uint256* hash) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         CBlockIndex* block = ::ChainActive().FindEarliestAtLeast(time, height);
         if (block) {
             if (hash) *hash = block->GetBlockHash();
@@ -110,7 +105,7 @@ public:
     }
     std::optional<int> findPruned(int start_height, std::optional<int> stop_height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         if (::fPruneMode) {
             CBlockIndex* block = stop_height ? ::ChainActive()[*stop_height] : ::ChainActive().Tip();
             while (block && block->nHeight >= start_height) {
@@ -124,7 +119,7 @@ public:
     }
     std::optional<int> findFork(const uint256& hash, std::optional<int>* height) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         const CBlockIndex* block = LookupBlockIndex(hash);
         const CBlockIndex* fork = block ? ::ChainActive().FindFork(block) : nullptr;
         if (height) {
@@ -141,12 +136,12 @@ public:
     }
     CBlockLocator getTipLocator() override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         return ::ChainActive().GetLocator();
     }
     std::optional<int> findLocatorFork(const CBlockLocator& locator) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         if (CBlockIndex* fork = FindForkInGlobalIndex(::ChainActive(), locator)) {
             return fork->nHeight;
         }
@@ -154,12 +149,12 @@ public:
     }
     bool checkFinalTx(const CTransaction& tx) override
     {
-        LockAssertion lock(m_mutex);
+        LockAssertion lock(::cs_main);
         return CheckFinalTx(tx);
     }
     CCriticalSection& mutex() override
     {
-        return m_mutex;
+        return ::cs_main;
     }
 };
 
@@ -250,7 +245,7 @@ class ChainImpl : public Chain
 public:
     std::unique_ptr<Chain::Lock> lock() override
     {
-        return std::make_unique<LockImpl>(::cs_main);
+        return std::make_unique<LockImpl>();
     }
     bool findBlock(const uint256& hash, CBlock* block, int64_t* time, int64_t* time_max) override
     {

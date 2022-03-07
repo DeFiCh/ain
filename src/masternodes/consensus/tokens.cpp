@@ -82,7 +82,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage& obj) const {
             return Res::Err("can't set isDAT to true, tx not from foundation member");
 
     auto updatedToken = obj.token;
-    if (height >= consensus.FortCanningHeight)
+    if (static_cast<int>(height) >= consensus.FortCanningHeight)
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
     return mnview.UpdateToken(token.creationTx, updatedToken, false);

@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     Consensus::Params amkCheated = Params().GetConsensus();
     amkCheated.AMKHeight = 0;
 
-
+    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 

@@ -1187,7 +1187,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
 void CWallet::LoadToWallet(const CWalletTx& wtxIn)
 {
     auto ins = mapWallet.insert(wtxIn);
-    mapWallet.modify(ins.first, [this](CWalletTx& wtx) {
+    mapWallet.modify(ins.first, [this](CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) {
         wtx.BindWallet(this);
         AddToSpends(wtx);
         for (const CTxIn& txin : wtx.tx->vin) {
@@ -3600,14 +3600,12 @@ DBErrors CWallet::ZapWalletTx(std::vector<CWalletTx>& vWtx)
 
 bool CWallet::SetAddressBookWithDB(WalletBatch& batch, const CTxDestination& address, const std::string& strName, const std::string& strPurpose)
 {
-    bool fUpdated = false;
     {
         LOCK(cs_wallet);
-        std::map<CTxDestination, CAddressBookData>::iterator mi = mapAddressBook.find(address);
-        fUpdated = mi != mapAddressBook.end();
-        mapAddressBook[address].name = strName;
+        auto& bookAddress = mapAddressBook[address];
+        bookAddress.name = strName;
         if (!strPurpose.empty()) /* update purpose only if requested */
-            mapAddressBook[address].purpose = strPurpose;
+            bookAddress.purpose = strPurpose;
     }
     if (!strPurpose.empty() && !batch.WritePurpose(EncodeDestination(address), strPurpose))
         return false;
