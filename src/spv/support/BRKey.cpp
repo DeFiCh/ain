@@ -179,12 +179,12 @@ int BRPrivKeyIsValid(const char *privKey)
         r = (data[0] == BRGetChainParams()->privkey);
     }
     else if ((strLen == 30 || strLen == 22) && privKey[0] == 'S') { // mini private key format
-        char s[strLen + 2];
+        char s[32] = {};
         
-        strncpy(s, privKey, sizeof(s));
-        s[sizeof(s) - 2] = '?';
-        BRSHA256(data, s, sizeof(s) - 1);
-        mem_clean(s, sizeof(s));
+        strcpy(s, privKey);
+        s[strLen] = '?';
+        BRSHA256(data, s, strLen + 1);
+        mem_clean(s, strLen + 2);
         r = (data[0] == 0);
     }
     else r = (strspn(privKey, "0123456789ABCDEFabcdef") == 64); // hex encoded key

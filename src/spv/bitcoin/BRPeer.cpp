@@ -279,7 +279,8 @@ static int _BRPeerAcceptAddrMessage(BRPeer *peer, const uint8_t *msg, size_t msg
         peer_log(peer, "dropping addr message, %zu is too many addresses, max is 1000", count);
     }
     else if (ctx->sentGetaddr) { // simple anti-tarpitting tactic, don't accept unsolicited addresses
-        BRPeer peers[count], p;
+        BRPeer p;
+        std::vector<BRPeer> peers(count);
         size_t peersCount = 0;
         time_t now = time(NULL);
         
@@ -304,7 +305,7 @@ static int _BRPeerAcceptAddrMessage(BRPeer *peer, const uint8_t *msg, size_t msg
             peers[peersCount++] = p; // add it to the list
         }
 
-        if (peersCount > 0 && ctx->relayedPeers) ctx->relayedPeers(ctx->info, peers, peersCount);
+        if (peersCount > 0 && ctx->relayedPeers) ctx->relayedPeers(ctx->info, peers.data(), peersCount);
     }
 
     return r;
@@ -326,7 +327,7 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
     }
     else {
         inv_type type;
-        const uint8_t *transactions[count], *blocks[count];
+        std::vector<const uint8_t*> transactions(count), blocks(count);
         size_t i, j, txCount = 0, blockCount = 0;
         
         peer_log(peer, "got inv with %zu item(s)", count);
@@ -361,7 +362,8 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
             if (blockCount == 1 && UInt256Eq(ctx->lastBlockHash, UInt256Get(blocks[0]))) blockCount = 0;
             if (blockCount == 1) ctx->lastBlockHash = UInt256Get(blocks[0]);
 
-            UInt256 hash, blockHashes[blockCount], txHashes[txCount];
+            UInt256 hash;
+            std::vector<UInt256> blockHashes(blockCount), txHashes(txCount);
 
             for (i = 0; i < blockCount; i++) {
                 blockHashes[i] = UInt256Get(blocks[i]);
@@ -384,8 +386,8 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
                 else txHashes[j++] = hash;
             }
             
-            _BRPeerAddKnownTxHashes(peer, txHashes, j);
-            if (j > 0 || blockCount > 0) BRPeerSendGetdata(peer, txHashes, j, blockHashes, blockCount);
+            _BRPeerAddKnownTxHashes(peer, txHashes.data(), j);
+            if (j > 0 || blockCount > 0) BRPeerSendGetdata(peer, txHashes.data(), j, blockHashes.data(), blockCount);
     
             // to improve chain download performance, if we received 500 block hashes, request the next 500 block hashes
             if (blockCount >= 500) {
@@ -544,7 +546,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
     else {
         struct inv_item { uint8_t item[36]; } *notfound = NULL;
         BRTransaction *tx = NULL;
-        
+        std::vector<uint8_t> buf;
         peer_log(peer, "got getdata with %zu item(s)", count);
         
         for (size_t i = 0; i < count; i++) {
@@ -557,16 +559,18 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
                     if (ctx->requestedTx) tx = ctx->requestedTx(ctx->info, hash);
 
                     if (tx && BRTransactionVSize(tx) < TX_MAX_SIZE) {
-                        uint8_t buf[BRTransactionSerialize(tx, NULL, 0)];
-                        size_t bufLen = BRTransactionSerialize(tx, buf, sizeof(buf));
-                        char txHex[bufLen*2 + 1];
+                        buf.resize(BRTransactionSerialize(tx, NULL, 0));
+                        size_t bufLen = BRTransactionSerialize(tx, buf.data(), buf.size());
+                        std::string txHex;
                         
                         for (size_t j = 0; j < bufLen; j++) {
-                            sprintf(&txHex[j*2], "%02x", buf[j]);
+                            char hex[3];
+                            sprintf(hex, "%02x", buf[j]);
+                            txHex += hex;
                         }
                         
-                        peer_log(peer, "publishing tx: %s", txHex);
-                        BRPeerSendMessage(peer, buf, bufLen, MSG_TX);
+                        peer_log(peer, "publishing tx: %s", txHex.c_str());
+                        BRPeerSendMessage(peer, buf.data(), bufLen, MSG_TX);
                         break;
                     }
                     
@@ -583,15 +587,13 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
 
         if (notfound) {
             size_t bufLen = BRVarIntSize(array_count(notfound)) + 36*array_count(notfound), o = 0;
-            uint8_t *buf = (uint8_t *)malloc(bufLen);
+            buf.resize(bufLen);
             
-            assert(buf != NULL);
             o += BRVarIntSet(&buf[o], (o <= bufLen ? bufLen - o : 0), array_count(notfound));
             memcpy(&buf[o], notfound, 36*array_count(notfound));
             o += 36*array_count(notfound);
             array_free(notfound);
-            BRPeerSendMessage(peer, buf, o, MSG_NOTFOUND);
-            free(buf);
+            BRPeerSendMessage(peer, buf.data(), o, MSG_NOTFOUND);
         }
     }
 
@@ -735,17 +737,14 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
     }
     else {
         size_t count = BRMerkleBlockTxHashes(block, NULL, 0);
-        UInt256 _hashes[128], *hashes = (count <= 128) ? _hashes : (UInt256 *)malloc(count*sizeof(UInt256));
+        std::vector<UInt256> hashes(count);
         
-        assert(hashes != NULL);
-        count = BRMerkleBlockTxHashes(block, hashes, count);
+        count = BRMerkleBlockTxHashes(block, hashes.data(), count);
 
         for (size_t i = count; i > 0; i--) { // reverse order for more efficient removal as tx arrive
             if (BRSetContains(ctx->knownTxHashSet, &hashes[i - 1])) continue;
             array_add(ctx->currentBlockTxHashes, hashes[i - 1]);
         }
-
-        if (hashes != _hashes) free(hashes);
     }
 
     if (block) {
@@ -774,37 +773,33 @@ static int _BRPeerAcceptRejectMessage(BRPeer *peer, const uint8_t *msg, size_t m
         r = 0;
     }
     else {
-        char type[(strLen < 0x1000) ? strLen + 1 : 0x1000];
         uint8_t code;
         size_t len = 0, hashLen = 0;
 
-        strncpy(type, (const char *)&msg[off], sizeof(type) - 1);
-        type[sizeof(type) - 1] = '\0';
+        std::string type((const char *)&msg[off], strLen);
         off += strLen;
         code = msg[off++];
         strLen = (size_t)BRVarInt(&msg[off], (off <= msgLen ? msgLen - off : 0), &len);
         off += len;
-        if (strncmp(type, MSG_TX, sizeof(type)) == 0) hashLen = sizeof(UInt256);
+        if (type == MSG_TX) hashLen = sizeof(UInt256);
         
         if (off + strLen + hashLen > msgLen) {
             peer_log(peer, "malformed reject message, length is %zu, should be >= %zu", msgLen, off + strLen + hashLen);
             r = 0;
         }
         else {
-            char reason[(strLen < 0x1000) ? strLen + 1 : 0x1000];
             UInt256 txHash = UINT256_ZERO;
             
-            strncpy(reason, (const char *)&msg[off], sizeof(reason) - 1);
-            reason[sizeof(reason) - 1] = '\0';
+            std::string reason((const char *)&msg[off], strLen);
             off += strLen;
             if (hashLen == sizeof(UInt256)) txHash = UInt256Get(&msg[off]);
             off += hashLen;
 
             if (! UInt256IsZero(txHash)) {
-                peer_log(peer, "rejected %s code: 0x%x reason: \"%s\" txid: %s", type, code, reason, u256hex(txHash).c_str());
+                peer_log(peer, "rejected %s code: 0x%x reason: \"%s\" txid: %s", type.c_str(), code, reason.c_str(), u256hex(txHash).c_str());
                 if (ctx->rejectedTx) ctx->rejectedTx(ctx->info, txHash, code);
             }
-            else peer_log(peer, "rejected %s code: 0x%x reason: \"%s\"", type, code, reason);
+            else peer_log(peer, "rejected %s code: 0x%x reason: \"%s\"", type.c_str(), code, reason.c_str());
         }
     }
 
@@ -1422,7 +1417,8 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
     }
     else {
         BRPeerContext *ctx = (BRPeerContext *)peer;
-        uint8_t buf[HEADER_LENGTH + msgLen], hash[32];
+        uint8_t hash[32];
+        std::vector<uint8_t> buf(HEADER_LENGTH + msgLen);
         size_t off = 0;
         ssize_t n = 0;
         struct timeval tv;
@@ -1444,8 +1440,8 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         socket = _peerGetSocket(ctx);
         if (socket == INVALID_SOCKET) error = ENOTCONN;
         
-        while (socket != INVALID_SOCKET && ! error && msgLen < sizeof(buf)) {
-            n = send(socket, &buf[msgLen], sizeof(buf) - msgLen, MSG_NOSIGNAL);
+        while (socket != INVALID_SOCKET && ! error && msgLen < buf.size()) {
+            n = send(socket, &buf[msgLen], buf.size() - msgLen, MSG_NOSIGNAL);
             if (n >= 0) msgLen += n;
             if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
             gettimeofday(&tv, NULL);
@@ -1464,7 +1460,7 @@ void BRPeerSendVersionMessage(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     size_t off = 0, userAgentLen = strlen(USER_AGENT);
-    uint8_t msg[80 + BRVarIntSize(userAgentLen) + userAgentLen + 5];
+    std::vector<uint8_t> msg(80 + BRVarIntSize(userAgentLen) + userAgentLen + 5);
     
     UInt32SetLE(&msg[off], BR_PROTOCOL_VERSION); // version
     off += sizeof(uint32_t);
@@ -1487,13 +1483,13 @@ void BRPeerSendVersionMessage(BRPeer *peer)
     ctx->nonce = ((uint64_t)BRRand(0) << 32) | (uint64_t)BRRand(0); // random nonce
     UInt64SetLE(&msg[off], ctx->nonce);
     off += sizeof(uint64_t);
-    off += BRVarIntSet(&msg[off], (off <= sizeof(msg) ? sizeof(msg) - off : 0), userAgentLen);
+    off += BRVarIntSet(&msg[off], (off <= msg.size() ? msg.size() - off : 0), userAgentLen);
     memcpy(&msg[off], USER_AGENT, userAgentLen); // user agent string
     off += userAgentLen;
     UInt32SetLE(&msg[off], 0); // last block received
     off += sizeof(uint32_t);
     msg[off++] = 0; // relay transactions (0 for SPV bloom filter mode)
-    BRPeerSendMessage(peer, msg, sizeof(msg), MSG_VERSION);
+    BRPeerSendMessage(peer, msg.data(), msg.size(), MSG_VERSION);
 }
 
 void BRPeerSendVerackMessage(BRPeer *peer)
@@ -1504,11 +1500,11 @@ void BRPeerSendVerackMessage(BRPeer *peer)
 
 void BRPeerSendAddr(BRPeer *peer)
 {
-    uint8_t msg[BRVarIntSize(0)];
-    size_t msgLen = BRVarIntSet(msg, sizeof(msg), 0);
+    std::vector<uint8_t> msg(BRVarIntSize(0));
+    size_t msgLen = BRVarIntSet(msg.data(), msg.size(), 0);
     
     //TODO: send peer addresses we know about
-    BRPeerSendMessage(peer, msg, msgLen, MSG_ADDR);
+    BRPeerSendMessage(peer, msg.data(), msgLen, MSG_ADDR);
 }
 
 void BRPeerSendFilterload(BRPeer *peer, const uint8_t *filter, size_t filterLen)
@@ -1553,7 +1549,7 @@ void BRPeerSendGetheaders(BRPeer *peer, const UInt256 locators[], size_t locator
 {
     size_t i, off = 0;
     size_t msgLen = sizeof(uint32_t) + BRVarIntSize(locatorsCount) + sizeof(*locators)*locatorsCount + sizeof(hashStop);
-    uint8_t msg[msgLen];
+    std::vector<uint8_t> msg(msgLen);
     
     UInt32SetLE(&msg[off], BR_PROTOCOL_VERSION);
     off += sizeof(uint32_t);
@@ -1570,7 +1566,7 @@ void BRPeerSendGetheaders(BRPeer *peer, const UInt256 locators[], size_t locator
     if (locatorsCount > 0) {
         peer_log(peer, "calling getheaders with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]).c_str(),
                  (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]).c_str() : ""));
-        BRPeerSendMessage(peer, msg, off, MSG_GETHEADERS);
+        BRPeerSendMessage(peer, msg.data(), off, MSG_GETHEADERS);
     }
 }
 
@@ -1578,7 +1574,7 @@ void BRPeerSendGetblocks(BRPeer *peer, const UInt256 locators[], size_t locators
 {
     size_t i, off = 0;
     size_t msgLen = sizeof(uint32_t) + BRVarIntSize(locatorsCount) + sizeof(*locators)*locatorsCount + sizeof(hashStop);
-    uint8_t msg[msgLen];
+    std::vector<uint8_t> msg(msgLen);
     
     UInt32SetLE(&msg[off], BR_PROTOCOL_VERSION);
     off += sizeof(uint32_t);
@@ -1595,7 +1591,7 @@ void BRPeerSendGetblocks(BRPeer *peer, const UInt256 locators[], size_t locators
     if (locatorsCount > 0) {
         peer_log(peer, "calling getblocks with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]).c_str(),
                  (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]).c_str() : ""));
-        BRPeerSendMessage(peer, msg, off, MSG_GETBLOCKS);
+        BRPeerSendMessage(peer, msg.data(), off, MSG_GETBLOCKS);
     }
 }
 
@@ -1609,7 +1605,7 @@ void BRPeerSendInv(BRPeer *peer, const UInt256 txHashes[], size_t txCount)
 
     if (txCount > 0) {
         size_t i, off = 0, msgLen = BRVarIntSize(txCount) + (sizeof(uint32_t) + sizeof(*txHashes))*txCount;
-        uint8_t msg[msgLen];
+        std::vector<uint8_t> msg(msgLen);
         
         off += BRVarIntSet(&msg[off], (off <= msgLen ? msgLen - off : 0), txCount);
         
@@ -1620,7 +1616,7 @@ void BRPeerSendInv(BRPeer *peer, const UInt256 txHashes[], size_t txCount)
             off += sizeof(UInt256);
         }
 
-        BRPeerSendMessage(peer, msg, off, MSG_INV);
+        BRPeerSendMessage(peer, msg.data(), off, MSG_INV);
     }
 }
 
@@ -1634,7 +1630,7 @@ void BRPeerSendGetdata(BRPeer *peer, const UInt256 txHashes[], size_t txCount, c
     }
     else if (count > 0) {
         size_t msgLen = BRVarIntSize(count) + (sizeof(uint32_t) + sizeof(UInt256))*(count);
-        uint8_t msg[msgLen];
+        std::vector<uint8_t> msg(msgLen);
 
         off += BRVarIntSet(&msg[off], (off <= msgLen ? msgLen - off : 0), count);
         
@@ -1653,7 +1649,7 @@ void BRPeerSendGetdata(BRPeer *peer, const UInt256 txHashes[], size_t txCount, c
         }
         
         ((BRPeerContext *)peer)->sentGetdata = 1;
-        BRPeerSendMessage(peer, msg, off, MSG_GETDATA);
+        BRPeerSendMessage(peer, msg.data(), off, MSG_GETDATA);
     }
 }
 
