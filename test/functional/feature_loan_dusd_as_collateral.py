@@ -6,6 +6,7 @@
 """Test Loan - DUSD as collateral."""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 
 from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
@@ -16,7 +17,7 @@ class LoanDUSDCollateralTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=200', '-jellyfish_regtest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=200', '-fortcanningroadheight=215', '-jellyfish_regtest=1']]
 
     def run_test(self):
         self.nodes[0].generate(120)
@@ -162,6 +163,26 @@ class LoanDUSDCollateralTest (DefiTestFramework):
         # Loan should be paid back in full
         vault = self.nodes[0].getvault(vault_id)
         assert_equal(vault['loanValue'], Decimal('0'))
+
+        assert_equal(vault['collateralAmounts'], ['2000.00000000@DFI', '2000.00000000@DUSD'])
+
+        # Withdraw DFI and use DUSD as sole collateral
+        self.nodes[0].withdrawfromvault(vault_id, vault_address, '2000.00000000@DFI')
+        self.nodes[0].generate(1)
+
+        # Try to take DUSD loan with DUSD as sole collateral
+        try:
+            self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd / 2) + "@" + symbol_dusd })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan." in errorString)
+
+        self.nodes[0].generate(215 - self.nodes[0].getblockcount()) # move to fortcanningroad height
+
+        # Take DUSD loan with DUSD as sole collateral
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd / 2) + "@" + symbol_dusd })
+        self.nodes[0].generate(1)
+
 
 if __name__ == '__main__':
     LoanDUSDCollateralTest().main()
