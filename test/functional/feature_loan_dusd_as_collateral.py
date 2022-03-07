@@ -43,12 +43,9 @@ class LoanDUSDCollateralTest (DefiTestFramework):
             "isDAT": True,
             "collateralAddress": mn_address
         })
-
         self.nodes[0].generate(1)
 
-
         idDUSD = list(self.nodes[0].gettoken(symbolDUSD).keys())[0]
-        idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
 
         # Mint DUSD
         self.nodes[0].minttokens("100000@DUSD")
