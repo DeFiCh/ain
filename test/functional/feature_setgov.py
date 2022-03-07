@@ -530,5 +530,15 @@ class GovsetTest (DefiTestFramework):
         assert_equal(attributes['v0/token/5/loan_payback/2'], 'true')
         assert_equal(attributes['v0/token/5/loan_payback_fee_pct/1'], '0.25')
 
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/loan_payback/0': 'true', 'v0/token/5/loan_payback_fee_pct/0': '0.33'}})
+        self.nodes[0].generate(1)
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        # dfi keys are set
+        assert_equal(attributes['v0/token/5/payback_dfi'], 'true')
+        assert_equal(attributes['v0/token/5/payback_dfi_fee_pct'], '0.33')
+        # no new keys for DFI
+        assert('v0/token/5/loan_payback/0' not in attributes)
+        assert('v0/token/5/loan_payback_fee_pct/0' not in attributes)
+
 if __name__ == '__main__':
     GovsetTest ().main ()

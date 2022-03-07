@@ -235,6 +235,17 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                     if (attrV0->type == AttributeTypes::Live) {
                         return Res::Err("Live attribute cannot be set externally");
                     }
+                    // applay DFI via old keys
+                    if (attrV0->IsExtendedSize() && attrV0->keyId == 0) {
+                        auto newAttr = *attrV0;
+                        if (attrV0->key == TokenKeys::LoanPayback) {
+                            newAttr.key = TokenKeys::PaybackDFI;
+                        } else {
+                            newAttr.key = TokenKeys::PaybackDFIFeePCT;
+                        }
+                        attributes[newAttr] = value;
+                        return Res::Ok();
+                    }
                 }
                 attributes[attribute] = value;
                 return Res::Ok();
