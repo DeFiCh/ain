@@ -32,7 +32,7 @@
 size_t BRBIP39Encode(char *phrase, size_t phraseLen, const char *wordList[], const uint8_t *data, size_t dataLen)
 {
     uint32_t x;
-    uint8_t buf[dataLen + 32];
+    std::vector<uint8_t> buf(dataLen + 32);
     const char *word;
     size_t i, len = 0;
 
@@ -41,7 +41,7 @@ size_t BRBIP39Encode(char *phrase, size_t phraseLen, const char *wordList[], con
     assert(dataLen > 0 && (dataLen % 4) == 0);
     if (! data || (dataLen % 4) != 0) return 0; // data length must be a multiple of 32 bits
     
-    memcpy(buf, data, dataLen);
+    memcpy(buf.data(), data, dataLen);
     BRSHA256(&buf[dataLen], data, dataLen); // append SHA256 checksum
 
     for (i = 0; i < dataLen*3/4; i++) {
@@ -55,7 +55,7 @@ size_t BRBIP39Encode(char *phrase, size_t phraseLen, const char *wordList[], con
 
     var_clean(&word);
     var_clean(&x);
-    mem_clean(buf, sizeof(buf));
+    mem_clean(buf.data(), buf.size());
     return (! phrase || len + 1 <= phraseLen) ? len + 1 : 0;
 }
 
@@ -85,7 +85,7 @@ size_t BRBIP39Decode(uint8_t *data, size_t dataLen, const char *wordList[], cons
     }
 
     if ((count % 3) == 0 && (! word || *word == '\0')) { // check that phrase has correct number of words
-        uint8_t buf[(count*11 + 7)/8];
+        std::vector<uint8_t> buf((count*11 + 7)/8);
 
         for (i = 0; i < (count*11 + 7)/8; i++) {
             x = idx[i*8/11];
@@ -94,14 +94,14 @@ size_t BRBIP39Decode(uint8_t *data, size_t dataLen, const char *wordList[], cons
             buf[i] = b;
         }
     
-        BRSHA256(hash, buf, count*4/3);
+        BRSHA256(hash, buf.data(), count*4/3);
 
         if (b >> (8 - count/3) == (hash[0] >> (8 - count/3))) { // verify checksum
             r = count*4/3;
-            if (data && r <= dataLen) memcpy(data, buf, r);
+            if (data && r <= dataLen) memcpy(data, buf.data(), r);
         }
         
-        mem_clean(buf, sizeof(buf));
+        mem_clean(buf.data(), buf.size());
     }
 
     var_clean(&b);
@@ -123,15 +123,13 @@ int BRBIP39PhraseIsValid(const char *wordList[], const char *phrase)
 // BUG: does not currently support passphrases containing NULL characters
 void BRBIP39DeriveKey(void *key64, const char *phrase, const char *passphrase)
 {
-    char salt[strlen("mnemonic") + (passphrase ? strlen(passphrase) : 0) + 1];
-
     assert(key64 != NULL);
     assert(phrase != NULL);
     
     if (phrase) {
-        strcpy(salt, "mnemonic");
-        if (passphrase) strcpy(salt + strlen("mnemonic"), passphrase);
-        BRPBKDF2(key64, 64, BRSHA512, 512/8, phrase, strlen(phrase), salt, strlen(salt), 2048);
-        mem_clean(salt, sizeof(salt));
+        std::string salt("mnemonic");
+        if (passphrase) salt += passphrase;
+        BRPBKDF2(key64, 64, BRSHA512, 512/8, phrase, strlen(phrase), salt.data(), salt.size(), 2048);
+        mem_clean(salt.data(), salt.size());
     }
 }

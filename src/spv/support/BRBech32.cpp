@@ -34,8 +34,8 @@
 
 // bech32 address format: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
 
-//#define polymod(x) ((((x) & 0x1ffffff) << 5) ^ (-(((x) >> 25) & 1) & 0x3b6a57b2) ^\
-//                    (-(((x) >> 26) & 1) & 0x26508e6d) ^ (-(((x) >> 27) & 1) & 0x1ea119fa) ^\
+//#define polymod(x) ((((x) & 0x1ffffff) << 5) ^ (-(((x) >> 25) & 1) & 0x3b6a57b2) ^
+//                    (-(((x) >> 26) & 1) & 0x26508e6d) ^ (-(((x) >> 27) & 1) & 0x1ea119fa) ^
 //                    (-(((x) >> 28) & 1) & 0x3d4233dd) ^ (-(((x) >> 29) & 1) & 0x2a1462b3))
 
 #define polymod(x) ((((x) & 0x1ffffff) << 5) ^ ((((x) >> 25) & 1) ? 0x3b6a57b2 : 0) ^\

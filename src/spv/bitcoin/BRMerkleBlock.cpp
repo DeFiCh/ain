@@ -43,36 +43,36 @@ inline static int _ceil_log2(int x)
     return r;
 }
 
-// from https://en.bitcoin.it/wiki/Protocol_specification#Merkle_Trees
-// Merkle trees are binary trees of hashes. Merkle trees in bitcoin use a double SHA-256, the SHA-256 hash of the
-// SHA-256 hash of something. If, when forming a row in the tree (other than the root of the tree), it would have an odd
-// number of elements, the final double-hash is duplicated to ensure that the row has an even number of hashes. First
-// form the bottom row of the tree with the ordered double-SHA-256 hashes of the byte streams of the transactions in the
-// block. Then the row above it consists of half that number of hashes. Each entry is the double-SHA-256 of the 64-byte
-// concatenation of the corresponding two hashes below it in the tree. This procedure repeats recursively until we reach
-// a row consisting of just a single double-hash. This is the merkle root of the tree.
-//
-// from https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki#Partial_Merkle_branch_format
-// The encoding works as follows: we traverse the tree in depth-first order, storing a bit for each traversed node,
-// signifying whether the node is the parent of at least one matched leaf txid (or a matched txid itself). In case we
-// are at the leaf level, or this bit is 0, its merkle node hash is stored, and its children are not explored further.
-// Otherwise, no hash is stored, but we recurse into both (or the only) child branch. During decoding, the same
-// depth-first traversal is performed, consuming bits and hashes as they were written during encoding.
-//
-// example tree with three transactions, where only tx2 is matched by the bloom filter:
-//
-//     merkleRoot
-//      /     \
-//    m1       m2
-//   /  \     /  \
-// tx1  tx2 tx3  tx3
-//
-// flag bits (little endian): 00001011 [merkleRoot = 1, m1 = 1, tx1 = 0, tx2 = 1, m2 = 0, byte padding = 000]
-// hashes: [tx1, tx2, m2]
-//
-// NOTE: this merkle tree design has a security vulnerability (CVE-2012-2459), which can be defended against by
-// considering the merkle root invalid if there are duplicate hashes in any rows with an even number of elements
+/*  from https://en.bitcoin.it/wiki/Protocol_specification#Merkle_Trees
+    Merkle trees are binary trees of hashes. Merkle trees in bitcoin use a double SHA-256, the SHA-256 hash of the
+    SHA-256 hash of something. If, when forming a row in the tree (other than the root of the tree), it would have an odd
+    number of elements, the final double-hash is duplicated to ensure that the row has an even number of hashes. First
+    form the bottom row of the tree with the ordered double-SHA-256 hashes of the byte streams of the transactions in the
+    block. Then the row above it consists of half that number of hashes. Each entry is the double-SHA-256 of the 64-byte
+    concatenation of the corresponding two hashes below it in the tree. This procedure repeats recursively until we reach
+    a row consisting of just a single double-hash. This is the merkle root of the tree.
 
+    from https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki#Partial_Merkle_branch_format
+    The encoding works as follows: we traverse the tree in depth-first order, storing a bit for each traversed node,
+    signifying whether the node is the parent of at least one matched leaf txid (or a matched txid itself). In case we
+    are at the leaf level, or this bit is 0, its merkle node hash is stored, and its children are not explored further.
+    Otherwise, no hash is stored, but we recurse into both (or the only) child branch. During decoding, the same
+    depth-first traversal is performed, consuming bits and hashes as they were written during encoding.
+
+    example tree with three transactions, where only tx2 is matched by the bloom filter:
+
+       merkleRoot
+        /     \
+      m1       m2
+     /  \     /  \
+    tx1  tx2 tx3  tx3
+
+    flag bits (little endian): 00001011 [merkleRoot = 1, m1 = 1, tx1 = 0, tx2 = 1, m2 = 0, byte padding = 000]
+    hashes: [tx1, tx2, m2]
+
+    NOTE: this merkle tree design has a security vulnerability (CVE-2012-2459), which can be defended against by
+    considering the merkle root invalid if there are duplicate hashes in any rows with an even number of elements
+*/
 // returns a newly allocated merkle block struct that must be freed by calling BRMerkleBlockFree()
 BRMerkleBlock *BRMerkleBlockNew(void)
 {
