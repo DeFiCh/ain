@@ -68,6 +68,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.setup_tokens(tokens)
         disconnect_nodes(self.nodes[0], 1)
 
+        symbolDFI = "DFI"
         symbolDOGE = "DOGE#" + self.get_id_token("DOGE")
         symbolTSLA = "TSLA#" + self.get_id_token("TSLA")
         symbolDUSD = "DUSD#" + self.get_id_token("DUSD")
@@ -299,6 +300,49 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         psTestTokenId = customPathPoolSwap[1]
         assert_equal(psTestTokenId, idDOGE)
+
+        estimateCompositePathsResDirect = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolDFI,
+        }, "direct", True)
+
+        estimateCompositePathsResAuto = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolDFI,
+        }, "auto", True)
+
+        assert_equal(estimateCompositePathsResAuto['path'], "direct")
+        assert_equal(estimateCompositePathsResDirect, estimateCompositePathsResAuto)
+
+        estimateCompositePathsResComposite = self.nodes[0].testpoolswap({
+            "from": source,
+            "tokenFrom": symbolLTC,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolDFI,
+        }, "composite", True)
+
+        assert_equal(estimateCompositePathsResComposite['path'], "composite")
+
+        poolLTC_USDC = list(self.nodes[0].getpoolpair("LTC-USDC").keys())[0]
+        poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
+        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
+        assert_equal(estimateCompositePathsResComposite['pools'], [poolLTC_USDC, poolDOGE_USDC, poolDOGE_DFI])
+
+        assert_raises_rpc_error(-32600, "Cannot find usable pool pair.", self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolDUSD,
+            "amountFrom": 100,
+            "to": destination,
+            "tokenTo": symbolDFI,
+        }, "composite")
 
         assert_raises_rpc_error(-32600, "Custom pool path is invalid.", self.nodes[0].testpoolswap,
         {
