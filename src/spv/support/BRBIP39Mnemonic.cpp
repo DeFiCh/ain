@@ -130,6 +130,6 @@ void BRBIP39DeriveKey(void *key64, const char *phrase, const char *passphrase)
         std::string salt("mnemonic");
         if (passphrase) salt += passphrase;
         BRPBKDF2(key64, 64, BRSHA512, 512/8, phrase, strlen(phrase), salt.data(), salt.size(), 2048);
-        mem_clean(salt.data(), salt.size());
+        mem_clean((void *) salt.data(), salt.size());
     }
 }
