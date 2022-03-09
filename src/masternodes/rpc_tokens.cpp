@@ -323,7 +323,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
+UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -340,7 +340,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
 
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
-            if (auto attributes = pcustomcsview->GetAttributes()) {
+            if (auto attributes = view.GetAttributesCached()) {
                 CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
                 CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
                 loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
@@ -425,8 +425,9 @@ UniValue listtokens(const JSONRPCRequest& request) {
     }
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+    CCustomCSView view(*pcustomcsview);
+    view.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
+        ret.pushKVs(tokenToJSON(view, id, token, verbose));
         return --limit != 0;
     }, start);
 
@@ -450,9 +451,10 @@ UniValue gettoken(const JSONRPCRequest& request) {
     }.Check(request);
 
     DCT_ID id;
-    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    CCustomCSView view(*pcustomcsview);
+    auto token = view.GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *token, true);
+        return tokenToJSON(view, id, *token, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }

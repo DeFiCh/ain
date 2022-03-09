@@ -29,6 +29,7 @@
 #include <set>
 #include <stdint.h>
 
+class ATTRIBUTES;
 class CBlockIndex;
 class CTransaction;
 
@@ -432,6 +433,7 @@ class CCustomCSView
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
+    mutable std::shared_ptr<const ATTRIBUTES> attributes;
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
@@ -451,7 +453,7 @@ public:
     }
 
     // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other) : CStorageView(other)
+    CCustomCSView(CCustomCSView & other) : CStorageView(other), attributes(other.attributes)
     {
         CheckPrefixes();
     }
@@ -478,6 +480,9 @@ public:
     ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
 
     ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
+
+    Res SetVariable(GovVariable const & var) override;
+    std::shared_ptr<const ATTRIBUTES> GetAttributesCached() const;
 
     [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const override;
     [[nodiscard]] std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const override;

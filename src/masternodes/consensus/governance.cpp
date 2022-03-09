@@ -42,17 +42,13 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
 
         if (var->GetName() == "ATTRIBUTES") {
             // Add to existing ATTRIBUTES instead of overwriting.
-            auto govVar = mnview.GetVariable(var->GetName());
+            auto govVar = mnview.GetAttributes();
 
             if (!govVar) {
                 return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
             }
 
-            if (auto attrs = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
-                attrs->time = time;
-            } else {
-                return Res::Err("%s: %s", var->GetName(), "Failed to cast to ATTRIBUTES");
-            }
+            govVar->time = time;
 
             // Validate as complete set. Check for future conflicts between key pairs.
             if (!(res = govVar->Import(var->Export()))

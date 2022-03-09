@@ -2197,18 +2197,16 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
 }
 
 bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
-    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
-        if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
-            var->time = pindex.nTime;
+    if (auto var = cache.GetAttributes()) {
+        var->time = pindex.nTime;
 
-            UniValue obj(UniValue::VOBJ);
-            for (const auto& [key, value] : attrs) {
-                obj.pushKV(key, value);
-            }
+        UniValue obj(UniValue::VOBJ);
+        for (const auto& [key, value] : attrs) {
+            obj.pushKV(key, value);
+        }
 
-            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
-                return true;
-            }
+        if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+            return true;
         }
     }
 
