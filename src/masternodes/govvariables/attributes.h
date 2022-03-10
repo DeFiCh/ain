@@ -100,18 +100,46 @@ public:
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
     template<typename T>
-    T GetValue(const CAttributeType& key, T value) const {
+    static void GetIf(std::optional<T>& opt, const CAttributeValue& var) {
+        if (auto value = std::get_if<T>(&var)) {
+            opt = *value;
+        }
+    }
+
+    template<typename T>
+    static void GetIf(T& val, const CAttributeValue& var) {
+        if (auto value = std::get_if<T>(&var)) {
+            val = *value;
+        }
+    }
+
+    template<typename K, typename T>
+    [[nodiscard]] T GetValue(const K& key, T value) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
         auto it = attributes.find(key);
         if (it != attributes.end()) {
-            if (auto val = std::get_if<T>(&it->second)) {
-                value = *val;
-            }
+            GetIf(value, it->second);
         }
         return value;
     }
 
-    [[nodiscard]] bool CheckKey(const CAttributeType& key) const {
-        return attributes.find(key) != attributes.end();
+    template<typename K>
+    [[nodiscard]] bool CheckKey(const K& key) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        return attributes.count(key) > 0;
+    }
+
+    template<typename C, typename K>
+    void ForEach(const C& callback, const K& key) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        static_assert(std::is_invocable_r_v<bool, C, K, CAttributeValue>);
+        for (auto it = attributes.lower_bound(key); it != attributes.end(); ++it) {
+            if (auto attrV0 = std::get_if<K>(&it->first)) {
+                if (!std::invoke(callback, *attrV0, it->second)) {
+                    break;
+                }
+            }
+        }
     }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS

@@ -2,7 +2,7 @@
 
 #include <masternodes/govvariables/attributes.h>
 
-extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern UniValue listauctions(const JSONRPCRequest& request);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
@@ -13,6 +13,7 @@ UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenIm
     auto token = view.GetToken(collToken.idToken);
     if (!token)
         return (UniValue::VNULL);
+
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
     collTokenObj.pushKV("tokenId", collToken.creationTx.GetHex());
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
@@ -31,19 +32,7 @@ UniValue setLoanTokenToJSON(CCustomCSView& view, CLoanSetLoanTokenImplementation
     if (!token)
         return (UniValue::VNULL);
 
-    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *token, true));
-    loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
-    loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
-    loanTokenObj.pushKV("mintable", loanToken.mintable);
-
-    return (loanTokenObj);
-}
-
-UniValue setLoanTokenToJSON(const CLoanSetLoanTokenImplementation& loanToken, DCT_ID tokenId, const CTokenImplementation& token)
-{
-    UniValue loanTokenObj(UniValue::VOBJ);
-
-    loanTokenObj.pushKV("token", tokenToJSON(tokenId, token, true));
+    loanTokenObj.pushKV("token", tokenToJSON(view, tokenId, *token, true));
     loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
     loanTokenObj.pushKV("mintable", loanToken.mintable);
@@ -259,21 +248,22 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return ret;
     }
 
-    if (auto attributes = pcustomcsview->GetAttributes()) {
-        for (const auto& map : attributes->attributes) {
-            if (const auto& key = std::get_if<CDataStructureV0>(&map.first)) {
+    auto attributes = view.GetAttributesCached();
+    if (!attributes) {
+        return ret;
+    }
 
-                // Find collateral tokens
-                if (key->type == AttributeTypes::Token && key->key == TokenKeys::LoanCollateralEnabled) {
-                    if (const auto& value = std::get_if<bool>(&map.second); value) {
-                        if (const auto collToken = view.GetCollateralTokenFromAttributes({key->typeId})) {
-                            ret.push_back(setCollateralTokenToJSON(view, *collToken));
-                        }
-                    }
-                }
+    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+        if (attr.type != AttributeTypes::Token) {
+            return false;
+        }
+        if (attr.key == TokenKeys::LoanCollateralEnabled) {
+            if (auto collToken = view.GetCollateralTokenFromAttributes({attr.typeId})) {
+                ret.push_back(setCollateralTokenToJSON(view, *collToken));
             }
         }
-    }
+        return true;
+    }, CDataStructureV0{AttributeTypes::Token});
 
     return ret;
 }
@@ -529,27 +519,23 @@ UniValue listloantokens(const JSONRPCRequest& request) {
         return ret;
     }
 
-    if (auto attributes = pcustomcsview->GetAttributes()) {
-        for (const auto& map : attributes->attributes) {
-            if (const auto& key = std::get_if<CDataStructureV0>(&map.first)) {
+    auto attributes = view.GetAttributesCached();
+    if (!attributes) {
+        return ret;
+    }
 
-                // Find loan tokens
-                if (key->type == AttributeTypes::Token && key->key == TokenKeys::LoanMintingEnabled) {
-                    // Make sure interest is set
-                    CDataStructureV0 interestKey{AttributeTypes::Token, key->typeId, TokenKeys::LoanMintingInterest};
-                    if (attributes->CheckKey(interestKey)) {
-                        const auto id = DCT_ID{key->typeId};
-                        const auto token = pcustomcsview->GetToken(id);
-                        if (token) {
-                            if (const auto loanToken = pcustomcsview->GetLoanTokenFromAttributes({key->typeId})) {
-                                ret.push_back(setLoanTokenToJSON(*loanToken, id, *token));
-                            }
-                        }
-                    }
-                }
+    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+        if (attr.type != AttributeTypes::Token) {
+            return false;
+        }
+        if (attr.key == TokenKeys::LoanMintingEnabled) {
+            auto tokenId = DCT_ID{attr.typeId};
+            if (auto loanToken = view.GetLoanTokenFromAttributes(tokenId)) {
+                ret.push_back(setLoanTokenToJSON(view, *loanToken, tokenId));
             }
         }
-    }
+        return true;
+    }, CDataStructureV0{AttributeTypes::Token});
 
     return ret;
 }

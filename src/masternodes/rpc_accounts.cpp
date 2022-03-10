@@ -1808,7 +1808,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     CAmount burnt{0};
 
-    if (auto attributes = view.GetAttributes()) {
+    if (auto attributes = view.GetAttributesCached()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
         auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
         for (const auto& balance : tokenBalances.balances) {

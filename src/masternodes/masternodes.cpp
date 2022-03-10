@@ -859,6 +859,7 @@ void CCustomCSView::SetBackend(CCustomCSView & backend)
 {
     // update backend
     CStorageView::SetBackend(backend);
+    attributes = backend.attributes;
 }
 
 double CCollateralLoans::calcRatio(uint64_t maxRatio) const
@@ -1051,47 +1052,62 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
     return operatorDetails;
 }
 
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
-    if (const auto token = GetToken(id)) {
-        if (const auto attributes = GetAttributes()) {
+Res CCustomCSView::SetVariable(GovVariable const & var)
+{
+    if (var.GetName() == "ATTRIBUTES") {
+        attributes.reset();
+    }
+    return CGovView::SetVariable(var);
+}
+
+std::shared_ptr<const ATTRIBUTES> CCustomCSView::GetAttributesCached() const
+{
+    if (!attributes) {
+        attributes = std::static_pointer_cast<const ATTRIBUTES>(GetAttributes());
+    }
+    return attributes;
+}
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const
+{
+    if (auto attributes = GetAttributesCached()) {
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+        CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+
+        auto tokenCurrency = attributes->GetValue(pairKey, std::optional<CTokenCurrencyPair>{});
+        auto interest = attributes->GetValue(interestKey, std::optional<CAmount>{});
+        auto mitable = attributes->GetValue(mintableKey, std::optional<bool>{});
+
+        if (auto token = GetToken(id); token && tokenCurrency && interest && mitable) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
-
-            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-            CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-            CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-
-            if (attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
-
-                loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-                loanToken.interest = attributes->GetValue(interestKey, CAmount{0});
-                loanToken.mintable = attributes->GetValue(mintableKey, false);
-                loanToken.symbol = token->symbol;
-                loanToken.name = token->name;
-
-                return loanToken;
-            }
+            loanToken.fixedIntervalPriceId = *tokenCurrency;
+            loanToken.interest = *interest;
+            loanToken.mintable = *mitable;
+            loanToken.symbol = token->symbol;
+            loanToken.name = token->name;
+            return loanToken;
         }
     }
-
     return {};
 }
 
-std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
-    if (const auto attributes = GetAttributes()) {
-        CLoanSetCollateralTokenImplementation collToken;
-
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const
+{
+    if (auto attributes = GetAttributesCached()) {
         CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
         CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
 
-        if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
+        auto fixedIntervalPriceId = attributes->GetValue(pairKey, std::optional<CTokenCurrencyPair>{});
+        auto factor = attributes->GetValue(factorKey, std::optional<CAmount>{});
 
-            collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-            collToken.factor = attributes->GetValue(factorKey, CAmount{0});
+        if (fixedIntervalPriceId && factor) {
+            CLoanView::CLoanSetCollateralTokenImpl collToken;
+            collToken.fixedIntervalPriceId = *fixedIntervalPriceId;
+            collToken.factor = *factor;
             collToken.idToken = id;
-
             return collToken;
         }
     }
-
     return {};
 }
