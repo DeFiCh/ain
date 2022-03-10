@@ -1011,6 +1011,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                        "One of auto/direct (default = direct)\n"
                        "auto - automatically use composite swap or direct swap as needed.\n"
                        "direct - uses direct path only or fails.\n"
+                       "composite - uses composite path only or fails.\n"
                        "Note: The default will be switched to auto in the upcoming versions."
                    },
                    {
@@ -1063,9 +1064,11 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
         int targetHeight = mnview_dummy.GetLastHeight() + 1;
 
+        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        if (poolPair && path == "auto") path = "direct";
+
         // If no direct swap found search for composite swap
         if (path == "direct") {
-            auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
@@ -1099,7 +1102,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
 
             std::vector<DCT_ID> poolIds;
-            if (path == "auto") {
+            if (path == "auto" || path == "composite") {
                 poolIds = compositeSwap.CalculateSwaps(mnview_dummy, true);
             } else {
                 path = "custom";

@@ -789,7 +789,7 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
 
     fake_spv->lastBlockHeight = request.params[0].get_int();
-    panchors->CheckActiveAnchor(true);
+    panchors->CheckActiveAnchor(fake_spv->lastBlockHeight, true);
     return UniValue();
 }
 

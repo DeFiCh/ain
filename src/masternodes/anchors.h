@@ -241,7 +241,7 @@ public:
     int GetAnchorConfirmations(uint256 const & txHash) const;
     int GetAnchorConfirmations(AnchorRec const * rec) const;
 
-    void CheckActiveAnchor(bool forced = false);
+    void CheckActiveAnchor(uint32_t height, bool forced = false);
     void UpdateLastHeight(uint32_t height);
 
     // Post-fork anchor pending, requires chain context to validate. Some pending may be bogus, intentional or not.
