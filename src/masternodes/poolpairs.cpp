@@ -367,17 +367,17 @@ Res CPoolPair::AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(
 
     // increasing totalLiquidity
     auto resTotal = SafeAdd(totalLiquidity, liquidity);
-    if (!resTotal.ok) {
+    if (!resTotal) {
         return Res::Err("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg);
     }
-    totalLiquidity = *resTotal.val;
+    totalLiquidity = resTotal;
 
     // increasing reserves
     auto resA = SafeAdd(reserveA, amountA);
     auto resB = SafeAdd(reserveB, amountB);
-    if (resA.ok && resB.ok) {
-        reserveA = *resA.val;
-        reserveB = *resB.val;
+    if (resA && resB) {
+        reserveA = resA;
+        reserveB = resB;
     } else {
         return Res::Err("overflow when adding to reserves");
     }

@@ -38,7 +38,7 @@ Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CA
         return Res::Ok();
     }
     auto res = SafeAdd(amount, GetCommunityBalance(account));
-    return !res.ok ? res : SetCommunityBalance(account, *res.val);
+    return !res ? res : SetCommunityBalance(account, res);
 }
 
 Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount)

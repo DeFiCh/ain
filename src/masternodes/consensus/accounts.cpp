@@ -30,7 +30,7 @@ Res CAccountsConsensus::operator()(const CAccountToUtxosMessage& obj) const {
     if (!minted)
         return std::move(minted);
 
-    if (obj.balances != *minted.val)
+    if (obj.balances != *minted)
         return Res::Err("amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)", minted.val->ToString(), obj.balances.ToString());
 
     // block for non-DFI transactions

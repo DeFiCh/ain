@@ -89,21 +89,21 @@ inline std::string GetDecimaleString(CAmount nValue)
 
 typedef std::map<DCT_ID, CAmount> TAmounts;
 
-inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
+template<typename T>
+ResVal<T> SafeAdd(T a, T b) {
+    static_assert(std::is_integral_v<T>, "SafeAdd is implemented to integral types");
+
     // check limits
-    if (_a < 0 || _b < 0) {
+    if (a < 0 || b < 0) {
         return Res::Err("negative amount");
     }
-    // convert to unsigned, because signed overflow is UB
-    const uint64_t a = (uint64_t) _a;
-    const uint64_t b = (uint64_t) _b;
 
-    const uint64_t sum = a + b;
+    constexpr auto max = std::numeric_limits<T>::max();
     // check overflow
-    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
-        return Res::Err("overflow");
+    if (max - a < b) {
+        return Res::Err("integral overflow");
     }
-    return {(CAmount) sum, Res::Ok()};
+    return {a + b, Res::Ok()};
 }
 
 inline CAmount MultiplyAmounts(CAmount a, CAmount b)
@@ -130,11 +130,11 @@ struct CTokenAmount { // simple std::pair is less informative
             return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
         // add
-        auto sumRes = SafeAdd(this->nValue, amount);
-        if (!sumRes.ok) {
+        auto sumRes = SafeAdd(nValue, amount);
+        if (!sumRes) {
             return std::move(sumRes);
         }
-        this->nValue = *sumRes.val;
+        nValue = sumRes;
         return Res::Ok();
     }
     Res Sub(CAmount amount) {
@@ -142,11 +142,11 @@ struct CTokenAmount { // simple std::pair is less informative
         if (amount < 0) {
             return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
-        if (this->nValue < amount) {
-            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
+        if (nValue < amount) {
+            return Res::Err("amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
         }
         // sub
-        this->nValue -= amount;
+        nValue -= amount;
         return Res::Ok();
     }
     CAmount SubWithRemainder(CAmount amount) {
@@ -155,13 +155,13 @@ struct CTokenAmount { // simple std::pair is less informative
             Add(-amount);
             return 0;
         }
-        if (this->nValue < amount) {
-            CAmount remainder = amount - this->nValue;
-            this->nValue = 0;
+        if (nValue < amount) {
+            CAmount remainder = amount - nValue;
+            nValue = 0;
             return remainder;
         }
         // sub
-        this->nValue -= amount;
+        nValue -= amount;
         return 0;
     }
 
