@@ -489,7 +489,8 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrint(BCLog::SPV, "tx status update\n");
-    panchors->CheckActiveAnchor();
+    uint32_t height = spv::pspv->GetLastBlockHeight();
+    panchors->CheckActiveAnchor(height);
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
