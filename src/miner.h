@@ -254,8 +254,8 @@ namespace pos {
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
+        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs GUARDED_BY(cs_MNLastBlockCreationAttemptTs);
+        static CLockFreeMutex cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;

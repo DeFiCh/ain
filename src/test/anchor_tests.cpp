@@ -363,6 +363,7 @@ BOOST_AUTO_TEST_CASE(Test_AnchorConfirmationOrder)
     // Create confirm data
     CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1, {}, 0};
 
+    LockAssertion lock(cs_main);
     // Create 16 signed confirms that meet quorum
     const std::string digits = "0123456789ABCDEF";
     for (std::string::size_type j{1}; j <= digits.size(); ++j) {

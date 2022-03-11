@@ -7,12 +7,12 @@
 #define DEFI_LOGGING_H
 
 #include <fs.h>
+#include <sync.h>
 #include <tinyformat.h>
 
 #include <atomic>
 #include <cstdint>
 #include <list>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -64,10 +64,10 @@ namespace BCLog {
     class Logger
     {
     private:
-        mutable std::mutex m_cs;                   // Can not use Mutex from sync.h because in debug mode it would cause a deadlock when a potential deadlock was detected
-        FILE* m_fileout = nullptr;                 // GUARDED_BY(m_cs)
-        std::list<std::string> m_msgs_before_open; // GUARDED_BY(m_cs)
-        bool m_buffering{true};                    //!< Buffer messages before logging can be started. GUARDED_BY(m_cs)
+        CLockFreeMutex m_cs;
+        FILE* m_fileout GUARDED_BY(m_cs){nullptr};
+        std::list<std::string> m_msgs_before_open GUARDED_BY(m_cs);
+        std::atomic_bool m_buffering{true};        //!< Buffer messages before logging can be started. GUARDED_BY(m_cs)
 
         /**
          * m_started_new_line is a state variable that will suppress printing of
@@ -82,15 +82,15 @@ namespace BCLog {
         std::string LogTimestampStr(const std::string& str);
 
     public:
-        bool m_print_to_console = false;
-        bool m_print_to_file = false;
+        std::atomic_bool m_print_to_console{false};
+        std::atomic_bool m_print_to_file{false};
 
-        bool m_log_timestamps = DEFAULT_LOGTIMESTAMPS;
-        bool m_log_time_micros = DEFAULT_LOGTIMEMICROS;
-        bool m_log_threadnames = DEFAULT_LOGTHREADNAMES;
+        std::atomic_bool m_log_timestamps{DEFAULT_LOGTIMESTAMPS};
+        std::atomic_bool m_log_time_micros{DEFAULT_LOGTIMEMICROS};
+        std::atomic_bool m_log_threadnames{DEFAULT_LOGTHREADNAMES};
 
         fs::path m_file_path;
-        std::atomic<bool> m_reopen_file{false};
+        std::atomic_bool m_reopen_file{false};
 
         /** Send a string to the log output */
         void LogPrintStr(const std::string& str);
@@ -98,7 +98,6 @@ namespace BCLog {
         /** Returns whether logs will be written to any output */
         bool Enabled() const
         {
-            std::lock_guard<std::mutex> scoped_lock(m_cs);
             return m_buffering || m_print_to_console || m_print_to_file;
         }
 

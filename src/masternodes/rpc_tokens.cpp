@@ -547,6 +547,8 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     UniValue txResults(UniValue::VOBJ);
     Res res{};
 
+    CCustomCSView mnview(*pcustomcsview);
+
     if (tx)
     {
         // Found a block hash but no block index yet
@@ -556,7 +558,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         }
 
         // Default to next block height
-        nHeight = pcustomcsview->GetLastHeight() + 1;
+        nHeight = mnview.GetLastHeight() + 1;
 
         // Get actual height if blockindex avaiable
         if (blockindex) {
@@ -585,7 +587,6 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     if (!actualHeight) {
 
         LOCK(cs_main);
-        CImmutableCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
@@ -609,7 +610,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         if (blockindex) {
             result.pushKV("blockHeight", blockindex->nHeight);
             result.pushKV("blockTime", blockindex->GetBlockTime());
-            result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
+            result.pushKV("confirmations", 1 + mnview.GetLastHeight() - blockindex->nHeight);
         } else {
             result.pushKV("confirmations", 0);
         }

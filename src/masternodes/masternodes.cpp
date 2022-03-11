@@ -9,13 +9,10 @@
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
-#include <net_processing.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <validation.h>
-#include <wallet/wallet.h>
-#include <wallet/walletutil.h>
 
 #include <algorithm>
 #include <functional>
@@ -783,18 +780,6 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     }
 }
 
-/// @todo newbase move to networking?
-void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor, const uint256 & btcTxHash, const CKey& masternodeKey)
-{
-    auto prev = panchors->GetAnchorByTx(anchor->anchor.previousAnchor);
-    const auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor->anchor, prev ? prev->anchor.height : 0, btcTxHash, masternodeKey, anchor->btcHeight);
-
-    if (confirmMessage && panchorAwaitingConfirms->Add(*confirmMessage)) {
-        LogPrint(BCLog::ANCHORING, "%s: Create message %s\n", __func__, confirmMessage->GetHash().GetHex());
-        RelayAnchorConfirm(confirmMessage->GetHash(), *g_connman);
-    }
-}
-
 void CCustomCSView::AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height)
 {
     auto flushable = cache.GetStorage().GetFlushableStorage();
@@ -1018,37 +1003,6 @@ uint256 CCustomCSView::MerkleRoot()
         hashes.push_back(Hash2(it.first, value));
     }
     return ComputeMerkleRoot(std::move(hashes));
-}
-
-std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
-{
-    AssertLockHeld(cs_main);
-
-    std::map<CKeyID, CKey> operatorDetails;
-    auto const mnIds = pcustomcsview->GetOperatorsMulti();
-    for (const auto& mnId : mnIds)
-    {
-        auto node = pcustomcsview->GetMasternode(mnId.second);
-        if (!node) {
-            continue;
-        }
-
-        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
-            CKey masternodeKey;
-            std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-            for (auto const & wallet : wallets) {
-                if (wallet->GetKey(mnId.first, masternodeKey)) {
-                    break;
-                }
-                masternodeKey = CKey{};
-            }
-            if (masternodeKey.IsValid()) {
-                operatorDetails[mnId.first] = masternodeKey;
-            }
-        }
-    }
-
-    return operatorDetails;
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const

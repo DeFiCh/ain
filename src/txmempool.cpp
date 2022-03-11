@@ -637,17 +637,17 @@ void CTxMemPool::clear()
     acview.reset();
 }
 
-static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight, const CChainParams& chainparams)
+static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, CCustomCSView& mnviewDuplicate, const int64_t spendheight, const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, mnview, spendheight, txfee, chainparams);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, mnviewDuplicate, spendheight, txfee, chainparams);
     fCheckResult = fCheckResult && CheckBurnSpend(tx, mempoolDuplicate);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 }
 
-void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnview, const CChainParams& chainparams) const
+void CTxMemPool::xcheck(CCoinsViewCache *pcoins, CCustomCSView *mnview, const CChainParams& chainparams) const
 {
     LOCK(cs);
     if (nCheckFrequency == 0)
@@ -661,7 +661,8 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
     uint64_t checkTotal = 0;
     uint64_t innerUsage = 0;
 
-    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
+    CCustomCSView mnviewDuplicate(*mnview);
+    CCoinsViewCache mempoolDuplicate(pcoins);
     const int64_t spendheight = GetSpendHeight(mempoolDuplicate);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
@@ -735,7 +736,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
         if (fDependsWait)
             waitingOnDependants.push_back(&(*it));
         else {
-            CheckInputsAndUpdateCoins(tx, mempoolDuplicate, mnview, spendheight, chainparams);
+            CheckInputsAndUpdateCoins(tx, mempoolDuplicate, mnviewDuplicate, spendheight, chainparams);
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -747,7 +748,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            CheckInputsAndUpdateCoins(entry->GetTx(), mempoolDuplicate, mnview, spendheight, chainparams);
+            CheckInputsAndUpdateCoins(entry->GetTx(), mempoolDuplicate, mnviewDuplicate, spendheight, chainparams);
             stepsSinceLastRemove = 0;
         }
     }
@@ -1121,7 +1122,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
         CValidationState state;
         const auto& tx = it->GetTx();
-        if (!Consensus::CheckTxInputs(tx, state, coinsCache, &viewDuplicate, height, txfee, Params())) {
+        if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
             LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());

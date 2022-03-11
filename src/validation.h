@@ -146,7 +146,7 @@ struct BlockHasher
 };
 
 extern CScript COINBASE_FLAGS;
-extern CCriticalSection cs_main;
+extern RecursiveMutex cs_main;
 extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
@@ -344,7 +344,7 @@ bool TestLockPointValidity(const LockPoints* lp) EXCLUSIVE_LOCKS_REQUIRED(cs_mai
  *
  * See consensus/consensus.h for flag definitions.
  */
-bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flags, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flags, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main, pool.cs);
 
 /**
  * Closure representing one script verification
@@ -396,7 +396,7 @@ bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex* pindex);
 /** Functions for validating blocks and updating the block tree */
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, CheckContextState& ctxState, bool fCheckPOS, const int height, bool fCheckMerkleRoot = true);
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, CheckContextState& ctxState, bool fCheckPOS, const int height, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -789,10 +789,10 @@ void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_mai
 CChainState& ChainstateActive();
 
 /** @returns the most-work chain. */
-CChain& ChainActive();
+CChain& ChainActive() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** @returns the global block index map. */
-BlockMap& BlockIndex();
+BlockMap& BlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Most often ::ChainstateActive() should be used instead of this, but some code
 // may not be able to assume that this has been initialized yet and so must use it

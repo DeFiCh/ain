@@ -615,7 +615,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         CCustomCSView mnview(pool.accountsView(height, view));
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -2476,7 +2476,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -5164,6 +5164,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 {
     AssertLockNotHeld(cs_main);
 
+    bool isInitialBlockDownload = false;
     {
         CBlockIndex *pindex = nullptr;
         if (fNewBlock) *fNewBlock = false;
@@ -5197,35 +5198,44 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
             GetMainSignals().BlockChecked(*pblock, state);
             return error("%s: AcceptBlock FAILED (%s)", __func__, FormatStateMessage(state));
         }
+
+        isInitialBlockDownload = ::ChainstateActive().IsInitialBlockDownload();
     }
 
     NotifyHeaderTip();
 
+    CBlockIndex *oldTip = nullptr, *tip = nullptr;
+
     // save old tip
-    auto const oldTip = ::ChainActive().Tip();
+    if (!isInitialBlockDownload)
+        oldTip = WITH_LOCK(cs_main, return ::ChainActive().Tip());
 
     CValidationState state; // Only used to report errors, not invalidity - ignore it
     if (!::ChainstateActive().ActivateBestChain(state, chainparams, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
-    auto const tip = ::ChainActive().Tip();
+    if (!isInitialBlockDownload)
+        tip = WITH_LOCK(cs_main, return ::ChainActive().Tip());
 
     // special case for the first run after IBD
-    static bool firstRunAfterIBD = true;
-    if (!::ChainstateActive().IsInitialBlockDownload() && tip && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
+    static std::atomic_bool firstRunAfterIBD{true};
+    if (!isInitialBlockDownload && tip && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
+        LOCK(cs_main);
         int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
         LogPrint(BCLog::ANCHORING, "Trying to request some auths after IBD, since %i...\n", sinceHeight);
         RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;
     }
     // only if tip was changed
-    if (!::ChainstateActive().IsInitialBlockDownload() && tip && tip != oldTip && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
+    if (!isInitialBlockDownload && tip && tip != oldTip && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
         ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
 
         if (tip->nHeight >= chainparams.GetConsensus().DakotaHeight) {
-            panchors->CheckPendingAnchors();
+            uint32_t height = spv::pspv->GetLastBlockHeight();
+            LOCK(cs_main);
+            panchors->CheckPendingAnchors(height);
         }
     }
 
