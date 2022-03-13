@@ -1019,6 +1019,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
                 "Get fixed interval price for a given pair.\n",
                 {
                     {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                    {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "optional height"},
                 },
                 RPCResult{
                        "\"json\"          (string) json-object having following fields:\n"
@@ -1038,13 +1039,15 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     }.Check(request);
 
     auto fixedIntervalStr = request.params[0].getValStr();
+    auto heightNum = request.params[1].get_int();
     UniValue objPrice{UniValue::VOBJ};
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
+    auto height = heightNum ? heightNum : ::ChainActive().Height();
 
     LOCK(cs_main);
     LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
-    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice({pairId, u_int32_t(height)});
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 

@@ -3323,7 +3323,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         } else {
             LogPrint(BCLog::ORACLE,"ProcessOracleEvents(): No aggregate price available: %s\n", aggregatePrice.msg);
         }
-        auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+        auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice, pindex->nHeight);
         if (!res) {
             LogPrintf("Error: SetFixedIntervalPrice failed: %s\n", res.msg);
         }

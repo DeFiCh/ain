@@ -115,6 +115,19 @@ struct CFixedIntervalPrice
     }
 };
 
+struct FixedIntervalPriceKeyWithHeight {
+    CTokenCurrencyPair priceFeedId;
+    uint32_t height;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(height);
+        READWRITE(priceFeedId);
+    }
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {
@@ -138,9 +151,9 @@ public:
 
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
-    Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
+    Res SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice, uint32_t height);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const FixedIntervalPriceKeyWithHeight& fixedIntervalPriceKey);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
 

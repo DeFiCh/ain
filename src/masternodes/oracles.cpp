@@ -142,9 +142,13 @@ bool CFixedIntervalPrice::isLive(const CAmount deviationThreshold) const
     );
 }
 
-Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice){
+Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice, uint32_t height){
 
-    if (!WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
+    FixedIntervalPriceKeyWithHeight key;
+    key.priceFeedId = fixedIntervalPrice.priceFeedId;
+    key.height = height;
+
+    if (!WriteBy<FixedIntervalPriceKey>(key, fixedIntervalPrice)) {
         return Res::Err("failed to set new price feed <%s/%s>", fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second);
     }
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
@@ -152,11 +156,11 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const FixedIntervalPriceKeyWithHeight& fixedIntervalPriceKey)
 {
     CFixedIntervalPrice fixedIntervalPrice;
-    if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
-        return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
+    if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceKey, fixedIntervalPrice)) {
+        return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceKey.priceFeedId.first, fixedIntervalPriceKey.priceFeedId.second);
     }
 
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);

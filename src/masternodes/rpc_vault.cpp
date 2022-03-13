@@ -157,7 +157,7 @@ namespace {
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice({token->fixedIntervalPriceId, (u_int32_t)height})) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
@@ -1589,7 +1589,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
             }
 
-            auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            auto priceFeed = pcustomcsview->GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, (u_int32_t)height});
             if (!priceFeed.ok) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
             }
@@ -1650,20 +1650,20 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     }
 
     LOCK(cs_main);
+    auto height = (uint32_t) ::ChainActive().Height();
 
     CAmount totalLoanValue{0};
     for (const auto& loan : loanBalances.balances) {
         auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
         if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
 
-        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId, height);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
         totalLoanValue += *amountInCurrency.val;
     }
 
-    uint32_t height = ::ChainActive().Height();
     CBalances collateralBalances;
     CAmount totalSplit{0};
     for (const auto& collateralSplit : collateralSplits) {
@@ -1679,7 +1679,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
         }
 
-        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
+        auto priceFeed = pcustomcsview->GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, height});
         if (!priceFeed.ok) {
             throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
         }
@@ -1745,7 +1745,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token with id (%s) is not a valid collateral!", collateral.first.ToString()));
         }
 
-        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId, height);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
@@ -1756,7 +1756,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
         auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
         if (!loanToken) throw JSONRPCError(RPC_INVALID_PARAMETER, "Token with id (" + loan.first.ToString() + ") is not a loan token!");
 
-        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId, height);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }

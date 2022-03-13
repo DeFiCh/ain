@@ -1395,7 +1395,7 @@ public:
 
 
         bool useNextPrice{false}, requireLivePrice{true};
-        auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
+        auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice, height);
         if (!resVal)
             return std::move(resVal);
 
@@ -1404,7 +1404,7 @@ public:
 
         const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
 
-        resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+        resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice, height);
         if (!resVal)
             return std::move(resVal);
 
@@ -2184,7 +2184,7 @@ public:
         fixedIntervalPrice.timestamp = time;
 
         LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
-        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice, height);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
@@ -2213,7 +2213,7 @@ public:
         fixedIntervalPrice.timestamp = time;
 
         LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
-        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice,height);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
 
@@ -2712,7 +2712,7 @@ public:
             auto tokenCurrency = loanToken->fixedIntervalPriceId;
 
             LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
-            auto priceFeed = mnview.GetFixedIntervalPrice(tokenCurrency);
+            auto priceFeed = mnview.GetFixedIntervalPrice({tokenCurrency, height});
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
@@ -2820,7 +2820,7 @@ public:
                 // Get DFI price in USD
                 const CTokenCurrencyPair dfiUsd{"DFI","USD"};
                 bool useNextPrice{false}, requireLivePrice{true};
-                const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+                const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice, height);
                 if (!resVal)
                     return std::move(resVal);
 
@@ -3962,14 +3962,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
         for (const auto& collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, height}))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, height}))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
     return true;

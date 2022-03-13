@@ -920,9 +920,9 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, uint32_t height, bool useNextPrice, bool requireLivePrice)
 {
-    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
+    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice, height);
     if (!priceResult)
         return priceResult;
 
@@ -956,14 +956,14 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     return ResVal<CCollateralLoans>(result, Res::Ok());
 }
 
-ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice,uint32_t height)
 {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
 
     LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
-
-    auto priceFeed = GetFixedIntervalPrice(priceFeedId);
+    FixedIntervalPriceKeyWithHeight priceFeedKey = {priceFeedId, height};
+    auto priceFeed = GetFixedIntervalPrice(priceFeedKey);
     if (!priceFeed)
         return std::move(priceFeed);
 
