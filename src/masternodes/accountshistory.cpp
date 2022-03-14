@@ -147,12 +147,12 @@ Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amoun
     return res;
 }
 
-bool CAccountsHistoryWriter::Flush()
+bool CAccountsHistoryWriter::Flush(bool sync)
 {
     if (writers) {
         writers->Flush(height, txid, txn, type);
     }
-    return CCustomCSView::Flush();
+    return CCustomCSView::Flush(sync);
 }
 
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)

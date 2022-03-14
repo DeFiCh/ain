@@ -2,11 +2,11 @@
 
 #include <masternodes/govvariables/attributes.h>
 
-extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+extern UniValue tokenToJSON(CImmutableCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern UniValue listauctions(const JSONRPCRequest& request);
-extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
+extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CImmutableCSView &mnview);
 
-UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
+UniValue setCollateralTokenToJSON(CImmutableCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
 {
     UniValue collTokenObj(UniValue::VOBJ);
 
@@ -24,7 +24,7 @@ UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenIm
     return (collTokenObj);
 }
 
-UniValue setLoanTokenToJSON(CCustomCSView& view, CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
+UniValue setLoanTokenToJSON(CImmutableCSView& view, CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
 {
     UniValue loanTokenObj(UniValue::VOBJ);
 
@@ -201,7 +201,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto token = view.GetTokenGuessId(trim_ws(tokenSymbol), idToken);
     if (!token)
@@ -234,7 +234,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
      }.Check(request);
 
     UniValue ret(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     view.ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
         auto collToken = view.GetLoanCollateralToken(collTokenTx);
@@ -427,7 +427,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     int targetHeight;
     {
         DCT_ID id;
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto token = view.GetTokenGuessId(tokenStr, id);
         if (!token)
@@ -508,7 +508,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     view.ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.push_back(setLoanTokenToJSON(view, loanToken,key));
@@ -564,7 +564,7 @@ UniValue getloantoken(const JSONRPCRequest& request)
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto token = view.GetTokenGuessId(trim_ws(tokenSymbol), idToken);
     if (!token)
@@ -909,7 +909,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     };
     std::set<CLoanScheme, decltype(cmp)> loans(cmp);
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     view.ForEachLoanScheme([&loans](const std::string& identifier, const CLoanSchemeData& data){
         CLoanScheme loanScheme;
@@ -967,7 +967,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
     if (loanSchemeId.empty() || loanSchemeId.length() > 8)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto loanScheme = view.GetLoanScheme(loanSchemeId);
     if (!loanScheme)
@@ -1054,7 +1054,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     int targetHeight;
     CScript ownerAddress;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto vault = view.GetVault(takeLoan.vaultId);
         if (!vault)
@@ -1192,7 +1192,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
 
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         // Get vault if exists, vault owner used as auth.
         auto vault = view.GetVault(loanPayback.vaultId);
@@ -1249,7 +1249,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     UniValue ret{UniValue::VOBJ};
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto height = view.GetLastHeight();
     auto blockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
 
@@ -1340,7 +1340,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
     if (loanSchemeId.empty() || loanSchemeId.length() > 8)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     if (!view.GetLoanScheme(loanSchemeId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);

@@ -112,7 +112,7 @@ public:
 
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
+    bool Flush(bool sync = false) override;
 };
 
 template<typename T, typename... Args>

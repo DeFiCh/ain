@@ -14,7 +14,7 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    CCustomCSView mnview(*pcustomcsview);
+    CImmutableCSView mnview(*pcustomcsview);
     auto targetHeight = mnview.GetLastHeight() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
@@ -420,7 +420,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
