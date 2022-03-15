@@ -13,6 +13,8 @@
 #include <script/script.h>
 #include <uint256.h>
 
+#include <optional>
+
 class CVaultHistoryView;
 class CVaultHistoryStorage;
 
@@ -81,11 +83,11 @@ class CHistoryWriters {
     CAccountHistoryStorage* historyView;
     CBurnHistoryStorage* burnView;
     CVaultHistoryStorage* vaultView;
-    CVaultId vaultID;
     std::string schemeID;
-    CLoanSchemeCreation globalLoanScheme;
+    std::optional<CVaultId> vaultID;
     std::map<CScript, TAmounts> diffs;
     std::map<CScript, TAmounts> burnDiffs;
+    std::optional<CLoanSchemeCreation> globalLoanScheme;
     std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
 
 public:
@@ -103,7 +105,7 @@ class CAccountsHistoryWriter : public CCustomCSView
 {
     const uint32_t height;
     const uint32_t txn;
-    const uint256 txid;
+    const uint256& txid;
     const uint8_t type;
     CHistoryWriters* writers;
 
