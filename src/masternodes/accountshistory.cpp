@@ -151,9 +151,12 @@ void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn, const uin
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
     : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
 
+extern std::string ScriptToString(CScript const& script);
+
 void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
 {
     if (historyView) {
+        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange AddBalance: %s: %s\n", ScriptToString(owner), amount.ToString());
         diffs[owner][amount.nTokenId] += amount.nValue;
     }
     if (burnView && owner == Params().GetConsensus().burnAddress) {
@@ -174,6 +177,7 @@ void CHistoryWriters::AddFeeBurn(const CScript& owner, const CAmount amount)
 void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
 {
     if (historyView) {
+        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange SubBalance: %s: %s\n", ScriptToString(owner), amount.ToString());
         diffs[owner][amount.nTokenId] -= amount.nValue;
     }
     if (burnView && owner == Params().GetConsensus().burnAddress) {
@@ -188,6 +192,7 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
 {
     if (historyView) {
         for (const auto& diff : diffs) {
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: Tx: %s => %s: %s\n", txid.GetHex(), ScriptToString(diff.first), CTokenAmount{diff.second.begin()->first, diff.second.begin()->second}.ToString());
             historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
         }
     }
