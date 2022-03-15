@@ -156,7 +156,6 @@ extern std::string ScriptToString(CScript const& script);
 void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
 {
     if (historyView) {
-        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange AddBalance: %s: %s\n", ScriptToString(owner), amount.ToString());
         diffs[owner][amount.nTokenId] += amount.nValue;
     }
     if (burnView && owner == Params().GetConsensus().burnAddress) {
@@ -177,7 +176,6 @@ void CHistoryWriters::AddFeeBurn(const CScript& owner, const CAmount amount)
 void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
 {
     if (historyView) {
-        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange SubBalance: %s: %s\n", ScriptToString(owner), amount.ToString());
         diffs[owner][amount.nTokenId] -= amount.nValue;
     }
     if (burnView && owner == Params().GetConsensus().burnAddress) {
