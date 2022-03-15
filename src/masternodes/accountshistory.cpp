@@ -166,8 +166,8 @@ void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount
     if (burnView && owner == Params().GetConsensus().burnAddress) {
         burnDiffs[owner][amount.nTokenId] += amount.nValue;
     }
-    if (vaultView && !vaultID.IsNull()) {
-        vaultDiffs[vaultID][owner][amount.nTokenId] += amount.nValue;
+    if (vaultView && vaultID) {
+        vaultDiffs[*vaultID][owner][amount.nTokenId] += amount.nValue;
     }
 }
 
@@ -186,8 +186,8 @@ void CHistoryWriters::SubBalance(const CScript& owner, const CTokenAmount amount
     if (burnView && owner == Params().GetConsensus().burnAddress) {
         burnDiffs[owner][amount.nTokenId] -= amount.nValue;
     }
-    if (vaultView && !vaultID.IsNull()) {
-        vaultDiffs[vaultID][owner][amount.nTokenId] -= amount.nValue;
+    if (vaultView && vaultID) {
+        vaultDiffs[*vaultID][owner][amount.nTokenId] -= amount.nValue;
     }
 }
 
@@ -209,20 +209,21 @@ void CHistoryWriters::AddLoanScheme(const CLoanSchemeMessage& loanScheme, const 
         return;
     }
 
-    globalLoanScheme.identifier = loanScheme.identifier;
-    globalLoanScheme.ratio = loanScheme.ratio;
-    globalLoanScheme.rate = loanScheme.rate;
+    globalLoanScheme.emplace();
+    globalLoanScheme->identifier = loanScheme.identifier;
+    globalLoanScheme->ratio = loanScheme.ratio;
+    globalLoanScheme->rate = loanScheme.rate;
 
     if (!loanScheme.updateHeight) {
-        globalLoanScheme.schemeCreationTxid = txid;
+        globalLoanScheme->schemeCreationTxid = txid;
         return;
     }
 
     vaultView->ForEachGlobalScheme([&](VaultGlobalSchemeKey const & key, VaultGlobalSchemeValue value) {
-        if (value.loanScheme.identifier != globalLoanScheme.identifier) {
+        if (value.loanScheme.identifier != globalLoanScheme->identifier) {
             return true;
         }
-        globalLoanScheme.schemeCreationTxid = key.schemeCreationTxid;
+        globalLoanScheme->schemeCreationTxid = key.schemeCreationTxid;
         return false;
     }, {height, txn, {}});
 }
@@ -246,10 +247,10 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
             }
         }
         if (!schemeID.empty()) {
-            vaultView->WriteVaultScheme({vaultID, height}, {type, txid, schemeID, txn});
+            vaultView->WriteVaultScheme({*vaultID, height}, {type, txid, schemeID, txn});
         }
-        if (!globalLoanScheme.identifier.empty()) {
-            vaultView->WriteGlobalScheme({height, txn, globalLoanScheme.schemeCreationTxid}, {globalLoanScheme, type, txid});
+        if (globalLoanScheme && !globalLoanScheme->identifier.empty()) {
+            vaultView->WriteGlobalScheme({height, txn, globalLoanScheme->schemeCreationTxid}, {*globalLoanScheme, type, txid});
         }
     }
 }

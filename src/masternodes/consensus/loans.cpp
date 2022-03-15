@@ -46,16 +46,13 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage& obj) const
 
     auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
     if (!price)
-        return Res::Err(price.msg);
+        return std::move(price);
 
     fixedIntervalPrice.priceRecord[1] = price;
     fixedIntervalPrice.timestamp = time;
 
-    auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-    if (!resSetFixedPrice)
-        return Res::Err(resSetFixedPrice.msg);
-
-    return mnview.CreateLoanCollateralToken(collToken);
+    res = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+    return !res ? res : mnview.CreateLoanCollateralToken(collToken);
 }
 
 Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
@@ -79,9 +76,9 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     fixedIntervalPrice.priceRecord[1] = nextPrice;
     fixedIntervalPrice.timestamp = time;
 
-    auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-    if (!resSetFixedPrice)
-        return Res::Err(resSetFixedPrice.msg);
+    res = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+    if (!res)
+        return res;
 
     if (!HasFoundationAuth())
         return Res::Err("tx not from foundation member!");
@@ -143,11 +140,8 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
     if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
-    res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
-    if (!res)
-        return res;
-
-    return mnview.UpdateLoanToken(*loanToken, pair->first);
+    res = mnview.UpdateToken(pair->second.creationTx, pair->second, false);
+    return !res ? res : mnview.UpdateLoanToken(*loanToken, pair->first);
 }
 
 Res CLoansConsensus::operator()(const CLoanSchemeMessage& obj) const {
@@ -328,7 +322,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
         LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
         auto priceFeed = mnview.GetFixedIntervalPrice(tokenCurrency);
         if (!priceFeed)
-            return Res::Err(priceFeed.msg);
+            return std::move(priceFeed);
 
         if (!priceFeed.val->isLive(mnview.GetPriceDeviation()))
             return Res::Err("No live fixed prices for %s/%s", tokenCurrency.first, tokenCurrency.second);
@@ -341,10 +335,10 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
                 return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
 
             auto& totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
-            auto prevLoans = totalLoans;
-            totalLoans += amount;
-            if (prevLoans > totalLoans)
+            auto sumLoans = SafeAdd<uint64_t>(totalLoans, amount);
+            if (!sumLoans)
                 return Res::Err("Exceed maximum loans");
+            totalLoans = sumLoans;
         }
 
         res = mnview.AddMintedTokens(tokenId, kv.second);
