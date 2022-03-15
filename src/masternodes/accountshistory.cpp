@@ -190,7 +190,7 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
 {
     if (historyView) {
         for (const auto& diff : diffs) {
-            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: Tx: %s => %s: %s\n", txid.GetHex(), ScriptToString(diff.first), (CTokenAmount{diff.second.begin()->first, diff.second.begin()->second}.ToString()));
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n", txid.GetHex(), ScriptToString(diff.first), (CBalances{diff.second}.ToString()));
             historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
         }
     }
