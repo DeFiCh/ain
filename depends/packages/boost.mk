@@ -11,7 +11,7 @@ package=boost
 # 78: 8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc
 
 $(package)_version=1_74_0
-$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/
+$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.74.0/source/
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
 
