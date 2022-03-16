@@ -873,12 +873,11 @@ void Unserialize(Stream& is, std::map<K, T, Pred, A>& m)
 {
     m.clear();
     unsigned int nSize = ReadCompactSize(is);
-    typename std::map<K, T, Pred, A>::iterator mi = m.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
         std::pair<K, T> item;
         Unserialize(is, item);
-        mi = m.insert(mi, item);
+        m.insert(m.end(), item);
     }
 }
 
@@ -891,8 +890,8 @@ template<typename Stream, typename K, typename Pred, typename A>
 void Serialize(Stream& os, const std::set<K, Pred, A>& m)
 {
     WriteCompactSize(os, m.size());
-    for (typename std::set<K, Pred, A>::const_iterator it = m.begin(); it != m.end(); ++it)
-        Serialize(os, (*it));
+    for (const auto& entry : m)
+        Serialize(os, entry);
 }
 
 template<typename Stream, typename K, typename Pred, typename A>
@@ -900,12 +899,11 @@ void Unserialize(Stream& is, std::set<K, Pred, A>& m)
 {
     m.clear();
     unsigned int nSize = ReadCompactSize(is);
-    typename std::set<K, Pred, A>::iterator it = m.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
         K key;
         Unserialize(is, key);
-        it = m.insert(it, key);
+        m.insert(m.end(), key);
     }
 }
 

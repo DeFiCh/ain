@@ -230,6 +230,13 @@ void CWalletCoinsUnlocker::AddLockedCoin(const COutPoint& coin) {
     coins.push_back(coin);
 }
 
+std::shared_ptr<ATTRIBUTES> CImmutableCSView::GetAttributes() const {
+    if (!attributes) {
+        attributes = CCustomCSView::GetAttributes();
+    }
+    return attributes;
+}
+
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx) {
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }

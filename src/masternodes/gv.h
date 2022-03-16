@@ -77,7 +77,7 @@ struct CGovernanceHeightMessage {
 class CGovView : public virtual CStorageView
 {
 public:
-    virtual Res SetVariable(GovVariable const & var);
+    Res SetVariable(GovVariable const & var);
     std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
@@ -85,7 +85,7 @@ public:
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
-    std::shared_ptr<ATTRIBUTES> GetAttributes() const;
+    virtual std::shared_ptr<ATTRIBUTES> GetAttributes() const;
 
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };

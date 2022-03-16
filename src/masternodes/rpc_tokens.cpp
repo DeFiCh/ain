@@ -340,7 +340,7 @@ UniValue tokenToJSON(CImmutableCSView& view, DCT_ID const& id, CTokenImplementat
 
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
-            if (auto attributes = view.GetAttributesCached()) {
+            if (auto attributes = view.GetAttributes()) {
                 CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
                 CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
                 loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
