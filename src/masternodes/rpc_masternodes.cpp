@@ -3,7 +3,7 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
+UniValue mnToJSON(CImmutableCSView& view, uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     auto currentHeight = view.GetLastHeight();
@@ -242,7 +242,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
@@ -350,7 +350,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
@@ -444,7 +444,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     CTxDestination ownerDest;
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
@@ -539,7 +539,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
 
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto nodePtr = view.GetMasternode(nodeId);
         if (!nodePtr) {
@@ -650,7 +650,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     const auto mnIds = view.GetOperatorsMulti();
     view.ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
         if (!including_start)
@@ -685,7 +685,7 @@ UniValue getmasternode(const JSONRPCRequest& request)
 
     uint256 id = ParseHashV(request.params[0], "masternode id");
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     const auto mnIds = view.GetOperatorsMulti();
     auto node = view.GetMasternode(id);
     if (node) {
@@ -725,7 +725,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         ++idCount;
     }
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     if (!identifier["ownerAddress"].isNull()) {
         CKeyID ownerAddressID;
@@ -850,7 +850,7 @@ UniValue getanchorteams(const JSONRPCRequest& request)
     }.Check(request);
 
     int blockHeight;
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     if (!request.params[0].isNull()) {
         blockHeight = request.params[0].get_int();
     } else {
@@ -919,7 +919,7 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
     }
 
     std::set<uint256> masternodes;
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto pindex = WITH_LOCK(cs_main, return ::ChainActive().Tip());
     // Get active MNs from last week's worth of blocks
@@ -947,7 +947,7 @@ UniValue listanchors(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto confirms = view.CAnchorConfirmsView::GetAnchorConfirmData();
 
     std::sort(confirms.begin(), confirms.end(), [](CAnchorConfirmData a, CAnchorConfirmData b) {

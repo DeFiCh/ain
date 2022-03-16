@@ -214,7 +214,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     int targetHeight;
     {
         DCT_ID id;
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         token = view.GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
@@ -323,7 +323,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
+UniValue tokenToJSON(CImmutableCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -425,7 +425,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
     }
 
     UniValue ret(UniValue::VOBJ);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         ret.pushKVs(tokenToJSON(view, id, token, verbose));
         return --limit != 0;
@@ -451,7 +451,7 @@ UniValue gettoken(const JSONRPCRequest& request) {
     }.Check(request);
 
     DCT_ID id;
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto token = view.GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
         return tokenToJSON(view, id, *token, true);
@@ -585,7 +585,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     if (!actualHeight) {
 
         LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview);
+        CImmutableCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
@@ -661,7 +661,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue const & txInputs = request.params[1];
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     int targetHeight = view.GetLastHeight() + 1;
 

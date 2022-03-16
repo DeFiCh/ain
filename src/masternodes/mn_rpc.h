@@ -48,6 +48,17 @@ public:
     void AddLockedCoin(const COutPoint& coin);
 };
 
+// immutable type preventing accident data flush to parent view
+class CImmutableCSView : public CCustomCSView {
+public:
+    CImmutableCSView(CImmutableCSView&&) = delete;
+    CImmutableCSView(const CImmutableCSView&) = delete;
+    CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
+    CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
+private:
+    bool Flush(bool = false) final { return false; }
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);

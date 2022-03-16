@@ -4,6 +4,7 @@
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_rpc.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 
@@ -582,6 +583,17 @@ BOOST_AUTO_TEST_CASE(SnapshotParallel)
         for (int i = 0; i < num_threads; i++)
             threads[i].join();
     }
+}
+
+BOOST_AUTO_TEST_CASE(CImmutableType)
+{
+    CImmutableCSView view(*pcustomcsview);
+    CTokenAmount amount{{}, 100000};
+    BOOST_REQUIRE(view.AddBalance({}, amount).ok);
+    BOOST_CHECK_EQUAL(view.GetBalance({}, DCT_ID{}), amount);
+    CCustomCSView& mnview = view;
+    BOOST_REQUIRE(!mnview.Flush());
+    BOOST_CHECK_EQUAL(pcustomcsview->GetBalance({}, DCT_ID{}), CTokenAmount{});
 }
 
 BOOST_AUTO_TEST_SUITE_END()

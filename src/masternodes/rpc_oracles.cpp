@@ -471,7 +471,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     int targetHeight;
     CScript oracleAddress;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         // check if tx parameters are valid
         auto oracleRes = view.GetOracleData(oracleId);
@@ -532,7 +532,7 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
-std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CImmutableCSView &mnview){
     auto fixedBlocks = mnview.GetIntervalBlock();
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
@@ -606,7 +606,7 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
-    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+    CImmutableCSView mnview(*pcustomcsview); // don't write into actual DB
 
     auto oracleRes = mnview.GetOracleData(oracleId);
     if (!oracleRes) {
@@ -676,7 +676,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
     }
 
     UniValue value(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         if (!including_start)
         {
@@ -762,7 +762,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    CCustomCSView mnview(*pcustomcsview);
+    CImmutableCSView mnview(*pcustomcsview);
     auto height = mnview.GetLastHeight();
     auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
 
@@ -860,7 +860,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
 
 namespace {
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
+    UniValue GetAllAggregatePrices(CImmutableCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
         size_t limit = 100;
         uint32_t start = 0;
@@ -943,7 +943,7 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto height = view.GetLastHeight();
     auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
@@ -1003,7 +1003,7 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto height = view.GetLastHeight();
     auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
@@ -1040,7 +1040,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
 
     LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto fixedPrice = view.GetFixedIntervalPrice(pairId);
     if (!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
@@ -1105,7 +1105,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     }
 
     UniValue listPrice{UniValue::VARR};
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         UniValue obj{UniValue::VOBJ};
         obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));

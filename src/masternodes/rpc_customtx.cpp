@@ -3,6 +3,7 @@
 #include <key_io.h>
 #include <masternodes/res.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/mn_rpc.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
@@ -14,7 +15,7 @@ class CCustomTxRpcVisitor
 {
     uint32_t height;
     UniValue& rpcInfo;
-    CCustomCSView& mnview;
+    CImmutableCSView& mnview;
     const CTransaction& tx;
 
     void tokenInfo(const CToken& token) const {
@@ -58,7 +59,7 @@ class CCustomTxRpcVisitor
     }
 
 public:
-    CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CCustomCSView& mnview, UniValue& rpcInfo)
+    CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CImmutableCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
     }
 
@@ -451,7 +452,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
     auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
-        CCustomCSView mnview(*pcustomcsview);
+        CImmutableCSView mnview(*pcustomcsview);
         std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
     }
     return res;

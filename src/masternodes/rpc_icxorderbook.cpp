@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue icxOrderToJSON(CCustomCSView& view, CICXOrderImplemetation const& order, uint8_t const status, int currentHeight) {
+UniValue icxOrderToJSON(CImmutableCSView& view, CICXOrderImplemetation const& order, uint8_t const status, int currentHeight) {
     UniValue orderObj(UniValue::VOBJ);
 
     auto token = view.GetToken(order.idToken);
@@ -54,7 +54,7 @@ UniValue icxOrderToJSON(CCustomCSView& view, CICXOrderImplemetation const& order
     return (ret);
 }
 
-UniValue icxMakeOfferToJSON(CCustomCSView& view, CICXMakeOfferImplemetation const& makeoffer, uint8_t const status) {
+UniValue icxMakeOfferToJSON(CImmutableCSView& view, CICXMakeOfferImplemetation const& makeoffer, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
 
     auto order = view.GetICXOrderByCreationTx(makeoffer.orderTx);
@@ -76,7 +76,7 @@ UniValue icxMakeOfferToJSON(CCustomCSView& view, CICXMakeOfferImplemetation cons
     return (ret);
 }
 
-UniValue icxSubmitDFCHTLCToJSON(CCustomCSView& view, CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
+UniValue icxSubmitDFCHTLCToJSON(CImmutableCSView& view, CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
     auto offer = view.GetICXMakeOfferByCreationTx(dfchtlc.offerTx);
     if (!offer)
         return (UniValue::VNULL);
@@ -119,7 +119,7 @@ UniValue icxSubmitDFCHTLCToJSON(CCustomCSView& view, CICXSubmitDFCHTLCImplemetat
     return (ret);
 }
 
-UniValue icxSubmitEXTHTLCToJSON(CCustomCSView& view, CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
+UniValue icxSubmitEXTHTLCToJSON(CImmutableCSView& view, CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
     auto offer = view.GetICXMakeOfferByCreationTx(exthtlc.offerTx);
     if (!offer)
         return (UniValue::VNULL);
@@ -282,7 +282,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     int targetHeight;
     {
         DCT_ID idToken;
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
@@ -427,7 +427,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto order = view.GetICXOrderByCreationTx(makeoffer.orderTx);
         if (!order)
@@ -563,7 +563,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto offer = view.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
         if (!offer)
@@ -720,7 +720,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto offer = view.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
         if (!offer)
@@ -924,7 +924,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto order = view.GetICXOrderByCreationTx(closeorder.orderTx);
         if (!order)
@@ -1021,7 +1021,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     int targetHeight;
     CScript authScript;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto offer = view.GetICXMakeOfferByCreationTx(closeoffer.offerTx);
         if (!offer)
@@ -1094,7 +1094,7 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("EXPERIMENTAL warning:", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto currentHeight = view.GetLastHeight();
     uint256 orderTxid = uint256S(request.params[0].getValStr());
@@ -1164,7 +1164,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         if (!byObj["closed"].isNull()) closed = byObj["closed"].get_bool();
     }
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto currentHeight = view.GetLastHeight();
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()};
@@ -1291,7 +1291,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
 
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)

@@ -389,7 +389,7 @@ public:
     bool IsEmpty() const;
     CStorageKV& GetStorage();
     size_t SizeEstimate() const;
-    bool Flush(bool sync = false);
+    virtual bool Flush(bool sync = false);
     void Compact(const TBytes& begin, const TBytes& end);
 
 protected:

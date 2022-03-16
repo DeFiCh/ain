@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue poolToJSON(CCustomCSView& view, DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
+UniValue poolToJSON(CImmutableCSView& view, DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
@@ -131,7 +131,7 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
         tokenTo = metadataObj["tokenTo"].getValStr();
     }
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto token = view.GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
         if (!token)
@@ -212,7 +212,7 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     }
 
     UniValue ret(UniValue::VOBJ);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
         const auto token = view.GetToken(id);
         if (token) {
@@ -250,7 +250,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
     }
 
     DCT_ID id;
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     auto token = view.GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
         auto pool = view.GetPoolPair(id);
@@ -556,7 +556,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto token = view.GetTokenGuessId(tokenA, idtokenA);
         if (!token)
@@ -678,7 +678,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     DCT_ID poolId;
     int targetHeight;
     {
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
 
         auto token = view.GetTokenGuessId(poolStr, poolId);
         if (!token) {
@@ -929,7 +929,7 @@ UniValue compositeswap(const JSONRPCRequest& request) {
 
     {
         // If no direct swap found search for composite swap
-        CCustomCSView view(*pcustomcsview);
+        CImmutableCSView view(*pcustomcsview);
         if (!view.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
 
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
@@ -1060,7 +1060,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     // test execution and get amount
     Res res = Res::Ok();
     {
-        CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
+        CImmutableCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
 
         int targetHeight = mnview_dummy.GetLastHeight() + 1;
 
@@ -1222,7 +1222,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     PoolShareKey startKey{ start, CScript{} };
 
     UniValue ret(UniValue::VOBJ);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
         const CTokenAmount tokenAmount = view.GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
