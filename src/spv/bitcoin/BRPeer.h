@@ -30,9 +30,10 @@
 #include "BRAddress.h"
 #include "BRInt.h"
 
+#include <sync.h>
+
 #include <stddef.h>
 #include <inttypes.h>
-#include <mutex>
 
 /// define logs
 #define console_peer_log(peer, ...) { \
@@ -85,7 +86,7 @@
 
 extern char const * spv_logfilename;
 extern int spv_log2console;
-extern std::mutex log_mutex;
+extern CLockFreeMutex log_mutex;
 
 #ifndef INET6_ADDRSTRLEN // defined in netinet/in.h
 #define INET6_ADDRSTRLEN 46

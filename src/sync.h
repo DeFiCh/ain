@@ -9,6 +9,7 @@
 #include <threadsafety.h>
 
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <condition_variable>
 #include <thread>
@@ -344,23 +345,41 @@ struct SCOPED_LOCKABLE LockAssertion
     ~LockAssertion() UNLOCK_FUNCTION() {}
 };
 
-class CLockFreeGuard
+class LOCKABLE CLockFreeMutex
 {
-    std::atomic_bool& lock;
+    std::atomic_bool lf_lock{false};
+
 public:
-    CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
+    bool try_lock() EXCLUSIVE_TRYLOCK_FUNCTION(true)
     {
-        bool desired = false;
-        while (!lock.compare_exchange_weak(desired, true,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-            desired = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
+        bool locked = false;
+        return lf_lock.compare_exchange_weak(locked, true,
+                                             std::memory_order_release,
+                                             std::memory_order_relaxed);
     }
-    ~CLockFreeGuard()
+    void lock() EXCLUSIVE_LOCK_FUNCTION()
     {
-        lock.store(false, std::memory_order_release);
+        while (!try_lock())
+            std::this_thread::yield();
+    }
+    void unlock() UNLOCK_FUNCTION()
+    {
+        lf_lock.store(false, std::memory_order_release);
+    }
+};
+
+class SCOPED_LOCKABLE CLockFreeGuard
+{
+    CLockFreeMutex& lf_lock;
+
+public:
+    CLockFreeGuard(CLockFreeMutex& lf_lock) EXCLUSIVE_LOCK_FUNCTION(lf_lock) : lf_lock(lf_lock)
+    {
+        lf_lock.lock();
+    }
+    ~CLockFreeGuard() UNLOCK_FUNCTION()
+    {
+        lf_lock.unlock();
     }
 };
 

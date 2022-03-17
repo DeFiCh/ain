@@ -4,32 +4,16 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <logging.h>
+#include <sync.h>
 #include <util/threadnames.h>
 #include <util/time.h>
-
-#include <mutex>
 
 const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
 
 BCLog::Logger& LogInstance()
 {
-/**
- * NOTE: the logger instances is leaked on exit. This is ugly, but will be
- * cleaned up by the OS/libc. Defining a logger as a global object doesn't work
- * since the order of destruction of static/global objects is undefined.
- * Consider if the logger gets destroyed, and then some later destructor calls
- * LogPrintf, maybe indirectly, and you get a core dump at shutdown trying to
- * access the logger. When the shutdown sequence is fully audited and tested,
- * explicit destruction of these objects can be implemented by changing this
- * from a raw pointer to a std::unique_ptr.
- * Since the destructor is never called, the logger and all its members must
- * have a trivial destructor.
- *
- * This method of initialization was originally introduced in
- * ee3374234c60aba2cc4c5cd5cac1c0aefc2d817c.
- */
-    static BCLog::Logger* g_logger{new BCLog::Logger()};
-    return *g_logger;
+    static BCLog::Logger g_logger;
+    return g_logger;
 }
 
 bool fLogIPs = DEFAULT_LOGIPS;
@@ -41,7 +25,7 @@ static int FileWriteStr(const std::string &str, FILE *fp)
 
 bool BCLog::Logger::StartLogging()
 {
-    std::lock_guard<std::mutex> scoped_lock(m_cs);
+    CLockFreeGuard scoped_lock(m_cs);
 
     assert(m_buffering);
     assert(m_fileout == nullptr);
@@ -77,7 +61,7 @@ bool BCLog::Logger::StartLogging()
 
 void BCLog::Logger::DisconnectTestLogger()
 {
-    std::lock_guard<std::mutex> scoped_lock(m_cs);
+    CLockFreeGuard scoped_lock(m_cs);
     m_buffering = true;
     if (m_fileout != nullptr) fclose(m_fileout);
     m_fileout = nullptr;
@@ -230,7 +214,7 @@ std::string BCLog::Logger::LogTimestampStr(const std::string& str)
 
 void BCLog::Logger::LogPrintStr(const std::string& str)
 {
-    std::lock_guard<std::mutex> scoped_lock(m_cs);
+    CLockFreeGuard scoped_lock(m_cs);
     std::string str_prefixed = str;
 
     if (m_log_threadnames && m_started_new_line) {

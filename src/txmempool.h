@@ -32,7 +32,7 @@
 class CBlockIndex;
 class CChainParams;
 class CCustomCSView;
-extern CCriticalSection cs_main;
+extern RecursiveMutex cs_main;
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
 static const uint32_t MEMPOOL_HEIGHT = 0x7FFFFFFF;
@@ -567,7 +567,7 @@ public:
      * all inputs are in the mapNextTx array). If sanity-checking is turned off,
      * check does nothing.
      */
-    void xcheck(const CCoinsViewCache *pcoins, const CCustomCSView *mnview, const CChainParams& chainparams) const;
+    void xcheck(CCoinsViewCache *pcoins, CCustomCSView *mnview, const CChainParams& chainparams) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void setSanityCheck(double dFrequency = 1.0) { LOCK(cs); nCheckFrequency = static_cast<uint32_t>(dFrequency * 4294967295.0); }
 
     // addUnchecked must updated state for all ancestors of a given transaction,

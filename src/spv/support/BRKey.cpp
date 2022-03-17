@@ -31,10 +31,6 @@
 #include <assert.h>
 
 #include <compat.h>
-//#include <unistd.h>             // getpid()
-
-#include <mutex> // for std::once_flag / std::call_once - not the 'boost' cause bitcore uses std:: for this calls (?)
-//#include <pthread.h>
 
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) ||\
     __ARMEB__ || __THUMBEB__ || __AARCH64EB__ || __MIPSEB__

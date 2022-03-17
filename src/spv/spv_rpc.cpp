@@ -144,9 +144,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     THeight prevAnchorHeight{0};
     CAnchor anchor;
     {
-        auto locked_chain = pwallet->chain().lock();
-        LOCK(locked_chain->mutex());
-
+        LOCK(cs_main);
         anchor = panchorauths->CreateBestAnchor(rewardDest);
         prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
     }
@@ -233,9 +231,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     THeight prevAnchorHeight{0};
     CAnchor anchor;
     {
-        auto locked_chain = pwallet->chain().lock();
-        LOCK(locked_chain->mutex());
-
+        LOCK(cs_main);
         anchor = panchorauths->CreateBestAnchor(rewardDest);
         prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
     }
@@ -277,8 +273,6 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
 UniValue spv_estimateanchorcost(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_estimateanchorcost",
         "\nEstimates current anchor cost with default fee, one input and one change output.\n",
         {
@@ -298,11 +292,8 @@ UniValue spv_estimateanchorcost(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
     }
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
     // it is unable to create "pure" dummy anchor, cause it needs signing with real key
-    CAnchor const anchor = panchorauths->CreateBestAnchor(CTxDestination(PKHash()));
+    CAnchor const anchor = WITH_LOCK(cs_main, return panchorauths->CreateBestAnchor(CTxDestination(PKHash())));
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "No potential anchor, can't estimate!");
     }
@@ -370,8 +361,6 @@ UniValue spv_syncstatus(const JSONRPCRequest& request)
 
 UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_gettxconfirmations",
         "\nReports tx confirmations (if any)...\n",
         {
@@ -392,14 +381,13 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
     // ! before cs_main lock
 //    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 //    panchors->UpdateLastHeight(spvLastHeight);
     return UniValue(panchors->GetAnchorConfirmations(txHash));
 }
 
 // Populate anchors in listanchors, listanchorspending and listanchorsunrewarded
-void AnchorToUniv(const CAnchorIndex::AnchorRec& rec, UniValue& anchor)
+void AnchorToUniv(const CAnchorIndex::AnchorRec& rec, UniValue& anchor) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     CTxDestination rewardDest = rec.anchor.rewardKeyType == 1 ? CTxDestination(PKHash(rec.anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rec.anchor.rewardKeyID));
     anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
@@ -423,8 +411,6 @@ void AnchorToUniv(const CAnchorIndex::AnchorRec& rec, UniValue& anchor)
 
 UniValue spv_listanchors(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_listanchors",
         "\nList anchors (if any)\n",
         {
@@ -459,14 +445,13 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     // ! before cs_main lock
     uint32_t const tmp = spv::pspv->GetLastBlockHeight();
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 
     panchors->UpdateLastHeight(tmp); // may be unnecessary but for sure
     auto const * cur = panchors->GetActiveAnchor();
     auto count = limit;
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&](const CAnchorIndex::AnchorRec & rec) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
         // from tip to genesis:
         auto confs = panchors->GetAnchorConfirmations(&rec);
         if ((maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs))
@@ -494,8 +479,6 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
 
 UniValue spv_listanchorspending(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_listanchorspending",
         "\nList pending anchors (if any). Pending anchors are waiting on\n"
         "chain context to be fully validated, for example, anchors read\n"
@@ -513,11 +496,10 @@ UniValue spv_listanchorspending(const JSONRPCRequest& request)
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 
     UniValue result(UniValue::VARR);
-    panchors->ForEachPending([&result](uint256 const &, CAnchorIndex::AnchorRec & rec)
+    panchors->ForEachPending([&result](uint256 const &, CAnchorIndex::AnchorRec & rec) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     {
         UniValue anchor(UniValue::VOBJ);
         AnchorToUniv(rec, anchor);
@@ -531,8 +513,6 @@ UniValue spv_listanchorspending(const JSONRPCRequest& request)
 
 UniValue spv_listanchorauths(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_listanchorauths",
         "\nList anchor auths (if any)\n",
         {
@@ -546,8 +526,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
         },
     }.Check(request);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 
     UniValue result(UniValue::VARR);
     CAnchorAuthIndex::Auth const * prev = nullptr;
@@ -636,8 +615,6 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
 
 UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_listanchorrewardconfirms",
                "\nList anchor reward confirms (if any)\n",
                {
@@ -651,8 +628,7 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 
     UniValue result(UniValue::VARR);
 
@@ -736,8 +712,6 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
 
 UniValue spv_listanchorsunrewarded(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_listanchorsunrewarded",
                "\nList anchors that have yet to be paid\n",
                {
@@ -751,8 +725,7 @@ UniValue spv_listanchorsunrewarded(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
+    LOCK(cs_main);
 
     UniValue result(UniValue::VARR);
 

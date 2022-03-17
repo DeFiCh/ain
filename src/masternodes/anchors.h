@@ -10,6 +10,7 @@
 #include <script/standard.h>
 #include <serialize.h>
 #include <shutdown.h>
+#include <sync.h>
 #include <uint256.h>
 
 #include <functional>
@@ -28,6 +29,8 @@
 class CBlockIndex;
 class CKey;
 class CPubkey;
+
+extern RecursiveMutex cs_main;
 
 namespace spv
 {
@@ -169,14 +172,14 @@ public:
         >
     > Auths;
 
-    Auth const * GetAuth(uint256 const & msgHash) const;
-    Auth const * GetVote(uint256 const & signHash, CKeyID const & signer) const;
-    bool ValidateAuth(Auth const & auth) const;
-    bool AddAuth(Auth const & auth);
+    Auth const * GetAuth(uint256 const & msgHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    Auth const * GetVote(uint256 const & signHash, CKeyID const & signer) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ValidateAuth(Auth const & auth) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AddAuth(Auth const & auth) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
-    void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
-    void PruneOlderThan(THeight height);
+    CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void PruneOlderThan(THeight height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 private:
     Auths auths;
@@ -222,27 +225,27 @@ public:
     > AnchorIndexImpl;
 
     CAnchorIndex(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    bool Load();
+    bool Load() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const;
-    AnchorRec const * GetActiveAnchor() const;
-    bool ActivateBestAnchor(bool forced = false); // rescan anchors
+    void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    AnchorRec const * GetActiveAnchor() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ActivateBestAnchor(bool forced = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main); // rescan anchors
 
-    AnchorRec const * GetAnchorByTx(uint256 const & hash) const;
+    AnchorRec const * GetAnchorByTx(uint256 const & hash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
-    bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
+    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool DeleteAnchorByBtcTx(uint256 const & btcTxHash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
+    AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     using UnrewardedResult = std::set<uint256>;
-    UnrewardedResult GetUnrewarded() const;
+    UnrewardedResult GetUnrewarded() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    int GetAnchorConfirmations(uint256 const & txHash) const;
-    int GetAnchorConfirmations(AnchorRec const * rec) const;
+    int GetAnchorConfirmations(uint256 const & txHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    int GetAnchorConfirmations(AnchorRec const * rec) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     void CheckActiveAnchor(uint32_t height, bool forced = false);
-    void UpdateLastHeight(uint32_t height);
+    void UpdateLastHeight(uint32_t height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Post-fork anchor pending, requires chain context to validate. Some pending may be bogus, intentional or not.
     bool AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = false);
@@ -251,13 +254,13 @@ public:
     void ForEachPending(std::function<void (const uint256 &, AnchorRec &)> callback);
 
     // Used to apply chain context to post-fork anchors which get added to pending.
-    void CheckPendingAnchors();
+    void CheckPendingAnchors(uint32_t height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Store and read Bitcoin block hash by height, used in BestOfTwo calculation.
     bool WriteBlock(const uint32_t height, const uint256& blockHash);
     uint256 ReadBlockHash(const uint32_t& height);
 
-    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
+    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 private:
     AnchorIndexImpl anchors;
@@ -421,15 +424,15 @@ private:
     Confirms confirms;
 
 public:
-    bool EraseAnchor(AnchorTxHash const &txHash);
-    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const;
-    bool Add(CAnchorConfirmMessage const &newConfirmMessage);
-    bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-    void Clear();
-    void ReVote();
-    std::vector<CAnchorConfirmMessage> GetQuorumFor(CAnchorData::CTeam const & team) const;
+    bool EraseAnchor(AnchorTxHash const &txHash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool Add(CAnchorConfirmMessage const &newConfirmMessage) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool Validate(CAnchorConfirmMessage const &confirmMessage) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void Clear() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void ReVote() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(CAnchorData::CTeam const & team) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
+    void ForEachConfirm(std::function<void(Confirm const &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 };
 
 template <typename TContainer>
@@ -453,13 +456,17 @@ CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations
-bool ValidateAnchor(CAnchor const & anchor);
+bool ValidateAnchor(CAnchor const & anchor) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Validate anchor in the context of the active chain. This is used for anchor auths and anchors read from Bitcoin.
-bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBlock, uint64_t &anchorCreationHeight);
+bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBlock, uint64_t &anchorCreationHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Get info from data embedded into CAnchorData::heightAndHash
 bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, std::shared_ptr<std::vector<unsigned char>>& prefix);
+
+void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor, const uint256 & btcTxHash, const CKey& masternodeKey) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Selects "best" of two anchors at the equal btc height (prevs must be checked before)
 CAnchorIndex::AnchorRec const* BestOfTwo(CAnchorIndex::AnchorRec const* a1, CAnchorIndex::AnchorRec const* a2);

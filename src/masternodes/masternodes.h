@@ -462,9 +462,6 @@ public:
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
 
-    /// @todo newbase move to networking?
-    void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec* anchor, const uint256 & btcTxHash, const CKey &masternodeKey);
-
     void AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height);
 
     // simplified version of undo, without any unnecessary undo data
@@ -491,8 +488,6 @@ public:
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
-
-std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
 
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
 

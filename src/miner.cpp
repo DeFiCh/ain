@@ -646,7 +646,7 @@ namespace pos {
 
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
-    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    CLockFreeMutex Staker::cs_MNLastBlockCreationAttemptTs{};
     int64_t Staker::nLastCoinStakeSearchTime{0};
     int64_t Staker::nFutureTime{0};
     uint256 Staker::lastBlockSeen{};

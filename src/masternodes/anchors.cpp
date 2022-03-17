@@ -9,6 +9,7 @@
 #include <key.h>
 #include <logging.h>
 #include <masternodes/masternodes.h>
+#include <net_processing.h>
 #include <streams.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
@@ -16,6 +17,8 @@
 #include <util/system.h>
 #include <util/validation.h>
 #include <validation.h>
+#include <wallet/wallet.h>
+#include <wallet/walletutil.h>
 
 #include <algorithm>
 
@@ -481,12 +484,8 @@ int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) co
     return spvLastHeight < rec->btcHeight ? 0 : spvLastHeight - rec->btcHeight + 1;
 }
 
-void CAnchorIndex::CheckPendingAnchors()
+void CAnchorIndex::CheckPendingAnchors(uint32_t height)
 {
-    uint32_t height = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
-
-    LOCK(cs_main);
-
     spv::PendingSet anchorsPending(spv::PendingOrder);
     ForEachPending([&anchorsPending](uint256 const &, AnchorRec & rec) {
         anchorsPending.insert(rec);
@@ -655,8 +654,6 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
 
 bool CAnchorIndex::AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite)
 {
-    AssertLockHeld(cs_main);
-
     AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
     if (overwrite) {
         DeletePendingByBtcTx(btcTxHash);
@@ -667,15 +664,11 @@ bool CAnchorIndex::AddToAnchorPending(CAnchor const & anchor, uint256 const & bt
 
 bool CAnchorIndex::GetPendingByBtcTx(uint256 const & txHash, AnchorRec & rec) const
 {
-    AssertLockHeld(cs_main);
-
     return db->Read(std::make_pair(DB_PENDING, txHash), rec);
 }
 
 bool CAnchorIndex::DeletePendingByBtcTx(uint256 const & btcTxHash)
 {
-    AssertLockHeld(cs_main);
-
     AnchorRec pending;
 
     if (GetPendingByBtcTx(btcTxHash, pending)) {
@@ -703,8 +696,6 @@ uint256 CAnchorIndex::ReadBlockHash(const uint32_t& height)
 
 void CAnchorIndex::ForEachPending(std::function<void (uint256 const &, AnchorRec &)> callback)
 {
-    AssertLockHeld(cs_main);
-
     IterateTable(DB_PENDING, callback);
 }
 
@@ -1035,7 +1026,7 @@ void CAnchorAwaitingConfirms::ReVote()
     for (const auto& keys : operatorDetails) {
         CAnchorIndex::UnrewardedResult unrewarded = panchors->GetUnrewarded();
         for (auto const & btcTxHash : unrewarded) {
-            pcustomcsview->CreateAndRelayConfirmMessageIfNeed(panchors->GetAnchorByTx(btcTxHash), btcTxHash, keys.second);
+            CreateAndRelayConfirmMessageIfNeed(panchors->GetAnchorByTx(btcTxHash), btcTxHash, keys.second);
         }
     }
 
@@ -1100,6 +1091,47 @@ bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, s
     memcpy(prefix->data(), &(*(data.begin() + offset)), prefixLength);
 
     return true;
+}
+
+void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor, const uint256 & btcTxHash, const CKey& masternodeKey)
+{
+    auto prev = panchors->GetAnchorByTx(anchor->anchor.previousAnchor);
+    const auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor->anchor, prev ? prev->anchor.height : 0, btcTxHash, masternodeKey, anchor->btcHeight);
+
+    if (confirmMessage && panchorAwaitingConfirms->Add(*confirmMessage)) {
+        LogPrint(BCLog::ANCHORING, "%s: Create message %s\n", __func__, confirmMessage->GetHash().GetHex());
+        RelayAnchorConfirm(confirmMessage->GetHash(), *g_connman);
+    }
+}
+
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
+{
+    AssertLockHeld(cs_main);
+
+    std::map<CKeyID, CKey> operatorDetails;
+    auto const mnIds = pcustomcsview->GetOperatorsMulti();
+    for (const auto& mnId : mnIds)
+    {
+        auto node = pcustomcsview->GetMasternode(mnId.second);
+        if (!node) {
+            continue;
+        }
+
+        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
+            CKey masternodeKey;
+            for (auto const & wallet : GetWallets()) {
+                if (wallet->GetKey(mnId.first, masternodeKey)) {
+                    break;
+                }
+                masternodeKey = CKey{};
+            }
+            if (masternodeKey.IsValid()) {
+                operatorDetails[mnId.first] = masternodeKey;
+            }
+        }
+    }
+
+    return operatorDetails;
 }
 
 namespace spv

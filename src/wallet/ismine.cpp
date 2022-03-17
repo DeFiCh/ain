@@ -207,8 +207,8 @@ struct CCacheInfo
 
 isminetype IsMineCached(const CWallet& keystore, CScript const & script)
 {
-    static std::atomic_bool cs_cache(false);
-    static std::unordered_map<const CWallet*, CCacheInfo> cache;
+    static CLockFreeMutex cs_cache;
+    static std::unordered_map<const CWallet*, CCacheInfo> cache GUARDED_BY(cs_cache);
     auto* wallet = &keystore;
     CLockFreeGuard lock(cs_cache);
     auto it = cache.find(wallet);

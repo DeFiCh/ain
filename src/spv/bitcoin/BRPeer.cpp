@@ -91,7 +91,7 @@
 
 char const * spv_logfilename = NULL;
 int spv_log2console = 1;
-std::mutex log_mutex;
+CLockFreeMutex log_mutex;
 
 typedef enum {
     inv_undefined = 0,
@@ -140,7 +140,7 @@ typedef struct {
     void *volatile mempoolInfo;
     void (*volatile mempoolCallback)(void *info, int success);
     std::unique_ptr<std::thread> thread;
-    std::mutex lock;
+    CLockFreeMutex lock;
 } BRPeerContext;
 
 void BRPeerSendVersionMessage(BRPeer *peer);

@@ -1673,9 +1673,10 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         totalLoanValue += *amountInCurrency.val;
     }
 
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height = view.GetLastHeight();
     CBalances collateralBalances;
     CAmount totalSplit{0};
+
     for (const auto& collateralSplit : collateralSplits) {
         CAmount split = AmountFromValue(collateralSplit.second);
 
