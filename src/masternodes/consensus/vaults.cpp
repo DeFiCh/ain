@@ -152,7 +152,7 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage& obj) const {
     // If collateral token exist make sure it is enabled.
     if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
         CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
-        if (auto attributes = mnview.GetAttributesCached(); !attributes->GetValue(collateralKey, false)) {
+        if (auto attributes = mnview.GetAttributes(); !attributes->GetValue(collateralKey, false)) {
             return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
         }
     }

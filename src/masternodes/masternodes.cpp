@@ -859,7 +859,6 @@ void CCustomCSView::SetBackend(CCustomCSView & backend)
 {
     // update backend
     CStorageView::SetBackend(backend);
-    attributes = backend.attributes;
 }
 
 double CCollateralLoans::calcRatio(uint64_t maxRatio) const
@@ -1052,25 +1051,9 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
     return operatorDetails;
 }
 
-Res CCustomCSView::SetVariable(GovVariable const & var)
-{
-    if (var.GetName() == "ATTRIBUTES") {
-        attributes.reset();
-    }
-    return CGovView::SetVariable(var);
-}
-
-std::shared_ptr<const ATTRIBUTES> CCustomCSView::GetAttributesCached() const
-{
-    if (!attributes) {
-        attributes = std::static_pointer_cast<const ATTRIBUTES>(GetAttributes());
-    }
-    return attributes;
-}
-
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const
 {
-    if (auto attributes = GetAttributesCached()) {
+    if (auto attributes = GetAttributes()) {
         CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
         CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
         CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
@@ -1094,7 +1077,7 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
 
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const
 {
-    if (auto attributes = GetAttributesCached()) {
+    if (auto attributes = GetAttributes()) {
         CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
         CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
 

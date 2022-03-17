@@ -248,7 +248,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return ret;
     }
 
-    auto attributes = view.GetAttributesCached();
+    auto attributes = view.GetAttributes();
     if (!attributes) {
         return ret;
     }
@@ -519,7 +519,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
         return ret;
     }
 
-    auto attributes = view.GetAttributesCached();
+    auto attributes = view.GetAttributes();
     if (!attributes) {
         return ret;
     }

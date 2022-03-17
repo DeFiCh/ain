@@ -55,7 +55,11 @@ public:
     CImmutableCSView(const CImmutableCSView&) = delete;
     CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
     CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
+
+    std::shared_ptr<ATTRIBUTES> GetAttributes() const final;
+
 private:
+    mutable std::shared_ptr<ATTRIBUTES> attributes;
     bool Flush(bool = false) final { return false; }
 };
 

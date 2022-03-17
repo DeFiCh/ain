@@ -11,7 +11,7 @@
 #include <masternodes/tokens.h>
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage& obj) const {
-    auto attributes = mnview.GetAttributesCached();
+    auto attributes = mnview.GetAttributes();
     if (!attributes)
         return Res::Err("Attributes unavailable");
 
