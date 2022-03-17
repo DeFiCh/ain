@@ -2657,6 +2657,9 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
+                    if (collateralsLoans.val->ratio() < scheme->ratio)
+                        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+
                     uint64_t totalDFI = 0;
                     for (auto& col : collateralsLoans.val->collaterals)
                         if (col.nTokenId == DCT_ID{0})
@@ -2669,9 +2672,6 @@ public:
                         if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
                             return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
                     }
-
-                    if (collateralsLoans.val->ratio() < scheme->ratio)
-                        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
             }
             else
@@ -2768,6 +2768,9 @@ public:
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
 
+            if (collateralsLoans.val->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+
             uint64_t totalDFI = 0;
             for (auto& col : collateralsLoans.val->collaterals)
                 if (col.nTokenId == DCT_ID{0})
@@ -2780,11 +2783,7 @@ public:
                 if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
                     return Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.");
             }
-
-            if (collateralsLoans.val->ratio() < scheme->ratio)
-                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
         }
-
         return Res::Ok();
     }
 
