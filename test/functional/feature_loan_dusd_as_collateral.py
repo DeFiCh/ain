@@ -214,18 +214,12 @@ class LoanDUSDCollateralTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
         self.nodes[0].generate(1)
 
-        self.nodes[0].deposittovault(vault_id, vault_address, str(collateral) + "@" + symbolBTC)
-        self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['collateralAmounts'], ['2000.00000000@DUSD', '2000.00000000@BTC'])
+        assert_equal(vault['collateralAmounts'], ['2000.00000000@DUSD'])
 
-        # Try to take DUSD loan with DUSD less than 50% of total collateral
-        # Same amount of DUSD and BTC, this tests for collateral factor
-        try:
-            self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan." in errorString)
+        # Try to take DUSD loan with DUSD less than 50% of total collateralized loan value
+        # This tests for collateral factor
+        assert_raises_rpc_error(-32600, "Vault does not have enough collateralization ratio defined by loan scheme - 149 < 150", self.nodes[0].takeloan, { "vaultId": vault_id, "amounts": "333@" + symbolDUSD })
 
         # Set DUSD collateral factor back to 1
         self.nodes[0].setcollateraltoken({
@@ -235,7 +229,7 @@ class LoanDUSDCollateralTest (DefiTestFramework):
                                     })
         self.nodes[0].generate(10)
 
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd / 2) + "@" + symbolDUSD })
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": "333@" + symbolDUSD })
         self.nodes[0].generate(1)
 
 if __name__ == '__main__':
