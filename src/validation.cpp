@@ -27,6 +27,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
+#include <parallel_cache.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -3061,12 +3062,20 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     }
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
-        bool useNextPrice = false, requireLivePrice = true;
 
-        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        static const auto availableThreads = std::thread::hardware_concurrency();
+        static const auto maxThreads = std::max(2u, std::min(4u, availableThreads));
+
+        CDataViewCache dataCache(cache, pvaultHistoryDB);
+        CParallelViewCache exec(dataCache, maxThreads);
+
+        const auto auctionDuration = chainparams.GetConsensus().blocksCollateralAuction();
+
+        auto processVault = [pindex, auctionDuration](const CVaultId& vaultId, const CBalances& collaterals, auto& cache, auto vaultHistory) {
+            bool useNextPrice = false, requireLivePrice = true;
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
-                return true;
+                return;
             }
 
             auto vault = cache.GetVault(vaultId);
@@ -3075,7 +3084,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             assert(scheme);
             if (scheme->ratio <= collateral.val->ratio()) {
                 // All good, within ratio, nothing more to do.
-                return true;
+                return;
             }
 
             // Time to liquidate vault.
@@ -3129,19 +3138,23 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
 
             // All done. Ready to save the overall auction.
-            cache.StoreAuction(vaultId, CAuctionData{
-                                            uint32_t(batches.size()),
-                                            pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
-                                            cache.GetLoanLiquidationPenalty()
-            });
+            cache.StoreAuction(vaultId, {uint32_t(batches.size()), pindex->nHeight + auctionDuration, cache.GetLoanLiquidationPenalty()});
 
             // Store state in vault DB
-            if (pvaultHistoryDB) {
-                pvaultHistoryDB->WriteVaultState(cache, *pindex, vaultId, collateral.val->ratio());
+            if (vaultHistory) {
+                vaultHistory->WriteVaultState(cache, *pindex, vaultId, collateral.val->ratio(), batches);
             }
+        };
 
+        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+            exec.addTask([=](auto& dataCache) {
+                processVault(vaultId, collaterals, dataCache.GetView(), dataCache.template Get_If<0>());
+            });
             return true;
         });
+
+        exec.waitFlush();
+        dataCache.Flush();
     }
 
     CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};

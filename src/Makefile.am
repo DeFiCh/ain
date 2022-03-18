@@ -208,6 +208,7 @@ DEFI_CORE_H = \
   node/transaction.h \
   noui.h \
   outputtype.h \
+  parallel_cache.h \
   policy/feerate.h \
   policy/fees.h \
   policy/policy.h \

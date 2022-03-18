@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <atomic>
 #include <exception>
+#include <list>
 #include <map>
 #include <memory>
 #include <set>
@@ -846,7 +847,5 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 {
     return (blockReward  * percentage) / 10000;
 }
-
-Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
 #endif // DEFI_VALIDATION_H

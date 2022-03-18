@@ -60,7 +60,7 @@ void CVaultHistoryView::ForEachGlobalScheme(std::function<bool(VaultGlobalScheme
     ForEach<ByVaultGlobalSchemeKey, VaultGlobalSchemeKey, VaultGlobalSchemeValue>(callback, start);
 }
 
-void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio)
+void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, uint32_t ratio, const std::vector<CAuctionBatch>& batches)
 {
     const auto vault = mnview.GetVault(vaultID);
     assert(vault);
@@ -76,15 +76,6 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
     CCollateralLoans collateralLoans{0, 0, {}, {}};
     if (rate) {
         collateralLoans = *rate.val;
-    }
-
-    std::vector<CAuctionBatch> batches;
-    if (auto data = mnview.GetAuction(vaultID, pindex.nHeight)) {
-        for (uint32_t i{0}; i < data->batchCount; ++i) {
-            if (auto batch = mnview.GetAuctionBatch(vaultID, i)) {
-                batches.push_back(*batch);
-            }
-        }
     }
 
     VaultStateValue value{collaterals->balances, collateralLoans, batches, ratio};

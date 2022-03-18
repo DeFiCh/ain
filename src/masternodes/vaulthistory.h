@@ -127,7 +127,7 @@ class CVaultHistoryView : public virtual CStorageView
 public:
     void WriteVaultHistory(VaultHistoryKey const & key, VaultHistoryValue const & value);
     void WriteVaultScheme(VaultSchemeKey const & key, const VaultSchemeValue& value);
-    void WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio = 0);
+    void WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio = 0, const std::vector<CAuctionBatch>& batches = {});
 
     void EraseVaultHistory(const uint32_t height);
 
@@ -149,6 +149,8 @@ public:
 class CVaultHistoryStorage : public CVaultHistoryView
 {
 public:
+    CVaultHistoryStorage(const CVaultHistoryStorage&) = delete;
+    CVaultHistoryStorage(CVaultHistoryStorage& vaultHistory) : CStorageView(vaultHistory) {}
     CVaultHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
