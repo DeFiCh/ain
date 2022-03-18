@@ -1288,7 +1288,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     });
 
     pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
-        totalAuctions++;
+        totalAuctions += data.batchCount;
         return true;
     }, height);
 
