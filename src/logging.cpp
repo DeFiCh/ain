@@ -154,6 +154,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::SPV, "spv"},
     {BCLog::ORACLE, "oracle"},
     {BCLog::LOAN, "loan"},
+    {BCLog::ACCOUNTCHANGE, "accountchange"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };

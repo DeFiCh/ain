@@ -151,6 +151,8 @@ void CHistoryErasers::Flush(const uint32_t height, const uint32_t txn, const uin
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)
     : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
 
+extern std::string ScriptToString(CScript const& script);
+
 void CHistoryWriters::AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID)
 {
     if (historyView) {
@@ -188,6 +190,7 @@ void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const ui
 {
     if (historyView) {
         for (const auto& diff : diffs) {
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n", txid.GetHex(), ScriptToString(diff.first), (CBalances{diff.second}.ToString()));
             historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
         }
     }
