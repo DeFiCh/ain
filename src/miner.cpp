@@ -961,10 +961,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     nMinted[arg.operatorID]++;
                 }
                 else if (status == Staker::Status::initWaiting) {
-                    LogPrintCategoryOrThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
+                    LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 }
                 else if (status == Staker::Status::stakeWaiting) {
-                    LogPrintCategoryOrThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10,"ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
+                    LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10,"ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             }
             catch (const std::runtime_error &e) {

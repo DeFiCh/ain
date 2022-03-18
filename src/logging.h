@@ -171,7 +171,7 @@ static inline void LogPrint(const BCLog::LogFlags& category, const Args&... args
 
 /** Implementation that logs at most every x milliseconds. If the category is enabled, it does not time throttle */
 template <typename... Args>
-static inline void LogPrintCategoryOrThrottled(const BCLog::LogFlags& category, std::string message_key, uint64_t milliseconds, const Args&... args)
+static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& category, std::string message_key, uint64_t milliseconds, const Args&... args)
 {
     // Map containing pairs of message key and timestamp of last log
     // In case different threads use the same message key, use thread_local
