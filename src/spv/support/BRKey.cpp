@@ -44,20 +44,21 @@
 #define USE_BASIC_CONFIG       1
 #define ENABLE_MODULE_RECOVERY 1
 
+#ifdef __clang__
 #pragma clang diagnostic push
-#pragma GCC diagnostic push
 #pragma clang diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wconversion"
 #pragma clang diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wunused-function"
 #pragma clang diagnostic ignored "-Wconditional-uninitialized"
-#ifndef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic pop
 #endif
 #include "../secp256k1/src/basic-config.h"
-#include "../secp256k1/src/secp256k1.c"
-#pragma clang diagnostic pop
-#pragma GCC diagnostic pop
+#include "../secp256k1/include/secp256k1_recovery.h"
 
 static std::once_flag _rand_once;
 
@@ -178,12 +179,12 @@ int BRPrivKeyIsValid(const char *privKey)
         r = (data[0] == BRGetChainParams()->privkey);
     }
     else if ((strLen == 30 || strLen == 22) && privKey[0] == 'S') { // mini private key format
-        char s[strLen + 2];
+        char s[32] = {};
         
-        strncpy(s, privKey, sizeof(s));
-        s[sizeof(s) - 2] = '?';
-        BRSHA256(data, s, sizeof(s) - 1);
-        mem_clean(s, sizeof(s));
+        strcpy(s, privKey);
+        s[strLen] = '?';
+        BRSHA256(data, s, strLen + 1);
+        mem_clean(s, strLen + 2);
         r = (data[0] == 0);
     }
     else r = (strspn(privKey, "0123456789ABCDEFabcdef") == 64); // hex encoded key
@@ -497,18 +498,17 @@ size_t BRKeyCompactSignEthereum(const BRKey *key, void *compactSig, size_t sigLe
 // assigns pubKey recovered from compactSig to key and returns true on success
 int BRKeyRecoverPubKeyEthereum(BRKey *key, UInt256 md, const void *compactSig, size_t sigLen)
 {
-    int r = 0, compressed = 0, recid = 0;
+    int r = 0, recid = 0;
     uint8_t pubKey[65];
     size_t len = sizeof(pubKey);
     secp256k1_ecdsa_recoverable_signature s;
     secp256k1_pubkey pk;
-    
+
     assert(key != NULL);
     assert(compactSig != NULL);
     assert(sigLen == 65);
-    
+
     if (sigLen == 65) {
-        compressed = 0;
         recid = ((uint8_t *)compactSig)[64];
         if (secp256k1_ecdsa_recoverable_signature_parse_compact(_ctx, &s, (const uint8_t *)compactSig, recid) &&
             secp256k1_ecdsa_recover(_ctx, &pk, &s, md.u8) &&
