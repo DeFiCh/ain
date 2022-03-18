@@ -60,9 +60,7 @@ struct CDataStructureV0 {
     }
 
     bool operator<(const CDataStructureV0& o) const {
-        return type < o.type
-            || (type == o.type
-            && key < o.key);
+        return std::tie(type, typeId, key) < std::tie(o.type, o.typeId, o.key);
     }
 };
 
