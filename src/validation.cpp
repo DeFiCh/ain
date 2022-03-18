@@ -3064,10 +3064,16 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    static const auto calculationBlock = chainparams.GetConsensus().blocksCollateralizationRatioCalculation();
+
+    // non consensus enforced
+    static bool firstRun = true;
+    static std::vector<uint256> liquidatedVaults;
+
+    if (pindex->nHeight % calculationBlock == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
-        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        auto processVault = [&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
                 return true;
@@ -3145,7 +3151,20 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
 
             return true;
-        });
+        };
+
+        auto lastPriceUpdate = pindex->nHeight - (pindex->nHeight % cache.GetIntervalBlock());
+        if (firstRun || lastPriceUpdate > pindex->nHeight - calculationBlock) {
+            cache.ForEachVaultCollateral(processVault);
+        } else {
+            for (const auto& vaultId : liquidatedVaults) {
+                if (auto collaterals = cache.GetVaultCollaterals(vaultId)) {
+                    processVault(vaultId, *collaterals);
+                }
+            }
+        }
+        firstRun = false;
+        liquidatedVaults.clear();
     }
 
     CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};
@@ -3221,6 +3240,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         vault->isUnderLiquidation = false;
         view.StoreVault(vaultId, *vault);
         view.EraseAuction(vaultId, pindex->nHeight);
+
+        liquidatedVaults.push_back(vaultId);
 
         // Store state in vault DB
         if (pvaultHistoryDB) {
@@ -3414,20 +3435,21 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
 
         // Furthermore, the time stamp is always indicative of the
         // last price time.
-        auto nextPrice = fixedIntervalPrice.priceRecord[1];
+        auto& nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
-            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            auto& currentPrice = fixedIntervalPrice.priceRecord[0];
+            currentPrice = nextPrice;
         }
         // keep timestamp updated
         fixedIntervalPrice.timestamp = pindex->nTime;
         // Use -1 to indicate empty price
-        fixedIntervalPrice.priceRecord[1] = -1;
+        nextPrice = -1;
         auto aggregatePrice = GetAggregatePrice(cache,
                                                 fixedIntervalPrice.priceFeedId.first,
                                                 fixedIntervalPrice.priceFeedId.second,
                                                 pindex->nTime);
         if (aggregatePrice) {
-            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+            nextPrice = aggregatePrice;
         } else {
             LogPrint(BCLog::ORACLE,"ProcessOracleEvents(): No aggregate price available: %s\n", aggregatePrice.msg);
         }
