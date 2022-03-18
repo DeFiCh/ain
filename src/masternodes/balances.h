@@ -211,6 +211,19 @@ struct CUtxosToAccountMessage {
     }
 };
 
+struct CSmartContractMessage {
+    std::string name;
+    CAccounts accounts;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(accounts);
+    }
+};
+
 inline CBalances SumAllTransfers(CAccounts const & to) {
     CBalances sum;
     for (const auto& kv : to) {

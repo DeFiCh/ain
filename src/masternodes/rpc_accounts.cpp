@@ -1,4 +1,5 @@
 #include <masternodes/accountshistory.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -93,7 +94,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     } else {
         obj.pushKV("type", "receive");
     }
-    obj.pushKV("txn", (uint64_t) entry.vout);
+    obj.pushKV("txn", (uint64_t) pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
     TAmounts amounts({{DCT_ID{0},entry.amount}});
     obj.pushKV("amounts", AmountsToJSON(amounts));
@@ -963,6 +964,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
+                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Order in block, unlimited by default"},
                             },
                         },
                },
@@ -990,6 +993,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string tokenFilter;
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
+    uint32_t txn = std::numeric_limits<uint32_t>::max();
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1001,6 +1005,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"txn", UniValueType(UniValue::VNUM)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1029,6 +1034,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
+        if (!optionsObj["txn"].isNull()) {
+            txn = (uint32_t) optionsObj["txn"].get_int64();
         }
     }
 
@@ -1158,7 +1167,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         return count != 0 || isMine;
     };
 
-    AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{account, maxBlockHeight, txn};
 
     if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
@@ -1183,6 +1192,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && pwtx->nIndex > txn ) {
+                    return true;
+                }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
@@ -1200,6 +1212,46 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     return slice;
+}
+
+UniValue getaccounthistory(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getaccounthistory",
+               "\nReturns information about account history.\n",
+               {
+                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Single account ID (CScript or address)."},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "Block Height to search in."},
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                        "for order in block."},
+               },
+               RPCResult{
+                       "{}  An object with account history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2")
+                       + HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")
+               },
+    }.Check(request);
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
+    }
+
+    auto owner = DecodeScript(request.params[0].getValStr());
+    uint32_t blockHeight = request.params[1].get_int();
+    uint32_t txn = request.params[2].get_int();
+
+    LOCK(cs_main);
+
+    UniValue result(UniValue::VOBJ);
+    AccountHistoryKey AccountKey{owner, blockHeight, txn};
+    if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
+        result = accounthistoryToJSON(AccountKey, *value);
+    }
+
+    return result;
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {
@@ -1687,9 +1739,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-
 }
-
 
 UniValue getburninfo(const JSONRPCRequest& request) {
     RPCHelpMan{"getburninfo",
@@ -1720,7 +1770,13 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntFee{0};
     CAmount auctionFee{0};
     CAmount paybackFee{0};
+    CAmount dfiPaybackFee{0};
     CBalances burntTokens;
+    CBalances dexfeeburn;
+    UniValue dfipaybacktokens{UniValue::VARR};
+
+    LOCK(cs_main);
+
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1759,6 +1815,19 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             return true;
         }
 
+        // dex fee burn
+        if (value.category == uint8_t(CustomTxType::PoolSwap)
+        ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+            for (auto const & diff : value.diff) {
+                if (pcustomcsview->GetLoanTokenByID(diff.first)) {
+                    dexfeeburn.Add({diff.first, diff.second});
+                } else {
+                    burntTokens.Add({diff.first, diff.second});
+                }
+            }
+            return true;
+        }
+
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
@@ -1773,23 +1842,27 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
-    UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens.balances)
-    {
-        tokens.push_back(tokenAmountString({{item.first}, item.second}));
-    }
-    result.pushKV("tokens", tokens);
+
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
-    if (auctionFee) {
-        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    if (auto attributes = pcustomcsview->GetAttributes()) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
+            }
+        }
     }
 
-    if (paybackFee) {
-        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    }
-
-    LOCK(cs_main);
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
@@ -1803,6 +1876,147 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet, 
+        const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+    CUtxosToAccountMessage msg{};
+    msg.to = {{contractPair.second, {{{{0}, amount.nValue}}}}};
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
+                << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(amount.nValue, scriptMeta));
+
+    // change
+    CCoinControl coinControl;
+    CTxDestination dest;
+    ExtractDestination(Params().GetConsensus().foundationShareScript, dest);
+    coinControl.destChange = dest;
+
+    // Only use inputs from dest
+    coinControl.matchDestination = dest;
+
+    // fund
+    fund(rawTx, pwallet, {}, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight);
+
+    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+}
+
+UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
+         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+    if (request.params[2].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "BTC source address must be provided for " + contractPair.first);
+    }
+    CTxDestination dest = DecodeDestination(request.params[2].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+    const auto script = GetScriptForDestination(dest);
+
+    CSmartContractMessage msg{};
+    msg.name = contractPair.first;
+    msg.accounts = {{script, {{{amount.nTokenId, amount.nValue}}}}};
+    // encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SmartContract)
+                << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{script};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet) {
+    auto contracts = Params().GetConsensus().smartContracts;
+    const auto& contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
+    assert(contractPair != contracts.end());
+
+    CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[1].get_str(), "amount");
+
+    if (amount.nTokenId.v == 0) {
+        return HandleSendDFIP2201DFIInput(request, std::move(pwallet), *contractPair, amount);
+    } else {
+        return HandleSendDFIP2201BTCInput(request, std::move(pwallet), *contractPair, amount);
+    }
+}
+
+UniValue executesmartcontract(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"executesmartcontract",
+               "\nCreates and sends a transaction to either fund or execute a smart contract. Available contracts: dbtcdfiswap" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Name of the smart contract to send funds to"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to be used in contract execution if required"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("executesmartcontract", "dbtcdfiswap 1000@DFI")
+                       + HelpExampleRpc("executesmartcontract", "dbtcdfiswap, 1000@DFI")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto& contractName = request.params[0].get_str();
+    if (contractName == "dbtcdfiswap") {
+        return HandleSendDFIP2201(request, std::move(pwallet));
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Specified smart contract not found");
+    }
+    return NullUniValue;
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -1815,11 +2029,13 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "getaccounthistory",     &getaccounthistory,     {"owner", "blockHeight", "txn"}},
     {"accounts",    "listburnhistory",       &listburnhistory,       {"options"}},
     {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
+    {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

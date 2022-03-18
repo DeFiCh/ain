@@ -23,11 +23,10 @@ class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
     def run_test(self):
         peer_node, rbf_node = self.nodes
         peer_node.generate(110)
-        self.sync_all()
+        self.sync_blocks()
         peer_node.sendtoaddress(rbf_node.getnewaddress(), 0.001)
-        self.sync_all()
         peer_node.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         rbfid = spend_one_input(rbf_node, peer_node.getnewaddress())
 
         self.log.info("Testing bumpfee with totalFee argument raises RPC error with deprecation message")

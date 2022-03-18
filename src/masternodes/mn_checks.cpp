@@ -5,6 +5,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/balances.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
 #include <masternodes/res.h>
@@ -47,6 +48,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
+        case CustomTxType::SmartContract:       return "SmartContract";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
@@ -127,6 +129,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToUtxos:          return CAccountToUtxosMessage{};
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
+        case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -207,6 +210,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostFortCanningFork() const {
         if(static_cast<int>(height) < consensus.FortCanningHeight) {
             return Res::Err("called before FortCanning height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningHillFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHillHeight) {
+            return Res::Err("called before FortCanningHill height");
         }
         return Res::Ok();
     }
@@ -320,6 +330,11 @@ public:
 
     Res operator()(CAnyAccountsToAccountsMessage& obj) const {
         auto res = isPostBayfrontGardensFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CSmartContractMessage& obj) const {
+        auto res = isPostFortCanningHillFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1175,6 +1190,10 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
+            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
+        }
+
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
@@ -1323,6 +1342,102 @@ public:
         return !res ? res : addBalancesSetShares(obj.to);
     }
 
+
+    Res HandleDFIP2201Contract(const CSmartContractMessage& obj) const {
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes)
+            return Res::Err("Attributes unavailable");
+
+        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
+
+        if (!attributes->GetValue(activeKey, false))
+            return Res::Err("DFIP2201 smart contract is not enabled");
+
+        if (obj.name != SMART_CONTRACT_DFIP_2201)
+            return Res::Err("DFIP2201 contract mismatch - got: " + obj.name);
+
+        if (obj.accounts.size() != 1)
+            return Res::Err("Only one address entry expected for " + obj.name);
+
+        if (obj.accounts.begin()->second.balances.size() != 1)
+            return Res::Err("Only one amount entry expected for " + obj.name);
+
+        const auto& script = obj.accounts.begin()->first;
+        if (!HasAuth(script))
+            return Res::Err("Must have at least one input from supplied address");
+
+        const auto& id = obj.accounts.begin()->second.balances.begin()->first;
+        const auto& amount = obj.accounts.begin()->second.balances.begin()->second;
+
+        if (amount <= 0)
+            return Res::Err("Amount out of range");
+
+        CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::MinSwap};
+        auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
+
+        if (minSwap && amount < minSwap) {
+            return Res::Err("Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
+        }
+
+        const auto token = mnview.GetToken(id);
+        if (!token)
+            return Res::Err("Specified token not found");
+
+        if (token->symbol != "BTC" || token->name != "Bitcoin" || !token->IsDAT())
+            return Res::Err("Only Bitcoin can be swapped in " + obj.name);
+
+        auto res = mnview.SubBalance(script, {id, amount});
+        if (!res)
+            return res;
+
+        const CTokenCurrencyPair btcUsd{"BTC","USD"};
+        const CTokenCurrencyPair dfiUsd{"DFI","USD"};
+
+
+        bool useNextPrice{false}, requireLivePrice{true};
+        auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
+        if (!resVal)
+            return std::move(resVal);
+
+        CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+        auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
+
+        const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
+
+        resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+        if (!resVal)
+            return std::move(resVal);
+
+        const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
+
+        res = mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI});
+        if (!res)
+            return res;
+
+        res = mnview.AddBalance(script, {{0}, totalDFI});
+        if (!res)
+            return res;
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CSmartContractMessage& obj) const {
+        if (obj.accounts.empty()) {
+            return Res::Err("Contract account parameters missing");
+        }
+        auto contracts = Params().GetConsensus().smartContracts;
+
+        auto contract = contracts.find(obj.name);
+        if (contract == contracts.end())
+            return Res::Err("Specified smart contract not found");
+
+        // Convert to switch when it's long enough.
+        if (obj.name == SMART_CONTRACT_DFIP_2201)
+            return HandleDFIP2201Contract(obj);
+
+        return Res::Err("Specified smart contract not found");
+    }
+
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
         // check auth
         for (const auto& kv : obj.from) {
@@ -1352,26 +1467,54 @@ public:
             return Res::Err("tx not from foundation member");
         }
         for(const auto& var : obj.govs) {
-            auto result = var->Validate(mnview);
-            if (!result) {
-                return Res::Err("%s: %s", var->GetName(), result.msg);
+            auto res = var->Validate(mnview);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+
             if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
                     storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
                     continue;
                 }
+            } else if (var->GetName() == "ATTRIBUTES") {
+                // Add to existing ATTRIBUTES instead of overwriting.
+                auto govVar = mnview.GetVariable(var->GetName());
+                res = govVar->Import(var->Export());
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                // Validate as complete set. Check for future conflicts between key pairs.
+                res = govVar->Validate(mnview);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = govVar->Apply(mnview, height);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                res = mnview.SetVariable(*govVar);
+                if (!res) {
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
+
+                continue;
             }
-            auto res = var->Apply(mnview, height);
+
+            res = var->Apply(mnview, height);
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-            auto add = mnview.SetVariable(*var);
-            if (!add) {
-                return Res::Err("%s: %s", var->GetName(), add.msg);
+
+            res = mnview.SetVariable(*var);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
         }
         return Res::Ok();
@@ -2360,7 +2503,7 @@ public:
         }
 
         // delete all interest to vault
-        res = mnview.DeleteInterest(obj.vaultId);
+        res = mnview.DeleteInterest(obj.vaultId, height);
         if (!res)
             return res;
 
@@ -2491,6 +2634,10 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
+                boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> tokenDUSD;
+                if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+                    tokenDUSD = mnview.GetToken("DUSD");
+                }
                 const auto scheme = mnview.GetLoanScheme(vault->schemeId);
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
@@ -2500,13 +2647,20 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
-                    uint64_t totalDFI = 0;
+                    uint64_t totalCollaterals = 0;
                     for (auto& col : collateralsLoans.val->collaterals)
-                        if (col.nTokenId == DCT_ID{0})
-                            totalDFI += col.nValue;
+                        if (col.nTokenId == DCT_ID{0}
+                        || (tokenDUSD && col.nTokenId == tokenDUSD->first))
+                            totalCollaterals += col.nValue;
 
-                    if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                        return Res::Err("At least 50%% of the vault must be in DFI");
+                    if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
+                        if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
+                            return Res::Err("At least 50%% of the collateral must be in DFI");
+                    } else {
+                        if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
+                            return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI")
+                                                                                              : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD");
+                    }
 
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
@@ -2597,6 +2751,10 @@ public:
                 return res;
         }
 
+        boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
@@ -2606,13 +2764,20 @@ public:
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
 
-            uint64_t totalDFI = 0;
+            uint64_t totalCollaterals = 0;
             for (auto& col : collateralsLoans.val->collaterals)
-                if (col.nTokenId == DCT_ID{0})
-                    totalDFI += col.nValue;
+                if (col.nTokenId == DCT_ID{0}
+                || (tokenDUSD && col.nTokenId == tokenDUSD->first))
+                    totalCollaterals += col.nValue;
 
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
-                return Res::Err("At least 50%% of the vault must be in DFI when taking a loan");
+            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
+                if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
+                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
+            } else {
+                if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
+                    return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
+                                                                                      : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
+            }
 
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
@@ -2642,9 +2807,50 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
+        auto penaltyPct = COIN;
+        auto allowDFIPayback = false;
+        auto shouldSetVariable = false;
+        auto tokenDUSD = mnview.GetToken("DUSD");
+        auto attributes = mnview.GetAttributes();
+        if (tokenDUSD && attributes)
+        {
+            CDataStructureV0 activeKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFI};
+            allowDFIPayback = attributes->GetValue(activeKey, false);
+        }
+
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
+            auto paybackAmount = kv.second;
+            CAmount dfiUSDPrice{0};
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight && kv.first == DCT_ID{0})
+            {
+                if (!allowDFIPayback || !tokenDUSD)
+                    return Res::Err("Payback of DUSD loans with DFI not currently active");
+
+                // Get DFI price in USD
+                const CTokenCurrencyPair dfiUsd{"DFI","USD"};
+                bool useNextPrice{false}, requireLivePrice{true};
+                const auto resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+                if (!resVal)
+                    return std::move(resVal);
+
+                // Apply penalty
+                CDataStructureV0 penaltyKey{AttributeTypes::Token, tokenDUSD->first.v, TokenKeys::PaybackDFIFeePCT};
+                penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
+
+                dfiUSDPrice = MultiplyAmounts(*resVal.val, penaltyPct);
+
+                // Set tokenId to DUSD
+                tokenId = tokenDUSD->first;
+
+                // Calculate the DFI amount in DUSD
+                paybackAmount = MultiplyAmounts(dfiUSDPrice, kv.second);
+                if (dfiUSDPrice > COIN && paybackAmount < kv.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(dfiUSDPrice));
+            }
+
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -2657,62 +2863,99 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId);
+            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
-            auto subLoan = kv.second - subInterest;
+            auto subLoan = paybackAmount - subInterest;
 
-            if (kv.second < subInterest)
+            if (paybackAmount < subInterest)
             {
-                subInterest = kv.second;
+                subInterest = paybackAmount;
                 subLoan = 0;
             }
             else if (it->second - subLoan < 0)
+            {
                 subLoan = it->second;
+            }
 
-            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subLoan});
             if (!res)
                 return res;
 
-            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
 
             if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
             {
-                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId);
+                auto newRate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 if (!newRate)
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
                 if (newRate->interestPerBlock == 0)
-                        return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
+                    return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
             }
-
-            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
-            if (!res)
-                return res;
 
             CalculateOwnerRewards(obj.from);
-            // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
-            if (!res)
-                return res;
 
-            // burn interest Token->USD->DFI->burnAddress
-            if (subInterest)
+            if (height < Params().GetConsensus().FortCanningHillHeight || kv.first != DCT_ID{0})
             {
-                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
-                res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
+                res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
                 if (!res)
                     return res;
+
+                // subtract loan amount first, interest is burning below
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                res = mnview.SubBalance(obj.from, CTokenAmount{tokenId, subLoan});
+                if (!res)
+                    return res;
+
+                // burn interest Token->USD->DFI->burnAddress
+                if (subInterest)
+                {
+                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                    res = SwapToDFIOverUSD(mnview, tokenId, subInterest, obj.from, consensus.burnAddress, height);
+                }
             }
+            else
+            {
+                CAmount subInDFI;
+                auto subAmount = subLoan + subInterest;
+                // if DFI payback overpay loan and interest amount
+                if (paybackAmount > subAmount)
+                {
+                    subInDFI = DivideAmounts(subAmount, dfiUSDPrice);
+                    if (MultiplyAmounts(subInDFI, dfiUSDPrice) != subAmount)
+                        subInDFI += 1;
+                }
+                else
+                {
+                    subInDFI = kv.second;
+                }
+
+                CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+                auto balances = attributes->GetValue(liveKey, CBalances{});
+                auto penaltyDFI = MultiplyAmounts(subInDFI, COIN - penaltyPct);
+
+                balances.Add(CTokenAmount{tokenId, subAmount});
+                balances.Add(CTokenAmount{DCT_ID{0}, penaltyDFI});
+                attributes->attributes[liveKey] = balances;
+
+                shouldSetVariable = true;
+
+                LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in DFI directly - %lld (%lld DFI), height - %d\n", subLoan + subInterest, subInDFI, height);
+                res = TransferTokenBalance(DCT_ID{0}, subInDFI, obj.from, consensus.burnAddress);
+            }
+
+            if (!res)
+                return res;
         }
 
-        return Res::Ok();
+        return shouldSetVariable ? mnview.SetVariable(*attributes) : Res::Ok();
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {
@@ -2873,6 +3116,13 @@ public:
         return EraseHistory(obj.from);
     }
 
+    Res operator()(const CSmartContractMessage& obj) const {
+        for (const auto& account : obj.accounts) {
+            EraseHistory(account.first);
+        }
+        return Res::Ok();
+    }
+
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
         for (const auto& account : obj.to) {
             EraseHistory(account.first);
@@ -3029,7 +3279,59 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
     }
 }
 
+bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
+    // All the heights that are involved in disabled Txs
+    auto fortCanningParkHeight = static_cast<uint32_t>(consensus.FortCanningParkHeight);
+    auto fortCanningHillHeight = static_cast<uint32_t>(consensus.FortCanningHillHeight);
+
+    if (height < fortCanningParkHeight)
+        return false;
+
+    // For additional safety, since some APIs do block + 1 calc
+    if (height == fortCanningHillHeight || height == fortCanningHillHeight - 1) {
+        switch (type) {
+            case CustomTxType::TakeLoan:
+            case CustomTxType::PaybackLoan:
+            case CustomTxType::DepositToVault:
+            case CustomTxType::WithdrawFromVault:
+            case CustomTxType::UpdateVault:
+                return true;
+            default:
+                break;
+            }
+    }
+
+    // ICXCreateOrder      = '1',
+    // ICXMakeOffer        = '2',
+    // ICXSubmitDFCHTLC    = '3',
+    // ICXSubmitEXTHTLC    = '4',
+    // ICXClaimDFCHTLC     = '5',
+    // ICXCloseOrder       = '6',
+    // ICXCloseOffer       = '7',
+
+    // Leaving close orders, as withdrawal of existing should be ok?
+    switch (type) {
+        case CustomTxType::ICXCreateOrder:
+        case CustomTxType::ICXMakeOffer:
+        case CustomTxType::ICXSubmitDFCHTLC:
+        case CustomTxType::ICXSubmitEXTHTLC:
+        case CustomTxType::ICXClaimDFCHTLC:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Params& consensus) {
+    TBytes dummy;
+    auto txType = GuessCustomTxType(tx, dummy);
+    return IsDisabledTx(height, txType, consensus);
+}
+
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+    if (IsDisabledTx(height, tx, consensus)) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
+    }
     try {
         return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
     } catch (const std::exception& e) {
@@ -3078,9 +3380,6 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryEraser view(mnview, height, txn, erasers);
-    uint256 vaultID;
-    std::string schemeID;
-    CLoanSchemeCreation globalScheme;
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
@@ -3146,52 +3445,19 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     }
 }
 
-
-bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& consensus) {
-    if (height < consensus.FortCanningParkHeight)
-        return false;
-    
-    // ICXCreateOrder      = '1',
-    // ICXMakeOffer        = '2',
-    // ICXSubmitDFCHTLC    = '3',
-    // ICXSubmitEXTHTLC    = '4',
-    // ICXClaimDFCHTLC     = '5',
-    // ICXCloseOrder       = '6',
-    // ICXCloseOffer       = '7',
-
-    // Leaving close orders, as withdrawal of existing should be ok?
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
-            return false;
-    }
-}
-
-
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
-
-
     const auto metadataValidation = height >= consensus.FortCanningHeight;
-    
+
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
     }
 
-    if (IsDisabledTx(height, txType, consensus)) {
-        return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
-    }
-    
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
@@ -3405,7 +3671,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
     std::vector<std::vector<DCT_ID>> poolPaths = CalculatePoolPaths(view);
 
     // Record best pair
-    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, -1};
 
     // Loop through all common pairs
     for (const auto& path : poolPaths) {
@@ -3507,15 +3773,18 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
-// testOnly is only meant for one-off tests per well defined view.  
+// testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
-    CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
 
     // No composite swap allowed before Fort Canning
     if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
         poolIDs.clear();
+    }
+
+    if (obj.amountFrom <= 0) {
+        return Res::Err("Input amount should be positive");
     }
 
     // Single swap if no pool IDs provided
@@ -3541,6 +3810,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         mnview.Flush();
     }
 
+    // Set amount to be swapped in pool
+    CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
+
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
         // Also used to generate pool specific error messages for RPC users
@@ -3559,25 +3831,39 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
-        // Set amount to be swapped in pool
-        CTokenAmount swapAmount{obj.idTokenFrom, obj.amountFrom};
-
-        // If set use amount from previous loop
-        if (swapAmountResult.nValue != 0) {
-            swapAmount = swapAmountResult;
-        }
-
         // Check if last pool swap
         bool lastSwap = i + 1 == poolIDs.size();
 
+        const auto swapAmount = swapAmountResult;
+
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
+            if (obj.idTokenTo == swapAmount.nTokenId) {
+                return Res::Err("Final swap should have idTokenTo as destination, not source");
+            }
+            if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
+                return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
+            }
+        }
+
+        auto dexfeeInPct = view.GetDexFeePct(currentID, swapAmount.nTokenId);
+
         // Perform swap
-        poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
+            CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
+
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                if (auto dexfeeOutPct = view.GetDexFeePct(currentID, tokenAmount.nTokenId)) {
+                    dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                    swapAmountResult.nValue -= dexfeeOutAmount.nValue;
+                }
+            }
+
             // If we're just testing, don't do any balance transfers.
             // Just go over pools and return result. The only way this can
-            // cause inaccurate result is if we go over the same path twice, 
+            // cause inaccurate result is if we go over the same path twice,
             // which shouldn't happen in the first place.
             if (testOnly)
                 return Res::Ok();
@@ -3597,11 +3883,27 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
+
+            // burn the dex in amount
+            if (dexfeeInAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
+                if (!res) {
+                    return res;
+                }
+            }
+
+            // burn the dex out amount
+            if (dexfeeOutAmount.nValue > 0) {
+                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
+                if (!res) {
+                    return res;
+                }
+            }
 
            return res;
         }, static_cast<int>(height));
@@ -3613,9 +3915,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     // Reject if price paid post-swap above max price provided
     if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
-        const CAmount userMaxPrice = obj.maxPrice.integer * COIN + obj.maxPrice.fraction;
-        if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
-            return Res::Err("Price is higher than indicated.");
+        if (swapAmountResult.nValue != 0) {
+            const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
+            if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
+                return Res::Err("Price is higher than indicated.");
+            }
         }
     }
 
@@ -3668,14 +3972,14 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
-        for (const auto collateral : collaterals->balances)
+        for (const auto& collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto loan : loans->balances)
+        for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))

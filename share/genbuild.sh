@@ -30,8 +30,9 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     git diff >/dev/null 2>/dev/null
 
     # if latest commit is tagged and not dirty, then override using the tag name
-    RAWDESC=$(git describe --abbrev=0 2>/dev/null)
+    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
     if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 $RAWDESC 2>/dev/null)" ]; then
+        echo BUILD_DIRTY_CHECK: "$(git diff-index --quiet HEAD --)"
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
@@ -46,13 +47,14 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
     fi
 
-    if [ "$CURRENT_BRANCH" != "hotfix" ]; then
+    if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ]; then
         # if it's hotfix branch, don't mark dirty.
         # otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
     fi
 fi
 
+echo "BUILD_DESC: $DESC"
 echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
 echo "BUILD_SUFFIX: $SUFFIX"
 
@@ -67,4 +69,5 @@ fi
 # only update build.h if necessary
 if [ "$INFO" != "$NEWINFO" ]; then
     echo "$NEWINFO" >"$FILE"
+    echo "BUILD_INFO: $NEWINFO"
 fi

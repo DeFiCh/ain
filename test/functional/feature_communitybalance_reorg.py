@@ -20,7 +20,7 @@ class CommunityBalanceReorg(DefiTestFramework):
     def run_test(self):
         # Generate across nodes
         self.nodes[0].generate(10)
-        self.sync_all()
+        self.sync_blocks()
 
         # Disconnect
         disconnect_nodes(self.nodes[0], 1)
@@ -40,7 +40,7 @@ class CommunityBalanceReorg(DefiTestFramework):
 
         # Reconnect nodes. Should switch node 0 to node 1 chain reorging blocks.
         connect_nodes(self.nodes[0], 1)
-        self.sync_all()
+        self.sync_blocks()
 
         # Make sure we are on the longer chain
         assert_equal(self.nodes[0].getblockcount(), 31)

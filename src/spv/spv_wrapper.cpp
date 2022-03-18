@@ -246,6 +246,7 @@ void CSpvWrapper::Load()
     auto htlcAddresses = new BRUserAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook)
         {
             if (entry.second.purpose == "spv")
@@ -488,7 +489,8 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrint(BCLog::SPV, "tx status update\n");
-    panchors->CheckActiveAnchor();
+    uint32_t height = spv::pspv->GetLastBlockHeight();
+    panchors->CheckActiveAnchor(height);
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
@@ -1355,6 +1357,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
     std::set<uint160> htlcAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
                 htlcAddresses.insert(*boost::get<ScriptHash>(&entry.first));

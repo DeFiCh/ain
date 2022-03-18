@@ -774,7 +774,8 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
         UniValue result(UniValue::VOBJ);
         result.pushKV("txid", tx->GetHash().GetHex());
         result.pushKV("type", ToString(guess));
-        result.pushKV("valid", res.ok ? true : false); // no actual block height
+        result.pushKV("valid", res.ok && !IsSkippedTx(tx->GetHash()));
+
         if (!res.ok) {
             result.pushKV("error", res.msg);
         } else {

@@ -1790,6 +1790,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
 
+    // one time downgrade to revert CInterestRateV2 structure
+    if (pindex->nHeight == Params().GetConsensus().FortCanningHillHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate reverting ...\n");
+        mnview.RevertInterestRateToV1();
+        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
+    }
+
     // Remove burn balance transfers
     if (pindex->nHeight == Params().GetConsensus().EunosHeight)
     {
@@ -2307,6 +2315,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
+    // one time upgrade to convert the old CInterestRate data structure
+    // we don't neeed it in undos
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate migration ...\n");
+        mnview.MigrateInterestRateToV2(mnview,(uint32_t)pindex->nHeight);
+        LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
+    }
+
     CKeyID minterKey;
     boost::optional<uint256> nodeId;
     boost::optional<CMasternode> nodePtr;
@@ -2808,10 +2825,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Apply any pending GovVariable changes. Will come into effect on the next block.
             auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
             for (const auto& var : storedGovVars) {
-                CCustomCSView govCache(cache);
-                // Ignore any Gov variables that fail to validate, apply or be set.
-                if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
-                    govCache.Flush();
+                if (var) {
+                    CCustomCSView govCache(cache);
+                    // Add to existing ATTRIBUTES instead of overwriting.
+                    if (var->GetName() == "ATTRIBUTES") {
+                        auto govVar = mnview.GetVariable(var->GetName());
+                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                            govCache.Flush();
+                        }
+                    } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        govCache.Flush();
+                    }
                 }
             }
             cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
@@ -2870,6 +2894,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pruned.Flush();
             LogPrintf("Pruning undo data finished.\n");
             LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
+        }
+        // we can safety delete old interest keys
+        if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
+            CCustomCSView view(mnview);
+            mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
+                view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
+                return true;
+            });
+            view.Flush();
         }
     }
 
@@ -3107,13 +3140,13 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (auto& loan : loanTokens->balances) {
                 auto tokenId = loan.first;
                 auto tokenValue = loan.second;
-                auto rate = cache.GetInterestRate(vaultId, tokenId);
+                auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({tokenId, subInterest});
 
-                // Remove the interests from the vault and the storage respectively  
+                // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
                 LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);

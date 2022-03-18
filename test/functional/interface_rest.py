@@ -82,14 +82,14 @@ class RESTTest (DefiTestFramework):
         not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         self.nodes[1].generate(nblocks=100, address=not_related_address)
-        self.sync_all()
+        self.sync_blocks()
 
         assert_equal(self.nodes[0].getbalance(), 50)
 
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
-        self.sync_all()
+        self.sync_mempools()
 
         self.log.info("Test the /tx URI")
 
@@ -109,7 +109,7 @@ class RESTTest (DefiTestFramework):
         self.log.info("Query an unspent TXO using the /getutxos URI")
 
         self.nodes[1].generate(nblocks=1, address=not_related_address)
-        self.sync_all()
+        self.sync_blocks()
         bb_hash = self.nodes[0].getbestblockhash()
 
         assert_equal(self.nodes[1].getbalance(), Decimal("0.1"))
@@ -184,7 +184,7 @@ class RESTTest (DefiTestFramework):
         assert_equal(len(json_obj['utxos']), 0)
 
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
 
         json_obj = self.test_rest_request("/getutxos/{}-{}".format(*spending))
         assert_equal(len(json_obj['utxos']), 1)
@@ -205,7 +205,7 @@ class RESTTest (DefiTestFramework):
         self.test_rest_request("/getutxos/checkmempool/{}".format(long_uri), http_method='POST', status=200)
 
         self.nodes[0].generate(1)  # generate block to not affect upcoming tests
-        self.sync_all()
+        self.sync_blocks()
 
         self.log.info("Test the /block, /blockhashbyheight and /headers URIs")
         bb_hash = self.nodes[0].getbestblockhash()
@@ -276,7 +276,7 @@ class RESTTest (DefiTestFramework):
 
         # See if we can get 5 headers in one response
         self.nodes[1].generate(5)
-        self.sync_all()
+        self.sync_blocks()
         json_obj = self.test_rest_request("/headers/5/{}".format(bb_hash))
         assert_equal(len(json_obj), 5)  # now we should have 5 header objects
 

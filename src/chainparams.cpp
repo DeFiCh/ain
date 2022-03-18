@@ -4,7 +4,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
 #include <masternodes/mn_checks.h>
@@ -129,7 +128,8 @@ public:
         consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
+        consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -243,6 +243,9 @@ public:
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("dJEbxbfufyPF14SC93yxiquECEfq4YSd9L", *this)));
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("8UAhRuUFCyFUHEPD7qvtj8Zy2HxF5HH5nb", *this)));
 
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
         vMasternodes.push_back({"8RPZm7SVUNhGN1RgGY3R92rvRkZBwETrCX", "8bzHwhaF2MaVs4owRvpWtZQVug3mKuJji2"});
@@ -351,8 +354,9 @@ public:
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = 686200;
         consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningParkHeight = 828800;
+        consensus.FortCanningHillHeight = 828900;
+        consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -456,6 +460,9 @@ public:
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("trnZD2qPU1c3WryBi8sWX16mEaq9WkGHeg", *this))); // cVUZfDj1B1o7eVhxuZr8FQLh626KceiGQhZ8G6YCUdeW3CAV49ti
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
 
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
         vMasternodes.push_back({"7E8Cjn9cqEwnrc3E4zN6c5xKxDSGAyiVUM", "78MWNEcAAJxihddCw1UnZD8T7fMWmUuBro"});
@@ -537,6 +544,7 @@ public:
         consensus.FortCanningMuseumHeight = std::numeric_limits<int>::max();
         consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -634,6 +642,9 @@ public:
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this)));
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this)));
 
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
+
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
         vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
@@ -685,7 +696,7 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    explicit CRegTestParams(const ArgsManager& args) {
+    explicit CRegTestParams() {
         strNetworkID = "regtest";
         bool isJellyfish = false;
         isJellyfish = gArgs.GetBoolArg("-jellyfish_regtest", false);
@@ -713,6 +724,7 @@ public:
         consensus.FortCanningMuseumHeight = 10000000;
         consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
+        consensus.FortCanningRoadHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -793,7 +805,7 @@ public:
         m_assumed_blockchain_size = 0;
         m_assumed_chain_state_size = 0;
 
-        UpdateActivationParametersFromArgs(args);
+        UpdateActivationParametersFromArgs();
 
         base58Prefixes[PUBKEY_ADDRESS] = {0x6f};
         base58Prefixes[SCRIPT_ADDRESS] = {0xc4};
@@ -817,6 +829,9 @@ public:
         consensus.accountDestruction.clear();
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("2MxJf6Ak8MGrLoGdekrU6AusW29szZUFphH", *this)));
         consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("mxiaFfAnCoXEUy4RW8NgsQM7yU5YRCiFSh", *this)));
+
+        consensus.smartContracts.clear();
+        consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
@@ -888,7 +903,7 @@ public:
         consensus.vDeployments[d].nStartTime = nStartTime;
         consensus.vDeployments[d].nTimeout = nTimeout;
     }
-    void UpdateActivationParametersFromArgs(const ArgsManager& args);
+    void UpdateActivationParametersFromArgs();
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
@@ -910,7 +925,7 @@ boost::optional<int> UpdateHeightValidation(const std::string& argName, const st
     return {};
 }
 
-void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
+void CRegTestParams::UpdateActivationParametersFromArgs()
 {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
@@ -924,14 +939,21 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fort canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fort canning museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fort canning park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
-    UpdateHeightValidation("Fort canning hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
+    UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
 
-    if (!args.IsArgSet("-vbparams")) return;
+    if (gArgs.GetBoolArg("-simulatemainnet", false)) {
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
+        consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+    }
 
-    for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
+    if (!gArgs.IsArgSet("-vbparams")) return;
+
+    for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {
         std::vector<std::string> vDeploymentParams;
         boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
         if (vDeploymentParams.size() != 3) {
@@ -975,7 +997,7 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
     else if (chain == CBaseChainParams::DEVNET)
         return std::unique_ptr<CChainParams>(new CDevNetParams());
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
+        return std::unique_ptr<CChainParams>(new CRegTestParams());
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 

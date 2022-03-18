@@ -155,7 +155,7 @@ class SignRawTransactionsTest(DefiTestFramework):
         self.nodes[0].generate(101)
         self.nodes[0].sendtoaddress(p2sh_p2wsh_address["address"], 49.999)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_blocks()
         # Find the UTXO for the transaction node[1] should have received, check witnessScript matches
         unspent_output = self.nodes[1].listunspent(0, 999999, [p2sh_p2wsh_address["address"]])[0]
         assert_equal(unspent_output["witnessScript"], p2sh_p2wsh_address["redeemScript"])

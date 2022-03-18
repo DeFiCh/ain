@@ -9,20 +9,22 @@
 #include <rpc/util.h> /// AmountFromValue
 
 
-Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val) {
+Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val)
+{
     if (!val.isObject())
         return Res::Err("object of {poolId: rate,... } expected");
+
     for (const std::string& key : val.getKeys()) {
         const auto id = DCT_ID::FromString(key);
-        if (!id.ok) {
-            return id;
-        }
+        if (!id)
+            return std::move(id);
         splits.emplace(*id.val, AmountFromValue(val[key]));
     }
     return Res::Ok();
 }
 
-UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
+UniValue LP_LOAN_TOKEN_SPLITS::Export() const
+{
     UniValue res(UniValue::VOBJ);
     for (auto const & kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
@@ -30,10 +32,10 @@ UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
     return res;
 }
 
-Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const {
-    if (mnview.GetLastHeight() < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const
+{
+    if (mnview.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
-    }
 
     CAmount total{0};
     for (auto const & kv : splits) {
@@ -51,14 +53,14 @@ Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const {
     return Res::Ok();
 }
 
-Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
+Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height)
+{
     mnview.ForEachPoolId([&] (DCT_ID poolId) {
         // we ought to reset previous value:
         CAmount rewardLoanPct = 0;
         auto it = splits.find(poolId);
-        if (it != splits.end()) {
+        if (it != splits.end())
             rewardLoanPct = it->second;
-        }
 
         mnview.SetRewardLoanPct(poolId, height, rewardLoanPct);
         return true;
@@ -66,4 +68,3 @@ Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
 
     return Res::Ok();
 }
-

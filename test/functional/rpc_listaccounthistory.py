@@ -64,6 +64,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         found = False
         for txs in results:
             assert_equal(txs['owner'], collateral_a)
+            self.log.info("test 0: block %d, txn is %d", txs['blockHeight'], txs['txn'])
             if txs['type'] == 'MintToken':
                 found = True
         assert_equal(found, True)
@@ -71,6 +72,27 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         # check amounts field is type of array
         for txs in results:
             assert(hasattr(txs['amounts'], '__len__') and (not isinstance(txs['amounts'], str)))
+
+        # list {"maxBlockHeight":103, "txn":1}, should list without blockheight = 103, txn=2. i.e without MintToken
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":1})
+        for txs in results:
+            self.log.info("test 1: block %d, txn is %d", txs['blockHeight'], txs['txn'])
+            assert_equal(txs['owner'], collateral_a)
+            assert_equal(txs['blockHeight'] <= 103, True)
+            if txs['blockHeight'] == 103:
+                assert_equal(txs['txn'] <= 1 , True) # for block 103 txn:1 applies.
+
+        # list {"maxBlockHeight":103, "txn":0}, should list without blockheight = 103, txn=1,2. i.e without any txs from 103 block
+        results = self.nodes[0].listaccounthistory(collateral_a, {"maxBlockHeight":103, "txn":0})
+
+        for txs in results:
+            self.log.info("test 2: block %d, txn is %d", txs['blockHeight'], txs['txn'])
+            assert_equal(txs['owner'], collateral_a)
+            assert_equal(txs['blockHeight'] <= 103, True)
+            if txs['blockHeight'] == 103:
+                assert_equal(txs['txn'] <= 0 , True)
+            else:
+                assert_equal(txs['txn'] >= 0 , True) # means txn:0 only applicable to block 103 only
 
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)

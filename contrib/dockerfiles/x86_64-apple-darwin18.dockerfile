@@ -1,4 +1,4 @@
-ARG TARGET=x86_64-apple-darwin11
+ARG TARGET=x86_64-apple-darwin18
 
 # -----------
 FROM ubuntu:18.04 as builder-base
@@ -29,8 +29,8 @@ LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work/depends
 COPY ./depends .
-# XREF: #depends-make
-RUN make HOST=${TARGET} NO_QT=1 -j $(nproc)
+# XREF: #make-deps
+RUN make HOST=${TARGET} -j $(nproc)
 
 # -----------
 FROM builder-base as builder

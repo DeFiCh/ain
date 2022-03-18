@@ -22,7 +22,7 @@ curl cmake
 # install clang 11
 RUN wget https://apt.llvm.org/llvm.sh
 RUN chmod +x llvm.sh
-RUN ./llvm.sh 11
+RUN ./llvm.sh 11 0
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
@@ -35,8 +35,8 @@ LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work/depends
 COPY ./depends .
-# XREF: #depends-make
-RUN make HOST=${TARGET} NO_QT=1 -j $(nproc)
+# XREF: #make-deps
+RUN make HOST=${TARGET} -j $(nproc)
 
 # -----------
 FROM builder-base as builder
