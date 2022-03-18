@@ -236,8 +236,9 @@ const uint8_t *BRScriptPKH(const uint8_t *script, size_t scriptLen)
     assert(script != NULL || scriptLen == 0);
     if (! script || scriptLen == 0 || scriptLen > MAX_SCRIPT_LENGTH) return NULL;
 
-    const uint8_t *elems[BRScriptElements(NULL, 0, script, scriptLen)], *r = NULL;
-    size_t l, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+    const uint8_t *r = NULL;
+    std::vector<const uint8_t*> elems(BRScriptElements(NULL, 0, script, scriptLen));
+    size_t l, count = BRScriptElements(elems.data(), elems.size(), script, scriptLen);
     
     if (count == 5 && *elems[0] == OP_DUP && *elems[1] == OP_HASH160 && *elems[2] == 20 &&
         *elems[3] == OP_EQUALVERIFY && *elems[4] == OP_CHECKSIG) {
@@ -259,8 +260,9 @@ const UInt160 BRHTLCScriptPKH(const uint8_t *script, size_t scriptLen, HTLCScrip
     assert(script != NULL || scriptLen == 0);
     if (! script || scriptLen == 0 || scriptLen > MAX_SCRIPT_LENGTH) return UINT160_ZERO;
 
-    const uint8_t *elems[BRScriptElements(NULL, 0, script, scriptLen)], *r = NULL;
-    size_t l, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+    const uint8_t *r = NULL;
+    std::vector<const uint8_t*> elems(BRScriptElements(NULL, 0, script, scriptLen));
+    size_t l = 0, count = BRScriptElements(elems.data(), elems.size(), script, scriptLen);
 
     UInt160 hash160 = UINT160_ZERO;
 
@@ -297,8 +299,9 @@ size_t BRAddressFromScriptPubKey(char *addr, size_t addrLen, const uint8_t *scri
     
     char a[91];
     uint8_t data[21];
-    const uint8_t *d, *elems[BRScriptElements(NULL, 0, script, scriptLen)];
-    size_t r = 0, l = 0, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+    const uint8_t *d;
+    std::vector<const uint8_t*> elems(BRScriptElements(NULL, 0, script, scriptLen));
+    size_t r = 0, l = 0, count = BRScriptElements(elems.data(), elems.size(), script, scriptLen);
     
     BRChainParams const * params = BRGetChainParams();
     if (count == 5 && *elems[0] == OP_DUP && *elems[1] == OP_HASH160 && *elems[2] == 20 &&
@@ -340,8 +343,9 @@ size_t BRAddressFromScriptSig(char *addr, size_t addrLen, const uint8_t *script,
     if (! script || scriptLen == 0 || scriptLen > MAX_SCRIPT_LENGTH) return 0;
     
     uint8_t data[21];
-    const uint8_t *d = NULL, *elems[BRScriptElements(NULL, 0, script, scriptLen)];
-    size_t l = 0, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+    const uint8_t *d = NULL;
+    std::vector<const uint8_t*> elems(BRScriptElements(NULL, 0, script, scriptLen));
+    size_t l = 0, count = BRScriptElements(elems.data(), elems.size(), script, scriptLen);
 
     data[0] = BRGetChainParams()->base58_p2pkh;
     
