@@ -498,7 +498,9 @@ int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) co
 
 void CAnchorIndex::CheckPendingAnchors()
 {
-    AssertLockHeld(cs_main);
+    uint32_t height = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+
+    LOCK(cs_main);
 
     spv::PendingSet anchorsPending(spv::PendingOrder);
     ForEachPending([&anchorsPending](uint256 const &, AnchorRec & rec) {
@@ -559,7 +561,7 @@ void CAnchorIndex::CheckPendingAnchors()
 
         // Recheck anchors
         possibleReActivation = true;
-        CheckActiveAnchor();
+        CheckActiveAnchor(height);
     }
 
     for (const auto& hash : deletePending) {
@@ -567,16 +569,14 @@ void CAnchorIndex::CheckPendingAnchors()
     }
 }
 
-void CAnchorIndex::CheckActiveAnchor(bool forced)
+void CAnchorIndex::CheckActiveAnchor(uint32_t height, bool forced)
 {
     // Only continue with context of chain
     if (ShutdownRequested()) return;
 
     {
-        // fix spv height to avoid datarace while choosing best anchor
-        uint32_t const tmp = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
         LOCK(cs_main);
-        spvLastHeight = tmp;
+        spvLastHeight = height;
 
         panchors->ActivateBestAnchor(forced);
 

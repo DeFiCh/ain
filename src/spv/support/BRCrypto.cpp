@@ -27,6 +27,8 @@
 #include <string.h>
 #include <assert.h>
 
+#include <vector>
+
 // endian swapping
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 inline static uint32_t be32(uint32_t x) { return x; }
@@ -42,7 +44,7 @@ inline static uint32_t be32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 
 inline static uint64_t le64(uint64_t x) { return x; }
 inline static uint64_t be64(uint64_t x) {
     union conv { uint32_t u32[2]; uint64_t u64; };
-    return conv{ be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64;
+    return conv{{be32((uint32_t)((x) >> 32)), be32((uint32_t)(x))}}.u64;
 }
 #else // unknown endianess
 inline static uint32_t be32(uint32_t x) {
@@ -673,8 +675,8 @@ void BRHMAC(void *mac, void (*hash)(void *, const void *, size_t), size_t hashLe
             const void *data, size_t dataLen)
 {
     size_t i, blockLen = (hashLen > 32) ? 128 : 64;
-    uint8_t k[hashLen];
-    uint64_t kipad[(blockLen + dataLen)/sizeof(uint64_t) + 1], kopad[(blockLen + hashLen)/sizeof(uint64_t) + 1];
+    std::vector<uint8_t> k(hashLen);
+    std::vector<uint64_t> kipad((blockLen + dataLen)/sizeof(uint64_t) + 1), kopad((blockLen + hashLen)/sizeof(uint64_t) + 1);
     
     assert(mac != NULL);
     assert(hash != NULL);
@@ -682,20 +684,18 @@ void BRHMAC(void *mac, void (*hash)(void *, const void *, size_t), size_t hashLe
     assert(key != NULL || keyLen == 0);
     assert(data != NULL || dataLen == 0);
     
-    if (keyLen > blockLen) hash(k, key, keyLen), key = k, keyLen = sizeof(k);
-    memset(kipad, 0, blockLen);
-    memcpy(kipad, key, keyLen);
+    if (keyLen > blockLen) hash(k.data(), key, keyLen), key = k.data(), keyLen = k.size();
+    memcpy(kipad.data(), key, keyLen);
     for (i = 0; i < blockLen/sizeof(uint64_t); i++) kipad[i] ^= 0x3636363636363636;
-    memset(kopad, 0, blockLen);
-    memcpy(kopad, key, keyLen);
+    memcpy(kopad.data(), key, keyLen);
     for (i = 0; i < blockLen/sizeof(uint64_t); i++) kopad[i] ^= 0x5c5c5c5c5c5c5c5c;
     memcpy(&kipad[blockLen/sizeof(uint64_t)], data, dataLen);
-    hash(&kopad[blockLen/sizeof(uint64_t)], kipad, blockLen + dataLen);
-    hash(mac, kopad, blockLen + hashLen);
+    hash(&kopad[blockLen/sizeof(uint64_t)], kipad.data(), blockLen + dataLen);
+    hash(mac, kopad.data(), blockLen + hashLen);
     
-    mem_clean(k, sizeof(k));
-    mem_clean(kipad, blockLen);
-    mem_clean(kopad, blockLen);
+    mem_clean(k.data(), k.size());
+    mem_clean(kipad.data(), blockLen);
+    mem_clean(kopad.data(), blockLen);
 }
 
 // hmac-drbg with no prediction resistance or additional input
@@ -705,7 +705,7 @@ void BRHMACDRBG(void *out, size_t outLen, void *K, void *V, void (*hash)(void *,
                 const void *seed, size_t seedLen, const void *nonce, size_t nonceLen, const void *ps, size_t psLen)
 {
     size_t i, bufLen = hashLen + 1 + seedLen + nonceLen + psLen;
-    uint8_t buf[bufLen];
+    std::vector<uint8_t> buf(bufLen);
     
     assert(out != NULL || outLen == 0);
     assert(K != NULL);
@@ -720,22 +720,22 @@ void BRHMACDRBG(void *out, size_t outLen, void *K, void *V, void (*hash)(void *,
         for (i = 0; i < hashLen; i++) ((uint8_t *)K)[i] = 0x00, ((uint8_t *)V)[i] = 0x01;
     }
     
-    memcpy(buf, V, hashLen);
+    memcpy(buf.data(), V, hashLen);
     buf[hashLen] = 0x00;
     memcpy(&buf[hashLen + 1], seed, seedLen);
     memcpy(&buf[hashLen + 1 + seedLen], nonce, nonceLen);
     memcpy(&buf[hashLen + 1 + seedLen + nonceLen], ps, psLen);
-    BRHMAC(K, hash, hashLen, K, hashLen, buf, bufLen); // K = HMAC(K, V || 0x00 || entropy || nonce || ps)
+    BRHMAC(K, hash, hashLen, K, hashLen, buf.data(), bufLen); // K = HMAC(K, V || 0x00 || entropy || nonce || ps)
     BRHMAC(V, hash, hashLen, K, hashLen, V, hashLen);  // V = HMAC(K, V)
     
     if (seed || nonce || ps) {
-        memcpy(buf, V, hashLen);
+        memcpy(buf.data(), V, hashLen);
         buf[hashLen] = 0x01;
-        BRHMAC(K, hash, hashLen, K, hashLen, buf, bufLen); // K = HMAC(K, V || 0x01 || entropy || nonce || ps)
+        BRHMAC(K, hash, hashLen, K, hashLen, buf.data(), bufLen); // K = HMAC(K, V || 0x01 || entropy || nonce || ps)
         BRHMAC(V, hash, hashLen, K, hashLen, V, hashLen);  // V = HMAC(K, V)
     }
     
-    mem_clean(buf, bufLen);
+    mem_clean(buf.data(), bufLen);
     
     for (i = 0; i*hashLen < outLen; i++) {
         BRHMAC(V, hash, hashLen, K, hashLen, V, hashLen); // V = HMAC(K, V)
@@ -939,7 +939,7 @@ size_t BRChacha20Poly1305AEADDecrypt(void *out, size_t outLen, const void *key32
     _BRPoly1305Compress(h, macKey, pad, 16, 1);
     mem_clean(macKey, sizeof(macKey));
     memcpy(mac, (const uint8_t *)data + outLen, 16);
-    if ((mac[0] ^ h[0]) | (mac[1] ^ h[1]) | (mac[2] ^ h[2]) | (mac[3] ^ h[3]) != 0) outLen = 0; // constant time compare
+    if (((mac[0] ^ h[0]) | (mac[1] ^ h[1]) | (mac[2] ^ h[2]) | (mac[3] ^ h[3])) != 0) outLen = 0; // constant time compare
     BRChacha20(out, key32, iv, data, outLen, le64(counter) + 1);
     return outLen;
 }
@@ -1145,8 +1145,9 @@ void BRAESCTR_OFFSET(void *out, size_t outLen, const void *key, size_t keyLen, v
 void BRPBKDF2(void *dk, size_t dkLen, void (*hash)(void *, const void *, size_t), size_t hashLen,
               const void *pw, size_t pwLen, const void *salt, size_t saltLen, unsigned rounds)
 {
-    uint8_t s[saltLen + sizeof(uint32_t)];
-    uint32_t i, j, U[hashLen/sizeof(uint32_t)], T[hashLen/sizeof(uint32_t)];
+    std::vector<uint8_t> s(saltLen + sizeof(uint32_t));
+    std::vector<uint32_t> U(hashLen/sizeof(uint32_t)), T(hashLen/sizeof(uint32_t));
+    uint32_t i, j;
     
     assert(dk != NULL || dkLen == 0);
     assert(hash != NULL);
@@ -1155,26 +1156,26 @@ void BRPBKDF2(void *dk, size_t dkLen, void (*hash)(void *, const void *, size_t)
     assert(salt != NULL || saltLen == 0);
     assert(rounds > 0);
     
-    memcpy(s, salt, saltLen);
+    memcpy(s.data(), salt, saltLen);
     
     for (i = 0; i < (dkLen + hashLen - 1)/hashLen; i++) {
         j = be32(i + 1);
-        memcpy(s + saltLen, &j, sizeof(j));
-        BRHMAC(U, hash, hashLen, pw, pwLen, s, sizeof(s)); // U1 = hmac_hash(pw, salt || be32(i))
-        memcpy(T, U, sizeof(U));
+        memcpy(s.data() + saltLen, &j, sizeof(j));
+        BRHMAC(U.data(), hash, hashLen, pw, pwLen, s.data(), s.size()); // U1 = hmac_hash(pw, salt || be32(i))
+        memcpy(T.data(), U.data(), U.size());
         
         for (unsigned r = 1; r < rounds; r++) {
-            BRHMAC(U, hash, hashLen, pw, pwLen, U, sizeof(U)); // Urounds = hmac_hash(pw, Urounds-1)
+            BRHMAC(U.data(), hash, hashLen, pw, pwLen, U.data(), U.size()); // Urounds = hmac_hash(pw, Urounds-1)
             for (j = 0; j < hashLen/sizeof(uint32_t); j++) T[j] ^= U[j]; // Ti = U1 ^ U2 ^ ... ^ Urounds
         }
         
         // dk = T1 || T2 || ... || Tdklen/hlen
-        memcpy((uint8_t *)dk + i*hashLen, T, (i*hashLen + hashLen <= dkLen) ? hashLen : dkLen % hashLen);
+        memcpy((uint8_t *)dk + i*hashLen, T.data(), (i*hashLen + hashLen <= dkLen) ? hashLen : dkLen % hashLen);
     }
     
-    mem_clean(s, sizeof(s));
-    mem_clean(U, sizeof(U));
-    mem_clean(T, sizeof(T));
+    mem_clean(s.data(), s.size());
+    mem_clean(U.data(), U.size());
+    mem_clean(T.data(), T.size());
 }
 
 // salsa20/8 stream cipher: http://cr.yp.to/snuffle.html
@@ -1219,10 +1220,11 @@ static void _blockmix_salsa8(uint64_t *dest, const uint64_t *src, uint64_t *b, u
 void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *salt, size_t saltLen,
               unsigned n, unsigned r, unsigned p)
 {
-    uint64_t x[16*r], y[16*r], z[8], *v = (uint64_t *)malloc(128*r*n), m;
-    uint32_t b[32*r*p];
+    uint64_t z[8], m;
+    std::vector<uint64_t> x(16*r), y(16*r);
+    std::vector<uint64_t> v(16*r*n);
+    std::vector<uint32_t> b(32*r*p);
     
-    assert(v != NULL);
     assert(dk != NULL || dkLen == 0);
     assert(pw != NULL || pwLen == 0);
     assert(salt != NULL || saltLen == 0);
@@ -1230,35 +1232,34 @@ void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *
     assert(r > 0);
     assert(p > 0);
     
-    BRPBKDF2(b, sizeof(b), BRSHA256, 256/8, pw, pwLen, salt, saltLen, 1);
+    BRPBKDF2(b.data(), b.size() * sizeof(uint32_t), BRSHA256, 256/8, pw, pwLen, salt, saltLen, 1);
     
-    for (int i = 0; i < p; i++) {
-        for (unsigned j = 0; j < 32*r; j++) ((uint32_t *)x)[j] = le32(b[i*32*r + j]);
+    for (unsigned i = 0; i < p; i++) {
+        for (unsigned j = 0; j < 32*r; j++) ((uint32_t *)x.data())[j] = le32(b[i*32*r + j]);
         
         for (unsigned j = 0; j < n; j += 2) {
-            memcpy(&v[j*(16*r)], x, 128*r);
-            _blockmix_salsa8(y, x, z, r);
-            memcpy(&v[(j + 1)*(16*r)], y, 128*r);
-            _blockmix_salsa8(x, y, z, r);
+            memcpy(&v[j*(16*r)], x.data(), 128*r);
+            _blockmix_salsa8(y.data(), x.data(), z, r);
+            memcpy(&v[(j + 1)*(16*r)], y.data(), 128*r);
+            _blockmix_salsa8(x.data(), y.data(), z, r);
         }
         
         for (unsigned j = 0; j < n; j += 2) {
             m = le64(x[(2*r - 1)*8]) & (n - 1);
             for (unsigned k = 0; k < 16*r; k++) x[k] ^= v[m*(16*r) + k];
-            _blockmix_salsa8(y, x, z, r);
+            _blockmix_salsa8(y.data(), x.data(), z, r);
             m = le64(y[(2*r - 1)*8]) & (n - 1);
             for (unsigned k = 0; k < 16*r; k++) y[k] ^= v[m*(16*r) + k];
-            _blockmix_salsa8(x, y, z, r);
+            _blockmix_salsa8(x.data(), y.data(), z, r);
         }
         
-        for (unsigned j = 0; j < 32*r; j++) b[i*32*r + j] = le32(((uint32_t *)x)[j]);
+        for (unsigned j = 0; j < 32*r; j++) b[i*32*r + j] = le32(((uint32_t *)x.data())[j]);
     }
     
-    BRPBKDF2(dk, dkLen, BRSHA256, 256/8, pw, pwLen, b, sizeof(b), 1);
-    mem_clean(b, sizeof(b));
-    mem_clean(x, sizeof(x));
-    mem_clean(y, sizeof(y));
+    BRPBKDF2(dk, dkLen, BRSHA256, 256/8, pw, pwLen, b.data(), b.size(), 1);
+    mem_clean(b.data(), b.size());
+    mem_clean(x.data(), x.size());
+    mem_clean(y.data(), y.size());
+    mem_clean(v.data(), v.size());
     mem_clean(z, sizeof(z));
-    mem_clean(v, 128*r*n);
-    free(v);
 }

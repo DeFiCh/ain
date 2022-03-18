@@ -135,13 +135,13 @@ inline static int _BRWalletTxIsAscending(BRWallet *wallet, const BRTransaction *
 
 inline static int _BRWalletTxCompare(BRWallet *wallet, const BRTransaction *tx1, const BRTransaction *tx2)
 {
-    size_t i = -1, j = -1;
+    size_t i = -1, j = -1, err = -1;
 
     if (_BRWalletTxIsAscending(wallet, tx1, tx2)) return 1;
     if (_BRWalletTxIsAscending(wallet, tx2, tx1)) return -1;
-    if ((i = _txChainIndex(tx1, wallet->internalChain)) != -1) j = _txChainIndex(tx2, wallet->internalChain);
-    if (j == -1 && (i = _txChainIndex(tx1, wallet->externalChain)) != -1) j = _txChainIndex(tx2, wallet->externalChain);
-    if (i != -1 && j != -1 && i != j) return (i > j) ? 1 : -1;
+    if ((i = _txChainIndex(tx1, wallet->internalChain)) != err) j = _txChainIndex(tx2, wallet->internalChain);
+    if (j == err && (i = _txChainIndex(tx1, wallet->externalChain)) != err) j = _txChainIndex(tx2, wallet->externalChain);
+    if (i != err && j != err && i != j) return (i > j) ? 1 : -1;
     return 0;
 }
 
@@ -584,12 +584,13 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
     // keep only the trailing contiguous block of addresses with no transactions
     while (i > 0 && ! BRSetContains(wallet->usedPKH, &chain[i - 1])) i--;
 
+    std::vector<uint8_t> pubKey;
     while (i + gapLimit > count) { // generate new addresses up to gapLimit
         BRKey key;
-        uint8_t pubKey[BRBIP32PubKey(NULL, 0, wallet->masterPubKey, internal, count)];
-        size_t len = BRBIP32PubKey(pubKey, sizeof(pubKey), wallet->masterPubKey, internal, (uint32_t)count);
+        pubKey.resize(BRBIP32PubKey(NULL, 0, wallet->masterPubKey, internal, count));
+        size_t len = BRBIP32PubKey(pubKey.data(), pubKey.size(), wallet->masterPubKey, internal, (uint32_t)count);
 
-        if (! BRKeySetPubKey(&key, pubKey, len)) break;
+        if (! BRKeySetPubKey(&key, pubKey.data(), len)) break;
         array_add(chain, BRKeyHash160(&key));
         count++;
         if (BRSetContains(wallet->usedPKH, &chain[array_count(chain) - 1])) i = count;
@@ -1030,14 +1031,14 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
             wallet->lock.unlock();
 
             if (outputs[outCount - 1].amount > amount + feeAmount + minAmount - balance) {
-                BRTxOutput newOutputs[outCount];
+                std::vector<BRTxOutput> newOutputs(outCount);
 
                 for (j = 0; j < outCount; j++) {
                     newOutputs[j] = outputs[j];
                 }
 
                 newOutputs[outCount - 1].amount -= amount + feeAmount - balance; // reduce last output amount
-                transaction = BRWalletCreateTxForOutputs(wallet, newOutputs, outCount, changeAddress, errorMsg);
+                transaction = BRWalletCreateTxForOutputs(wallet, newOutputs.data(), outCount, changeAddress, errorMsg);
             }
             else transaction = BRWalletCreateTxForOutputs(wallet, outputs, outCount - 1, changeAddress, errorMsg); // remove last output
 
@@ -1074,10 +1075,10 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     }
     else if (transaction && balance - (amount + feeAmount) > minAmount) { // add change output
         BRWalletUnusedAddrs(wallet, &addr, 1, 1);
-        uint8_t script[BRAddressScriptPubKey(NULL, 0, changeAddress.c_str())];
-        size_t scriptLen = BRAddressScriptPubKey(script, sizeof(script), changeAddress.c_str());
+        std::vector<uint8_t> script(BRAddressScriptPubKey(NULL, 0, changeAddress.c_str()));
+        size_t scriptLen = BRAddressScriptPubKey(script.data(), script.size(), changeAddress.c_str());
 
-        BRTransactionAddOutput(transaction, balance - (amount + feeAmount), script, scriptLen);
+        BRTransactionAddOutput(transaction, balance - (amount + feeAmount), script.data(), scriptLen);
         BRTransactionShuffleOutputs(transaction);
     }
 
@@ -1089,7 +1090,8 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
 // returns true if all inputs were signed, or false if there was an error or not all inputs were able to be signed
 int BRWalletSignTransaction(BRWallet *wallet, BRTransaction *tx, const void *seed, size_t seedLen)
 {
-    uint32_t j, internalIdx[tx->inCount], externalIdx[tx->inCount];
+    uint32_t j;
+    std::vector<uint32_t> internalIdx(tx->inCount), externalIdx(tx->inCount);
     size_t i, internalCount = 0, externalCount = 0;
     int forkId, r = 0;
 
@@ -1112,14 +1114,14 @@ int BRWalletSignTransaction(BRWallet *wallet, BRTransaction *tx, const void *see
 
     wallet->lock.unlock();
 
-    BRKey keys[internalCount + externalCount];
+    std::vector<BRKey> keys(internalCount + externalCount);
 
     if (seed) {
-        BRBIP32PrivKeyList(keys, internalCount, seed, seedLen, SEQUENCE_INTERNAL_CHAIN, internalIdx);
-        BRBIP32PrivKeyList(&keys[internalCount], externalCount, seed, seedLen, SEQUENCE_EXTERNAL_CHAIN, externalIdx);
+        BRBIP32PrivKeyList(keys.data(), internalCount, seed, seedLen, SEQUENCE_INTERNAL_CHAIN, internalIdx.data());
+        BRBIP32PrivKeyList(&keys[internalCount], externalCount, seed, seedLen, SEQUENCE_EXTERNAL_CHAIN, externalIdx.data());
         // TODO: XXX wipe seed callback
         seed = NULL;
-        if (tx) r = BRTransactionSign(tx, forkId, keys, internalCount + externalCount);
+        if (tx) r = BRTransactionSign(tx, forkId, keys.data(), internalCount + externalCount);
         for (i = 0; i < internalCount + externalCount; i++) BRKeyClean(&keys[i]);
     }
     else r = -1; // user canceled authentication
@@ -1362,7 +1364,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
                                 uint32_t timestamp, const UInt256& blockHash)
 {
     BRTransaction *tx;
-    UInt256 hashes[txCount];
+    std::vector<UInt256> hashes(txCount);
     int needsUpdate = 0;
     size_t i, j, k;
 
@@ -1396,7 +1398,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
 
     if (needsUpdate) _BRWalletUpdateBalance(wallet);
     wallet->lock.unlock();
-    if (j > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, j, blockHeight, timestamp, blockHash);
+    if (j > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes.data(), j, blockHeight, timestamp, blockHash);
 }
 
 // marks all transactions confirmed after blockHeight as unconfirmed (useful for chain re-orgs)
@@ -1411,7 +1413,7 @@ void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
     while (i > 0 && wallet->transactions[i - 1]->blockHeight > blockHeight) i--;
     count -= i;
 
-    UInt256 hashes[count];
+    std::vector<UInt256> hashes(count);
 
     for (j = 0; j < count; j++) {
         wallet->transactions[i + j]->blockHeight = TX_UNCONFIRMED;
@@ -1420,7 +1422,7 @@ void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
 
     if (count > 0) _BRWalletUpdateBalance(wallet);
     wallet->lock.unlock();
-    if (count > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, count, TX_UNCONFIRMED, 0, UINT256_ZERO);
+    if (count > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes.data(), count, TX_UNCONFIRMED, 0, UINT256_ZERO);
 }
 
 // returns the amount received by the wallet from the transaction (total outputs to change and/or receive addresses)
