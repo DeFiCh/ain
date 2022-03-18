@@ -8,6 +8,7 @@
 
 #include <fs.h>
 #include <tinyformat.h>
+#include <util/time.h>
 
 #include <atomic>
 #include <cstdint>
@@ -15,6 +16,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
 static const bool DEFAULT_LOGIPS        = false;
@@ -165,6 +167,37 @@ static inline void LogPrint(const BCLog::LogFlags& category, const Args&... args
 {
     if (LogAcceptCategory((category))) {
         LogPrintf(args...);
+    }
+}
+
+/** Implementation that logs at most every x milliseconds. If the category is enabled, it does not time throttle */
+template <typename... Args>
+static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& category, std::string message_key, uint64_t milliseconds, const Args&... args)
+{
+    // Map containing pairs of message key and timestamp of last log
+    // In case different threads use the same message key, use thread_local
+    thread_local std::unordered_map<std::string, uint64_t> last_log_timestamps;
+
+    // Log directly if category is enabled..
+    if (LogAcceptCategory((category))) {
+        LogPrintf(args...);
+    } else { // .. and otherwise time throttle logging
+
+        int64_t current_time = GetTimeMillis();
+        auto it = last_log_timestamps.find(message_key);
+
+        if (it != last_log_timestamps.end()) {
+            if ((current_time - it->second) > milliseconds)
+            {
+                LogPrintf(args...);
+                it->second = current_time;
+            }
+        }        
+        else {
+            // No entry yet -> log directly and save timestamp
+            last_log_timestamps.insert(std::make_pair(message_key, current_time));
+            LogPrintf(args...);
+        }
     }
 }
 
