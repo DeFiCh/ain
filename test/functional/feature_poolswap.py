@@ -19,6 +19,7 @@ from test_framework.util import (
 )
 
 from decimal import Decimal
+from math import trunc
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
@@ -28,10 +29,10 @@ class PoolPairTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177']]
 
 
     def run_test(self):
@@ -338,10 +339,11 @@ class PoolPairTest (DefiTestFramework):
 
         symbolBTC = "BTC#" + self.get_id_token("BTC")
         symbolLTC = "LTC#" + self.get_id_token("LTC")
-        idBitcoin = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
+        idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
+        idLTC = list(self.nodes[0].gettoken(symbolLTC).keys())[0]
 
         self.nodes[0].minttokens("1@" + symbolBTC)
-        self.nodes[0].minttokens("101@" + symbolLTC)
+        self.nodes[0].minttokens("111@" + symbolLTC)
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
@@ -372,7 +374,7 @@ class PoolPairTest (DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
+        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBTC], Decimal('0.00000001'))
 
         # Reset swap
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -388,7 +390,7 @@ class PoolPairTest (DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000002'))
+        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBTC], Decimal('0.00000002'))
 
         # Reset swap and move to Fort Canning Park Height and try swap again
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -405,7 +407,7 @@ class PoolPairTest (DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
-        assert(idBitcoin not in self.nodes[0].getaccount(new_dest, {}, True))
+        assert(idBTC not in self.nodes[0].getaccount(new_dest, {}, True))
 
         # Reset swap
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -421,7 +423,7 @@ class PoolPairTest (DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBitcoin], Decimal('0.00000001'))
+        assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBTC], Decimal('0.00000001'))
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'}})
         self.nodes[0].generate(1)
@@ -487,10 +489,44 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'}})
         self.nodes[0].generate(1)
 
-        print(self.nodes[0].getblockcount())
-        print(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'])
-
         assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'})
+
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/%s/dex_in_fee_pct'%(idLTC): '0.02', 'v0/token/%s/dex_out_fee_pct'%(idBTC): '0.05'}})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getpoolpair(idBL)
+        assert_equal(result[idBL]['dexFeeInPctTokenB'], Decimal('0.02'))
+        assert_equal(result[idBL]['dexFeeOutPctTokenA'], Decimal('0.05'))
+
+        destBTC = self.nodes[0].getnewaddress("", "legacy")
+        swapltc = 10
+        self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolLTC,
+                "amountFrom": swapltc,
+                "to": destBTC,
+                "tokenTo": symbolBTC
+        })
+        commission = round((swapltc * 0.01), 8)
+        amountB = Decimal(swapltc - commission)
+        dexinfee = amountB * Decimal(0.02)
+        amountB = amountB - dexinfee
+        pool = self.nodes[0].getpoolpair("BTC-LTC")[idBL]
+        reserveA = pool['reserveA']
+        reserveB = pool['reserveB']
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("BTC-LTC")[idBL]
+        assert_equal(pool['reserveB'] - reserveB, round(amountB, 8))
+        swapped = self.nodes[0].getaccount(destBTC, {}, True)[idBTC]
+        amountA = reserveA - pool['reserveA']
+        dexoutfee = round(trunc(amountA * Decimal(0.05) * coin) / coin, 8)
+        assert_equal(round(amountA - Decimal(dexoutfee), 8), round(swapped, 8))
 
         # REVERTING:
         #========================

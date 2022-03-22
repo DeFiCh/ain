@@ -41,6 +41,8 @@ enum TokenKeys : uint8_t  {
     PaybackDFIFeePCT    = 'b',
     LoanPayback         = 'c',
     LoanPaybackFeePCT   = 'd',
+    DexInFeePct         = 'e',
+    DexOutFeePct        = 'f',
 };
 
 enum PoolKeys : uint8_t {
@@ -145,93 +147,21 @@ public:
 
 private:
     // Defined allowed arguments
-    const std::map<std::string, uint8_t> allowedVersions{
-        {"v0",          VersionTypes::v0},
-    };
-
-    const std::map<std::string, uint8_t> allowedTypes{
-        {"params",      AttributeTypes::Param},
-        {"poolpairs",   AttributeTypes::Poolpairs},
-        {"token",       AttributeTypes::Token},
-    };
-
-    const std::map<std::string, uint8_t> allowedParamIDs{
-        {"dfip2201",         ParamIDs::DFIP2201}
-    };
-
-    const std::map<uint8_t, std::map<std::string, uint8_t>> allowedKeys{
-        {
-            AttributeTypes::Token, {
-                {"payback_dfi",         TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
-                {"loan_payback",        TokenKeys::LoanPayback},
-                {"loan_payback_fee_pct",TokenKeys::LoanPaybackFeePCT},
-            }
-        },
-        {
-            AttributeTypes::Poolpairs, {
-                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
-                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
-            }
-        },
-        {
-            AttributeTypes::Param, {
-                {"active",              DFIP2201Keys::Active},
-                {"minswap",             DFIP2201Keys::MinSwap},
-                {"premium",             DFIP2201Keys::Premium},
-            }
-        },
-    };
+    static const std::map<std::string, uint8_t>& allowedVersions();
+    static const std::map<std::string, uint8_t>& allowedTypes();
+    static const std::map<std::string, uint8_t>& allowedParamIDs();
+    static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
+    static const std::map<uint8_t, std::map<uint8_t,
+            std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
     // For formatting in export
-    const std::map<uint8_t, std::string> displayVersions{
-        {VersionTypes::v0,          "v0"},
-    };
-
-    const std::map<uint8_t, std::string> displayTypes{
-        {AttributeTypes::Live,      "live"},
-        {AttributeTypes::Param,     "params"},
-        {AttributeTypes::Poolpairs, "poolpairs"},
-        {AttributeTypes::Token,     "token"},
-    };
-
-    const std::map<uint8_t, std::string> displayParamsIDs{
-        {ParamIDs::DFIP2201,       "dfip2201"},
-        {ParamIDs::Economy,        "economy"},
-    };
-
-    const std::map<uint8_t, std::map<uint8_t, std::string>> displayKeys{
-        {
-            AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,       "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
-                {TokenKeys::LoanPayback,      "loan_payback"},
-                {TokenKeys::LoanPaybackFeePCT,"loan_payback_fee_pct"},
-            }
-        },
-        {
-            AttributeTypes::Poolpairs, {
-                {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
-                {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
-            }
-        },
-        {
-            AttributeTypes::Param, {
-                {DFIP2201Keys::Active,       "active"},
-                {DFIP2201Keys::Premium,      "premium"},
-                {DFIP2201Keys::MinSwap,      "minswap"},
-            }
-        },
-        {
-            AttributeTypes::Live, {
-                {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                {EconomyKeys::PaybackTokens,     "payback_tokens"},
-            }
-        },
-    };
+    static const std::map<uint8_t, std::string>& displayVersions();
+    static const std::map<uint8_t, std::string>& displayTypes();
+    static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable = {}) const;
+                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
