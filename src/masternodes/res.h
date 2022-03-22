@@ -67,6 +67,16 @@ struct ResVal : public Res
         return *val;
     }
 
+    const T& operator*() const {
+        assert(ok);
+        return *val;
+    }
+
+    T& operator*() {
+        assert(ok);
+        return *val;
+    }
+
     template <typename F>
     T ValOrException(F&& func) const {
         if (!ok) {

@@ -1775,6 +1775,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybacktokens;
+    CBalances dfi2203Tokens;
+
     UniValue dfipaybacktokens{UniValue::VARR};
 
     LOCK(cs_main);
@@ -1865,6 +1867,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
         paybackfees = std::move(paybacks.tokensFee);
         paybacktokens = std::move(paybacks.tokensPayback);
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
     }
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
@@ -1881,6 +1886,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
     result.pushKV("emissionburn", ValueFromAmount(burnt));
+    result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 
     return result;
 }
@@ -2025,6 +2031,231 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
+UniValue futureswap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"futureswap",
+               "\nCreates and submits to the network a futures contract" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
+                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
+                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CDFIP2203Message msg{};
+    msg.owner = GetScriptForDestination(dest);
+    msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
+
+    if (!request.params[2].isNull()) {
+        msg.destination = request.params[2].get_int();
+    }
+
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listpendingfutures(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpendingfutures",
+               "Get all pending futures.\n",
+               {},
+               RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "    owner :       \"address\"\n"
+                       "    values : [{\n"
+                       "        tokenSymbol : \"SYMBOL\"\n"
+                       "        amount :      n.nnnnnnnn\n"
+                       "        destination : \"SYMBOL\"\n"
+                       "    }...]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listpendingfutures", "")
+               },
+    }.Check(request);
+
+    const auto blockPeriod = GetFuturesBlockPeriod();
+    if (blockPeriod == 0) {
+        return NullUniValue;
+    }
+
+    LOCK(cs_main);
+
+    const auto currentHeight = ::ChainActive().Height();
+    const auto startPeriod = currentHeight - (currentHeight % blockPeriod);
+
+    UniValue listFutures{UniValue::VARR};
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+        if (key.height < startPeriod) {
+            return false;
+        }
+
+        CTxDestination dest;
+        ExtractDestination(key.owner, dest);
+        if (!IsValidDestination(dest)) {
+            return true;
+        }
+
+        const auto source = pcustomcsview->GetToken(futuresValues.source.nTokenId);
+        if (!source) {
+            return true;
+        }
+
+        UniValue value{UniValue::VOBJ};
+        value.pushKV("owner", EncodeDestination(dest));
+        value.pushKV("source", ValueFromAmount(futuresValues.source.nValue).getValStr() + '@' + source->symbol);
+
+        if (source->symbol == "DUSD") {
+            const auto destination = pcustomcsview->GetLoanTokenByID({futuresValues.destination});
+            if (!destination) {
+                return true;
+            }
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listFutures.push_back(value);
+
+        return true;
+    }, {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
+
+    return listFutures;
+}
+
+UniValue getpendingfutures(const JSONRPCRequest& request) {
+    RPCHelpMan{"getpendingfutures",
+               "Get specific pending futures.\n",
+                {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get futures prices for"},
+                },
+                RPCResult{
+                    "{\n"
+                    "    owner :       \"address\"\n"
+                    "    values : [{\n"
+                    "    tokenSymbol : \"SYMBOL\"\n"
+                    "    amount :      n.nnnnnnnn\n"
+                    "    destination : \"SYMBOL\"\n"
+                    "    }...]\n"
+                    "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getpendingfutures", "address")
+               },
+    }.Check(request);
+
+    const auto blockPeriod = GetFuturesBlockPeriod();
+    if (blockPeriod == 0) {
+        return NullUniValue;
+    }
+
+    const auto owner = DecodeScript(request.params[0].get_str());
+
+    LOCK(cs_main);
+
+    const auto currentHeight = ::ChainActive().Height();
+    const auto startPeriod = currentHeight - (currentHeight % blockPeriod);
+
+    std::vector<CFuturesUserValue> storedFutures;
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+        if (key.height < startPeriod) {
+            return false;
+        }
+
+        if (key.owner == owner) {
+            storedFutures.push_back(futuresValues);
+        }
+
+        return true;
+    }, {static_cast<uint32_t>(currentHeight), owner, std::numeric_limits<uint32_t>::max()});
+
+
+    UniValue listValues{UniValue::VARR};
+    for (const auto& item : storedFutures) {
+        UniValue value{UniValue::VOBJ};
+
+        const auto source = pcustomcsview->GetToken(item.source.nTokenId);
+        if (!source) {
+            continue;
+        }
+
+        value.pushKV("source", ValueFromAmount(item.source.nValue).getValStr() + '@' + source->symbol);
+
+        if (source->symbol == "DUSD") {
+            const auto destination = pcustomcsview->GetLoanTokenByID({item.destination});
+            if (!destination) {
+                continue;
+            }
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listValues.push_back(value);
+    }
+
+    UniValue obj{UniValue::VOBJ};
+    obj.pushKV("owner", request.params[0].get_str());
+    obj.pushKV("values", listValues);
+    return obj;
+}
+
 
 static const CRPCCommand commands[] =
 {
@@ -2045,6 +2276,9 @@ static const CRPCCommand commands[] =
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
     {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
+    {"accounts",    "futureswap",            &futureswap,            {"name", "amount", "destination", "inputs"}},
+    {"accounts",    "listpendingfutures",    &listpendingfutures,    {}},
+    {"accounts",    "getpendingfutures",     &getpendingfutures,     {"address"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

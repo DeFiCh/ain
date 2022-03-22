@@ -22,18 +22,22 @@ enum AttributeTypes : uint8_t {
 
 enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
+    DFIP2203  = 'b',
     Economy   = 'e',
 };
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens    = 'b',
+    DFIP2203Tokens   = 'c',
 };
 
-enum DFIP2201Keys : uint8_t  {
-    Active    = 'a',
-    Premium   = 'b',
-    MinSwap   = 'c',
+enum DFIPKeys : uint8_t  {
+    Active       = 'a',
+    Premium      = 'b',
+    MinSwap      = 'c',
+    RewardPct    = 'd',
+    BlockPeriod  = 'e',
 };
 
 enum TokenKeys : uint8_t  {
@@ -43,6 +47,7 @@ enum TokenKeys : uint8_t  {
     LoanPaybackFeePCT   = 'd',
     DexInFeePct         = 'e',
     DexOutFeePct        = 'f',
+    DFIP2203Disabled    = 'g',
 };
 
 enum PoolKeys : uint8_t {
@@ -133,6 +138,12 @@ public:
             }
         }
         return std::move(value);
+    }
+
+    template<typename K>
+    [[nodiscard]] bool CheckKey(const K& key) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        return attributes.count(key) > 0;
     }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS

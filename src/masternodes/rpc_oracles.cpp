@@ -4,6 +4,8 @@
 
 #include <masternodes/mn_rpc.h>
 
+#include <masternodes/govvariables/attributes.h>
+
 extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
 extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
@@ -1124,7 +1126,106 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     return listPrice;
 }
 
+UniValue listfutures(const JSONRPCRequest& request) {
+    RPCHelpMan{"listfutures",
+               "Get all futures prices.\n",
+               {},
+               RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "    tokenSymbol : \"SYMBOL\"\n"
+                       "    discountPrice : n.nnnnnnnn\n"
+                       "    premiumPrice : n.nnnnnnnn\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listfutures", "")
+               },
+    }.Check(request);
 
+    LOCK(cs_main);
+
+    UniValue listPrice{UniValue::VARR};
+    pcustomcsview->ForEachFuturesPrices([&](const DCT_ID& id, const CFuturesPrice& futuresPrices){
+        const auto token = pcustomcsview->GetToken(id);
+        if (!token) {
+            return true;
+        }
+
+        UniValue obj{UniValue::VOBJ};
+        obj.pushKV("tokenSymbol", token->symbol);
+        obj.pushKV("discountPrice", ValueFromAmount(futuresPrices.discount));
+        obj.pushKV("premiumPrice", ValueFromAmount(futuresPrices.premium));
+        listPrice.push_back(obj);
+
+        return true;
+    });
+    return listPrice;
+}
+
+UniValue getfutures(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfutures",
+               "Get specific futures prices.\n",
+               {
+                    {"tokenSymbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token symbol to get futures prices for"},
+               },
+               RPCResult{
+                       "{\n"
+                       "    tokenSymbol :   \"SYMBOL\"\n"
+                       "    discountPrice : n.nnnnnnnn\n"
+                       "    premiumPrice :  n.nnnnnnnn\n"
+                       "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getfutures", "TSLA")
+               },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    const auto token = pcustomcsview->GetToken(request.params[0].get_str());
+    if (!token || !token->second) {
+        return NullUniValue;
+    }
+
+    // Limit to loan tokens
+    const auto loanToken = pcustomcsview->GetLoanTokenByID(token->first);
+    if (!loanToken) {
+        return NullUniValue;
+    }
+
+    const auto result = pcustomcsview->GetFuturesPrices(token->first);
+    if (!result) {
+        return NullUniValue;
+    }
+
+    UniValue obj{UniValue::VOBJ};
+    obj.pushKV("tokenSymbol", loanToken->symbol);
+    obj.pushKV("discountPrice", ValueFromAmount(result.val->discount));
+    obj.pushKV("premiumPrice", ValueFromAmount(result.val->premium));
+
+    return obj;
+}
+
+
+UniValue getfuturesblock(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfuturesblock",
+               "Get the next block that futures will execute and update on.\n",
+               {},
+               RPCResult{
+                       "n    (numeric) Futures execution block. Zero if not set.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getfuturesblock", "")
+               },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    const auto currentHeight = ::ChainActive().Height();
+
+    const auto blockPeriod = GetFuturesBlockPeriod();
+
+    return currentHeight + (blockPeriod - (currentHeight % blockPeriod));
+}
 
 
 
@@ -1143,6 +1244,9 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
+    {"oracles",     "getfutures",              &getfutures,               {"tokenSymbol"}},
+    {"oracles",     "listfutures",             &listfutures,              {}},
+    {"oracles",     "getfuturesblock",         &getfuturesblock,          {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

@@ -224,6 +224,21 @@ struct CSmartContractMessage {
     }
 };
 
+struct CDFIP2203Message {
+    CScript owner;
+    CTokenAmount source{};
+    uint32_t destination{};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(owner);
+        READWRITE(source);
+        READWRITE(destination);
+    }
+};
+
 inline CBalances SumAllTransfers(CAccounts const & to) {
     CBalances sum;
     for (const auto& kv : to) {
