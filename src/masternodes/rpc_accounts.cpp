@@ -1773,6 +1773,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    CBalances paybackfees;
+    CBalances paybacktokens;
     UniValue dfipaybacktokens{UniValue::VARR};
 
     LOCK(cs_main);
@@ -1859,10 +1861,17 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                 dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
             }
         }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        paybackfees = std::move(paybacks.tokensFee);
+        paybacktokens = std::move(paybacks.tokensPayback);
     }
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", dfipaybacktokens);
+
+    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
+    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {

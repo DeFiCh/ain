@@ -164,6 +164,7 @@ BASE_SCRIPTS = [
     'feature_loan_setloantoken.py',
     'feature_loan_basics.py',
     'feature_loan_payback_dfi.py',
+    'feature_loan_payback_dfi_v2.py',
     'feature_loan_get_interest.py',
     'feature_loan_listauctions.py',
     'feature_loan_auctions.py',

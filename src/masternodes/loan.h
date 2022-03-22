@@ -302,6 +302,23 @@ public:
     }
 };
 
+class CLoanPaybackLoanV2Message
+{
+public:
+    CVaultId vaultId;
+    CScript from;
+    std::map<DCT_ID, CBalances> loans;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(vaultId);
+        READWRITE(from);
+        READWRITE(loans);
+    }
+};
+
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
