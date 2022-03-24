@@ -58,6 +58,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::WithdrawFromVault:
         case CustomTxType::TakeLoan:
         case CustomTxType::PaybackLoan:
+        case CustomTxType::PaybackLoanV2:
         case CustomTxType::AuctionBid:
         case CustomTxType::Reject:
         case CustomTxType::None:
@@ -121,6 +122,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(None);
         CustomTxType2Strings(PoolSwapV2, PoolSwap);
         CustomTxType2Strings(AutoAuthPrep, AutoAuth);
+        CustomTxType2Strings(PaybackLoanV2, PaybackLoan);
     }
     return "None";
 }

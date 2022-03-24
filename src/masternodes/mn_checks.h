@@ -74,6 +74,7 @@ using CCustomTxMessage = std::variant<
     CWithdrawFromVaultMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
+    CLoanPaybackLoanV2Message,
     CAuctionBidMessage
 >;
 

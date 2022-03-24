@@ -86,6 +86,7 @@ enum CustomTxType : uint8_t
     WithdrawFromVault       = 'J',
     TakeLoan                = 'X',
     PaybackLoan             = 'H',
+    PaybackLoanV2           = 'k',
     AuctionBid              = 'I'
 };
 

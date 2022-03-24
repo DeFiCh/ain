@@ -88,7 +88,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     } else {
         obj.pushKV("type", "receive");
     }
-    obj.pushKV("txn", (uint64_t) entry.vout);
+    obj.pushKV("txn", (uint64_t) pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
     TAmounts amounts({{DCT_ID{0},entry.amount}});
     obj.pushKV("amounts", AmountsToJSON(amounts));
@@ -945,6 +945,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
+                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Order in block, unlimited by default"},
                             },
                         },
                },
@@ -972,6 +974,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string tokenFilter;
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
+    uint32_t txn = std::numeric_limits<uint32_t>::max();
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -983,6 +986,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"txn", UniValueType(UniValue::VNUM)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1014,6 +1018,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
+        if (!optionsObj["txn"].isNull()) {
+            txn = (uint32_t) optionsObj["txn"].get_int64();
         }
     }
 
@@ -1108,9 +1116,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     CAccountHistoryStorage historyView(*paccountHistoryDB);
-
-    historyView.ForEachAccountHistory(shouldContinueToNextAccountHistory, account,
-                                      noRewards ? maxBlockHeight : ~0u);
+    if (!noRewards && maxBlockHeight < height) {
+        historyView.ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> lazy) {
+            return key.blockHeight > maxBlockHeight && shouldContinueToNextAccountHistory(key, std::move(lazy));
+        }, account);
+    }
+    historyView.ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
 
     auto lastHeight = maxBlockHeight;
     for (count = limit; !rewardsHistory.empty(); rewardsHistory.pop()) {
@@ -1146,6 +1157,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                uint32_t height = index->nHeight;
+                uint32_t nIndex = pwtx->nIndex;
+                if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn) {
+                    return true;
+                }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
@@ -1731,6 +1747,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
+    CBalances paybackfees;
+    CBalances paybacktokens;
     UniValue dfipaybacktokens{UniValue::VARR};
 
     CImmutableCSView view(*pcustomcsview);
@@ -1818,10 +1836,17 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                 dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
             }
         }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        paybackfees = std::move(paybacks.tokensFee);
+        paybacktokens = std::move(paybacks.tokensPayback);
     }
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", dfipaybacktokens);
+
+    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
+    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
 
     auto height = view.GetLastHeight();
     auto postFortCanningHeight = height >= Params().GetConsensus().FortCanningHeight;

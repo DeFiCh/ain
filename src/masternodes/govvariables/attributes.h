@@ -30,6 +30,7 @@ enum ParamIDs : uint8_t  {
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
+    PaybackTokens    = 'b',
 };
 
 enum DFIP2201Keys : uint8_t  {
@@ -43,11 +44,13 @@ enum TokenKeys : uint8_t  {
     PaybackDFIFeePCT      = 'b',
     DexInFeePct           = 'c',
     DexOutFeePct          = 'd',
-    FixedIntervalPriceId  = 'e',
-    LoanCollateralEnabled = 'f',
-    LoanCollateralFactor  = 'g',
-    LoanMintingEnabled    = 'h',
-    LoanMintingInterest   = 'i',
+    LoanPayback           = 'e',
+    LoanPaybackFeePCT     = 'f',
+    FixedIntervalPriceId  = 'g',
+    LoanCollateralEnabled = 'h',
+    LoanCollateralFactor  = 'i',
+    LoanMintingEnabled    = 'j',
+    LoanMintingInterest   = 'k',
 };
 
 enum PoolKeys : uint8_t {
@@ -59,6 +62,7 @@ struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
     uint8_t key;
+    uint32_t keyId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -67,25 +71,39 @@ struct CDataStructureV0 {
         READWRITE(type);
         READWRITE(typeId);
         READWRITE(key);
+        if (IsExtendedSize()) {
+            READWRITE(keyId);
+        } else {
+            keyId = 0;
+        }
+    }
+
+    bool IsExtendedSize() const {
+        return type == AttributeTypes::Token
+            && (key == TokenKeys::LoanPayback
+            ||  key == TokenKeys::LoanPaybackFeePCT);
     }
 
     bool operator<(const CDataStructureV0& o) const {
-        return std::tie(type, typeId, key) < std::tie(o.type, o.typeId, o.key);
+        return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
     }
 };
 
-// for future use
-struct CDataStructureV1 {
+struct CTokenPayback {
+    CBalances tokensFee;
+    CBalances tokensPayback;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {}
-
-    bool operator<(const CDataStructureV1& o) const { return false; }
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokensFee);
+        READWRITE(tokensPayback);
+    }
 };
 
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair>;
+using CAttributeType = std::variant<CDataStructureV0>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair, CTokenPayback>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -158,7 +176,6 @@ public:
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
-
 private:
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();

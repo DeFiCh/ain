@@ -200,6 +200,7 @@ void CHistoryWriters::AddVault(const CVaultId& vaultId, const std::string& schem
     vaultID = vaultId;
     if (!schemeId.empty()) {
         schemeID = schemeId;
+
     }
 }
 
@@ -228,10 +229,13 @@ void CHistoryWriters::AddLoanScheme(const CLoanSchemeMessage& loanScheme, const 
     }, {height, txn, {}});
 }
 
+extern std::string ScriptToString(CScript const& script);
+
 void CHistoryWriters::Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type)
 {
     if (historyView) {
         for (const auto& diff : diffs) {
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n", txid.GetHex(), ScriptToString(diff.first), (CBalances{diff.second}.ToString()));
             historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
         }
     }

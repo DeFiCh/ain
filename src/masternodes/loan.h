@@ -259,7 +259,7 @@ CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
-std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value);
+std::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 struct CLoanTakeLoanMessage
 {
@@ -290,6 +290,22 @@ struct CLoanPaybackLoanMessage
         READWRITE(vaultId);
         READWRITE(from);
         READWRITE(amounts);
+    }
+};
+
+struct CLoanPaybackLoanV2Message
+{
+    CVaultId vaultId;
+    CScript from;
+    std::map<DCT_ID, CBalances> loans;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(vaultId);
+        READWRITE(from);
+        READWRITE(loans);
     }
 };
 

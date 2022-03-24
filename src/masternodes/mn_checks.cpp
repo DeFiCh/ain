@@ -79,6 +79,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
         case CustomTxType::TakeLoan:                return CLoanTakeLoanMessage{};
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
+        case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
@@ -114,6 +115,7 @@ class CCustomMetadataParseVisitor
             { consensus.EunosPayaHeight,        "called before EunosPaya height" },
             { consensus.FortCanningHeight,      "called before FortCanning height" },
             { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+            { consensus.FortCanningRoadHeight,  "called before FortCanningRoad height" },
             { consensus.GreatWorldHeight,       "called before GreatWorld height" },
         };
         if (startHeight && int(height) < startHeight) {
@@ -191,13 +193,14 @@ public:
         if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
         else
+        if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message>())
+            return IsHardforkEnabled(consensus.FortCanningRoadHeight);
+        else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
                                  CResignMasterNodeMessage>())
             return Res::Ok();
         else
             static_assert(FalseType<T>, "Unhandled type");
-
-        return Res::Err("(%s): Unhandled message type", __func__);
     }
 
     template<typename T>
@@ -205,8 +208,8 @@ public:
         if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
             return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
         else if constexpr (IsOneOf<T, CLoanSetCollateralTokenMessage,
-                CLoanSetLoanTokenMessage,
-                CLoanUpdateLoanTokenMessage>())
+                                      CLoanSetLoanTokenMessage,
+                                      CLoanUpdateLoanTokenMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight) ? Res::Err("called after GreatWorld height") : Res::Ok();
 
         return Res::Ok();
@@ -256,8 +259,6 @@ class CCustomTxApplyVisitor
             return ConsensusHandler<T, Args...>(obj);
         else
             static_assert(FalseType<T>, "Unhandled type");
-
-        return Res::Err("(%s): Unhandled type", __func__);
     }
 
 public:

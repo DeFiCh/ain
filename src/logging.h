@@ -9,12 +9,14 @@
 #include <fs.h>
 #include <sync.h>
 #include <tinyformat.h>
+#include <util/time.h>
 
 #include <atomic>
 #include <cstdint>
 #include <list>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
 static const bool DEFAULT_LOGIPS        = false;
@@ -32,33 +34,34 @@ struct CLogCategoryActive
 
 namespace BCLog {
     enum LogFlags : uint32_t {
-        NONE        = 0,
-        NET         = (1 <<  0),
-        TOR         = (1 <<  1),
-        MEMPOOL     = (1 <<  2),
-        HTTP        = (1 <<  3),
-        BENCH       = (1 <<  4),
-        ZMQ         = (1 <<  5),
-        DB          = (1 <<  6),
-        RPC         = (1 <<  7),
-        ESTIMATEFEE = (1 <<  8),
-        ADDRMAN     = (1 <<  9),
-        SELECTCOINS = (1 << 10),
-        REINDEX     = (1 << 11),
-        CMPCTBLOCK  = (1 << 12),
-        RAND        = (1 << 13),
-        PRUNE       = (1 << 14),
-        PROXY       = (1 << 15),
-        MEMPOOLREJ  = (1 << 16),
-        LIBEVENT    = (1 << 17),
-        COINDB      = (1 << 18),
-        LEVELDB     = (1 << 20),
-        STAKING     = (1 << 21),
-        ANCHORING   = (1 << 22),
-        SPV         = (1 << 23),
-        ORACLE      = (1 << 24),
-        LOAN        = (1 << 25),
-        ALL         = ~(uint32_t)0,
+        NONE          = 0,
+        NET           = (1 <<  0),
+        TOR           = (1 <<  1),
+        MEMPOOL       = (1 <<  2),
+        HTTP          = (1 <<  3),
+        BENCH         = (1 <<  4),
+        ZMQ           = (1 <<  5),
+        DB            = (1 <<  6),
+        RPC           = (1 <<  7),
+        ESTIMATEFEE   = (1 <<  8),
+        ADDRMAN       = (1 <<  9),
+        SELECTCOINS   = (1 << 10),
+        REINDEX       = (1 << 11),
+        CMPCTBLOCK    = (1 << 12),
+        RAND          = (1 << 13),
+        PRUNE         = (1 << 14),
+        PROXY         = (1 << 15),
+        MEMPOOLREJ    = (1 << 16),
+        LIBEVENT      = (1 << 17),
+        COINDB        = (1 << 18),
+        LEVELDB       = (1 << 20),
+        STAKING       = (1 << 21),
+        ANCHORING     = (1 << 22),
+        SPV           = (1 << 23),
+        ORACLE        = (1 << 24),
+        LOAN          = (1 << 25),
+        ACCOUNTCHANGE = (1 << 26),
+        ALL           = ~(uint32_t)0,
     };
 
     class Logger
@@ -163,6 +166,37 @@ static inline void LogPrint(const BCLog::LogFlags& category, const Args&... args
 {
     if (LogAcceptCategory((category))) {
         LogPrintf(args...);
+    }
+}
+
+/** Implementation that logs at most every x milliseconds. If the category is enabled, it does not time throttle */
+template <typename... Args>
+static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& category, std::string message_key, uint64_t milliseconds, const Args&... args)
+{
+    // Map containing pairs of message key and timestamp of last log
+    // In case different threads use the same message key, use thread_local
+    thread_local std::unordered_map<std::string, uint64_t> last_log_timestamps;
+
+    // Log directly if category is enabled..
+    if (LogAcceptCategory((category))) {
+        LogPrintf(args...);
+    } else { // .. and otherwise time throttle logging
+
+        int64_t current_time = GetTimeMillis();
+        auto it = last_log_timestamps.find(message_key);
+
+        if (it != last_log_timestamps.end()) {
+            if ((current_time - it->second) > milliseconds)
+            {
+                LogPrintf(args...);
+                it->second = current_time;
+            }
+        }        
+        else {
+            // No entry yet -> log directly and save timestamp
+            last_log_timestamps.insert(std::make_pair(message_key, current_time));
+            LogPrintf(args...);
+        }
     }
 }
 

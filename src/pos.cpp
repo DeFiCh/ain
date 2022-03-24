@@ -204,7 +204,7 @@ std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pbloc
     if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pcustomcsview.get()))
         return {std::string{} + "proof-of-stake checking failed"};
 
-    LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
+    LogPrintf("new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
 
     // Found a solution
     if (pblock->hashPrevBlock != pindexPrev->GetBlockHash())

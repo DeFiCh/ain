@@ -679,8 +679,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(account, ['0.15000000@BTC', '1.00000000@TSLA'])
 
     def test_50pctDFI_rule_after_BTC_price_increase(self):
-        # BTC doubles in price
-        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "2@BTC"}]
+        # BTC triplicates in price
+        oracle_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "3@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracles[0], timestamp, oracle_prices)
         self.nodes[0].generate(20)
@@ -691,7 +691,7 @@ class VaultTest (DefiTestFramework):
 
         # Should not be able to withdraw if DFI lower than 50% of collateralized loan value
         try:
-            self.nodes[0].withdrawfromvault(self.vaults[4], self.accountDFI, "0.26@DFI")
+            self.nodes[0].withdrawfromvault(self.vaults[4], self.accountDFI, "0.25@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("At least 50% of the minimum required collateral must be in DFI" in errorString)

@@ -341,6 +341,7 @@ git_version() {
     local current_commit
     local current_branch
 
+    git fetch --tags
     current_tag=$(git tag --points-at HEAD | head -1)
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -351,7 +352,6 @@ git_version() {
         if [[ "${current_branch}" == "hotfix" ]]; then
             # If the current branch is hotfix branch,
             # prefix it with the last available tag.
-            git fetch --tags
             local last_tag
             last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
             echo "> last tag: ${last_tag}"

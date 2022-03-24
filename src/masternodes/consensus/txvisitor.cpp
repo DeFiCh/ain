@@ -287,6 +287,9 @@ ResVal<CCollateralLoans> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& 
 
 Res CCustomTxVisitor::CheckNextCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals) const {
 
+    auto tokenDUSD = mnview.GetToken("DUSD");
+    bool allowDUSD = tokenDUSD && static_cast<int>(height) >= consensus.FortCanningRoadHeight;
+
     for (int i = 0; i < 2; i++) {
         // check ratio against current and active price
         bool useNextPrice = i > 0, requireLivePrice = true;
@@ -294,17 +297,18 @@ Res CCustomTxVisitor::CheckNextCollateralRatio(const CVaultId& vaultId, const CL
         if (!collateralsLoans)
             return std::move(collateralsLoans);
 
-        uint64_t totalDFI = 0;
+        uint64_t totalCollaterals = 0;
         for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
+            if (col.nTokenId == DCT_ID{0}
+            || (allowDUSD && col.nTokenId == tokenDUSD->first))
+                totalCollaterals += col.nValue;
 
         if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+            if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
                 return Res::Err("At least 50%% of the collateral must be in DFI.");
         } else {
-            if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme.ratio / 2)
-                return Res::Err("At least 50%% of the minimum required collateral must be in DFI.");
+            if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme.ratio / 2)
+                return Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD.");
         }
     }
     return Res::Ok();
