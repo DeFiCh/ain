@@ -1146,65 +1146,62 @@ UniValue paybackloan(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, argument 1 must be non-null and expected as object at least with "
                            "{\"vaultId\",\"amounts\"}");
+
     UniValue metaObj = request.params[0].get_obj();
 
     if (metaObj["vaultId"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
+
     auto vaultId = uint256S(metaObj["vaultId"].getValStr());
 
     if (metaObj["from"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+
     auto fromStr = metaObj["from"].getValStr();
 
     // Check amounts or/and loans
     bool hasAmounts = !metaObj["amounts"].isNull();
     bool hasLoans = !metaObj["loans"].isNull();
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
-    bool isFCR = targetHeight >= Params().GetConsensus().FortCanningRoadHeight;
+
+    CImmutableCSView view(*pcustomcsview);
+    int targetHeight = view.GetLastHeight() + 1;
+
     CBalances amounts;
-    if (hasAmounts){
-        if(hasLoans)
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" and \"loans\" cannot be set at the same time");
-        else
-            amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
-    }
-    else if(!isFCR)
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
-    else if(!hasLoans)
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" and \"loans\" cannot be empty at the same time");
-
     std::map<DCT_ID, CBalances> loans;
-    UniValue array {UniValue::VARR};
-    if(hasLoans) {
-        try {
-            array = metaObj["loans"].get_array();
-            for (unsigned int i=0; i<array.size(); i++){
-                auto obj = array[i].get_obj();
-                auto tokenStr = trim_ws(obj["dToken"].getValStr());
 
-                DCT_ID id;
-                auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
-                if (!token)
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
+    if (hasAmounts && hasLoans)
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" and \"loans\" cannot be set at the same time");
 
-                if (!token->IsLoanToken())
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is not a loan token!", tokenStr));
+    if (hasAmounts)
+        amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
+    else if (targetHeight < Params().GetConsensus().FortCanningRoadHeight)
+         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+    else if (!hasLoans)
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" and \"loans\" cannot be empty at the same time");
+    else {
+        auto& array = metaObj["loans"].get_array();
+        for (size_t i = 0; i < array.size(); i++) {
+            auto obj = array[i].get_obj();
+            auto tokenStr = trim_ws(obj["dToken"].getValStr());
 
-                auto loanToken = pcustomcsview->GetLoanTokenByID(id);
-                if (!loanToken)
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
-                loans[id] = DecodeAmounts(pwallet->chain(), obj["amounts"], "");
-            }
-        }catch(std::runtime_error& e) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
+            DCT_ID id;
+            auto token = view.GetTokenGuessId(tokenStr, id);
+            if (!token)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
+
+            if (!token->IsLoanToken())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is not a loan token!", tokenStr));
+
+            auto loanToken = view.GetLoanTokenByID(id);
+            if (!loanToken)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
+
+            loans[id] = DecodeAmounts(pwallet->chain(), obj["amounts"], "");
         }
     }
 

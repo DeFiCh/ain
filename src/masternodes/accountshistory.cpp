@@ -200,7 +200,6 @@ void CHistoryWriters::AddVault(const CVaultId& vaultId, const std::string& schem
     vaultID = vaultId;
     if (!schemeId.empty()) {
         schemeID = schemeId;
-
     }
 }
 

@@ -33,7 +33,7 @@ jobs:
         docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }}
         defichain-x86_64-pc-linux-gnu:dockerhub-latest
 
-    - uses: docker/build-push-action@v1
+    - uses: docker/build-push-action@v2
     # Make sure to only build on ain repo. Also add in additional restrictions here if needed to
     # make sure we don't push unnecessary images to docker
       if: ${{ github.repository == 'DeFiCh/ain' }}
