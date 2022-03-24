@@ -371,7 +371,7 @@ class VaultTest (DefiTestFramework):
                     'amounts': "0.1@TSLA"})
         except JSONRPCException as e:
             error_str = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan" in error_str)
+        assert("At least 50% of the minimum required collateral must be in DFI or DUSD when taking a loan" in error_str)
 
     def takeloan_with_50pctDFI(self):
         self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '0.7@DFI')
@@ -608,7 +608,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(self.vaults[4], self.accountDFI, "0.25@DFI")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI" in errorString)
+        assert("At least 50% of the minimum required collateral must be in DFI or DUSD" in errorString)
 
         # Should be able to take 0.10@TSLA and respect 50% DFI ratio
         self.nodes[0].takeloan({
