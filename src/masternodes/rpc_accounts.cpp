@@ -2112,6 +2112,90 @@ UniValue futureswap(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+
+UniValue withdrawfutureswap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"withdrawfutureswap",
+               "\nCreates and submits to the network a withdrawl from futures contract transaction.\n"
+               " Withdrawal will be back to the address specified in the futures contract." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
+                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
+                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CDFIP2203Message msg{};
+    msg.owner = GetScriptForDestination(dest);
+    msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
+    msg.withdraw = true;
+
+    if (!request.params[2].isNull()) {
+        msg.destination = request.params[2].get_int();
+    }
+
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue listpendingfutures(const JSONRPCRequest& request) {
     RPCHelpMan{"listpendingfutures",
                "Get all pending futures.\n",
@@ -2142,7 +2226,7 @@ UniValue listpendingfutures(const JSONRPCRequest& request) {
 
     UniValue listFutures{UniValue::VARR};
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
-        if (key.height < startPeriod) {
+        if (key.height <= startPeriod) {
             return false;
         }
 
@@ -2214,7 +2298,7 @@ UniValue getpendingfutures(const JSONRPCRequest& request) {
 
     std::vector<CFuturesUserValue> storedFutures;
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-        if (key.height < startPeriod) {
+        if (key.height <= startPeriod) {
             return false;
         }
 
@@ -2277,6 +2361,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "getburninfo",           &getburninfo,           {}},
     {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
     {"accounts",    "futureswap",            &futureswap,            {"name", "amount", "destination", "inputs"}},
+    {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"name", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutures",    &listpendingfutures,    {}},
     {"accounts",    "getpendingfutures",     &getpendingfutures,     {"address"}},
 };

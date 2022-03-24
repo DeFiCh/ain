@@ -217,6 +217,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "accounttoutxos", 2, "inputs" },
     { "futureswap", 2, "destination"},
     { "futureswap", 3, "inputs"},
+    { "withdrawfutureswap", 2, "destination"},
+    { "withdrawfutureswap", 3, "inputs"},
 
     { "icx_createorder", 0, "order" },
     { "icx_createorder", 1, "inputs" },

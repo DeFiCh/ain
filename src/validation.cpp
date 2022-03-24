@@ -3337,8 +3337,10 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             assert(destToken);
 
             const auto& premiumPrice = futuresPrices.at(destId).premium;
-            const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
-            cache.AddBalance(key.owner, {destId, total});
+            if (premiumPrice > 0) {
+                const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                cache.AddBalance(key.owner, {destId, total});
+            }
         } else {
             const auto tokenDUSD = cache.GetToken("DUSD");
             assert(tokenDUSD);

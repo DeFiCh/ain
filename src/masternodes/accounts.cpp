@@ -113,3 +113,11 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     ForEach<ByFuturesKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }
 
+Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
+{
+    if (!EraseBy<ByFuturesKey>(key)) {
+        return Res::Err("Failed to erase futures");
+    }
+
+    return Res::Ok();
+}

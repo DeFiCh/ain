@@ -34,6 +34,10 @@ struct CFuturesUserKey {
             READWRITE(WrapBigEndian(txn_));
         }
     }
+
+    bool operator<(const CFuturesUserKey& o) const {
+        return std::tie(height, owner, txn) < std::tie(o.height, o.owner, o.txn);
+    }
 };
 
 struct CFuturesUserValue {
@@ -66,6 +70,7 @@ public:
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
+    Res EraseFuturesUserValues(const CFuturesUserKey& key);
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
 
     // tags

@@ -1532,23 +1532,75 @@ public:
             return Res::Err("Failed to get smart contract address from chainparams");
         }
 
-        CTxDestination dest;
-        ExtractDestination(contractAddress, dest);
-
-        auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, contractAddress);
-        if (!res) {
-            return res;
-        }
-
-        res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
-        if (!res) {
-            return res;
-        }
-
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
-        balances.Add(CTokenAmount{obj.source.nTokenId, obj.source.nValue});
+        if (obj.withdraw) {
+            const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+            const uint32_t startHeight = height - (height % blockPeriod);
+            std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
+
+            mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+                if (key.height <= startHeight) {
+                    return false;
+                }
+
+                if (source->symbol == "DUSD") {
+                    if (key.owner == obj.owner && futuresValues.destination == obj.destination) {
+                        userFuturesValues[key] = futuresValues;
+                    }
+                } else {
+                    if (key.owner == obj.owner && futuresValues.source.nTokenId == obj.source.nTokenId) {
+                        userFuturesValues[key] = futuresValues;
+                    }
+                }
+
+                return true;
+            }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
+
+            CTokenAmount totalFutures{};
+            totalFutures.nTokenId = obj.source.nTokenId;
+
+            for (const auto& [key, value] : userFuturesValues) {
+                totalFutures.Add(value.source.nValue);
+                mnview.EraseFuturesUserValues(key);
+            }
+
+            auto res = totalFutures.Sub(obj.source.nValue);
+            if (!res) {
+                return res;
+            }
+
+            if (totalFutures.nValue > 0) {
+                auto res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
+                if (!res) {
+                    return res;
+                }
+            }
+
+            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, contractAddress, obj.owner);
+            if (!res) {
+                return res;
+            }
+
+            res = balances.Sub(CTokenAmount{obj.source.nTokenId, obj.source.nValue});
+            if (!res) {
+                return res;
+            }
+        } else {
+            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, contractAddress);
+            if (!res) {
+                return res;
+            }
+
+            res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
+            if (!res) {
+                return res;
+            }
+
+            balances.Add(CTokenAmount{obj.source.nTokenId, obj.source.nValue});
+        }
+
         attributes->attributes[liveKey] = balances;
 
         mnview.SetVariable(*attributes);

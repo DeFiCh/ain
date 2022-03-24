@@ -228,6 +228,7 @@ struct CDFIP2203Message {
     CScript owner;
     CTokenAmount source{};
     uint32_t destination{};
+    bool withdraw{};
 
     ADD_SERIALIZE_METHODS;
 
@@ -236,6 +237,7 @@ struct CDFIP2203Message {
         READWRITE(owner);
         READWRITE(source);
         READWRITE(destination);
+        READWRITE(withdraw);
     }
 };
 
