@@ -572,16 +572,13 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported type for DFIP2203", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/minswap': '0.025'}})
 
         # Test setting FCR ATTRBIUTES
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/block_period':'20160'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dfip2203_disabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05','v0/params/dfip2203/block_period':'20160','v0/token/5/dfip2203_disabled':'true'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false','v0/params/dfip2203/reward_pct':'0.05','v0/params/dfip2203/block_period':'20160','v0/token/5/dfip2203_disabled':'true'}})
         self.nodes[0].generate(1)
 
         # Verify FCR results
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result['v0/params/dfip2203/active'], 'false')
+        assert_equal(result['v0/params/dfip2203/active'], 'true')
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
         assert_equal(result['v0/token/5/dfip2203_disabled'], 'true')
