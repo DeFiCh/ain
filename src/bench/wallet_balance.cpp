@@ -40,6 +40,7 @@ static void WalletBalance(benchmark::State& state, const bool set_dirty, const b
         if (add_mine) assert(bal.m_mine_trusted[DCT_ID{0}] > 0);            // tokens `0`
         if (add_watchonly) assert(bal.m_watchonly_trusted[DCT_ID{0}] > 0);  // tokens `0`
     }
+    wallet.NotifyUnload();
 }
 
 static void WalletBalanceDirty(benchmark::State& state) { WalletBalance(state, /* set_dirty */ true, /* add_watchonly */ true, /* add_mine */ true); }
