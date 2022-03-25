@@ -371,7 +371,7 @@ class CCustomCSView
                                         ByPoolLoanReward, ByTokenDexFeePct,
             CGovView                ::  ByName, ByHeightVars,
             CAnchorConfirmsView     ::  BtcTx,
-            COracleView             ::  ByName, FixedIntervalBlockKey, FixedIntervalPriceKey, PriceDeviation, FuturesPriceKey,
+            COracleView             ::  ByName, FixedIntervalBlockKey, FixedIntervalPriceKey, PriceDeviation,
             CICXOrderView           ::  ICXOrderCreationTx, ICXMakeOfferCreationTx, ICXSubmitDFCHTLCCreationTx,
                                         ICXSubmitEXTHTLCCreationTx, ICXClaimDFCHTLCCreationTx, ICXCloseOrderCreationTx,
                                         ICXCloseOfferCreationTx, ICXOrderOpenKey, ICXOrderCloseKey, ICXMakeOfferOpenKey,

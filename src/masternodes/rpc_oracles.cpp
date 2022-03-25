@@ -4,8 +4,6 @@
 
 #include <masternodes/mn_rpc.h>
 
-#include <masternodes/govvariables/attributes.h>
-
 extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
 extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
@@ -1126,95 +1124,15 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     return listPrice;
 }
 
-UniValue listfuturesprices(const JSONRPCRequest& request) {
-    RPCHelpMan{"listfuturesprices",
-               "Get all futures prices.\n",
-               {},
-               RPCResult{
-                       "\"json\"          (string) array containing json-objects having following fields:\n"
-                       "    tokenSymbol : \"SYMBOL\"\n"
-                       "    discountPrice : n.nnnnnnnn\n"
-                       "    premiumPrice : n.nnnnnnnn\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listfuturesprices", "")
-               },
-    }.Check(request);
-
-    LOCK(cs_main);
-
-    UniValue listPrice{UniValue::VARR};
-    pcustomcsview->ForEachFuturesPrices([&](const DCT_ID& id, const CFuturesPrice& futuresPrices){
-        const auto token = pcustomcsview->GetToken(id);
-        if (!token) {
-            return true;
-        }
-
-        UniValue obj{UniValue::VOBJ};
-        obj.pushKV("tokenSymbol", token->symbol);
-        obj.pushKV("discountPrice", ValueFromAmount(futuresPrices.discount));
-        obj.pushKV("premiumPrice", ValueFromAmount(futuresPrices.premium));
-        listPrice.push_back(obj);
-
-        return true;
-    });
-    return listPrice;
-}
-
-UniValue getfuturesprices(const JSONRPCRequest& request) {
-    RPCHelpMan{"getfuturesprices",
-               "Get specific futures prices.\n",
-               {
-                    {"tokenSymbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token symbol to get futures prices for"},
-               },
-               RPCResult{
-                       "{\n"
-                       "    tokenSymbol :   \"SYMBOL\"\n"
-                       "    discountPrice : n.nnnnnnnn\n"
-                       "    premiumPrice :  n.nnnnnnnn\n"
-                       "}\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getfuturesprices", "TSLA")
-               },
-    }.Check(request);
-
-    LOCK(cs_main);
-
-    const auto token = pcustomcsview->GetToken(request.params[0].get_str());
-    if (!token || !token->second) {
-        return NullUniValue;
-    }
-
-    // Limit to loan tokens
-    const auto loanToken = pcustomcsview->GetLoanTokenByID(token->first);
-    if (!loanToken) {
-        return NullUniValue;
-    }
-
-    const auto result = pcustomcsview->GetFuturesPrices(token->first);
-    if (!result) {
-        return NullUniValue;
-    }
-
-    UniValue obj{UniValue::VOBJ};
-    obj.pushKV("tokenSymbol", loanToken->symbol);
-    obj.pushKV("discountPrice", ValueFromAmount(result.val->discount));
-    obj.pushKV("premiumPrice", ValueFromAmount(result.val->premium));
-
-    return obj;
-}
-
-
-UniValue getfuturesblock(const JSONRPCRequest& request) {
-    RPCHelpMan{"getfuturesblock",
+UniValue getfutureswapblock(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfutureswapblock",
                "Get the next block that futures will execute and update on.\n",
                {},
                RPCResult{
                        "n    (numeric) Futures execution block. Zero if not set.\n"
                },
                RPCExamples{
-                       HelpExampleCli("getfuturesblock", "")
+                       HelpExampleCli("getfutureswapblock", "")
                },
     }.Check(request);
 
@@ -1222,9 +1140,12 @@ UniValue getfuturesblock(const JSONRPCRequest& request) {
 
     const auto currentHeight = ::ChainActive().Height();
 
-    const auto blockPeriod = GetFuturesBlockPeriod();
+    const auto blockAndReward = GetFuturesBlockAndReward();
+    if (!blockAndReward) {
+        return 0;
+    }
 
-    return currentHeight + (blockPeriod - (currentHeight % blockPeriod));
+    return currentHeight + (blockAndReward->first - (currentHeight % blockAndReward->first));
 }
 
 
@@ -1244,9 +1165,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfuturesprices",        &getfuturesprices,         {"tokenSymbol"}},
-    {"oracles",     "listfuturesprices",       &listfuturesprices,        {}},
-    {"oracles",     "getfuturesblock",         &getfuturesblock,          {}},
+    {"oracles",     "getfutureswapblock",         &getfutureswapblock,          {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

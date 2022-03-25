@@ -119,14 +119,6 @@ struct CFuturesPrice
 {
     CAmount discount;
     CAmount premium;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(discount);
-        READWRITE(premium);
-    }
 };
 
 /// View for managing oracles and their data
@@ -164,16 +156,10 @@ public:
     Res SetIntervalBlock(const uint32_t blockInterval);
     uint32_t GetIntervalBlock() const;
 
-    Res SetFuturesPrices(const DCT_ID id, const CFuturesPrice& price);
-    ResVal<CFuturesPrice> GetFuturesPrices(const DCT_ID id);
-    void ForEachFuturesPrices(std::function<bool(const DCT_ID id, const CFuturesPrice& price)> callback);
-    void EraseAllFuturesPrices();
-
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
     struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };
     struct FixedIntervalBlockKey { static constexpr uint8_t prefix() { return 'z'; } };
     struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
-    struct FuturesPriceKey { static constexpr uint8_t prefix() { return 's'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

@@ -152,42 +152,6 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-Res COracleView::SetFuturesPrices(const DCT_ID id, const CFuturesPrice& price) {
-    if (!WriteBy<FuturesPriceKey>(id, price)) {
-        Res::Err("Failed to write futures prices for %d", id.ToString());
-    }
-
-    return Res::Ok();
-}
-
-ResVal<CFuturesPrice> COracleView::GetFuturesPrices(const DCT_ID id) {
-    CFuturesPrice prices{};
-    if (!ReadBy<FuturesPriceKey>(id, prices)) {
-        Res::Err("Failed to read futures prices for %d", id.ToString());
-    }
-
-    return {prices, Res::Ok()};
-}
-
-void COracleView::EraseAllFuturesPrices() {
-    std::set<DCT_ID> priceIds;
-    ForEachFuturesPrices([&](const DCT_ID id, const CFuturesPrice& price){
-        priceIds.insert(id);
-        return true;
-    });
-
-    for (const auto& id : priceIds) {
-        if (!EraseBy<FuturesPriceKey>(id)) {
-            LogPrintf("Failed to erase futures prices for %d\n", id.ToString());
-        }
-    }
-}
-
-void COracleView::ForEachFuturesPrices(std::function<bool(const DCT_ID id, const CFuturesPrice& price)> callback)
-{
-    ForEach<FuturesPriceKey, DCT_ID, CFuturesPrice>(callback);
-}
-
 ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId)
 {
     CFixedIntervalPrice fixedIntervalPrice;

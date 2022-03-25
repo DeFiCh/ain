@@ -3294,7 +3294,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return;
     }
 
-    const auto attributes = cache.GetAttributes();
+    auto attributes = cache.GetAttributes();
     if (!attributes) {
         return;
     }
@@ -3316,50 +3316,13 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return;
     }
 
-    std::map<DCT_ID, CFuturesPrice> futuresPrices;
-    cache.ForEachFuturesPrices([&](const DCT_ID id, const CFuturesPrice& price) {
-        futuresPrices.emplace(id, price);
-        return true;
-    });
-
-    const uint32_t startHeight = pindex->nHeight - blockPeriod;
-    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
-        if (key.height <= startHeight) {
-            return false;
-        }
-
-        const auto source = cache.GetLoanTokenByID(futuresValues.source.nTokenId);
-        assert(source);
-
-        if (source->symbol == "DUSD") {
-            const DCT_ID destId{futuresValues.destination};
-            const auto destToken = cache.GetLoanTokenByID(destId);
-            assert(destToken);
-
-            const auto& premiumPrice = futuresPrices.at(destId).premium;
-            if (premiumPrice > 0) {
-                const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
-                cache.AddBalance(key.owner, {destId, total});
-            }
-        } else {
-            const auto tokenDUSD = cache.GetToken("DUSD");
-            assert(tokenDUSD);
-
-            const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
-            const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
-            cache.AddBalance(key.owner, {tokenDUSD->first, total});
-        }
-
-        return true;
-    }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
-
-    cache.EraseAllFuturesPrices();
-
     const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
     const auto discount{COIN - rewardPct};
     const auto premium{COIN + rewardPct};
 
+    std::map<DCT_ID, CFuturesPrice> futuresPrices;
     CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Disabled};
+
     cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
         tokenKey.typeId = id.v;
         const auto disabled = attributes->GetValue(tokenKey, false);
@@ -3374,15 +3337,70 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             return true;
         }
 
-        const auto res = cache.SetFuturesPrices(id, {*discountPrice, *premiumPrice});
-        if (!res) {
-            LogPrintf("ProcessFutures(): Failed to set futures price for %s\n", id.ToString());
-        }
-
-        const auto result = cache.GetFuturesPrices(id);
+        futuresPrices.emplace(id, CFuturesPrice{*discountPrice, *premiumPrice});
 
         return true;
     });
+
+    const uint32_t startHeight = pindex->nHeight - blockPeriod;
+    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
+    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+        if (key.height <= startHeight) {
+            return false;
+        }
+
+        const auto source = cache.GetLoanTokenByID(futuresValues.source.nTokenId);
+        assert(source);
+
+        if (source->symbol == "DUSD") {
+            const DCT_ID destId{futuresValues.destination};
+            const auto destToken = cache.GetLoanTokenByID(destId);
+            assert(destToken);
+
+            try {
+                const auto& premiumPrice = futuresPrices.at(destId).premium;
+                if (premiumPrice > 0) {
+                    const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                    cache.AddBalance(key.owner, {destId, total});
+                }
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+
+        } else {
+            const auto tokenDUSD = cache.GetToken("DUSD");
+            assert(tokenDUSD);
+
+            try {
+                const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
+                const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
+                cache.AddBalance(key.owner, {tokenDUSD->first, total});
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+        }
+
+        return true;
+    }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
+
+    const auto resVal = GetFutureSwapContractAddress();
+    assert(resVal);
+
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    // Refund unpaid contracts
+    for (const auto& [key, value] : unpaidContracts) {
+        cache.EraseFuturesUserValues(key);
+        cache.SubBalance(*resVal, value.source);
+        cache.AddBalance(key.owner, value.source);
+        balances.Sub(value.source);
+    }
+
+    if (!unpaidContracts.empty()) {
+        attributes->attributes[liveKey] = balances;
+        cache.SetVariable(*attributes);
+    }
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){

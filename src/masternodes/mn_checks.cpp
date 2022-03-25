@@ -1503,11 +1503,6 @@ public:
             if (!loanToken) {
                 return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
             }
-
-            const auto res = mnview.GetFuturesPrices({obj.destination});
-            if (!res) {
-                return res;
-            }
         } else {
             if (obj.destination != 0) {
                 return Res::Err("Destination should not be set when source amount is a dToken");
@@ -1517,11 +1512,6 @@ public:
             const auto disabled = attributes->GetValue(tokenKey, false);
             if (disabled) {
                 return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
-            }
-
-            const auto res = mnview.GetFuturesPrices({obj.source.nTokenId});
-            if (!res) {
-                return res;
             }
         }
 
@@ -1577,7 +1567,7 @@ public:
                 return res;
             }
 
-            res = balances.Sub(CTokenAmount{obj.source.nTokenId, obj.source.nValue});
+            res = balances.Sub(obj.source);
             if (!res) {
                 return res;
             }
@@ -1592,7 +1582,7 @@ public:
                 return res;
             }
 
-            balances.Add(CTokenAmount{obj.source.nTokenId, obj.source.nValue});
+            balances.Add(obj.source);
         }
 
         attributes->attributes[liveKey] = balances;

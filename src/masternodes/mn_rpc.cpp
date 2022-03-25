@@ -453,28 +453,28 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-uint64_t GetFuturesBlockPeriod()
+std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward()
 {
     LOCK(cs_main);
 
     const auto attributes = pcustomcsview->GetAttributes();
     if (!attributes) {
-        return 0;
+        return {};
     }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
     const auto active = attributes->GetValue(activeKey, false);
     if (!active) {
-        return 0;
+        return {};
     }
 
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
     if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
-        return 0;
+        return {};
     }
 
-    return attributes->GetValue(blockKey, CAmount{});
+    return std::pair{attributes->GetValue(blockKey, CAmount{}), attributes->GetValue(rewardKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {

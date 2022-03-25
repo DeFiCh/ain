@@ -11,9 +11,6 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 
-def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
-
 class FuturesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -28,9 +25,6 @@ class FuturesTest(DefiTestFramework):
 
         # Test setting of futures Gov vars
         self.futures_setup()
-
-        # Test setting of futures prices
-        self.futures_pricing()
 
         # Test dToken to DUSD
         self.test_dtoken_to_dusd()
@@ -61,38 +55,61 @@ class FuturesTest(DefiTestFramework):
         # Store interval
         self.futures_interval = 25
 
-        # Setup oracle
-        oracle_address = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds = [
-            {"currency": "USD", "token": "DFI"},
-            {"currency": "USD", "token": "TSLA"},
-            {"currency": "USD", "token": "GOOGL"},
-            {"currency": "USD", "token": "TWTR"},
-            {"currency": "USD", "token": "MSFT"},
-            {"currency": "USD", "token": "DOGE"},
-        ]
-        oracle_id = self.nodes[0].appointoracle(oracle_address, price_feeds, 10)
-        self.nodes[0].generate(1)
-
-        # Feed oracle
-        oracle_prices = [
-            {"currency": "USD", "tokenAmount": "870@TSLA"},
-            {"currency": "USD", "tokenAmount": "2600@GOOGL"},
-            {"currency": "USD", "tokenAmount": "37@TWTR"},
-            {"currency": "USD", "tokenAmount": "295@MSFT"},
-            {"currency": "USD", "tokenAmount": "0.09@DOGE"},
-        ]
-        self.nodes[0].setoracledata(oracle_id, int(time.time()), oracle_prices)
-        self.nodes[0].generate(10)
-
         # Set token symbols
+        self.symbolDFI   = 'DFI'
         self.symbolDUSD  = 'DUSD'
         self.symbolTSLA  = 'TSLA'
         self.symbolGOOGL = 'GOOGL'
         self.symbolTWTR  = 'TWTR'
         self.symbolMSFT  = 'MSFT'
-        self.symbolDOGE  = 'DOGE'
         self.symbolBTC   = 'BTC'
+
+        # Setup oracle
+        oracle_address = self.nodes[0].getnewaddress("", "legacy")
+        price_feeds = [
+            {"currency": "USD", "token": self.symbolDFI},
+            {"currency": "USD", "token": self.symbolTSLA},
+            {"currency": "USD", "token": self.symbolGOOGL},
+            {"currency": "USD", "token": self.symbolTWTR},
+            {"currency": "USD", "token": self.symbolMSFT}
+        ]
+        self.oracle_id = self.nodes[0].appointoracle(oracle_address, price_feeds, 10)
+        self.nodes[0].generate(1)
+
+        # Create Oracle prices
+        self.price_tsla = 870
+        self.price_googl = 2600
+        self.price_twtr = 37
+        self.price_msft = 295
+
+        # Calculate future swap prices
+        self.prices = []
+        self.prices.append({
+            'premiumPrice': Decimal(str(Decimal(str(self.price_tsla)) * Decimal('1.05000000'))),
+            'discountPrice': Decimal(str(Decimal(str(self.price_tsla)) * Decimal('0.95000000')))
+        })
+        self.prices.append({
+            'premiumPrice': Decimal(str(Decimal(str(self.price_googl)) * Decimal('1.05000000'))),
+            'discountPrice': Decimal(str(Decimal(str(self.price_googl)) * Decimal('0.95000000')))
+        })
+        self.prices.append({
+            'premiumPrice': Decimal(str(Decimal(str(self.price_twtr)) * Decimal('1.05000000'))),
+            'discountPrice': Decimal(str(Decimal(str(self.price_twtr)) * Decimal('0.95000000')))
+        })
+        self.prices.append({
+            'premiumPrice': Decimal(str(Decimal(str(self.price_msft)) * Decimal('1.05000000'))),
+            'discountPrice': Decimal(str(Decimal(str(self.price_msft)) * Decimal('0.95000000')))
+        })
+
+        # Feed oracle
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": f'{self.price_tsla}@{self.symbolTSLA}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_googl}@{self.symbolGOOGL}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_twtr}@{self.symbolTWTR}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_msft}@{self.symbolMSFT}'},
+        ]
+        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), oracle_prices)
+        self.nodes[0].generate(10)
 
         # Set up non-loan token for failure test
         self.nodes[0].createtoken({
@@ -144,21 +161,12 @@ class FuturesTest(DefiTestFramework):
             'interest': 1})
         self.nodes[0].generate(1)
 
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolDOGE,
-            'name': self.symbolDOGE,
-            'fixedIntervalPriceId': f'{self.symbolDOGE}/USD',
-            'mintable': True,
-            'interest': 1})
-        self.nodes[0].generate(1)
-
         # Set token ids
         self.idDUSD  = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
         self.idTSLA  = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
         self.idTWTR  = list(self.nodes[0].gettoken(self.symbolTWTR).keys())[0]
         self.idMSFT  = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
-        self.idDOGE  = list(self.nodes[0].gettoken(self.symbolDOGE).keys())[0]
         self.idBTC   = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
 
         # Mint tokens for swapping
@@ -204,48 +212,6 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], str(self.futures_interval))
 
-    def futures_pricing(self):
-
-        # Check futures block
-        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
-        assert_equal(next_futures_block, self.nodes[0].getfuturesblock())
-
-        # Futures should be empty
-        result = self.nodes[0].listfuturesprices()
-        assert_equal(len(result), 0)
-
-        # Disable DOGE
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idDOGE)}/dfip2203_disabled':'true'}})
-        self.nodes[0].generate(1)
-
-        # Move to next futures block
-        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
-
-        # Futures should now be populated excluding DOGE
-        result = self.nodes[0].listfuturesprices()
-        assert_equal(len(result), 5)
-        assert_equal(result[0]['tokenSymbol'], self.symbolDUSD)
-        assert_equal(result[0]['discountPrice'], Decimal('0.95000000'))
-        assert_equal(result[0]['premiumPrice'], Decimal('1.05000000'))
-        assert_equal(result[1]['tokenSymbol'], self.symbolTSLA)
-        assert_equal(result[1]['discountPrice'], Decimal('826.50000000'))
-        assert_equal(result[1]['premiumPrice'], Decimal('913.50000000'))
-        assert_equal(result[2]['tokenSymbol'], self.symbolGOOGL)
-        assert_equal(result[2]['discountPrice'], Decimal('2470.00000000'))
-        assert_equal(result[2]['premiumPrice'], Decimal('2730.00000000'))
-        assert_equal(result[3]['tokenSymbol'], self.symbolTWTR)
-        assert_equal(result[3]['discountPrice'], Decimal('35.15000000'))
-        assert_equal(result[3]['premiumPrice'], Decimal('38.85000000'))
-        assert_equal(result[4]['tokenSymbol'], self.symbolMSFT)
-        assert_equal(result[4]['discountPrice'], Decimal('280.25000000'))
-        assert_equal(result[4]['premiumPrice'], Decimal('309.75000000'))
-
-        # Futures should now be populated
-        result = self.nodes[0].getfuturesprices(self.symbolTSLA)
-        assert_equal(result['tokenSymbol'], self.symbolTSLA)
-        assert_equal(result['discountPrice'], Decimal('826.50000000'))
-        assert_equal(result['premiumPrice'], Decimal('913.50000000'))
-
         # Disable DUSD
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idDUSD)}/dfip2203_disabled':'true'}})
         self.nodes[0].generate(1)
@@ -254,15 +220,9 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result[f'v0/token/{self.idDUSD}/dfip2203_disabled'], 'true')
 
-        # Move to next futures block
+        # Check futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
-        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
-
-        # Make sure that DUSD no longer is in futures prices result
-        self.prices = self.nodes[0].listfuturesprices()
-        assert_equal(len(self.prices), 4)
-        for price in self.prices:
-            assert(price['tokenSymbol'] != self.symbolDUSD)
+        assert_equal(next_futures_block, self.nodes[0].getfutureswapblock())
 
     def test_dtoken_to_dusd(self):
 
@@ -284,7 +244,6 @@ class FuturesTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, f'DFIP2203 currently disabled for token {self.idDUSD}', self.nodes[0].futureswap, self.address, f'1@{self.symbolDUSD}', int(self.idDUSD))
         assert_raises_rpc_error(-32600, f'Could not get destination loan token {self.idBTC}. Set valid destination.', self.nodes[0].futureswap, self.address, f'1@{self.symbolDUSD}', int(self.idBTC))
         assert_raises_rpc_error(-32600, 'Destination should not be set when source amount is a dToken', self.nodes[0].futureswap, self.address, f'1@{self.symbolTSLA}', int(self.idBTC))
-        assert_raises_rpc_error(-32600, f'DFIP2203 currently disabled for token {self.idDOGE}', self.nodes[0].futureswap, self.address, f'1@{self.symbolDOGE}')
         assert_raises_rpc_error(-32600, 'amount 0.00000000 is less than 1.00000000', self.nodes[0].futureswap, address_twtr, f'1@{self.symbolTSLA}')
 
         # Create user futures contracts
@@ -298,7 +257,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # List user futures contracts
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(result[0]['owner'], address_msft)
         assert_equal(result[0]['source'], f'{Decimal("1.00000000")}@{self.symbolMSFT}')
         assert_equal(result[0]['destination'], self.symbolDUSD)
@@ -313,22 +272,22 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[3]['destination'], self.symbolDUSD)
 
         # Get user MSFT futures swap by address
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolMSFT}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
         # Get user GOOGL futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolGOOGL}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
         # Get user TSLA futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTSLA}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
         # Get user TWTR futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
@@ -337,15 +296,15 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Pending futures should now be empty
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(len(result), 0)
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(len(result['values']), 0)
 
         # Check contract address
@@ -362,13 +321,13 @@ class FuturesTest(DefiTestFramework):
 
         # Check that futures have been executed
         result = self.nodes[0].getaccount(address_msft)
-        assert_equal(result, [f'280.25000000@{self.symbolDUSD}'])
+        assert_equal(result, [f'{self.prices[3]["discountPrice"]}@{self.symbolDUSD}'])
         result = self.nodes[0].getaccount(address_googl)
-        assert_equal(result, [f'2470.00000000@{self.symbolDUSD}'])
+        assert_equal(result, [f'{self.prices[1]["discountPrice"]}@{self.symbolDUSD}'])
         result = self.nodes[0].getaccount(address_tsla)
-        assert_equal(result, [f'826.50000000@{self.symbolDUSD}'])
+        assert_equal(result, [f'{self.prices[0]["discountPrice"]}@{self.symbolDUSD}'])
         result = self.nodes[0].getaccount(address_twtr)
-        assert_equal(result, [f'35.15000000@{self.symbolDUSD}'])
+        assert_equal(result, [f'{self.prices[2]["discountPrice"]}@{self.symbolDUSD}'])
 
     def test_dusd_to_dtoken(self):
 
@@ -396,7 +355,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # List user futures contracts
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(result[0]['owner'], address_tsla)
         assert_equal(result[0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result[0]['destination'], self.symbolTSLA)
@@ -411,22 +370,22 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[3]['destination'], self.symbolMSFT)
 
         # Get user TSLA futures swap by address
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(result['values'][0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTSLA)
 
         # Get user GOOGL futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(result['values'][0]['source'], f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolGOOGL)
 
         # Get user TWTR futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
 
         # Get user MSFT futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(result['values'][0]['source'], f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolMSFT)
 
@@ -435,15 +394,15 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Pending futures should now be empty
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(len(result), 0)
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(len(result['values']), 0)
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(len(result['values']), 0)
 
         # Check contract address
@@ -490,11 +449,11 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result, [f'913.50000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}'])
 
         # Check all pending swaps shows no entries
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(len(result), 0)
 
         # Check user pending swaps is empty
-        result = self.nodes[0].getpendingfutures(address)
+        result = self.nodes[0].getpendingfutureswaps(address)
         assert_equal(len(result['values']), 0)
 
         # Try and withdraw smallest amount now contract has been paid
@@ -531,14 +490,14 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Get user TSLA futures swap by address
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(result['values'][0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTSLA)
         assert_equal(result['values'][1]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][1]['destination'], self.symbolTSLA)
 
         # Get user TWTR futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
@@ -585,28 +544,28 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Get user MSFT futures swap by address
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(result['values'][0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTSLA)
         assert_equal(result['values'][1]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][1]['destination'], self.symbolTSLA)
 
         # Get user GOOGL futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(result['values'][0]['source'], f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolGOOGL)
         assert_equal(result['values'][1]['source'], f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][1]['destination'], self.symbolGOOGL)
 
         # Get user TSLA futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
         assert_equal(result['values'][1]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][1]['destination'], self.symbolTWTR)
 
         # Get user TWTR futures contracts by address
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(result['values'][0]['source'], f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolMSFT)
         assert_equal(result['values'][1]['source'], f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}')
@@ -621,7 +580,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check user pending swap is empty
-        result = self.nodes[0].getpendingfutures(address_tsla)
+        result = self.nodes[0].getpendingfutureswaps(address_tsla)
         assert_equal(len(result['values']), 0)
 
         # Try and withdraw smallest amount now contract empty
@@ -632,7 +591,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check user pending swap
-        result = self.nodes[0].getpendingfutures(address_googl)
+        result = self.nodes[0].getpendingfutureswaps(address_googl)
         assert_equal(result['values'][0]['source'], f'0.00000001@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolGOOGL)
 
@@ -641,7 +600,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check user pending swap
-        result = self.nodes[0].getpendingfutures(address_twtr)
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"] - Decimal("0.00000001")}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
 
@@ -650,7 +609,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check user pending swap
-        result = self.nodes[0].getpendingfutures(address_msft)
+        result = self.nodes[0].getpendingfutureswaps(address_msft)
         assert_equal(result['values'][0]['source'], f'{(self.prices[3]["premiumPrice"] * 2) - Decimal("0.00000001")}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolMSFT)
 
@@ -812,7 +771,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Only TSLA contract should remain
-        result = self.nodes[0].listpendingfutures()
+        result = self.nodes[0].listpendingfutureswaps()
         assert_equal(len(result), 1)
         assert_equal(result[0]['owner'], address_tsla)
         assert_equal(result[0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
@@ -835,6 +794,49 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result, [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
         result = self.nodes[0].getaccount(address_tsla)
         assert_equal(result, [f'1.00000000@{self.symbolTSLA}'])
+
+        # Check contract address
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Check DFI2203 address on listgovs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip_tokens'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Check DFI2203 address on getburninfo
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+    def unpaid_contract(self):
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Create user futures contract
+        self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Disable TSLA on oracle
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": f'-1@{self.symbolTSLA}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_googl}@{self.symbolGOOGL}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_twtr}@{self.symbolTWTR}'},
+            {"currency": "USD", "tokenAmount": f'{self.price_msft}@{self.symbolMSFT}'},
+        ]
+        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), oracle_prices)
+        self.nodes[0].generate(1)
+
+        # Move to next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check user has been refunded
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
 
         # Check contract address
         result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')

@@ -400,17 +400,17 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     for (const auto& [key, value] : userFuturesValues) {
         mnview.EraseFuturesUserValues(key);
 
-        auto res = mnview.SubBalance(*resVal, {value.source.nTokenId, value.source.nValue});
+        auto res = mnview.SubBalance(*resVal, value.source);
         if (!res) {
             return res;
         }
 
-        res = mnview.AddBalance(key.owner, {value.source.nTokenId, value.source.nValue});
+        res = mnview.AddBalance(key.owner, value.source);
         if (!res) {
             return res;
         }
 
-        res = balances.Sub(CTokenAmount{value.source.nTokenId, value.source.nValue});
+        res = balances.Sub(value.source);
         if (!res) {
             return res;
         }

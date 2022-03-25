@@ -2196,8 +2196,8 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue listpendingfutures(const JSONRPCRequest& request) {
-    RPCHelpMan{"listpendingfutures",
+UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpendingfutureswaps",
                "Get all pending futures.\n",
                {},
                RPCResult{
@@ -2210,21 +2210,21 @@ UniValue listpendingfutures(const JSONRPCRequest& request) {
                        "    }...]\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpendingfutures", "")
+                       HelpExampleCli("listpendingfutureswaps", "")
                },
     }.Check(request);
 
-    const auto blockPeriod = GetFuturesBlockPeriod();
-    if (blockPeriod == 0) {
-        return NullUniValue;
+    UniValue listFutures{UniValue::VARR};
+    const auto blockAndReward = GetFuturesBlockAndReward();
+    if (!blockAndReward) {
+        return listFutures;
     }
 
     LOCK(cs_main);
 
     const auto currentHeight = ::ChainActive().Height();
-    const auto startPeriod = currentHeight - (currentHeight % blockPeriod);
+    const auto startPeriod = currentHeight - (currentHeight % blockAndReward->first);
 
-    UniValue listFutures{UniValue::VARR};
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
         if (key.height <= startPeriod) {
             return false;
@@ -2263,8 +2263,8 @@ UniValue listpendingfutures(const JSONRPCRequest& request) {
     return listFutures;
 }
 
-UniValue getpendingfutures(const JSONRPCRequest& request) {
-    RPCHelpMan{"getpendingfutures",
+UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"getpendingfutureswaps",
                "Get specific pending futures.\n",
                 {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get futures prices for"},
@@ -2280,13 +2280,14 @@ UniValue getpendingfutures(const JSONRPCRequest& request) {
                     "}\n"
                },
                RPCExamples{
-                       HelpExampleCli("getpendingfutures", "address")
+                       HelpExampleCli("getpendingfutureswaps", "address")
                },
     }.Check(request);
 
-    const auto blockPeriod = GetFuturesBlockPeriod();
-    if (blockPeriod == 0) {
-        return NullUniValue;
+    UniValue listValues{UniValue::VARR};
+    const auto blockAndReward = GetFuturesBlockAndReward();
+    if (!blockAndReward) {
+        return listValues;
     }
 
     const auto owner = DecodeScript(request.params[0].get_str());
@@ -2294,7 +2295,7 @@ UniValue getpendingfutures(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     const auto currentHeight = ::ChainActive().Height();
-    const auto startPeriod = currentHeight - (currentHeight % blockPeriod);
+    const auto startPeriod = currentHeight - (currentHeight % blockAndReward->first);
 
     std::vector<CFuturesUserValue> storedFutures;
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
@@ -2309,8 +2310,6 @@ UniValue getpendingfutures(const JSONRPCRequest& request) {
         return true;
     }, {static_cast<uint32_t>(currentHeight), owner, std::numeric_limits<uint32_t>::max()});
 
-
-    UniValue listValues{UniValue::VARR};
     for (const auto& item : storedFutures) {
         UniValue value{UniValue::VOBJ};
 
@@ -2362,8 +2361,8 @@ static const CRPCCommand commands[] =
     {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
     {"accounts",    "futureswap",            &futureswap,            {"address", "amount", "destination", "inputs"}},
     {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
-    {"accounts",    "listpendingfutures",    &listpendingfutures,    {}},
-    {"accounts",    "getpendingfutures",     &getpendingfutures,     {"address"}},
+    {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
+    {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
