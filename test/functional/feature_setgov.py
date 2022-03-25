@@ -548,7 +548,7 @@ class GovsetTest (DefiTestFramework):
         assert_equal(attributes['v0/token/5/dex_in_fee_pct'], '0.6')
         assert_equal(attributes['v0/token/5/dex_out_fee_pct'], '0.12')
 
-         # Check GW attrs cannot be set yet
+        # Check GW attrs cannot be set yet
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})

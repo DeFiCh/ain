@@ -58,6 +58,14 @@ class CCustomTxRpcVisitor
         rpcInfo.pushKV("availablePairs", availablePairs);
     }
 
+    UniValue tokenBalances(const CBalances& balances) const {
+        UniValue info(UniValue::VOBJ);
+        for (const auto& kv : balances.balances) {
+            info.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
+        }
+        return info;
+    }
+
 public:
     CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CImmutableCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
@@ -109,13 +117,7 @@ public:
     }
 
     void operator()(const CMintTokensMessage& obj) const {
-        for (auto const & kv : obj.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj));
     }
 
     void operator()(const CLiquidityMessage& obj) const {
@@ -411,25 +413,13 @@ public:
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         if (!obj.to.empty())
             rpcInfo.pushKV("to", ScriptToString(obj.to));
-        for (auto const & kv : obj.amounts.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
     }
 
     void operator()(const CLoanPaybackLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("from", ScriptToString(obj.from));
-        for (auto const & kv : obj.amounts.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                if (auto tokenPair = mnview.GetTokenByCreationTx(token->creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
     }
 
     void operator()(const CLoanPaybackLoanV2Message& obj) const {
@@ -438,23 +428,11 @@ public:
         UniValue loans{UniValue::VARR};
         for (auto const & idx : obj.loans) {
             UniValue loan{UniValue::VOBJ};
-            if (auto dtoken = mnview.GetToken(idx.first)) {
-                auto dtokenImpl = static_cast<CTokenImplementation const&>(*dtoken);
-                if (auto dtokenPair = mnview.GetTokenByCreationTx(dtokenImpl.creationTx)) {
-                    loan.pushKV("dToken",dtokenPair->first.ToString());
-                }
-            }
-            for (auto const & kv : idx.second.balances) {
-                if (auto token = mnview.GetToken(kv.first)) {
-                    auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                    if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                        loan.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                    }
-                }
-            }
+            loan.pushKV("dToken", idx.first.ToString());
+            loan.pushKVs(tokenBalances(idx.second));
             loans.push_back(loan);
         }
-        rpcInfo.pushKV("dToken",loans);
+        rpcInfo.pushKV("dTokens", loans);
     }
 
     void operator()(const CAuctionBidMessage& obj) const {
