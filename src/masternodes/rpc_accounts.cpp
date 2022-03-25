@@ -2072,7 +2072,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    CDFIP2203Message msg{};
+    CFutureSwapMessage msg{};
     msg.owner = GetScriptForDestination(dest);
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
 
@@ -2155,7 +2155,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    CDFIP2203Message msg{};
+    CFutureSwapMessage msg{};
     msg.owner = GetScriptForDestination(dest);
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
     msg.withdraw = true;
@@ -2360,8 +2360,8 @@ static const CRPCCommand commands[] =
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
     {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
-    {"accounts",    "futureswap",            &futureswap,            {"name", "amount", "destination", "inputs"}},
-    {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"name", "amount", "destination", "inputs"}},
+    {"accounts",    "futureswap",            &futureswap,            {"address", "amount", "destination", "inputs"}},
+    {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutures",    &listpendingfutures,    {}},
     {"accounts",    "getpendingfutures",     &getpendingfutures,     {"address"}},
 };

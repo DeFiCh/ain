@@ -1126,8 +1126,8 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     return listPrice;
 }
 
-UniValue listfutures(const JSONRPCRequest& request) {
-    RPCHelpMan{"listfutures",
+UniValue listfuturesprices(const JSONRPCRequest& request) {
+    RPCHelpMan{"listfuturesprices",
                "Get all futures prices.\n",
                {},
                RPCResult{
@@ -1137,7 +1137,7 @@ UniValue listfutures(const JSONRPCRequest& request) {
                        "    premiumPrice : n.nnnnnnnn\n"
                },
                RPCExamples{
-                       HelpExampleCli("listfutures", "")
+                       HelpExampleCli("listfuturesprices", "")
                },
     }.Check(request);
 
@@ -1161,8 +1161,8 @@ UniValue listfutures(const JSONRPCRequest& request) {
     return listPrice;
 }
 
-UniValue getfutures(const JSONRPCRequest& request) {
-    RPCHelpMan{"getfutures",
+UniValue getfuturesprices(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfuturesprices",
                "Get specific futures prices.\n",
                {
                     {"tokenSymbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token symbol to get futures prices for"},
@@ -1175,7 +1175,7 @@ UniValue getfutures(const JSONRPCRequest& request) {
                        "}\n"
                },
                RPCExamples{
-                       HelpExampleCli("getfutures", "TSLA")
+                       HelpExampleCli("getfuturesprices", "TSLA")
                },
     }.Check(request);
 
@@ -1244,8 +1244,8 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfutures",              &getfutures,               {"tokenSymbol"}},
-    {"oracles",     "listfutures",             &listfutures,              {}},
+    {"oracles",     "getfuturesprices",        &getfuturesprices,         {"tokenSymbol"}},
+    {"oracles",     "listfuturesprices",       &listfuturesprices,        {}},
     {"oracles",     "getfuturesblock",         &getfuturesblock,          {}},
 };
 

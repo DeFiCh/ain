@@ -166,7 +166,7 @@ public:
         rpcInfo.pushKV("accounts", accountsInfo(obj.accounts));
     }
 
-    void operator()(const CDFIP2203Message& obj) const {
+    void operator()(const CFutureSwapMessage& obj) const {
         CTxDestination dest;
         if (ExtractDestination(obj.owner, dest)) {
             rpcInfo.pushKV("owner", EncodeDestination(dest));

@@ -50,13 +50,16 @@ class FuturesTest(DefiTestFramework):
         # Test Satoshi swaps
         self.check_minimum_swaps()
 
+        # Test changing Gov vars
+        self.check_gov_var_change()
+
     def setup_test(self):
 
         # Store address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
         # Store interval
-        self.futures_interval = 50
+        self.futures_interval = 25
 
         # Setup oracle
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
@@ -199,7 +202,7 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result['v0/params/dfip2203/active'], 'true')
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
-        assert_equal(result['v0/params/dfip2203/block_period'], '50')
+        assert_equal(result['v0/params/dfip2203/block_period'], str(self.futures_interval))
 
     def futures_pricing(self):
 
@@ -208,7 +211,7 @@ class FuturesTest(DefiTestFramework):
         assert_equal(next_futures_block, self.nodes[0].getfuturesblock())
 
         # Futures should be empty
-        result = self.nodes[0].listfutures()
+        result = self.nodes[0].listfuturesprices()
         assert_equal(len(result), 0)
 
         # Disable DOGE
@@ -219,7 +222,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Futures should now be populated excluding DOGE
-        result = self.nodes[0].listfutures()
+        result = self.nodes[0].listfuturesprices()
         assert_equal(len(result), 5)
         assert_equal(result[0]['tokenSymbol'], self.symbolDUSD)
         assert_equal(result[0]['discountPrice'], Decimal('0.95000000'))
@@ -238,7 +241,7 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[4]['premiumPrice'], Decimal('309.75000000'))
 
         # Futures should now be populated
-        result = self.nodes[0].getfutures(self.symbolTSLA)
+        result = self.nodes[0].getfuturesprices(self.symbolTSLA)
         assert_equal(result['tokenSymbol'], self.symbolTSLA)
         assert_equal(result['discountPrice'], Decimal('826.50000000'))
         assert_equal(result['premiumPrice'], Decimal('913.50000000'))
@@ -256,7 +259,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Make sure that DUSD no longer is in futures prices result
-        self.prices = self.nodes[0].listfutures()
+        self.prices = self.nodes[0].listfuturesprices()
         assert_equal(len(self.prices), 4)
         for price in self.prices:
             assert(price['tokenSymbol'] != self.symbolDUSD)
@@ -497,7 +500,7 @@ class FuturesTest(DefiTestFramework):
         # Try and withdraw smallest amount now contract has been paid
         assert_raises_rpc_error(-32600, 'amount 0.00000000 is less than 0.00000001', self.nodes[0].withdrawfutureswap, address, f'{Decimal("0.00000001")}@{self.symbolDUSD}', int(self.idTSLA))
 
-        # Move to just next futures block
+        # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
@@ -541,7 +544,7 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
 
-        # Move to just next futures block
+        # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
@@ -690,7 +693,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].futureswap(address, f'{Decimal("0.00000001")}@{self.symbolDUSD}', int(self.idTSLA))
         self.nodes[0].generate(1)
 
-        # Move to just next futures block
+        # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
@@ -707,13 +710,143 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].futureswap(address, f'{min_purchase}@{self.symbolDUSD}', int(self.idTSLA))
         self.nodes[0].generate(1)
 
-        # Move to just next futures block
+        # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Check one Satoshi swap yields one TSLA Satoshi
         result = self.nodes[0].getaccount(address)
         assert_equal(result, [f'{self.prices[0]["premiumPrice"] - Decimal("0.00000001") - Decimal(min_purchase)}@{self.symbolDUSD}', f'0.00000001@{self.symbolTSLA}'])
+
+        # Check contract address
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'7468.65000914@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+    def check_gov_var_change(self):
+
+        # Set up for block range change, create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Move to before next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval)) - 1
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Create user futures contract with 1 Satoshi to invalidate block period change
+        self.nodes[0].futureswap(address, f'{Decimal("0.00000001")}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Check contract address has updated
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'7468.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Test changing block period while DFIP2203 still active
+        assert_raises_rpc_error(-32600, 'Cannot set block period while DFIP2203 is active', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':f'{self.futures_interval}'}})
+
+        # Disable DFIP2203 to be able to change block period
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
+        self.nodes[0].generate(1)
+
+        # Check contract address has not changed, no refund on disabling DFIP2203.
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'7468.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Test changing block period to include historical future contracts
+        self.futures_interval = self.futures_interval * 2
+        assert_raises_rpc_error(-32600, 'Historical Futures contracts in this period', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':f'{self.futures_interval}'}})
+
+        # Move to next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Now set the new block period
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/block_period':f'{self.futures_interval}'}})
+        self.nodes[0].generate(1)
+
+        # Enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Create addresses
+        address_tsla = self.nodes[0].getnewaddress("", "legacy")
+        address_googl = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address_tsla: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].accounttoaccount(self.address, {address_googl: f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Create user futures contracts
+        self.nodes[0].futureswap(address_googl, f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', int(self.idGOOGL))
+        self.nodes[0].futureswap(address_tsla, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
+        self.nodes[0].generate(1)
+
+        # Balances should be restored
+        result = self.nodes[0].getaccount(address_tsla)
+        assert_equal(result, [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
+        result = self.nodes[0].getaccount(address_googl)
+        assert_equal(result, [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+
+        # Check contract address remains the same
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'7468.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Create user futures contracts
+        self.nodes[0].futureswap(address_googl, f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', int(self.idGOOGL))
+        self.nodes[0].futureswap(address_tsla, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Disable GOOGL
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203_disabled':'true'}})
+        self.nodes[0].generate(1)
+
+        # Only TSLA contract should remain
+        result = self.nodes[0].listpendingfutures()
+        assert_equal(len(result), 1)
+        assert_equal(result[0]['owner'], address_tsla)
+        assert_equal(result[0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
+        assert_equal(result[0]['destination'], self.symbolTSLA)
+
+        # Balance should be restored
+        result = self.nodes[0].getaccount(address_googl)
+        assert_equal(result, [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+
+        # TSLA balance should be empty
+        result = self.nodes[0].getaccount(address_tsla)
+        assert_equal(result, [])
+
+        # Move to next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check all balances
+        result = self.nodes[0].getaccount(address_googl)
+        assert_equal(result, [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+        result = self.nodes[0].getaccount(address_tsla)
+        assert_equal(result, [f'1.00000000@{self.symbolTSLA}'])
+
+        # Check contract address
+        result = self.nodes[0].getaccount('bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc')
+        assert_equal(result, [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Check DFI2203 address on listgovs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip_tokens'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Check DFI2203 address on getburninfo
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
 if __name__ == '__main__':
     FuturesTest().main()

@@ -121,3 +121,14 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 
     return Res::Ok();
 }
+
+boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
+{
+    const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
+    auto it = LowerBound<ByFuturesKey>(key);
+    if (it.Valid()) {
+        return it.Key().height;
+    }
+
+    return {};
+}

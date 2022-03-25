@@ -109,6 +109,8 @@ struct CTokenPayback {
     }
 };
 
+ResVal<CScript> GetFutureSwapContractAddress();
+
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback>;
 
@@ -130,7 +132,7 @@ public:
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
     template<typename T>
-    T GetValue(const CAttributeType& key, T value) {
+    [[nodiscard]] T GetValue(const CAttributeType& key, T value) const {
         auto it = attributes.find(key);
         if (it != attributes.end()) {
             if (auto val = boost::get<const T>(&it->second)) {
@@ -157,6 +159,8 @@ public:
     std::map<CAttributeType, CAttributeValue> attributes;
 
 private:
+    bool futureBlockUpdated{};
+
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
@@ -172,7 +176,8 @@ private:
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
+                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

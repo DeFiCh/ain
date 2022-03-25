@@ -132,7 +132,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
-        case CustomTxType::DFIP2203:                return CDFIP2203Message{};
+        case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -349,7 +349,7 @@ public:
         return !res ? res : serialize(obj);
     }
 
-    Res operator()(CDFIP2203Message& obj) const {
+    Res operator()(CFutureSwapMessage& obj) const {
         auto res = isPostFortCanningRoadFork();
         return !res ? res : serialize(obj);
     }
@@ -1461,7 +1461,7 @@ public:
         return Res::Err("Specified smart contract not found");
     }
 
-    Res operator()(const CDFIP2203Message& obj) const {
+    Res operator()(const CFutureSwapMessage& obj) const {
         if (!HasAuth(obj.owner)) {
             return Res::Err("Transaction must have at least one input from owner");
         }
@@ -1525,11 +1525,9 @@ public:
             }
         }
 
-        CScript contractAddress;
-        try {
-            contractAddress = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_DFIP_2203);
-        } catch (const std::out_of_range&) {
-            return Res::Err("Failed to get smart contract address from chainparams");
+        const auto resVal = GetFutureSwapContractAddress();
+        if (!resVal) {
+            return resVal;
         }
 
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
@@ -1545,14 +1543,10 @@ public:
                     return false;
                 }
 
-                if (source->symbol == "DUSD") {
-                    if (key.owner == obj.owner && futuresValues.destination == obj.destination) {
-                        userFuturesValues[key] = futuresValues;
-                    }
-                } else {
-                    if (key.owner == obj.owner && futuresValues.source.nTokenId == obj.source.nTokenId) {
-                        userFuturesValues[key] = futuresValues;
-                    }
+                if (key.owner == obj.owner &&
+                    futuresValues.source.nTokenId == obj.source.nTokenId &&
+                    futuresValues.destination == obj.destination) {
+                    userFuturesValues[key] = futuresValues;
                 }
 
                 return true;
@@ -1578,7 +1572,7 @@ public:
                 }
             }
 
-            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, contractAddress, obj.owner);
+            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *resVal, obj.owner);
             if (!res) {
                 return res;
             }
@@ -1588,7 +1582,7 @@ public:
                 return res;
             }
         } else {
-            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, contractAddress);
+            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *resVal);
             if (!res) {
                 return res;
             }
@@ -3379,7 +3373,7 @@ public:
         return Res::Ok();
     }
 
-    Res operator()(const CDFIP2203Message& obj) const {
+    Res operator()(const CFutureSwapMessage& obj) const {
         EraseHistory(obj.owner);
         return Res::Ok();
     }

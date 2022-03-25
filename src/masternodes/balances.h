@@ -224,7 +224,7 @@ struct CSmartContractMessage {
     }
 };
 
-struct CDFIP2203Message {
+struct CFutureSwapMessage {
     CScript owner;
     CTokenAmount source{};
     uint32_t destination{};

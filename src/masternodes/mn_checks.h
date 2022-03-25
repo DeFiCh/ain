@@ -346,7 +346,7 @@ typedef boost::variant<
     CAccountToAccountMessage,
     CAnyAccountsToAccountsMessage,
     CSmartContractMessage,
-    CDFIP2203Message,
+    CFutureSwapMessage,
     CGovernanceMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
