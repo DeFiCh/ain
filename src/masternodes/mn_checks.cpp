@@ -3023,6 +3023,8 @@ public:
                         subInToken = kv.second;
                     }
 
+                    shouldSetVariable = true;
+
                     auto penalty = MultiplyAmounts(subInToken, COIN - penaltyPct);
 
                     if (paybackTokenId == DCT_ID{0})
@@ -3033,6 +3035,10 @@ public:
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
                         attributes->attributes[liveKey] = balances;
+
+                        LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
+
+                        res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
                     }
                     else
                     {
@@ -3042,12 +3048,11 @@ public:
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
                         attributes->attributes[liveKey] = balances;
+
+                        LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
+
+                        res = SwapToDFIOverUSD(mnview, paybackTokenId, subInToken, obj.from, consensus.burnAddress, height);
                     }
-
-                    shouldSetVariable = true;
-
-                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
-                    res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
                 }
 
                 if (!res)

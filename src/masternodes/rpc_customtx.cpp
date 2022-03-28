@@ -448,7 +448,7 @@ public:
             if (auto dtoken = mnview.GetToken(idx.first)) {
                 auto dtokenImpl = static_cast<CTokenImplementation const&>(*dtoken);
                 if (auto dtokenPair = mnview.GetTokenByCreationTx(dtokenImpl.creationTx)) {
-                    loan.pushKV("dToken",dtokenPair->first.ToString());
+                    loan.pushKV("dTokens",dtokenPair->first.ToString());
                 }
             }
             for (auto const & kv : idx.second.balances) {
