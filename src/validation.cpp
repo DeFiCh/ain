@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
@@ -2821,6 +2822,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         ProcessOracleEvents(pindex, cache, chainparams);
         ProcessLoanEvents(pindex, cache, chainparams);
 
+        // Must be before set gov by height to clear futures in case there's a disabling of loan token in v3+
+        ProcessFutures(pindex, cache, chainparams);
+
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
             // Apply any pending GovVariable changes. Will come into effect on the next block.
             auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
@@ -3281,6 +3285,129 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     pburnHistoryDB->Flush();
     if (paccountHistoryDB) {
         paccountHistoryDB->Flush();
+    }
+}
+
+void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
+{
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningRoadHeight) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active) {
+        return;
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+        return;
+    }
+
+    const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+    if (pindex->nHeight % blockPeriod != 0) {
+        return;
+    }
+
+    const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
+    const auto discount{COIN - rewardPct};
+    const auto premium{COIN + rewardPct};
+
+    std::map<DCT_ID, CFuturesPrice> futuresPrices;
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Disabled};
+
+    cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
+        tokenKey.typeId = id.v;
+        const auto disabled = attributes->GetValue(tokenKey, false);
+        if (disabled) {
+            return true;
+        }
+
+        const auto useNextPrice{false}, requireLivePrice{true};
+        const auto discountPrice = cache.GetAmountInCurrency(discount, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        const auto premiumPrice = cache.GetAmountInCurrency(premium, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!discountPrice || !premiumPrice) {
+            return true;
+        }
+
+        futuresPrices.emplace(id, CFuturesPrice{*discountPrice, *premiumPrice});
+
+        return true;
+    });
+
+    const uint32_t startHeight = pindex->nHeight - blockPeriod;
+    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
+    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+        if (key.height <= startHeight) {
+            return false;
+        }
+
+        const auto source = cache.GetLoanTokenByID(futuresValues.source.nTokenId);
+        assert(source);
+
+        if (source->symbol == "DUSD") {
+            const DCT_ID destId{futuresValues.destination};
+            const auto destToken = cache.GetLoanTokenByID(destId);
+            assert(destToken);
+
+            try {
+                const auto& premiumPrice = futuresPrices.at(destId).premium;
+                if (premiumPrice > 0) {
+                    const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                    CTokenAmount destination{destId, total};
+                    cache.AddBalance(key.owner, destination);
+                    cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
+                    LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                             key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+                }
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+
+        } else {
+            const auto tokenDUSD = cache.GetToken("DUSD");
+            assert(tokenDUSD);
+
+            try {
+                const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
+                const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
+                CTokenAmount destination{tokenDUSD->first, total};
+                cache.AddBalance(key.owner, destination);
+                cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                         key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+        }
+
+        return true;
+    }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
+
+    const auto contractAddressValue = GetFutureSwapContractAddress();
+    assert(contractAddressValue);
+
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    // Refund unpaid contracts
+    for (const auto& [key, value] : unpaidContracts) {
+        cache.EraseFuturesUserValues(key);
+        cache.SubBalance(*contractAddressValue, value.source);
+        cache.AddBalance(key.owner, value.source);
+        balances.Sub(value.source);
+    }
+
+    if (!unpaidContracts.empty()) {
+        attributes->attributes[liveKey] = balances;
+        cache.SetVariable(*attributes);
     }
 }
 

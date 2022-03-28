@@ -166,6 +166,18 @@ public:
         rpcInfo.pushKV("accounts", accountsInfo(obj.accounts));
     }
 
+    void operator()(const CFutureSwapMessage& obj) const {
+        CTxDestination dest;
+        if (ExtractDestination(obj.owner, dest)) {
+            rpcInfo.pushKV("owner", EncodeDestination(dest));
+        } else {
+            rpcInfo.pushKV("owner", "Invalid destination");
+        }
+
+        rpcInfo.pushKV("source", obj.source.ToString());
+        rpcInfo.pushKV("destination", std::to_string(obj.destination));
+    }
+
     void operator()(const CCreatePoolPairMessage& obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
