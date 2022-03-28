@@ -22,18 +22,22 @@ enum AttributeTypes : uint8_t {
 
 enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
+    DFIP2203  = 'b',
     Economy   = 'e',
 };
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens    = 'b',
+    DFIP2203Tokens   = 'c',
 };
 
-enum DFIP2201Keys : uint8_t  {
-    Active    = 'a',
-    Premium   = 'b',
-    MinSwap   = 'c',
+enum DFIPKeys : uint8_t  {
+    Active       = 'a',
+    Premium      = 'b',
+    MinSwap      = 'c',
+    RewardPct    = 'd',
+    BlockPeriod  = 'e',
 };
 
 enum TokenKeys : uint8_t  {
@@ -43,6 +47,7 @@ enum TokenKeys : uint8_t  {
     LoanPaybackFeePCT   = 'd',
     DexInFeePct         = 'e',
     DexOutFeePct        = 'f',
+    DFIP2203Disabled    = 'g',
 };
 
 enum PoolKeys : uint8_t {
@@ -104,6 +109,8 @@ struct CTokenPayback {
     }
 };
 
+ResVal<CScript> GetFutureSwapContractAddress();
+
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback>;
 
@@ -125,7 +132,7 @@ public:
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
     template<typename T>
-    T GetValue(const CAttributeType& key, T value) {
+    [[nodiscard]] T GetValue(const CAttributeType& key, T value) const {
         auto it = attributes.find(key);
         if (it != attributes.end()) {
             if (auto val = boost::get<const T>(&it->second)) {
@@ -133,6 +140,12 @@ public:
             }
         }
         return std::move(value);
+    }
+
+    template<typename K>
+    [[nodiscard]] bool CheckKey(const K& key) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        return attributes.count(key) > 0;
     }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
@@ -146,6 +159,8 @@ public:
     std::map<CAttributeType, CAttributeValue> attributes;
 
 private:
+    bool futureBlockUpdated{};
+
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
@@ -161,7 +176,8 @@ private:
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
+                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

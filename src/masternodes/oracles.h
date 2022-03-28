@@ -115,6 +115,12 @@ struct CFixedIntervalPrice
     }
 };
 
+struct CFuturesPrice
+{
+    CAmount discount;
+    CAmount premium;
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {

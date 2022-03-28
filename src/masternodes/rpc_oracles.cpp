@@ -1124,7 +1124,29 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     return listPrice;
 }
 
+UniValue getfutureswapblock(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfutureswapblock",
+               "Get the next block that futures will execute and update on.\n",
+               {},
+               RPCResult{
+                       "n    (numeric) Futures execution block. Zero if not set.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getfutureswapblock", "")
+               },
+    }.Check(request);
 
+    LOCK(cs_main);
+
+    const auto currentHeight = ::ChainActive().Height();
+
+    const auto blockAndReward = GetFuturesBlockAndReward();
+    if (!blockAndReward) {
+        return 0;
+    }
+
+    return currentHeight + (blockAndReward->first - (currentHeight % blockAndReward->first));
+}
 
 
 
@@ -1143,6 +1165,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
+    {"oracles",     "getfutureswapblock",         &getfutureswapblock,          {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

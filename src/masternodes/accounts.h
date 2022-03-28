@@ -11,6 +11,48 @@
 #include <amount.h>
 #include <script/script.h>
 
+struct CFuturesUserKey {
+    uint32_t height;
+    CScript owner;
+    uint32_t txn;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+            READWRITE(owner);
+            READWRITE(WrapBigEndian(txn));
+            txn = ~txn;
+        } else {
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+            READWRITE(owner);
+            uint32_t txn_ = ~txn;
+            READWRITE(WrapBigEndian(txn_));
+        }
+    }
+
+    bool operator<(const CFuturesUserKey& o) const {
+        return std::tie(height, owner, txn) < std::tie(o.height, o.owner, o.txn);
+    }
+};
+
+struct CFuturesUserValue {
+    CTokenAmount source{};
+    uint32_t destination{};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(source);
+        READWRITE(destination);
+    }
+};
+
 class CAccountsView : public virtual CStorageView
 {
 public:
@@ -27,9 +69,19 @@ public:
     uint32_t GetBalancesHeight(CScript const & owner);
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
+    Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
+    Res StoreFuturesDestValues(const CFuturesUserKey& key, const CFuturesUserValue& destination);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
+    Res EraseFuturesUserValues(const CFuturesUserKey& key);
+    boost::optional<uint32_t> GetMostRecentFuturesHeight();
+    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
+    void ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
+
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
+    struct ByFuturesSourceKey  { static constexpr uint8_t prefix() { return 'J'; } };
+    struct ByFuturesDestKey  { static constexpr uint8_t prefix() { return 's'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);

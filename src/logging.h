@@ -61,6 +61,7 @@ namespace BCLog {
         ORACLE        = (1 << 24),
         LOAN          = (1 << 25),
         ACCOUNTCHANGE = (1 << 26),
+        FUTURESWAP    = (1 << 27),
         ALL           = ~(uint32_t)0,
     };
 

@@ -7,6 +7,8 @@
 #include <base58.h>
 #include <policy/settings.h>
 
+#include <masternodes/govvariables/attributes.h>
+
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
@@ -449,6 +451,30 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
 
     EnsureWalletIsAvailable(wallet.get(), request.fHelp);
     return CWalletCoinsUnlocker{std::move(wallet)};
+}
+
+std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward()
+{
+    LOCK(cs_main);
+
+    const auto attributes = pcustomcsview->GetAttributes();
+    if (!attributes) {
+        return {};
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active) {
+        return {};
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+        return {};
+    }
+
+    return std::pair{attributes->GetValue(blockKey, CAmount{}), attributes->GetValue(rewardKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
