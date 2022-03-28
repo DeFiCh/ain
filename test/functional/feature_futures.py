@@ -47,6 +47,9 @@ class FuturesTest(DefiTestFramework):
         # Test changing Gov vars
         self.check_gov_var_change()
 
+        # Test refunding of unpaid futures
+        self.unpaid_contract()
+
     def setup_test(self):
 
         # Store address
@@ -820,14 +823,8 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
         self.nodes[0].generate(1)
 
-        # Disable TSLA on oracle
-        oracle_prices = [
-            {"currency": "USD", "tokenAmount": f'-1@{self.symbolTSLA}'},
-            {"currency": "USD", "tokenAmount": f'{self.price_googl}@{self.symbolGOOGL}'},
-            {"currency": "USD", "tokenAmount": f'{self.price_twtr}@{self.symbolTWTR}'},
-            {"currency": "USD", "tokenAmount": f'{self.price_msft}@{self.symbolMSFT}'},
-        ]
-        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), oracle_prices)
+        # Remove Oracle
+        self.nodes[0].removeoracle(self.oracle_id)
         self.nodes[0].generate(1)
 
         # Move to next futures block
