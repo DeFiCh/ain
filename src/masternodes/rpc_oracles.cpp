@@ -34,10 +34,10 @@ namespace oraclefields {
 namespace {
     CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue& value) {
         if (!value.exists(oraclefields::Currency)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Currency));
         }
         if (!value.exists(oraclefields::Token)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Token));
         }
 
         auto token = value[oraclefields::Token].getValStr();
@@ -47,7 +47,7 @@ namespace {
         currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
         if (token.empty() || currency.empty()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s/%s is empty", oraclefields::Token, oraclefields::Currency).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s/%s is empty", oraclefields::Token, oraclefields::Currency));
         }
 
         return std::make_pair(token, currency);
@@ -445,10 +445,10 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
         if (!value.exists(oraclefields::Currency)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Currency));
         }
         if (!value.exists(oraclefields::TokenAmount)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::TokenAmount));
         }
 
         auto currency = value[oraclefields::Currency].getValStr();
@@ -853,14 +853,8 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
     });
 
     static const uint64_t minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
-
-    if (numLiveOracles < minimumLiveOracles) {
-        return Res::Err("no live oracles for specified request");
-    }
-
-    if (sumWeights == 0) {
-        return Res::Err("all live oracles which meet specified request, have zero weight");
-    }
+    Require(numLiveOracles >= minimumLiveOracles, "no live oracles for specified request");
+    Require(sumWeights > 0, "all live oracles which meet specified request, have zero weight");
 
     ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
 
