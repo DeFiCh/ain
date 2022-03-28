@@ -3361,7 +3361,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 const auto& premiumPrice = futuresPrices.at(destId).premium;
                 if (premiumPrice > 0) {
                     const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
-                    cache.AddBalance(key.owner, {destId, total});
+                    CTokenAmount destination{destId, total};
+                    cache.AddBalance(key.owner, destination);
+                    cache.StoreFuturesDestValues(key, destination);
+                    LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                             key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
@@ -3374,7 +3378,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             try {
                 const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
                 const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
-                cache.AddBalance(key.owner, {tokenDUSD->first, total});
+                CTokenAmount destination{tokenDUSD->first, total};
+                cache.AddBalance(key.owner, destination);
+                cache.StoreFuturesDestValues(key, destination);
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                         key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
             }

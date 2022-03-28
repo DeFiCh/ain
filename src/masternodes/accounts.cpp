@@ -101,7 +101,7 @@ uint32_t CAccountsView::GetBalancesHeight(CScript const & owner)
 
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures)
 {
-    if (!WriteBy<ByFuturesKey>(key, futures)) {
+    if (!WriteBy<ByFuturesSourceKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
 
@@ -110,12 +110,12 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
 
 void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
 {
-    ForEach<ByFuturesKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
+    ForEach<ByFuturesSourceKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 {
-    if (!EraseBy<ByFuturesKey>(key)) {
+    if (!EraseBy<ByFuturesSourceKey>(key)) {
         return Res::Err("Failed to erase futures");
     }
 
@@ -125,10 +125,24 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
 {
     const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
-    auto it = LowerBound<ByFuturesKey>(key);
+    auto it = LowerBound<ByFuturesSourceKey>(key);
     if (it.Valid()) {
         return it.Key().height;
     }
 
     return {};
+}
+
+Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CTokenAmount& destination)
+{
+    if (!WriteBy<ByFuturesDestKey>(key, destination)) {
+        return Res::Err("Failed to store futures destination");
+    }
+
+    return Res::Ok();
+}
+
+void CAccountsView::ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CTokenAmount&)> callback, const CFuturesUserKey& start)
+{
+    ForEach<ByFuturesSourceKey, CFuturesUserKey, CTokenAmount>(callback, start);
 }
