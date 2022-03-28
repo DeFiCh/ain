@@ -71,6 +71,7 @@ public:
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
     Res StoreFuturesDestValues(const CFuturesUserKey& key, const CFuturesUserValue& destination);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);
     boost::optional<uint32_t> GetMostRecentFuturesHeight();
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});

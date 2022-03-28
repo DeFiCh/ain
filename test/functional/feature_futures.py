@@ -50,6 +50,9 @@ class FuturesTest(DefiTestFramework):
         # Test refunding of unpaid futures
         self.unpaid_contract()
 
+        # Test list future swap history
+        self.rpc_history()
+
     def setup_test(self):
 
         # Store address
@@ -57,6 +60,9 @@ class FuturesTest(DefiTestFramework):
 
         # Store interval
         self.futures_interval = 25
+
+        # RPC history checks
+        self.list_history = []
 
         # Set token symbols
         self.symbolDFI   = 'DFI'
@@ -332,6 +338,14 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getaccount(address_twtr)
         assert_equal(result, [f'{self.prices[2]["discountPrice"]}@{self.symbolDUSD}'])
 
+        # Populate RPC check
+        self.list_history.append({'height': self.nodes[0].getblockcount(), 'swaps': [
+            {'address': address_tsla, 'source': f'{Decimal("1.00000000")}@{self.symbolTSLA}', 'destination': f'{self.prices[0]["discountPrice"]}@{self.symbolDUSD}'},
+            {'address': address_googl, 'source': f'{Decimal("1.00000000")}@{self.symbolGOOGL}', 'destination': f'{self.prices[1]["discountPrice"]}@{self.symbolDUSD}'},
+            {'address': address_twtr, 'source': f'{Decimal("1.00000000")}@{self.symbolTWTR}', 'destination': f'{self.prices[1]["discountPrice"]}@{self.symbolDUSD}'},
+            {'address': address_msft, 'source': f'{Decimal("1.00000000")}@{self.symbolMSFT}', 'destination': f'{self.prices[3]["discountPrice"]}@{self.symbolDUSD}'},
+        ]})
+
     def test_dusd_to_dtoken(self):
 
         # Create addresses for futures
@@ -430,6 +444,14 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getaccount(address_twtr)
         assert_equal(result, [f'1.00000000@{self.symbolTWTR}'])
 
+        # Populate RPC check
+        self.list_history.append({'height': self.nodes[0].getblockcount(), 'swaps': [
+            {'address': address_tsla, 'source': f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', 'destination': f'1.00000000@{self.symbolTSLA}'},
+            {'address': address_googl, 'source': f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', 'destination': f'1.00000000@{self.symbolGOOGL}'},
+            {'address': address_twtr, 'source': f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}', 'destination': f'1.00000000@{self.symbolTWTR}'},
+            {'address': address_msft, 'source': f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}', 'destination': f'1.00000000@{self.symbolMSFT}'},
+        ]})
+
     def check_swap_block_range(self):
 
         # Create addresses for futures
@@ -449,7 +471,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check that futures have been executed
         result = self.nodes[0].getaccount(address)
-        assert_equal(result, [f'913.50000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}'])
+        assert_equal(result, [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}'])
 
         # Check all pending swaps shows no entries
         result = self.nodes[0].listpendingfutureswaps()
@@ -461,6 +483,11 @@ class FuturesTest(DefiTestFramework):
 
         # Try and withdraw smallest amount now contract has been paid
         assert_raises_rpc_error(-32600, 'amount 0.00000000 is less than 0.00000001', self.nodes[0].withdrawfutureswap, address, f'{Decimal("0.00000001")}@{self.symbolDUSD}', int(self.idTSLA))
+
+        # Populate RPC check
+        self.list_history.append({'height': self.nodes[0].getblockcount(), 'swaps': [
+            {'address': address, 'source': f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', 'destination': f'1.00000000@{self.symbolTSLA}'},
+        ]})
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
@@ -846,6 +873,46 @@ class FuturesTest(DefiTestFramework):
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+    def rpc_history(self):
+
+        # Check some historical swaps
+        for history in self.list_history:
+            result = self.nodes[0].listfutureswaphistory('all', {"maxBlockHeight":history['height'], "depth":1})
+            swap_count = len(result)
+            assert_equal(len(result), swap_count)
+            for index in range(swap_count):
+                assert_equal(result[index]['height'], history['height'])
+                assert_equal(result[index]['address'], history['swaps'][index]['address'])
+                assert_equal(result[index]['source'], history['swaps'][index]['source'])
+                assert_equal(result[index]['destination'], history['swaps'][index]['destination'])
+
+        # Check all swaps present
+        result = self.nodes[0].listfutureswaphistory('all')
+        assert_equal(len(result), 20)
+
+        # Check swap by specific address
+        result = self.nodes[0].listfutureswaphistory(self.list_history[0]['swaps'][0]['address'])
+        assert_equal(len(result), 1)
+        assert_equal(result[0]['height'], self.list_history[0]['height'])
+        assert_equal(result[0]['address'], self.list_history[0]['swaps'][0]['address'])
+        assert_equal(result[0]['source'], self.list_history[0]['swaps'][0]['source'])
+        assert_equal(result[0]['destination'], self.list_history[0]['swaps'][0]['destination'])
+
+        # Check all wallet swaps present, still all of them!
+        result = self.nodes[0].listfutureswaphistory('mine')
+        assert_equal(len(result), 20)
+
+        # Check limit working
+        result = self.nodes[0].listfutureswaphistory('all', {'limit': 1})
+        assert_equal(len(result), 1)
+
+        # Filter on token
+        result = self.nodes[0].listfutureswaphistory('all', {'token': 'MSFT'})
+        assert_equal(len(result), 3)
+        for history in result:
+            if history['source'].find('MSFT') == -1:
+                assert(history['destination'].find('MSFT') != -1)
 
 if __name__ == '__main__':
     FuturesTest().main()

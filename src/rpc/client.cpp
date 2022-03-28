@@ -309,6 +309,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getaccounthistory", 2, "txn" },
     { "listburnhistory", 0, "options" },
     { "accounthistorycount", 1, "options" },
+    { "listfutureswaphistory", 1, "options" },
 
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },

@@ -2340,6 +2340,173 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
 }
 
 
+UniValue listfutureswaphistory(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"listfutureswaphistory",
+               "\nReturns information about future swap history.\n",
+               {
+                       {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+                       {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                                {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Optional height to iterate from (downto genesis block), (default = chaintip)."},
+                                {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum depth, from the genesis block is the default"},
+                                {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Filter by token"},
+                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum number of records to return, 100 by default"},
+                        },
+                       },
+               },
+               RPCResult{
+                       "[{},{}...]     (array) Objects with future swap history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listfutureswaphistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listfutureswaphistory", "all, '{\"maxBlockHeight\":160,\"depth\":10}'")
+               },
+    }.Check(request);
+
+
+    std::string accounts = "mine";
+    if (request.params.size() > 0) {
+        accounts = request.params[0].getValStr();
+    }
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
+    }
+
+    auto maxBlockHeight = std::numeric_limits<uint32_t>::max();
+    auto depth{maxBlockHeight};
+    std::string tokenFilter;
+    uint32_t limit = 100;
+
+    if (request.params.size() > 1) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+                        {
+                                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                                {"depth", UniValueType(UniValue::VNUM)},
+                                {"token", UniValueType(UniValue::VSTR)},
+                                {"limit", UniValueType(UniValue::VNUM)},
+                        }, true, true);
+
+        if (!optionsObj["maxBlockHeight"].isNull()) {
+            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+        }
+
+        if (!optionsObj["depth"].isNull()) {
+            depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            limit = (uint32_t) optionsObj["limit"].get_int64();
+        }
+
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    std::function<bool(CScript const &)> isMatchOwner = [](const CScript &) {
+        return true;
+    };
+
+    DCT_ID tokenID{};
+
+    if (!tokenFilter.empty()) {
+        const auto token = pcustomcsview->GetTokenGuessId(tokenFilter, tokenID);
+
+        if (!token) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist.", tokenFilter));
+        }
+    }
+
+    CScript account{};
+    auto isMine{false};
+    auto filter{ISMINE_ALL};
+
+    if (accounts == "mine") {
+        isMine = true;
+        filter = ISMINE_SPENDABLE;
+    } else if (accounts != "all") {
+        account = DecodeScript(accounts);
+        isMatchOwner = [&account](CScript const & owner) {
+            return owner == account;
+        };
+    }
+
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    if (depth > maxBlockHeight) {
+        depth = maxBlockHeight;
+    }
+
+    UniValue result(UniValue::VARR);
+    pcustomcsview->ForEachFuturesDestValues([&](const CFuturesUserKey& key, const CFuturesUserValue& destination) {
+        if (key.height < maxBlockHeight - depth) {
+            return false;
+        }
+
+        if (!isMatchOwner(key.owner)) {
+            return true;
+        }
+
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+            return true;
+        }
+
+        const auto userValue = pcustomcsview->GetFuturesUserValues(key);
+        if (!userValue) {
+            return true;
+        }
+
+        const auto& source = userValue.val->source;
+
+        if (!tokenFilter.empty()) {
+            if (tokenID != source.nTokenId && tokenID != destination.source.nTokenId) {
+                return true;
+            }
+        }
+
+        const auto sourceToken = pcustomcsview->GetToken(source.nTokenId);
+        if (!sourceToken) {
+            return true;
+        }
+
+        const auto destToken = pcustomcsview->GetToken(destination.source.nTokenId);
+        if (!destToken) {
+            return true;
+        }
+
+        CTxDestination dest;
+        if (!ExtractDestination(key.owner, dest)) {
+            return true;
+        }
+
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("height", static_cast<uint64_t>(destination.destination));
+        item.pushKV("address", EncodeDestination(dest));
+        item.pushKV("source", GetDecimaleString(source.nValue) + '@' + sourceToken->symbol);
+        item.pushKV("destination", GetDecimaleString(destination.source.nValue) + '@' + destToken->symbol);
+        result.push_back(item);
+
+        return --limit > 0;
+    }, {maxBlockHeight, account, std::numeric_limits<uint32_t>::max()});
+
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -2363,6 +2530,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
     {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
+    {"accounts",    "listfutureswaphistory",     &listfutureswaphistory,     {"owner", "options"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

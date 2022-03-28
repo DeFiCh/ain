@@ -142,6 +142,15 @@ Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CFut
     return Res::Ok();
 }
 
+ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key) {
+    CFuturesUserValue source;
+    if (!ReadBy<ByFuturesSourceKey>(key, source)) {
+        return Res::Err("Failed to read futures source");
+    }
+
+    return {source, Res::Ok()};
+}
+
 void CAccountsView::ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
 {
     ForEach<ByFuturesDestKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
