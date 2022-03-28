@@ -1515,9 +1515,9 @@ public:
             }
         }
 
-        const auto resVal = GetFutureSwapContractAddress();
-        if (!resVal) {
-            return resVal;
+        const auto contractAddressValue = GetFutureSwapContractAddress();
+        if (!contractAddressValue) {
+            return contractAddressValue;
         }
 
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
@@ -1562,7 +1562,7 @@ public:
                 }
             }
 
-            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *resVal, obj.owner);
+            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner);
             if (!res) {
                 return res;
             }
@@ -1572,7 +1572,7 @@ public:
                 return res;
             }
         } else {
-            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *resVal);
+            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
             if (!res) {
                 return res;
             }

@@ -161,7 +161,7 @@ static ResVal<int32_t> VerifyInt32(const std::string& str) {
     return {int32, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyPositiveInt64(const std::string& str) {
+static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
     CAmount int64;
     if (!ParseInt64(str, &int64) || int64 < 0) {
         return Res::Err("Value must be a positive integer");
@@ -223,7 +223,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::Premium,      VerifyPct},
                 {DFIPKeys::MinSwap,      VerifyFloat},
                 {DFIPKeys::RewardPct,    VerifyPct},
-                {DFIPKeys::BlockPeriod,  VerifyPositiveInt64},
+                {DFIPKeys::BlockPeriod,  VerifyInt64},
             }
         },
     };
@@ -389,9 +389,9 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         return true;
     }, {height, {}, std::numeric_limits<uint32_t>::max()});
 
-    const auto resVal = GetFutureSwapContractAddress();
-    if (!resVal) {
-        return resVal;
+    const auto contractAddressValue = GetFutureSwapContractAddress();
+    if (!contractAddressValue) {
+        return contractAddressValue;
     }
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
@@ -400,7 +400,7 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     for (const auto& [key, value] : userFuturesValues) {
         mnview.EraseFuturesUserValues(key);
 
-        auto res = mnview.SubBalance(*resVal, value.source);
+        auto res = mnview.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }

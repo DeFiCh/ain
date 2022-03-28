@@ -3383,8 +3383,8 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return true;
     }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
 
-    const auto resVal = GetFutureSwapContractAddress();
-    assert(resVal);
+    const auto contractAddressValue = GetFutureSwapContractAddress();
+    assert(contractAddressValue);
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
     auto balances = attributes->GetValue(liveKey, CBalances{});
@@ -3392,7 +3392,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
         cache.EraseFuturesUserValues(key);
-        cache.SubBalance(*resVal, value.source);
+        cache.SubBalance(*contractAddressValue, value.source);
         cache.AddBalance(key.owner, value.source);
         balances.Sub(value.source);
     }

@@ -2267,7 +2267,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     RPCHelpMan{"getpendingfutureswaps",
                "Get specific pending futures.\n",
                 {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get futures prices for"},
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
                 },
                 RPCResult{
                     "{\n"
