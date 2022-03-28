@@ -66,18 +66,12 @@ uint8_t CICXOrderView::GetICXOrderStatus(OrderKey const & key) const
 Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (GetICXOrderByCreationTx(order.creationTx))
-        return Res::Err("order with creation tx %s already exists!", order.creationTx.GetHex());
-    if (order.orderType != CICXOrder::TYPE_INTERNAL && order.orderType != CICXOrder::TYPE_EXTERNAL)
-        return Res::Err("invalid order type!");
-    if (order.amountFrom == 0)
-        return Res::Err("order amountFrom must be greater than 0!");
-    if (order.amountToFill != order.amountFrom)
-        return Res::Err("order amountToFill is not equal to amountFrom!");
-    if (order.orderPrice == 0)
-        return Res::Err("order price must be greater than 0!");
-    if (order.expiry < CICXOrder::DEFAULT_EXPIRY)
-        return Res::Err("order expiry must be greater than %d!", CICXOrder::DEFAULT_EXPIRY - 1);
+    Require(!GetICXOrderByCreationTx(order.creationTx), "order with creation tx %s already exists!", order.creationTx.GetHex());
+    Require(order.orderType == CICXOrder::TYPE_INTERNAL || order.orderType == CICXOrder::TYPE_EXTERNAL, "invalid order type!");
+    Require(order.amountFrom != 0, "order amountFrom must be greater than 0!");
+    Require(order.amountToFill == order.amountFrom, "order amountToFill does not equal to amountFrom!");
+    Require(order.orderPrice != 0, "order price must be greater than 0!");
+    Require(order.expiry >= CICXOrder::DEFAULT_EXPIRY, "order expiry must be greater than %d!", CICXOrder::DEFAULT_EXPIRY - 1);
 
     OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
@@ -90,8 +84,7 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
 Res CICXOrderView::ICXUpdateOrder(CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (!GetICXOrderByCreationTx(order.creationTx))
-        return Res::Err("order with creation tx %s doesn't exists!", order.creationTx.GetHex());
+    Require(GetICXOrderByCreationTx(order.creationTx), "order with creation tx %s doesn't exists!", order.creationTx.GetHex());
 
     OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
@@ -158,10 +151,8 @@ uint8_t CICXOrderView::GetICXMakeOfferStatus(TxidPairKey const & key) const
 Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
 {
     //this should not happen, but for sure
-    if (GetICXMakeOfferByCreationTx(makeoffer.creationTx))
-        return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
-    if (makeoffer.amount == 0)
-        return Res::Err("offer amount must be greater than 0!");
+    Require(!GetICXMakeOfferByCreationTx(makeoffer.creationTx), "makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
+    Require(makeoffer.amount != 0, "offer amount must be greater than 0!");
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);
@@ -221,14 +212,10 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::GetICXSubmi
 Res CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc)
 {
     //this should not happen, but for sure
-    if (GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx))
-        return Res::Err("submitdfchtlc with creation tx %s already exists!", submitdfchtlc.creationTx.GetHex());
-    if (submitdfchtlc.amount == 0)
-        return Res::Err("Invalid amount, must be greater than 0!");
-    if (submitdfchtlc.hash.IsNull())
-        return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
-    if (submitdfchtlc.timeout == 0)
-        return Res::Err("Invalid timeout, must be greater than 0!");
+    Require(!GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx), "submitdfchtlc with creation tx %s already exists!", submitdfchtlc.creationTx.GetHex());
+    Require(submitdfchtlc.amount != 0, "Invalid amount, must be greater than 0!");
+    Require(!submitdfchtlc.hash.IsNull(), "Invalid hash, htlc hash is empty and it must be set!");
+    Require(submitdfchtlc.timeout != 0, "Invalid timeout, must be greater than 0!");
 
     WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc);
     WriteBy<ICXSubmitDFCHTLCOpenKey>(TxidPairKey(submitdfchtlc.offerTx, submitdfchtlc.creationTx), CICXSubmitDFCHTLC::STATUS_OPEN);
@@ -299,18 +286,12 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmi
 Res CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc)
 {
     //this should not happen, but for sure
-    if (GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx))
-        return Res::Err("submitexthtlc with creation tx %s already exists!", submitexthtlc.creationTx.GetHex());
-    if (submitexthtlc.amount == 0)
-        return Res::Err("Invalid amount, must be greater than 0!");
-    if (submitexthtlc.htlcscriptAddress.empty())
-        return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
-    if (submitexthtlc.hash.IsNull())
-        return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
-    if (!submitexthtlc.ownerPubkey.IsFullyValid())
-        return Res::Err("Invalid refundPubkey is not a valid pubkey!");
-    if (submitexthtlc.timeout == 0)
-        return Res::Err("Invalid timout, must be greater than 0!");
+    Require(!GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx), "submitexthtlc with creation tx %s already exists!", submitexthtlc.creationTx.GetHex());
+    Require(submitexthtlc.amount != 0, "Invalid amount, must be greater than 0!");
+    Require(!submitexthtlc.htlcscriptAddress.empty(), "Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
+    Require(!submitexthtlc.hash.IsNull(), "Invalid hash, htlc hash is empty and it must be set!");
+    Require(submitexthtlc.ownerPubkey.IsFullyValid(), "Invalid refundPubkey is not a valid pubkey!");
+    Require(submitexthtlc.timeout != 0, "Invalid timout, must be greater than 0!");
 
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
     WriteBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_OPEN);
@@ -377,8 +358,7 @@ std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimD
 Res CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, uint256 const & offertxid, CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx))
-        return Res::Err("claimdfchtlc with creation tx %s already exists!", claimdfchtlc.creationTx.GetHex());
+    Require(!GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx), "claimdfchtlc with creation tx %s already exists!", claimdfchtlc.creationTx.GetHex());
 
     WriteBy<ICXClaimDFCHTLCCreationTx>(claimdfchtlc.creationTx, claimdfchtlc);
     WriteBy<ICXClaimDFCHTLCKey>(TxidPairKey(offertxid, claimdfchtlc.creationTx),CICXSubmitDFCHTLC::STATUS_CLAIMED);
@@ -405,8 +385,7 @@ std::unique_ptr<CICXOrderView::CICXCloseOrderImpl> CICXOrderView::GetICXCloseOrd
 Res CICXOrderView::ICXCloseOrder(CICXCloseOrderImpl const & closeorder)
 {
     //this should not happen, but for sure
-    if (GetICXCloseOrderByCreationTx(closeorder.creationTx))
-        return Res::Err("closeorder with creation tx %s already exists!", closeorder.creationTx.GetHex());
+    Require(!GetICXCloseOrderByCreationTx(closeorder.creationTx), "closeorder with creation tx %s already exists!", closeorder.creationTx.GetHex());
 
     WriteBy<ICXCloseOrderCreationTx>(closeorder.creationTx, closeorder.orderTx);
 
@@ -424,8 +403,7 @@ std::unique_ptr<CICXOrderView::CICXCloseOfferImpl> CICXOrderView::GetICXCloseOff
 Res CICXOrderView::ICXCloseOffer(CICXCloseOfferImpl const & closeoffer)
 {
     //this should not happen, but for sure
-    if (GetICXCloseOrderByCreationTx(closeoffer.creationTx))
-        return Res::Err("closeooffer with creation tx %s already exists!", closeoffer.creationTx.GetHex());
+    Require(!GetICXCloseOrderByCreationTx(closeoffer.creationTx), "closeooffer with creation tx %s already exists!", closeoffer.creationTx.GetHex());
 
     WriteBy<ICXCloseOfferCreationTx>(closeoffer.creationTx, closeoffer.offerTx);
 

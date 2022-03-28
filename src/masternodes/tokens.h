@@ -74,6 +74,9 @@ public:
     {
         return flags & (uint8_t)TokenFlags::LoanToken;
     }
+
+    [[nodiscard]] inline Res IsValidSymbol() const;
+
     inline std::string CreateSymbolKey(DCT_ID const & id) const {
         return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
