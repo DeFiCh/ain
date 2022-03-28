@@ -48,7 +48,7 @@ class TokensAutoAuthTest (DefiTestFramework):
             assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("tx must have at least one input from the owner" in errorString)
+        assert("tx must have at least one input from account owner" in errorString)
         errorString = ""
 
         n0.resignmasternode(mnId)
@@ -94,7 +94,7 @@ class TokensAutoAuthTest (DefiTestFramework):
             assert (False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("tx must have at least one input from the owner" in errorString)
+        assert("tx must have at least one input from account owner" in errorString)
         errorString = ""
 
         n0.updatetoken(

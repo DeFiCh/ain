@@ -20,8 +20,7 @@ UniValue ICX_TAKERFEE_PER_BTC::Export() const
 
 Res ICX_TAKERFEE_PER_BTC::Validate(const CCustomCSView &mnview) const
 {
-    if (takerFeePerBTC <= 0)
-        return Res::Err("takerFeePerBTC cannot be 0 or less");
+    Require(takerFeePerBTC > 0, "takerFeePerBTC cannot be 0 or less");
 
     return Res::Ok();
 }

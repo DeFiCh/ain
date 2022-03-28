@@ -291,22 +291,16 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
 {
     // auth already checked!
     auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("node %s does not exists", nodeId.ToString());
-    }
+    Require(node, "node %s does not exists", nodeId.ToString());
+
     auto state = node->GetState(height);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
-        if (state != CMasternode::ENABLED) {
-            return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
-        }
+        Require(state == CMasternode::ENABLED, "node %s state is not 'ENABLED'", nodeId.ToString());
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    const auto timelock = GetTimelock(nodeId, *node, height);
-    if (timelock) {
-        return Res::Err("Trying to resign masternode before timelock expiration.");
-    }
+    Require(!GetTimelock(nodeId, *node, height), "Trying to resign masternode before timelock expiration.");
 
     node->resignTx =  txid;
     node->resignHeight = height;
@@ -321,13 +315,11 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
     return Res::Err("reward address change is disabled for Fort Canning");
 
     auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("masternode %s does not exists", nodeId.ToString());
-    }
+    Require(node, "masternode %s does not exists", nodeId.ToString());
+
     auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
-        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
-    }
+    Require (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED,
+               "masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
 
     // If old masternode update foor new serialisatioono
     if (node->version < CMasternode::VERSION0) {
@@ -348,13 +340,11 @@ Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
     return Res::Err("reward address change is disabled for Fort Canning");
 
     auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("masternode %s does not exists", nodeId.ToString());
-    }
+    Require(node, "masternode %s does not exists", nodeId.ToString());
+
     auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
-        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
-    }
+    Require(state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED,
+              "masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
 
     node->rewardAddressType = 0;
     node->rewardAddress.SetNull();
@@ -369,18 +359,12 @@ Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType
 
     // auth already checked!
     auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("node %s does not exists", nodeId.ToString());
-    }
+    Require(node, "node %s does not exists", nodeId.ToString());
 
     const auto state = node->GetState(height);
-    if (state != CMasternode::ENABLED) {
-        return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
-    }
+    Require(state == CMasternode::ENABLED, "node %s state is not 'ENABLED'", nodeId.ToString());
 
-    if (operatorType == node->operatorType && operatorAuthAddress == node->operatorAuthAddress) {
-        return Res::Err("The new operator is same as existing operator");
-    }
+    Require(operatorType != node->operatorType || operatorAuthAddress != node->operatorAuthAddress, "The new operator is same as existing operator");
 
     // Remove old record
     EraseBy<Operator>(node->operatorAuthAddress);
@@ -413,18 +397,14 @@ std::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID
     ForEachMinterNode([&](const MNBlockTimeKey &key, int64_t blockTime)
     {
         if (key.masternodeID == nodeId)
-        {
             time = blockTime;
-        }
 
         // Get first result only and exit
         return false;
     }, MNBlockTimeKey{*nodeId, height - 1});
 
     if (time)
-    {
         return time;
-    }
 
     return {};
 }
@@ -864,19 +844,18 @@ CAmount CCollateralLoans::precisionRatio() const
     constexpr auto maxRatio = std::numeric_limits<CAmount>::max();
     auto ratio = calcRatio(maxRatio);
     const auto precision = COIN * 100;
-    return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
+    return ratio > double(maxRatio) / precision ? -COIN : CAmount(ratio * precision);
 }
 
 ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
     auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
-    if (!priceResult)
-        return priceResult;
+    Require(priceResult);
 
-    auto price = *priceResult.val;
+    auto price = *priceResult;
     auto amountInCurrency = MultiplyAmounts(price, amount);
-    if (price > COIN && amountInCurrency < amount)
-        return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
+    if (price > COIN)
+        Require(amountInCurrency > amount, "Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
 
     return ResVal<CAmount>(amountInCurrency, Res::Ok());
 }
@@ -885,17 +864,11 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
                                                            int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     auto vault = GetVault(vaultId);
-    if (!vault || vault->isUnderLiquidation)
-        return Res::Err("Vault is under liquidation");
+    Require(vault && !vault->isUnderLiquidation, "Vault is under liquidation");
 
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
-    if (!res)
-        return std::move(res);
-
-    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
-    if (!res)
-        return std::move(res);
+    Require(PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice));
+    Require(PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice));
 
     LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
@@ -911,16 +884,14 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
 
     auto priceFeed = GetFixedIntervalPrice(priceFeedId);
-    if (!priceFeed)
-        return std::move(priceFeed);
+    Require(priceFeed);
 
-    if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
-        return Res::Err("No live fixed prices for %s/%s", tokenSymbol, currency);
+    if (requireLivePrice)
+        Require(priceFeed->isLive(GetPriceDeviation()), "No live fixed prices for %s/%s", tokenSymbol, currency);
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
-    auto price = priceFeed.val->priceRecord[priceRecordIndex];
-    if (price <= 0)
-        return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
+    auto price = priceFeed->priceRecord[priceRecordIndex];
+    Require(price > 0, "Negative price (%s/%s)", tokenSymbol, currency);
 
     return ResVal<CAmount>(price, Res::Ok());
 }
@@ -937,25 +908,20 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         auto loanTokenAmount = loan.second;
 
         auto token = GetLoanTokenByID(loanTokenId);
-        if (!token)
-            return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        Require(token, "Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
         auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        if (!rate)
-            return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+        Require(rate, "Cannot get interest rate for token (%s)!", token->symbol);
+        Require(height >= rate->height, "Trying to read loans in the past");
 
-        if (rate->height > height)
-            return Res::Err("Trying to read loans in the past");
         LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!amountInCurrency)
-            return std::move(amountInCurrency);
+        Require(amountInCurrency);
 
         auto totalLoans = SafeAdd<uint64_t>(result.totalLoans, *amountInCurrency);
-        if (!totalLoans)
-            return Res::Err("Exceeded maximum loans");
+        Require(totalLoans, "Exceeded maximum loans");
 
         result.totalLoans = totalLoans;
         result.loans.push_back({loanTokenId, amountInCurrency});
@@ -971,18 +937,14 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
-        if (!token)
-            return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
+        Require(token, "Collateral token with id (%s) does not exist!", tokenId.ToString());
 
         auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        if (!amountInCurrency)
-            return std::move(amountInCurrency);
+        Require(amountInCurrency);
 
         auto amountFactor = MultiplyAmounts(token->factor, amountInCurrency);
-
         auto totalCollaterals = SafeAdd<uint64_t>(result.totalCollaterals, amountFactor);
-        if (!totalCollaterals)
-            return Res::Err("Exceeded maximum collateral");
+        Require(totalCollaterals, "Exceeded maximum collateral");
 
         result.totalCollaterals = totalCollaterals;
         result.collaterals.push_back({tokenId, amountInCurrency});

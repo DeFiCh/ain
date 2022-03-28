@@ -103,7 +103,7 @@ class TokensMultisigOwnerTest(DefiTestFramework):
             self.nodes[0].sendrawtransaction(signed_rawtx_1['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("tx must have at least one input from the owner" in errorString)
+        assert("tx must have at least one input from account owner" in errorString)
 
         # Test that multisig TXs can change names
         rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_1,"vout":vout_1}], [{"data":name_change_1},{owner_1:0.9999}])

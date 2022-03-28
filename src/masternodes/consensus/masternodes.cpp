@@ -8,14 +8,12 @@
 #include <primitives/transaction.h>
 
 Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const {
-    auto res = CheckMasternodeCreationTx();
-    if (!res)
-        return res;
+    Require(CheckMasternodeCreationTx());
 
-    if (height >= static_cast<uint32_t>(consensus.EunosHeight) && !HasAuth(tx.vout[1].scriptPubKey))
-        return Res::Err("masternode creation needs owner auth");
+    if (height >= static_cast<uint32_t>(consensus.EunosHeight))
+        Require(HasAuth(tx.vout[1].scriptPubKey), "masternode creation needs owner auth");
 
-    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight))
         switch(obj.timelock) {
             case CMasternode::ZEROYEAR:
             case CMasternode::FIVEYEAR:
@@ -24,8 +22,8 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
             default:
                 return Res::Err("Timelock must be set to either 0, 5 or 10 years");
         }
-    } else if (obj.timelock != 0)
-        return Res::Err("collateral timelock cannot be set below EunosPaya");
+    else
+        Require(obj.timelock == 0, "collateral timelock cannot be set below EunosPaya");
 
     CMasternode node;
     CTxDestination dest;
@@ -46,10 +44,8 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
     if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
         node.version = CMasternode::VERSION0;
 
-    res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
+    Require(mnview.CreateMasternode(tx.GetHash(), node, obj.timelock));
     // Build coinage from the point of masternode creation
-    if (!res)
-        return res;
 
     if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight))
         for (uint8_t i{0}; i < SUBNODE_COUNT; ++i)
@@ -62,20 +58,16 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage& obj) const
 }
 
 Res CMasternodesConsensus::operator()(const CResignMasterNodeMessage& obj) const {
-    auto res = HasCollateralAuth(obj);
-    return !res ? res : mnview.ResignMasternode(obj, tx.GetHash(), height);
+    Require(HasCollateralAuth(obj));
+    return mnview.ResignMasternode(obj, tx.GetHash(), height);
 }
 
 Res CMasternodesConsensus::operator()(const CSetForcedRewardAddressMessage& obj) const {
     // Temporarily disabled for 2.2
     return Res::Err("reward address change is disabled for Fort Canning");
 
-    auto node = mnview.GetMasternode(obj.nodeId);
-    if (!node)
-        return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-
-    if (!HasCollateralAuth(obj.nodeId))
-        return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
+    Require(mnview.GetMasternode(obj.nodeId), "masternode %s does not exist", obj.nodeId.ToString());
+    Require(HasCollateralAuth(obj.nodeId), "%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
 
     return mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
 }
@@ -84,12 +76,8 @@ Res CMasternodesConsensus::operator()(const CRemForcedRewardAddressMessage& obj)
     // Temporarily disabled for 2.2
     return Res::Err("reward address change is disabled for Fort Canning");
 
-    auto node = mnview.GetMasternode(obj.nodeId);
-    if (!node)
-        return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-
-    if (!HasCollateralAuth(obj.nodeId))
-        return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
+    Require(mnview.GetMasternode(obj.nodeId), "masternode %s does not exist", obj.nodeId.ToString());
+    Require(HasCollateralAuth(obj.nodeId), "%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
 
     return mnview.RemForcedRewardAddress(obj.nodeId, height);
 }
@@ -98,6 +86,6 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage& obj) const
     // Temporarily disabled for 2.2
     return Res::Err("updatemasternode is disabled for Fort Canning");
 
-    auto res = HasCollateralAuth(obj.mnId);
-    return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
+    Require(HasCollateralAuth(obj.mnId));
+    return mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
 }

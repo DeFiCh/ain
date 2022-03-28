@@ -79,12 +79,8 @@ public:
     }
     inline Res IsValidSymbol() const
     {
-        if (symbol.size() == 0 || IsDigit(symbol[0])) {
-            return Res::Err("token symbol should be non-empty and starts with a letter");
-        }
-        if (symbol.find('#') != std::string::npos) {
-            return Res::Err("token symbol should not contain '#'");
-        }
+        Require(!symbol.empty() && !IsDigit(symbol[0]), "token symbol should be non-empty and starts with a letter");
+        Require(symbol.find('#') == std::string::npos, "token symbol should not contain '#'");
         return Res::Ok();
     }
     inline std::string CreateSymbolKey(DCT_ID const & id) const {

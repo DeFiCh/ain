@@ -44,7 +44,7 @@ protected:
     Res CheckTokenCreationTx() const;
     Res CheckMasternodeCreationTx() const;
     ResVal<CBalances> BurntTokens() const;
-    bool HasAuth(const CScript& auth) const;
+    Res HasAuth(const CScript& auth) const;
     CAmount CalculateTakerFee(CAmount amount) const;
     Res EraseEmptyBalances(TAmounts& balances) const;
     void CalculateOwnerRewards(const CScript& owner) const;

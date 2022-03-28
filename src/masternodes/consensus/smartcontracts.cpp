@@ -12,118 +12,85 @@
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage& obj) const {
     auto attributes = mnview.GetAttributes();
-    if (!attributes)
-        return Res::Err("Attributes unavailable");
+    Require(attributes, "Attributes unavailable");
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
-
-    if (!attributes->GetValue(activeKey, false))
-        return Res::Err("DFIP2201 smart contract is not enabled");
-
-    if (obj.name != SMART_CONTRACT_DFIP_2201)
-        return Res::Err("DFIP2201 contract mismatch - got: " + obj.name);
-
-    if (obj.accounts.size() != 1)
-        return Res::Err("Only one address entry expected for " + obj.name);
-
-    if (obj.accounts.begin()->second.balances.size() != 1)
-        return Res::Err("Only one amount entry expected for " + obj.name);
+    Require(attributes->GetValue(activeKey, false), "DFIP2201 smart contract is not enabled");
+    Require(obj.name == SMART_CONTRACT_DFIP_2201, "DFIP2201 contract mismatch - got: " + obj.name);
+    Require(obj.accounts.size() == 1, "Only one address entry expected for " + obj.name);
+    Require(obj.accounts.begin()->second.balances.size() == 1, "Only one amount entry expected for " + obj.name);
 
     const auto& script = obj.accounts.begin()->first;
-    if (!HasAuth(script))
-        return Res::Err("Must have at least one input from supplied address");
+    Require(HasAuth(script));
 
     const auto& id = obj.accounts.begin()->second.balances.begin()->first;
     const auto& amount = obj.accounts.begin()->second.balances.begin()->second;
-
-    if (amount <= 0)
-        return Res::Err("Amount out of range");
+    Require(amount > 0, "Amount out of range");
 
     CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
     auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
+    Require(amount >= minSwap, "Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
 
-    if (minSwap && amount < minSwap)
-        return Res::Err("Below minimum swapable amount, must be at least " + GetDecimaleString(minSwap) + " BTC");
+    auto token = mnview.GetToken(id);
+    Require(token, "Specified token not found");
+    Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(), "Only Bitcoin can be swapped in " + obj.name);
 
-    const auto token = mnview.GetToken(id);
-    if (!token)
-        return Res::Err("Specified token not found");
-
-    if (token->symbol != "BTC" || token->name != "Bitcoin" || !token->IsDAT())
-        return Res::Err("Only Bitcoin can be swapped in " + obj.name);
-
-    auto res = mnview.SubBalance(script, {id, amount});
-    if (!res)
-        return res;
+    Require(mnview.SubBalance(script, {id, amount}));
 
     const CTokenCurrencyPair btcUsd{"BTC","USD"};
     const CTokenCurrencyPair dfiUsd{"DFI","USD"};
 
     bool useNextPrice{false}, requireLivePrice{true};
-    auto resVal = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
-    if (!resVal)
-        return std::move(resVal);
+    auto BtcUsd = mnview.GetValidatedIntervalPrice(btcUsd, useNextPrice, requireLivePrice);
+    Require(BtcUsd);
 
     CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Premium};
     auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
 
-    const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
+    const auto& btcPrice = MultiplyAmounts(*BtcUsd, premium + COIN);
 
-    resVal = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
-    if (!resVal)
-        return std::move(resVal);
+    auto DfiUsd = mnview.GetValidatedIntervalPrice(dfiUsd, useNextPrice, requireLivePrice);
+    Require(DfiUsd);
 
-    const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
-    res = mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI});
-    return !res ? res : mnview.AddBalance(script, {{0}, totalDFI});
+    const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *DfiUsd), amount);
+    Require(mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI}));
+    return mnview.AddBalance(script, {{0}, totalDFI});
 }
 
 Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
-    if (!HasAuth(obj.owner))
-        return Res::Err("Transaction must have at least one input from owner");
+    Require(HasAuth(obj.owner));
 
     const auto attributes = mnview.GetAttributes();
-    if (!attributes)
-        return Res::Err("Attributes unavailable");
+    Require(attributes, "Attributes unavailable");
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
     const auto active = attributes->GetValue(activeKey, false);
-    if (!active)
-        return Res::Err("DFIP2203 not currently active");
+    Require(active, "DFIP2203 not currently active");
 
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
-    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey))
-        return Res::Err("DFIP2203 not currently active");
+    Require(attributes->CheckKey(blockKey) && attributes->CheckKey(rewardKey), "DFIP2203 not currently active");
 
-    if (obj.source.nValue <= 0)
-        return Res::Err("Source amount must be more than zero");
+    Require(obj.source.nValue > 0, "Source amount must be more than zero");
 
     const auto source = mnview.GetLoanTokenByID(obj.source.nTokenId);
-    if (!source)
-        return Res::Err("Could not get source loan token %d", obj.source.nTokenId.v);
+    Require(source, "Could not get source loan token %d", obj.source.nTokenId.v);
 
     uint32_t tokenId;
 
     if (source->symbol == "DUSD") {
         tokenId = obj.destination;
-
-        if (!mnview.GetLoanTokenByID({tokenId}))
-            return Res::Err("Could not get destination loan token %d. Set valid destination.", tokenId);
+        Require(mnview.GetLoanTokenByID({tokenId}), "Could not get destination loan token %d. Set valid destination.", tokenId);
     } else {
-        if (obj.destination != 0)
-            return Res::Err("Destination should not be set when source amount is a dToken");
-
+        Require(obj.destination == 0, "Destination should not be set when source amount is a dToken");
         tokenId = obj.source.nTokenId.v;
     }
 
     CDataStructureV0 tokenKey{AttributeTypes::Token, tokenId, TokenKeys::DFIP2203Enabled};
-    if (!attributes->GetValue(tokenKey, true))
-        return Res::Err("DFIP2203 currently disabled for token %d", tokenId);
+    Require(attributes->GetValue(tokenKey, true), "DFIP2203 currently disabled for token %d", tokenId);
 
     const auto contractAddressValue = GetFutureSwapContractAddress();
-    if (!contractAddressValue)
-        return contractAddressValue;
+    Require(contractAddressValue);
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = attributes->GetValue(liveKey, CBalances{});
@@ -149,32 +116,17 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
             mnview.EraseFuturesUserValues(key);
         }
 
-        auto res = totalFutures.Sub(obj.source.nValue);
-        if (!res)
-            return res;
+        Require(totalFutures.Sub(obj.source.nValue));
 
-        if (totalFutures.nValue > 0) {
-            auto res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
-            if (!res)
-                return res;
-        }
+        if (totalFutures.nValue > 0)
+            Require(mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination}));
 
-        res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner);
-        if (!res)
-            return res;
+        Require(TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner));
+        Require(balances.Sub(obj.source));
 
-        res = balances.Sub(obj.source);
-        if (!res)
-            return res;
     } else {
-        auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
-        if (!res)
-            return res;
-
-        res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
-        if (!res)
-            return res;
-
+        Require(TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue));
+        Require(mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination}));
         balances.Add(obj.source);
     }
 
@@ -183,13 +135,11 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
 }
 
 Res CSmartContractsConsensus::operator()(const CSmartContractMessage& obj) const {
-    if (obj.accounts.empty())
-        return Res::Err("Contract account parameters missing");
+    Require(!obj.accounts.empty(), "Contract account parameters missing");
 
     auto contracts = consensus.smartContracts;
     auto contract = contracts.find(obj.name);
-    if (contract == contracts.end())
-        return Res::Err("Specified smart contract not found");
+    Require(contract != contracts.end(), "Specified smart contract not found");
 
     // Convert to switch when it's long enough.
     if (obj.name == SMART_CONTRACT_DFIP_2201)

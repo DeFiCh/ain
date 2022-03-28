@@ -2565,13 +2565,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
-                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
-                if (!res.ok) {
+                auto res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
+                if (!res) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): %s", res.msg),
-                                         REJECT_INVALID, res.dbgMsg);
+                                         REJECT_INVALID, "bad-anchor-tx");
                 }
-                rewardedAnchors.push_back(*res.val);
+                rewardedAnchors.push_back(*res);
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
@@ -2841,18 +2841,10 @@ void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& 
         },
         [&](CScript const & from, CScript const & to, CTokenAmount amount) {
             if (!from.empty()) {
-                auto res = cache.SubBalance(from, amount);
-                if (!res) {
-                    LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
-                    return res;
-                }
+                Require(cache.SubBalance(from, amount));
             }
             if (!to.empty()) {
-                auto res = cache.AddBalance(to, amount);
-                if (!res) {
-                    LogPrintf("Can't apply reward to %s: %s, %ld\n", to.GetHex(), res.msg, pindex->nHeight);
-                    return res;
-                }
+                Require(cache.AddBalance(to, amount));
                 cache.UpdateBalancesHeight(to, pindex->nHeight + 1);
             }
             return Res::Ok();

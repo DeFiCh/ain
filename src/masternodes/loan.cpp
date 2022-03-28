@@ -14,12 +14,9 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollater
 Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken)
 {
     //this should not happen, but for sure
-    if (GetLoanCollateralToken(collToken.creationTx))
-        return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
-    if (collToken.factor > COIN)
-        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
-    if (collToken.factor < 0)
-        return Res::Err("setCollateralToken factor must not be negative!");
+    Require(!GetLoanCollateralToken(collToken.creationTx), "setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
+    Require(collToken.factor <= COIN, "setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
+    Require(collToken.factor >= 0, "setCollateralToken factor must not be negative!");
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
 
@@ -46,9 +43,8 @@ void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKe
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid() && it.Key().id == key.id) {
+    if (it.Valid() && it.Key().id == key.id)
         return GetLoanCollateralToken(it.Value());
-    }
 
     return GetCollateralTokenFromAttributes(key.id);
 }
@@ -64,11 +60,8 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
     //this should not happen, but for sure
-    if (GetLoanTokenByID(id))
-        return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
-
-    if (loanToken.interest < 0)
-        return Res::Err("interest rate cannot be less than 0!");
+    Require(!GetLoanTokenByID(id), "setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
+    Require(loanToken.interest >= 0, "interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);
@@ -78,8 +71,7 @@ Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID cons
 
 Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
-    if (loanToken.interest < 0)
-        return Res::Err("interest rate cannot be less than 0!");
+    Require(loanToken.interest >= 0, "interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
 
@@ -144,9 +136,8 @@ Res CLoanView::StoreDefaultLoanScheme(const std::string& loanSchemeID)
 std::optional<std::string> CLoanView::GetDefaultLoanScheme()
 {
     std::string loanSchemeID;
-    if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID)) {
+    if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID))
         return loanSchemeID;
-    }
 
     return {};
 }
@@ -267,19 +258,16 @@ void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme)
-        return Res::Err("No such scheme id %s", loanSchemeID);
+    Require(scheme, "No such scheme id %s", loanSchemeID);
 
     auto token = GetLoanTokenByID(id);
-    if (!token)
-        return Res::Err("No such loan token id %s", id.ToString());
+    Require(token, "No such loan token id %s", id.ToString());
 
     CInterestRateV2 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height))
         rate = *readRate;
 
-    if (rate.height > height || height == 0)
-        return Res::Err("Cannot store height in the past");
+    Require(height >= rate.height, "Cannot store height in the past");
 
     if (rate.height) {
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
@@ -308,22 +296,18 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
 Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme)
-        return Res::Err("No such scheme id %s", loanSchemeID);
+    Require(scheme, "No such scheme id %s", loanSchemeID);
 
     auto token = GetLoanTokenByID(id);
-    if (!token)
-        return Res::Err("No such loan token id %s", id.ToString());
+    Require(token, "No such loan token id %s", id.ToString());
 
     CInterestRateV2 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height))
         rate = *readRate;
 
-    if (rate.height > height)
-        return Res::Err("Cannot store height in the past");
+    Require(height >= rate.height, "Cannot store height in the past");
 
-    if (rate.height == 0)
-        return Res::Err("Data mismatch height == 0");
+    Require(rate.height != 0, "Data mismatch height == 0");
 
     auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
 
@@ -400,9 +384,8 @@ void CLoanView::RevertInterestRateToV1()
         return true;
     });
 
-    for (auto it = pairs.begin(); it != pairs.end(); it = pairs.erase(it)) {
+    for (auto it = pairs.begin(); it != pairs.end(); it = pairs.erase(it))
         EraseBy<LoanInterestV2ByVault>(*it);
-    }
 }
 
 void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
@@ -421,14 +404,11 @@ void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanTokenByID(amount.nTokenId))
-        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
+    Require(GetLoanTokenByID(amount.nTokenId), "No such loan token id %s", amount.nTokenId.ToString());
 
     CBalances amounts;
     ReadBy<LoanTokenAmount>(vaultId, amounts);
-    auto res = amounts.Add(amount);
-    if (!res)
-        return res;
+    Require(amounts.Add(amount));
 
     if (!amounts.balances.empty())
         WriteBy<LoanTokenAmount>(vaultId, amounts);
@@ -438,12 +418,10 @@ Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 
 Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
-    if (!GetLoanTokenByID(amount.nTokenId))
-        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
+    Require(GetLoanTokenByID(amount.nTokenId), "No such loan token id %s", amount.nTokenId.ToString());
 
     auto amounts = GetLoanTokens(vaultId);
-    if (!amounts || !amounts->Sub(amount))
-        return Res::Err("Loan token for vault <%s> not found", vaultId.GetHex());
+    Require(amounts && amounts->Sub(amount), "Loan token for vault <%s> not found", vaultId.GetHex());
 
     if (amounts->balances.empty())
         EraseBy<LoanTokenAmount>(vaultId);

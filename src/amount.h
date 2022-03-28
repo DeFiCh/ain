@@ -94,15 +94,13 @@ ResVal<T> SafeAdd(T a, T b) {
     static_assert(std::is_integral_v<T>, "SafeAdd is implemented to integral types");
 
     // check limits
-    if (a < 0 || b < 0) {
-        return Res::Err("negative amount");
-    }
+    Require(a >= 0 && b >= 0, "negative amount");
 
     constexpr auto max = std::numeric_limits<T>::max();
+
     // check overflow
-    if (max - a < b) {
-        return Res::Err("integral overflow");
-    }
+    Require(max - a >= b, "integral overflow");
+
     return {a + b, Res::Ok()};
 }
 
@@ -126,25 +124,20 @@ struct CTokenAmount { // simple std::pair is less informative
 
     Res Add(CAmount amount) {
         // safety checks
-        if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
-        }
+        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+
         // add
         auto sumRes = SafeAdd(nValue, amount);
-        if (!sumRes) {
-            return std::move(sumRes);
-        }
-        nValue = sumRes;
+        Require(sumRes);
+
+        nValue = *sumRes;
         return Res::Ok();
     }
     Res Sub(CAmount amount) {
         // safety checks
-        if (amount < 0) {
-            return Res::Err("negative amount: %s", GetDecimaleString(amount));
-        }
-        if (nValue < amount) {
-            return Res::Err("amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
-        }
+        Require(amount >= 0, "negative amount: %s", GetDecimaleString(amount));
+        Require(nValue >= amount, "amount %s is less than %s", GetDecimaleString(nValue), GetDecimaleString(amount));
+
         // sub
         nValue -= amount;
         return Res::Ok();

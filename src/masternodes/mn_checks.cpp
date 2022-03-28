@@ -222,19 +222,12 @@ public:
 
     template<typename T>
     Res operator()(T& obj) const {
-        auto res = EnabledAfter<T>();
-        if (!res)
-
-            return res;
-
-        res = DisabledAfter<T>();
-        if (!res)
-            return res;
+        Require(EnabledAfter<T>());
+        Require(DisabledAfter<T>());
 
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
         ss >> obj;
-        if (!ss.empty())
-            return Res::Err("deserialization failed: excess %d bytes", ss.size());
+        Require(ss.empty(), "deserialization failed: excess %d bytes", ss.size());
 
         return Res::Ok();
     }
@@ -428,9 +421,10 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    if (metadataValidation && txType == CustomTxType::Reject) {
-        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
+    if (metadataValidation) {
+        Require(txType != CustomTxType::Reject, CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
+
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
@@ -476,70 +470,41 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if (height < consensusParams.DakotaHeight) {
-        return Res::Err("New anchor TX type before Dakota fork. Height %d", height);
-    }
+    Require(height >= consensusParams.DakotaHeight, "New anchor TX type before Dakota fork. Height %d", height);
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessage finMsg;
     ss >> finMsg;
 
     auto rewardTx = mnview.GetRewardForAnchor(finMsg.btcTxHash);
-    if (rewardTx) {
-        return Res::ErrDbg("bad-ar-exists", "reward for anchor %s already exists (tx: %s)",
-                           finMsg.btcTxHash.ToString(), (*rewardTx).ToString());
-    }
+    Require(!rewardTx, "reward for anchor %s already exists (tx: %s)", finMsg.btcTxHash.ToString(), rewardTx->ToString());
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
     int anchorHeight = height - 1;
     auto team = mnview.GetConfirmTeam(anchorHeight);
-    if (!team) {
-        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", anchorHeight);
-    }
+    Require(team, "could not get confirm team for height: %d", anchorHeight);
 
     auto uniqueKeys = finMsg.CheckConfirmSigs(*team, anchorHeight);
-    if (!uniqueKeys) {
-        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
-    }
+    Require(uniqueKeys, "anchor signatures are incorrect");
 
     auto quorum = GetMinAnchorQuorum(*team);
-    if (finMsg.sigs.size() < quorum) {
-        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor sigs (%d) < min quorum (%) ",
-                           finMsg.sigs.size(), quorum);
-    }
-
-    if (uniqueKeys < quorum) {
-        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor unique keys (%d) < min quorum (%) ",
-                           uniqueKeys, quorum);
-    }
+    Require(finMsg.sigs.size() >= quorum, "anchor sigs (%d) < min quorum (%) ", finMsg.sigs.size(), quorum);
+    Require(uniqueKeys >= quorum, "anchor unique keys (%d) < min quorum (%) ", uniqueKeys, quorum);
 
     // Make sure anchor block height and hash exist in chain.
-    CBlockIndex* anchorIndex = ::ChainActive()[finMsg.anchorHeight];
-    if (!anchorIndex) {
-        return Res::ErrDbg("bad-ar-height", "Active chain does not contain block height %d. Chain height %d",
-                           finMsg.anchorHeight, ::ChainActive().Height());
-    }
-
-    if (anchorIndex->GetBlockHash() != finMsg.dfiBlockHash) {
-        return Res::ErrDbg("bad-ar-hash", "Anchor and blockchain mismatch at height %d. Expected %s found %s",
-                           finMsg.anchorHeight, anchorIndex->GetBlockHash().ToString(), finMsg.dfiBlockHash.ToString());
-    }
-
+    auto* anchorIndex = ::ChainActive()[finMsg.anchorHeight];
+    Require(anchorIndex, "Active chain does not contain block height %d. Chain height %d", finMsg.anchorHeight, ::ChainActive().Height());
+    Require(anchorIndex->GetBlockHash() == finMsg.dfiBlockHash, "Anchor and blockchain mismatch at height %d. Expected %s found %s",
+                                                                  finMsg.anchorHeight, anchorIndex->GetBlockHash().ToString(), finMsg.dfiBlockHash.ToString());
     // check reward sum
     auto const cbValues = tx.GetValuesOut();
-    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
-        return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be paid in DFI only");
+    Require(cbValues.size() == 1 && cbValues.begin()->first == DCT_ID{0}, "anchor reward should be paid in DFI only");
 
     auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
-    if (cbValues.begin()->second != anchorReward) {
-        return Res::ErrDbg("bad-ar-amount", "anchor pays wrong amount (actual=%d vs expected=%d)",
-                           cbValues.begin()->second, anchorReward);
-    }
+    Require(cbValues.begin()->second == anchorReward, "anchor pays wrong amount (actual=%d vs expected=%d)", cbValues.begin()->second, anchorReward);
 
     CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
-        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
-    }
+    Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
@@ -611,7 +576,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
             toPoolsID.emplace(pool.idTokenA.v, id);
         }
         return true;
-    }, {0});
+    });
 
     if (fromPoolsID.empty() || toPoolsID.empty()) {
         return {};
@@ -660,7 +625,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
             }
         }
         return true;
-    }, {0});
+    });
 
     // return pool paths
     return poolPaths;
@@ -671,25 +636,19 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
 // testOnly is only meant for one-off tests per well defined view.
 Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly) {
 
-    Res poolResult = Res::Ok();
-
     // No composite swap allowed before Fort Canning
     if (static_cast<int>(height) < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
-    if (obj.amountFrom <= 0) {
-        return Res::Err("Input amount should be positive");
-    }
+    Require(obj.amountFrom > 0, "Input amount should be positive");
 
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
     std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
-        if (!poolPair) {
-            return Res::Err("Cannot find the pool pair.");
-        }
+        Require(poolPair, "Cannot find the pool pair.");
 
         // Add single swap pool to vector for loop
         poolIDs.push_back(poolPair->first);
@@ -706,9 +665,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     }
 
     auto attributes = view.GetAttributes();
-    if (!attributes) {
+    if (!attributes)
         attributes = std::make_shared<ATTRIBUTES>();
-    }
 
     CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
     auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
@@ -729,9 +687,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         else // Or get pools from IDs provided for composite swap
         {
             pool = view.GetPoolPair(currentID);
-            if (!pool) {
-                return Res::Err("Cannot find the pool pair.");
-            }
+            Require(pool, "Cannot find the pool pair.");
         }
 
         // Check if last pool swap
@@ -740,17 +696,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         const auto swapAmount = swapAmountResult;
 
         if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && lastSwap) {
-            if (obj.idTokenTo == swapAmount.nTokenId) {
-                return Res::Err("Final swap should have idTokenTo as destination, not source");
-            }
-            if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
-                return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
-            }
+            Require(obj.idTokenTo != swapAmount.nTokenId, "Final swap should have idTokenTo as destination, not source");
+
+            Require(pool->idTokenA == obj.idTokenTo || pool->idTokenB == obj.idTokenTo,
+                        "Final swap pool should have idTokenTo, incorrect final pool ID provided");
         }
 
-        if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
-            return Res::Err("Pool currently disabled due to locked token");
-        }
+        Require(!view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v}), "Pool currently disabled due to locked token");
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
 
@@ -767,7 +719,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         const auto initBlockCommission = blockCommission;
 
         // Perform swap
-        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
+        Require(pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
@@ -786,58 +738,38 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             if (testOnly)
                 return Res::Ok();
 
-            auto res = view.SetPoolPair(currentID, height, *pool);
-            if (!res) {
-                return res;
-            }
+            Require(view.SetPoolPair(currentID, height, *pool));
 
             CCustomCSView intermediateView(view);
             // hide interemidiate swaps
             auto& subView = i == 0 ? view : intermediateView;
-            res = subView.SubBalance(obj.from, swapAmount);
-            if (!res) {
-                return res;
-            }
+            Require(subView.SubBalance(obj.from, swapAmount));
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
-            if (!res) {
-                return res;
-            }
+            Require(addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult));
             intermediateView.Flush();
 
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
-                if (!res) {
-                    return res;
-                }
+                Require(view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount));
                 totalTokenA.feeburn += dexfeeInAmount.nValue;
             }
 
             // burn the dex out amount
             if (dexfeeOutAmount.nValue > 0) {
-                res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
-                if (!res) {
-                    return res;
-                }
+                Require(view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount));
                 totalTokenB.feeburn += dexfeeOutAmount.nValue;
             }
 
             totalTokenA.swaps += (reserveAmount - initReserveAmount);
             totalTokenA.commissions += (blockCommission - initBlockCommission);
 
-            if (lastSwap && obj.to == Params().GetConsensus().burnAddress) {
+            if (lastSwap && obj.to == Params().GetConsensus().burnAddress)
                 totalTokenB.feeburn += swapAmountResult.nValue;
-            }
 
-           return res;
-        }, static_cast<int>(height));
-
-        if (!poolResult) {
-            return poolResult;
-        }
+           return Res::Ok();
+        }, static_cast<int>(height)));
     }
 
     // Reject if price paid post-swap above max price provided
@@ -857,14 +789,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
 
-    return poolResult;
+    return Res::Ok();
 }
 
 Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
 {
     auto token = mnview.GetToken(tokenId);
-    if (!token)
-        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
+    Require(token, "Cannot find token with id %s!", tokenId.ToString());
 
     CPoolSwapMessage obj;
 
@@ -882,16 +813,13 @@ Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CSc
         return poolSwap.ExecuteSwap(mnview, {});
 
     auto dUsdToken = mnview.GetToken("DUSD");
-    if (!dUsdToken)
-        return Res::Err("Cannot find token DUSD");
+    Require(dUsdToken, "Cannot find token DUSD");
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
-    if (!pooldUSDDFI)
-        return Res::Err("Cannot find pool pair DUSD-DFI!");
+    Require(pooldUSDDFI, "Cannot find pool pair DUSD-DFI!");
 
     auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
-    if (!poolTokendUSD)
-        return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
+    Require(poolTokendUSD, "Cannot find pool pair %s-DUSD!", token->symbol);
 
     // swap tokenID -> USD -> DFI
     return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
