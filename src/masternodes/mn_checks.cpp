@@ -76,7 +76,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
         case CustomTxType::TakeLoan:            return "TakeLoan";
         case CustomTxType::PaybackLoan:         return "PaybackLoan";
-        case CustomTxType::PaybackLoanV2:       return "PaybackLoanV2";
+        case CustomTxType::PaybackLoanV2:       return "PaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
