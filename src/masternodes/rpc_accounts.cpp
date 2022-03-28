@@ -1802,7 +1802,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         // withdraw burn
-        if (value.category == uint8_t(CustomTxType::PaybackLoan)) {
+        if (value.category == uint8_t(CustomTxType::PaybackLoan)
+        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
             for (auto const & diff : value.diff) {
                 paybackFee += diff.second;
             }
@@ -1885,7 +1886,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     return result;
 }
 
-UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet, 
+UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
     CUtxosToAccountMessage msg{};
     msg.to = {{contractPair.second, {{{{0}, amount.nValue}}}}};
