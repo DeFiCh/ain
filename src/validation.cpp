@@ -3363,7 +3363,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                     const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
                     CTokenAmount destination{destId, total};
                     cache.AddBalance(key.owner, destination);
-                    cache.StoreFuturesDestValues(key, destination);
+                    cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
                     LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
                              key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
@@ -3380,7 +3380,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
                 CTokenAmount destination{tokenDUSD->first, total};
                 cache.AddBalance(key.owner, destination);
-                cache.StoreFuturesDestValues(key, destination);
+                cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
                 LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
                          key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {

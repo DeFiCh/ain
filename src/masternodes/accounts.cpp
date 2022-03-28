@@ -133,7 +133,7 @@ boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
     return {};
 }
 
-Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CTokenAmount& destination)
+Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CFuturesUserValue& destination)
 {
     if (!WriteBy<ByFuturesDestKey>(key, destination)) {
         return Res::Err("Failed to store futures destination");
@@ -142,7 +142,7 @@ Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CTok
     return Res::Ok();
 }
 
-void CAccountsView::ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CTokenAmount&)> callback, const CFuturesUserKey& start)
+void CAccountsView::ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
 {
-    ForEach<ByFuturesSourceKey, CFuturesUserKey, CTokenAmount>(callback, start);
+    ForEach<ByFuturesDestKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }
