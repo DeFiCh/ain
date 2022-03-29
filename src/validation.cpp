@@ -3381,7 +3381,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 CTokenAmount destination{tokenDUSD->first, total};
                 cache.AddBalance(key.owner, destination);
                 cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
-                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
                          key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
@@ -3399,9 +3399,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
 
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
-        cache.EraseFuturesUserValues(key);
         cache.SubBalance(*contractAddressValue, value.source);
         cache.AddBalance(key.owner, value.source);
+        cache.StoreFuturesDestValues(key, {value.source, static_cast<uint32_t>(pindex->nHeight)});
+        LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Refund Owner %s source %s destination %s\n",
+                 key.owner.GetHex(), value.source.ToString(), value.source.ToString());
         balances.Sub(value.source);
     }
 

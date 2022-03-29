@@ -858,6 +858,12 @@ class FuturesTest(DefiTestFramework):
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
+        # Check refund in history
+        result = self.nodes[0].listfutureswaphistory()
+        assert_equal(result[0]['address'], address)
+        assert_equal(result[0]['source'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
+        assert_equal(result[0]['destination'], f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}')
+
         # Check user has been refunded
         result = self.nodes[0].getaccount(address)
         assert_equal(result, [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
@@ -889,7 +895,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check all swaps present
         result = self.nodes[0].listfutureswaphistory('all')
-        assert_equal(len(result), 20)
+        assert_equal(len(result), 21)
 
         # Check swap by specific address
         result = self.nodes[0].listfutureswaphistory(self.list_history[0]['swaps'][0]['address'])
@@ -901,7 +907,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check all wallet swaps present, still all of them!
         result = self.nodes[0].listfutureswaphistory('mine')
-        assert_equal(len(result), 20)
+        assert_equal(len(result), 21)
 
         # Check limit working
         result = self.nodes[0].listfutureswaphistory('all', {'limit': 1})
