@@ -2061,7 +2061,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
                        {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
-                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2100,7 +2100,14 @@ UniValue futureswap(const JSONRPCRequest& request) {
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
 
     if (!request.params[2].isNull()) {
-        msg.destination = request.params[2].get_int();
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
     }
 
     // Encode
@@ -2146,7 +2153,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
                        {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
-                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2184,7 +2191,14 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
     msg.withdraw = true;
 
     if (!request.params[2].isNull()) {
-        msg.destination = request.params[2].get_int();
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
     }
 
     // Encode

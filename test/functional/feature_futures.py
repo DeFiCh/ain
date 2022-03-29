@@ -366,13 +366,13 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create user futures contracts
-        self.nodes[0].futureswap(address_msft, f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}', int(self.idMSFT))
+        self.nodes[0].futureswap(address_msft, f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}', self.idMSFT)
         self.nodes[0].generate(1)
-        self.nodes[0].futureswap(address_twtr, f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTWTR))
+        self.nodes[0].futureswap(address_twtr, f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}', self.idTWTR)
         self.nodes[0].generate(1)
-        self.nodes[0].futureswap(address_googl, f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', int(self.idGOOGL))
+        self.nodes[0].futureswap(address_googl, f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', self.symbolGOOGL)
         self.nodes[0].generate(1)
-        self.nodes[0].futureswap(address_tsla, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].futureswap(address_tsla, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', self.symbolTSLA)
         self.nodes[0].generate(1)
 
         # List user futures contracts
