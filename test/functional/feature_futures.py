@@ -798,22 +798,18 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[0]['blockHeight'], self.nodes[0].getblockcount())
         assert_equal(result[0]['type'], 'FutureSwapRefund')
         assert_equal(result[0]['amounts'], [f'{-self.prices[0]["premiumPrice"] - self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+        assert_equal(result[1]['type'], 'FutureSwapRefund')
+        assert_equal(result[2]['type'], 'FutureSwapRefund')
+        assert_equal(result[1]['blockHeight'], self.nodes[0].getblockcount())
+        assert_equal(result[2]['blockHeight'], self.nodes[0].getblockcount())
         if result[1]['owner'] == address_googl:
-            assert_equal(result[1]['blockHeight'], self.nodes[0].getblockcount())
-            assert_equal(result[1]['type'], 'FutureSwapRefund')
             assert_equal(result[1]['amounts'], [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
             assert_equal(result[2]['owner'], address_tsla)
-            assert_equal(result[2]['blockHeight'], self.nodes[0].getblockcount())
-            assert_equal(result[2]['type'], 'FutureSwapRefund')
             assert_equal(result[2]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
         else:
             assert_equal(result[1]['owner'], address_tsla)
-            assert_equal(result[1]['blockHeight'], self.nodes[0].getblockcount())
-            assert_equal(result[1]['type'], 'FutureSwapRefund')
             assert_equal(result[1]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
             assert_equal(result[2]['owner'], address_googl)
-            assert_equal(result[2]['blockHeight'], self.nodes[0].getblockcount())
-            assert_equal(result[2]['type'], 'FutureSwapRefund')
             assert_equal(result[2]['amounts'], [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
 
         # Balances should be restored
