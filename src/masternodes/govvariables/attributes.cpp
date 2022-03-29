@@ -146,7 +146,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         {
             AttributeTypes::Live, {
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                {EconomyKeys::DFIP2203Tokens,    "dfip_tokens"},
+                {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
+                {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
             }
         },
     };
@@ -394,7 +395,7 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         return contractAddressValue;
     }
 
-    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
     for (const auto& [key, value] : userFuturesValues) {

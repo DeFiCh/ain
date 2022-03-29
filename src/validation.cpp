@@ -3342,6 +3342,10 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return true;
     });
 
+    CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+
+    auto burned = attributes->GetValue(burnKey, CBalances{});
+
     const uint32_t startHeight = pindex->nHeight - blockPeriod;
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
@@ -3363,6 +3367,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                     const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
                     CTokenAmount destination{destId, total};
                     cache.AddBalance(key.owner, destination);
+                    burned.Add(futuresValues.source);
                     cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
                     LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
                              key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
@@ -3380,6 +3385,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
                 CTokenAmount destination{tokenDUSD->first, total};
                 cache.AddBalance(key.owner, destination);
+                burned.Add(futuresValues.source);
                 cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
                 LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
                          key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
@@ -3394,7 +3400,8 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     const auto contractAddressValue = GetFutureSwapContractAddress();
     assert(contractAddressValue);
 
-    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
+
     auto balances = attributes->GetValue(liveKey, CBalances{});
 
     // Refund unpaid contracts
@@ -3407,10 +3414,13 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         balances.Sub(value.source);
     }
 
+    attributes->attributes[burnKey] = burned;
+
     if (!unpaidContracts.empty()) {
         attributes->attributes[liveKey] = balances;
-        cache.SetVariable(*attributes);
     }
+
+    cache.SetVariable(*attributes);
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){

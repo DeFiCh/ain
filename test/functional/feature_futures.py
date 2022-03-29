@@ -304,6 +304,11 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [])
 
+        # Check DFI2203 address on listgovs, current shows pending, burn should be empty.
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert('v0/live/economy/dfip2203_burned' not in result)
+
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
@@ -326,7 +331,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip_tokens'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
@@ -410,6 +415,15 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['values'][0]['source'], f'{self.prices[3]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolMSFT)
 
+        # Check new DFI2203 amounts do not show up as burns yet
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2203'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
+        # Check DFI2203 address on listgovs, current shows pending, new swaps should not show up on burn.
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'3992.10000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_burned'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
@@ -432,7 +446,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip_tokens'], [f'3992.10000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'3992.10000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
@@ -667,7 +681,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip_tokens'], [f'7468.64999999@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'7468.64999999@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
@@ -835,7 +849,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip_tokens'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
@@ -878,7 +892,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip_tokens'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
