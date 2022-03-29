@@ -4,8 +4,11 @@
 
 #include <masternodes/govvariables/attributes.h>
 
-#include <core_io.h> /// ValueFromAmount
+#include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/masternodes.h> /// CCustomCSView
+#include <masternodes/mn_checks.h> /// CustomTxType
+
+#include <core_io.h> /// ValueFromAmount
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
@@ -371,14 +374,9 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         return Res::Ok();
     }
 
-    const uint32_t startHeight = height - (height % blockPeriod);
     std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
     mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-        if (key.height <= startHeight) {
-            return false;
-        }
-
         if (tokenID != std::numeric_limits<uint32_t>::max()) {
             if (futuresValues.source.nTokenId.v == tokenID || futuresValues.destination == tokenID) {
                 userFuturesValues[key] = futuresValues;
@@ -398,15 +396,19 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
-    for (const auto& [key, value] : userFuturesValues) {
-        mnview.EraseFuturesUserValues(key);
 
-        auto res = mnview.SubBalance(*contractAddressValue, value.source);
+    CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
+    CAccountsHistoryWriter view(mnview, height, ~0u, {}, uint8_t(CustomTxType::FutureSwapRefund), &writers);
+
+    for (const auto& [key, value] : userFuturesValues) {
+        view.EraseFuturesUserValues(key);
+
+        auto res = view.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }
 
-        res = mnview.AddBalance(key.owner, value.source);
+        res = view.AddBalance(key.owner, value.source);
         if (!res) {
             return res;
         }
@@ -416,6 +418,8 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
             return res;
         }
     }
+
+    view.Flush();
 
     attributes[liveKey] = balances;
 
@@ -685,13 +689,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
                 if (GetValue(activeKey, false)) {
                     return Res::Err("Cannot set block period while DFIP2203 is active");
-                }
-
-                auto blockPeriod = boost::get<CAmount>(attribute.second);
-                const auto recentFuturesHeight = mnview.GetMostRecentFuturesHeight();
-
-                if (recentFuturesHeight && *recentFuturesHeight > height - (height % blockPeriod)) {
-                    return Res::Err("Historical Futures contracts in this period");
                 }
             }
         }

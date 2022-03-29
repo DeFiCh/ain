@@ -101,7 +101,7 @@ uint32_t CAccountsView::GetBalancesHeight(CScript const & owner)
 
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures)
 {
-    if (!WriteBy<ByFuturesSourceKey>(key, futures)) {
+    if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
 
@@ -110,12 +110,12 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
 
 void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
 {
-    ForEach<ByFuturesSourceKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
+    ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 {
-    if (!EraseBy<ByFuturesSourceKey>(key)) {
+    if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
     }
 
@@ -125,7 +125,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
 {
     const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
-    auto it = LowerBound<ByFuturesSourceKey>(key);
+    auto it = LowerBound<ByFuturesSwapKey>(key);
     if (it.Valid()) {
         return it.Key().height;
     }
@@ -133,25 +133,11 @@ boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
     return {};
 }
 
-Res CAccountsView::StoreFuturesDestValues(const CFuturesUserKey& key, const CFuturesUserValue& destination)
-{
-    if (!WriteBy<ByFuturesDestKey>(key, destination)) {
-        return Res::Err("Failed to store futures destination");
-    }
-
-    return Res::Ok();
-}
-
 ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key) {
     CFuturesUserValue source;
-    if (!ReadBy<ByFuturesSourceKey>(key, source)) {
+    if (!ReadBy<ByFuturesSwapKey>(key, source)) {
         return Res::Err("Failed to read futures source");
     }
 
     return {source, Res::Ok()};
-}
-
-void CAccountsView::ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
-{
-    ForEach<ByFuturesDestKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
 }

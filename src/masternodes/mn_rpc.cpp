@@ -453,7 +453,7 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward()
+std::optional<CAmount> GetFuturesBlock()
 {
     LOCK(cs_main);
 
@@ -474,7 +474,7 @@ std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward()
         return {};
     }
 
-    return std::pair{attributes->GetValue(blockKey, CAmount{}), attributes->GetValue(rewardKey, CAmount{})};
+    return attributes->GetValue(blockKey, CAmount{});
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
