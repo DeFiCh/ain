@@ -408,7 +408,7 @@ class CCustomCSView
             CFoundationsDebtView    ::  Debt,
             CAnchorRewardsView      ::  BtcTx,
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
-            CAccountsView           ::  ByBalanceKey, ByHeightKey,
+            CAccountsView           ::  ByBalanceKey, ByHeightKey, ByFuturesSourceKey, ByFuturesDestKey,
             CCommunityBalancesView  ::  ById,
             CUndosView              ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,

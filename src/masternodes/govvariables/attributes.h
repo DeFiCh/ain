@@ -25,18 +25,22 @@ enum AttributeTypes : uint8_t {
 
 enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
+    DFIP2203  = 'b',
     Economy   = 'e',
 };
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens    = 'b',
+    DFIP2203Tokens   = 'c',
 };
 
-enum DFIP2201Keys : uint8_t  {
-    Active    = 'a',
-    Premium   = 'b',
-    MinSwap   = 'c',
+enum DFIPKeys : uint8_t  {
+    Active       = 'a',
+    Premium      = 'b',
+    MinSwap      = 'c',
+    RewardPct    = 'd',
+    BlockPeriod  = 'e',
 };
 
 enum TokenKeys : uint8_t  {
@@ -46,11 +50,12 @@ enum TokenKeys : uint8_t  {
     DexOutFeePct          = 'd',
     LoanPayback           = 'e',
     LoanPaybackFeePCT     = 'f',
-    FixedIntervalPriceId  = 'g',
-    LoanCollateralEnabled = 'h',
-    LoanCollateralFactor  = 'i',
-    LoanMintingEnabled    = 'j',
-    LoanMintingInterest   = 'k',
+    DFIP2203Disabled      = 'g',
+    FixedIntervalPriceId  = 'h',
+    LoanCollateralEnabled = 'i',
+    LoanCollateralFactor  = 'j',
+    LoanMintingEnabled    = 'k',
+    LoanMintingInterest   = 'l',
 };
 
 enum PoolKeys : uint8_t {
@@ -177,6 +182,8 @@ public:
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 private:
+    bool futureBlockUpdated{};
+
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
@@ -186,7 +193,10 @@ private:
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) const;
+                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
+
+ResVal<CScript> GetFutureSwapContractAddress();
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

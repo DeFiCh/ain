@@ -17,7 +17,7 @@ enum CustomTxErrCodes : uint32_t {
     Fatal = uint32_t(1) << 31 // not allowed to fail
 };
 
-enum CustomTxType : uint8_t
+enum struct CustomTxType : uint8_t
 {
     None                    = 0,
     Reject                  = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
@@ -49,6 +49,7 @@ enum CustomTxType : uint8_t
     AccountToAccount        = 'B',
     AnyAccountsToAccounts   = 'a',
     SmartContract           = 'K',
+    DFIP2203                = 'Q',
 
     // governance
     SetGovVariable          = 'G',

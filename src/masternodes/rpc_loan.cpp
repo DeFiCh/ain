@@ -132,17 +132,19 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
 
+    CImmutableCSView view(*pcustomcsview);
+
     int targetHeight;
     {
         DCT_ID idToken;
 
-        const auto token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
+        const auto token = view.GetTokenGuessId(tokenSymbol, idToken);
         if (!token)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
 
         collToken.idToken = idToken;
 
-        targetHeight = pcustomcsview->GetLastHeight() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1214,7 +1216,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
         if (loans.empty())
             balances = amounts;
 
-        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), balances, SelectionPie);
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(view, pwallet), balances, SelectionPie);
 
         for (auto& account : selectedAccounts) {
             auto it = amounts.balances.begin();

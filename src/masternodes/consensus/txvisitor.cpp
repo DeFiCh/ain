@@ -21,8 +21,10 @@ CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
                                    const CTransaction& tx,
                                    const Consensus::Params& consensus,
                                    uint32_t height,
-                                   uint64_t time)
-        : time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+                                   uint64_t time,
+                                   uint32_t txn)
+
+        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
 
 bool CCustomTxVisitor::HasAuth(const CScript& auth) const {
     for (const auto& input : tx.vin) {

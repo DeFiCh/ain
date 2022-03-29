@@ -15,7 +15,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     if (!attributes)
         return Res::Err("Attributes unavailable");
 
-    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
 
     if (!attributes->GetValue(activeKey, false))
         return Res::Err("DFIP2201 smart contract is not enabled");
@@ -39,7 +39,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     if (amount <= 0)
         return Res::Err("Amount out of range");
 
-    CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::MinSwap};
+    CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
     auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
     if (minSwap && amount < minSwap)
@@ -64,7 +64,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     if (!resVal)
         return std::move(resVal);
 
-    CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+    CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Premium};
     auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
 
     const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
@@ -76,6 +76,116 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
     res = mnview.SubBalance(consensus.smartContracts.begin()->second, {{0}, totalDFI});
     return !res ? res : mnview.AddBalance(script, {{0}, totalDFI});
+}
+
+Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
+    if (!HasAuth(obj.owner))
+        return Res::Err("Transaction must have at least one input from owner");
+
+    const auto attributes = mnview.GetAttributes();
+    if (!attributes)
+        return Res::Err("Attributes unavailable");
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active)
+        return Res::Err("DFIP2203 not currently active");
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey))
+        return Res::Err("DFIP2203 not currently active");
+
+    if (obj.source.nValue <= 0)
+        return Res::Err("Source amount must be more than zero");
+
+    const auto source = mnview.GetLoanTokenByID(obj.source.nTokenId);
+    if (!source)
+        return Res::Err("Could not get source loan token %d", obj.source.nTokenId.v);
+
+    if (source->symbol == "DUSD") {
+        CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Disabled};
+        const auto disabled = attributes->GetValue(tokenKey, false);
+        if (disabled)
+            return Res::Err("DFIP2203 currently disabled for token %d", obj.destination);
+
+        const auto loanToken = mnview.GetLoanTokenByID({obj.destination});
+        if (!loanToken)
+            return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
+    } else {
+        if (obj.destination != 0)
+            return Res::Err("Destination should not be set when source amount is a dToken");
+
+        CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Disabled};
+        const auto disabled = attributes->GetValue(tokenKey, false);
+        if (disabled)
+            return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
+    }
+
+    const auto contractAddressValue = GetFutureSwapContractAddress();
+    if (!contractAddressValue)
+        return contractAddressValue;
+
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    if (obj.withdraw) {
+        const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+        const uint32_t startHeight = height - (height % blockPeriod);
+        std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
+
+        mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+            if (key.height <= startHeight)
+                return false;
+
+            if (key.owner == obj.owner &&
+                futuresValues.source.nTokenId == obj.source.nTokenId &&
+                futuresValues.destination == obj.destination) {
+                userFuturesValues[key] = futuresValues;
+            }
+
+            return true;
+        }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
+
+        CTokenAmount totalFutures{};
+        totalFutures.nTokenId = obj.source.nTokenId;
+
+        for (const auto& [key, value] : userFuturesValues) {
+            totalFutures.Add(value.source.nValue);
+            mnview.EraseFuturesUserValues(key);
+        }
+
+        auto res = totalFutures.Sub(obj.source.nValue);
+        if (!res)
+            return res;
+
+        if (totalFutures.nValue > 0) {
+            auto res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
+            if (!res)
+                return res;
+        }
+
+        res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner);
+        if (!res)
+            return res;
+
+        res = balances.Sub(obj.source);
+        if (!res)
+            return res;
+    } else {
+        auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
+        if (!res)
+            return res;
+
+        res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
+        if (!res)
+            return res;
+
+        balances.Add(obj.source);
+    }
+
+    attributes->attributes[liveKey] = balances;
+    return mnview.SetVariable(*attributes);
 }
 
 Res CSmartContractsConsensus::operator()(const CSmartContractMessage& obj) const {

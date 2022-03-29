@@ -314,12 +314,14 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VSTR, UniValue::VARR }, true);
 
+    CImmutableCSView view(*pcustomcsview);
+
     // decode
     CLiquidityMessage msg{};
     if (request.params[0].get_obj().getKeys().size() == 1 &&
         request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
 
-        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
+        CAccounts foundMineAccounts = GetAllMineAccounts(view, pwallet);
 
         CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
 
@@ -342,7 +344,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -916,7 +918,8 @@ UniValue compositeswap(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+    CImmutableCSView view(*pcustomcsview);
+    int targetHeight = view.GetLastHeight() + 1;
     if (targetHeight < Params().GetConsensus().FortCanningHeight) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
@@ -929,7 +932,6 @@ UniValue compositeswap(const JSONRPCRequest& request) {
 
     {
         // If no direct swap found search for composite swap
-        CImmutableCSView view(*pcustomcsview);
         if (!view.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
 
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
@@ -1060,11 +1062,11 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     // test execution and get amount
     Res res = Res::Ok();
     {
-        CImmutableCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
+        CImmutableCSView view(*pcustomcsview); // create dummy cache for test state writing
 
-        int targetHeight = mnview_dummy.GetLastHeight() + 1;
+        int targetHeight = view.GetLastHeight() + 1;
 
-        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        auto poolPair = view.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
         if (poolPair && path == "auto") path = "direct";
 
         // If no direct swap found search for composite swap
@@ -1076,16 +1078,16 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
-            auto dexfeeInPct = mnview_dummy.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
+            auto dexfeeInPct = view.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
-                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
+                auto resPP = view.SetPoolPair(poolPair->first, targetHeight, pp);
                 if (!resPP) {
                     return resPP;
                 }
 
                 auto resultAmount = tokenAmount;
-                auto dexfeeOutPct = mnview_dummy.GetDexFeeOutPct(poolPair->first, tokenAmount.nTokenId);
+                auto dexfeeOutPct = view.GetDexFeeOutPct(poolPair->first, tokenAmount.nTokenId);
                 if (dexfeeOutPct > 0) {
                     auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
                     resultAmount.nValue -= dexfeeOutAmount;
@@ -1103,7 +1105,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
             std::vector<DCT_ID> poolIds;
             if (path == "auto" || path == "composite") {
-                poolIds = compositeSwap.CalculateSwaps(mnview_dummy, true);
+                poolIds = compositeSwap.CalculateSwaps(view, true);
             } else {
                 path = "custom";
 
@@ -1118,13 +1120,13 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                     poolIds.push_back(DCT_ID::FromString(id.getValStr()));
                 }
 
-                auto availablePaths = compositeSwap.CalculatePoolPaths(mnview_dummy);
+                auto availablePaths = compositeSwap.CalculatePoolPaths(view);
                 if (std::find(availablePaths.begin(), availablePaths.end(), poolIds) == availablePaths.end()) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, "Custom pool path is invalid.");
                 }
             }
 
-            res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds, true);
+            res = compositeSwap.ExecuteSwap(view, poolIds, true);
             if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};
                 if (!compositeSwap.errors.empty()) {

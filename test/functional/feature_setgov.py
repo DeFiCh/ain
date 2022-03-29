@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1140', '-greatworldheight=1200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1140', '-greatworldheight=1200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -445,8 +445,8 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
-        assert_raises_rpc_error(-5, "Identifier must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203_disabled, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi_fee_pct':'not_a_number'}})
@@ -457,7 +457,15 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/minswap':'not_a_number'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/premium': 'not_a_number'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/premium': '-1'}})
+        assert_raises_rpc_error(-5, "Unsupported type for DFIP2201", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/reward_pct': '0.1'}})
+        assert_raises_rpc_error(-5, "Unsupported type for DFIP2201", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/block_period': '2880'}})
         assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2201/premium': '1.00000001'}})
+
+        # Check DFIP2203 attributes cannot be set before FCR
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningRoad", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningRoad", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningRoad", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':'2880'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningRoad", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/dfip2203_disabled':'true'}})
 
         # Setup for loan related tests
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
@@ -523,6 +531,9 @@ class GovsetTest (DefiTestFramework):
         assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/params/dfip2201/active': 'true', 'v0/params/dfip2201/premium': '0.025', 'v0/params/dfip2201/minswap': '0.001', 'v0/token/5/payback_dfi': 'true', 'v0/token/5/payback_dfi_fee_pct': '0.01'})
         assert_equal(self.nodes[0].listgovs()[8][0]['ATTRIBUTES'], {'v0/params/dfip2201/active': 'true', 'v0/params/dfip2201/premium': '0.025', 'v0/params/dfip2201/minswap': '0.001', 'v0/token/5/payback_dfi': 'true', 'v0/token/5/payback_dfi_fee_pct': '0.01'})
 
+        # Move to FCR fork
+        self.nodes[0].generate(1150 - self.nodes[0].getblockcount())
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25'}})
         self.nodes[0].generate(1)
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
@@ -547,6 +558,30 @@ class GovsetTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/token/5/dex_in_fee_pct'], '0.6')
         assert_equal(attributes['v0/token/5/dex_out_fee_pct'], '0.12')
+
+        # Set FCR ATTRIBUTE with invalid settings
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/active':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'-1'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'2'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':'-1'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/dfip2203_disabled':'not_a_bool'}})
+        assert_raises_rpc_error(-32600, "No such loan token", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/dfip2203_disabled':'true'}})
+        assert_raises_rpc_error(-5, "Unsupported type for DFIP2203", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/premium': '0.025'}})
+        assert_raises_rpc_error(-5, "Unsupported type for DFIP2203", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/minswap': '0.025'}})
+
+        # Test setting FCR ATTRBIUTES
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05','v0/params/dfip2203/block_period':'20160','v0/token/5/dfip2203_disabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Verify FCR results
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/params/dfip2203/active'], 'true')
+        assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
+        assert_equal(result['v0/params/dfip2203/block_period'], '20160')
+        assert_equal(result['v0/token/5/dfip2203_disabled'], 'true')
 
         # Check GW attrs cannot be set yet
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})

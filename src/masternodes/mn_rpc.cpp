@@ -7,14 +7,16 @@
 #include <base58.h>
 #include <policy/settings.h>
 
+#include <masternodes/govvariables/attributes.h>
+
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
-CAccounts GetAllMineAccounts(CWallet * const pwallet) {
+CAccounts GetAllMineAccounts(CImmutableCSView& view, CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    CImmutableCSView mnview(*pcustomcsview);
+    CImmutableCSView mnview(view);
     auto targetHeight = mnview.GetLastHeight() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
@@ -201,7 +203,7 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) :
     pwallet(std::move(pwallet)) {
 }
 
@@ -450,6 +452,28 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
+std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward(CImmutableCSView& view)
+{
+    const auto attributes = view.GetAttributes();
+    if (!attributes) {
+        return {};
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active) {
+        return {};
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+        return {};
+    }
+
+    return std::pair{attributes->GetValue(blockKey, CAmount{}), attributes->GetValue(rewardKey, CAmount{})};
+}
+
 UniValue setgov(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -677,12 +701,13 @@ UniValue listgovs(const JSONRPCRequest& request) {
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
 
     // Get all stored Gov var changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
+    CImmutableCSView view(*pcustomcsview);
+    auto pending = view.GetAllStoredVariables();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {
         UniValue innerResult(UniValue::VARR);
-        auto var = pcustomcsview->GetVariable(name);
+        auto var = view.GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
             ret.pushKV(var->GetName(),var->Export());
@@ -785,6 +810,8 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue arr(UniValue::VARR);
+    CImmutableCSView view(*pcustomcsview);
+
     for (const auto& item : Params().GetConsensus().smartContracts) {
         UniValue obj(UniValue::VOBJ);
         CTxDestination dest;
@@ -793,7 +820,7 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
         obj.pushKV("call", GetContractCall(item.first));
         obj.pushKV("address", EncodeDestination(dest));
 
-        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        view.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (owner != item.second) {
                 return false;
             }

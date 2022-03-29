@@ -70,10 +70,11 @@ CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
 std::string ScriptToString(CScript const& script);
-CAccounts GetAllMineAccounts(CWallet* const pwallet);
+CAccounts GetAllMineAccounts(CImmutableCSView& view, CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
+std::optional<std::pair<CAmount, CAmount>> GetFuturesBlockAndReward(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

@@ -27,6 +27,7 @@ struct Params;
 class CCustomTxVisitor
 {
 protected:
+    uint32_t txn;
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
@@ -35,7 +36,7 @@ protected:
     const Consensus::Params& consensus;
 
 public:
-    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time);
+    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
 
 protected:
     Res CheckCustomTx() const;

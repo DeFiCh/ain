@@ -915,10 +915,12 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
     uint32_t index = request.params[1].get_int();
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
 
+    CImmutableCSView view(*pcustomcsview);
+
     CScript from = {};
     auto fromStr = request.params[2].get_str();
     if (fromStr == "*") {
-        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), CBalances{TAmounts{{amount.nTokenId, amount.nValue}}}, SelectionPie);
+        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(view, pwallet), CBalances{TAmounts{{amount.nTokenId, amount.nValue}}}, SelectionPie);
 
         for (auto& account : selectedAccounts) {
             if (account.second.balances[amount.nTokenId] >= amount.nValue) {
@@ -942,7 +944,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);

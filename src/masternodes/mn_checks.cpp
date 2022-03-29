@@ -52,6 +52,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
+        case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -193,7 +194,8 @@ public:
         if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
         else
-        if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message>())
+        if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
+                                 CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
@@ -219,6 +221,7 @@ public:
     Res operator()(T& obj) const {
         auto res = EnabledAfter<T>();
         if (!res)
+
             return res;
 
         res = DisabledAfter<T>();
@@ -240,6 +243,7 @@ public:
 
 class CCustomTxApplyVisitor
 {
+    uint32_t txn;
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
@@ -253,7 +257,7 @@ class CCustomTxApplyVisitor
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>)
-            return T1{mnview, coins, tx, consensus, height, time}(obj);
+            return T1{mnview, coins, tx, consensus, height, time, txn}(obj);
         else
         if constexpr (sizeof...(Args) != 0)
             return ConsensusHandler<T, Args...>(obj);
@@ -267,9 +271,10 @@ public:
                           const CCoinsViewCache& coins,
                           CCustomCSView& mnview,
                           const Consensus::Params& consensus,
-                          uint64_t time)
+                          uint64_t time,
+                          uint32_t txn)
 
-        : time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
 
     template<typename T>
     Res operator()(const T& obj) const {
@@ -351,12 +356,12 @@ bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
     } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -425,7 +430,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         if (writers) {
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
         }
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {

@@ -587,7 +587,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
             authScript = offer->ownerAddress;
 
             if (!submitdfchtlc.timeout)
-            submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
 
             CTokenAmount balance = view.GetBalance(offer->ownerAddress,order->idToken);
             if (balance.nValue < offer->amount)

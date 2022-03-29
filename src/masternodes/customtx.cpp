@@ -10,7 +10,8 @@
 const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
 
 CustomTxType CustomTxCodeToType(uint8_t ch) {
-    switch (ch) {
+    auto type = static_cast<CustomTxType>(ch);
+    switch (type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
         case CustomTxType::SetForcedRewardAddress:
@@ -31,6 +32,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SmartContract:
+        case CustomTxType::DFIP2203:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
@@ -62,7 +64,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AuctionBid:
         case CustomTxType::Reject:
         case CustomTxType::None:
-            return static_cast<CustomTxType>(ch);
+            return type;
     }
     return CustomTxType::None;
 }
@@ -91,6 +93,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(AccountToAccount);
         CustomTxTypeString(AnyAccountsToAccounts);
         CustomTxTypeString(SmartContract);
+        CustomTxTypeString(DFIP2203);
         CustomTxTypeString(SetGovVariable);
         CustomTxTypeString(SetGovVariableHeight);
         CustomTxTypeString(AppointOracle);
