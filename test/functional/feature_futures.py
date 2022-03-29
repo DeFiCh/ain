@@ -300,6 +300,10 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
+        # Check DFI2203 amounts do not show up as burns yet
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2203'], [])
+
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())

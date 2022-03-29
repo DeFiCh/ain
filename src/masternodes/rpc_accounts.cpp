@@ -1868,9 +1868,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
         paybackfees = std::move(paybacks.tokensFee);
         paybacktokens = std::move(paybacks.tokensPayback);
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
-        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
     }
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
@@ -1887,6 +1884,29 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
     result.pushKV("emissionburn", ValueFromAmount(burnt));
+
+    const auto blockAndReward = GetFuturesBlockAndReward();
+    if (!blockAndReward) {
+        return result;
+    }
+
+    const auto currentHeight = ::ChainActive().Height();
+    const uint32_t startPeriod = currentHeight - (currentHeight % blockAndReward->first);
+
+    pcustomcsview->ForEachFuturesDestValues([&](const CFuturesUserKey& key, const CFuturesUserValue& destination) {
+        const auto source = pcustomcsview->GetFuturesUserValues(key);
+        if (!source) {
+            return true;
+        }
+
+        // Exclude refunds
+        if (source.val->source != destination.source) {
+            dfi2203Tokens.Add(source.val->source);
+        }
+
+        return true;
+    }, {startPeriod, {}, std::numeric_limits<uint32_t>::max()});
+
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 
     return result;
