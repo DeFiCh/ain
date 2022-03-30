@@ -321,7 +321,7 @@ public:
     std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
     std::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
-    std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const = 0;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res EraseLoanToken(const DCT_ID& id);

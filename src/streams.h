@@ -120,6 +120,9 @@ class CVectorWriter
     {
         return nType;
     }
+    size_t size() const {
+        return vchData.size();
+    }
 private:
     const int nType;
     const int nVersion;

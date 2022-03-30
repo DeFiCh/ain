@@ -733,6 +733,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
+        if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
+            return Res::Err("Pool currently disabled due to locked token");
+        }
+
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
 
         // Perform swap
@@ -862,11 +866,19 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
-    if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto& loan : loans->balances)
-            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
+    if (auto loans = mnview.GetLoanTokens(vaultId)) {
+        for (const auto& loan : loans->balances) {
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first)) {
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
                         return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        }
+    }
+
     return true;
 }
