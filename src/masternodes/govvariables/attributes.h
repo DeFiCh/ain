@@ -48,7 +48,7 @@ enum TokenKeys : uint8_t  {
     LoanPaybackFeePCT   = 'd',
     DexInFeePct         = 'e',
     DexOutFeePct        = 'f',
-    DFIP2203Disabled    = 'g',
+    DFIP2203Enabled    = 'g',
 };
 
 enum PoolKeys : uint8_t {

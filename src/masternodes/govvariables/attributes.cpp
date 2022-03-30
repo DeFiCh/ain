@@ -96,7 +96,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"loan_payback_fee_pct",TokenKeys::LoanPaybackFeePCT},
                 {"dex_in_fee_pct",      TokenKeys::DexInFeePct},
                 {"dex_out_fee_pct",     TokenKeys::DexOutFeePct},
-                {"dfip2203_disabled",   TokenKeys::DFIP2203Disabled},
+                {"dfip2203",            TokenKeys::DFIP2203Enabled},
             }
         },
         {
@@ -128,7 +128,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanPaybackFeePCT,"loan_payback_fee_pct"},
                 {TokenKeys::DexInFeePct,      "dex_in_fee_pct"},
                 {TokenKeys::DexOutFeePct,     "dex_out_fee_pct"},
-                {TokenKeys::DFIP2203Disabled, "dfip2203_disabled"},
+                {TokenKeys::DFIP2203Enabled, "dfip2203"},
             }
         },
         {
@@ -212,7 +212,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::LoanPaybackFeePCT,VerifyPct},
                 {TokenKeys::DexInFeePct,      VerifyPct},
                 {TokenKeys::DexOutFeePct,     VerifyPct},
-                {TokenKeys::DFIP2203Disabled, VerifyBool},
+                {TokenKeys::DFIP2203Enabled, VerifyBool},
             }
         },
         {
@@ -550,7 +550,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
-                    case TokenKeys::DFIP2203Disabled:
+                    case TokenKeys::DFIP2203Enabled:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                             return Res::Err("Cannot be set before FortCanningRoad");
                         }
@@ -633,12 +633,17 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return res;
                 }
             }
-            if (attrV0->key == TokenKeys::DFIP2203Disabled) {
+            if (attrV0->key == TokenKeys::DFIP2203Enabled) {
 
                 // Skip on block period change to avoid refunding and erasing entries.
                 // Block period change will check for conflicting entries, deleting them
                 // via RefundFuturesContracts will fail that check.
                 if (futureBlockUpdated) {
+                    continue;
+                }
+
+                auto value = boost::get<bool>(attribute.second);
+                if (value) {
                     continue;
                 }
 
