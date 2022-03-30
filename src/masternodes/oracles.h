@@ -167,6 +167,7 @@ public:
     struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };
     struct FixedIntervalBlockKey { static constexpr uint8_t prefix() { return 'z'; } };
     struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
+    struct FixedIntervalPriceByHeightKey { static constexpr uint8_t prefix() { return 'Z'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

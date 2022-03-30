@@ -1039,15 +1039,17 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     }.Check(request);
 
     auto fixedIntervalStr = request.params[0].getValStr();
-    auto heightNum = request.params[1].get_int();
+    u_int32_t heightNum = 0;
+    if(!request.params[1].isNull()){
+        heightNum = u_int32_t(request.params[1].get_int());
+    }
     UniValue objPrice{UniValue::VOBJ};
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
-    auto height = heightNum ? heightNum : ::ChainActive().Height();
 
     LOCK(cs_main);
     LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
-    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice({pairId, u_int32_t(height)});
+    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice({pairId, heightNum});
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
@@ -1144,7 +1146,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
     {"oracles",     "getprice",                &getprice,                 {"request"}},
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
-    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
+    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId", "height"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
 };
 

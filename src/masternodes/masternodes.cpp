@@ -962,7 +962,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair pric
     auto currency = priceFeedId.second;
 
     LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
-    FixedIntervalPriceKeyWithHeight priceFeedKey = {priceFeedId, height};
+    FixedIntervalPriceKeyWithHeight priceFeedKey = {priceFeedId, 0};
     auto priceFeed = GetFixedIntervalPrice(priceFeedKey);
     if (!priceFeed)
         return std::move(priceFeed);

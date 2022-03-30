@@ -157,7 +157,7 @@ namespace {
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice({token->fixedIntervalPriceId, (u_int32_t)height})) {
+                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice({token->fixedIntervalPriceId, 0})) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
@@ -1589,7 +1589,7 @@ UniValue estimateloan(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
             }
 
-            auto priceFeed = pcustomcsview->GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, (u_int32_t)height});
+            auto priceFeed = pcustomcsview->GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, 0});
             if (!priceFeed.ok) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
             }
@@ -1679,7 +1679,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
         }
 
-        auto priceFeed = pcustomcsview->GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, height});
+        auto priceFeed = pcustomcsview->GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, 0});
         if (!priceFeed.ok) {
             throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
         }

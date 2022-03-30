@@ -148,7 +148,7 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     key.priceFeedId = fixedIntervalPrice.priceFeedId;
     key.height = height;
 
-    if (!WriteBy<FixedIntervalPriceKey>(key, fixedIntervalPrice)) {
+    if (!WriteBy<FixedIntervalPriceByHeightKey>(key, fixedIntervalPrice) || !WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
         return Res::Err("failed to set new price feed <%s/%s>", fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second);
     }
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
@@ -159,8 +159,11 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
 ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const FixedIntervalPriceKeyWithHeight& fixedIntervalPriceKey)
 {
     CFixedIntervalPrice fixedIntervalPrice;
-    if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceKey, fixedIntervalPrice)) {
+    if (fixedIntervalPriceKey.height == 0 && !ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceKey.priceFeedId, fixedIntervalPrice)) {
         return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceKey.priceFeedId.first, fixedIntervalPriceKey.priceFeedId.second);
+    }
+    else if (fixedIntervalPriceKey.height > 0 && !ReadBy<FixedIntervalPriceByHeightKey>(fixedIntervalPriceKey, fixedIntervalPrice)) {
+        return Res::Err("fixedIntervalPriceByHeight with id <%s/%s> not found", fixedIntervalPriceKey.priceFeedId.first, fixedIntervalPriceKey.priceFeedId.second);
     }
 
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);

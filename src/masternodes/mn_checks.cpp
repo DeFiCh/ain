@@ -2712,7 +2712,7 @@ public:
             auto tokenCurrency = loanToken->fixedIntervalPriceId;
 
             LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
-            auto priceFeed = mnview.GetFixedIntervalPrice({tokenCurrency, height});
+            auto priceFeed = mnview.GetFixedIntervalPrice({tokenCurrency, 0});
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
@@ -3962,14 +3962,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
         for (const auto& collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, height}))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({collateralToken->fixedIntervalPriceId, 0}))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, height}))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice({loanToken->fixedIntervalPriceId, 0}))
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
     return true;
