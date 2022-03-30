@@ -49,6 +49,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SmartContract:       return "SmartContract";
+        case CustomTxType::DFIP2203:            return "DFIP2203";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
@@ -76,8 +77,10 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
         case CustomTxType::TakeLoan:            return "TakeLoan";
         case CustomTxType::PaybackLoan:         return "PaybackLoan";
-        case CustomTxType::PaybackLoanV2:       return "PaybackLoanV2";
+        case CustomTxType::PaybackLoanV2:       return "PaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
+        case CustomTxType::FutureSwapExecution: return "FutureSwapExecution";
+        case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
     }
@@ -131,6 +134,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
+        case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -160,6 +164,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
+        case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -344,6 +350,11 @@ public:
 
     Res operator()(CSmartContractMessage& obj) const {
         auto res = isPostFortCanningHillFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CFutureSwapMessage& obj) const {
+        auto res = isPostFortCanningRoadFork();
         return !res ? res : serialize(obj);
     }
 
@@ -879,15 +890,17 @@ public:
 class CCustomTxApplyVisitor : public CCustomTxVisitor
 {
     uint64_t time;
+    uint32_t txn;
 public:
     CCustomTxApplyVisitor(const CTransaction& tx,
                           uint32_t height,
                           const CCoinsViewCache& coins,
                           CCustomCSView& mnview,
                           const Consensus::Params& consensus,
-                          uint64_t time)
+                          uint64_t time,
+                          uint32_t txn)
 
-        : CCustomTxVisitor(tx, height, coins, mnview, consensus), time(time) {}
+        : CCustomTxVisitor(tx, height, coins, mnview, consensus), time(time), txn(txn) {}
 
     Res operator()(const CCreateMasterNodeMessage& obj) const {
         auto res = CheckMasternodeCreationTx();
@@ -1362,7 +1375,7 @@ public:
         if (!attributes)
             return Res::Err("Attributes unavailable");
 
-        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Active};
+        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
 
         if (!attributes->GetValue(activeKey, false))
             return Res::Err("DFIP2201 smart contract is not enabled");
@@ -1386,7 +1399,7 @@ public:
         if (amount <= 0)
             return Res::Err("Amount out of range");
 
-        CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::MinSwap};
+        CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
         auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
 
         if (minSwap && amount < minSwap) {
@@ -1413,7 +1426,7 @@ public:
         if (!resVal)
             return std::move(resVal);
 
-        CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIP2201Keys::Premium};
+        CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Premium};
         auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
 
         const auto& btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
@@ -1450,6 +1463,131 @@ public:
             return HandleDFIP2201Contract(obj);
 
         return Res::Err("Specified smart contract not found");
+    }
+
+    Res operator()(const CFutureSwapMessage& obj) const {
+        if (!HasAuth(obj.owner)) {
+            return Res::Err("Transaction must have at least one input from owner");
+        }
+
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes) {
+            return Res::Err("Attributes unavailable");
+        }
+
+        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+        const auto active = attributes->GetValue(activeKey, false);
+        if (!active) {
+            return Res::Err("DFIP2203 not currently active");
+        }
+
+        CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+        CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+        if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+            return Res::Err("DFIP2203 not currently active");
+        }
+
+        if (obj.source.nValue <= 0) {
+            return Res::Err("Source amount must be more than zero");
+        }
+
+        const auto source = mnview.GetLoanTokenByID(obj.source.nTokenId);
+        if (!source) {
+            return Res::Err("Could not get source loan token %d", obj.source.nTokenId.v);
+        }
+
+        if (source->symbol == "DUSD") {
+            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Disabled};
+            const auto disabled = attributes->GetValue(tokenKey, false);
+            if (disabled) {
+                return Res::Err("DFIP2203 currently disabled for token %d", obj.destination);
+            }
+
+            const auto loanToken = mnview.GetLoanTokenByID({obj.destination});
+            if (!loanToken) {
+                return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
+            }
+        } else {
+            if (obj.destination != 0) {
+                return Res::Err("Destination should not be set when source amount is a dToken");
+            }
+
+            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Disabled};
+            const auto disabled = attributes->GetValue(tokenKey, false);
+            if (disabled) {
+                return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
+            }
+        }
+
+        const auto contractAddressValue = GetFutureSwapContractAddress();
+        if (!contractAddressValue) {
+            return contractAddressValue;
+        }
+
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
+        auto balances = attributes->GetValue(liveKey, CBalances{});
+
+        if (obj.withdraw) {
+            std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
+
+            mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+                if (key.owner == obj.owner &&
+                    futuresValues.source.nTokenId == obj.source.nTokenId &&
+                    futuresValues.destination == obj.destination) {
+                    userFuturesValues[key] = futuresValues;
+                }
+
+                return true;
+            }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
+
+            CTokenAmount totalFutures{};
+            totalFutures.nTokenId = obj.source.nTokenId;
+
+            for (const auto& [key, value] : userFuturesValues) {
+                totalFutures.Add(value.source.nValue);
+                mnview.EraseFuturesUserValues(key);
+            }
+
+            auto res = totalFutures.Sub(obj.source.nValue);
+            if (!res) {
+                return res;
+            }
+
+            if (totalFutures.nValue > 0) {
+                auto res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
+                if (!res) {
+                    return res;
+                }
+            }
+
+            res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner);
+            if (!res) {
+                return res;
+            }
+
+            res = balances.Sub(obj.source);
+            if (!res) {
+                return res;
+            }
+        } else {
+            auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
+            if (!res) {
+                return res;
+            }
+
+            res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
+            if (!res) {
+                return res;
+            }
+
+            balances.Add(obj.source);
+        }
+
+        attributes->attributes[liveKey] = balances;
+
+        mnview.SetVariable(*attributes);
+
+        return Res::Ok();
     }
 
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
@@ -3023,6 +3161,8 @@ public:
                         subInToken = kv.second;
                     }
 
+                    shouldSetVariable = true;
+
                     auto penalty = MultiplyAmounts(subInToken, COIN - penaltyPct);
 
                     if (paybackTokenId == DCT_ID{0})
@@ -3033,6 +3173,10 @@ public:
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
                         attributes->attributes[liveKey] = balances;
+
+                        LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
+
+                        res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
                     }
                     else
                     {
@@ -3042,12 +3186,11 @@ public:
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
                         attributes->attributes[liveKey] = balances;
+
+                        LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
+
+                        res = SwapToDFIOverUSD(mnview, paybackTokenId, subInToken, obj.from, consensus.burnAddress, height);
                     }
-
-                    shouldSetVariable = true;
-
-                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
-                    res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
                 }
 
                 if (!res)
@@ -3220,6 +3363,11 @@ public:
         for (const auto& account : obj.accounts) {
             EraseHistory(account.first);
         }
+        return Res::Ok();
+    }
+
+    Res operator()(const CFutureSwapMessage& obj) const {
+        EraseHistory(obj.owner);
         return Res::Ok();
     }
 
@@ -3428,12 +3576,12 @@ bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
+Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
+        return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -3523,6 +3671,9 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     } else if (txType == CustomTxType::PaybackLoan) {
         auto obj = boost::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::PaybackLoanV2) {
+        auto obj = boost::get<CLoanPaybackLoanV2Message>(txMessage);
+        view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
         auto obj = boost::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
@@ -3567,7 +3718,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         if (pvaultHistoryDB && writers) {
            PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
         }
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
