@@ -3321,12 +3321,12 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     const auto premium{COIN + rewardPct};
 
     std::map<DCT_ID, CFuturesPrice> futuresPrices;
-    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Disabled};
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
 
     cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
         tokenKey.typeId = id.v;
-        const auto disabled = attributes->GetValue(tokenKey, false);
-        if (disabled) {
+        const auto enabled = attributes->GetValue(tokenKey, true);
+        if (!enabled) {
             return true;
         }
 

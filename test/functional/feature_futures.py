@@ -223,12 +223,12 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['v0/params/dfip2203/block_period'], str(self.futures_interval))
 
         # Disable DUSD
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idDUSD)}/dfip2203_disabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idDUSD)}/dfip2203':'false'}})
         self.nodes[0].generate(1)
 
         # Verify Gov vars
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result[f'v0/token/{self.idDUSD}/dfip2203_disabled'], 'true')
+        assert_equal(result[f'v0/token/{self.idDUSD}/dfip2203'], 'false')
 
         # Check futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
@@ -832,7 +832,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Disable GOOGL
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203_disabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203':'false'}})
         self.nodes[0].generate(1)
 
         # Only TSLA contract should remain
@@ -849,6 +849,26 @@ class FuturesTest(DefiTestFramework):
         # TSLA balance should be empty
         result = self.nodes[0].getaccount(address_tsla)
         assert_equal(result, [])
+
+        # Enable GOOGL
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203':'true'}})
+        self.nodes[0].generate(1)
+
+        # Create user futures contracts
+        self.nodes[0].futureswap(address_googl, f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}', int(self.idGOOGL))
+        self.nodes[0].generate(1)
+
+        # GOOGL balance should be empty
+        result = self.nodes[0].getaccount(address_googl)
+        assert_equal(result, [])
+
+        # Disable GOOGL
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203':'false'}})
+        self.nodes[0].generate(1)
+
+        # Balance should be restored
+        result = self.nodes[0].getaccount(address_googl)
+        assert_equal(result, [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
@@ -940,7 +960,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check all swap refunds present
         result = self.nodes[0].listaccounthistory('all', {'txtype':'w'})
-        assert_equal(len(result), 7)
+        assert_equal(len(result), 9)
 
         # Check swap by specific address
         result = self.nodes[0].listaccounthistory(self.list_history[0]['swaps'][0]['address'], {'txtype':'q'})

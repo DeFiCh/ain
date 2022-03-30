@@ -1497,9 +1497,9 @@ public:
         }
 
         if (source->symbol == "DUSD") {
-            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Disabled};
-            const auto disabled = attributes->GetValue(tokenKey, false);
-            if (disabled) {
+            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Enabled};
+            const auto enabled = attributes->GetValue(tokenKey, true);
+            if (!enabled) {
                 return Res::Err("DFIP2203 currently disabled for token %d", obj.destination);
             }
 
@@ -1512,9 +1512,9 @@ public:
                 return Res::Err("Destination should not be set when source amount is a dToken");
             }
 
-            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Disabled};
-            const auto disabled = attributes->GetValue(tokenKey, false);
-            if (disabled) {
+            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
+            const auto enabled = attributes->GetValue(tokenKey, true);
+            if (!enabled) {
                 return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
             }
         }
