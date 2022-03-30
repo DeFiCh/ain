@@ -2979,10 +2979,6 @@ public:
         if (!mnview.GetVaultCollaterals(obj.vaultId))
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
-        auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-        if (!loanAmounts)
-            return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
-
         if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
 
@@ -2998,10 +2994,6 @@ public:
             auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
-
-            auto it = loanAmounts->balances.find(loanTokenId);
-            if (it == loanAmounts->balances.end())
-                return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
             for (const auto& kv : idx.second.balances)
             {
@@ -3074,6 +3066,14 @@ public:
                         paybackAmount = DivideAmounts(usdAmount, loanUsdPrice);
                     }
                 }
+
+                auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+                if (!loanAmounts)
+                    return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+
+                auto it = loanAmounts->balances.find(loanTokenId);
+                if (it == loanAmounts->balances.end())
+                    return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
                 auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                 if (!rate)
