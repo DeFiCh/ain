@@ -1140,12 +1140,12 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
 
     const auto currentHeight = ::ChainActive().Height();
 
-    const auto blockAndReward = GetFuturesBlockAndReward();
-    if (!blockAndReward) {
+    const auto block = GetFuturesBlock();
+    if (!block) {
         return 0;
     }
 
-    return currentHeight + (blockAndReward->first - (currentHeight % blockAndReward->first));
+    return currentHeight + (*block - (currentHeight % *block));
 }
 
 

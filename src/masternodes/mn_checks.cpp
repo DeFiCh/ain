@@ -79,6 +79,8 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::PaybackLoan:         return "PaybackLoan";
         case CustomTxType::PaybackLoanV2:       return "PaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
+        case CustomTxType::FutureSwapExecution: return "FutureSwapExecution";
+        case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
     }
@@ -162,6 +164,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
+        case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -1520,19 +1524,13 @@ public:
             return contractAddressValue;
         }
 
-        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
         if (obj.withdraw) {
-            const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
-            const uint32_t startHeight = height - (height % blockPeriod);
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
             mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-                if (key.height <= startHeight) {
-                    return false;
-                }
-
                 if (key.owner == obj.owner &&
                     futuresValues.source.nTokenId == obj.source.nTokenId &&
                     futuresValues.destination == obj.destination) {

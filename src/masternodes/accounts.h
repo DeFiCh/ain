@@ -70,18 +70,15 @@ public:
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
-    Res StoreFuturesDestValues(const CFuturesUserKey& key, const CFuturesUserValue& destination);
     ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);
     boost::optional<uint32_t> GetMostRecentFuturesHeight();
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
-    void ForEachFuturesDestValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
 
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
-    struct ByFuturesSourceKey  { static constexpr uint8_t prefix() { return 'J'; } };
-    struct ByFuturesDestKey  { static constexpr uint8_t prefix() { return 's'; } };
+    struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);
