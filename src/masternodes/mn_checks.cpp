@@ -3671,6 +3671,9 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     } else if (txType == CustomTxType::PaybackLoan) {
         auto obj = boost::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::PaybackLoanV2) {
+        auto obj = boost::get<CLoanPaybackLoanV2Message>(txMessage);
+        view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
         auto obj = boost::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
