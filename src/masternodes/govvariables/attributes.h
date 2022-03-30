@@ -78,7 +78,8 @@ struct CDataStructureV0 {
         READWRITE(type);
         READWRITE(typeId);
         if (ser_action.ForRead()) {
-            if (s.size() == sizeof(uint8_t)) {
+            // Check if next key is 8bit or extended size 8bit + 32bit
+            if (s.size() == sizeof(uint8_t) || s.size() == sizeof(uint8_t) + sizeof(uint32_t)) {
                 uint8_t key8;
                 READWRITE(key8);
                 key = key8;
