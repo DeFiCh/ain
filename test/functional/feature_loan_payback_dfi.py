@@ -138,7 +138,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
 
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
+        assert_raises_rpc_error(-32600, "Payback of DUSD loans with DFI not currently active", self.nodes[0].paybackloan, {
             'vaultId': vaultId,
             'from': account0,
             'amounts': "1@DFI"
@@ -152,7 +152,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Should not be able to payback loan before DFI payback enabled
-        assert_raises_rpc_error(-32600, "Payback of loan via DFI token is not currently active", self.nodes[0].paybackloan, {
+        assert_raises_rpc_error(-32600, "Payback of DUSD loans with DFI not currently active", self.nodes[0].paybackloan, {
             'vaultId': vaultId,
             'from': account0,
             'amounts': "1@DFI"
