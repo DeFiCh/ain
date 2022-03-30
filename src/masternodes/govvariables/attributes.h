@@ -29,7 +29,8 @@ enum ParamIDs : uint8_t  {
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens    = 'b',
-    DFIP2203Tokens   = 'c',
+    DFIP2203Current  = 'c',
+    DFIP2203Burned   = 'd',
 };
 
 enum DFIPKeys : uint8_t  {
