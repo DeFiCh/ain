@@ -3343,8 +3343,10 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     });
 
     CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+    CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
 
     auto burned = attributes->GetValue(burnKey, CBalances{});
+    auto minted = attributes->GetValue(mintedKey, CBalances{});
 
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     std::set<CFuturesUserKey> deletionPending;
@@ -3370,6 +3372,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                     CTokenAmount destination{destId, total};
                     view.AddBalance(key.owner, destination);
                     burned.Add(futuresValues.source);
+                    minted.Add(destination);
                     LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
                              key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
@@ -3387,6 +3390,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 CTokenAmount destination{tokenDUSD->first, total};
                 view.AddBalance(key.owner, destination);
                 burned.Add(futuresValues.source);
+                minted.Add(destination);
                 LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
                          key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
@@ -3425,6 +3429,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     }
 
     attributes->attributes[burnKey] = burned;
+    attributes->attributes[mintedKey] = minted;
 
     if (!unpaidContracts.empty()) {
         attributes->attributes[liveKey] = balances;

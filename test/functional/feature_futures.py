@@ -309,6 +309,7 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result['v0/live/economy/dfip2203_current'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
         assert('v0/live/economy/dfip2203_burned' not in result)
+        assert('v0/live/economy/dfip2203_minted' not in result)
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
@@ -420,10 +421,12 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
-        # Check DFI2203 address on listgovs, current shows pending, new swaps should not show up on burn.
+        # Check DFI2203 address on listgovs, current shows pending if any, burned shows
+        # deposits from executed swaps and minted shows output from executed swaps.
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result['v0/live/economy/dfip2203_current'], [f'3992.10000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
         assert_equal(result['v0/live/economy/dfip2203_burned'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_minted'], [f'{self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"]}@{self.symbolDUSD}'])
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))

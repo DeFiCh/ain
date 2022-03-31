@@ -151,6 +151,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
                 {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
                 {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
+                {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
             }
         },
     };
