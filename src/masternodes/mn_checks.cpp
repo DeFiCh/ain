@@ -1095,24 +1095,25 @@ public:
     Res operator()(const CMintTokensMessage& obj) const {
         // check auth and increase balance of token's owner
         for (const auto& kv : obj.balances) {
-            DCT_ID tokenId = kv.first;
+            const DCT_ID& tokenId = kv.first;
 
-            auto token = mnview.GetToken(kv.first);
+            auto token = mnview.GetToken(tokenId);
             if (!token) {
                 return Res::Err("token %s does not exist!", tokenId.ToString());
             }
-            auto tokenImpl = static_cast<const CTokenImplementation&>(*token);
 
-            auto mintable = MintableToken(tokenId, tokenImpl);
+            auto mintable = MintableToken(tokenId, *token);
             if (!mintable) {
                 return std::move(mintable);
             }
-            auto minted = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second);
+
+            auto minted = mnview.AddMintedTokens(tokenId, kv.second);
             if (!minted) {
                 return minted;
             }
+
             CalculateOwnerRewards(*mintable.val);
-            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{kv.first, kv.second});
+            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, kv.second});
             if (!res) {
                 return res;
             }
@@ -2786,7 +2787,7 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
-                boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> tokenDUSD;
+                boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
                 if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
                     tokenDUSD = mnview.GetToken("DUSD");
                 }
@@ -2852,7 +2853,7 @@ public:
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& kv : obj.amounts.balances)
         {
-            DCT_ID tokenId = kv.first;
+            const DCT_ID& tokenId = kv.first;
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -2892,7 +2893,7 @@ public:
                     return Res::Err("Exceed maximum loans");
             }
 
-            res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+            res = mnview.AddMintedTokens(tokenId, kv.second);
             if (!res)
                 return res;
 
@@ -2904,7 +2905,7 @@ public:
                 return res;
         }
 
-        boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> tokenDUSD;
+        boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
             tokenDUSD = mnview.GetToken("DUSD");
         }
@@ -3118,7 +3119,7 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
-                    res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
+                    res = mnview.SubMintedTokens(loanTokenId, subLoan);
                     if (!res)
                         return res;
 

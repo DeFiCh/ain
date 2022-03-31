@@ -11,6 +11,9 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 
+def sort_history(e):
+    return e['txn']
+
 class FuturesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -309,10 +312,26 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result['v0/live/economy/dfip2203_current'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
         assert('v0/live/economy/dfip2203_burned' not in result)
+        assert('v0/live/economy/dfip2203_minted' not in result)
+
+        # Get token total minted before future swap
+        total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check total minted incremented as expected
+        new_total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
+        assert_equal(total_dusd + self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"], new_total_dusd)
+
+        # Check TXN ordering
+        txn_first = 4294967295
+        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'q'})
+        result.sort(key = sort_history, reverse = True)
+        for result_entry in result:
+            assert_equal(result_entry['txn'], txn_first)
+            txn_first -= 1
 
         # Pending futures should now be empty
         result = self.nodes[0].listpendingfutureswaps()
@@ -420,14 +439,32 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
-        # Check DFI2203 address on listgovs, current shows pending, new swaps should not show up on burn.
+        # Check DFI2203 address on listgovs, current shows pending if any, burned shows
+        # deposits from executed swaps and minted shows output from executed swaps.
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result['v0/live/economy/dfip2203_current'], [f'3992.10000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
         assert_equal(result['v0/live/economy/dfip2203_burned'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_minted'], [f'{self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"]}@{self.symbolDUSD}'])
+
+        # Get token total minted before future swap
+        total_tsla = Decimal(self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'])
+        total_googl = Decimal(self.nodes[0].gettoken(self.idGOOGL)[self.idGOOGL]['minted'])
+        total_twtr = Decimal(self.nodes[0].gettoken(self.idTWTR)[self.idTWTR]['minted'])
+        total_msft = Decimal(self.nodes[0].gettoken(self.idMSFT)[self.idMSFT]['minted'])
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check minted totals incremented as expected
+        new_total_tsla = Decimal(self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'])
+        new_total_googl = Decimal(self.nodes[0].gettoken(self.idGOOGL)[self.idGOOGL]['minted'])
+        new_total_twtr = Decimal(self.nodes[0].gettoken(self.idTWTR)[self.idTWTR]['minted'])
+        new_total_msft = Decimal(self.nodes[0].gettoken(self.idMSFT)[self.idMSFT]['minted'])
+        assert_equal(total_tsla + Decimal('1.00000000'), new_total_tsla)
+        assert_equal(total_googl + Decimal('1.00000000'), new_total_googl)
+        assert_equal(total_twtr + Decimal('1.00000000'), new_total_twtr)
+        assert_equal(total_msft + Decimal('1.00000000'), new_total_msft)
 
         # Pending futures should now be empty
         result = self.nodes[0].listpendingfutureswaps()
@@ -792,25 +829,33 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
         self.nodes[0].generate(1)
 
-        # Check refunds show up in history
+        # Check TXN ordering on Gov var refunds
+        txn_first = 4294967295
         result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'w'})
+        result.sort(key = sort_history, reverse = True)
+        for result_entry in result:
+            assert_equal(result_entry['blockHeight'], self.nodes[0].getblockcount())
+            assert_equal(result_entry['type'], 'FutureSwapRefund')
+            assert_equal(result_entry['txn'], txn_first)
+            txn_first -= 1
+
+        # Check other refund entries
         assert_equal(result[0]['owner'], self.contract_address)
-        assert_equal(result[0]['blockHeight'], self.nodes[0].getblockcount())
-        assert_equal(result[0]['type'], 'FutureSwapRefund')
-        assert_equal(result[0]['amounts'], [f'{-self.prices[0]["premiumPrice"] - self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
-        assert_equal(result[1]['type'], 'FutureSwapRefund')
-        assert_equal(result[2]['type'], 'FutureSwapRefund')
-        assert_equal(result[1]['blockHeight'], self.nodes[0].getblockcount())
-        assert_equal(result[2]['blockHeight'], self.nodes[0].getblockcount())
+        assert_equal(result[2]['owner'], self.contract_address)
+        if result[0]['amounts'] != [f'{-self.prices[0]["premiumPrice"]}@{self.symbolDUSD}']:
+            assert_equal(result[0]['amounts'], [f'{-self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+        if result[2]['amounts'] != [f'{-self.prices[0]["premiumPrice"]}@{self.symbolDUSD}']:
+            assert_equal(result[2]['amounts'], [f'{-self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
         if result[1]['owner'] == address_googl:
             assert_equal(result[1]['amounts'], [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
-            assert_equal(result[2]['owner'], address_tsla)
-            assert_equal(result[2]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
         else:
             assert_equal(result[1]['owner'], address_tsla)
             assert_equal(result[1]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
-            assert_equal(result[2]['owner'], address_googl)
-            assert_equal(result[2]['amounts'], [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+        if result[3]['owner'] == address_googl:
+            assert_equal(result[3]['amounts'], [f'{self.prices[1]["premiumPrice"]}@{self.symbolDUSD}'])
+        else:
+            assert_equal(result[3]['owner'], address_tsla)
+            assert_equal(result[3]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
 
         # Balances should be restored
         result = self.nodes[0].getaccount(address_tsla)
@@ -898,10 +943,11 @@ class FuturesTest(DefiTestFramework):
         address = self.nodes[0].getnewaddress("", "legacy")
 
         # Fund addresses
-        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"] * 2}@{self.symbolDUSD}'})
         self.nodes[0].generate(1)
 
         # Create user futures contract
+        self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
         self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
         self.nodes[0].generate(1)
 
@@ -914,17 +960,24 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Check refund in history
-        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0})
+        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'w'})
+        result.sort(key = sort_history, reverse = True)
         assert_equal(result[0]['owner'], self.contract_address)
         assert_equal(result[0]['type'], 'FutureSwapRefund')
         assert_equal(result[0]['amounts'], [f'{-self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
         assert_equal(result[1]['owner'], address)
         assert_equal(result[1]['type'], 'FutureSwapRefund')
-        assert_equal(result[0]['amounts'], [f'{-self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
+        assert_equal(result[1]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
+        assert_equal(result[2]['owner'], self.contract_address)
+        assert_equal(result[2]['type'], 'FutureSwapRefund')
+        assert_equal(result[2]['amounts'], [f'{-self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
+        assert_equal(result[3]['owner'], address)
+        assert_equal(result[3]['type'], 'FutureSwapRefund')
+        assert_equal(result[3]['amounts'], [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
 
         # Check user has been refunded
         result = self.nodes[0].getaccount(address)
-        assert_equal(result, [f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'])
+        assert_equal(result, [f'{self.prices[0]["premiumPrice"] * 2}@{self.symbolDUSD}'])
 
         # Check contract address
         result = self.nodes[0].getaccount(self.contract_address)
@@ -956,11 +1009,11 @@ class FuturesTest(DefiTestFramework):
 
         # Check all swaps present
         result = self.nodes[0].listaccounthistory('all', {'txtype':'q'})
-        assert_equal(len(result), 15)
+        assert_equal(len(result), 17)
 
         # Check all swap refunds present
         result = self.nodes[0].listaccounthistory('all', {'txtype':'w'})
-        assert_equal(len(result), 9)
+        assert_equal(len(result), 12)
 
         # Check swap by specific address
         result = self.nodes[0].listaccounthistory(self.list_history[0]['swaps'][0]['address'], {'txtype':'q'})
