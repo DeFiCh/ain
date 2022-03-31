@@ -93,7 +93,7 @@ class PaybackDFILoanTest (DefiTestFramework):
                                     'interest': 1
         })
         self.nodes[0].generate(1)
-        self.nodes[0].minttokens("70000000@DUSD")
+        self.nodes[0].minttokens("70000100@DUSD")
         self.nodes[0].minttokens("500@BTC")
         self.nodes[0].minttokens("5000000000@TSLA")
         self.nodes[0].generate(1)
@@ -106,10 +106,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         # 20000000@DUSD
         # 1 DFI = 3.5 DUSD
         self.addr_pool_DFI_DUSD = self.nodes[0].getnewaddress("", "legacy")
-        toAmounts = { self.addr_pool_DFI_DUSD: "5000000@DFI"}
-        self.nodes[0].accounttoaccount(self.account0, toAmounts)
-        self.nodes[0].generate(1)
-        toAmounts = { self.addr_pool_DFI_DUSD: "20000000@DUSD"}
+        toAmounts = {self.addr_pool_DFI_DUSD: ["5000000@DFI", "20000000@DUSD"]}
         self.nodes[0].accounttoaccount(self.account0, toAmounts)
         self.nodes[0].generate(1)
 
@@ -118,9 +115,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         # 20000000@DUSD
         # 1 BTC = 50000 DUSD
         self.addr_pool_BTC_DUSD = self.nodes[0].getnewaddress("", "legacy")
-        toAmounts = {self.addr_pool_BTC_DUSD: "400@BTC"}
-        self.nodes[0].accounttoaccount(self.account0, toAmounts)
-        toAmounts = {self.addr_pool_BTC_DUSD: "20000000@DUSD"}
+        toAmounts = {self.addr_pool_BTC_DUSD: ["400@BTC", "20000000@DUSD"]}
         self.nodes[0].accounttoaccount(self.account0, toAmounts)
         self.nodes[0].generate(1)
 
@@ -129,9 +124,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         # 20000000@DUSD
         # 1 TSLA = 0.005 DUSD
         self.addr_pool_TSLA_DUSD = self.nodes[0].getnewaddress("", "legacy")
-        toAmounts = {self.addr_pool_TSLA_DUSD: "4000000000@TSLA"}
-        self.nodes[0].accounttoaccount(self.account0, toAmounts)
-        toAmounts = {self.addr_pool_TSLA_DUSD: "20000000@DUSD"}
+        toAmounts = {self.addr_pool_TSLA_DUSD: ["4000000000@TSLA", "20000000@DUSD"]}
         self.nodes[0].accounttoaccount(self.account0, toAmounts)
         self.nodes[0].generate(1)
 
@@ -159,9 +152,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].accounttoaccount(self.account0, toAmounts)
         self.nodes[0].generate(1)
 
+
         # Check balances on each account
         account = self.nodes[0].getaccount(self.account0)
-        assert_equal(account, [])
+        assert_equal(account, ["100.00000000@DUSD"])
         account = self.nodes[0].getaccount(self.addr_pool_DFI_DUSD)
         assert_equal(account, ['5000000.00000000@DFI', '20000000.00000000@DUSD'])
         account = self.nodes[0].getaccount(self.addr_pool_BTC_DUSD)
@@ -266,6 +260,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Should not be able to payback loan with BTC
+        errorString = ''
         try:
             self.nodes[0].paybackloan({
                     'vaultId': self.vaultId1,
@@ -278,6 +273,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
     def payback_with_DFI_prior_to_atribute_activation(self):
         # Should not be able to payback loan before DFI payback enabled
+        errorString = ''
         try:
             self.nodes[0].paybackloan({
                     'vaultId': self.vaultId1,
@@ -694,6 +690,64 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(info['paybacktokens'], ['3750000.00000002@TSLA'])
         assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('0.00012413'))
 
+    def multipayback_DUSD_with_DFI_and_DUSD(self):
+        # Create and fill addres with 10DFI + 70DUSD
+        self.nodes[0].utxostoaccount({self.account0: "11@" + self.symbolDFI})
+        self.nodes[0].generate(1)
+        self.addr_DFI_DUSD = self.nodes[0].getnewaddress("", "legacy")
+        toAmounts = {self.addr_DFI_DUSD: ["10@DFI", "71@DUSD"]}
+        self.nodes[0].accounttoaccount(self.account0, toAmounts)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+            'vaultId': self.vaultId2,
+            'amounts': "100@" + self.symboldUSD
+        })
+        self.nodes[0].generate(1)
+
+        [balanceDFIBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
+        [balanceDUSDBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
+        vaultBefore = self.nodes[0].getvault(self.vaultId2)
+        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+
+        self.nodes[0].paybackloan({
+            'vaultId': self.vaultId2,
+            'from': self.addr_DFI_DUSD,
+            'loans': [
+                {
+                    'dToken': self.iddUSD,
+                    'amounts': ["70@DUSD", "10@DFI"]
+                }
+            ]
+        })
+        #self.nodes[0].paybackloan({
+        #    'vaultId': self.vaultId2,
+        #    'from': self.addr_DFI_DUSD,
+        #    'loans': [
+        #        {
+        #            'dToken': self.iddUSD,
+        #            'amounts': "70@DUSD"
+        #        },
+        #        {
+        #            'dToken': self.iddUSD,
+        #            'amounts': "10@DFI"
+        #        }
+        #    ]
+        #})
+        self.nodes[0].generate(1)
+
+
+        vaultAfter = self.nodes[0].getvault(self.vaultId2)
+        assert_equal(vaultAfter["loanAmounts"], [])
+        accountAfter = self.nodes[0].getaccount(self.addr_DFI_DUSD)
+        breakpoint()
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
+        breakpoint()
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('70'))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('10'))
+
+
     def run_test(self):
         self.setup()
 
@@ -719,6 +773,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.payback_TSLA_with_1_dBTC()
         self.payback_dUSD_with_dUSD()
         self.payback_TSLA_with_1sat_dBTC()
+
+        self.multipayback_DUSD_with_DFI_and_DUSD()
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()
