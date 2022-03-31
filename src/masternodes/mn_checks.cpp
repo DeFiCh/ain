@@ -873,7 +873,7 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
                         return false;
                     }
-                } else {
+                } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
                     return false;
                 }
             }
