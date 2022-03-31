@@ -2942,19 +2942,21 @@ public:
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
         std::map<DCT_ID, CBalances> loans;
         for (auto& balance: obj.amounts.balances) {
-            CBalances amounts;
             auto id = balance.first;
             auto amount = balance.second;
 
-            amounts.Add({id, amount});
+            CBalances* loan;
             if (id == DCT_ID{0})
             {
                 auto tokenDUSD = mnview.GetToken("DUSD");
-                if (tokenDUSD)
-                    loans[tokenDUSD->first] = amounts;
+                if (!tokenDUSD)
+                    return Res::Err("Loan token DUSD does not exist!");
+                loan = &loans[tokenDUSD->first];
             }
             else
-                loans[id] = amounts;
+                loan = &loans[id];
+
+            loan->Add({id, amount});
         }
         return (*this)(
             CLoanPaybackLoanV2Message{
