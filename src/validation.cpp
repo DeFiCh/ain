@@ -3247,9 +3247,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                if (auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
-                }
+                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
@@ -3372,6 +3370,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 const auto& premiumPrice = futuresPrices.at(destId).premium;
                 if (premiumPrice > 0) {
                     const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                    view.AddMintedTokens(destId, total);
                     CTokenAmount destination{destId, total};
                     view.AddBalance(key.owner, destination);
                     burned.Add(futuresValues.source);
@@ -3390,6 +3389,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             try {
                 const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
                 const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
+                view.AddMintedTokens(tokenDUSD->first, total);
                 CTokenAmount destination{tokenDUSD->first, total};
                 view.AddBalance(key.owner, destination);
                 burned.Add(futuresValues.source);

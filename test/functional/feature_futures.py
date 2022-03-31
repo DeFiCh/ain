@@ -314,9 +314,16 @@ class FuturesTest(DefiTestFramework):
         assert('v0/live/economy/dfip2203_burned' not in result)
         assert('v0/live/economy/dfip2203_minted' not in result)
 
+        # Get token total minted before future swap
+        total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
+
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check total minted incremented as expected
+        new_total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
+        assert_equal(total_dusd + self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"], new_total_dusd)
 
         # Check TXN ordering
         txn_first = 4294967295
@@ -439,9 +446,25 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['v0/live/economy/dfip2203_burned'], [f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
         assert_equal(result['v0/live/economy/dfip2203_minted'], [f'{self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"]}@{self.symbolDUSD}'])
 
+        # Get token total minted before future swap
+        total_tsla = Decimal(self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'])
+        total_googl = Decimal(self.nodes[0].gettoken(self.idGOOGL)[self.idGOOGL]['minted'])
+        total_twtr = Decimal(self.nodes[0].gettoken(self.idTWTR)[self.idTWTR]['minted'])
+        total_msft = Decimal(self.nodes[0].gettoken(self.idMSFT)[self.idMSFT]['minted'])
+
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check minted totals incremented as expected
+        new_total_tsla = Decimal(self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'])
+        new_total_googl = Decimal(self.nodes[0].gettoken(self.idGOOGL)[self.idGOOGL]['minted'])
+        new_total_twtr = Decimal(self.nodes[0].gettoken(self.idTWTR)[self.idTWTR]['minted'])
+        new_total_msft = Decimal(self.nodes[0].gettoken(self.idMSFT)[self.idMSFT]['minted'])
+        assert_equal(total_tsla + Decimal('1.00000000'), new_total_tsla)
+        assert_equal(total_googl + Decimal('1.00000000'), new_total_googl)
+        assert_equal(total_twtr + Decimal('1.00000000'), new_total_twtr)
+        assert_equal(total_msft + Decimal('1.00000000'), new_total_msft)
 
         # Pending futures should now be empty
         result = self.nodes[0].listpendingfutureswaps()
