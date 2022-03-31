@@ -260,8 +260,8 @@ class TokenLockTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Try and take loan while token in vault locked
-        assert_raises_rpc_error(-32600, "Cannot take loan while any of the asset's price in the vault is not live", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolTSLA}'})
-        assert_raises_rpc_error(-32600, "Cannot take loan while any of the asset's price in the vault is not live", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolGOOGL}'})
+        assert_raises_rpc_error(-32600, "Fixed interval price currently disabled due to locked token", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolTSLA}'})
+        assert_raises_rpc_error(-32600, "Fixed interval price currently disabled due to locked token", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolGOOGL}'})
 
         # Vault amounts should be zero while token locked
         result = self.nodes[0].getvault(self.vault)

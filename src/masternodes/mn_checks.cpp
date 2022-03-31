@@ -866,19 +866,12 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
-    if (auto loans = mnview.GetLoanTokens(vaultId)) {
-        for (const auto& loan : loans->balances) {
-            if (auto loanToken = mnview.GetLoanTokenByID(loan.first)) {
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
+    if (auto loans = mnview.GetLoanTokens(vaultId))
+        for (const auto& loan : loans->balances)
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
-                    }
-                } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
-                    return false;
-                }
-            }
-        }
-    }
 
     return true;
 }
