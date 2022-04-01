@@ -31,6 +31,7 @@ enum EconomyKeys : uint8_t {
     PaybackTokens    = 'b',
     DFIP2203Current  = 'c',
     DFIP2203Burned   = 'd',
+    DFIP2203Minted   = 'e',
 };
 
 enum DFIPKeys : uint8_t  {

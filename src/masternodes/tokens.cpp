@@ -26,16 +26,12 @@ std::string trim_ws(std::string const & str)
     return str.substr(first, (last - first + 1));
 }
 
-std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
+boost::optional<CTokensView::CTokenImpl> CTokensView::GetToken(DCT_ID id) const
 {
-    if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
-        return MakeUnique<CTokenImpl>(*tokenImpl);
-    }
-
-    return {};
+    return ReadBy<ID, CTokenImpl>(id);
 }
 
-boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
+boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> CTokensView::GetToken(const std::string & symbolKey) const
 {
     DCT_ID id;
     if (ReadBy<Symbol, std::string>(symbolKey, id)) {
@@ -55,7 +51,7 @@ boost::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTok
     return {};
 }
 
-std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
+boost::optional<CTokensView::CTokenImpl> CTokensView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
 {
     std::string const key = trim_ws(str);
 
@@ -71,13 +67,13 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
         auto pair = GetTokenByCreationTx(tx);
         if (pair) {
             id = pair->first;
-            return MakeUnique<CTokenImpl>(pair->second);
+            return pair->second;
         }
     } else {
         auto pair = GetToken(key);
         if (pair) {
             id = pair->first;
-            return std::move(pair->second);
+            return pair->second;
         }
     }
     return {};
@@ -245,39 +241,37 @@ Res CTokensView::BayfrontFlagsCleanup()
     return Res::Ok();
 }
 
-Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::AddMintedTokens(DCT_ID const &id, CAmount const & amount)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    auto tokenImpl = GetToken(id);
+    if (!tokenImpl) {
+        return Res::Err("token with id %d does not exist!", id.v);
     }
-    CTokenImpl & tokenImpl = pair->second;
 
-    auto resMinted = SafeAdd(tokenImpl.minted, amount);
-    if (!resMinted.ok) {
+    auto resMinted = SafeAdd(tokenImpl->minted, amount);
+    if (!resMinted) {
         return Res::Err("overflow when adding to minted");
     }
-    tokenImpl.minted = *resMinted.val;
+    tokenImpl->minted = resMinted;
 
-    WriteBy<ID>(pair->first, tokenImpl);
+    WriteBy<ID>(id, *tokenImpl);
     return Res::Ok();
 }
 
-Res CTokensView::SubMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::SubMintedTokens(DCT_ID const &id, CAmount const & amount)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    auto tokenImpl = GetToken(id);
+    if (!tokenImpl) {
+        return Res::Err("token with id %d does not exist!", id.v);
     }
-    CTokenImpl & tokenImpl = pair->second;
 
-    auto resMinted = tokenImpl.minted - amount;
+    auto resMinted = tokenImpl->minted - amount;
     if (resMinted < 0) {
         return Res::Err("not enough tokens exist to subtract this amount");
     }
-    tokenImpl.minted = resMinted;
+    tokenImpl->minted = resMinted;
 
-    WriteBy<ID>(pair->first, tokenImpl);
+    WriteBy<ID>(id, *tokenImpl);
     return Res::Ok();
 }
 

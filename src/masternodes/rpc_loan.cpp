@@ -29,7 +29,7 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     if (!token)
         return (UniValue::VNULL);
 
-    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
+    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *token, true));
     loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
@@ -131,9 +131,8 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
         LOCK(cs_main);
 
         DCT_ID idToken;
-        std::unique_ptr<CToken> token;
 
-        token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
+        auto token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
         if (!token)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
         collToken.idToken = idToken;

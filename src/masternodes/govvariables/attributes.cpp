@@ -151,6 +151,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
                 {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
                 {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
+                {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
             }
         },
     };
@@ -396,30 +397,33 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
-
-    CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-    CAccountsHistoryWriter view(mnview, height, ~0u, {}, uint8_t(CustomTxType::FutureSwapRefund), &writers);
+    auto txn = std::numeric_limits<uint32_t>::max();
 
     for (const auto& [key, value] : userFuturesValues) {
-        view.EraseFuturesUserValues(key);
 
-        auto res = view.SubBalance(*contractAddressValue, value.source);
+        mnview.EraseFuturesUserValues(key);
+
+        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter subView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        auto res = subView.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }
+        subView.Flush();
 
-        res = view.AddBalance(key.owner, value.source);
+        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter addView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        res = addView.AddBalance(key.owner, value.source);
         if (!res) {
             return res;
         }
+        addView.Flush();
 
         res = balances.Sub(value.source);
         if (!res) {
             return res;
         }
     }
-
-    view.Flush();
 
     attributes[liveKey] = balances;
 
