@@ -126,6 +126,7 @@ BASE_SCRIPTS = [
     'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
     'feature_setgov.py',
+    'feature_rpcstats.py',
     'feature_futures.py',
     'interface_zmq.py',
     'feature_restore_utxo.py',

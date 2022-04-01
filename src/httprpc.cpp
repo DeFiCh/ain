@@ -9,6 +9,7 @@
 #include <httpserver.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/stats.h>
 #include <sync.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
@@ -149,7 +150,7 @@ static bool RPCAuthorized(const std::string& strAuth, std::string& strAuthUserna
 
 static bool CorsHandler(HTTPRequest *req) {
     auto host = corsOriginHost;
-    // If if it's empty assume cors is disallowed. Do nothing and proceed, 
+    // If if it's empty assume cors is disallowed. Do nothing and proceed,
     // with request as usual.
     if (host.empty())
         return false;
@@ -158,7 +159,7 @@ static bool CorsHandler(HTTPRequest *req) {
     req->WriteHeader("Access-Control-Allow-Credentials", "true");
     req->WriteHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
     req->WriteHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    
+
     // If it's a Cors preflight request, short-circuit and return. We have
     // set what's needed already.
     if (req->GetRequestMethod() == HTTPRequest::OPTIONS) {
@@ -172,8 +173,9 @@ static bool CorsHandler(HTTPRequest *req) {
 
 static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
 {
+    int64_t time = GetTimeMillis();
     // Handle CORS
-    if (CorsHandler(req)) 
+    if (CorsHandler(req))
         return true;
 
     // JSONRPC handles only POST
@@ -230,6 +232,8 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
         strReply += '\n';
         req->WriteHeader("Content-Type", "application/json");
         req->WriteReply(HTTP_OK, strReply);
+
+        if (statsRPC.isActive()) statsRPC.add(jreq.strMethod, GetTimeMillis() - time, strReply.length());
     } catch (const UniValue& objError) {
         JSONErrorReply(req, objError, jreq.id);
         return false;
@@ -279,6 +283,7 @@ bool StartHTTPRPC()
     assert(eventBase);
     httpRPCTimerInterface = std::make_unique<HTTPRPCTimerInterface>(eventBase);
     RPCSetTimerInterface(httpRPCTimerInterface.get());
+    if (statsRPC.isActive()) statsRPC.load();
     return true;
 }
 
@@ -298,4 +303,8 @@ void StopHTTPRPC()
         RPCUnsetTimerInterface(httpRPCTimerInterface.get());
         httpRPCTimerInterface.reset();
     }
+
+    if (statsRPC.isActive()) statsRPC.save();
 }
+
+CRPCStats statsRPC;
