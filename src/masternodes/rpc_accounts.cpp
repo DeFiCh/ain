@@ -1027,6 +1027,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
+            } else {
+                txType = FromString(str);
             }
         }
         if (!optionsObj["limit"].isNull()) {
