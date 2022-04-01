@@ -115,7 +115,7 @@ class PoolPairTest (DefiTestFramework):
             }, self.account_gs, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('amopunts too low, zero liquidity' in errorString)
+        assert('amounts too low, zero liquidity' in errorString)
 
 
     def setup(self):
