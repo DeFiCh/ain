@@ -4220,12 +4220,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     // sanely for performance or correctness!
     AssertLockNotHeld(cs_main);
 
-    // ABC maintains a fair degree of expensive-to-calculate internal state
-    // because this function periodically releases cs_main so that it does not lock up other threads for too long
-    // during large connects - and to allow for e.g. the callback queue to drain
-    // we use m_cs_chainstate to enforce mutual exclusion so that only one caller may execute this function at a time
-    LOCK(m_cs_chainstate);
-
     CBlockIndex *pindexMostWork = nullptr;
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
@@ -4237,8 +4231,16 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
         // ActivateBestChain this may lead to a deadlock! We should
         // probably have a DEBUG_LOCKORDER test for this in the future.
         LimitValidationInterfaceQueue();
+        // Periodically hold and release chainstate mutex to allow
+        // invalidate to take its place at any point
+        LOCK(m_cs_chainstate);
         {
             LOCK2(cs_main, ::mempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
+            // early return when last chain tip is changed
+            // it indicates invalidation
+            if (pindexNewTip && pindexNewTip != m_chain.Tip()) {
+                return true;
+            }
             CBlockIndex* starting_tip = m_chain.Tip();
             bool blocks_connected = false;
             do {
