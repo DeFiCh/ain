@@ -109,7 +109,9 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
         self.nodes[0].minttokens("70000100@DUSD")
+        self.nodes[0].generate(1)
         self.nodes[0].minttokens("500@BTC")
+        self.nodes[0].generate(1)
         self.nodes[0].minttokens("5000000000@TSLA")
         self.nodes[0].generate(1)
         self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
@@ -802,6 +804,21 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(balanceDUSDBefore, '71.00000000')
         assert_equal(balanceDFIBefore, '11.00000000')
 
+        errorString = ''
+        try:
+            self.nodes[0].paybackloan({
+                'vaultId': self.vaultId6,
+                'from': self.addr_DFI_DUSD,
+                'amounts': ["70@DUSD", "10@DFI"]
+            })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Payback of loan via DFI token is not currently active" in errorString)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.iddUSD + '/payback_dfi':'true'}})
+        self.nodes[0].generate(1)
+
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId6,
             'from': self.addr_DFI_DUSD,
@@ -810,11 +827,11 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         vaultAfter = self.nodes[0].getvault(self.vaultId6)
-        assert_equal(vaultAfter["loanAmounts"], ['30.00000249@DUSD']) # DFI payback not taken into account
+        assert_equal(vaultAfter["loanAmounts"], [])
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
         [balanceDFIAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
-        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('70'))
-        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('0'))
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('60.40000571'))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('10'))
 
 
     def run_test(self):
