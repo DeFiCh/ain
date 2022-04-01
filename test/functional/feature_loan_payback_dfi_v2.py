@@ -6,7 +6,7 @@
 """Test Loan - payback loan dfi."""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes
 from test_framework.authproxy import JSONRPCException
 
 import calendar
@@ -16,16 +16,31 @@ from decimal import Decimal, ROUND_UP
 
 class PaybackDFILoanTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 1
+        self.FCR_HEIGHT = 800
+        self.num_nodes = 2
+        self.FINISHED_SETUP_BLOCK = 0
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50',
-                '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=50', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1']
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ]
         ]
         self.symbolDFI = "DFI"
         self.symbolBTC = "BTC"
         self.symboldUSD = "DUSD"
         self.symbolTSLA = "TSLA"
+
+    def go_post_FCR(self):
+        self.nodes[0].generate(self.FCR_HEIGHT+1)
+
+    def reset_chain(self):
+        # REVERTING
+        # mine blocks at node 1
+        self.nodes[1].generate(20)
+
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(1))
+        self.nodes[0].generate(1)
 
     def create_tokens(self):
         self.nodes[0].createtoken({
@@ -236,8 +251,11 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].createloanscheme(200, 1, 'LOAN200')
         self.nodes[0].generate(1)
 
-    def setup(self):
-        self.nodes[0].generate(150)
+    def setup(self, FCR=False):
+        self.nodes[0].generate(100)
+        if(FCR):
+            self.go_post_FCR()
+
         self.account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.create_tokens()
         self.setup_oracles()
@@ -245,10 +263,11 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.create_fill_addresses()
         self.setup_poolpairs()
         self.setup_loanschemes()
+        self.FINISHED_SETUP_BLOCK = self.nodes[0].getblockcount()
 
     def payback_DUSD_with_BTC(self):
         self.vaultId1 = self.nodes[0].createvault(self.account0, 'LOAN200')
-        self.nodes[0].generate(90)
+        self.nodes[0].generate(120)
 
         self.nodes[0].deposittovault(self.vaultId1, self.addr_DFI, "50@DFI")
         self.nodes[0].generate(1)
@@ -445,6 +464,12 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
 
     def setgov_enable_dfi_payback_and_dfi_fee_pct(self):
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idTSLA + '/payback_dfi':'true'}})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idTSLA + '/payback_dfi_fee_pct':'0.01'}})
+        self.nodes[0].generate(1)
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idTSLA + '/payback_dfi':'true'}})
         self.nodes[0].generate(1)
 
@@ -691,27 +716,34 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('0.00012413'))
 
     def multipayback_DUSD_with_DFI_and_DUSD(self):
+        self.vaultId5 = self.nodes[0].createvault(self.account0, 'LOAN200')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vaultId5, self.addr_DFI, "100@DFI")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].generate(1)
         # Create and fill addres with 10DFI + 70DUSD
         self.nodes[0].utxostoaccount({self.account0: "11@" + self.symbolDFI})
         self.nodes[0].generate(1)
         self.addr_DFI_DUSD = self.nodes[0].getnewaddress("", "legacy")
-        toAmounts = {self.addr_DFI_DUSD: ["10@DFI", "71@DUSD"]}
+        toAmounts = {self.addr_DFI_DUSD: ["11@DFI", "71@DUSD"]}
         self.nodes[0].accounttoaccount(self.account0, toAmounts)
         self.nodes[0].generate(1)
 
         self.nodes[0].takeloan({
-            'vaultId': self.vaultId2,
+            'vaultId': self.vaultId5,
             'amounts': "100@" + self.symboldUSD
         })
         self.nodes[0].generate(1)
 
         [balanceDFIBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
         [balanceDUSDBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
-        vaultBefore = self.nodes[0].getvault(self.vaultId2)
-        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
+        assert_equal(balanceDUSDBefore, '71.00000000')
+        assert_equal(balanceDFIBefore, '11.00000000')
 
         self.nodes[0].paybackloan({
-            'vaultId': self.vaultId2,
+            'vaultId': self.vaultId5,
             'from': self.addr_DFI_DUSD,
             'loans': [
                 {
@@ -721,7 +753,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             ]
         })
         #self.nodes[0].paybackloan({
-        #    'vaultId': self.vaultId2,
+        #    'vaultId': self.vaultId5,
         #    'from': self.addr_DFI_DUSD,
         #    'loans': [
         #        {
@@ -736,21 +768,57 @@ class PaybackDFILoanTest (DefiTestFramework):
         #})
         self.nodes[0].generate(1)
 
-
-        vaultAfter = self.nodes[0].getvault(self.vaultId2)
+        vaultAfter = self.nodes[0].getvault(self.vaultId5)
         assert_equal(vaultAfter["loanAmounts"], [])
-        accountAfter = self.nodes[0].getaccount(self.addr_DFI_DUSD)
-        breakpoint()
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
         [balanceDFIAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
-        breakpoint()
-        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('70'))
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('62.00000191')) # balanceAfter = 71DUSD - (100.00000191DUSD loan+interests - 38DUSD (40DFI - 5% fee)
         assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('10'))
+
+    def multipayback_DUSD_with_DFI_and_DUSD_Pre_FCR(self):
+        self.vaultId6 = self.nodes[0].createvault(self.account0, 'LOAN200')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vaultId6, self.addr_DFI, "100@DFI")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].generate(1)
+        # Create and fill addres with 10DFI + 70DUSD
+        self.nodes[0].utxostoaccount({self.account0: "11@" + self.symbolDFI})
+        self.nodes[0].generate(1)
+        self.addr_DFI_DUSD = self.nodes[0].getnewaddress("", "legacy")
+        toAmounts = {self.addr_DFI_DUSD: ["11@DFI", "71@DUSD"]}
+        self.nodes[0].accounttoaccount(self.account0, toAmounts)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+            'vaultId': self.vaultId6,
+            'amounts': "100@" + self.symboldUSD
+        })
+        self.nodes[0].generate(1)
+
+        [balanceDFIBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
+        [balanceDUSDBefore, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
+        assert_equal(balanceDUSDBefore, '71.00000000')
+        assert_equal(balanceDFIBefore, '11.00000000')
+
+        self.nodes[0].paybackloan({
+            'vaultId': self.vaultId6,
+            'from': self.addr_DFI_DUSD,
+            'amounts': ["70@DUSD", "10@DFI"]
+        })
+        self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(self.vaultId6)
+        assert_equal(vaultAfter["loanAmounts"], ['30.00000249@DUSD']) # DFI payback not taken into account
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[1].split('@')
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(self.addr_DFI_DUSD)[0].split('@')
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('70'))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('0'))
 
 
     def run_test(self):
-        self.setup()
-
+        self.setup(FCR=True)
         self.payback_DUSD_with_BTC()
         self.payback_with_DFI_prior_to_atribute_activation()
         self.setgov_attribute_to_false_and_payback()
@@ -775,6 +843,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.payback_TSLA_with_1sat_dBTC()
 
         self.multipayback_DUSD_with_DFI_and_DUSD()
+
+        self.reset_chain()
+        self.setup(FCR=False)
+        self.multipayback_DUSD_with_DFI_and_DUSD_Pre_FCR()
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()

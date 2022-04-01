@@ -88,6 +88,16 @@ class PoolPairTest (DefiTestFramework):
         }, [])
         self.nodes[0].generate(1)
 
+    def add_1satoshi_liquidity_empty_pool(self):
+        errorString='' # remove [pylint E0601]
+        try:
+            self.nodes[0].addpoolliquidity({
+                self.account_gs: ["0.0000001@" + self.symbol_key_GOLD, "0.0000001@" + self.symbol_key_SILVER]
+            }, self.account_gs, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('liquidity too low' in errorString)
+
     def add_liquidity(self):
         self.nodes[0].addpoolliquidity({
             self.account_gs: ["5000000@" + self.symbol_key_GOLD, "500000@" + self.symbol_key_SILVER]
@@ -97,13 +107,25 @@ class PoolPairTest (DefiTestFramework):
         }, self.account_sd, [])
         self.nodes[0].generate(1)
 
+    def add_1satoshi_liquidity_non_empty_pool(self):
+        errorString='' # remove [pylint E0601]
+        try:
+            self.nodes[0].addpoolliquidity({
+                self.account_gs: ["0.00000001@" + self.symbol_key_GOLD, "0.00000001@" + self.symbol_key_SILVER]
+            }, self.account_gs, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('amopunts too low, zero liquidity' in errorString)
+
 
     def setup(self):
         self.nodes[0].generate(self.FC_HEIGHT)
         self.create_tokens()
         self.mint_tokens(100000000)
         self.create_pool_pairs()
+        self.add_1satoshi_liquidity_empty_pool()
         self.add_liquidity()
+        self.add_1satoshi_liquidity_non_empty_pool()
 
     def test_swap_with_wrong_amounts(self):
         from_address = self.account_gs
@@ -111,6 +133,7 @@ class PoolPairTest (DefiTestFramework):
         to_address = self.nodes[0].getnewaddress("")
         assert_equal(from_account[1], '45000000.00000000@GOLD#128')
         # try swap negative amount
+        errorString='' # remove [pylint E0601]
         try:
             self.nodes[0].poolswap({
                 "from": self.account_gs,
