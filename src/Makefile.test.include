@@ -157,7 +157,8 @@ DEFI_TESTS =\
   test/uint256_tests.cpp \
   test/util_tests.cpp \
   test/validation_block_tests.cpp \
-  test/versionbits_tests.cpp
+  test/versionbits_tests.cpp \
+  test/height_filter_tests.cpp
 
 if ENABLE_PROPERTY_TESTS
 DEFI_TESTS += \

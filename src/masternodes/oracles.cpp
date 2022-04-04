@@ -170,9 +170,23 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const FixedInterv
     return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
 }
 
-void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start)
+void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start, uint32_t height)
 {
-    ForEach<FixedIntervalPriceKey, CTokenCurrencyPair, CFixedIntervalPrice>(callback, start);
+    if (height == 0){
+        ForEach<FixedIntervalPriceKey, CTokenCurrencyPair, CFixedIntervalPrice>(callback, start);
+    }else {
+        FixedIntervalPriceKeyWithHeight key{};
+        key.height = height;
+        key.priceFeedId = start;
+        for(auto it = LowerBound<FixedIntervalPriceByHeightKey>(key); it.Valid() && it.Key().height == height; it.Next()){
+            boost::this_thread::interruption_point();
+            if (!callback(it.Key().priceFeedId, it.Value())) {
+                break;
+            }
+
+        }
+    }
+        
 }
 
 Res COracleView::SetPriceDeviation(const uint32_t deviation)

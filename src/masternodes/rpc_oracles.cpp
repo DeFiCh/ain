@@ -1068,6 +1068,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
     RPCHelpMan{"listfixedintervalprices",
                 "Get all fixed interval prices.\n",
                 {
+                    {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "optional height"},
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
                             {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
@@ -1111,6 +1112,11 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         }
     }
 
+    u_int32_t heightNum = 0;
+    if(!request.params[1].isNull()){
+        heightNum = u_int32_t(request.params[1].get_int());
+    }
+
     LOCK(cs_main);
 
 
@@ -1125,7 +1131,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         listPrice.push_back(obj);
         limit--;
         return limit != 0;
-    }, start);
+    }, start, heightNum);
     return listPrice;
 }
 
@@ -1147,7 +1153,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "getprice",                &getprice,                 {"request"}},
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId", "height"}},
-    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
+    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination",  "height"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

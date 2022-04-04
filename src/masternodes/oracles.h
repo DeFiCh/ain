@@ -155,7 +155,7 @@ public:
 
     ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const FixedIntervalPriceKeyWithHeight& fixedIntervalPriceKey);
 
-    void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
+    void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {}, uint32_t height = 0);
 
     Res SetPriceDeviation(const uint32_t deviation);
     CAmount GetPriceDeviation() const;
