@@ -82,6 +82,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
+        case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -276,6 +278,7 @@ public:
 
         : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
 
+
     template<typename T>
     Res operator()(const T& obj) const {
 
@@ -398,6 +401,9 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
         writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::PaybackLoan) {
         auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
+        writers->AddVault(obj.vaultId);
+    } else if (txType == CustomTxType::PaybackLoanV2) {
+        auto obj = std::get<CLoanPaybackLoanV2Message>(txMessage);
         writers->AddVault(obj.vaultId);
     } else if (txType == CustomTxType::AuctionBid) {
         auto obj = std::get<CAuctionBidMessage>(txMessage);

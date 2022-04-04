@@ -360,17 +360,16 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
 Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage& obj) const {
     std::map<DCT_ID, CBalances> loans;
     for (auto& balance: obj.amounts.balances) {
-        CBalances amounts;
         auto id = balance.first;
         auto amount = balance.second;
 
-        amounts.Add({id, amount});
         if (id == DCT_ID{0}) {
             auto tokenDUSD = mnview.GetToken("DUSD");
-            if (tokenDUSD)
-                loans[tokenDUSD->first] = amounts;
+            if (!tokenDUSD)
+                return Res::Err("Loan token DUSD does not exist!");
+            loans[tokenDUSD->first].Add({id, amount});
         } else
-            loans[id] = amounts;
+            loans[id].Add({id, amount});
     }
     return (*this)(
         CLoanPaybackLoanV2Message{
@@ -395,10 +394,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message& obj) const {
     if (!mnview.GetVaultCollaterals(obj.vaultId))
         return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
-    auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-    if (!loanAmounts)
-        return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
-
     if (!HasAuth(obj.from))
         return Res::Err("tx must have at least one input from token owner");
 
@@ -414,10 +409,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message& obj) const {
         auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
         if (!loanToken)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
-
-        auto it = loanAmounts->balances.find(loanTokenId);
-        if (it == loanAmounts->balances.end())
-            return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
         for (const auto& kv : idx.second.balances)
         {
@@ -489,6 +480,14 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message& obj) const {
                     paybackAmount = DivideAmounts(usdAmount, loanUsdPrice);
                 }
             }
+
+            auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+            if (!loanAmounts)
+                return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+
+            auto it = loanAmounts->balances.find(loanTokenId);
+            if (it == loanAmounts->balances.end())
+                return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
             auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
             if (!rate)

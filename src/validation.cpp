@@ -3266,12 +3266,12 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     const auto premium{COIN + rewardPct};
 
     std::map<DCT_ID, CFuturesPrice> futuresPrices;
-    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Disabled};
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
 
     cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
         tokenKey.typeId = id.v;
-        const auto disabled = attributes->GetValue(tokenKey, false);
-        if (disabled) {
+        const auto enabled = attributes->GetValue(tokenKey, true);
+        if (!enabled) {
             return true;
         }
 
@@ -3287,28 +3287,41 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return true;
     });
 
-    const uint32_t startHeight = pindex->nHeight - blockPeriod;
-    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
-    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
-        if (key.height <= startHeight) {
-            return false;
-        }
+    CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+    CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
 
-        const auto source = cache.GetLoanTokenByID(futuresValues.source.nTokenId);
+    auto burned = attributes->GetValue(burnKey, CBalances{});
+    auto minted = attributes->GetValue(mintedKey, CBalances{});
+
+    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
+    std::set<CFuturesUserKey> deletionPending;
+
+    auto txn = std::numeric_limits<uint32_t>::max();
+
+    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+
+        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+
+        deletionPending.insert(key);
+
+        const auto source = view.GetLoanTokenByID(futuresValues.source.nTokenId);
         assert(source);
 
         if (source->symbol == "DUSD") {
             const DCT_ID destId{futuresValues.destination};
-            const auto destToken = cache.GetLoanTokenByID(destId);
+            const auto destToken = view.GetLoanTokenByID(destId);
             assert(destToken);
 
             try {
                 const auto& premiumPrice = futuresPrices.at(destId).premium;
                 if (premiumPrice > 0) {
                     const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                    view.AddMintedTokens(destId, total);
                     CTokenAmount destination{destId, total};
-                    cache.AddBalance(key.owner, destination);
-                    cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
+                    view.AddBalance(key.owner, destination);
+                    burned.Add(futuresValues.source);
+                    minted.Add(destination);
                     LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
                              key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
@@ -3317,21 +3330,25 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             }
 
         } else {
-            const auto tokenDUSD = cache.GetToken("DUSD");
+            const auto tokenDUSD = view.GetToken("DUSD");
             assert(tokenDUSD);
 
             try {
                 const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
                 const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
+                view.AddMintedTokens(tokenDUSD->first, total);
                 CTokenAmount destination{tokenDUSD->first, total};
-                cache.AddBalance(key.owner, destination);
-                cache.StoreFuturesDestValues(key, {destination, static_cast<uint32_t>(pindex->nHeight)});
-                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                view.AddBalance(key.owner, destination);
+                burned.Add(futuresValues.source);
+                minted.Add(destination);
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
                          key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
             }
         }
+
+        view.Flush();
 
         return true;
     }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
@@ -3339,21 +3356,40 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     const auto contractAddressValue = GetFutureSwapContractAddress();
     assert(contractAddressValue);
 
-    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
+
     auto balances = attributes->GetValue(liveKey, CBalances{});
 
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
-        cache.EraseFuturesUserValues(key);
-        cache.SubBalance(*contractAddressValue, value.source);
-        cache.AddBalance(key.owner, value.source);
+
+        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        subView.SubBalance(*contractAddressValue, value.source);
+        subView.Flush();
+
+        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        addView.AddBalance(key.owner, value.source);
+        addView.Flush();
+
+        LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Refund Owner %s source %s destination %s\n",
+                 key.owner.GetHex(), value.source.ToString(), value.source.ToString());
         balances.Sub(value.source);
     }
 
+    for (const auto& key : deletionPending) {
+        cache.EraseFuturesUserValues(key);
+    }
+
+    attributes->attributes[burnKey] = burned;
+    attributes->attributes[mintedKey] = minted;
+
     if (!unpaidContracts.empty()) {
         attributes->attributes[liveKey] = balances;
-        cache.SetVariable(*attributes);
     }
+
+    cache.SetVariable(*attributes);
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
