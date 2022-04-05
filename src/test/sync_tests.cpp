@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
     constexpr int num_threads = 10;
 
     auto testFunc = []() {
-        static std::atomic_bool cs_lock;
+        static CLockFreeMutex cs_lock;
         static std::atomic_int context(0);
         static std::atomic_int threads(num_threads);
 
@@ -76,6 +76,19 @@ BOOST_AUTO_TEST_CASE(lock_free)
 
     for (auto& thread : threads)
         thread.join();
+}
+
+BOOST_AUTO_TEST_CASE(try_lock_free)
+{
+    CLockFreeMutex cs_lock;
+    {
+        // hold the lock
+        CLockFreeGuard lock(cs_lock);
+        // lock is non-recursive
+        BOOST_REQUIRE(!cs_lock.try_lock());
+    }
+    // lock is released
+    BOOST_REQUIRE(cs_lock.try_lock());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

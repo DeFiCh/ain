@@ -5,17 +5,13 @@
 #include <arith_uint256.h>
 #include <memory>
 #include <key.h>
+#include <sync.h>
 
 class CBlock;
-
 class CBlockIndex;
-
 class CBlockHeader;
-
 class CChainParams;
-
 class CCoinsViewCache;
-
 class CCustomCSView;
 
 /// A state that's passed along between various 
@@ -27,6 +23,8 @@ struct CheckContextState {
     uint8_t subNode = 0;
 };
 
+extern RecursiveMutex cs_main;
+
 namespace pos {
 
     bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader);
@@ -35,10 +33,10 @@ namespace pos {
     bool CheckHeaderSignature(const CBlockHeader& block);
 
 /// Check kernel hash target and coinstake signature
-    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState, const int height);
+    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState, const int height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /// Check kernel hash target and coinstake signature. Check that block coinstakeTx matches header
-    bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView);
+    bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params);
 
@@ -46,7 +44,7 @@ namespace pos {
 
     std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
 
-    std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams);
+    std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 }
 
 #endif // DEFI_POS_H

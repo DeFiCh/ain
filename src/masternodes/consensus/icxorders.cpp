@@ -71,7 +71,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage& obj) const {
             return Res::Err("receivePubkey must be valid pubkey");
 
         // calculating takerFee
-        CAmount BTCAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+        auto BTCAmount = DivideAmounts(makeoffer.amount, order->orderPrice);
         makeoffer.takerFee = CalculateTakerFee(BTCAmount);
     }
 
@@ -130,7 +130,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
 
         CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
-        CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
         if (calcAmount > offer->amount)
             return Res::Err("amount must be lower or equal the offer one");
 
@@ -138,11 +138,11 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
         //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
         if (static_cast<int>(height) >= consensus.EunosPayaHeight) {
             if (calcAmount < offer->amount) {
-                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-                takerFee = static_cast<CAmount>((arith_uint256(BTCAmount) * arith_uint256(offer->takerFee) / arith_uint256(offer->amount)).GetLow64());
+                auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
+                takerFee = (arith_uint256(BTCAmount) * offer->takerFee / offer->amount).GetLow64();
             }
         } else {
-            CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+            auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
             takerFee = CalculateTakerFee(BTCAmount);
         }
 
@@ -181,7 +181,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage& obj) const {
         if (!exthtlc)
             return Res::Err("offer (%s) needs to have ext htlc submitted first, but no external htlc found!", submitdfchtlc.offerTx.GetHex());
 
-        CAmount calcAmount(static_cast<CAmount>((arith_uint256(exthtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcAmount = MultiplyAmounts(exthtlc->amount, order->orderPrice);
         if (submitdfchtlc.amount != calcAmount)
             return Res::Err("amount must be equal to calculated exthtlc amount");
 
@@ -246,7 +246,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage& obj) const {
         if (!dfchtlc)
             return Res::Err("offer (%s) needs to have dfc htlc submitted first, but no dfc htlc found!", submitexthtlc.offerTx.GetHex());
 
-        CAmount calcAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcAmount = MultiplyAmounts(dfchtlc->amount, order->orderPrice);
         if (submitexthtlc.amount != calcAmount)
             return Res::Err("amount must be equal to calculated dfchtlc amount");
 
@@ -286,7 +286,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage& obj) const {
 
         CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
-        CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcAmount = MultiplyAmounts(submitexthtlc.amount, order->orderPrice);
         if (calcAmount > offer->amount)
             return Res::Err("amount must be lower or equal the offer one");
 
@@ -294,8 +294,8 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage& obj) const {
         //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
         if (static_cast<int>(height) >= consensus.EunosPayaHeight) {
             if (calcAmount < offer->amount) {
-                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
-                takerFee = static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(offer->takerFee) / arith_uint256(BTCAmount)).GetLow64());
+                auto BTCAmount = DivideAmounts(offer->amount, order->orderPrice);
+                takerFee = (arith_uint256(submitexthtlc.amount) * offer->takerFee / BTCAmount).GetLow64();
             }
         } else {
             takerFee = CalculateTakerFee(submitexthtlc.amount);
@@ -389,9 +389,12 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
         return res;
 
     // maker bonus only on fair dBTC/BTC (1:1) trades for now
-    DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
-    if (order->idToken == BTC && order->orderPrice == COIN) {
-        res = TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+    auto tokenBTC = mnview.GetToken(CICXOrder::TOKEN_BTC);
+    assert(tokenBTC);
+    if (order->idToken == tokenBTC->first && order->orderPrice == COIN) {
+        // maker bonus should be in DFI
+        auto tokenId = static_cast<int>(height) < consensus.GreatWorldHeight ? tokenBTC->first : DCT_ID{0};
+        res = TransferTokenBalance(tokenId, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
         if (!res)
             return res;
     }
@@ -399,7 +402,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage& obj) const {
     if (order->orderType == CICXOrder::TYPE_INTERNAL)
         order->amountToFill -= dfchtlc->amount;
     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
-        order->amountToFill -= static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64());
+        order->amountToFill -= DivideAmounts(dfchtlc->amount, order->orderPrice);
 
     // Order fulfilled, close order.
     if (order->amountToFill == 0) {
@@ -442,7 +445,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage& obj) const {
     closeorder.creationTx = tx.GetHash();
     closeorder.creationHeight = height;
 
-    std::unique_ptr<CICXOrderImplemetation> order;
+    std::optional<CICXOrderImplemetation> order;
     if (!(order = mnview.GetICXOrderByCreationTx(closeorder.orderTx)))
         return Res::Err("order with creation tx %s does not exists!", closeorder.orderTx.GetHex());
 
@@ -483,7 +486,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     closeoffer.creationTx = tx.GetHash();
     closeoffer.creationHeight = height;
 
-    std::unique_ptr<CICXMakeOfferImplemetation> offer;
+    std::optional<CICXMakeOfferImplemetation> offer;
     if (!(offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx)))
         return Res::Err("offer with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
 
@@ -493,7 +496,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage& obj) const {
     if (!mnview.HasICXMakeOfferOpen(offer->orderTx, offer->creationTx))
         return Res::Err("offer with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
 
-    std::unique_ptr<CICXOrderImplemetation> order;
+    std::optional<CICXOrderImplemetation> order;
     if (!(order = mnview.GetICXOrderByCreationTx(offer->orderTx)))
         return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 

@@ -115,12 +115,16 @@ struct CFixedIntervalPrice
     }
 };
 
+struct CFuturesPrice
+{
+    CAmount discount;
+    CAmount premium;
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {
 public:
-    ~COracleView() override = default;
-
     /// register new oracle instance
     Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 

@@ -15,6 +15,7 @@ struct CDefaultLoanSchemeMessage;
 struct CDestroyLoanSchemeMessage;
 struct CLoanTakeLoanMessage;
 struct CLoanPaybackLoanMessage;
+struct CLoanPaybackLoanV2Message;
 
 class CLoansConsensus : public CCustomTxVisitor {
 public:
@@ -27,6 +28,7 @@ public:
     Res operator()(const CDestroyLoanSchemeMessage& obj) const;
     Res operator()(const CLoanTakeLoanMessage& obj) const;
     Res operator()(const CLoanPaybackLoanMessage& obj) const;
+    Res operator()(const CLoanPaybackLoanV2Message& obj) const;
 };
 
 #endif // DEFI_MASTERNODES_CONSENSUS_LOANS_H

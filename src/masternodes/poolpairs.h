@@ -212,14 +212,7 @@ struct PoolHeightKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(poolID);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-        }
+        READWRITE(WrapBigEndianInv(height));
     }
 };
 
@@ -262,7 +255,8 @@ public:
     bool HasPoolPair(DCT_ID const & poolId) const;
 
     Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
-    CAmount GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const;
+    CAmount GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const;
+    CAmount GetDexFeeOutPct(DCT_ID poolId, DCT_ID tokenId) const;
 
     std::pair<CAmount, CAmount> UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 

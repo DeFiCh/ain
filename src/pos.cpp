@@ -75,14 +75,14 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        if (height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+        if (height >= params.EunosPayaHeight) {
             timelock = mnView->GetTimelock(masternodeID, *nodePtr, height);
         }
 
         // Check against EunosPayaHeight here for regtest, does not hurt other networks.
         // Redundant checks, but intentionally kept for easier fork accounting.
-        if (height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
-            const auto usedHeight = height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : height;
+        if (height >= params.DakotaCrescentHeight || height >= params.EunosPayaHeight) {
+            const auto usedHeight = height <= params.EunosHeight ? creationHeight : height;
 
             // Get block times
             subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
@@ -204,7 +204,7 @@ std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pbloc
     if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pcustomcsview.get()))
         return {std::string{} + "proof-of-stake checking failed"};
 
-    LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
+    LogPrintf("new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
 
     // Found a solution
     if (pblock->hashPrevBlock != pindexPrev->GetBlockHash())

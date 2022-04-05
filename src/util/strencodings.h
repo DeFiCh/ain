@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -257,5 +258,17 @@ std::string ToUpper(const std::string& str);
  * @returns         string with the first letter capitalized.
  */
 std::string Capitalize(std::string str);
+
+template<typename T>
+static std::string KeyBuilder(const T& value){
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
+template<typename T, typename ... Args >
+static std::string KeyBuilder(const T& value, const Args& ... args){
+    return KeyBuilder(value) + '/' + KeyBuilder(args...);
+}
 
 #endif // DEFI_UTIL_STRENCODINGS_H

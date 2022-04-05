@@ -16,14 +16,33 @@ setup_vars() {
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
-    EXTRA_CONF_ARGS=${EXTRA_CONF_ARGS:-}
-    EXTRA_MAKE_ARGS=${EXTRA_MAKE_ARGS:-}
-    EXTRA_MAKE_DEPENDS_ARGS=${EXTRA_MAKE_DEPENDS_ARGS:-}
+    local default_target="x86_64-pc-linux-gnu"
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        default_target="x86_64-apple-darwin18"
+    elif [[ "${OSTYPE}" == "msys" ]]; then
+        default_target="x86_64-w64-mingw32"
+    fi
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
     # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
-    TARGETS=(${TARGETS:-"x86_64-pc-linux-gnu"})
+    TARGET=${TARGET:-"${default_target}"}
+
+    local default_compiler_flags=""
+    if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
+        "${TARGET}" == "x86_64-apple-darwin11" ]]; then
+        default_compiler_flags="CC=clang-11 CXX=clang++-11"
+    fi
+
+    MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
+    MAKE_COMPILER=${MAKE_COMPILER:-"${default_compiler_flags}"}
+    MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
+    MAKE_ARGS=${MAKE_ARGS:-}
+    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
+    MAKE_DEBUG=${MAKE_DEBUG:-"0"}
+    if [[ "${MAKE_DEBUG}" == "1" ]]; then
+      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
+    fi
 }
 
 main() {
@@ -73,32 +92,51 @@ help() {
 
 # ----------- Direct builds ---------------
 
+build_deps() {
+    local target=${1:-${TARGET}}
+    local make_deps_args=${MAKE_DEPS_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
 
-build_prepare() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local extra_conf_opts=${EXTRA_CONF_ARGS:-}
-    local extra_make_depends_args=${EXTRA_MAKE_DEPENDS_ARGS:--j $(nproc)}
-
-    echo "> build: ${target}"
+    echo "> build-deps: target: ${target} / deps_args: ${make_deps_args} / jobs: ${make_jobs}"
     pushd ./depends >/dev/null
-    # XREF: #depends-make
-    make NO_QT=1 ${extra_make_depends_args}
+    # XREF: #make-deps
+    # shellcheck disable=SC2086
+    make HOST="${target}" -j${make_jobs} ${make_deps_args}
     popd >/dev/null
+}
+
+build_conf() {
+    local target=${1:-${TARGET}}
+    local make_conf_opts=${MAKE_CONF_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
+
+    echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
+
     ./autogen.sh
     # XREF: #make-configure
-    # ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
-    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
+    # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
+    # shellcheck disable=SC2086
+    ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
+}
+
+build_make() {
+    local target=${1:-${TARGET}}
+    local make_args=${MAKE_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
+
+    echo "> build: target: ${target} / args: ${make_args} / jobs: ${make_jobs}"
+    # shellcheck disable=SC2086
+    make -j${make_jobs} ${make_args}
 }
 
 build() {
-    local extra_make_args=${EXTRA_MAKE_ARGS:--j $(nproc)}
-
-    build_prepare "$@"
-    make ${extra_make_args}
+    build_deps "$@"
+    build_conf "$@"
+    build_make "$@"
 }
 
 deploy() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
+    local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
@@ -113,7 +151,7 @@ deploy() {
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
-    rm -rf ./${versioned_name} && mkdir "${versioned_name}"
+    rm -rf "./${versioned_name}" && mkdir "${versioned_name}"
     popd >/dev/null
 
     make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
@@ -122,7 +160,7 @@ deploy() {
 }
 
 package() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
+    local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
@@ -134,7 +172,7 @@ package() {
     local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(readlink -m ${release_dir}/${pkg_tar_file_name})"
+    pkg_path="$(readlink -m "${release_dir}/${pkg_tar_file_name}")"
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
@@ -149,17 +187,17 @@ package() {
 }
 
 release() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
+    local target=${1:-${TARGET}}
 
     build "${target}"
     package "${target}"
-    sign
+    sign "${target}"
 }
 
 # -------------- Docker ---------------
 
 docker_build() {
-    local targets=("${TARGETS[@]}")
+    local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local dockerfiles_dir="${DOCKERFILES_DIR}"
@@ -167,99 +205,93 @@ docker_build() {
 
     echo "> docker-build";
 
-    for target in "${targets[@]}"; do
-        if [[ "$target" == "x86_64-apple-darwin18" ]]; then
-            pkg_ensure_mac_sdk
-        fi
-        local img="${img_prefix}-${target}:${img_version}"
-        echo "> building: ${img}"
-        local docker_file="${dockerfiles_dir}/${target}.dockerfile"
-        echo "> docker build: ${img}"
-        docker build -f "${docker_file}" -t "${img}" "${docker_context}"
-    done
+    if [[ "$target" == "x86_64-apple-darwin"* ]]; then
+        pkg_ensure_mac_sdk
+    fi
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> building: ${img}"
+    local docker_file="${dockerfiles_dir}/${target}.dockerfile"
+    echo "> docker build: ${img}"
+    docker build -f "${docker_file}" -t "${img}" "${docker_context}"
 }
 
 docker_package() {
-    local targets=("${TARGETS[@]}")
+    local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
     echo "> docker-package";
 
-    for target in "${targets[@]}"; do
-        local img="${img_prefix}-${target}:${img_version}"
-        echo "> packaging: ${img}"
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> packaging: ${img}"
 
-        # XREF: #pkg-name
-        local pkg_name="${img_prefix}-${img_version}-${target}"
-        local pkg_tar_file_name="${pkg_name}.tar.gz"
-        local pkg_rel_path="${release_dir}/${pkg_tar_file_name}"
-        local versioned_name="${img_prefix}-${img_version}"
+    # XREF: #pkg-name
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_rel_path="${release_dir}/${pkg_tar_file_name}"
+    local versioned_name="${img_prefix}-${img_version}"
 
-        mkdir -p "${release_dir}"
+    mkdir -p "${release_dir}"
 
-        docker run --rm "${img}" bash -c \
-            "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_rel_path}"
+    docker run --rm "${img}" bash -c \
+        "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_rel_path}"
 
-        echo "> package: ${pkg_rel_path}"
-    done
+    echo "> package: ${pkg_rel_path}"
 }
 
 docker_deploy() {
-    local targets=("${TARGETS[@]}")
+    local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
     echo "> docker-deploy";
 
-    for target in "${targets[@]}"; do
-        local img="${img_prefix}-${target}:${img_version}"
-        echo "> deploy from: ${img}"
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> deploy from: ${img}"
 
-        # XREF: #pkg-name
-        local pkg_name="${img_prefix}-${img_version}-${target}"
-        local versioned_name="${img_prefix}-${img_version}"
-        local versioned_release_dir="${release_dir}/${versioned_name}"
+    # XREF: #pkg-name
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_release_dir="${release_dir}/${versioned_name}"
 
-        rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
+    rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
-        local cid
-        cid=$(docker create "${img}")
-        local e=0
+    local cid
+    cid=$(docker create "${img}")
+    local e=0
 
-        { docker cp "${cid}:/app/." "${versioned_release_dir}" 2>/dev/null && e=1; } || true
-        docker rm "${cid}"
+    { docker cp "${cid}:/app/." "${versioned_release_dir}" 2>/dev/null && e=1; } || true
+    docker rm "${cid}"
 
-        if [[ "$e" == "1" ]]; then
-            echo "> deployed into: ${versioned_release_dir}"
-        else
-            echo "> failed: please sure package is built first"
-        fi
-    done
+    if [[ "$e" == "1" ]]; then
+        echo "> deployed into: ${versioned_release_dir}"
+    else
+        echo "> failed: please sure package is built first"
+    fi
 }
 
 docker_release() {
-    docker_build
-    docker_package
-    sign
+    docker_build "$@"
+    docker_package "$@"
+    sign "$@"
 }
 
 docker_package_git() {
     git_version
-    docker_package
+    docker_package "$@"
 }
 
 docker_release_git() {
     git_version
-    docker_release
+    docker_release "$@"
 }
 
 docker_build_deploy_git() {
-    git_version
-    docker_build
-    docker_deploy
+    git_version 
+    docker_build "$@"
+    docker_deploy "$@"
 }
 
 docker_clean() {
@@ -309,6 +341,7 @@ git_version() {
     local current_commit
     local current_branch
 
+    git fetch --tags
     current_tag=$(git tag --points-at HEAD | head -1)
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -317,11 +350,10 @@ git_version() {
         # Replace `/` in branch names with `-` as / is trouble
         IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
         if [[ "${current_branch}" == "hotfix" ]]; then
-            # If the current branch is hotfix branch, 
-            # prefix it with the last available tag. 
-            git fetch --tags
+            # If the current branch is hotfix branch,
+            # prefix it with the last available tag.
             local last_tag
-            last_tag="$(git describe --tags $(git rev-list --tags --max-count=1))"
+            last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
             echo "> last tag: ${last_tag}"
             if [[ -n "${last_tag}" ]]; then
                 IMAGE_VERSION="${last_tag}-${IMAGE_VERSION}"
@@ -340,20 +372,23 @@ git_version() {
 
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
     fi
 }
 
 pkg_install_deps() {
-    sudo apt update && sudo apt dist-upgrade -y
-    sudo apt install -y software-properties-common build-essential libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
+    apt update && apt install -y \
+        software-properties-common build-essential libtool autotools-dev automake \
+        pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         curl cmake
+}
+
+pkg_install_llvm() {
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 11
+    ./llvm.sh 11
 }
 
 pkg_ensure_mac_sdk() {

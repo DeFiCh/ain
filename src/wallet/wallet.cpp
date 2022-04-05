@@ -1187,7 +1187,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
 void CWallet::LoadToWallet(const CWalletTx& wtxIn)
 {
     auto ins = mapWallet.insert(wtxIn);
-    mapWallet.modify(ins.first, [this](CWalletTx& wtx) {
+    mapWallet.modify(ins.first, [this](CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) {
         wtx.BindWallet(this);
         AddToSpends(wtx);
         for (const CTxIn& txin : wtx.tx->vin) {
@@ -1920,14 +1920,28 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
     return GetVirtualTransactionSize(CTransaction(txNew));
 }
 
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
+int CWallet::CalculateMaximumSignedInputSizeCached(const CTxOut& txout, bool use_max_sig) const
 {
-    CMutableTransaction txn;
-    txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn.vin[0], txout, use_max_sig)) {
+    auto it = maxInputSizeCache.find(txout.scriptPubKey);
+    if (it == maxInputSizeCache.end()) {
+        int size = CalculateMaximumSignedInputSize(txout, use_max_sig);
+        it = maxInputSizeCache.emplace(txout.scriptPubKey, size).first;
+    }
+    return it->second;
+}
+
+int CWallet::CalculateMaximumSignedInputSize(const CTxOut& txout, bool use_max_sig) const
+{
+    CTxIn txin(COutPoint{});
+    if (!DummySignInput(txin, txout, use_max_sig)) {
         return -1;
     }
-    return GetVirtualTransactionInputSize(txn.vin[0]);
+    return GetVirtualTransactionInputSize(txin);
+}
+
+int CWalletTx::GetSpendSize(unsigned int out, bool use_max_sig) const
+{
+    return pwallet->CalculateMaximumSignedInputSize(tx->vout[out], use_max_sig);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -2601,7 +2615,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             }
 
 
-            bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = wtx.IsSolvableOut(i);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
@@ -2676,7 +2690,7 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     return ptx->vout[n];
 }
 
-bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, const std::vector<OutputGroup>& groups,
                                  std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
     setCoinsRet.clear();
@@ -2694,9 +2708,10 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
         CAmount cost_of_change = GetDiscardRate(*this).GetFee(coin_selection_params.change_spend_size) + coin_selection_params.effective_fee.GetFee(coin_selection_params.change_output_size);
 
         // Filter by the min conf specs and add to utxo_pool and calculate effective value
-        for (OutputGroup& group : groups) {
-            if (!group.EligibleForSpending(eligibility_filter)) continue;
+        for (const OutputGroup& cgroup : groups) {
+            if (!cgroup.EligibleForSpending(eligibility_filter)) continue;
 
+            auto group = cgroup;
             group.fee = 0;
             group.long_term_fee = 0;
             group.effective_value = 0;
@@ -2713,7 +2728,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
                     it = group.Discard(coin);
                 }
             }
-            if (group.effective_value > 0) utxo_pool.push_back(group);
+            if (group.effective_value > 0) utxo_pool.push_back(std::move(group));
         }
         // Calculate the fees for things that aren't inputs
         CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
@@ -3112,6 +3127,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             // TODO: pass in scriptChange instead of reservedest so
             // change transaction isn't always pay-to-defi-address
             CScript scriptChange;
+            bool isChangeOutput = false;
 
             // coin control: send change to custom address
             if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
@@ -3137,6 +3153,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     return false;
                 }
 
+                isChangeOutput = true;
                 scriptChange = GetScriptForDestination(dest);
             }
             CTxOut change_prototype_txout(0, scriptChange);
@@ -3208,7 +3225,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 if (pick_new_inputs) {
                     nValueIn = 0;
                     setCoins.clear();
-                    int change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
+                    int change_spend_size = isChangeOutput
+                                          ? CalculateMaximumSignedInputSize(change_prototype_txout)
+                                          : CalculateMaximumSignedInputSizeCached(change_prototype_txout);
                     // If the wallet doesn't know how to sign change output, assume p2sh-p2wpkh
                     // as lower-bound to allow BnB to do it's thing
                     if (change_spend_size == -1) {
@@ -3581,14 +3600,12 @@ DBErrors CWallet::ZapWalletTx(std::vector<CWalletTx>& vWtx)
 
 bool CWallet::SetAddressBookWithDB(WalletBatch& batch, const CTxDestination& address, const std::string& strName, const std::string& strPurpose)
 {
-    bool fUpdated = false;
     {
         LOCK(cs_wallet);
-        std::map<CTxDestination, CAddressBookData>::iterator mi = mapAddressBook.find(address);
-        fUpdated = mi != mapAddressBook.end();
-        mapAddressBook[address].name = strName;
+        auto& bookAddress = mapAddressBook[address];
+        bookAddress.name = strName;
         if (!strPurpose.empty()) /* update purpose only if requested */
-            mapAddressBook[address].purpose = strPurpose;
+            bookAddress.purpose = strPurpose;
     }
     if (!strPurpose.empty() && !batch.WritePurpose(EncodeDestination(address), strPurpose))
         return false;
@@ -4639,7 +4656,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     walletInstance->TopUpKeyPool();
 
     auto locked_chain = chain.lock();
-    LOCK(walletInstance->cs_wallet);
+    LOCK2(walletInstance->cs_wallet, locked_chain->mutex());
 
     int rescan_height = 0;
     if (!gArgs.GetBoolArg("-rescan", false))
@@ -4812,6 +4829,15 @@ bool CWalletTx::IsImmatureCoinBase(interfaces::Chain::Lock& locked_chain) const
     return GetBlocksToMaturity(locked_chain) > 0;
 }
 
+bool CWalletTx::IsSolvableOut(unsigned int out) const
+{
+    auto it = solvableVouts.find(out);
+    if (it == solvableVouts.end()) {
+        it = solvableVouts.emplace(out, IsSolvable(*pwallet, tx->vout[out].scriptPubKey)).first;
+    }
+    return it->second;
+}
+
 void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
 {
     if (key.IsCompressed() && (type == OutputType::P2SH_SEGWIT || type == OutputType::BECH32)) {
@@ -4843,11 +4869,12 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
                 // Limit output groups to no more than 10 entries, to protect
                 // against inadvertently creating a too-large transaction
                 // when using -avoidpartialspends
-                if (gmap[dst].m_outputs.size() >= OUTPUT_GROUP_MAX_ENTRIES) {
-                    groups.push_back(gmap[dst]);
-                    gmap.erase(dst);
+                auto& goutput = gmap[dst];
+                if (goutput.m_outputs.size() >= OUTPUT_GROUP_MAX_ENTRIES) {
+                    groups.push_back(std::move(goutput));
+                    goutput = OutputGroup{};
                 }
-                gmap[dst].Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
+                goutput.Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
             } else {
                 groups.emplace_back(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
             }

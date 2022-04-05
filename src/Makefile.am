@@ -4,7 +4,7 @@
 
 DIST_SUBDIRS = secp256k1 univalue
 
-AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
+AM_LDFLAGS = $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) $(HARDENED_CPPFLAGS)
 AM_LIBTOOLFLAGS = --preserve-dup-deps
@@ -299,7 +299,7 @@ obj/build.h: FORCE
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
 
-libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
   spv/bcash/BRBCashAddr.cpp \
@@ -374,6 +374,7 @@ libdefi_server_a_SOURCES = \
   chain.cpp \
   consensus/tx_verify.cpp \
   flatfile.cpp \
+  flushablestorage.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \

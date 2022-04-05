@@ -215,6 +215,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "accounttoaccount", 2, "inputs" },
     { "accounttoutxos", 1, "to" },
     { "accounttoutxos", 2, "inputs" },
+    { "futureswap", 3, "inputs"},
+    { "withdrawfutureswap", 3, "inputs"},
 
     { "icx_createorder", 0, "order" },
     { "icx_createorder", 1, "inputs" },
@@ -301,6 +303,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listpoolshares", 2, "is_mine_only" },
 
     { "listaccounthistory", 1, "options" },
+    { "getaccounthistory", 1, "blockHeight" },
+    { "getaccounthistory", 2, "txn" },
     { "listburnhistory", 0, "options" },
     { "accounthistorycount", 1, "options" },
 

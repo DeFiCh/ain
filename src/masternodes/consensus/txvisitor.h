@@ -27,6 +27,7 @@ struct Params;
 class CCustomTxVisitor
 {
 protected:
+    uint32_t txn;
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
@@ -35,7 +36,7 @@ protected:
     const Consensus::Params& consensus;
 
 public:
-    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time);
+    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
 
 protected:
     Res CheckCustomTx() const;
@@ -51,12 +52,10 @@ protected:
     ResVal<CBalances> MintedTokens(uint32_t mintingOutputsStart) const;
     Res SetShares(const CScript& owner, const TAmounts& balances) const;
     Res DelShares(const CScript& owner, const TAmounts& balances) const;
-    DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
     Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
     Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
     Res AddBalancesSetShares(const CAccounts& accounts) const;
     Res SubBalancesDelShares(const CAccounts& accounts) const;
-    bool OraclePriceFeed(const CTokenCurrencyPair& priceFeed) const;
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript& from, const CScript& to) const;

@@ -32,6 +32,7 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     # if latest commit is tagged and not dirty, then override using the tag name
     RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
     if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 $RAWDESC 2>/dev/null)" ]; then
+        echo BUILD_DIRTY_CHECK: "$(git diff-index --quiet HEAD --)"
         git diff-index --quiet HEAD -- && DESC=$RAWDESC
     fi
 
@@ -53,6 +54,7 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     fi
 fi
 
+echo "BUILD_DESC: $DESC"
 echo "BUILD_GIT_BRANCH: $CURRENT_BRANCH"
 echo "BUILD_SUFFIX: $SUFFIX"
 
@@ -67,4 +69,5 @@ fi
 # only update build.h if necessary
 if [ "$INFO" != "$NEWINFO" ]; then
     echo "$NEWINFO" >"$FILE"
+    echo "BUILD_INFO: $NEWINFO"
 fi

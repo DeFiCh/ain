@@ -21,8 +21,10 @@ CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
                                    const CTransaction& tx,
                                    const Consensus::Params& consensus,
                                    uint32_t height,
-                                   uint64_t time)
-        : time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+                                   uint64_t time,
+                                   uint32_t txn)
+
+        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
 
 bool CCustomTxVisitor::HasAuth(const CScript& auth) const {
     for (const auto& input : tx.vin) {
@@ -121,31 +123,19 @@ Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, CScript co
     return Res::Ok();
 }
 
-DCT_ID CCustomTxVisitor::FindTokenByPartialSymbolName(const std::string& symbol) const {
-    DCT_ID res{0};
-    mnview.ForEachToken([&](DCT_ID id, CTokenImplementation token) {
-        if (token.symbol.find(symbol) == 0) {
-            res = id;
-            return false;
-        }
-        return true;
-    }, DCT_ID{1});
-    assert(res.v != 0);
-    return res;
-}
-
 static CAmount GetDFIperBTC(const CPoolPair& BTCDFIPoolPair) {
     if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
-        return (arith_uint256(BTCDFIPoolPair.reserveA) * arith_uint256(COIN) / BTCDFIPoolPair.reserveB).GetLow64();
-    return (arith_uint256(BTCDFIPoolPair.reserveB) * arith_uint256(COIN) / BTCDFIPoolPair.reserveA).GetLow64();
+        return DivideAmounts(BTCDFIPoolPair.reserveA, BTCDFIPoolPair.reserveB);
+    return DivideAmounts(BTCDFIPoolPair.reserveB, BTCDFIPoolPair.reserveA);
 }
 
 CAmount CCustomTxVisitor::CalculateTakerFee(CAmount amount) const {
-    auto BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
-    auto pair = mnview.GetPoolPair(BTC, DCT_ID{0});
+    auto tokenBTC = mnview.GetToken(CICXOrder::TOKEN_BTC);
+    assert(tokenBTC);
+    auto pair = mnview.GetPoolPair(tokenBTC->first, DCT_ID{0});
     assert(pair);
-    return (arith_uint256(amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
-          * arith_uint256(GetDFIperBTC(pair->second)) / arith_uint256(COIN)).GetLow64();
+    return (arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN
+          * GetDFIperBTC(pair->second) / COIN).GetLow64();
 }
 
 ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplementation& token) const {
@@ -285,18 +275,6 @@ Res CCustomTxVisitor::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& t
     return Res::Ok();
 }
 
-bool CCustomTxVisitor::OraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
-    // Allow hard coded DUSD/USD
-    if (priceFeed.first == "DUSD" && priceFeed.second == "USD")
-        return true;
-
-    bool found = false;
-    mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
-        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
-    });
-    return found;
-}
-
 ResVal<CCollateralLoans> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const {
 
     auto collateralsLoans = mnview.GetLoanCollaterals(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);
@@ -311,6 +289,9 @@ ResVal<CCollateralLoans> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& 
 
 Res CCustomTxVisitor::CheckNextCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals) const {
 
+    auto tokenDUSD = mnview.GetToken("DUSD");
+    bool allowDUSD = tokenDUSD && static_cast<int>(height) >= consensus.FortCanningRoadHeight;
+
     for (int i = 0; i < 2; i++) {
         // check ratio against current and active price
         bool useNextPrice = i > 0, requireLivePrice = true;
@@ -318,17 +299,18 @@ Res CCustomTxVisitor::CheckNextCollateralRatio(const CVaultId& vaultId, const CL
         if (!collateralsLoans)
             return std::move(collateralsLoans);
 
-        uint64_t totalDFI = 0;
+        uint64_t totalCollaterals = 0;
         for (auto& col : collateralsLoans.val->collaterals)
-            if (col.nTokenId == DCT_ID{0})
-                totalDFI += col.nValue;
+            if (col.nTokenId == DCT_ID{0}
+            || (allowDUSD && col.nTokenId == tokenDUSD->first))
+                totalCollaterals += col.nValue;
 
         if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-            if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+            if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
                 return Res::Err("At least 50%% of the collateral must be in DFI.");
         } else {
-            if (arith_uint256(totalDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme.ratio / 2)
-                return Res::Err("At least 50%% of the minimum required collateral must be in DFI.");
+            if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme.ratio / 2)
+                return Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD.");
         }
     }
     return Res::Ok();

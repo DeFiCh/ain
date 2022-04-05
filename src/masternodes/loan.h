@@ -127,14 +127,7 @@ struct CollateralTokenKey
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(id);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-        }
+        READWRITE(WrapBigEndianInv(height));
     }
 };
 
@@ -266,7 +259,7 @@ CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
-std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value);
+std::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 struct CLoanTakeLoanMessage
 {
@@ -300,21 +293,38 @@ struct CLoanPaybackLoanMessage
     }
 };
 
+struct CLoanPaybackLoanV2Message
+{
+    CVaultId vaultId;
+    CScript from;
+    std::map<DCT_ID, CBalances> loans;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(vaultId);
+        READWRITE(from);
+        READWRITE(loans);
+    }
+};
+
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
-    std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
+    std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
     Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    Res UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
+    Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken);
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
-    std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
+    std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
+    std::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
+    std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res EraseLoanToken(const DCT_ID& id);
     void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
@@ -344,10 +354,12 @@ public:
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     std::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
-    void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
+
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };

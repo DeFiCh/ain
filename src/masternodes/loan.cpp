@@ -1,16 +1,16 @@
 
 #include <chainparams.h>
 #include <masternodes/loan.h>
+#include <masternodes/govvariables/attributes.h>
+#include <masternodes/masternodes.h>
+
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include <cmath>
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
 {
-    auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
-    if (collToken)
-        return std::make_unique<CLoanSetCollateralTokenImpl>(*collToken);
-    return {};
+    return ReadBy<LoanSetCollateralTokenCreationTx, CLoanSetCollateralTokenImpl>(txid);
 }
 
 Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken)
@@ -31,15 +31,11 @@ Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & col
     return Res::Ok();
 }
 
-Res CLoanView::UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
+Res CLoanView::EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken)
 {
-    if (collateralToken.factor > COIN)
-        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
-    if (collateralToken.factor < 0)
-        return Res::Err("setCollateralToken factor must not be negative!");
-
-    CollateralTokenKey key{collateralToken.idToken, collateralToken.activateAfterBlock};
-    WriteBy<LoanSetCollateralTokenKey>(key, collateralToken.creationTx);
+    CollateralTokenKey key{collToken.idToken, collToken.activateAfterBlock};
+    EraseBy<LoanSetCollateralTokenKey>(key);
+    EraseBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx);
 
     return Res::Ok();
 }
@@ -49,15 +45,17 @@ void CLoanView::ForEachLoanCollateralToken(std::function<bool (CollateralTokenKe
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }
 
-std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid() && it.Key().id == key.id)
+    if (it.Valid() && it.Key().id == key.id) {
         return GetLoanCollateralToken(it.Value());
-    return {};
+    }
+
+    return GetCollateralTokenFromAttributes(key.id);
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
@@ -65,12 +63,14 @@ std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint25
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
 {
-    auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
-    if (loanToken)
-        return std::make_unique<CLoanSetLoanTokenImpl>(*loanToken);
-    return {};
+    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
+    if (loanToken) {
+        return loanToken;
+    }
+
+    return GetLoanTokenFromAttributes(id);
 }
 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
@@ -94,6 +94,13 @@ Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID c
         return Res::Err("interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
+
+    return Res::Ok();
+}
+
+Res CLoanView::EraseLoanToken(const DCT_ID& id)
+{
+    EraseBy<LoanSetLoanTokenKey>(id);
 
     return Res::Ok();
 }
@@ -198,7 +205,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 std::optional<CInterestRateV2> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         return ReadBy<LoanInterestV2ByVault, CInterestRateV2>(std::make_pair(vaultId, id));
 
     if (auto rate = ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id)))
@@ -226,7 +233,7 @@ inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount toke
 
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height)
 {
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CAmount amount = (value / base_uint<128>(HIGH_PRECISION_SCALER)).GetLow64();
         amount += CAmount(value != base_uint<128>(amount) * HIGH_PRECISION_SCALER);
         return amount;
@@ -245,7 +252,7 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
 {
     base_uint<128> amountHP = amount;
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         amountHP *= HIGH_PRECISION_SCALER;
 
     return amountHP;
@@ -263,7 +270,7 @@ CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height)
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         WriteBy<LoanInterestV2ByVault>(pair, rate);
     else
         WriteBy<LoanInterestByVault>(pair, ConvertInterestRateToV1(rate));
@@ -291,12 +298,12 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         rate.interestToHeight = TotalInterestCalculation(rate, height);
     }
 
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
 
-    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+    } else if (static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
         CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
         interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
         rate.interestPerBlock = interestPerBlock;
@@ -339,12 +346,12 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
 
     rate.height = height;
 
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight) {
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate);
 
-    } else if (int(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
+    } else if (static_cast<int>(height) >= Params().GetConsensus().FortCanningMuseumHeight) {
         CAmount interestPerBlock = rate.interestPerBlock.GetLow64();
         CAmount newInterestPerBlock = std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate));
         rate.interestPerBlock = std::max(CAmount{0}, interestPerBlock - newInterestPerBlock);
@@ -388,7 +395,7 @@ void DeleteInterest(CLoanView& view, const CVaultId& vaultId)
 
 Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (static_cast<int>(height) >= Params().GetConsensus().FortCanningHillHeight)
         ::DeleteInterest<LoanInterestV2ByVault>(*this, vaultId);
     else
         ::DeleteInterest<LoanInterestByVault>(*this, vaultId);
@@ -463,11 +470,6 @@ std::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
     return ReadBy<LoanTokenAmount, CBalances>(vaultId);
 }
 
-void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback)
-{
-    ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
-}
-
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
 {
     Write(LoanLiquidationPenalty::prefix(), penalty);
@@ -483,38 +485,44 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-std::string GetInterestPerBlockHighPrecisionString(base_uint<128> value) {
+std::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
     struct HighPrecisionInterestValue {
         typedef boost::multiprecision::int128_t int128;
         typedef int64_t int64;
 
         int128 value;
 
-        HighPrecisionInterestValue(base_uint<128> val) {
+        explicit HighPrecisionInterestValue(const base_uint<128>& val) {
             value = int128("0x" + val.GetHex());
         }
 
-        int64 GetInterestPerBlockSat() {
+        int64 GetInterestPerBlockSat() const {
             return int64(value / HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockSubSat() {
+        int64 GetInterestPerBlockSubSat() const {
             return int64(value % HIGH_PRECISION_SCALER);
         }
 
-        int64 GetInterestPerBlockMagnitude() {
+        int64 GetInterestPerBlockMagnitude() const {
             return int64(value / HIGH_PRECISION_SCALER / COIN);
         }
 
-        int128 GetInterestPerBlockDecimal() {
+        int128 GetInterestPerBlockDecimal() const {
             auto v = GetInterestPerBlockSat();
             return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
         }
 
-        std::string GetInterestPerBlockString() {
+        std::optional<std::string> GetInterestPerBlockString() const {
             std::ostringstream result;
-            result << GetInterestPerBlockMagnitude() << ".";
-            result << std::setw(24) << std::setfill('0') << GetInterestPerBlockDecimal();
+            auto mag = GetInterestPerBlockMagnitude();
+            auto dec = GetInterestPerBlockDecimal();
+            // While these can happen theoretically, they should be out of range of
+            // operating interest. If this happens, something else went wrong.
+            if (mag < 0 || dec < 0)
+                return {};
+
+            result << mag << "." << std::setw(24) << std::setfill('0') << dec;
             return result.str();
         }
     };

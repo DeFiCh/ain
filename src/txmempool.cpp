@@ -359,7 +359,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     // Add to memory pool without checking anything.
     // Used by AcceptToMemoryPool(), which DOES do
     // all the appropriate checks.
-    indexed_transaction_set::iterator newit = mapTx.insert(entry).first;
+    auto newit = mapTx.insert(entry).first;
     mapLinks.insert(make_pair(newit, TxLinks()));
 
     // Update transaction for any feeDelta created by PrioritiseTransaction
@@ -368,7 +368,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     CAmount delta{0};
     ApplyDelta(entry.GetTx().GetHash(), delta);
     if (delta) {
-            mapTx.modify(newit, update_fee_delta(delta));
+        mapTx.modify(newit, update_fee_delta(delta));
     }
 
     // Update cachedInnerUsage to include contained transaction's usage.
@@ -391,14 +391,14 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
     // Update ancestors with information about this tx
     for (const auto& pit : GetIterSet(setParentTransactions)) {
-            UpdateParent(newit, pit, true);
+        UpdateParent(newit, pit, true);
     }
     UpdateAncestorsOf(true, newit, setAncestors);
     UpdateEntryForAncestors(newit, setAncestors);
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
-    if (minerPolicyEstimator) {minerPolicyEstimator->processTransaction(entry, validFeeEstimate);}
+    if (minerPolicyEstimator) minerPolicyEstimator->processTransaction(entry, validFeeEstimate);
 
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
@@ -462,30 +462,30 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
 {
     // Remove transaction from memory pool
     AssertLockHeld(cs);
-        setEntries txToRemove;
-        txiter origit = mapTx.find(origTx.GetHash());
-        if (origit != mapTx.end()) {
-            txToRemove.insert(origit);
-        } else {
-            // When recursively removing but origTx isn't in the mempool
-            // be sure to remove any children that are in the pool. This can
-            // happen during chain re-orgs if origTx isn't re-accepted into
-            // the mempool for any reason.
-            for (unsigned int i = 0; i < origTx.vout.size(); i++) {
-                auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
-                if (it == mapNextTx.end())
-                    continue;
-                txiter nextit = mapTx.find(it->second->GetHash());
-                assert(nextit != mapTx.end());
-                txToRemove.insert(nextit);
-            }
+    setEntries txToRemove;
+    txiter origit = mapTx.find(origTx.GetHash());
+    if (origit != mapTx.end()) {
+        txToRemove.insert(origit);
+    } else {
+        // When recursively removing but origTx isn't in the mempool
+        // be sure to remove any children that are in the pool. This can
+        // happen during chain re-orgs if origTx isn't re-accepted into
+        // the mempool for any reason.
+        for (unsigned int i = 0; i < origTx.vout.size(); i++) {
+            auto it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
+            if (it == mapNextTx.end())
+                continue;
+            txiter nextit = mapTx.find(it->second->GetHash());
+            assert(nextit != mapTx.end());
+            txToRemove.insert(nextit);
         }
-        setEntries setAllRemoves;
-        for (txiter it : txToRemove) {
-            CalculateDescendants(it, setAllRemoves);
-        }
+    }
+    setEntries setAllRemoves;
+    for (txiter it : txToRemove) {
+        CalculateDescendants(it, setAllRemoves);
+    }
 
-        RemoveStaged(setAllRemoves, false, reason);
+    RemoveStaged(setAllRemoves, false, reason);
 }
 
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
@@ -493,7 +493,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
     AssertLockHeld(cs);
     setEntries txToRemove;
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+    for (auto it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
         LockPoints lp = it->GetLockPoints();
         bool validLP =  TestLockPointValidity(&lp);
@@ -556,19 +556,32 @@ CTxMemPool::~CTxMemPool()
 {
 }
 
-CCustomCSView& CTxMemPool::accountsView()
+static void CreateOrUpdateView(std::unique_ptr<CCustomCSView>& acview, bool updateBackend)
 {
     if (!acview) {
-        assert(pcustomcsview);
         acview = std::make_unique<CCustomCSView>(*pcustomcsview);
+        return;
     }
+    if (!updateBackend) {
+        return;
+    }
+    if (acview->GetLastHeight() != pcustomcsview->GetLastHeight()) {
+        acview->SetBackend(*pcustomcsview);
+    }
+}
+
+CCustomCSView& CTxMemPool::accountsView(int height, const CCoinsViewCache& coinsCache)
+{
+    assert(pcustomcsview);
+    CreateOrUpdateView(acview, true);
+    rebuildAccountsView(height, coinsCache);
     return *acview;
 }
 
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, bool viewChanges)
 {
     AssertLockHeld(cs);
 
@@ -580,7 +593,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         }
     }
     // Before the txs in the new block have been removed from the mempool, update policy estimates
-    if (minerPolicyEstimator) {minerPolicyEstimator->processBlock(nBlockHeight, entries);}
+    if (minerPolicyEstimator) minerPolicyEstimator->processBlock(nBlockHeight, entries);
 
     for (const auto& tx : vtx) {
         auto it = mapTx.find(tx->GetHash());
@@ -592,6 +605,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     }
 
     if (pcustomcsview) {
+        CreateOrUpdateView(acview, viewChanges);
         accountsViewDirty |= forceRebuildForReorg;
         rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
     }
@@ -623,17 +637,17 @@ void CTxMemPool::clear()
     acview.reset();
 }
 
-static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight, const CChainParams& chainparams)
+static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, CCustomCSView& mnviewDuplicate, const int64_t spendheight, const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, mnview, spendheight, txfee, chainparams);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, mnviewDuplicate, spendheight, txfee, chainparams);
     fCheckResult = fCheckResult && CheckBurnSpend(tx, mempoolDuplicate);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 }
 
-void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnview, const CChainParams& chainparams) const
+void CTxMemPool::xcheck(CCoinsViewCache *pcoins, CCustomCSView *mnview, const CChainParams& chainparams) const
 {
     LOCK(cs);
     if (nCheckFrequency == 0)
@@ -647,11 +661,12 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
     uint64_t checkTotal = 0;
     uint64_t innerUsage = 0;
 
-    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
+    CCustomCSView mnviewDuplicate(*mnview);
+    CCoinsViewCache mempoolDuplicate(pcoins);
     const int64_t spendheight = GetSpendHeight(mempoolDuplicate);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
+    for (auto it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->GetTxSize();
         innerUsage += it->DynamicMemoryUsage();
@@ -664,7 +679,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
         setEntries setParentCheck;
         for (const CTxIn &txin : tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            indexed_transaction_set::const_iterator it2 = mapTx.find(txin.prevout.hash);
+            auto it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->GetTx();
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
@@ -721,7 +736,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
         if (fDependsWait)
             waitingOnDependants.push_back(&(*it));
         else {
-            CheckInputsAndUpdateCoins(tx, mempoolDuplicate, mnview, spendheight, chainparams);
+            CheckInputsAndUpdateCoins(tx, mempoolDuplicate, mnviewDuplicate, spendheight, chainparams);
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -733,7 +748,7 @@ void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnv
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            CheckInputsAndUpdateCoins(entry->GetTx(), mempoolDuplicate, mnview, spendheight, chainparams);
+            CheckInputsAndUpdateCoins(entry->GetTx(), mempoolDuplicate, mnviewDuplicate, spendheight, chainparams);
             stepsSinceLastRemove = 0;
         }
     }
@@ -787,7 +802,7 @@ std::vector<CTxMemPool::indexed_transaction_set::const_iterator> CTxMemPool::Get
 
     iters.reserve(mapTx.size());
 
-    for (indexed_transaction_set::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
+    for (auto mi = mapTx.begin(); mi != mapTx.end(); ++mi) {
         iters.push_back(mi);
     }
     std::sort(iters.begin(), iters.end(), DepthAndScoreComparator());
@@ -1092,13 +1107,13 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
 
 void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
-    if (!pcustomcsview || !accountsViewDirty) {
+    if (!accountsViewDirty) {
         return;
     }
 
     CAmount txfee = 0;
-    accountsView().Discard();
-    CCustomCSView viewDuplicate(accountsView());
+    acview->Discard();
+    CCustomCSView viewDuplicate(*acview);
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
@@ -1107,7 +1122,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
         CValidationState state;
         const auto& tx = it->GetTx();
-        if (!Consensus::CheckTxInputs(tx, state, coinsCache, &viewDuplicate, height, txfee, Params())) {
+        if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
             LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());

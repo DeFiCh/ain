@@ -29,13 +29,6 @@ class MasternodesTimelockTest (DefiTestFramework):
         collateral10 = self.nodes[0].getnewaddress("", "legacy")
         collateral20 = self.nodes[0].getnewaddress("", "legacy")
 
-        # Try to set time lock before EunosPaya
-        try:
-            self.nodes[0].createmasternode(collateral5, "", [], "FIVEYEARTIMELOCK")
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Timelock cannot be specified before EunosPaya hard fork" in errorString)
-
         # Create regular MN to make sure accrued multiplier moves over
         nodeid_pre = self.nodes[0].createmasternode(collateral_prefork)
         self.nodes[0].generate(21)

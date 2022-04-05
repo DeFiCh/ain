@@ -190,7 +190,7 @@ private:
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs, ::cs_main);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -254,8 +254,8 @@ namespace pos {
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
+        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs GUARDED_BY(cs_MNLastBlockCreationAttemptTs);
+        static CLockFreeMutex cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;

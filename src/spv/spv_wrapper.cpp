@@ -31,7 +31,7 @@
 
 extern RecursiveMutex cs_main;
 
-RecursiveMutex cs_spvcallback;
+CLockFreeMutex cs_spvcallback;
 
 const int ENOSPV         = 100000;
 const int EPARSINGTX     = 100001;
@@ -96,21 +96,21 @@ void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
 }
 
 void syncStopped(void *info, int error)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
 }
 
 void txStatusUpdate(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
 }
@@ -129,14 +129,14 @@ void blockNotify(void *info, const UInt256& blockHash)
 
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
 }
 
 void threadCleanup(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
 }
@@ -246,6 +246,7 @@ void CSpvWrapper::Load()
     auto htlcAddresses = new BRUserAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook)
         {
             if (entry.second.purpose == "spv")
@@ -300,7 +301,7 @@ void CSpvWrapper::Load()
 
 CSpvWrapper::~CSpvWrapper()
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (manager) {
         BRPeerManagerFree(manager);
         manager = nullptr;
@@ -488,7 +489,8 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrint(BCLog::SPV, "tx status update\n");
-    panchors->CheckActiveAnchor();
+    uint32_t height = spv::pspv->GetLastBlockHeight();
+    panchors->CheckActiveAnchor(height);
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
@@ -1355,6 +1357,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
     std::set<uint160> htlcAddresses;
     const auto wallets = GetWallets();
     for (const auto& item : wallets) {
+        LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
                 htlcAddresses.insert(std::get<ScriptHash>(entry.first));

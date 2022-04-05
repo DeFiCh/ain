@@ -4,9 +4,10 @@
 
 #include <masternodes/accounts.h>
 #include <masternodes/consensus/vaults.h>
+#include <masternodes/govvariables/attributes.h>
+#include <masternodes/loan.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/tokens.h>
 #include <masternodes/vault.h>
@@ -17,7 +18,7 @@ Res CVaultsConsensus::operator()(const CVaultMessage& obj) const {
 
     auto vaultCreationFee = consensus.vaultCreationFee;
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0})
-        return Res::Err("malformed tx vouts, creation vault fee is %s DFI", GetDecimaleString(vaultCreationFee));
+        return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimaleString(vaultCreationFee));
 
     CVaultData vault{};
     static_cast<CVaultMessage&>(vault) = obj;
@@ -26,7 +27,7 @@ Res CVaultsConsensus::operator()(const CVaultMessage& obj) const {
     if (vault.schemeId.empty()) {
         auto defaultScheme = mnview.GetDefaultLoanScheme();
         if (!defaultScheme)
-            return Res::Err("There is not default loan scheme");
+            return Res::Err("There is no default loan scheme");
 
         vault.schemeId = *defaultScheme;
     }
@@ -117,7 +118,6 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage& obj) const {
     if (vault->schemeId != obj.schemeId)
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
             auto scheme = mnview.GetLoanScheme(obj.schemeId);
-            LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
             for (int i = 0; i < 2; i++) {
                 bool useNextPrice = i > 0, requireLivePrice = true;
                 auto collateralsLoans = CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
@@ -149,6 +149,14 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage& obj) const {
     if (vault->isUnderLiquidation)
         return Res::Err("Cannot deposit to vault under liquidation");
 
+    // If collateral token exist make sure it is enabled.
+    if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
+        CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
+        if (auto attributes = mnview.GetAttributes(); !attributes->GetValue(collateralKey, false)) {
+            return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
+        }
+    }
+
     //check balance
     CalculateOwnerRewards(obj.from);
     res = mnview.SubBalance(obj.from, obj.amount);
@@ -159,7 +167,6 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage& obj) const {
     if (!res)
         return res;
 
-    LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
     bool useNextPrice = false, requireLivePrice = false;
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
     auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
@@ -198,7 +205,6 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage& obj) const {
     if (!collaterals)
         return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
 
-    LogPrint(BCLog::LOAN,"CWithdrawFromVaultMessage():\n");
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
     res = CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals);
     return !res ? res : mnview.AddBalance(obj.to, obj.amount);
