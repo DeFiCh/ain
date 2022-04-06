@@ -172,6 +172,10 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
         if (!res)
             return res;
     } else {
+        // some txs might be rejected due to not enough owner amount
+        if (static_cast<int>(height) >= consensus.GreatWorldHeight)
+            CalculateOwnerRewards(obj.owner);
+
         auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
         if (!res)
             return res;
