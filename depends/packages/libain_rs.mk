@@ -32,6 +32,5 @@ define $(package)_stage_cmds
 mkdir -p $($(package)_staging_dir)$(host_prefix)/wasm && \
 mkdir -p $($(package)_staging_dir)$(host_prefix)/lib && \
 cp $($(package)_build_dir)$(package)/pkg/modules-wasm/*.wasm $($(package)_staging_dir)$(host_prefix)/wasm/ && \
-cp -r $($(package)_build_dir)$(package)/pkg/runtime-cpp/include $($(package)_staging_dir)$(host_prefix)/ && \
-cp $($(package)_build_dir)$(package)/pkg/runtime-cpp/*.a $($(package)_staging_dir)$(host_prefix)/lib/
+cp -r $($(package)_build_dir)$(package)/pkg/runtime-cpp/* $($(package)_staging_dir)$(host_prefix)/
 endef
