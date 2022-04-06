@@ -3403,11 +3403,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->attributes[burnKey] = burned;
-    attributes->attributes[mintedKey] = minted;
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, std::move(balances));
     }
 
     cache.SetVariable(*attributes);
