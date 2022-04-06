@@ -29,8 +29,5 @@ $($(package)_build_env) $(MAKE) build-pkg
 endef
 
 define $(package)_stage_cmds
-mkdir -p $($(package)_staging_dir)$(host_prefix)/wasm && \
-mkdir -p $($(package)_staging_dir)$(host_prefix)/lib && \
-cp $($(package)_build_dir)$(package)/pkg/modules-wasm/*.wasm $($(package)_staging_dir)$(host_prefix)/wasm/ && \
-cp -r $($(package)_build_dir)$(package)/pkg/runtime-cpp/* $($(package)_staging_dir)$(host_prefix)/
+cp -r $($(package)_build_dir)$(package)/pkg/* $($(package)_staging_dir)$(host_prefix)/
 endef
