@@ -26,6 +26,8 @@ if test "x${ARFLAGS+set}" != "xset"; then
   ARFLAGS="cr"
 fi
 
+DEFI_LIBAIN_RS
+
 AC_CANONICAL_HOST
 
 AH_TOP([#ifndef DEFI_CONFIG_H])
@@ -132,12 +134,6 @@ AC_ARG_WITH([rapidcheck],
   [enable RapidCheck property-based tests (default is yes if librapidcheck is found)])],
   [use_rapidcheck=$withval],
   [use_rapidcheck=auto])
-
-AC_ARG_WITH([libain_rs],
-  [AS_HELP_STRING([--with-libain_rs],
-  [use libain_rs (default is yes)])],
-  [use_libain_rs=$enableval],
-  [use_libain_rs=yes])
 
 AC_ARG_ENABLE(bench,
     AS_HELP_STRING([--disable-bench],[do not compile benchmarks (default is to compile)]),
@@ -1262,9 +1258,6 @@ fi
 AC_SUBST(RAPIDCHECK_LIBS)
 AM_CONDITIONAL([ENABLE_PROPERTY_TESTS], [test x$enable_property_tests = xyes])
 
-LIBAIN_RS_LIBS=-lruntime
-AC_SUBST(LIBAIN_RS_LIBS)
-
 dnl univalue check
 
 need_bundled_univalue=yes
@@ -1570,7 +1563,7 @@ if test x$use_tests != xno; then
 fi
 echo "  with bench    = $use_bench"
 echo "  with upnp     = $use_upnp"
-echo "  with libain_rs   = $use_libain_rs"
+echo "  with libain_rs = $use_libain_rs"
 echo "  use asm       = $use_asm"
 echo "  sanitizers    = $use_sanitizers"
 echo "  debug enabled = $enable_debug"
