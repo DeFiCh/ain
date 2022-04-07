@@ -1779,8 +1779,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     UniValue dfipaybacktokens{UniValue::VARR};
 
-    LOCK(cs_main);
-
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1824,11 +1822,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
             for (auto const & diff : value.diff) {
-                if (pcustomcsview->GetLoanTokenByID(diff.first)) {
-                    dexfeeburn.Add({diff.first, diff.second});
-                } else {
-                    burntTokens.Add({diff.first, diff.second});
-                }
+                dexfeeburn.Add({diff.first, diff.second});
             }
             return true;
         }
@@ -1853,6 +1847,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("auctionburn", ValueFromAmount(auctionFee));
     result.pushKV("paybackburn", ValueFromAmount(paybackFee));
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+
+    LOCK(cs_main);
 
     if (auto attributes = pcustomcsview->GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
