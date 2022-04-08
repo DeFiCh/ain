@@ -1,18 +1,11 @@
 .code
 .idea
-# Editors.
-*.sw*
 .vscode
 .clangd
 build
 
 *.tar.gz
 *.tmp
-.DS_Store
-
-# Build directory.
-build/
-out/
 *.exe
 *.pdb
 src/defi

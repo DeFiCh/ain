@@ -3,13 +3,16 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "util/arena.h"
+#include <assert.h>
 
 namespace leveldb {
 
 static const int kBlockSize = 4096;
 
-Arena::Arena()
-    : alloc_ptr_(nullptr), alloc_bytes_remaining_(0), memory_usage_(0) {}
+Arena::Arena() : memory_usage_(0) {
+  alloc_ptr_ = NULL;  // First allocation will allocate a block
+  alloc_bytes_remaining_ = 0;
+}
 
 Arena::~Arena() {
   for (size_t i = 0; i < blocks_.size(); i++) {
@@ -37,9 +40,8 @@ char* Arena::AllocateFallback(size_t bytes) {
 
 char* Arena::AllocateAligned(size_t bytes) {
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;
-  static_assert((align & (align - 1)) == 0,
-                "Pointer size should be a power of 2");
-  size_t current_mod = reinterpret_cast<uintptr_t>(alloc_ptr_) & (align - 1);
+  assert((align & (align-1)) == 0);   // Pointer size should be a power of 2
+  size_t current_mod = reinterpret_cast<uintptr_t>(alloc_ptr_) & (align-1);
   size_t slop = (current_mod == 0 ? 0 : align - current_mod);
   size_t needed = bytes + slop;
   char* result;
@@ -51,15 +53,15 @@ char* Arena::AllocateAligned(size_t bytes) {
     // AllocateFallback always returned aligned memory
     result = AllocateFallback(bytes);
   }
-  assert((reinterpret_cast<uintptr_t>(result) & (align - 1)) == 0);
+  assert((reinterpret_cast<uintptr_t>(result) & (align-1)) == 0);
   return result;
 }
 
 char* Arena::AllocateNewBlock(size_t block_bytes) {
   char* result = new char[block_bytes];
   blocks_.push_back(result);
-  memory_usage_.fetch_add(block_bytes + sizeof(char*),
-                          std::memory_order_relaxed);
+  memory_usage_.NoBarrier_Store(
+      reinterpret_cast<void*>(MemoryUsage() + block_bytes + sizeof(char*)));
   return result;
 }
 

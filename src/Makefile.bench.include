@@ -59,6 +59,7 @@ bench_bench_defi_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_SPV) \
   $(LIBLEVELDB) \
+  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
   $(LIBUNIVALUE) \
