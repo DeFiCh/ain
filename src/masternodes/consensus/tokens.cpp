@@ -59,6 +59,10 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage& obj) const {
     if (pair->first == DCT_ID{0})
         return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
 
+    if (mnview.AreTokensLocked({pair->first.v})) {
+        return Res::Err("Cannot update token during lock");
+    }
+
     const auto& token = pair->second;
 
     // need to check it exectly here cause lps has no collateral auth (that checked next)

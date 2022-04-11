@@ -32,6 +32,9 @@ class TokenLockTest(DefiTestFramework):
         # Test vault lock
         self.vault_lock()
 
+        # Test token lock
+        self.token_lock()
+
     def setup_test(self):
 
         # Store address
@@ -292,6 +295,27 @@ class TokenLockTest(DefiTestFramework):
         assert_equal(result['interestValue'], Decimal('0.00217500'))
         assert_equal(result['informativeRatio'], Decimal('11494.22413800'))
         assert_equal(result['collateralRatio'], 11494)
+
+    def token_lock(self):
+
+        # Enable token lock
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'true'}})
+        self.nodes[0].generate(1)
+
+        # Try and update token
+        assert_raises_rpc_error(-32600, "Cannot update token during lock", self.nodes[0].updatetoken, self.idTSLA, {'name':'Tesla'})
+
+        # Disable token lock
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
+        self.nodes[0].generate(1)
+
+        # Try same update
+        self.nodes[0].updatetoken(self.idTSLA, {'name':'Tesla'})
+        self.nodes[0].generate(1)
+
+        # Verify results
+        result = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]
+        assert_equal(result['name'], 'Tesla')
 
 if __name__ == '__main__':
     TokenLockTest().main()
