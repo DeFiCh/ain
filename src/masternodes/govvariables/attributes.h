@@ -110,7 +110,7 @@ struct CTokenPayback {
 };
 
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair, CTokenPayback>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
