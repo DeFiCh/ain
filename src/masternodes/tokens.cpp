@@ -111,7 +111,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
     }
 
     auto checkSymbolRes = token.IsValidSymbol();
-    if (!checkSymbolRes.ok) {
+    if (!checkSymbolRes) {
         return checkSymbolRes;
     }
 
@@ -143,11 +143,11 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
+    auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+        return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());
     }
     DCT_ID id = pair->first;
     CTokenImpl & oldToken = pair->second;
@@ -192,13 +192,22 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, boo
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
+    if (oldToken.destructionHeight != newToken.destructionHeight) {
+        oldToken.destructionHeight = newToken.destructionHeight;
+    }
+
+    if (oldToken.destructionTx != newToken.destructionTx) {
+        oldToken.destructionTx = newToken.destructionTx;
+    }
+
     WriteBy<ID>(id, oldToken);
+
     return Res::Ok();
 }
 
 /*
  * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
- * Call this EXECTLY at the 'bayfrontHeight-1' block
+ * Call this EXACTLY at the 'bayfrontHeight-1' block
  */
 Res CTokensView::BayfrontFlagsCleanup()
 {

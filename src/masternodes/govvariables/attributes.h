@@ -18,6 +18,7 @@ enum VersionTypes : uint8_t {
 
 enum AttributeTypes : uint8_t {
     Live      = 'l',
+    Oracles   = 'o',
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
@@ -27,6 +28,10 @@ enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
     DFIP2203  = 'b',
     Economy   = 'e',
+};
+
+enum OracleIDs : uint8_t  {
+    Splits    = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -58,6 +63,9 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor  = 'j',
     LoanMintingEnabled    = 'k',
     LoanMintingInterest   = 'l',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -68,7 +76,7 @@ enum PoolKeys : uint8_t {
 struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
-    uint8_t key;
+    uint32_t key;
     uint32_t keyId;
 
     ADD_SERIALIZE_METHODS;
@@ -77,7 +85,18 @@ struct CDataStructureV0 {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(type);
         READWRITE(typeId);
-        READWRITE(key);
+        if (ser_action.ForRead()) {
+            // Check if next key is 8bit or extended size 8bit + 32bit
+            if (s.size() == sizeof(uint8_t) || s.size() == sizeof(uint8_t) + sizeof(uint32_t)) {
+                uint8_t key8;
+                READWRITE(key8);
+                key = key8;
+            } else {
+                READWRITE(key);
+            }
+        } else {
+            READWRITE(key);
+        }
         if (IsExtendedSize()) {
             READWRITE(keyId);
         } else {
@@ -87,8 +106,8 @@ struct CDataStructureV0 {
 
     bool IsExtendedSize() const {
         return type == AttributeTypes::Token
-            && (key == TokenKeys::LoanPayback
-            ||  key == TokenKeys::LoanPaybackFeePCT);
+               && (key == TokenKeys::LoanPayback
+                   ||  key == TokenKeys::LoanPaybackFeePCT);
     }
 
     bool operator<(const CDataStructureV0& o) const {
@@ -109,8 +128,11 @@ struct CTokenPayback {
     }
 };
 
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -182,7 +204,10 @@ public:
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
+    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
+    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 private:
     bool futureBlockUpdated{};
 
@@ -190,6 +215,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
+    static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

@@ -8,8 +8,10 @@
 #include <consensus/validation.h>
 
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
+const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
+const std::vector<unsigned char> DfTokenSplitMarker = {'D', 'f', 'T', 'S'};
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
@@ -49,7 +51,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy) || IsTokenSplitTx(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -111,6 +113,22 @@ bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & 
     bool hasAdditionalOpcodes{false};
     const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
     if (fortCanning && hasAdditionalOpcodes) {
+        return false;
+    }
+    return result;
+}
+
+bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool greatWorld)
+{
+    if (!greatWorld) {
+        return false;
+    }
+    if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    bool hasAdditionalOpcodes{false};
+    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTokenSplitMarker, metadata, hasAdditionalOpcodes);
+    if (hasAdditionalOpcodes) {
         return false;
     }
     return result;

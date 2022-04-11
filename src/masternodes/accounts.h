@@ -152,7 +152,6 @@ public:
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
 
-private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);
 };
 

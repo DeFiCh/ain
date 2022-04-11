@@ -289,7 +289,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         assert("Payback of loan via DFI token is not currently active" in errorString)
 
     def setgov_attribute_to_false_and_payback(self):
-        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: params, poolpairs, token,',
+        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: oracles, params, poolpairs, token,',
                                 self.nodes[0].setgov, {"ATTRIBUTES":{'v0/live/economy/dfi_payback_tokens':'1'}})
 
         # Disable loan payback

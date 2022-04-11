@@ -163,6 +163,12 @@ public:
         , creationHeight(-1)
         , destructionHeight(-1)
     {}
+    explicit CTokenImplementation(const CToken& token)
+            : CToken(token)
+            , minted(0)
+            , creationHeight(-1)
+            , destructionHeight(-1)
+    {}
     ~CTokenImplementation() override = default;
 
     ADD_SERIALIZE_METHODS;
@@ -194,8 +200,8 @@ public:
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
-    Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
+    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);

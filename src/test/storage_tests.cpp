@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(tokens)
     CTokenImplementation token1;
     token1.symbol = "DCT1";
     token1.creationTx = uint256S("0x1111");
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(view.CreateToken(token1));
     BOOST_REQUIRE(GetTokensCount(view) == 2);
     {   // search by id
         auto token = view.GetToken(DCT_ID{128});
@@ -213,11 +213,11 @@ BOOST_AUTO_TEST_CASE(tokens)
     }
 
     // another token creation
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate symbol & tx
+    BOOST_REQUIRE(view.CreateToken(token1) == false); /// duplicate symbol & tx
     token1.symbol = "DCT2";
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate tx
+    BOOST_REQUIRE(view.CreateToken(token1) == false); /// duplicate tx
     token1.creationTx = uint256S("0x2222");
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(view.CreateToken(token1));
     BOOST_REQUIRE(GetTokensCount(view) == 3);
     {   // search by id
         auto token = view.GetToken(DCT_ID{129});

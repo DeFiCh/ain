@@ -444,9 +444,9 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported version", self.nodes[0].setgov, {"ATTRIBUTES":{'1/token/15/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
-        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi_fee_pct':'not_a_number'}})
@@ -493,6 +493,12 @@ class GovsetTest (DefiTestFramework):
             'fixedIntervalPriceId': "TSLA/USD",
             'mintable': False,
             'interest': 5})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setcollateraltoken({
+            'token': "DUSD",
+            'factor': 1,
+            'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].generate(1)
 
         # Test setting of new Gov var
@@ -573,11 +579,13 @@ class GovsetTest (DefiTestFramework):
 
         # Test setting FCR ATTRBIUTES
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05','v0/params/dfip2203/block_period':'20160','v0/token/5/dfip2203':'true'}})
+        self.nodes[0].generate(1)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
         self.nodes[0].generate(1)
 
         # Verify FCR results
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        print(result)
         assert_equal(result['v0/params/dfip2203/active'], 'true')
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
@@ -589,6 +597,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
 
         # Move to GreatWorld
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
@@ -616,6 +625,15 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'not_a_number'}})
         assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_minting_interest':'1'}})
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'1'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/ascendant': '1'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/descendant': '1'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/epitaph': '1'}})
+        assert_raises_rpc_error(-5, "Two int values expected for split in id/mutliplier", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1200': '1/50,600'}})
+        assert_raises_rpc_error(-5, "Mutliplier cannot be zero", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/0'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Token (127) does not exist", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '4/50,127/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Only DATs can be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '128/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Tokenised DFI cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '0/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Pool tokens cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/50'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dex_in_fee_pct':'0.6','v0/token/5/dex_out_fee_pct':'0.12'}})
         self.nodes[0].generate(1)
@@ -623,6 +641,15 @@ class GovsetTest (DefiTestFramework):
         attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attriutes['v0/token/5/dex_in_fee_pct'], '0.6')
         assert_equal(attriutes['v0/token/5/dex_out_fee_pct'], '0.12')
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50,5/5,'}})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'5/10'}})
+        self.nodes[0].generate(1)
+
+        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50,5/10,')
 
 if __name__ == '__main__':
     GovsetTest ().main ()
