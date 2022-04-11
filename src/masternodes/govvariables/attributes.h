@@ -34,7 +34,9 @@ enum ParamIDs : uint8_t  {
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens    = 'b',
-    DFIP2203Tokens   = 'c',
+    DFIP2203Current  = 'c',
+    DFIP2203Burned   = 'd',
+    DFIP2203Minted   = 'e',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -52,7 +54,7 @@ enum TokenKeys : uint8_t  {
     DexOutFeePct          = 'd',
     LoanPayback           = 'e',
     LoanPaybackFeePCT     = 'f',
-    DFIP2203Disabled      = 'g',
+    DFIP2203Enabled       = 'g',
     FixedIntervalPriceId  = 'h',
     LoanCollateralEnabled = 'i',
     LoanCollateralFactor  = 'j',
@@ -121,7 +123,7 @@ struct CTokenPayback {
 };
 
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenCurrencyPair, CTokenPayback>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {

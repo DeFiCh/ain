@@ -103,30 +103,29 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
     if (!source)
         return Res::Err("Could not get source loan token %d", obj.source.nTokenId.v);
 
-    if (source->symbol == "DUSD") {
-        CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Disabled};
-        const auto disabled = attributes->GetValue(tokenKey, false);
-        if (disabled)
-            return Res::Err("DFIP2203 currently disabled for token %d", obj.destination);
+    uint32_t tokenId;
 
-        const auto loanToken = mnview.GetLoanTokenByID({obj.destination});
-        if (!loanToken)
-            return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
+    if (source->symbol == "DUSD") {
+        tokenId = obj.destination;
+
+        if (!mnview.GetLoanTokenByID({tokenId}))
+            return Res::Err("Could not get destination loan token %d. Set valid destination.", tokenId);
     } else {
         if (obj.destination != 0)
             return Res::Err("Destination should not be set when source amount is a dToken");
 
-        CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Disabled};
-        const auto disabled = attributes->GetValue(tokenKey, false);
-        if (disabled)
-            return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
+        tokenId = obj.source.nTokenId.v;
     }
+
+    CDataStructureV0 tokenKey{AttributeTypes::Token, tokenId, TokenKeys::DFIP2203Enabled};
+    if (!attributes->GetValue(tokenKey, true))
+        return Res::Err("DFIP2203 currently disabled for token %d", tokenId);
 
     const auto contractAddressValue = GetFutureSwapContractAddress();
     if (!contractAddressValue)
         return contractAddressValue;
 
-    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = attributes->GetValue(liveKey, CBalances{});
 
     if (obj.withdraw) {

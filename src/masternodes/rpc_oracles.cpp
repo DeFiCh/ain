@@ -1134,12 +1134,12 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
     CImmutableCSView view(*pcustomcsview);
     const auto currentHeight = view.GetLastHeight();
 
-    const auto blockAndReward = GetFuturesBlockAndReward(view);
-    if (!blockAndReward) {
+    const auto block = GetFuturesBlock(view);
+    if (!block) {
         return 0;
     }
 
-    return currentHeight + (blockAndReward->first - (currentHeight % blockAndReward->first));
+    return currentHeight + (*block - (currentHeight % *block));
 }
 
 static const CRPCCommand commands[] =

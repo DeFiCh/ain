@@ -4,9 +4,11 @@
 
 #include <masternodes/govvariables/attributes.h>
 
-#include <core_io.h> /// ValueFromAmount
+#include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
+
+#include <core_io.h> /// ValueFromAmount
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
@@ -102,7 +104,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
                 {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
                 {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
-                {"dfip2203_disabled",       TokenKeys::DFIP2203Disabled},
+                {"dfip2203",                TokenKeys::DFIP2203Enabled},
                 {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
                 {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
                 {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
@@ -139,7 +141,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
                 {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
                 {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
-                {TokenKeys::DFIP2203Disabled,      "dfip2203_disabled"},
+                {TokenKeys::DFIP2203Enabled,       "dfip2203"},
                 {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
                 {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
                 {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
@@ -165,7 +167,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         {
             AttributeTypes::Live, {
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                {EconomyKeys::DFIP2203Tokens,    "dfip_tokens"},
+                {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
+                {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
+                {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
             }
         },
     };
@@ -244,7 +248,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
                 {TokenKeys::DexInFeePct,           VerifyPct},
                 {TokenKeys::DexOutFeePct,          VerifyPct},
-                {TokenKeys::DFIP2203Disabled,      VerifyBool},
+                {TokenKeys::DFIP2203Enabled,       VerifyBool},
                 {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
                 {TokenKeys::LoanCollateralEnabled, VerifyBool},
                 {TokenKeys::LoanCollateralFactor,  VerifyPct},
@@ -437,14 +441,9 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         return Res::Ok();
     }
 
-    const uint32_t startHeight = height - (height % blockPeriod);
     std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
     mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-        if (key.height <= startHeight) {
-            return false;
-        }
-
         if (tokenID != std::numeric_limits<uint32_t>::max()) {
             if (futuresValues.source.nTokenId.v == tokenID || futuresValues.destination == tokenID) {
                 userFuturesValues[key] = futuresValues;
@@ -461,21 +460,30 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         return contractAddressValue;
     }
 
-    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
+    auto txn = std::numeric_limits<uint32_t>::max();
+
     for (const auto& [key, value] : userFuturesValues) {
+
         mnview.EraseFuturesUserValues(key);
 
-        auto res = mnview.SubBalance(*contractAddressValue, value.source);
+        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter subView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        auto res = subView.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }
+        subView.Flush();
 
-        res = mnview.AddBalance(key.owner, value.source);
+        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter addView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        res = addView.AddBalance(key.owner, value.source);
         if (!res) {
             return res;
         }
+        addView.Flush();
 
         res = balances.Sub(value.source);
         if (!res) {
@@ -621,7 +629,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                         break;
-                    case TokenKeys::DFIP2203Disabled:
+                    case TokenKeys::DFIP2203Enabled:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                             return Res::Err("Cannot be set before FortCanningRoad");
                         }
@@ -764,12 +772,17 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return Res::Err("Unrecognised value for FixedIntervalPriceId");
                 }
             }
-            if (attrV0->key == TokenKeys::DFIP2203Disabled) {
+            if (attrV0->key == TokenKeys::DFIP2203Enabled) {
 
                 // Skip on block period change to avoid refunding and erasing entries.
                 // Block period change will check for conflicting entries, deleting them
                 // via RefundFuturesContracts will fail that check.
                 if (futureBlockUpdated) {
+                    continue;
+                }
+
+                auto value = std::get<bool>(attribute.second);
+                if (value) {
                     continue;
                 }
 
@@ -820,13 +833,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
                 if (GetValue(activeKey, false)) {
                     return Res::Err("Cannot set block period while DFIP2203 is active");
-                }
-
-                auto blockPeriod = std::get<CAmount>(attribute.second);
-                const auto recentFuturesHeight = mnview.GetMostRecentFuturesHeight();
-
-                if (recentFuturesHeight && *recentFuturesHeight > height - (height % blockPeriod)) {
-                    return Res::Err("Historical Futures contracts in this period");
                 }
             }
         }

@@ -50,6 +50,8 @@ enum struct CustomTxType : uint8_t
     AnyAccountsToAccounts   = 'a',
     SmartContract           = 'K',
     DFIP2203                = 'Q',
+    FutureSwapExecution     = 'q',
+    FutureSwapRefund        = 'w',
 
     // governance
     SetGovVariable          = 'G',

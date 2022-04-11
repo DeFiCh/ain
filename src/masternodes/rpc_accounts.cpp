@@ -1846,7 +1846,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         paybackfees = std::move(paybacks.tokensFee);
         paybacktokens = std::move(paybacks.tokensPayback);
 
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Tokens};
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
         dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
     }
 
@@ -2044,7 +2044,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
                        {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
-                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2083,7 +2083,14 @@ UniValue futureswap(const JSONRPCRequest& request) {
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
 
     if (!request.params[2].isNull()) {
-        msg.destination = request.params[2].get_int();
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
     }
 
     // Encode
@@ -2128,7 +2135,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
                        {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
-                       {"destination", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2166,7 +2173,14 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
     msg.withdraw = true;
 
     if (!request.params[2].isNull()) {
-        msg.destination = request.params[2].get_int();
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
     }
 
     // Encode
@@ -2219,32 +2233,18 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    UniValue listFutures{UniValue::VARR};
     CImmutableCSView view(*pcustomcsview);
 
-    UniValue listFutures{UniValue::VARR};
-    const auto blockAndReward = GetFuturesBlockAndReward(view);
-    if (!blockAndReward) {
-        return listFutures;
-    }
-
-    const auto currentHeight = view.GetLastHeight();
-    const auto startPeriod = currentHeight - (currentHeight % blockAndReward->first);
-
     view.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
-        if (key.height <= startPeriod) {
-            return false;
-        }
-
         CTxDestination dest;
         ExtractDestination(key.owner, dest);
-        if (!IsValidDestination(dest)) {
+        if (!IsValidDestination(dest))
             return true;
-        }
 
         const auto source = view.GetToken(futuresValues.source.nTokenId);
-        if (!source) {
+        if (!source)
             return true;
-        }
 
         UniValue value{UniValue::VOBJ};
         value.pushKV("owner", EncodeDestination(dest));
@@ -2252,13 +2252,12 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
 
         if (source->symbol == "DUSD") {
             const auto destination = view.GetLoanTokenByID({futuresValues.destination});
-            if (!destination) {
+            if (!destination)
                 return true;
-            }
+
             value.pushKV("destination", destination->symbol);
-        } else {
+        } else
             value.pushKV("destination", "DUSD");
-        }
 
         listFutures.push_back(value);
 
@@ -2289,220 +2288,42 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    CImmutableCSView view(*pcustomcsview);
-
-    UniValue listValues{UniValue::VARR};
-    const auto blockAndReward = GetFuturesBlockAndReward(view);
-    if (!blockAndReward) {
-        return listValues;
-    }
-
     const auto owner = DecodeScript(request.params[0].get_str());
 
-    const auto currentHeight = view.GetLastHeight();
-    const auto startPeriod = currentHeight - (currentHeight % blockAndReward->first);
+    UniValue listValues{UniValue::VARR};
+    CImmutableCSView view(*pcustomcsview);
 
-    std::vector<CFuturesUserValue> storedFutures;
-    view.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-        if (key.height <= startPeriod) {
-            return false;
-        }
+    view.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futureValue) {
 
         if (key.owner == owner) {
-            storedFutures.push_back(futuresValues);
+            UniValue value{UniValue::VOBJ};
+
+            const auto source = view.GetToken(futureValue.source.nTokenId);
+            if (!source)
+                return true;
+
+            value.pushKV("source", tokenAmountString(futureValue.source));
+
+            if (source->symbol == "DUSD") {
+                const auto destination = view.GetLoanTokenByID({futureValue.destination});
+                if (!destination)
+                    return true;
+
+                value.pushKV("destination", destination->symbol);
+            } else
+                value.pushKV("destination", "DUSD");
+
+            listValues.push_back(value);
         }
 
         return true;
-    }, {static_cast<uint32_t>(currentHeight), owner, std::numeric_limits<uint32_t>::max()});
-
-    for (const auto& item : storedFutures) {
-        UniValue value{UniValue::VOBJ};
-
-        const auto source = view.GetToken(item.source.nTokenId);
-        if (!source) {
-            continue;
-        }
-
-        value.pushKV("source", tokenAmountString(item.source));
-
-        if (source->symbol == "DUSD") {
-            const auto destination = view.GetLoanTokenByID({item.destination});
-            if (!destination) {
-                continue;
-            }
-            value.pushKV("destination", destination->symbol);
-        } else {
-            value.pushKV("destination", "DUSD");
-        }
-
-        listValues.push_back(value);
-    }
+    }, {static_cast<uint32_t>(view.GetLastHeight()), owner, std::numeric_limits<uint32_t>::max()});
 
     UniValue obj{UniValue::VOBJ};
-    obj.pushKV("owner", request.params[0].get_str());
+    obj.pushKV("owner", ScriptToString(owner));
     obj.pushKV("values", listValues);
     return obj;
 }
-
-UniValue listfutureswaphistory(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
-
-    RPCHelpMan{"listfutureswaphistory",
-               "\nReturns information about future swap history.\n",
-               {
-                       {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                        "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
-                       {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                                {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Optional height to iterate from (downto genesis block), (default = chaintip)."},
-                                {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum depth, from the genesis block is the default"},
-                                {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Filter by token"},
-                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum number of records to return, 100 by default"},
-                        },
-                       },
-               },
-               RPCResult{
-                       "[{},{}...]     (array) Objects with future swap history information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listfutureswaphistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listfutureswaphistory", "all, '{\"maxBlockHeight\":160,\"depth\":10}'")
-               },
-    }.Check(request);
-
-
-    std::string accounts = "mine";
-    if (request.params.size() > 0) {
-        accounts = request.params[0].getValStr();
-    }
-
-    auto maxBlockHeight = std::numeric_limits<uint32_t>::max();
-    auto depth{maxBlockHeight};
-    std::string tokenFilter;
-    uint32_t limit = 100;
-
-    if (request.params.size() > 1) {
-        UniValue optionsObj = request.params[1].get_obj();
-        RPCTypeCheckObj(optionsObj,
-                        {
-                                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
-                                {"depth", UniValueType(UniValue::VNUM)},
-                                {"token", UniValueType(UniValue::VSTR)},
-                                {"limit", UniValueType(UniValue::VNUM)},
-                        }, true, true);
-
-        if (!optionsObj["maxBlockHeight"].isNull()) {
-            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
-        }
-
-        if (!optionsObj["depth"].isNull()) {
-            depth = (uint32_t) optionsObj["depth"].get_int64();
-        }
-
-        if (!optionsObj["token"].isNull()) {
-            tokenFilter = optionsObj["token"].get_str();
-        }
-
-        if (!optionsObj["limit"].isNull()) {
-            limit = (uint32_t) optionsObj["limit"].get_int64();
-        }
-
-        if (limit == 0) {
-            limit = std::numeric_limits<decltype(limit)>::max();
-        }
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    std::function<bool(CScript const &)> isMatchOwner = [](const CScript &) {
-        return true;
-    };
-
-    DCT_ID tokenID{};
-
-    CImmutableCSView view(*pcustomcsview);
-    uint32_t lastHeight = view.GetLastHeight();
-
-    if (!tokenFilter.empty()) {
-        const auto token = view.GetTokenGuessId(tokenFilter, tokenID);
-
-        if (!token) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist.", tokenFilter));
-        }
-    }
-
-    CScript account{};
-    auto isMine{false};
-    auto filter{ISMINE_ALL};
-
-    if (accounts == "mine") {
-        isMine = true;
-        filter = ISMINE_SPENDABLE;
-    } else if (accounts != "all") {
-        account = DecodeScript(accounts);
-        isMatchOwner = [&account](CScript const & owner) {
-            return owner == account;
-        };
-    }
-
-    maxBlockHeight = std::min(maxBlockHeight, lastHeight);
-    if (depth > maxBlockHeight) {
-        depth = maxBlockHeight;
-    }
-
-    UniValue result(UniValue::VARR);
-    view.ForEachFuturesDestValues([&](const CFuturesUserKey& key, const CFuturesUserValue& destination) {
-        if (key.height < maxBlockHeight - depth) {
-            return false;
-        }
-
-        if (!isMatchOwner(key.owner)) {
-            return true;
-        }
-
-        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
-            return true;
-        }
-
-        const auto userValue = view.GetFuturesUserValues(key);
-        if (!userValue) {
-            return true;
-        }
-
-        const auto& source = userValue->source;
-
-        if (!tokenFilter.empty()) {
-            if (tokenID != source.nTokenId && tokenID != destination.source.nTokenId) {
-                return true;
-            }
-        }
-
-        if (!view.GetToken(source.nTokenId) || !view.GetToken(destination.source.nTokenId)) {
-            return true;
-        }
-
-        CTxDestination dest;
-        if (!ExtractDestination(key.owner, dest)) {
-            return true;
-        }
-
-        UniValue item(UniValue::VOBJ);
-        item.pushKV("height", static_cast<uint64_t>(destination.destination));
-        item.pushKV("address", EncodeDestination(dest));
-        item.pushKV("source", tokenAmountString(source));
-        item.pushKV("destination", tokenAmountString(destination.source));
-        result.push_back(item);
-
-        return --limit > 0;
-    }, {maxBlockHeight, account, std::numeric_limits<uint32_t>::max()});
-
-    return result;
-}
-
 
 static const CRPCCommand commands[] =
 {
@@ -2528,7 +2349,6 @@ static const CRPCCommand commands[] =
     {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutureswaps",&listpendingfutureswaps,{}},
     {"accounts",    "getpendingfutureswaps", &getpendingfutureswaps, {"address"}},
-    {"accounts",    "listfutureswaphistory", &listfutureswaphistory, {"owner", "options"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
