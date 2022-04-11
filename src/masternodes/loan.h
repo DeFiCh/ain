@@ -253,13 +253,13 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
     return rate2;
 }
 
-static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
+constexpr CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
 
 CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
-std::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
+std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 struct CLoanTakeLoanMessage
 {
