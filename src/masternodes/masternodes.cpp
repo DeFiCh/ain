@@ -1050,13 +1050,9 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     return {};
 }
 
-bool CCustomCSView::AreTokensLocked(const std::set<uint32_t>& tokenIds) const {
-    const auto var = GetVariable("ATTRIBUTES");
-    if (!var) {
-        return false;
-    }
-
-    const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+bool CCustomCSView::AreTokensLocked(const std::set<uint32_t>& tokenIds) const
+{
+    const auto attributes = GetAttributes();
     if (!attributes) {
         return false;
     }
