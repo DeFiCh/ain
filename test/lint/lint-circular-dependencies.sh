@@ -21,6 +21,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainparams -> masternodes/mn_checks -> masternodes/consensus/smartcontracts -> chainparams"
     "chainparams -> masternodes/mn_checks -> masternodes/customtx -> chainparams"
     "chainparams -> masternodes/mn_checks -> masternodes/poolpairs -> chainparams"
+    "chainparams -> masternodes/mn_checks -> masternodes/tokens -> chainparams"
     "chainparams -> masternodes/mn_checks -> masternodes/vaulthistory -> masternodes/vault -> chainparams"
     "chainparams -> masternodes/mn_checks -> txmempool -> chainparams"
     "chainparams -> masternodes/mn_checks -> validation -> chainparams"
