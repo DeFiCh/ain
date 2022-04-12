@@ -6,6 +6,7 @@
 #ifndef DEFI_ARITH_UINT256_H
 #define DEFI_ARITH_UINT256_H
 
+#include <array>
 #include <assert.h>
 #include <cstring>
 #include <limits>
@@ -27,34 +28,24 @@ class base_uint
 {
 protected:
     static constexpr int WIDTH = BITS / 32;
-    uint32_t pn[WIDTH];
+    std::array<uint32_t, WIDTH> pn;
 public:
 
     template<unsigned int BITS1> friend class base_uint;
 
-    base_uint()
+    constexpr base_uint() : pn{}
     {
         static_assert(BITS/32 > 0 && BITS%32 == 0, "Template parameter BITS must be a positive multiple of 32.");
-
-        for (int i = 0; i < WIDTH; i++)
-            pn[i] = 0;
     }
 
-    base_uint(const base_uint& b)
+    constexpr base_uint(const base_uint& b) : pn(b.pn)
     {
         static_assert(BITS/32 > 0 && BITS%32 == 0, "Template parameter BITS must be a positive multiple of 32.");
-
-        (*this) = b;
     }
 
-    base_uint(uint64_t b)
+    constexpr base_uint(uint64_t b) : pn{uint32_t(b), uint32_t(b >> 32)}
     {
         static_assert(BITS/32 > 0 && BITS%32 == 0, "Template parameter BITS must be a positive multiple of 32.");
-
-        pn[0] = (unsigned int)b;
-        pn[1] = (unsigned int)(b >> 32);
-        for (int i = 2; i < WIDTH; i++)
-            pn[i] = 0;
     }
 
     template<unsigned int BITS1>
@@ -224,24 +215,32 @@ public:
         return ret;
     }
 
+    base_uint& operator%=(const base_uint& b)
+    {
+        auto div = (*this) / b;
+        (*this) -= (div * b);
+        return *this;
+    }
+
     int CompareTo(const base_uint& b) const;
     bool EqualTo(uint64_t b) const;
 
-    friend inline const base_uint operator+(const base_uint& a, const base_uint& b) { return base_uint(a) += b; }
-    friend inline const base_uint operator-(const base_uint& a, const base_uint& b) { return base_uint(a) -= b; }
-    friend inline const base_uint operator*(const base_uint& a, const base_uint& b) { return base_uint(a) *= b; }
-    friend inline const base_uint operator/(const base_uint& a, const base_uint& b) { return base_uint(a) /= b; }
-    friend inline const base_uint operator|(const base_uint& a, const base_uint& b) { return base_uint(a) |= b; }
-    friend inline const base_uint operator&(const base_uint& a, const base_uint& b) { return base_uint(a) &= b; }
-    friend inline const base_uint operator^(const base_uint& a, const base_uint& b) { return base_uint(a) ^= b; }
-    friend inline const base_uint operator>>(const base_uint& a, int shift) { return base_uint(a) >>= shift; }
-    friend inline const base_uint operator<<(const base_uint& a, int shift) { return base_uint(a) <<= shift; }
-    friend inline const base_uint operator*(const base_uint& a, int32_t b) { return base_uint(a) *= b; }
-    friend inline const base_uint operator*(const base_uint& a, uint32_t b) { return base_uint(a) *= b; }
-    friend inline const base_uint operator*(const base_uint& a, int64_t b) { return base_uint(a) *= b; }
-    friend inline const base_uint operator*(const base_uint& a, uint64_t b) { return base_uint(a) *= b; }
-    friend inline bool operator==(const base_uint& a, const base_uint& b) { return memcmp(a.pn, b.pn, sizeof(a.pn)) == 0; }
-    friend inline bool operator!=(const base_uint& a, const base_uint& b) { return memcmp(a.pn, b.pn, sizeof(a.pn)) != 0; }
+    friend inline constexpr base_uint operator+(const base_uint& a, const base_uint& b) { return base_uint(a) += b; }
+    friend inline constexpr base_uint operator-(const base_uint& a, const base_uint& b) { return base_uint(a) -= b; }
+    friend inline constexpr base_uint operator*(const base_uint& a, const base_uint& b) { return base_uint(a) *= b; }
+    friend inline constexpr base_uint operator/(const base_uint& a, const base_uint& b) { return base_uint(a) /= b; }
+    friend inline constexpr base_uint operator|(const base_uint& a, const base_uint& b) { return base_uint(a) |= b; }
+    friend inline constexpr base_uint operator&(const base_uint& a, const base_uint& b) { return base_uint(a) &= b; }
+    friend inline constexpr base_uint operator^(const base_uint& a, const base_uint& b) { return base_uint(a) ^= b; }
+    friend inline constexpr base_uint operator%(const base_uint& a, const base_uint& b) { return base_uint(a) %= b; }
+    friend inline constexpr base_uint operator>>(const base_uint& a, int shift) { return base_uint(a) >>= shift; }
+    friend inline constexpr base_uint operator<<(const base_uint& a, int shift) { return base_uint(a) <<= shift; }
+    friend inline constexpr base_uint operator*(const base_uint& a, int32_t b) { return base_uint(a) *= b; }
+    friend inline constexpr base_uint operator*(const base_uint& a, uint32_t b) { return base_uint(a) *= b; }
+    friend inline constexpr base_uint operator*(const base_uint& a, int64_t b) { return base_uint(a) *= b; }
+    friend inline constexpr base_uint operator*(const base_uint& a, uint64_t b) { return base_uint(a) *= b; }
+    friend inline bool operator==(const base_uint& a, const base_uint& b) { return a.CompareTo(b) == 0; }
+    friend inline bool operator!=(const base_uint& a, const base_uint& b) { return a.CompareTo(b) != 0; }
     friend inline bool operator>(const base_uint& a, const base_uint& b) { return a.CompareTo(b) > 0; }
     friend inline bool operator<(const base_uint& a, const base_uint& b) { return a.CompareTo(b) < 0; }
     friend inline bool operator>=(const base_uint& a, const base_uint& b) { return a.CompareTo(b) >= 0; }
@@ -250,11 +249,12 @@ public:
     friend inline bool operator!=(const base_uint& a, uint64_t b) { return !a.EqualTo(b); }
 
     std::string GetHex() const;
+    std::string GetDecimal() const;
     void SetHex(const char* psz);
     void SetHex(const std::string& str);
     std::string ToString() const;
 
-    unsigned int size() const
+    constexpr int size() const
     {
         return sizeof(pn);
     }
@@ -276,23 +276,21 @@ public:
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        s.write((char*)pn, sizeof(pn));
+        s.write((char*)&pn[0], size());
     }
 
     template<typename Stream>
     void Unserialize(Stream& s)
     {
-        s.read((char*)pn, sizeof(pn));
+        s.read((char*)&pn[0], size());
     }
 };
 
 /** 256-bit unsigned big integer. */
 class arith_uint256 : public base_uint<256> {
 public:
-    arith_uint256() {}
+    using base_uint<256>::base_uint;
     arith_uint256(const base_uint<256>& b) : base_uint<256>(b) {}
-    arith_uint256(uint64_t b) : base_uint<256>(b) {}
-    explicit arith_uint256(const std::string& str) : base_uint<256>(str) {}
 
     /**
      * The "compact" format is a representation of a whole
