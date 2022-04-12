@@ -3627,7 +3627,7 @@ static Res UpdateLiquiditySplits(CCustomCSView& view, const DCT_ID oldPoolId, co
     return Res::Ok();
 }
 
-static Res PoolSplits(CCustomCSView& view, CAmount totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
+static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
                        const CBlockIndex* pindex, const uint256& poolCreationTx, const std::string& newTokenSuffix, const int32_t multiplier) {
 
     std::set<DCT_ID> poolsToMigrate;
@@ -3707,6 +3707,8 @@ static Res PoolSplits(CCustomCSView& view, CAmount totalBalance, ATTRIBUTES& att
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
                     throw std::runtime_error("totalLiquidity less than minimum.");
                 }
+
+                view.CalculateOwnerRewards(owner, pindex->nHeight);
 
                 res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                 if (!res.ok) {
@@ -3793,11 +3795,6 @@ static Res PoolSplits(CCustomCSView& view, CAmount totalBalance, ATTRIBUTES& att
         }
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
-    }
-
-    auto res = view.AddMintedTokens(newTokenId, totalBalance);
-    if (!res) {
-        return res;
     }
 
     return Res::Ok();
@@ -3969,25 +3966,49 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             }, type);
         }
 
-        std::vector<std::pair<CScript, CTokenAmount>> newBalances;
         CAmount totalBalance{0};
 
-        view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, CTokenAmount balance) {
+        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, poolCreationTx, newTokenSuffix, multiplier);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        std::vector<std::pair<CScript, CTokenAmount>> addBalances;
+        std::vector<std::pair<CScript, CTokenAmount>> subBalances;
+
+        view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = multiplier < 0 ? balance.nValue / std::abs(multiplier) : balance.nValue * multiplier;
-                newBalances.emplace_back(owner, CTokenAmount{balance.nTokenId, 0});
-                newBalances.emplace_back(owner, CTokenAmount{newTokenId, newBalance});
+                subBalances.emplace_back(owner, balance);
+                addBalances.emplace_back(owner, CTokenAmount{newTokenId, newBalance});
                 totalBalance += newBalance;
             }
             return true;
         });
 
-        for (const auto& [owner, balance] : newBalances) {
-            view.SetBalance(owner, balance);
+        res = view.AddMintedTokens(newTokenId, totalBalance);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
         }
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, poolCreationTx, newTokenSuffix, multiplier);
-        if (!res) {
+        try {
+            for (const auto& [owner, balance] : addBalances) {
+                res = view.AddBalance(owner, balance);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+            }
+
+            for (const auto& [owner, balance] : subBalances) {
+                res = view.SubBalance(owner, balance);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+            }
+
+        } catch (const std::runtime_error& e) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
             continue;
         }
