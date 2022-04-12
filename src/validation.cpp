@@ -3842,6 +3842,9 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
     }
 
+    attributes.attributes.erase(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
+    attributes.attributes[CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}] = true;
+
     auto res = attributes.Apply(view, height);
     if (!res) {
         return res;
@@ -3899,13 +3902,17 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         return;
     }
 
-    // TODO: Check subsystem locks
-
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
     std::map<uint32_t, uint32_t> oldToNew;
     for (const auto& [id, multiplier] : splits) {
+
+        if (!cache.AreTokensLocked({id})) {
+            LogPrintf("%s: Token split failed. Token %d not locked\n", __func__, id);
+            continue;
+        }
+
         auto view{cache};
 
         const DCT_ID oldTokenId{id};

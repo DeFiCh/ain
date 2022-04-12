@@ -69,16 +69,16 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
-        # Create token
-        self.nodes[0].createtoken({
+        # Set loan tokens
+        self.nodes[0].setloantoken({
             'symbol': self.symbolGOOGL,
             'name': self.symbolGOOGL,
+            'fixedIntervalPriceId': f"{self.symbolGOOGL}/USD",
             "isDAT": True,
-            "collateralAddress": self.address
+            'interest': 0
         })
         self.nodes[0].generate(1)
 
-        # Set loan tokens
         self.nodes[0].setloantoken({
             'symbol': self.symbolDUSD,
             'name': self.symbolDUSD,
@@ -228,6 +228,7 @@ class TokenSplitTest(DefiTestFramework):
         if loan:
             assert(f'v0/token/{token_id}/loan_minting_enabled' not in result)
             assert(f'v0/token/{token_id}/loan_minting_interest' not in result)
+        assert(f'v0/locks/token/{token_id}' not in result)
 
         # Save old ID and get new one
         token_idv1 = token_id
@@ -244,6 +245,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result[f'v0/oracles/splits/{self.nodes[0].getblockcount()}'], f'{token_idv1}/{multiplier},')
         assert_equal(result[f'v0/token/{token_idv1}/descendant'], f'{token_id}/{self.nodes[0].getblockcount()}')
         assert_equal(result[f'v0/token/{token_id}/ascendant'], f'{token_idv1}/split')
+        assert_equal(result[f'v0/locks/token/{token_id}'], 'true')
 
         # Check new token
         result = self.nodes[0].gettoken(token_id)[token_id]
@@ -350,6 +352,10 @@ class TokenSplitTest(DefiTestFramework):
         # Set expected minted amount
         minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'] * 2
 
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'true'}})
+        self.nodes[0].generate(1)
+
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
         self.nodes[0].generate(2)
@@ -382,6 +388,13 @@ class TokenSplitTest(DefiTestFramework):
         # Check token split correctly
         self.check_token_split(self.idTSLA, self.symbolTSLA, '/v2', -3, minted, True, True)
 
+        # Swap old for new values
+        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
+        self.nodes[0].generate(1)
+
     def pool_split(self):
 
         # Check pool before split
@@ -398,6 +411,10 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['rewardPct'], Decimal('1.00000000'))
         assert_equal(result['rewardLoanPct'], Decimal('1.00000000'))
+
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'true'}})
+        self.nodes[0].generate(1)
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idGOOGL}/2'}})
@@ -424,6 +441,13 @@ class TokenSplitTest(DefiTestFramework):
         # Check pool migrated successfully
         self.check_pool_split(self.idGD, self.symbolGD, self.idGOOGL, self.symbolGOOGL, '/v2', minted, Decimal('0.66666666'), Decimal('1.50000000'))
 
+        # Swap old for new values
+        self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'false'}})
+        self.nodes[0].generate(1)
+
     def execute_vault_split(self, token_id, token_symbol, multiplier, suffix):
 
         # Get total minted
@@ -431,6 +455,10 @@ class TokenSplitTest(DefiTestFramework):
             minted = truncate(str(self.nodes[0].gettoken(token_id)[token_id]['minted'] / abs(multiplier)), 8)
         else:
             minted = self.nodes[0].gettoken(token_id)[token_id]['minted'] * multiplier
+
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{token_id}':'true'}})
+        self.nodes[0].generate(1)
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{token_id}/{multiplier}'}})
@@ -475,6 +503,13 @@ class TokenSplitTest(DefiTestFramework):
         expected_interest_round = expected_interest + Decimal('0.00000001')
         if current_interest != expected_interest and current_interest_round != expected_interest:
             assert_equal(current_interest, expected_interest_round)
+
+        # Swap old for new values
+        token_id = list(self.nodes[0].gettoken(token_symbol).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{token_id}':'false'}})
+        self.nodes[0].generate(1)
 
     def vault_split(self):
         # Multiplier 2
