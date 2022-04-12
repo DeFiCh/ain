@@ -39,7 +39,9 @@ class MultiWalletTest(DefiTestFramework):
                 return wallet_dir(name, "wallet.dat")
             return wallet_dir(name)
 
-        assert_equal(self.nodes[0].listwalletdir(), { 'wallets': [{ 'name': '' }] })
+        wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
+        assert_equal(wallets[0], '')
+        assert 'wallet.dat.auto.' in wallets[1]
 
         # check wallet.dat is created
         self.stop_nodes()
@@ -71,7 +73,10 @@ class MultiWalletTest(DefiTestFramework):
         wallet_names = ['w1', 'w2', 'w3', 'w', 'sub/w5', os.path.join(self.options.tmpdir, 'extern/w6'), 'w7_symlink', 'w8', '']
         extra_args = ['-wallet={}'.format(n) for n in wallet_names]
         self.start_node(0, extra_args)
-        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])), ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
+        wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
+        assert_equal(wallets[0:9], ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
+        assert 'w8.auto.' in wallets[9]
+        assert 'wallet.dat.auto' in wallets[10]
 
         assert_equal(set(node.listwallets()), set(wallet_names))
 
@@ -81,7 +86,7 @@ class MultiWalletTest(DefiTestFramework):
             assert_equal(os.path.isfile(wallet_file(wallet_name)), True)
 
         # should not initialize if wallet path can't be created
-        exp_stderr = "boost::filesystem::create_directory:"
+        exp_stderr = "boost::filesystem::create_director[y|i]"
         self.nodes[0].assert_start_raises_init_error(['-wallet=wallet.dat/bad'], exp_stderr, match=ErrorMatch.PARTIAL_REGEX)
 
         self.nodes[0].assert_start_raises_init_error(['-walletdir=wallets'], 'Error: Specified -walletdir "wallets" does not exist')
@@ -145,7 +150,14 @@ class MultiWalletTest(DefiTestFramework):
 
         self.restart_node(0, extra_args)
 
-        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])), ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy'])
+        wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
+        assert_equal(wallets[0:9], ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
+        assert 'w8.auto.' in wallets[9]
+        assert 'w8.auto.' in wallets[10]
+        assert_equal('w8_copy', wallets[11])
+        assert 'wallet.dat.auto' in wallets[12]
+        assert 'wallet.dat.auto' in wallets[13]
+        assert 'wallet.dat.auto' in wallets[14]
 
         wallets = [wallet(w) for w in wallet_names]
         wallet_bad = wallet("bad")
@@ -295,7 +307,15 @@ class MultiWalletTest(DefiTestFramework):
         assert_equal(self.nodes[0].listwallets(), ['w1'])
         assert_equal(w1.getwalletinfo()['walletname'], 'w1')
 
-        assert_equal(sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets'])), ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy', 'w9'])
+        wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
+        assert_equal(wallets[0:9], ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8'])
+        assert 'w8.auto.' in wallets[9]
+        assert 'w8.auto.' in wallets[10]
+        assert_equal('w8_copy', wallets[11])
+        assert_equal('w9', wallets[12])
+        assert 'wallet.dat.auto' in wallets[13]
+        assert 'wallet.dat.auto' in wallets[14]
+        assert 'wallet.dat.auto' in wallets[15]
 
         # Test backing up and restoring wallets
         self.log.info("Test wallet backup")
