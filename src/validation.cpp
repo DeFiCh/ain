@@ -3733,14 +3733,14 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 CAmount amountA{0}, amountB{0};
                 DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
                 if (oldPoolPair->idTokenA == oldTokenId) {
-                    amountA = CalculateNewAmount<decltype(resAmountA)>(multiplier, resAmountA);
+                    amountA = CalculateNewAmount(multiplier, resAmountA);
                     totalBalance += amountA;
                     amountB = resAmountB;
                     view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
                     view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
                 } else {
                     amountA = resAmountA;
-                    amountB = CalculateNewAmount<decltype(resAmountB)>(multiplier, resAmountB);
+                    amountB = CalculateNewAmount(multiplier, resAmountB);
                     totalBalance += amountB;
                     view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
                     view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
@@ -3849,7 +3849,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     view.SetVariable(attributes);
 
     for (auto& [vaultId, amount] : loanTokenAmounts) {
-        amount = CalculateNewAmount<decltype(amount)>(multiplier, amount);
+        amount = CalculateNewAmount(multiplier, amount);
         res = view.AddLoanToken(vaultId, {newTokenId, amount});
         if (!res) {
             return res;
@@ -3882,7 +3882,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         view.EraseInterestDirect(vaultId, oldTokenId);
-        rate.interestToHeight = CalculateNewAmount<decltype(rate.interestToHeight)>(multiplier, rate.interestToHeight);
+        rate.interestToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, height);
     }
@@ -3984,7 +3984,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
-                const auto newBalance = CalculateNewAmount<decltype(balance.nValue)>(multiplier, balance.nValue);
+                const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
                 addAccounts[owner].Add({newTokenId, newBalance});
                 subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
