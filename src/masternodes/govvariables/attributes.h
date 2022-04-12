@@ -21,11 +21,13 @@ enum AttributeTypes : uint8_t {
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
+    Locks     = 'L',
 };
 
 enum ParamIDs : uint8_t  {
     DFIP2201  = 'a',
     DFIP2203  = 'b',
+    TokenID   = 'c',
     Economy   = 'e',
 };
 
@@ -68,7 +70,7 @@ enum PoolKeys : uint8_t {
 struct CDataStructureV0 {
     uint8_t type;
     uint32_t typeId;
-    uint8_t key;
+    uint32_t key;
     uint32_t keyId;
 
     ADD_SERIALIZE_METHODS;
@@ -77,7 +79,18 @@ struct CDataStructureV0 {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(type);
         READWRITE(typeId);
-        READWRITE(key);
+        if (ser_action.ForRead()) {
+            // Check if next key is 8bit or extended size 8bit + 32bit
+            if (s.size() == sizeof(uint8_t) || s.size() == sizeof(uint8_t) + sizeof(uint32_t)) {
+                uint8_t key8;
+                READWRITE(key8);
+                key = key8;
+            } else {
+                READWRITE(key);
+            }
+        } else {
+            READWRITE(key);
+        }
         if (IsExtendedSize()) {
             READWRITE(keyId);
         } else {
@@ -190,12 +203,13 @@ private:
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
+    static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+                        const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable);
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 

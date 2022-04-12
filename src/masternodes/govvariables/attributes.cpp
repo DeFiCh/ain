@@ -50,6 +50,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayVersions() {
 
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
+        {"locks",       AttributeTypes::Locks},
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
@@ -60,6 +61,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
         {AttributeTypes::Live,      "live"},
+        {AttributeTypes::Locks,     "locks"},
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
@@ -75,10 +77,18 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t>& ATTRIBUTES::allowedLocksIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"token",       ParamIDs::TokenID},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
+        {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
     };
     return params;
@@ -261,6 +271,11 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::BlockPeriod,  VerifyInt64},
             }
         },
+        {
+            AttributeTypes::Locks, {
+                {ParamIDs::TokenID,          VerifyBool},
+            }
+        },
     };
     return parsers;
 }
@@ -274,7 +289,7 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
-                                std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
+                                const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable) {
 
     if (key.size() > 128) {
         return Res::Err("Identifier exceeds maximum length (128)");
@@ -311,66 +326,64 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     auto type = itype->second;
 
     uint32_t typeId{0};
-    if (type != AttributeTypes::Param) {
+    if (type == AttributeTypes::Param) {
+        auto id = allowedParamIDs().find(keys[2]);
+        if (id == allowedParamIDs().end()) {
+            return ::ShowError("params", allowedParamIDs());
+        }
+        typeId = id->second;
+    } else if (type == AttributeTypes::Locks) {
+        auto id = allowedLocksIDs().find(keys[2]);
+        if (id == allowedLocksIDs().end()) {
+            return ::ShowError("locks", allowedLocksIDs());
+        }
+        typeId = id->second;
+    } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
             return std::move(id);
         }
         typeId = *id.val;
+    }
+
+    uint8_t typeKey;
+    uint32_t locksKey{0};
+    if (type != AttributeTypes::Locks) {
+        auto ikey = allowedKeys().find(type);
+        if (ikey == allowedKeys().end()) {
+            return Res::Err("Unsupported type {%d}", type);
+        }
+
+        itype = ikey->second.find(keys[3]);
+        if (itype == ikey->second.end()) {
+            return ::ShowError("key", ikey->second);
+        }
+
+        typeKey = itype->second;
+
+        if (type == AttributeTypes::Param) {
+            if (typeId == ParamIDs::DFIP2201) {
+                if (typeKey == DFIPKeys::RewardPct ||
+                    typeKey == DFIPKeys::BlockPeriod) {
+                    return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
+                }
+            } else if (typeId == ParamIDs::DFIP2203) {
+                if (typeKey == DFIPKeys::Premium ||
+                    typeKey == DFIPKeys::MinSwap) {
+                    return Res::Err("Unsupported type for DFIP2203 {%d}", typeKey);
+                }
+
+                if (typeKey == DFIPKeys::BlockPeriod) {
+                    futureBlockUpdated = true;
+                }
+            } else {
+                return Res::Err("Unsupported Param ID");
+            }
+        }
     } else {
-        auto id = allowedParamIDs().find(keys[2]);
-        if (id == allowedParamIDs().end()) {
-            return ::ShowError("param", allowedParamIDs());
-        }
-        typeId = id->second;
-    }
-
-    auto ikey = allowedKeys().find(type);
-    if (ikey == allowedKeys().end()) {
-        return Res::Err("Unsupported type {%d}", type);
-    }
-
-    itype = ikey->second.find(keys[3]);
-    if (itype == ikey->second.end()) {
-        return ::ShowError("key", ikey->second);
-    }
-
-    auto typeKey = itype->second;
-
-    if (type == AttributeTypes::Param) {
-        if (typeId == ParamIDs::DFIP2201) {
-            if (typeKey == DFIPKeys::RewardPct ||
-                typeKey == DFIPKeys::BlockPeriod) {
-                return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
-            }
-        } else if (typeId == ParamIDs::DFIP2203) {
-            if (typeKey == DFIPKeys::Premium ||
-                typeKey == DFIPKeys::MinSwap) {
-                return Res::Err("Unsupported type for DFIP2203 {%d}", typeKey);
-            }
-
-            if (typeKey == DFIPKeys::BlockPeriod) {
-                futureBlockUpdated = true;
-            }
-        } else {
-            return Res::Err("Unsupported Param ID");
-        }
-    }
-
-    CDataStructureV0 attrV0{type, typeId, typeKey};
-
-    if (attrV0.IsExtendedSize()) {
-        if (keys.size() != 5 || keys[4].empty()) {
-            return Res::Err("Exact 5 keys are required {%d}", keys.size());
-        }
-        auto id = VerifyInt32(keys[4]);
-        if (!id) {
-            return std::move(id);
-        }
-        attrV0.keyId = *id.val;
-    } else {
-       if (keys.size() != 4) {
-           return Res::Err("Exact 4 keys are required {%d}", keys.size());
+        typeKey = ParamIDs::TokenID;
+        if (const auto keyValue = VerifyInt32(keys[3])) {
+            locksKey = *keyValue;
         }
     }
 
@@ -380,6 +393,28 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!attribValue) {
                 return std::move(attribValue);
             }
+
+            if (type == AttributeTypes::Locks) {
+                return applyVariable(CDataStructureV0{type, typeId, locksKey}, *attribValue.val);
+            }
+
+            CDataStructureV0 attrV0{type, typeId, typeKey};
+
+            if (attrV0.IsExtendedSize()) {
+                if (keys.size() != 5 || keys[4].empty()) {
+                    return Res::Err("Exact 5 keys are required {%d}", keys.size());
+                }
+                auto id = VerifyInt32(keys[4]);
+                if (!id) {
+                    return std::move(id);
+                }
+                attrV0.keyId = *id.val;
+            } else {
+                if (keys.size() != 4) {
+                    return Res::Err("Exact 4 keys are required {%d}", keys.size());
+                }
+            }
+
             return applyVariable(attrV0, *attribValue.val);
         }
     } catch (const std::out_of_range&) {
@@ -509,13 +544,20 @@ UniValue ATTRIBUTES::Export() const {
         try {
             const auto id = attrV0->type == AttributeTypes::Param
                             || attrV0->type == AttributeTypes::Live
+                            || attrV0->type == AttributeTypes::Locks
                             ? displayParamsIDs().at(attrV0->typeId)
                             : KeyBuilder(attrV0->typeId);
+
+
+
+            const auto keyId = attrV0->type == AttributeTypes::Locks
+                               ? KeyBuilder(attrV0->key)
+                               : displayKeys().at(attrV0->type).at(attrV0->key);
 
             auto key = KeyBuilder(displayVersions().at(VersionTypes::v0),
                                   displayTypes().at(attrV0->type),
                                   id,
-                                  displayKeys().at(attrV0->type).at(attrV0->key));
+                                  keyId);
 
             if (attrV0->IsExtendedSize()) {
                 key = KeyBuilder(key, attrV0->keyId);
@@ -653,6 +695,18 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
                 // Live is set internally
             case AttributeTypes::Live:
+                break;
+
+            case AttributeTypes::Locks:
+                if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                    return Res::Err("Cannot be set before GreatWorld");
+                }
+                if (attrV0->typeId != ParamIDs::TokenID) {
+                    return Res::Err("Unrecognised locks id");
+                }
+                if (!view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
+                    return Res::Err("No loan token with id (%d)", attrV0->key);
+                }
                 break;
 
             default:

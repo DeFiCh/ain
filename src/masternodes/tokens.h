@@ -189,7 +189,7 @@ public:
     std::optional<std::pair<DCT_ID, std::optional<CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
+    [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 

@@ -61,16 +61,6 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 
     return {};
 }
 
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
-{
-    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
-    if (loanToken) {
-        return loanToken;
-    }
-
-    return GetLoanTokenFromAttributes(id);
-}
-
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
     //this should not happen, but for sure

@@ -9,6 +9,7 @@
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
+#include <core_io.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/standard.h>
@@ -902,7 +903,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     return ResVal<CCollateralLoans>(result, Res::Ok());
 }
 
-ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
@@ -1047,4 +1048,59 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
         }
     }
     return {};
+}
+
+bool CCustomCSView::AreTokensLocked(const std::set<uint32_t>& tokenIds) const
+{
+    const auto attributes = GetAttributes();
+    if (!attributes) {
+        return false;
+    }
+
+    for (const auto& tokenId : tokenIds) {
+        CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, tokenId};
+        if (attributes->GetValue(lockKey, false)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
+{
+    std::string const key = trim_ws(str);
+
+    if (key.empty()) {
+        id = DCT_ID{0};
+        return GetToken(id);
+    }
+    if (ParseUInt32(key, &id.v))
+        return GetToken(id);
+
+    uint256 tx;
+    if (ParseHashStr(key, tx)) {
+        auto pair = GetTokenByCreationTx(tx);
+        if (pair) {
+            id = pair->first;
+            return pair->second;
+        }
+    } else {
+        auto pair = GetToken(key);
+        if (pair && pair->second) {
+            id = pair->first;
+            return pair->second;
+        }
+    }
+    return {};
+}
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(DCT_ID const & id) const
+{
+    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
+    if (loanToken) {
+        return loanToken;
+    }
+
+    return GetLoanTokenFromAttributes(id);
 }
