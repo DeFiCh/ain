@@ -36,66 +36,66 @@ static std::vector<std::string> KeyBreaker(const std::string& str, const char de
 
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedVersions() {
     static const std::map<std::string, uint8_t> versions{
-            {"v0",  VersionTypes::v0},
+        {"v0",  VersionTypes::v0},
     };
     return versions;
 }
 
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayVersions() {
     static const std::map<uint8_t, std::string> versions{
-            {VersionTypes::v0,  "v0"},
+        {VersionTypes::v0,  "v0"},
     };
     return versions;
 }
 
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
-            {"oracles",     AttributeTypes::Oracles},
-            {"params",      AttributeTypes::Param},
-            {"poolpairs",   AttributeTypes::Poolpairs},
-            {"token",       AttributeTypes::Token},
+        {"oracles",     AttributeTypes::Oracles},
+        {"params",      AttributeTypes::Param},
+        {"poolpairs",   AttributeTypes::Poolpairs},
+        {"token",       AttributeTypes::Token},
     };
     return types;
 }
 
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
-            {AttributeTypes::Live,      "live"},
-            {AttributeTypes::Oracles,   "oracles"},
-            {AttributeTypes::Param,     "params"},
-            {AttributeTypes::Poolpairs, "poolpairs"},
-            {AttributeTypes::Token,     "token"},
+        {AttributeTypes::Live,      "live"},
+        {AttributeTypes::Oracles,   "oracles"},
+        {AttributeTypes::Param,     "params"},
+        {AttributeTypes::Poolpairs, "poolpairs"},
+        {AttributeTypes::Token,     "token"},
     };
     return types;
 }
 
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"dfip2201",    ParamIDs::DFIP2201},
-            {"dfip2203",    ParamIDs::DFIP2203},
+        {"dfip2201",    ParamIDs::DFIP2201},
+        {"dfip2203",    ParamIDs::DFIP2203},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-            {ParamIDs::DFIP2201,    "dfip2201"},
-            {ParamIDs::DFIP2203,    "dfip2203"},
-            {ParamIDs::Economy,     "economy"},
+        {ParamIDs::DFIP2201,    "dfip2201"},
+        {ParamIDs::DFIP2203,    "dfip2203"},
+        {ParamIDs::Economy,     "economy"},
     };
     return params;
 }
 
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedOracleIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"splits",    OracleIDs::Splits}
+        {"splits",    OracleIDs::Splits}
     };
     return params;
 }
 
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
     static const std::map<uint8_t, std::string> params{
-            {OracleIDs::Splits,    "splits"},
+        {OracleIDs::Splits,    "splits"},
     };
     return params;
 }
@@ -138,20 +138,20 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
 }
 
 const std::map<TokenKeys, CAttributeValue> ATTRIBUTES::tokenKeysToType {
-        {TokenKeys::PaybackDFI,            bool{}},
-        {TokenKeys::PaybackDFIFeePCT,      CAmount{}},
-        {TokenKeys::DexInFeePct,           CAmount{}},
-        {TokenKeys::DexOutFeePct,          CAmount{}},
-        {TokenKeys::FixedIntervalPriceId,  CTokenCurrencyPair{}},
-        {TokenKeys::LoanCollateralEnabled, bool{}},
-        {TokenKeys::LoanCollateralFactor,  CAmount{}},
-        {TokenKeys::LoanMintingEnabled,    bool{}},
-        {TokenKeys::LoanMintingInterest,   CAmount{}},
+    {TokenKeys::PaybackDFI,            bool{}},
+    {TokenKeys::PaybackDFIFeePCT,      CAmount{}},
+    {TokenKeys::DexInFeePct,           CAmount{}},
+    {TokenKeys::DexOutFeePct,          CAmount{}},
+    {TokenKeys::FixedIntervalPriceId,  CTokenCurrencyPair{}},
+    {TokenKeys::LoanCollateralEnabled, bool{}},
+    {TokenKeys::LoanCollateralFactor,  CAmount{}},
+    {TokenKeys::LoanMintingEnabled,    bool{}},
+    {TokenKeys::LoanMintingInterest,   CAmount{}},
 };
 
 const std::map<PoolKeys, CAttributeValue> ATTRIBUTES::poolKeysToType {
-        {PoolKeys::TokenAFeePCT,      CAmount{}},
-        {PoolKeys::TokenBFeePCT,      CAmount{}},
+    {PoolKeys::TokenAFeePCT,      CAmount{}},
+    {PoolKeys::TokenBFeePCT,      CAmount{}},
 };
 
 const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys() {
@@ -568,9 +568,10 @@ Res ATTRIBUTES::Import(const UniValue & val) {
             [this](const CAttributeType& attribute, const CAttributeValue& attrValue) {
                 if (auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
-                        attrV0->key == TokenKeys::Ascendant ||
+                       (attrV0->type == AttributeTypes::Token &&
+                       (attrV0->key == TokenKeys::Ascendant ||
                         attrV0->key == TokenKeys::Descendant ||
-                        attrV0->key == TokenKeys::Epitaph) {
+                        attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
                         try {

@@ -106,8 +106,8 @@ struct CDataStructureV0 {
 
     bool IsExtendedSize() const {
         return type == AttributeTypes::Token
-               && (key == TokenKeys::LoanPayback
-                   ||  key == TokenKeys::LoanPaybackFeePCT);
+            && (key == TokenKeys::LoanPayback
+            ||  key == TokenKeys::LoanPaybackFeePCT);
     }
 
     bool operator<(const CDataStructureV0& o) const {

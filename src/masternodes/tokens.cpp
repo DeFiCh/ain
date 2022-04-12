@@ -5,6 +5,7 @@
 #include <masternodes/tokens.h>
 
 #include <amount.h>
+#include <chainparams.h> // Params()
 #include <core_io.h>
 #include <primitives/transaction.h>
 
@@ -143,7 +144,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool skipNameValidation)
 {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
@@ -160,9 +161,11 @@ Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront)
     oldToken.name = newToken.name;
 
     // check new symbol correctness
-    auto checkSymbolRes = newToken.IsValidSymbol();
-    if (!checkSymbolRes.ok) {
-        return checkSymbolRes;
+    if (!skipNameValidation) {
+        auto checkSymbolRes = newToken.IsValidSymbol();
+        if (!checkSymbolRes.ok) {
+            return checkSymbolRes;
+        }
     }
 
     // deal with DB symbol indexes before touching symbols/DATs:
@@ -283,4 +286,18 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const
         return {lastDctId};
     }
     return {};
+}
+
+inline Res CTokenImplementation::IsValidSymbol() const
+{
+    if (symbol.size() == 0 || IsDigit(symbol[0])) {
+        return Res::Err("token symbol should be non-empty and starts with a letter");
+    }
+    if (symbol.find('#') != std::string::npos) {
+        return Res::Err("token symbol should not contain '#'");
+    }
+    if (creationHeight >= Params().GetConsensus().GreatWorldHeight && symbol.find('/') != std::string::npos) {
+        return Res::Err("token symbol should not contain '/'");
+    }
+    return Res::Ok();
 }

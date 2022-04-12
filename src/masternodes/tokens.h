@@ -77,16 +77,6 @@ public:
     {
         return flags & (uint8_t)TokenFlags::DeprecatedLoanToken;
     }
-    inline Res IsValidSymbol() const
-    {
-        if (symbol.size() == 0 || IsDigit(symbol[0])) {
-            return Res::Err("token symbol should be non-empty and starts with a letter");
-        }
-        if (symbol.find('#') != std::string::npos) {
-            return Res::Err("token symbol should not contain '#'");
-        }
-        return Res::Ok();
-    }
     inline std::string CreateSymbolKey(DCT_ID const & id) const {
         return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
@@ -171,6 +161,8 @@ public:
     {}
     ~CTokenImplementation() override = default;
 
+    [[nodiscard]] inline Res IsValidSymbol() const;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -201,7 +193,7 @@ public:
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
-    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false);
+    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool skipNameValidation = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);

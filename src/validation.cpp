@@ -3627,6 +3627,11 @@ static Res UpdateLiquiditySplits(CCustomCSView& view, const DCT_ID oldPoolId, co
     return Res::Ok();
 }
 
+template<typename T>
+static inline T CalculateNewAmount(const int multiplier, const T amount) {
+    return multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
+}
+
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
                        const CBlockIndex* pindex, const uint256& poolCreationTx, const std::string& newTokenSuffix, const int32_t multiplier) {
 
@@ -3655,7 +3660,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
 
-            auto res = view.UpdateToken(*oldPoolToken, true);
+            auto res = view.UpdateToken(*oldPoolToken, true, true);
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
@@ -3728,14 +3733,14 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 CAmount amountA{0}, amountB{0};
                 DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
                 if (oldPoolPair->idTokenA == oldTokenId) {
-                    amountA = multiplier < 0 ? resAmountA / std::abs(multiplier) : resAmountA * multiplier;
+                    amountA = CalculateNewAmount<decltype(resAmountA)>(multiplier, resAmountA);
                     totalBalance += amountA;
                     amountB = resAmountB;
                     view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
                     view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
                 } else {
                     amountA = resAmountA;
-                    amountB = multiplier < 0 ? resAmountB / std::abs(multiplier) : resAmountB * multiplier;
+                    amountB = CalculateNewAmount<decltype(resAmountB)>(multiplier, resAmountB);
                     totalBalance += amountB;
                     view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
                     view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
@@ -3844,7 +3849,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     view.SetVariable(attributes);
 
     for (auto& [vaultId, amount] : loanTokenAmounts) {
-        amount = multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
+        amount = CalculateNewAmount<decltype(amount)>(multiplier, amount);
         res = view.AddLoanToken(vaultId, {newTokenId, amount});
         if (!res) {
             return res;
@@ -3877,7 +3882,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         view.EraseInterestDirect(vaultId, oldTokenId);
-        rate.interestToHeight = multiplier < 0 ? rate.interestToHeight / std::abs(multiplier) : rate.interestToHeight * multiplier;
+        rate.interestToHeight = CalculateNewAmount<decltype(rate.interestToHeight)>(multiplier, rate.interestToHeight);
         rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, height);
     }
@@ -3940,7 +3945,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        res = view.UpdateToken(*token);
+        res = view.UpdateToken(*token, false, true);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
             continue;
@@ -3974,14 +3979,14 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        std::vector<std::pair<CScript, CTokenAmount>> addBalances;
-        std::vector<std::pair<CScript, CTokenAmount>> subBalances;
+        CAccounts addAccounts;
+        CAccounts subAccounts;
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
-                const auto newBalance = multiplier < 0 ? balance.nValue / std::abs(multiplier) : balance.nValue * multiplier;
-                subBalances.emplace_back(owner, balance);
-                addBalances.emplace_back(owner, CTokenAmount{newTokenId, newBalance});
+                const auto newBalance = CalculateNewAmount<decltype(balance.nValue)>(multiplier, balance.nValue);
+                addAccounts[owner].Add({newTokenId, newBalance});
+                subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
             }
             return true;
@@ -3994,15 +3999,15 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         try {
-            for (const auto& [owner, balance] : addBalances) {
-                res = view.AddBalance(owner, balance);
+            for (const auto& [owner, balances] : addAccounts) {
+                res = view.AddBalances(owner, balances);
                 if (!res) {
                     throw std::runtime_error(res.msg);
                 }
             }
 
-            for (const auto& [owner, balance] : subBalances) {
-                res = view.SubBalance(owner, balance);
+            for (const auto& [owner, balances] : subAccounts) {
+                res = view.SubBalances(owner, balances);
                 if (!res) {
                     throw std::runtime_error(res.msg);
                 }

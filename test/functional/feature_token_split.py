@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 import time
 import random
@@ -329,6 +329,12 @@ class TokenSplitTest(DefiTestFramework):
 
         # Move to GW
         self.nodes[0].generate(151 - self.nodes[0].getblockcount())
+
+        # Make sure we cannot make a token with '/' in its symbol
+        assert_raises_rpc_error(-32600, "token symbol should not contain '/'", self.nodes[0].createtoken, {
+            'symbol': 'bad/v1',
+            "collateralAddress": self.address
+        })
 
         # Create funded addresses
         funded_addresses = []
