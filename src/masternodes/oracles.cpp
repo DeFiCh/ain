@@ -159,6 +159,23 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
     }
 
+    DCT_ID firstID{}, secondID{};
+    const auto firstToken = GetTokenGuessId(fixedIntervalPriceId.first, firstID);
+    const auto secondToken = GetTokenGuessId(fixedIntervalPriceId.second, secondID);
+
+    std::set<uint32_t> loanTokens;
+    if (firstToken && GetLoanTokenByID(firstID)) {
+        loanTokens.insert(firstID.v);
+    }
+
+    if (secondToken && GetLoanTokenByID(secondID)) {
+        loanTokens.insert(secondID.v);
+    }
+
+    if (AreTokensLocked(loanTokens)) {
+        return Res::Err("Fixed interval price currently disabled due to locked token");
+    }
+
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
     return {fixedIntervalPrice, Res::Ok()};
 }

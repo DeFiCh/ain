@@ -1078,6 +1078,11 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
+
+            if (view.AreTokensLocked({pp.idTokenA.v, pp.idTokenB.v})) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Pool currently disabled due to locked token");
+            }
+
             auto dexfeeInPct = view.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {

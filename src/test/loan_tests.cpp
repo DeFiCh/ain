@@ -243,8 +243,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         else BOOST_TEST_FAIL("unknown type");
 
         auto res = GetInterestPerBlockHighPrecisionString(input);
-        if (!res) BOOST_TEST_FAIL("negatives detected");
-        BOOST_CHECK_EQUAL(*res, expectedResult);
+        BOOST_CHECK_EQUAL(res, expectedResult);
     }
 
     // Quick way to generate the nums and verify 

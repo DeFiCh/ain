@@ -75,7 +75,7 @@ struct DCT_ID {
     }
 };
 
-static const CAmount COIN = 100000000;
+constexpr CAmount COIN = 100000000;
 
 //Converts the given value to decimal format string with COIN precision.
 inline std::string GetDecimaleString(CAmount nValue)

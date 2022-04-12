@@ -52,34 +52,6 @@ std::optional<std::pair<DCT_ID, CTokensView::CTokenImpl>> CTokensView::GetTokenB
     return {};
 }
 
-std::optional<CTokensView::CTokenImpl> CTokensView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
-{
-    std::string const key = trim_ws(str);
-
-    if (key.empty()) {
-        id = DCT_ID{0};
-        return GetToken(id);
-    }
-    if (ParseUInt32(key, &id.v))
-        return GetToken(id);
-
-    uint256 tx;
-    if (ParseHashStr(key, tx)) {
-        auto pair = GetTokenByCreationTx(tx);
-        if (pair) {
-            id = pair->first;
-            return pair->second;
-        }
-    } else {
-        auto pair = GetToken(key);
-        if (pair && pair->second) {
-            id = pair->first;
-            return pair->second;
-        }
-    }
-    return {};
-}
-
 void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start)
 {
     ForEach<ID, DCT_ID, CTokenImpl>(callback, start);

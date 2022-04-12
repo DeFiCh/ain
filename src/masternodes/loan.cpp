@@ -4,8 +4,6 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <cmath>
 
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const & txid) const
@@ -61,16 +59,6 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 
     if (id)
         return GetLoanTokenByID(*id);
     return {};
-}
-
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
-{
-    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
-    if (loanToken) {
-        return loanToken;
-    }
-
-    return GetLoanTokenFromAttributes(id);
 }
 
 Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
@@ -493,46 +481,11 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-std::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
-    struct HighPrecisionInterestValue {
-        typedef boost::multiprecision::int128_t int128;
-        typedef int64_t int64;
-
-        int128 value;
-
-        explicit HighPrecisionInterestValue(const base_uint<128>& val) {
-            value = int128("0x" + val.GetHex());
-        }
-
-        int64 GetInterestPerBlockSat() const {
-            return int64(value / HIGH_PRECISION_SCALER);
-        }
-
-        int64 GetInterestPerBlockSubSat() const {
-            return int64(value % HIGH_PRECISION_SCALER);
-        }
-
-        int64 GetInterestPerBlockMagnitude() const {
-            return int64(value / HIGH_PRECISION_SCALER / COIN);
-        }
-
-        int128 GetInterestPerBlockDecimal() const {
-            auto v = GetInterestPerBlockSat();
-            return v == 0 ? value : value % (int128(HIGH_PRECISION_SCALER) * COIN);
-        }
-
-        std::optional<std::string> GetInterestPerBlockString() const {
-            std::ostringstream result;
-            auto mag = GetInterestPerBlockMagnitude();
-            auto dec = GetInterestPerBlockDecimal();
-            // While these can happen theoretically, they should be out of range of
-            // operating interest. If this happens, something else went wrong.
-            if (mag < 0 || dec < 0)
-                return {};
-
-            result << mag << "." << std::setw(24) << std::setfill('0') << dec;
-            return result.str();
-        }
-    };
-    return HighPrecisionInterestValue(value).GetInterestPerBlockString();
+std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value)
+{
+    constexpr base_uint<128> scaler(HIGH_PRECISION_SCALER);
+    const auto div = value / scaler;
+    auto mag = (div / COIN).GetLow64();
+    auto dec = div == 0 ? value : value % (scaler * COIN);
+    return strprintf("%d.%024s", mag, dec.GetDecimal());
 }
