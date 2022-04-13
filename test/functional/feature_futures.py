@@ -18,7 +18,7 @@ class FuturesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=150', '-subsidytest=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=150', '-greatworldheight=500', '-subsidytest=1']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -49,6 +49,9 @@ class FuturesTest(DefiTestFramework):
 
         # Test changing Gov vars
         self.check_gov_var_change()
+
+        # Test setting of start block
+        self.test_start_block()
 
         # Test refunding of unpaid futures
         self.unpaid_contract()
@@ -937,6 +940,66 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
+    def test_start_block(self):
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Move to GW fork block
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+
+        # Test setting start block while DFIP2203 still active
+        assert_raises_rpc_error(-32600, 'Cannot set block period while DFIP2203 is active', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':f'{self.nodes[0].getblockcount() + 1}'}})
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
+        self.nodes[0].generate(1)
+
+        # Set start block height
+        self.start_block = self.nodes[0].getblockcount() + 10
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/start_block':f'{self.start_block}'}})
+        self.nodes[0].generate(1)
+
+        # Enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Test cannot create a future swap until active
+        assert_raises_rpc_error(-32600, f'DFIP2203 not active until block {self.start_block}', self.nodes[0].futureswap, address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+
+        # Check next future swap block reported correctly via RPC
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - ((self.nodes[0].getblockcount() - self.start_block) % self.futures_interval)) + self.futures_interval
+        assert_equal(next_futures_block, self.nodes[0].getfutureswapblock())
+
+        # Move to futures start height
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Create user futures contract
+        self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Move to one before next future swap block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - ((self.nodes[0].getblockcount() - self.start_block) % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount() - 1)
+
+        # Check calculation is correct for second swap height after setting start block
+        assert_equal(next_futures_block, self.nodes[0].getfutureswapblock())
+
+        # Check account still empty
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [])
+
+        # Move to future swap block
+        self.nodes[0].generate(1)
+
+        # Check that futures have been executed
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [f'1.00000000@{self.symbolTSLA}'])
+
     def unpaid_contract(self):
 
         # Create addresses for futures
@@ -956,7 +1019,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Move to next futures block
-        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - ((self.nodes[0].getblockcount() - self.start_block) % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
         # Check refund in history
@@ -981,15 +1044,15 @@ class FuturesTest(DefiTestFramework):
 
         # Check contract address
         result = self.nodes[0].getaccount(self.contract_address)
-        assert_equal(result, [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result, [f'9295.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on listgovs
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result['v0/live/economy/dfip2203_current'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['v0/live/economy/dfip2203_current'], [f'9295.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
         # Check DFI2203 address on getburninfo
         result = self.nodes[0].getburninfo()
-        assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
+        assert_equal(result['dfip2203'], [f'9295.65000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
     def rpc_history(self):
 
@@ -1009,7 +1072,7 @@ class FuturesTest(DefiTestFramework):
 
         # Check all swaps present
         result = self.nodes[0].listaccounthistory('all', {'txtype':'q'})
-        assert_equal(len(result), 17)
+        assert_equal(len(result), 18)
 
         # Check all swap refunds present
         result = self.nodes[0].listaccounthistory('all', {'txtype':'w'})
@@ -1021,7 +1084,6 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[0]['blockHeight'], self.list_history[0]['height'])
         assert_equal(result[0]['owner'], self.list_history[0]['swaps'][0]['address'])
         assert_equal(result[0]['amounts'], [self.list_history[0]['swaps'][0]['destination']])
-
 
 if __name__ == '__main__':
     FuturesTest().main()

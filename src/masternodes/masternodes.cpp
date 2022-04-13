@@ -1015,13 +1015,13 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
 
         auto tokenCurrency = attributes->GetValue(pairKey, std::optional<CTokenCurrencyPair>{});
         auto interest = attributes->GetValue(interestKey, std::optional<CAmount>{});
-        auto mitable = attributes->GetValue(mintableKey, std::optional<bool>{});
+        auto mintable = attributes->GetValue(mintableKey, std::optional<bool>{});
 
-        if (auto token = GetToken(id); token && tokenCurrency && interest && mitable) {
+        if (auto token = GetToken(id); token && tokenCurrency && interest && mintable) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
             loanToken.fixedIntervalPriceId = *tokenCurrency;
             loanToken.interest = *interest;
-            loanToken.mintable = *mitable;
+            loanToken.mintable = *mintable;
             loanToken.symbol = token->symbol;
             loanToken.name = token->name;
             return loanToken;

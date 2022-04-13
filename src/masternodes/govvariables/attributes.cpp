@@ -125,6 +125,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"premium",             DFIPKeys::Premium},
                 {"reward_pct",          DFIPKeys::RewardPct},
                 {"block_period",        DFIPKeys::BlockPeriod},
+                {"start_block",         DFIPKeys::StartBlock},
             }
         },
     };
@@ -162,6 +163,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MinSwap,      "minswap"},
                 {DFIPKeys::RewardPct,    "reward_pct"},
                 {DFIPKeys::BlockPeriod,  "block_period"},
+                {DFIPKeys::StartBlock,   "start_block"},
             }
         },
         {
@@ -269,6 +271,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MinSwap,      VerifyFloat},
                 {DFIPKeys::RewardPct,    VerifyPct},
                 {DFIPKeys::BlockPeriod,  VerifyInt64},
+                {DFIPKeys::StartBlock,   VerifyInt64},
             }
         },
         {
@@ -364,7 +367,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         if (type == AttributeTypes::Param) {
             if (typeId == ParamIDs::DFIP2201) {
                 if (typeKey == DFIPKeys::RewardPct ||
-                    typeKey == DFIPKeys::BlockPeriod) {
+                    typeKey == DFIPKeys::BlockPeriod ||
+                    typeKey == DFIPKeys::StartBlock) {
                     return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::DFIP2203) {
@@ -373,7 +377,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     return Res::Err("Unsupported type for DFIP2203 {%d}", typeKey);
                 }
 
-                if (typeKey == DFIPKeys::BlockPeriod) {
+                if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
                     futureBlockUpdated = true;
                 }
             } else {
@@ -566,7 +570,7 @@ UniValue ATTRIBUTES::Export() const {
             if (auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
+                if (attrV0->typeId == DFIP2203 && (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto uvalue = ValueFromAmount(*amount);
@@ -594,8 +598,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHillHeight)
         return Res::Err("Cannot be set before FortCanningHill");
 
-    for (const auto& attribute : attributes) {
-        auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
+    for (const auto& [key, value] : attributes) {
+        auto attrV0 = std::get_if<CDataStructureV0>(&key);
         if (!attrV0) {
             return Res::Err("Unsupported version");
         }
@@ -668,7 +672,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 break;
 
             case AttributeTypes::Poolpairs:
-                if (!std::get_if<CAmount>(&attribute.second)) {
+                if (!std::get_if<CAmount>(&value)) {
                     return Res::Err("Unsupported value");
                 }
                 switch (attrV0->key) {
@@ -687,6 +691,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 if (attrV0->typeId == ParamIDs::DFIP2203) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                         return Res::Err("Cannot be set before FortCanningRoad");
+                    }
+                    if (attrV0->key == DFIPKeys::StartBlock) {
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
@@ -808,7 +817,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return res;
                 }
 
-            } else if (attrV0->key == DFIPKeys::BlockPeriod) {
+            } else if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
 
                 // Only check this when block period has been set, otherwise
                 // it will fail when DFIP2203 active is set to true.

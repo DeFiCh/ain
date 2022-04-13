@@ -63,6 +63,11 @@ private:
     bool Flush(bool = false) final { return false; }
 };
 
+struct FutureSwapHeightInfo {
+    CAmount startBlock;
+    CAmount blockPeriod;
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
@@ -75,6 +80,6 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H
