@@ -774,13 +774,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             }
             if (attrV0->key == TokenKeys::DFIP2203Enabled) {
 
-                // Skip on block period change to avoid refunding and erasing entries.
-                // Block period change will check for conflicting entries, deleting them
-                // via RefundFuturesContracts will fail that check.
-                if (futureBlockUpdated) {
-                    continue;
-                }
-
                 auto value = std::get<bool>(attribute.second);
                 if (value) {
                     continue;
@@ -804,13 +797,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             }
         } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::DFIP2203) {
             if (attrV0->key == DFIPKeys::Active) {
-
-                // Skip on block period change to avoid refunding and erasing entries.
-                // Block period change will check for conflicting entries, deleting them
-                // via RefundFuturesContracts will fail that check.
-                if (futureBlockUpdated) {
-                    continue;
-                }
 
                 auto value = std::get<bool>(attribute.second);
                 if (value) {
