@@ -70,6 +70,9 @@ class InvalidateTest(DefiTestFramework):
         assert_equal(self.nodes[1].getbestblockhash(), blocks[-3])
         # Reconsider only the previous tip
         self.nodes[1].reconsiderblock(blocks[-1])
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[1].waitforblock(blocks[-1])
+
         # Should be back at the tip by now
         assert_equal(self.nodes[1].getbestblockhash(), blocks[-1])
 
@@ -82,6 +85,9 @@ class InvalidateTest(DefiTestFramework):
         assert_equal(self.nodes[1].getbestblockhash(), blocks[-5])
         # Reconsider only the previous tip
         self.nodes[1].reconsiderblock(blocks[-4])
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[1].waitforblock(blocks[-4])
+
         # Should be back at the tip by now
         assert_equal(self.nodes[1].getbestblockhash(), blocks[-1])
 

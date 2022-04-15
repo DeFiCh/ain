@@ -176,6 +176,8 @@ class BlockchainTest(DefiTestFramework):
         self.nodes[0].invalidateblock(blockhash)
         assert_raises_rpc_error(-8, "Block is not in main chain", self.nodes[0].getchaintxstats, blockhash=blockhash)
         self.nodes[0].reconsiderblock(blockhash)
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[0].waitforblock(blockhash)
 
         chaintxstats = self.nodes[0].getchaintxstats(nblocks=1)
         # 200 txs plus genesis tx
@@ -242,6 +244,8 @@ class BlockchainTest(DefiTestFramework):
 
         self.log.info("Test that gettxoutsetinfo() returns the same result after invalidate/reconsider block")
         node.reconsiderblock(b1hash)
+        # NOTE reconsiderblock does not block allowing further invalidation
+        node.waitforblockheight(200)
 
         res3 = node.gettxoutsetinfo()
         # The field 'disk_size' is non-deterministic and can thus not be

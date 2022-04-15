@@ -233,6 +233,9 @@ class RawTransactionsTest(DefiTestFramework):
         gottx = self.nodes[0].getrawtransaction(txid=tx, verbose=True, blockhash=block1)
         assert_equal(gottx['in_active_chain'], False)
         self.nodes[0].reconsiderblock(block1)
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[0].waitforblock(block1)
+
         assert_equal(self.nodes[0].getbestblockhash(), block2)
 
         #########################
