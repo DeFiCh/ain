@@ -104,6 +104,9 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
+    if (!WriteBy<ByFuturesSwapKeyOwner>(std::make_pair(key.owner, key), '\0')) {
+        return Res::Err("Failed to store futures by owner");
+    }
 
     return Res::Ok();
 }
@@ -113,8 +116,8 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     if (start.owner.empty()) {
         ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFuturesSwapKey, std::pair<CScript, CFuturesUserKey>, CFuturesUserValue>([&](const std::pair<CScript, CFuturesUserKey>& key, const CFuturesUserValue& value) {
-            return callback(key.second, value);
+        ForEach<ByFuturesSwapKeyOwner, std::pair<CScript, CFuturesUserKey>, char>([&](const std::pair<CScript, CFuturesUserKey>& key, const char&) {
+            return callback(key.second, *GetFuturesUserValues(key.second));
         }, std::make_pair(start.owner, start));
     }
 }
@@ -123,6 +126,9 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 {
     if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
+    }
+    if (!EraseBy<ByFuturesSwapKeyOwner>(std::make_pair(key.owner, key))) {
+        return Res::Err("Failed to erase futures by owner");
     }
 
     return Res::Ok();
