@@ -110,7 +110,13 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
 
 void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
 {
-    ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
+    if (start.owner.empty()) {
+        ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
+    } else {
+        ForEach<ByFuturesSwapKey, std::pair<CScript, CFuturesUserKey>, CFuturesUserValue>([&](const std::pair<CScript, CFuturesUserKey>& key, const CFuturesUserValue& value) {
+            return callback(key.second, value);
+        }, std::make_pair(start.owner, start));
+    }
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
