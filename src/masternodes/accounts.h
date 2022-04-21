@@ -40,7 +40,7 @@ struct CFuturesUserKey {
     }
 };
 
-struct CFuturesUserKeyOld {
+struct CFuturesUserKeyOwner {
     CScript owner;
     uint32_t height;
     uint32_t txn;
@@ -62,10 +62,6 @@ struct CFuturesUserKeyOld {
             uint32_t txn_ = ~txn;
             READWRITE(WrapBigEndian(txn_));
         }
-    }
-
-    bool operator<(const CFuturesUserKeyOld& o) const {
-        return std::tie(owner, height, txn) < std::tie(o.owner, o.height, o.txn);
     }
 };
 
@@ -108,7 +104,7 @@ public:
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
-    struct ByFuturesSwapKeyOld  { static constexpr uint8_t prefix() { return 'N'; } };
+    struct ByFuturesSwapKeyOwner  { static constexpr uint8_t prefix() { return 'N'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);

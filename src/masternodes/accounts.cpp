@@ -4,12 +4,12 @@
 
 #include <masternodes/accounts.h>
 
-static CFuturesUserKey Convert(CFuturesUserKeyOld const & key)
+static CFuturesUserKey Convert(CFuturesUserKeyOwner const & key)
 {
     return {key.height, key.owner, key.txn};
 }
 
-static CFuturesUserKeyOld Convert(CFuturesUserKey const & key)
+static CFuturesUserKeyOwner Convert(CFuturesUserKey const & key)
 {
     return {key.owner, key.height, key.txn};
 }
@@ -114,7 +114,7 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
-    if (!WriteBy<ByFuturesSwapKeyOld>(Convert(key), '\0')) {
+    if (!WriteBy<ByFuturesSwapKeyOwner>(Convert(key), '\0')) {
         return Res::Err("Failed to store futures by old key");
     }
 
@@ -126,7 +126,7 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     if (start.owner.empty()) {
         ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFuturesSwapKeyOld, CFuturesUserKeyOld, char>([&](const CFuturesUserKeyOld& oldKey, const char&) {
+        ForEach<ByFuturesSwapKeyOwner, CFuturesUserKeyOwner, char>([&](const CFuturesUserKeyOwner& oldKey, const char&) {
             CFuturesUserKey key = Convert(oldKey);
             return callback(key, *GetFuturesUserValues(key));
         }, Convert(start));
@@ -138,7 +138,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
     if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
     }
-    if (!EraseBy<ByFuturesSwapKeyOld>(Convert(key))) {
+    if (!EraseBy<ByFuturesSwapKeyOwner>(Convert(key))) {
         return Res::Err("Failed to erase futures by old key");
     }
 
