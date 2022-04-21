@@ -94,6 +94,7 @@ public:
     uint32_t GetBalancesHeight(CScript const & owner);
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
+    void CreateFuturesMultiIndexIfNeeded();
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
     ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);

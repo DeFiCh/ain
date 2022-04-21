@@ -109,6 +109,28 @@ uint32_t CAccountsView::GetBalancesHeight(CScript const & owner)
     return ok ? height : 0;
 }
 
+void CAccountsView::CreateFuturesMultiIndexIfNeeded()
+{
+    CFuturesUserKeyOwner anyOwnerKey{{}, ~0u, ~0u};
+    if (auto it = LowerBound<ByFuturesSwapKeyOwner>(anyOwnerKey); it.Valid()) {
+        return;
+    }
+
+    LogPrint(BCLog::BENCH, "FuturesSwap - Adding multi index in progress...\n");
+
+    auto startTime = GetTimeMillis();
+
+    CFuturesUserKey startKey{~0u, {}, ~0u};
+    auto it = LowerBound<ByFuturesSwapKey>(startKey);
+    for (; it.Valid(); it.Next()) {
+        WriteBy<ByFuturesSwapKeyOwner>(Convert(it.Key()), '\0');
+    }
+
+    Flush();
+
+    LogPrint(BCLog::BENCH, "FuturesSwap - Multi index took: %dms\n", GetTimeMillis() - startTime);
+}
+
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures)
 {
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
