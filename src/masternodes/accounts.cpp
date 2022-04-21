@@ -137,7 +137,7 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
         return Res::Err("Failed to store futures");
     }
     if (!WriteBy<ByFuturesSwapKeyOwner>(Convert(key), '\0')) {
-        return Res::Err("Failed to store futures by old key");
+        return Res::Err("Failed to store futures by owner key");
     }
 
     return Res::Ok();
@@ -148,8 +148,8 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     if (start.owner.empty()) {
         ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFuturesSwapKeyOwner, CFuturesUserKeyOwner, char>([&](const CFuturesUserKeyOwner& oldKey, const char&) {
-            CFuturesUserKey key = Convert(oldKey);
+        ForEach<ByFuturesSwapKeyOwner, CFuturesUserKeyOwner, char>([&](const CFuturesUserKeyOwner& ownerKey, const char&) {
+            CFuturesUserKey key = Convert(ownerKey);
             return callback(key, *GetFuturesUserValues(key));
         }, Convert(start));
     }
@@ -161,7 +161,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
         return Res::Err("Failed to erase futures");
     }
     if (!EraseBy<ByFuturesSwapKeyOwner>(Convert(key))) {
-        return Res::Err("Failed to erase futures by old key");
+        return Res::Err("Failed to erase futures by owner key");
     }
 
     return Res::Ok();
