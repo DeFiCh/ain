@@ -40,6 +40,35 @@ struct CFuturesUserKey {
     }
 };
 
+struct CFuturesUserKeyOld {
+    CScript owner;
+    uint32_t height;
+    uint32_t txn;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (ser_action.ForRead()) {
+            READWRITE(owner);
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+            READWRITE(WrapBigEndian(txn));
+            txn = ~txn;
+        } else {
+            READWRITE(owner);
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+            uint32_t txn_ = ~txn;
+            READWRITE(WrapBigEndian(txn_));
+        }
+    }
+
+    bool operator<(const CFuturesUserKeyOld& o) const {
+        return std::tie(owner, height, txn) < std::tie(o.owner, o.height, o.txn);
+    }
+};
+
 struct CFuturesUserValue {
     CTokenAmount source{};
     uint32_t destination{};
@@ -79,7 +108,7 @@ public:
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
-    struct ByFuturesSwapKeyOwner  { static constexpr uint8_t prefix() { return 'N'; } };
+    struct ByFuturesSwapKeyOld  { static constexpr uint8_t prefix() { return 'N'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);

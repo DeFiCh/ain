@@ -4,6 +4,16 @@
 
 #include <masternodes/accounts.h>
 
+static CFuturesUserKey Convert(CFuturesUserKeyOld const & key)
+{
+    return {key.height, key.owner, key.txn};
+}
+
+static CFuturesUserKeyOld Convert(CFuturesUserKey const & key)
+{
+    return {key.owner, key.height, key.txn};
+}
+
 void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start)
 {
     ForEach<ByBalanceKey, BalanceKey, CAmount>([&callback] (BalanceKey const & key, CAmount val) {
@@ -104,8 +114,8 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
-    if (!WriteBy<ByFuturesSwapKeyOwner>(std::make_pair(key.owner, key), '\0')) {
-        return Res::Err("Failed to store futures by owner");
+    if (!WriteBy<ByFuturesSwapKeyOld>(Convert(key), '\0')) {
+        return Res::Err("Failed to store futures by old key");
     }
 
     return Res::Ok();
@@ -116,9 +126,10 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     if (start.owner.empty()) {
         ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFuturesSwapKeyOwner, std::pair<CScript, CFuturesUserKey>, char>([&](const std::pair<CScript, CFuturesUserKey>& key, const char&) {
-            return callback(key.second, *GetFuturesUserValues(key.second));
-        }, std::make_pair(start.owner, start));
+        ForEach<ByFuturesSwapKeyOld, CFuturesUserKeyOld, char>([&](const CFuturesUserKeyOld& oldKey, const char&) {
+            CFuturesUserKey key = Convert(oldKey);
+            return callback(key, *GetFuturesUserValues(key));
+        }, Convert(start));
     }
 }
 
@@ -127,8 +138,8 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
     if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
     }
-    if (!EraseBy<ByFuturesSwapKeyOwner>(std::make_pair(key.owner, key))) {
-        return Res::Err("Failed to erase futures by owner");
+    if (!EraseBy<ByFuturesSwapKeyOld>(Convert(key))) {
+        return Res::Err("Failed to erase futures by old key");
     }
 
     return Res::Ok();
