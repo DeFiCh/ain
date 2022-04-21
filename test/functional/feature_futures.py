@@ -56,6 +56,9 @@ class FuturesTest(DefiTestFramework):
         # Test list future swap history
         self.rpc_history()
 
+        # Test futures query
+        self.check_futureswaps_query()
+
     def setup_test(self):
 
         # Store addresses
@@ -586,8 +589,8 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
         assert_equal(result['values'][0]['destination'], self.symbolTWTR)
-        assert_equal(result['values'][0]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
-        assert_equal(result['values'][0]['destination'], self.symbolTWTR)
+        assert_equal(result['values'][1]['source'], f'{self.prices[2]["premiumPrice"]}@{self.symbolDUSD}')
+        assert_equal(result['values'][1]['destination'], self.symbolTWTR)
 
         # Move to next futures block
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
@@ -937,6 +940,10 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [f'8382.15000915@{self.symbolDUSD}', f'1.00000000@{self.symbolTSLA}', f'1.00000000@{self.symbolGOOGL}', f'1.00000000@{self.symbolTWTR}', f'1.00000000@{self.symbolMSFT}'])
 
+        # Enable GOOGL
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{str(self.idGOOGL)}/dfip2203':'true'}})
+        self.nodes[0].generate(1)
+
     def unpaid_contract(self):
 
         # Create addresses for futures
@@ -1022,6 +1029,74 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[0]['owner'], self.list_history[0]['swaps'][0]['address'])
         assert_equal(result[0]['amounts'], [self.list_history[0]['swaps'][0]['destination']])
 
+    def check_futureswaps_query(self):
+
+        # Create addresses for futures
+        address_msft = self.nodes[0].getnewaddress("", "legacy")
+        address_googl = self.nodes[0].getnewaddress("", "legacy")
+        address_tsla = self.nodes[0].getnewaddress("", "legacy")
+        address_twtr = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address_msft: f'1@{self.symbolMSFT}'})
+        self.nodes[0].accounttoaccount(self.address, {address_googl: f'1@{self.symbolGOOGL}'})
+        self.nodes[0].accounttoaccount(self.address, {address_tsla: f'1@{self.symbolTSLA}'})
+        self.nodes[0].accounttoaccount(self.address, {address_twtr: f'1@{self.symbolTWTR}'})
+        self.nodes[0].generate(1)
+
+        # Create user futures contracts
+        self.nodes[0].futureswap(address_msft, f'1@{self.symbolMSFT}')
+        self.nodes[0].generate(1)
+        self.nodes[0].futureswap(address_twtr, f'1@{self.symbolTWTR}')
+        self.nodes[0].generate(1)
+        self.nodes[0].futureswap(address_googl, f'1@{self.symbolGOOGL}')
+        self.nodes[0].generate(1)
+        self.nodes[0].futureswap(address_tsla, f'1@{self.symbolTSLA}')
+        self.nodes[0].generate(1)
+
+        # List user futures contracts
+        result = self.nodes[0].listpendingfutureswaps()
+
+        # Get user TSLA futures swap by address
+        resultTsla = self.nodes[0].getpendingfutureswaps(address_tsla)
+        assert_equal(result[0]['owner'], address_tsla)
+        assert_equal(result[0]['source'], resultTsla['values'][0]['source'])
+        assert_equal(result[0]['destination'], resultTsla['values'][0]['destination'])
+
+        # Get user GOOGL futures contracts by address
+        resultGoogl = self.nodes[0].getpendingfutureswaps(address_googl)
+        assert_equal(result[1]['owner'], address_googl)
+        assert_equal(result[1]['source'], resultGoogl['values'][0]['source'])
+        assert_equal(result[1]['destination'], resultGoogl['values'][0]['destination'])
+
+        # Get user TWTR futures contracts by address
+        resultTwtr = self.nodes[0].getpendingfutureswaps(address_twtr)
+        assert_equal(result[2]['owner'], address_twtr)
+        assert_equal(result[2]['source'], resultTwtr['values'][0]['source'])
+        assert_equal(result[2]['destination'], resultTwtr['values'][0]['destination'])
+
+        # Get user MSFT futures contracts by address
+        resultMsft = self.nodes[0].getpendingfutureswaps(address_msft)
+        assert_equal(result[3]['owner'], address_msft)
+        assert_equal(result[3]['source'], resultMsft['values'][0]['source'])
+        assert_equal(result[3]['destination'], resultMsft['values'][0]['destination'])
+
+        # Move to next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Pending futures should now be empty
+        result = self.nodes[0].listpendingfutureswaps()
+        assert_equal(len(result), 0)
+
+        resultMsft = self.nodes[0].getpendingfutureswaps(address_msft)
+        assert_equal(len(resultMsft['values']), 0)
+        resultGoogl = self.nodes[0].getpendingfutureswaps(address_googl)
+        assert_equal(len(resultGoogl['values']), 0)
+        resultTsla = self.nodes[0].getpendingfutureswaps(address_tsla)
+        assert_equal(len(resultTsla['values']), 0)
+        resultTwtr = self.nodes[0].getpendingfutureswaps(address_twtr)
+        assert_equal(len(resultTwtr['values']), 0)
 
 if __name__ == '__main__':
     FuturesTest().main()
