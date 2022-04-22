@@ -4,12 +4,12 @@
 
 #include <masternodes/accounts.h>
 
-static CFuturesUserKey Convert(CFuturesUserKeyOwner const & key)
+static CFuturesUserKey TranslateOwnerPrefixToKey(CFuturesUserKeyOwner const & key)
 {
     return {key.height, key.owner, key.txn};
 }
 
-static CFuturesUserKeyOwner Convert(CFuturesUserKey const & key)
+static CFuturesUserKeyOwner TranslateKeyToOwnerPrefix(CFuturesUserKey const & key)
 {
     return {key.owner, key.height, key.txn};
 }
@@ -123,7 +123,7 @@ void CAccountsView::CreateFuturesMultiIndexIfNeeded()
     CFuturesUserKey startKey{~0u, {}, ~0u};
     auto it = LowerBound<ByFuturesSwapKey>(startKey);
     for (; it.Valid(); it.Next()) {
-        WriteBy<ByFuturesSwapKeyOwner>(Convert(it.Key()), '\0');
+        WriteBy<ByFuturesSwapKeyOwner>(TranslateKeyToOwnerPrefix(it.Key()), '\0');
     }
 
     Flush();
@@ -136,7 +136,7 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
-    if (!WriteBy<ByFuturesSwapKeyOwner>(Convert(key), '\0')) {
+    if (!WriteBy<ByFuturesSwapKeyOwner>(TranslateKeyToOwnerPrefix(key), '\0')) {
         return Res::Err("Failed to store futures by owner key");
     }
 
@@ -149,9 +149,9 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
         ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
     } else {
         ForEach<ByFuturesSwapKeyOwner, CFuturesUserKeyOwner, char>([&](const CFuturesUserKeyOwner& ownerKey, const char&) {
-            CFuturesUserKey key = Convert(ownerKey);
+            CFuturesUserKey key = TranslateOwnerPrefixToKey(ownerKey);
             return callback(key, *GetFuturesUserValues(key));
-        }, Convert(start));
+        }, TranslateKeyToOwnerPrefix(start));
     }
 }
 
@@ -160,7 +160,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
     if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
     }
-    if (!EraseBy<ByFuturesSwapKeyOwner>(Convert(key))) {
+    if (!EraseBy<ByFuturesSwapKeyOwner>(TranslateKeyToOwnerPrefix(key))) {
         return Res::Err("Failed to erase futures by owner key");
     }
 
