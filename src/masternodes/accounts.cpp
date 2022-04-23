@@ -126,8 +126,6 @@ void CAccountsView::CreateFuturesMultiIndexIfNeeded()
         WriteBy<ByFuturesSwapKeyOwner>(TranslateKeyToOwnerPrefix(it.Key()), '\0');
     }
 
-    Flush();
-
     LogPrint(BCLog::BENCH, "FuturesSwap - Multi index took: %dms\n", GetTimeMillis() - startTime);
 }
 

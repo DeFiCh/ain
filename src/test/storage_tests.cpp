@@ -6,6 +6,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/accounts.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 
@@ -463,6 +464,53 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 2);
     }
+}
+
+BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
+{
+    const CFuturesUserKey key[] = { {100u, {0}, 10u}, {101u, {1}, 11u}, {102u, {2}, 12u}, {103u, {3}, 13u}, {104u, {4}, 14u} };
+    CFuturesUserValue future[] = { {{{0u}, 1000}, 50u}, {{{1u}, 1001}, 51u}, {{{2u}, 1002}, 52u}, {{{3u}, 1003}, 53u}, {{{4u}, 1004}, 54u} };
+
+    // Store future swap key value pairs ByFuturesSwapKey
+    for(int i = 0; i < 4; ++i) {
+        BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFuturesSwapKey>(key[i], future[i]));
+    }
+
+    // Check the db
+    for(int i = 0; i < 4; ++i) {
+        ResVal<CFuturesUserValue> result = pcustomcsview->GetFuturesUserValues(key[i]);
+        BOOST_CHECK(result);
+        BOOST_CHECK_EQUAL((*result).source, future[i].source);
+        BOOST_CHECK_EQUAL((*result).destination, future[i].destination);
+    }
+
+    // Before CreateFuturesMultiIndex, No any key value pairs ByFuturesSwapKeyOwner
+    for(int i = 0; i < 4; ++i) {
+        char c;
+        const CFuturesUserKeyOwner ownerKey = {key[i].owner, key[i].height, key[i].txn};
+        BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
+    }
+
+    // CreateFuturesMultiIndex
+    pcustomcsview->CreateFuturesMultiIndexIfNeeded();
+
+    // After CreateFuturesMultiIndex, There should be key value pairs ByFuturesSwapKeyOwner
+    for(int i = 0; i < 4; ++i) {
+        char c;
+        const CFuturesUserKeyOwner ownerKey = {key[i].owner, key[i].height, key[i].txn};
+        BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
+    }
+
+    // Store additional future swap key value pair ByFuturesSwapKey
+    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFuturesSwapKey>(key[4], future[4]));
+
+    // Again CreateFuturesMultiIndex
+    pcustomcsview->CreateFuturesMultiIndexIfNeeded();
+
+    // Additional CreateFuturesMultiIndex should not take effect
+    char c;
+    const CFuturesUserKeyOwner ownerKey = {key[4].owner, key[4].height, key[4].txn};
+    BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
