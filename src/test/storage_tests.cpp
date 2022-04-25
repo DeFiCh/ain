@@ -473,7 +473,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // Store future swap key value pairs CFuturesUserHeightPrefixKey
     for(int i = 0; i < 4; ++i) {
-        BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFuturesSwapKey>(key[i], future[i]));
+        BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapHeightKey>(key[i], future[i]));
     }
 
     // Check the db
@@ -488,7 +488,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     for(int i = 0; i < 4; ++i) {
         char c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
-        BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
+        BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
     }
 
     // CreateFuturesMultiIndex
@@ -498,11 +498,11 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     for(int i = 0; i < 4; ++i) {
         char c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
-        BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
+        BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
     }
 
     // Store additional future swap key value pair ByFuturesSwapKey
-    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFuturesSwapKey>(key[4], future[4]));
+    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapHeightKey>(key[4], future[4]));
 
     // Again CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
@@ -510,7 +510,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     // Additional CreateFuturesMultiIndex should not take effect
     char c;
     const CFuturesUserOwnerPrefixKey ownerKey = {key[4].owner, key[4].height, key[4].txn};
-    BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
+    BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -108,8 +108,8 @@ public:
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
-    struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
-    struct ByFuturesSwapKeyOwner  { static constexpr uint8_t prefix() { return 'N'; } };
+    struct ByFutureSwapHeightKey  { static constexpr uint8_t prefix() { return 'J'; } };
+    struct ByFutureSwapOwnerKey  { static constexpr uint8_t prefix() { return 'N'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);
