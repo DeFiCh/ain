@@ -26,6 +26,10 @@
 
 #include <boost/variant.hpp>
 
+// A class with which skips serialization entirely. Useful for no value keys.
+class NonSerializedEmptyValue {};
+static auto NON_SERIALIZED_EMPTY_VALUE = NonSerializedEmptyValue{};
+
 static const unsigned int MAX_DESER_SIZE = 0x08000000;    // 128M (for submit 64M block via rpc!), old value 32M (0x02000000)
 
 /**
@@ -256,8 +260,9 @@ template<typename Stream> inline void Unserialize(Stream& s, Span<unsigned char>
 template<typename Stream> inline void Serialize(Stream& s, bool a)    { char f=a; ser_writedata8(s, f); }
 template<typename Stream> inline void Unserialize(Stream& s, bool& a) { char f=ser_readdata8(s); a=f; }
 
-
-
+// Non serialized empty value
+template<typename Stream> inline void Serialize(Stream& s, NonSerializedEmptyValue a) { }
+template<typename Stream> inline void Unserialize(Stream& s, NonSerializedEmptyValue& a) { a = NonSerializedEmptyValue{}; }
 
 
 
