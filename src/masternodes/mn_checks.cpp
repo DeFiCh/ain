@@ -413,7 +413,7 @@ public:
             ss >> name;
             auto var = GovVariable::Create(name);
             if (!var) {
-                return Res::Err("'%s': variable does not registered", name);
+                return Res::Err("'%s': variable is not registered", name);
             }
             ss >> *var;
             obj.govs.insert(std::move(var));
@@ -431,7 +431,7 @@ public:
         ss >> name;
         obj.govVar = GovVariable::Create(name);
         if (!obj.govVar) {
-            return Res::Err("'%s': variable does not registered", name);
+            return Res::Err("'%s': variable is not registered", name);
         }
         ss >> *obj.govVar;
         ss >> obj.startHeight;
