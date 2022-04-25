@@ -13,6 +13,8 @@
 
 #include <boost/thread.hpp>
 
+const uint8_t EMPTY_KVSTORE_VALUE = 0;
+
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, Optional<TBytes>>;
 

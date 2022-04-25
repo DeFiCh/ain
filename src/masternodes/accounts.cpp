@@ -123,7 +123,7 @@ void CAccountsView::CreateFuturesMultiIndexIfNeeded()
     CFuturesUserHeightPrefixKey startKey{~0u, {}, ~0u};
     auto it = LowerBound<ByFutureSwapHeightKey>(startKey);
     for (; it.Valid(); it.Next()) {
-        WriteBy<ByFutureSwapOwnerKey>(TranslateKeyToOwnerPrefix(it.Key()), '\0');
+        WriteBy<ByFutureSwapOwnerKey>(TranslateKeyToOwnerPrefix(it.Key()), EMPTY_KVSTORE_VALUE);
     }
 
     LogPrint(BCLog::BENCH, "FuturesSwap - Multi index took: %dms\n", GetTimeMillis() - startTime);
@@ -134,7 +134,7 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserHeightPrefixKey& key
     if (!WriteBy<ByFutureSwapHeightKey>(key, futures)) {
         return Res::Err("Failed to store futures");
     }
-    if (!WriteBy<ByFutureSwapOwnerKey>(TranslateKeyToOwnerPrefix(key), '\0')) {
+    if (!WriteBy<ByFutureSwapOwnerKey>(TranslateKeyToOwnerPrefix(key), EMPTY_KVSTORE_VALUE)) {
         return Res::Err("Failed to store futures by owner key");
     }
 
