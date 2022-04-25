@@ -4,12 +4,12 @@
 
 #include <masternodes/accounts.h>
 
-static CFuturesUserKey TranslateOwnerPrefixToKey(CFuturesUserKeyOwner const & key)
+static CFuturesUserHeightPrefixKey TranslateKeyToHeightPrefix(CFuturesUserOwnerPrefixKey const & key)
 {
     return {key.height, key.owner, key.txn};
 }
 
-static CFuturesUserKeyOwner TranslateKeyToOwnerPrefix(CFuturesUserKey const & key)
+static CFuturesUserOwnerPrefixKey TranslateKeyToOwnerPrefix(CFuturesUserHeightPrefixKey const & key)
 {
     return {key.owner, key.height, key.txn};
 }
@@ -111,7 +111,7 @@ uint32_t CAccountsView::GetBalancesHeight(CScript const & owner)
 
 void CAccountsView::CreateFuturesMultiIndexIfNeeded()
 {
-    CFuturesUserKeyOwner anyOwnerKey{{}, ~0u, ~0u};
+    CFuturesUserOwnerPrefixKey anyOwnerKey{{}, ~0u, ~0u};
     if (auto it = LowerBound<ByFuturesSwapKeyOwner>(anyOwnerKey); it.Valid()) {
         return;
     }
@@ -120,7 +120,7 @@ void CAccountsView::CreateFuturesMultiIndexIfNeeded()
 
     auto startTime = GetTimeMillis();
 
-    CFuturesUserKey startKey{~0u, {}, ~0u};
+    CFuturesUserHeightPrefixKey startKey{~0u, {}, ~0u};
     auto it = LowerBound<ByFuturesSwapKey>(startKey);
     for (; it.Valid(); it.Next()) {
         WriteBy<ByFuturesSwapKeyOwner>(TranslateKeyToOwnerPrefix(it.Key()), '\0');
@@ -129,7 +129,7 @@ void CAccountsView::CreateFuturesMultiIndexIfNeeded()
     LogPrint(BCLog::BENCH, "FuturesSwap - Multi index took: %dms\n", GetTimeMillis() - startTime);
 }
 
-Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures)
+Res CAccountsView::StoreFuturesUserValues(const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futures)
 {
     if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
         return Res::Err("Failed to store futures");
@@ -141,19 +141,19 @@ Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey& key, const CFut
     return Res::Ok();
 }
 
-void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start)
+void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUserHeightPrefixKey&, const CFuturesUserValue&)> callback, const CFuturesUserHeightPrefixKey& start)
 {
     if (start.owner.empty()) {
-        ForEach<ByFuturesSwapKey, CFuturesUserKey, CFuturesUserValue>(callback, start);
+        ForEach<ByFuturesSwapKey, CFuturesUserHeightPrefixKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFuturesSwapKeyOwner, CFuturesUserKeyOwner, char>([&](const CFuturesUserKeyOwner& ownerKey, const char&) {
-            CFuturesUserKey key = TranslateOwnerPrefixToKey(ownerKey);
+        ForEach<ByFuturesSwapKeyOwner, CFuturesUserOwnerPrefixKey, char>([&](const CFuturesUserOwnerPrefixKey& ownerKey, const char&) {
+            CFuturesUserHeightPrefixKey key = TranslateKeyToHeightPrefix(ownerKey);
             return callback(key, *GetFuturesUserValues(key));
         }, TranslateKeyToOwnerPrefix(start));
     }
 }
 
-Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
+Res CAccountsView::EraseFuturesUserValues(const CFuturesUserHeightPrefixKey& key)
 {
     if (!EraseBy<ByFuturesSwapKey>(key)) {
         return Res::Err("Failed to erase futures");
@@ -167,7 +167,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
 
 boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
 {
-    const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
+    const CFuturesUserHeightPrefixKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
     auto it = LowerBound<ByFuturesSwapKey>(key);
     if (it.Valid()) {
         return it.Key().height;
@@ -176,7 +176,7 @@ boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
     return {};
 }
 
-ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key) {
+ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserHeightPrefixKey& key) {
     CFuturesUserValue source;
     if (!ReadBy<ByFuturesSwapKey>(key, source)) {
         return Res::Err("Failed to read futures source");

@@ -3346,12 +3346,12 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     auto burned = attributes->GetValue(burnKey, CBalances{});
     auto minted = attributes->GetValue(mintedKey, CBalances{});
 
-    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
-    std::set<CFuturesUserKey> deletionPending;
+    std::map<CFuturesUserHeightPrefixKey, CFuturesUserValue> unpaidContracts;
+    std::set<CFuturesUserHeightPrefixKey> deletionPending;
 
     auto txn = std::numeric_limits<uint32_t>::max();
 
-    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+    cache.ForEachFuturesUserValues([&](const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futuresValues){
 
         CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
         CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);

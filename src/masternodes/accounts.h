@@ -11,7 +11,7 @@
 #include <amount.h>
 #include <script/script.h>
 
-struct CFuturesUserKey {
+struct CFuturesUserHeightPrefixKey {
     uint32_t height;
     CScript owner;
     uint32_t txn;
@@ -35,12 +35,12 @@ struct CFuturesUserKey {
         }
     }
 
-    bool operator<(const CFuturesUserKey& o) const {
+    bool operator<(const CFuturesUserHeightPrefixKey& o) const {
         return std::tie(height, owner, txn) < std::tie(o.height, o.owner, o.txn);
     }
 };
 
-struct CFuturesUserKeyOwner {
+struct CFuturesUserOwnerPrefixKey {
     CScript owner;
     uint32_t height;
     uint32_t txn;
@@ -62,6 +62,10 @@ struct CFuturesUserKeyOwner {
             uint32_t txn_ = ~txn;
             READWRITE(WrapBigEndian(txn_));
         }
+    }
+
+    bool operator<(const CFuturesUserHeightPrefixKey& o) const {
+        return std::tie(owner, height, txn) < std::tie(o.owner, o.height, o.txn);
     }
 };
 
@@ -95,11 +99,11 @@ public:
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
     void CreateFuturesMultiIndexIfNeeded();
-    Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
-    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
-    Res EraseFuturesUserValues(const CFuturesUserKey& key);
+    Res StoreFuturesUserValues(const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futures);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserHeightPrefixKey& key);
+    Res EraseFuturesUserValues(const CFuturesUserHeightPrefixKey& key);
     boost::optional<uint32_t> GetMostRecentFuturesHeight();
-    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
+    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserHeightPrefixKey&, const CFuturesUserValue&)> callback, const CFuturesUserHeightPrefixKey& start = {});
 
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };

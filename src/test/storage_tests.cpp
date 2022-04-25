@@ -468,10 +468,10 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
 
 BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 {
-    const CFuturesUserKey key[] = { {100u, {0}, 10u}, {101u, {1}, 11u}, {102u, {2}, 12u}, {103u, {3}, 13u}, {104u, {4}, 14u} };
+    const CFuturesUserHeightPrefixKey key[] = { {100u, {0}, 10u}, {101u, {1}, 11u}, {102u, {2}, 12u}, {103u, {3}, 13u}, {104u, {4}, 14u} };
     CFuturesUserValue future[] = { {{{0u}, 1000}, 50u}, {{{1u}, 1001}, 51u}, {{{2u}, 1002}, 52u}, {{{3u}, 1003}, 53u}, {{{4u}, 1004}, 54u} };
 
-    // Store future swap key value pairs ByFuturesSwapKey
+    // Store future swap key value pairs CFuturesUserHeightPrefixKey
     for(int i = 0; i < 4; ++i) {
         BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFuturesSwapKey>(key[i], future[i]));
     }
@@ -487,17 +487,17 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     // Before CreateFuturesMultiIndex, No any key value pairs ByFuturesSwapKeyOwner
     for(int i = 0; i < 4; ++i) {
         char c;
-        const CFuturesUserKeyOwner ownerKey = {key[i].owner, key[i].height, key[i].txn};
+        const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
         BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
     }
 
     // CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
 
-    // After CreateFuturesMultiIndex, There should be key value pairs ByFuturesSwapKeyOwner
+    // After CreateFuturesMultiIndex, There should be key value pairs CFuturesUserOwnerPrefixKey
     for(int i = 0; i < 4; ++i) {
         char c;
-        const CFuturesUserKeyOwner ownerKey = {key[i].owner, key[i].height, key[i].txn};
+        const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
         BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
     }
 
@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // Additional CreateFuturesMultiIndex should not take effect
     char c;
-    const CFuturesUserKeyOwner ownerKey = {key[4].owner, key[4].height, key[4].txn};
+    const CFuturesUserOwnerPrefixKey ownerKey = {key[4].owner, key[4].height, key[4].txn};
     BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFuturesSwapKeyOwner>(ownerKey, c));
 }
 

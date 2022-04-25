@@ -1529,9 +1529,9 @@ public:
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
         if (obj.withdraw) {
-            std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
+            std::map<CFuturesUserHeightPrefixKey, CFuturesUserValue> userFuturesValues;
 
-            mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+            mnview.ForEachFuturesUserValues([&](const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futuresValues) {
                 if (key.owner == obj.owner &&
                     futuresValues.source.nTokenId == obj.source.nTokenId &&
                     futuresValues.destination == obj.destination) {
