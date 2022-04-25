@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     const CFuturesUserHeightPrefixKey key[] = { {100u, {0}, 10u}, {101u, {1}, 11u}, {102u, {2}, 12u}, {103u, {3}, 13u}, {104u, {4}, 14u} };
     CFuturesUserValue future[] = { {{{0u}, 1000}, 50u}, {{{1u}, 1001}, 51u}, {{{2u}, 1002}, 52u}, {{{3u}, 1003}, 53u}, {{{4u}, 1004}, 54u} };
 
-    // Store future swap key value pairs CFuturesUserHeightPrefixKey
+    // Store future swap key value pairs ByFutureSwapHeightKey
     for(int i = 0; i < 4; ++i) {
         BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapHeightKey>(key[i], future[i]));
     }
@@ -495,14 +495,14 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
     pcustomcsview->Flush();
 
-    // After CreateFuturesMultiIndex, There should be key value pairs CFuturesUserOwnerPrefixKey
+    // After CreateFuturesMultiIndex, There should be key value pairs ByFutureSwapOwnerKey
     for(int i = 0; i < 4; ++i) {
         NonSerializedEmptyValue c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
         BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
     }
 
-    // Store additional future swap key value pair ByFuturesSwapKey
+    // Store additional future swap key value pair ByFutureSwapHeightKey
     BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapHeightKey>(key[4], future[4]));
 
     // Again CreateFuturesMultiIndex
@@ -512,6 +512,12 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     NonSerializedEmptyValue c;
     const CFuturesUserOwnerPrefixKey ownerKey = {key[4].owner, key[4].height, key[4].txn};
     BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
+
+    // Store additional future swap key value pair ByFutureSwapOwnerKey
+    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, EMPTY_KVSTORE_VALUE));
+
+    // Additional CFuturesUserOwnerPrefixKey key should be available from db
+    BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
