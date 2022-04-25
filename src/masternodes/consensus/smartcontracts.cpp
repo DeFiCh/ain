@@ -129,14 +129,9 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
     auto balances = attributes->GetValue(liveKey, CBalances{});
 
     if (obj.withdraw) {
-        const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
-        const uint32_t startHeight = height - (height % blockPeriod);
         std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
         mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-            if (key.height <= startHeight)
-                return false;
-
             if (key.owner == obj.owner &&
                 futuresValues.source.nTokenId == obj.source.nTokenId &&
                 futuresValues.destination == obj.destination) {

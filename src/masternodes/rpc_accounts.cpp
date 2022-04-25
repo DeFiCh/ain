@@ -1755,8 +1755,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     UniValue dfipaybacktokens{UniValue::VARR};
 
-    CImmutableCSView view(*pcustomcsview);
-
     auto calcBurn = [&](AccountHistoryKey const & key, AccountHistoryValue const & value) -> bool
     {
         // UTXO burn
@@ -1798,11 +1796,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
             for (auto const & diff : value.diff) {
-                if (view.GetLoanTokenByID(diff.first)) {
-                    dexfeeburn.Add({diff.first, diff.second});
-                } else {
-                    burntTokens.Add({diff.first, diff.second});
-                }
+                dexfeeburn.Add({diff.first, diff.second});
             }
             return true;
         }
@@ -1830,6 +1824,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     CAmount burnt{0};
+    CImmutableCSView view(*pcustomcsview);
 
     if (auto attributes = view.GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};

@@ -55,10 +55,10 @@ enum DFIPKeys : uint8_t  {
 enum TokenKeys : uint8_t  {
     PaybackDFI            = 'a',
     PaybackDFIFeePCT      = 'b',
-    DexInFeePct           = 'c',
-    DexOutFeePct          = 'd',
-    LoanPayback           = 'e',
-    LoanPaybackFeePCT     = 'f',
+    LoanPayback           = 'c',
+    LoanPaybackFeePCT     = 'd',
+    DexInFeePct           = 'e',
+    DexOutFeePct          = 'f',
     DFIP2203Enabled       = 'g',
     FixedIntervalPriceId  = 'h',
     LoanCollateralEnabled = 'i',
@@ -87,18 +87,7 @@ struct CDataStructureV0 {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(type);
         READWRITE(typeId);
-        if (ser_action.ForRead()) {
-            // Check if next key is 8bit or extended size 8bit + 32bit
-            if (s.size() == sizeof(uint8_t) || s.size() == sizeof(uint8_t) + sizeof(uint32_t)) {
-                uint8_t key8;
-                READWRITE(key8);
-                key = key8;
-            } else {
-                READWRITE(key);
-            }
-        } else {
-            READWRITE(key);
-        }
+        READWRITE(VARINT(key));
         if (IsExtendedSize()) {
             READWRITE(keyId);
         } else {

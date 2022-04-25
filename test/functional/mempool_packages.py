@@ -233,8 +233,11 @@ class MempoolPackagesTest(DefiTestFramework):
         # First, the basics:
         self.nodes[0].generate(1)
         self.sync_blocks()
-        self.nodes[1].invalidateblock(self.nodes[0].getbestblockhash())
-        self.nodes[1].reconsiderblock(self.nodes[0].getbestblockhash())
+        best_block = self.nodes[0].getbestblockhash()
+        self.nodes[1].invalidateblock(best_block)
+        self.nodes[1].reconsiderblock(best_block)
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[1].waitforblock(best_block)
 
         # Now test the case where node1 has a transaction T in its mempool that
         # depends on transactions A and B which are in a mined block, and the

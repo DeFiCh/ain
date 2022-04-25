@@ -3069,10 +3069,16 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    static const auto calculationBlock = chainparams.GetConsensus().blocksCollateralizationRatioCalculation();
+
+    // non consensus enforced
+    static bool firstRun = true;
+    static std::vector<uint256> liquidatedVaults;
+
+    if (pindex->nHeight % calculationBlock == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
-        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        auto processVault = [&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
                 return true;
@@ -3150,7 +3156,20 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
 
             return true;
-        });
+        };
+
+        auto lastPriceUpdate = pindex->nHeight - (pindex->nHeight % cache.GetIntervalBlock());
+        if (firstRun || lastPriceUpdate > pindex->nHeight - calculationBlock) {
+            cache.ForEachVaultCollateral(processVault);
+        } else {
+            for (const auto& vaultId : liquidatedVaults) {
+                if (auto collaterals = cache.GetVaultCollaterals(vaultId)) {
+                    processVault(vaultId, *collaterals);
+                }
+            }
+        }
+        firstRun = false;
+        liquidatedVaults.clear();
     }
 
     CHistoryWriters writers{nullptr, pburnHistoryDB.get(), pvaultHistoryDB.get()};
@@ -3226,6 +3245,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         vault->isUnderLiquidation = false;
         view.StoreVault(vaultId, *vault);
         view.EraseAuction(vaultId, pindex->nHeight);
+
+        liquidatedVaults.push_back(vaultId);
 
         // Store state in vault DB
         if (pvaultHistoryDB) {
@@ -3419,20 +3440,21 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
 
         // Furthermore, the time stamp is always indicative of the
         // last price time.
-        auto nextPrice = fixedIntervalPrice.priceRecord[1];
+        auto& nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
-            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            auto& currentPrice = fixedIntervalPrice.priceRecord[0];
+            currentPrice = nextPrice;
         }
         // keep timestamp updated
         fixedIntervalPrice.timestamp = pindex->nTime;
         // Use -1 to indicate empty price
-        fixedIntervalPrice.priceRecord[1] = -1;
+        nextPrice = -1;
         auto aggregatePrice = GetAggregatePrice(cache,
                                                 fixedIntervalPrice.priceFeedId.first,
                                                 fixedIntervalPrice.priceFeedId.second,
                                                 pindex->nTime);
         if (aggregatePrice) {
-            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+            nextPrice = aggregatePrice;
         } else {
             LogPrint(BCLog::ORACLE,"ProcessOracleEvents(): No aggregate price available: %s\n", aggregatePrice.msg);
         }
@@ -4737,12 +4759,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     // sanely for performance or correctness!
     AssertLockNotHeld(cs_main);
 
-    // ABC maintains a fair degree of expensive-to-calculate internal state
-    // because this function periodically releases cs_main so that it does not lock up other threads for too long
-    // during large connects - and to allow for e.g. the callback queue to drain
-    // we use m_cs_chainstate to enforce mutual exclusion so that only one caller may execute this function at a time
-    LOCK(m_cs_chainstate);
-
     CBlockIndex *pindexMostWork = nullptr;
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
@@ -4754,8 +4770,16 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
         // ActivateBestChain this may lead to a deadlock! We should
         // probably have a DEBUG_LOCKORDER test for this in the future.
         LimitValidationInterfaceQueue();
+        // Periodically hold and release chainstate mutex to allow
+        // invalidate to take its place at any point
+        LOCK(m_cs_chainstate);
         {
             LOCK2(cs_main, ::mempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
+            // early return when last chain tip is changed
+            // it indicates invalidation
+            if (pindexNewTip && pindexNewTip != m_chain.Tip()) {
+                return true;
+            }
             CBlockIndex* starting_tip = m_chain.Tip();
             bool blocks_connected = false;
             do {
