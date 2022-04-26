@@ -484,11 +484,10 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
         BOOST_CHECK_EQUAL((*result).destination, future[i].destination);
     }
 
-    // Before CreateFuturesMultiIndex, No any key value pairs CFuturesUserOwnerPrefixKey
+    // Before CreateFuturesMultiIndex, No any key value pairs ByFutureSwapOwnerKey
     for(int i = 0; i < 4; ++i) {
-        NonSerializedEmptyValue c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
-        BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
+        BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
     }
 
     // CreateFuturesMultiIndex
@@ -498,9 +497,8 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // After CreateFuturesMultiIndex, There should be key value pairs ByFutureSwapOwnerKey
     for(int i = 0; i < 4; ++i) {
-        NonSerializedEmptyValue c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
-        BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
+        BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
     }
 
     // Store additional future swap key value pair ByFutureSwapHeightKey
@@ -512,15 +510,14 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     BOOST_CHECK(pcustomcsDB->Flush());
 
     // Additional CreateFuturesMultiIndex should not take effect
-    NonSerializedEmptyValue c;
     const CFuturesUserOwnerPrefixKey ownerKey = {key[4].owner, key[4].height, key[4].txn};
-    BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
+    BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
 
     // Store additional future swap key value pair ByFutureSwapOwnerKey
     BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
 
     // Additional CFuturesUserOwnerPrefixKey key should be available from db
-    BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
+    BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
