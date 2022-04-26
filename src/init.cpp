@@ -1628,6 +1628,8 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
                 pcustomcsview->CreateFuturesMultiIndexIfNeeded();
+                // Flush to disk
+                pcustomcsDB->Flush();
 
                 // make account history db
                 paccountHistoryDB.reset();
