@@ -476,6 +476,11 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
         BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapHeightKey>(key[i], future[i]));
     }
 
+    // Flush the cache/upper layer 
+    BOOST_CHECK(pcustomcsview->Flush());
+    // flush to the actual db
+    BOOST_CHECK(pcustomcsDB->Flush());
+
     // Check the db
     for(int i = 0; i < 4; ++i) {
         ResVal<CFuturesUserValue> result = pcustomcsview->GetFuturesUserValues(key[i]);
@@ -493,8 +498,11 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
-    auto result = pcustomcsview->Flush();
-    BOOST_CHECK(result, true);
+
+    // Flush the cache/upper layer 
+    BOOST_CHECK(pcustomcsview->Flush());
+    // flush to the actual db
+    BOOST_CHECK(pcustomcsDB->Flush());
 
     // After CreateFuturesMultiIndex, There should be key value pairs ByFutureSwapOwnerKey
     for(int i = 0; i < 4; ++i) {
@@ -508,6 +516,11 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // Again CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
+
+    // Flush the cache/upper layer 
+    BOOST_CHECK(pcustomcsview->Flush());
+    // flush to the actual db
+    BOOST_CHECK(pcustomcsDB->Flush());
 
     // Additional CreateFuturesMultiIndex should not take effect
     NonSerializedEmptyValue c;
