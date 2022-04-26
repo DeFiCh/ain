@@ -493,7 +493,8 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
-    pcustomcsview->Flush();
+    auto result = pcustomcsview->Flush();
+    BOOST_CHECK(result, true);
 
     // After CreateFuturesMultiIndex, There should be key value pairs ByFutureSwapOwnerKey
     for(int i = 0; i < 4; ++i) {
@@ -514,7 +515,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
 
     // Store additional future swap key value pair ByFutureSwapOwnerKey
-    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, EMPTY_KVSTORE_VALUE));
+    BOOST_CHECK(pcustomcsview->WriteBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, NON_SERIALIZED_EMPTY_VALUE));
 
     // Additional CFuturesUserOwnerPrefixKey key should be available from db
     BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
