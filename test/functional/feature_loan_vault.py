@@ -488,14 +488,12 @@ class VaultTest (DefiTestFramework):
             error_str = e.error['message']
         assert("Vault <"+self.vaults[1]+"> has loans" in error_str)
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
     def test_closevault(self):
         list_vault = self.nodes[1].listvaults()
         assert_equal(len(list_vault), 4)
         self.nodes[0].closevault(self.vaults[3], self.owner_addresses[1])
         self.nodes[0].generate(1)
-        self.sync_blocks()
         list_vault = self.nodes[1].listvaults()
         assert_equal(len(list_vault), 3)
         try:
@@ -652,6 +650,80 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].closevault(vault_id, address)
         self.nodes[0].generate(1)
 
+    def close_vault_check_burninfo_and_owner_close_fee_payback(self):
+        self.sync_blocks()
+        # Save burninfo and balances before create vault
+        balance1Before = self.nodes[1].getbalance()
+        burninfoBefore = self.nodes[1].getburninfo()
+
+        # Create vault
+        owner1 = self.nodes[1].getnewaddress()
+        vaultId = self.nodes[1].createvault(owner1)
+        self.nodes[1].generate(1)
+
+        # Save burninfo and balances after create vault
+        burninfoAfterCreate = self.nodes[1].getburninfo()
+        balance1AfterCreate = self.nodes[1].getbalance()
+
+        # Close vault
+        self.nodes[1].closevault(vaultId, owner1)
+        self.nodes[1].generate(1)
+
+        # Save burninfo and balances after close vault
+        account1AfterClose = self.nodes[1].getaccount(owner1)[0]
+        burninfoAfterClose = self.nodes[1].getburninfo()
+
+        # checks
+        assert_equal(balance1Before-balance1AfterCreate, Decimal('1.00004640')) # ~1 UTXO charged on createvault
+        assert_equal(burninfoBefore['feeburn']-burninfoAfterCreate['feeburn'], Decimal('-0.50000000')) # 0.5 DFI burned on createvault
+        assert_equal(account1AfterClose, '0.50000000@DFI') # 0.5 DFI returned to owner
+        assert_equal(burninfoAfterClose['feeburn'], burninfoAfterCreate['feeburn']) # No more DFI is burned on close vault
+
+    def close_vault_after_update_owner_check_close_fee_payback(self):
+        self.sync_blocks()
+        owner1 = self.nodes[1].getnewaddress()
+        owner2 = self.nodes[0].getnewaddress()
+
+        # Save burninfo and balances before create vault
+        balance1Before = self.nodes[1].getbalance()
+        burninfoBefore = self.nodes[1].getburninfo()
+
+        # Create vault
+        vaultId = self.nodes[1].createvault(owner1)
+        self.nodes[1].generate(1)
+
+        # Save burninfo and balances after create vault
+        burninfoAfterCreate = self.nodes[1].getburninfo()
+        balance1AfterCreate = self.nodes[1].getbalance()
+
+        # Update vault to owner2
+        self.nodes[1].updatevault(vaultId, {"ownerAddress": owner2})
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+        vault = self.nodes[0].getvault(vaultId)
+        assert_equal(owner2, vault['ownerAddress'])
+
+        # Close vault without auth
+        try:
+            self.nodes[1].closevault(vaultId, owner1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Incorrect authorization for' in errorString)
+
+        self.nodes[0].closevault(vaultId, owner1)
+        self.nodes[0].generate(1)
+
+        self.sync_blocks()
+        # Save burninfo and balances after close vault
+        account1AfterClose = self.nodes[1].getaccount(owner1)
+        account2AfterClose = self.nodes[1].getaccount(owner2)
+
+        # checks
+        assert_equal(balance1Before-balance1AfterCreate, Decimal('1.00003540')) # ~1 UTXO charged on createvault
+        assert_equal(account1AfterClose, ['0.50000000@DFI']) # 0.5 DFI returned to owner1
+        assert_equal([], account2AfterClose) # close vault called with owner1
+
+
     def run_test(self):
         self.setup()
         self.createvault_with_invalid_parameters()
@@ -679,6 +751,8 @@ class VaultTest (DefiTestFramework):
         self.test_50pctDFI_fresh_vault_takeloan_withdraw()
         self.test_50pctDFI_rule_after_BTC_price_increase()
         self.overflowed_collateral_value()
+        self.close_vault_check_burninfo_and_owner_close_fee_payback()
+        self.close_vault_after_update_owner_check_close_fee_payback()
 
 if __name__ == '__main__':
     VaultTest().main()
