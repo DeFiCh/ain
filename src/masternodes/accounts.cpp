@@ -146,7 +146,7 @@ void CAccountsView::ForEachFuturesUserValues(std::function<bool(const CFuturesUs
     if (start.owner.empty()) {
         ForEach<ByFutureSwapHeightKey, CFuturesUserHeightPrefixKey, CFuturesUserValue>(callback, start);
     } else {
-        ForEach<ByFutureSwapOwnerKey, CFuturesUserOwnerPrefixKey, char>([&](const CFuturesUserOwnerPrefixKey& ownerKey, const char&) {
+        ForEach<ByFutureSwapOwnerKey, CFuturesUserOwnerPrefixKey, NonSerializedEmptyValue>([&](const CFuturesUserOwnerPrefixKey& ownerKey, const NonSerializedEmptyValue&) {
             CFuturesUserHeightPrefixKey key = TranslateKeyToHeightPrefix(ownerKey);
             return callback(key, *GetFuturesUserValues(key));
         }, TranslateKeyToOwnerPrefix(start));

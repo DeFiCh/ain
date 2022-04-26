@@ -484,9 +484,9 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
         BOOST_CHECK_EQUAL((*result).destination, future[i].destination);
     }
 
-    // Before CreateFuturesMultiIndex, No any key value pairs ByFuturesSwapKeyOwner
+    // Before CreateFuturesMultiIndex, No any key value pairs CFuturesUserOwnerPrefixKey
     for(int i = 0; i < 4; ++i) {
-        char c;
+        NonSerializedEmptyValue c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
         BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
     }
@@ -496,7 +496,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // After CreateFuturesMultiIndex, There should be key value pairs CFuturesUserOwnerPrefixKey
     for(int i = 0; i < 4; ++i) {
-        char c;
+        NonSerializedEmptyValue c;
         const CFuturesUserOwnerPrefixKey ownerKey = {key[i].owner, key[i].height, key[i].txn};
         BOOST_CHECK(pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
     }
@@ -508,7 +508,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
 
     // Additional CreateFuturesMultiIndex should not take effect
-    char c;
+    NonSerializedEmptyValue c;
     const CFuturesUserOwnerPrefixKey ownerKey = {key[4].owner, key[4].height, key[4].txn};
     BOOST_CHECK(!pcustomcsview->ReadBy<CAccountsView::ByFutureSwapOwnerKey>(ownerKey, c));
 }
