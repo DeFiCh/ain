@@ -493,6 +493,7 @@ BOOST_AUTO_TEST_CASE(CreateFuturesMultiIndexTest)
 
     // CreateFuturesMultiIndex
     pcustomcsview->CreateFuturesMultiIndexIfNeeded();
+    pcustomcsview->Flush();
 
     // After CreateFuturesMultiIndex, There should be key value pairs CFuturesUserOwnerPrefixKey
     for(int i = 0; i < 4; ++i) {
