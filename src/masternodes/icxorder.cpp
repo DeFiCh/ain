@@ -73,7 +73,7 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
     if (order.amountFrom == 0)
         return Res::Err("order amountFrom must be greater than 0!");
     if (order.amountToFill != order.amountFrom)
-        return Res::Err("order amountToFill does not equal to amountFrom!");
+        return Res::Err("order amountToFill is not equal to amountFrom!");
     if (order.orderPrice == 0)
         return Res::Err("order price must be greater than 0!");
     if (order.expiry < CICXOrder::DEFAULT_EXPIRY)
