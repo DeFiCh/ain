@@ -27,6 +27,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -1618,9 +1619,23 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && !fReindexChainState) {
-                    if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
-                        strLoadError = _("Account database is unsuitable").translated;
-                        break;
+                    if (!pcustomcsDB->IsEmpty()) {
+                        if (pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
+                            strLoadError = _("Account database is unsuitable").translated;
+                            break;
+                        }
+                        // force reindex iif there is at least one pool swap
+                        PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
+                        auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
+                        auto shouldReindex = it.Valid();
+                        if (auto attributes = pcustomcsview->GetAttributes()) {
+                            CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
+                            shouldReindex &= !attributes->CheckKey(dexKey);
+                        }
+                        if (shouldReindex) {
+                            strLoadError = _("Live dex needs reindex").translated;
+                            break;
+                        }
                     }
                 }
 
