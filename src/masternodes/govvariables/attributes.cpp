@@ -170,6 +170,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
                 {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
                 {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
+                {EconomyKeys::DexTokens,         "dex"},
             }
         },
     };
@@ -491,7 +492,7 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         }
     }
 
-    attributes[liveKey] = balances;
+    SetValue(liveKey, std::move(balances));
 
     return Res::Ok();
 }
@@ -519,11 +520,11 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         } else {
                             newAttr.key = TokenKeys::PaybackDFIFeePCT;
                         }
-                        attributes[newAttr] = attrValue;
+                        SetValue(newAttr, attrValue);
                         return Res::Ok();
                     }
                 }
-                attributes[attribute] = attrValue;
+                SetValue(attribute, attrValue);
                 return Res::Ok();
             }
         );
@@ -581,6 +582,18 @@ UniValue ATTRIBUTES::Export() const {
                 result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
                 result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
                 ret.pushKV(key, result);
+            } else if (auto balances = std::get_if<CDexBalances>(&attribute.second)) {
+                for (const auto& pool : *balances) {
+                    auto& dexTokenA = pool.second.totalTokenA;
+                    auto& dexTokenB = pool.second.totalTokenB;
+                    auto poolkey = KeyBuilder(key, pool.first.v);
+                    ret.pushKV(KeyBuilder(poolkey, "total_commission_a"), ValueFromUint(dexTokenA.commissions));
+                    ret.pushKV(KeyBuilder(poolkey, "total_commission_b"), ValueFromUint(dexTokenB.commissions));
+                    ret.pushKV(KeyBuilder(poolkey, "fee_burn_a"), ValueFromUint(dexTokenA.feeburn));
+                    ret.pushKV(KeyBuilder(poolkey, "fee_burn_b"), ValueFromUint(dexTokenB.feeburn));
+                    ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
+                    ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
+                }
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched

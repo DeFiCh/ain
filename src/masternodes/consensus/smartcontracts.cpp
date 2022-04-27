@@ -178,7 +178,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
         balances.Add(obj.source);
     }
 
-    attributes->attributes[liveKey] = balances;
+    attributes->SetValue(liveKey, std::move(balances));
     return mnview.SetVariable(*attributes);
 }
 

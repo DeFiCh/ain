@@ -37,6 +37,7 @@ enum EconomyKeys : uint8_t {
     DFIP2203Current  = 'c',
     DFIP2203Burned   = 'd',
     DFIP2203Minted   = 'e',
+    DexTokens        = 'f',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -111,8 +112,38 @@ struct CTokenPayback {
     }
 };
 
+struct CDexTokenInfo {
+
+    struct CTokenInfo {
+        uint64_t swaps;
+        uint64_t feeburn;
+        uint64_t commissions;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action) {
+            READWRITE(swaps);
+            READWRITE(feeburn);
+            READWRITE(commissions);
+        }
+    };
+
+    CTokenInfo totalTokenA;
+    CTokenInfo totalTokenB;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(totalTokenA);
+        READWRITE(totalTokenB);
+    }
+};
+
+using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -150,6 +181,21 @@ public:
         return value;
     }
 
+    template<typename K, typename T>
+    void SetValue(const K& key, T&& value) {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        static_assert(std::is_convertible_v<T, CAttributeValue>);
+        changed.insert(key);
+        attributes[key] = std::forward<T>(value);
+    }
+
+    template<typename K>
+    void EraseKey(const K& key) {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        changed.insert(key);
+        attributes.erase(key);
+    }
+
     template<typename K>
     [[nodiscard]] bool CheckKey(const K& key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
@@ -177,16 +223,17 @@ public:
         READWRITE(attributes);
     }
 
-    std::map<CAttributeType, CAttributeValue> attributes;
     uint32_t time{0};
-
     // For formatting in export
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 private:
+    friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<CAttributeType> changed;
+    std::map<CAttributeType, CAttributeValue> attributes;
 
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();

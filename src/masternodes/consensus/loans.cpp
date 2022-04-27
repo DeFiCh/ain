@@ -579,7 +579,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message& obj) const {
 
                     balances.Add(CTokenAmount{loanTokenId, subAmount});
                     balances.Add(CTokenAmount{paybackTokenId, penalty});
-                    attributes->attributes[liveKey] = balances;
+                    attributes->SetValue(liveKey, std::move(balances));
 
                     LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -592,7 +592,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message& obj) const {
 
                     balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                     balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                    attributes->attributes[liveKey] = balances;
+                    attributes->SetValue(liveKey, balances);
 
                     LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
