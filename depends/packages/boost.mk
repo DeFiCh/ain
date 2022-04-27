@@ -1,8 +1,21 @@
 package=boost
-$(package)_version=1_70_0
-$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/
+
+# Official version hashes
+# 71: d73a8da01e8bf8c7eda40b4c84915071a8c8a0df4a6734537ddde4a8580524ee
+# 72: 59c9b274bc451cf91a9ba1dd2c7fdcaf5d60b1b3aa83f2c9fa143417cc660722
+# 73: 4eb3b8d442b426dc35346235c8733b5ae35ba431690e38c6a8263dce9fcbb402
+# 74: 83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
+# 75: 953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb
+# 76: f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+# 77: fc9f85fc030e233142908241af7a846e60630aa7388de9a5fafb1f3a26840854
+# 78: 8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc
+
+$(package)_version=1_75_0
+$(package)_sha256_hash=953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb
+
+$(package)_version_dot=$(subst _,.,$($(package)_version))
+$(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/$($(package)_version_dot)/source/
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
-$(package)_sha256_hash=430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -20,7 +33,7 @@ $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
 $(package)_config_libraries=chrono,filesystem,system,thread,test
-$(package)_cxxflags=-std=c++11 -fvisibility=hidden
+$(package)_cxxflags=-std=c++17 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
 

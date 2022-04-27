@@ -94,7 +94,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     } else {
         obj.pushKV("type", "receive");
     }
-    obj.pushKV("txn", (uint64_t) entry.vout);
+    obj.pushKV("txn", (uint64_t) pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
     TAmounts amounts({{DCT_ID{0},entry.amount}});
     obj.pushKV("amounts", AmountsToJSON(amounts));
@@ -964,6 +964,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
+                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Order in block, unlimited by default"},
                             },
                         },
                },
@@ -991,6 +993,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string tokenFilter;
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
+    uint32_t txn = std::numeric_limits<uint32_t>::max();
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1002,6 +1005,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"txn", UniValueType(UniValue::VNUM)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1030,6 +1034,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
+        if (!optionsObj["txn"].isNull()) {
+            txn = (uint32_t) optionsObj["txn"].get_int64();
         }
     }
 
@@ -1159,7 +1167,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         return count != 0 || isMine;
     };
 
-    AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{account, maxBlockHeight, txn};
 
     if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
@@ -1184,6 +1192,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && pwtx->nIndex > txn ) {
+                    return true;
+                }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx));
                 return --count != 0;
@@ -1762,9 +1773,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount dfiPaybackFee{0};
     CBalances burntTokens;
     CBalances dexfeeburn;
-    UniValue dfipaybacktokens{UniValue::VARR};
+    CBalances paybackfees;
+    CBalances paybacktokens;
+    CBalances dfi2203Tokens;
 
-    LOCK(cs_main);
+    UniValue dfipaybacktokens{UniValue::VARR};
 
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
@@ -1789,7 +1802,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         // withdraw burn
-        if (value.category == uint8_t(CustomTxType::PaybackLoan)) {
+        if (value.category == uint8_t(CustomTxType::PaybackLoan)
+        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
             for (auto const & diff : value.diff) {
                 paybackFee += diff.second;
             }
@@ -1808,11 +1822,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
             for (auto const & diff : value.diff) {
-                if (pcustomcsview->GetLoanTokenByID(diff.first)) {
-                    dexfeeburn.Add({diff.first, diff.second});
-                } else {
-                    burntTokens.Add({diff.first, diff.second});
-                }
+                dexfeeburn.Add({diff.first, diff.second});
             }
             return true;
         }
@@ -1838,6 +1848,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("paybackburn", ValueFromAmount(paybackFee));
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
+    LOCK(cs_main);
+
     if (auto attributes = pcustomcsview->GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
         auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
@@ -1848,10 +1860,20 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                 dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
             }
         }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        paybackfees = std::move(paybacks.tokensFee);
+        paybacktokens = std::move(paybacks.tokensPayback);
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
     }
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
     result.pushKV("dfipaybacktokens", dfipaybacktokens);
+
+    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
+    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
@@ -1861,11 +1883,12 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
     result.pushKV("emissionburn", ValueFromAmount(burnt));
+    result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 
     return result;
 }
 
-UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet, 
+UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
     CUtxosToAccountMessage msg{};
     msg.to = {{contractPair.second, {{{{0}, amount.nValue}}}}};
@@ -2005,6 +2028,309 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
+UniValue futureswap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"futureswap",
+               "\nCreates and submits to the network a futures contract" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
+                       + HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD TSLA")
+                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
+                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@DUSD, TSLA")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CFutureSwapMessage msg{};
+    msg.owner = GetScriptForDestination(dest);
+    msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
+
+    if (!request.params[2].isNull()) {
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
+    }
+
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+
+UniValue withdrawfutureswap(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"withdrawfutureswap",
+               "\nCreates and submits to the network a withdrawl from futures contract transaction.\n"
+               " Withdrawal will be back to the address specified in the futures contract." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
+                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
+                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CFutureSwapMessage msg{};
+    msg.owner = GetScriptForDestination(dest);
+    msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
+    msg.withdraw = true;
+
+    if (!request.params[2].isNull()) {
+        DCT_ID destTokenID{};
+
+        const auto destToken = pcustomcsview->GetTokenGuessId(request.params[2].getValStr(), destTokenID);
+        if (!destToken) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Destination token not found");
+        }
+
+        msg.destination = destTokenID.v;
+    }
+
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpendingfutureswaps",
+               "Get all pending futures.\n",
+               {},
+               RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "    owner :       \"address\"\n"
+                       "    values : [{\n"
+                       "        tokenSymbol : \"SYMBOL\"\n"
+                       "        amount :      n.nnnnnnnn\n"
+                       "        destination : \"SYMBOL\"\n"
+                       "    }...]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listpendingfutureswaps", "")
+               },
+    }.Check(request);
+
+    UniValue listFutures{UniValue::VARR};
+
+    LOCK(cs_main);
+
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+        CTxDestination dest;
+        ExtractDestination(key.owner, dest);
+        if (!IsValidDestination(dest)) {
+            return true;
+        }
+
+        const auto source = pcustomcsview->GetToken(futuresValues.source.nTokenId);
+        if (!source) {
+            return true;
+        }
+
+        UniValue value{UniValue::VOBJ};
+        value.pushKV("owner", EncodeDestination(dest));
+        value.pushKV("source", ValueFromAmount(futuresValues.source.nValue).getValStr() + '@' + source->symbol);
+
+        if (source->symbol == "DUSD") {
+            const auto destination = pcustomcsview->GetLoanTokenByID({futuresValues.destination});
+            if (!destination) {
+                return true;
+            }
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listFutures.push_back(value);
+
+        return true;
+    }, {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
+
+    return listFutures;
+}
+
+UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"getpendingfutureswaps",
+               "Get specific pending futures.\n",
+                {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
+                },
+                RPCResult{
+                    "{\n"
+                    "    owner :       \"address\"\n"
+                    "    values : [{\n"
+                    "    tokenSymbol : \"SYMBOL\"\n"
+                    "    amount :      n.nnnnnnnn\n"
+                    "    destination : \"SYMBOL\"\n"
+                    "    }...]\n"
+                    "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getpendingfutureswaps", "address")
+               },
+    }.Check(request);
+
+    UniValue listValues{UniValue::VARR};
+
+    const auto owner = DecodeScript(request.params[0].get_str());
+
+    LOCK(cs_main);
+
+    std::vector<CFuturesUserValue> storedFutures;
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+
+        if (key.owner == owner) {
+            storedFutures.push_back(futuresValues);
+        }
+
+        return true;
+    }, {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
+
+    for (const auto& item : storedFutures) {
+        UniValue value{UniValue::VOBJ};
+
+        const auto source = pcustomcsview->GetToken(item.source.nTokenId);
+        if (!source) {
+            continue;
+        }
+
+        value.pushKV("source", ValueFromAmount(item.source.nValue).getValStr() + '@' + source->symbol);
+
+        if (source->symbol == "DUSD") {
+            const auto destination = pcustomcsview->GetLoanTokenByID({item.destination});
+            if (!destination) {
+                continue;
+            }
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listValues.push_back(value);
+    }
+
+    UniValue obj{UniValue::VOBJ};
+    obj.pushKV("owner", request.params[0].get_str());
+    obj.pushKV("values", listValues);
+    return obj;
+}
+
 
 static const CRPCCommand commands[] =
 {
@@ -2025,6 +2351,10 @@ static const CRPCCommand commands[] =
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"accounts",    "getburninfo",           &getburninfo,           {}},
     {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
+    {"accounts",    "futureswap",            &futureswap,            {"address", "amount", "destination", "inputs"}},
+    {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
+    {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
+    {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {

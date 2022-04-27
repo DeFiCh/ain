@@ -283,11 +283,10 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         DCT_ID idToken;
-        std::unique_ptr<CToken> token;
 
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
-            token = pcustomcsview->GetTokenGuessId(tokenFromSymbol, idToken);
+            auto token = pcustomcsview->GetTokenGuessId(tokenFromSymbol, idToken);
             if (!token)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenFromSymbol));
             order.idToken = idToken;
@@ -303,7 +302,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
         }
         else
         {
-            token = pcustomcsview->GetTokenGuessId(tokenToSymbol, idToken);
+            auto token = pcustomcsview->GetTokenGuessId(tokenToSymbol, idToken);
             if (!token)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenToSymbol));
             order.idToken = idToken;
