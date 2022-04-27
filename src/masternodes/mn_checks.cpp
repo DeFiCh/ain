@@ -1584,7 +1584,7 @@ public:
             balances.Add(obj.source);
         }
 
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, balances);
 
         mnview.SetVariable(*attributes);
 
@@ -3175,7 +3175,7 @@ public:
 
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -3188,7 +3188,7 @@ public:
 
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -4064,6 +4064,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         mnview.Flush();
     }
 
+    auto attributes = view.GetAttributes();
+    if (!attributes) {
+        attributes = std::make_shared<ATTRIBUTES>();
+    }
+
+    CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
+    auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
+
     // Set amount to be swapped in pool
     CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
 
@@ -4100,6 +4108,18 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         }
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
+
+        auto& balances = dexBalances[currentID];
+        auto forward = swapAmount.nTokenId == pool->idTokenA;
+
+        auto& totalTokenA = forward ? balances.totalTokenA : balances.totalTokenB;
+        auto& totalTokenB = forward ? balances.totalTokenB : balances.totalTokenA;
+
+        const auto& reserveAmount = forward ? pool->reserveA : pool->reserveB;
+        const auto& blockCommission = forward ? pool->blockCommissionA : pool->blockCommissionB;
+
+        const auto initReserveAmount = reserveAmount;
+        const auto initBlockCommission = blockCommission;
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
@@ -4148,6 +4168,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
                 if (!res) {
                     return res;
                 }
+                totalTokenA.feeburn += dexfeeInAmount.nValue;
             }
 
             // burn the dex out amount
@@ -4156,6 +4177,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
                 if (!res) {
                     return res;
                 }
+                totalTokenB.feeburn += dexfeeOutAmount.nValue;
+            }
+
+            totalTokenA.swaps += (reserveAmount - initReserveAmount);
+            totalTokenA.commissions += (blockCommission - initBlockCommission);
+
+            if (lastSwap && obj.to == Params().GetConsensus().burnAddress) {
+                totalTokenB.feeburn += swapAmountResult.nValue;
             }
 
            return res;
@@ -4176,6 +4205,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
+    if (!testOnly) {
+        attributes->SetValue(dexKey, std::move(dexBalances));
+        view.SetVariable(*attributes);
+    }
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
 

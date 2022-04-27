@@ -2833,8 +2833,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CCustomCSView govCache(cache);
                     // Add to existing ATTRIBUTES instead of overwriting.
                     if (var->GetName() == "ATTRIBUTES") {
-                        auto govVar = mnview.GetVariable(var->GetName());
-                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        auto govVar = cache.GetVariable(var->GetName());
+                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                             govCache.Flush();
                         }
                     } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
@@ -3435,11 +3435,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->attributes[burnKey] = burned;
-    attributes->attributes[mintedKey] = minted;
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, std::move(balances));
     }
 
     cache.SetVariable(*attributes);
