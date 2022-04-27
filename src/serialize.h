@@ -262,7 +262,7 @@ template<typename Stream> inline void Unserialize(Stream& s, bool& a) { char f=s
 
 // Non serialized empty value
 template<typename Stream> inline void Serialize(Stream& s, NonSerializedEmptyValue a) { }
-template<typename Stream> inline void Unserialize(Stream& s, NonSerializedEmptyValue& a) { a = NonSerializedEmptyValue{}; }
+template<typename Stream> inline void Unserialize(Stream& s, NonSerializedEmptyValue& a) { }
 
 
 

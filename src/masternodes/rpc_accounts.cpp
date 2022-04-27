@@ -2298,11 +2298,10 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
 
     std::vector<CFuturesUserValue> storedFutures;
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futuresValues) {
-
-        if (key.owner == owner) {
-            storedFutures.push_back(futuresValues);
+        if (key.owner != owner) {
+            return false;
         }
-
+        storedFutures.push_back(futuresValues);
         return true;
     }, {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
 

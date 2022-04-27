@@ -63,10 +63,6 @@ struct CFuturesUserOwnerPrefixKey {
             READWRITE(WrapBigEndian(txn_));
         }
     }
-
-    bool operator<(const CFuturesUserHeightPrefixKey& o) const {
-        return std::tie(owner, height, txn) < std::tie(o.owner, o.height, o.txn);
-    }
 };
 
 struct CFuturesUserValue {
