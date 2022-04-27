@@ -481,15 +481,13 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!including_start)
         {
             including_start = true;
-            return (true);
-        }
-        if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
-            return false;
+            return true;
         }
         auto vaultState = GetVaultState(vaultId, data);
 
         if ((loanSchemeId.empty() || loanSchemeId == data.schemeId)
-        && (state == VaultState::Unknown || state == vaultState)) {
+        &&  (ownerAddress.empty() || ownerAddress == data.ownerAddress)
+        &&  (state == VaultState::Unknown || state == vaultState)) {
             UniValue vaultObj{UniValue::VOBJ};
             if(!verbose){
                 vaultObj.pushKV("vaultId", vaultId.GetHex());

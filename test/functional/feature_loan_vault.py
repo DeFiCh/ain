@@ -194,21 +194,38 @@ class VaultTest (DefiTestFramework):
         list_vault = self.nodes[0].listvaults()
         assert_equal(len(list_vault), 4)
 
-        # check listVaults filter by owner_address
+        # Filetering
+        # by owner_address
         list_vault = self.nodes[0].listvaults({ "ownerAddress": self.owner_addresses[1] })
         assert_equal(len(list_vault), 3)
         for vault in list_vault:
             assert_equal(vault["ownerAddress"], self.owner_addresses[1])
 
-        # check listVaults filter by loanSchemeId
+        # by loanSchemeId
         list_vault = self.nodes[0].listvaults({ "loanSchemeId": "LOAN0003" })
         assert_equal(len(list_vault), 2)
         for vault in list_vault:
             assert_equal(vault["loanSchemeId"], "LOAN0003")
 
-        # check listVaults pagination
+        # Pagination
+        # limit
         list_vault = self.nodes[0].listvaults({}, {"limit": 1})
         assert_equal(len(list_vault), 1)
+
+        # including_include_start
+        list_vault_include_start = self.nodes[0].listvaults({}, {"limit": 1, "including_start": False})
+        assert_equal(len(list_vault_include_start), 1)
+        assert(list_vault[0]['vaultId'] != list_vault_include_start[0]['vaultId'])
+        startId = list_vault[0]['vaultId']
+
+        # start
+        list_vault_start = self.nodes[0].listvaults({}, {"start": startId})
+        assert_equal(len(list_vault_start), 3)
+
+        # start & include_start
+        list_vault_start = self.nodes[0].listvaults({}, {"start": startId, "including_start": True})
+        assert_equal(len(list_vault_start), 4)
+
 
     def test_feeburn(self):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('3'))
@@ -453,6 +470,17 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault['batchCount'], 1)
 
         assert_raises_rpc_error(-26, 'Vault is under liquidation', self.nodes[0].closevault, self.vaults[0], self.owner_addresses[0])
+
+    def listvaults_state_filtering(self):
+        # check listvaults
+        list_vault = self.nodes[0].listvaults()
+        assert_equal(len(list_vault), 4)
+
+        list_vault = self.nodes[0].listvaults({"state": "active"})
+        assert_equal(len(list_vault), 3)
+
+        list_vault = self.nodes[0].listvaults({"state": "inLiquidation"})
+        assert_equal(len(list_vault), 1)
 
     def updatevault_to_scheme_with_lower_collateralization_ratio(self):
         self.nodes[0].deposittovault(self.vaults[1], self.accountDFI, '2.5@DFI')
@@ -743,6 +771,7 @@ class VaultTest (DefiTestFramework):
         self.withdraw_breaking_50pctDFI_rule()
         self.move_interest_from_old_scheme()
         self.vault_enter_liquidation_updating_oracle()
+        self.listvaults_state_filtering()
         self.updatevault_to_scheme_with_lower_collateralization_ratio()
         self.closevault_with_active_loans()
         self.test_closevault()
