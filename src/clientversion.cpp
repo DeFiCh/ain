@@ -46,28 +46,27 @@ const std::string CLIENT_NAME("DeFiChain");
 #define BUILD_SUFFIX release
 #endif
 
-//! git will put "#define GIT_ARCHIVE 1" on the next line inside archives. $Format:%n#define GIT_ARCHIVE 1$
-#ifdef GIT_ARCHIVE
-#define GIT_COMMIT_ID "$Format:%H$"
-#define GIT_COMMIT_DATE "$Format:%cD$"
-#endif
-
 #define BUILD_DESC_WITH_SUFFIX(maj, min, rev, build, suffix) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-" DO_STRINGIZE(suffix)
 #define BUILD_DESC_FROM_UNKNOWN(maj, min, rev, build) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-unk"
 #define BUILD_ONLY_SUFFIX(suffix) \
     DO_STRINGIZE(suffix)
+#define BUILD_ONLY_SUFFIX_FROM_UNKNOWN() \
+    "-unk"
 
 #ifndef BUILD_DESC
 #ifdef BUILD_SUFFIX
 #define BUILD_DESC BUILD_DESC_WITH_SUFFIX(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, BUILD_SUFFIX)
+#define BUILD_DESC_SUFFIX BUILD_ONLY_SUFFIX(BUILD_SUFFIX)
 #else
 #define BUILD_DESC BUILD_DESC_FROM_UNKNOWN(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD)
+#define BUILD_DESC_SUFFIX BUILD_ONLY_SUFFIX()
 #endif
 #endif
 
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
+const std::string CLIENT_BUILD_SUFFIX(BUILD_DESC_SUFFIX CLIENT_VERSION_SUFFIX);
 
 std::string FormatVersion(int nVersion)
 {
@@ -84,7 +83,7 @@ std::string FormatVersionAndSuffix()
 
 std::string FormatVersionSuffix()
 {
-    return BUILD_ONLY_SUFFIX(BUILD_SUFFIX);
+    return CLIENT_BUILD_SUFFIX;
 }
 
 /**
