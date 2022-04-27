@@ -562,9 +562,7 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
     nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
-    auto stringFullVersion = strFullVersion.str();
-    auto suffix = stringFullVersion.substr(stringFullVersion.find('-')+1, std::string::npos);
-    nodeInfoObj.pushKV("versionSuffix", suffix);
+    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffix());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
     nodeInfoObj.pushKV("protoVersion",PROTOCOL_VERSION);
     nodeInfoObj.pushKV("protoVersionMin",MIN_PEER_PROTO_VERSION);
