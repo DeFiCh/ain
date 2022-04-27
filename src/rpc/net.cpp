@@ -520,9 +520,9 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
                        "{\n"
                        " \"name\": DeFiChain                            (string) Node name\n"
                        " \"version\": \"xxxxx\",                        (string) Node version string\n"
+                       " \"versionSuffix\": \"xxxxx\",                  (string) Version suffix\n"
                        " \"numericVersion\": xxxxx,                     (number) Node numeric version\n"
                        " \"fullVersion\": \"DefiChain:x.x.x-suffix\",   (string) Full node version string including name and full version including suffix\n"
-                       " \"versionSuffix\": \"xxxxx\",                  (string) Version suffix\n"
                        " \"userAgent\": \"/DefiChain:x.x.x/\",          (string) P2P user agent string (subversion string conforming to BIP-14)\n"
                        " \"protoVersion\": \"xxxxx\",                   (number) Operating protocol version\n"
                        " \"protoVersionMin\": \"xxxxx\",                (number) Minimum protocol that's supported by the node\n"
@@ -560,9 +560,9 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
 
     nodeInfoObj.pushKV("name", CLIENT_NAME);
     nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
+    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffix());
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
     nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
-    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffix());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
     nodeInfoObj.pushKV("protoVersion",PROTOCOL_VERSION);
     nodeInfoObj.pushKV("protoVersionMin",MIN_PEER_PROTO_VERSION);

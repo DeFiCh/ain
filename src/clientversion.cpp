@@ -49,11 +49,11 @@ const std::string CLIENT_NAME("DeFiChain");
 #define BUILD_DESC_WITH_SUFFIX(maj, min, rev, build, suffix) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-" DO_STRINGIZE(suffix)
 #define BUILD_DESC_FROM_UNKNOWN(maj, min, rev, build) \
-    "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-unk"
+    "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) "." DO_STRINGIZE(build) "-unknown"
 #define BUILD_ONLY_SUFFIX(suffix) \
     DO_STRINGIZE(suffix)
 #define BUILD_ONLY_SUFFIX_FROM_UNKNOWN() \
-    "-unk"
+    "unknown"
 
 #ifndef BUILD_DESC
 #ifdef BUILD_SUFFIX
