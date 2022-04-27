@@ -560,7 +560,7 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
 
     nodeInfoObj.pushKV("name", CLIENT_NAME);
     nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
-    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffix());
+    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffixTail());
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
     nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
