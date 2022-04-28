@@ -1532,12 +1532,13 @@ public:
             std::map<CFuturesUserHeightPrefixKey, CFuturesUserValue> userFuturesValues;
 
             mnview.ForEachFuturesUserValues([&](const CFuturesUserHeightPrefixKey& key, const CFuturesUserValue& futuresValues) {
-                if (key.owner == obj.owner &&
-                    futuresValues.source.nTokenId == obj.source.nTokenId &&
+                if (key.owner != obj.owner) {
+                    return false;
+                }
+                else if (futuresValues.source.nTokenId == obj.source.nTokenId &&
                     futuresValues.destination == obj.destination) {
                     userFuturesValues[key] = futuresValues;
                 }
-
                 return true;
             }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
