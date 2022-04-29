@@ -67,6 +67,7 @@ enum class CustomTxType : uint8_t
     AccountToAccount      = 'B',
     AnyAccountsToAccounts = 'a',
     SmartContract         = 'K',
+    DFIP2203              = 'Q',
     //set governance variable
     SetGovVariable        = 'G',
     SetGovVariableHeight  = 'j',
@@ -99,7 +100,10 @@ enum class CustomTxType : uint8_t
     WithdrawFromVault      = 'J',
     TakeLoan               = 'X',
     PaybackLoan            = 'H',
-    AuctionBid             = 'I'
+    PaybackLoanV2          = 'k',
+    AuctionBid             = 'I',
+    FutureSwapExecution    = 'q',
+    FutureSwapRefund       = 'w',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -125,6 +129,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SmartContract:
+        case CustomTxType::DFIP2203:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
@@ -152,7 +157,10 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::WithdrawFromVault:
         case CustomTxType::TakeLoan:
         case CustomTxType::PaybackLoan:
+        case CustomTxType::PaybackLoanV2:
         case CustomTxType::AuctionBid:
+        case CustomTxType::FutureSwapExecution:
+        case CustomTxType::FutureSwapRefund:
         case CustomTxType::Reject:
         case CustomTxType::None:
             return type;
@@ -161,6 +169,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
 }
 
 std::string ToString(CustomTxType type);
+CustomTxType FromString(const std::string& str);
 
 // it's disabled after Dakota height
 inline bool NotAllowedToFail(CustomTxType txType, int height) {
@@ -342,6 +351,7 @@ typedef boost::variant<
     CAccountToAccountMessage,
     CAnyAccountsToAccountsMessage,
     CSmartContractMessage,
+    CFutureSwapMessage,
     CGovernanceMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
@@ -368,6 +378,7 @@ typedef boost::variant<
     CWithdrawFromVaultMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
+    CLoanPaybackLoanV2Message,
     CAuctionBidMessage
 > CCustomTxMessage;
 
@@ -377,7 +388,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValu
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
 Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height,  uint32_t txn, CHistoryErasers& erasers);
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time = 0);
+Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);

@@ -142,11 +142,11 @@ public:
     static const unsigned char DB_TOKEN_LASTID; // = 'L';
 
     using CTokenImpl = CTokenImplementation;
-    std::unique_ptr<CToken> GetToken(DCT_ID id) const;
-    boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetToken(std::string const & symbol) const;
+    boost::optional<CTokenImpl> GetToken(DCT_ID id) const;
+    boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
+    boost::optional<CTokensView::CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
@@ -156,8 +156,8 @@ public:
     Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
-    Res SubMintedTokens(uint256 const & tokenTx, CAmount const & amount);
+    Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);
+    Res SubMintedTokens(DCT_ID const & id, CAmount const & amount);
 
     // tags
     struct ID           { static constexpr uint8_t prefix() { return 'T'; } };

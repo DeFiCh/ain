@@ -232,7 +232,7 @@ size_t _BRBIP32Serialize(char *str, size_t strLen, uint8_t depth, uint32_t finge
                          const void *key, size_t keyLen)
 {
     size_t len, off = 0;
-    uint8_t data[4 + sizeof(depth) + sizeof(fingerprint) + sizeof(child) + sizeof(chain) + 1 + keyLen];
+    std::vector<uint8_t> data(4 + sizeof(depth) + sizeof(fingerprint) + sizeof(child) + sizeof(chain) + 1 + keyLen);
     
     memcpy(&data[off], (keyLen < 33 ? BRGetChainParams()->bip32_xprv : BRGetChainParams()->bip32_xpub), 4);
     off += 4;
@@ -247,8 +247,8 @@ size_t _BRBIP32Serialize(char *str, size_t strLen, uint8_t depth, uint32_t finge
     if (keyLen < 33) data[off++] = 0;
     memcpy(&data[off], key, keyLen);
     off += keyLen;
-    len = BRBase58CheckEncode(str, strLen, data, off);
-    mem_clean(data, sizeof(data));
+    len = BRBase58CheckEncode(str, strLen, data.data(), off);
+    mem_clean(data.data(), data.size());
     return len;
 }
 
@@ -284,7 +284,7 @@ BRMasterPubKey BRBIP32ParseMasterPubKey(const char *str)
     size_t dataLen = BRBase58CheckDecode(data, sizeof(data), str);
     if (dataLen == sizeof(data) && memcmp(data, BRGetChainParams()->bip32_xpub, 4) == 0) {
         union conv { uint8_t u8[4]; uint32_t u32; };
-        mpk.fingerPrint = (conv{ data[5], data[6], data[7], data[8] }).u32;
+        mpk.fingerPrint = (conv{{data[5], data[6], data[7], data[8]}}).u32;
         mpk.chainCode = UInt256Get(&data[13]);
         memcpy(mpk.pubKey, &data[45], sizeof(mpk.pubKey));
     }
@@ -308,11 +308,11 @@ void BRBIP32BitIDKey(BRKey *key, const void *seed, size_t seedLen, uint32_t inde
     if (key && (seed || seedLen == 0) && uri) {
         UInt256 hash;
         size_t uriLen = strlen(uri);
-        uint8_t data[sizeof(index) + uriLen];
+        std::vector<uint8_t> data(sizeof(index) + uriLen);
 
-        UInt32SetLE(data, index);
+        UInt32SetLE(data.data(), index);
         memcpy(&data[sizeof(index)], uri, uriLen);
-        BRSHA256(&hash, data, sizeof(data));
+        BRSHA256(&hash, data.data(), data.size());
         BRBIP32PrivKeyPath(key, seed, seedLen, 5, 13 | BIP32_HARD, UInt32GetLE(&hash.u32[0]) | BIP32_HARD,
                            UInt32GetLE(&hash.u32[1]) | BIP32_HARD, UInt32GetLE(&hash.u32[2]) | BIP32_HARD,
                            UInt32GetLE(&hash.u32[3]) | BIP32_HARD); // path m/13H/aH/bH/cH/dH

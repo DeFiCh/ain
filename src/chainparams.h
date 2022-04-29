@@ -120,6 +120,7 @@ protected:
 };
 
 const auto SMART_CONTRACT_DFIP_2201 = "DFIP2201";
+const auto SMART_CONTRACT_DFIP_2203 = "DFIP2203";
 
 /**
  * Creates and returns a std::unique_ptr<CChainParams> of the chosen chain.

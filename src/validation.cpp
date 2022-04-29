@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
@@ -2821,6 +2822,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         ProcessOracleEvents(pindex, cache, chainparams);
         ProcessLoanEvents(pindex, cache, chainparams);
 
+        // Must be before set gov by height to clear futures in case there's a disabling of loan token in v3+
+        ProcessFutures(pindex, cache, chainparams);
+
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
             // Apply any pending GovVariable changes. Will come into effect on the next block.
             auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
@@ -3243,9 +3247,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                if (auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
-                }
+                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
@@ -3282,6 +3284,165 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     if (paccountHistoryDB) {
         paccountHistoryDB->Flush();
     }
+}
+
+void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
+{
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningRoadHeight) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active) {
+        return;
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+        return;
+    }
+
+    const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+    if (pindex->nHeight % blockPeriod != 0) {
+        return;
+    }
+
+    const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
+    const auto discount{COIN - rewardPct};
+    const auto premium{COIN + rewardPct};
+
+    std::map<DCT_ID, CFuturesPrice> futuresPrices;
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
+
+    cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
+        tokenKey.typeId = id.v;
+        const auto enabled = attributes->GetValue(tokenKey, true);
+        if (!enabled) {
+            return true;
+        }
+
+        const auto useNextPrice{false}, requireLivePrice{true};
+        const auto discountPrice = cache.GetAmountInCurrency(discount, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        const auto premiumPrice = cache.GetAmountInCurrency(premium, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        if (!discountPrice || !premiumPrice) {
+            return true;
+        }
+
+        futuresPrices.emplace(id, CFuturesPrice{*discountPrice, *premiumPrice});
+
+        return true;
+    });
+
+    CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+    CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
+
+    auto burned = attributes->GetValue(burnKey, CBalances{});
+    auto minted = attributes->GetValue(mintedKey, CBalances{});
+
+    std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
+    std::set<CFuturesUserKey> deletionPending;
+
+    auto txn = std::numeric_limits<uint32_t>::max();
+
+    cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+
+        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+
+        deletionPending.insert(key);
+
+        const auto source = view.GetLoanTokenByID(futuresValues.source.nTokenId);
+        assert(source);
+
+        if (source->symbol == "DUSD") {
+            const DCT_ID destId{futuresValues.destination};
+            const auto destToken = view.GetLoanTokenByID(destId);
+            assert(destToken);
+
+            try {
+                const auto& premiumPrice = futuresPrices.at(destId).premium;
+                if (premiumPrice > 0) {
+                    const auto total = DivideAmounts(futuresValues.source.nValue, premiumPrice);
+                    view.AddMintedTokens(destId, total);
+                    CTokenAmount destination{destId, total};
+                    view.AddBalance(key.owner, destination);
+                    burned.Add(futuresValues.source);
+                    minted.Add(destination);
+                    LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                             key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+                }
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+
+        } else {
+            const auto tokenDUSD = view.GetToken("DUSD");
+            assert(tokenDUSD);
+
+            try {
+                const auto& discountPrice = futuresPrices.at(futuresValues.source.nTokenId).discount;
+                const auto total = MultiplyAmounts(futuresValues.source.nValue, discountPrice);
+                view.AddMintedTokens(tokenDUSD->first, total);
+                CTokenAmount destination{tokenDUSD->first, total};
+                view.AddBalance(key.owner, destination);
+                burned.Add(futuresValues.source);
+                minted.Add(destination);
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
+                         key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+            } catch (const std::out_of_range&) {
+                unpaidContracts.emplace(key, futuresValues);
+            }
+        }
+
+        view.Flush();
+
+        return true;
+    }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
+
+    const auto contractAddressValue = GetFutureSwapContractAddress();
+    assert(contractAddressValue);
+
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
+
+    auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    // Refund unpaid contracts
+    for (const auto& [key, value] : unpaidContracts) {
+
+        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        subView.SubBalance(*contractAddressValue, value.source);
+        subView.Flush();
+
+        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        addView.AddBalance(key.owner, value.source);
+        addView.Flush();
+
+        LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Refund Owner %s source %s destination %s\n",
+                 key.owner.GetHex(), value.source.ToString(), value.source.ToString());
+        balances.Sub(value.source);
+    }
+
+    for (const auto& key : deletionPending) {
+        cache.EraseFuturesUserValues(key);
+    }
+
+    attributes->attributes[burnKey] = burned;
+    attributes->attributes[mintedKey] = minted;
+
+    if (!unpaidContracts.empty()) {
+        attributes->attributes[liveKey] = balances;
+    }
+
+    cache.SetVariable(*attributes);
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
@@ -5272,7 +5433,6 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
 
         if (tip->nHeight >= chainparams.GetConsensus().DakotaHeight) {
-            LOCK(cs_main);
             panchors->CheckPendingAnchors();
         }
     }

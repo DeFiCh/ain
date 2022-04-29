@@ -166,6 +166,18 @@ public:
         rpcInfo.pushKV("accounts", accountsInfo(obj.accounts));
     }
 
+    void operator()(const CFutureSwapMessage& obj) const {
+        CTxDestination dest;
+        if (ExtractDestination(obj.owner, dest)) {
+            rpcInfo.pushKV("owner", EncodeDestination(dest));
+        } else {
+            rpcInfo.pushKV("owner", "Invalid destination");
+        }
+
+        rpcInfo.pushKV("source", obj.source.ToString());
+        rpcInfo.pushKV("destination", std::to_string(obj.destination));
+    }
+
     void operator()(const CCreatePoolPairMessage& obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
@@ -437,6 +449,31 @@ public:
                 }
             }
         }
+    }
+
+    void operator()(const CLoanPaybackLoanV2Message& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        UniValue loans{UniValue::VARR};
+        for (auto const & idx : obj.loans) {
+            UniValue loan{UniValue::VOBJ};
+            if (auto dtoken = mnview.GetToken(idx.first)) {
+                auto dtokenImpl = static_cast<CTokenImplementation const&>(*dtoken);
+                if (auto dtokenPair = mnview.GetTokenByCreationTx(dtokenImpl.creationTx)) {
+                    loan.pushKV("dTokens",dtokenPair->first.ToString());
+                }
+            }
+            for (auto const & kv : idx.second.balances) {
+                if (auto token = mnview.GetToken(kv.first)) {
+                    auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
+                    if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                        loan.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
+                    }
+                }
+            }
+            loans.push_back(loan);
+        }
+        rpcInfo.pushKV("dToken",loans);
     }
 
     void operator()(const CAuctionBidMessage& obj) const {

@@ -51,7 +51,6 @@ static void _BRSetInit(BRSet *set, size_t (*hash)(const void *), int (*eq)(const
     assert(set != NULL);
     assert(hash != NULL);
     assert(eq != NULL);
-    assert(capacity >= 0);
 
     size_t i = 0;
     
@@ -237,8 +236,7 @@ size_t BRSetAll(const BRSet *set, void *allItems[], size_t count)
 {
     assert(set != NULL);
     assert(allItems != NULL || count == 0);
-    assert(count >= 0);
-    
+        
     size_t i = 0, j = 0, size = set->size;
     void *t;
     

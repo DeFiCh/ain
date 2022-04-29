@@ -30,6 +30,8 @@
 #include <string.h>
 #include <assert.h>
 
+#include <vector>
+
 // base58 and base58check encoding: https://en.bitcoin.it/wiki/Base58Check_encoding
 
 // returns the number of characters written to str including NULL terminator, or total strLen needed if str is NULL
@@ -41,14 +43,12 @@ size_t BRBase58Encode(char *str, size_t strLen, const uint8_t *data, size_t data
     assert(data != NULL);
     while (zcount < dataLen && data && data[zcount] == 0) zcount++; // count leading zeroes
 
-    uint8_t buf[(dataLen - zcount)*138/100 + 1]; // log(256)/log(58), rounded up
-    
-    memset(buf, 0, sizeof(buf));
+    std::vector<uint8_t> buf((dataLen - zcount)*138/100 + 1); // log(256)/log(58), rounded up
     
     for (i = zcount; data && i < dataLen; i++) {
         uint32_t carry = data[i];
         
-        for (j = sizeof(buf); j > 0; j--) {
+        for (j = buf.size(); j > 0; j--) {
             carry += (uint32_t)buf[j - 1] << 8;
             buf[j - 1] = carry % 58;
             carry /= 58;
@@ -58,16 +58,16 @@ size_t BRBase58Encode(char *str, size_t strLen, const uint8_t *data, size_t data
     }
     
     i = 0;
-    while (i < sizeof(buf) && buf[i] == 0) i++; // skip leading zeroes
-    len = (zcount + sizeof(buf) - i) + 1;
+    while (i < buf.size() && buf[i] == 0) i++; // skip leading zeroes
+    len = (zcount + buf.size() - i) + 1;
 
     if (str && len <= strLen) {
         for (; zcount > 0; --zcount) *(str++) = chars[0];
-        while (i < sizeof(buf)) *(str++) = chars[buf[i++]];
+        while (i < buf.size()) *(str++) = chars[buf[i++]];
         *str = '\0';
     }
     
-    mem_clean(buf, sizeof(buf));
+    mem_clean(buf.data(), buf.size());
     return (! str || len <= strLen) ? len : 0;
 }
 
@@ -79,9 +79,7 @@ size_t BRBase58Decode(uint8_t *data, size_t dataLen, const char *str)
     assert(str != NULL);
     while (str && *str == '1') str++, zcount++; // count leading zeroes
     
-    uint8_t buf[(str) ? strlen(str)*733/1000 + 1 : 0]; // log(58)/log(256), rounded up
-    
-    memset(buf, 0, sizeof(buf));
+    std::vector<uint8_t> buf((str) ? strlen(str)*733/1000 + 1 : 0); // log(58)/log(256), rounded up
     
     while (str && *str) {
         uint32_t carry = *(const uint8_t *)(str++);
@@ -124,7 +122,7 @@ size_t BRBase58Decode(uint8_t *data, size_t dataLen, const char *str)
         
         if (carry >= 58) break; // invalid base58 digit
         
-        for (j = sizeof(buf); j > 0; j--) {
+        for (j = buf.size(); j > 0; j--) {
             carry += (uint32_t)buf[j - 1]*58;
             buf[j - 1] = carry & 0xff;
             carry >>= 8;
@@ -132,15 +130,15 @@ size_t BRBase58Decode(uint8_t *data, size_t dataLen, const char *str)
         carry = 0;
     }
     
-    while (i < sizeof(buf) && buf[i] == 0) i++; // skip leading zeroes
-    len = zcount + sizeof(buf) - i;
+    while (i < buf.size() && buf[i] == 0) i++; // skip leading zeroes
+    len = zcount + buf.size() - i;
 
     if (data && len <= dataLen) {
         if (zcount > 0) memset(data, 0, zcount);
-        memcpy(&data[zcount], &buf[i], sizeof(buf) - i);
+        memcpy(&data[zcount], &buf[i], buf.size() - i);
     }
 
-    mem_clean(buf, sizeof(buf));
+    mem_clean(buf.data(), buf.size());
     return (! data || len <= dataLen) ? len : 0;
 }
 
