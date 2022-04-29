@@ -101,7 +101,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
 {
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize);
-    options.write_buffer_size = nCacheSize / 10; // up to 10 write buffers may be held in memory simultaneously
+    options.write_buffer_size = nCacheSize / 2; // leveldb lmits write buffers to 2 in memory
     options.filter_policy = leveldb::NewBloomFilterPolicy(10);
     options.compression = leveldb::kNoCompression;
     options.info_log = new CDefiLevelDBLogger();
