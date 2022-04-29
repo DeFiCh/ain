@@ -3927,6 +3927,18 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
 
+        // log batch in account history
+        if (paccountHistoryDB) {
+            auto map = paccountHistoryDB->GetRaw();
+            AccountHistoryKey startKey{{}, ~0u, ~0u};
+            auto it = NewKVIterator<CAccountsHistoryView::ByAccountHistoryKey>(startKey, map);
+            for(; it.Valid(); it.Next()) {
+                auto key = it.Key();
+                AccountHistoryValue value = it.Value();
+                extern std::string ScriptToString(CScript const& script);
+                LogPrintf("WriteHistory: height=%d, txid=%s addr=%s change=%s\n", key.blockHeight, value.txid.GetHex(), ScriptToString(key.owner), (CBalances{value.diff}.ToString()));
+            }
+        }
         // flush history
         if (paccountHistoryDB) {
             paccountHistoryDB->Flush();

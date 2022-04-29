@@ -71,6 +71,7 @@ public:
     virtual bool Read(const TBytes& key, TBytes& value) const = 0;
     virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
     virtual size_t SizeEstimate() const = 0;
+    virtual MapKV GetRaw() const = 0;
     virtual void Discard() = 0;
     virtual bool Flush() = 0;
 };
@@ -167,6 +168,11 @@ public:
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
+    }
+    MapKV GetRaw() const override {
+        MapKV map;
+        batch.ToByteMap(map);
+        return map;
     }
     void Compact(const TBytes& begin, const TBytes& end) {
         db.CompactRange(refTBytes(begin), refTBytes(end));
@@ -318,6 +324,10 @@ public:
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
+    }
+
+    MapKV GetRaw() const override {
+        return changed;
     }
 
     MapKV& GetRaw() {
@@ -507,6 +517,7 @@ public:
 
     bool Flush() { return DB().Flush(); }
     void Discard() { DB().Discard(); }
+    MapKV GetRaw() { return DB().GetRaw(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
 protected:

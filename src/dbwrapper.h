@@ -7,6 +7,7 @@
 
 #include <clientversion.h>
 #include <fs.h>
+#include <optional.h>
 #include <serialize.h>
 #include <streams.h>
 #include <util/system.h>
@@ -124,6 +125,31 @@ public:
         // The formula below assumes the key is less than 16kB.
         size_estimate += 2 + (slKey.size() > 127) + slKey.size();
         ssKey.clear();
+    }
+
+    template<typename K, typename V>
+    bool ToByteMap(std::map<K, Optional<V>>& map) const
+    {
+        class HandlerImpl : public leveldb::WriteBatch::Handler {
+            const CDBWrapper& parent;
+            std::map<K, Optional<V>>& map;
+        public:
+            HandlerImpl(const CDBWrapper& parent, std::map<K, Optional<V>>& map) : parent(parent), map(map) {}
+            void Put(const leveldb::Slice& slKey, const leveldb::Slice& slValue) override {
+                CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
+                ssValue.Xor(dbwrapper_private::GetObfuscateKey(parent));
+                map[K(slKey.data(), slKey.data() + slKey.size())] = V{ssValue.data(), ssValue.data() + ssValue.size()};
+            }
+            void Delete(const leveldb::Slice& slKey) override {
+                map[K(slKey.data(), slKey.data() + slKey.size())] = {};
+            }
+        };
+        HandlerImpl impl(parent, map);
+        auto status = batch.Iterate(&impl);
+        if (!status.ok()) {
+            LogPrintf("Batch iterate: %s\n", status.ToString());
+        }
+        return status.ok();
     }
 
     size_t SizeEstimate() const { return size_estimate; }
