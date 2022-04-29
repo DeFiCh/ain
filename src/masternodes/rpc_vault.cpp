@@ -1110,7 +1110,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
 
     // parse pagination
     size_t limit = 100;
-    AuctionHistoryKey start = {~0u};
+    AuctionHistoryKey start = {~0u, .index=~0u};
     {
         if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
@@ -1159,6 +1159,10 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         }
 
         if (isMine && !(IsMineCached(*pwallet, key.owner) & ISMINE_SPENDABLE)) {
+            return true;
+        }
+
+        if (start.index!=~0u && start.index != key.index){
             return true;
         }
 
