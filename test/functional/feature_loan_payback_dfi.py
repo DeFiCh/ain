@@ -7,6 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.authproxy import JSONRPCException
 
 import calendar
 import time
@@ -284,6 +285,66 @@ class PaybackDFILoanTest (DefiTestFramework):
             'from': account0,
             'amounts': "10@DFI"
         })
+
+        # Multiple token payback pre FCR
+        # Disable loan payback
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'false'}})
+        self.nodes[0].generate(1)
+        vaultId6 = self.nodes[0].createvault(account0, 'LOAN150')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].utxostoaccount({account0: "100@DFI"})
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId6, account0, "100@DFI")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].generate(1)
+        # Create and fill addres with 10DFI + 70DUSD
+        self.nodes[0].utxostoaccount({account0: "11@DFI"})
+        self.nodes[0].generate(1)
+        addr_DFI_DUSD = self.nodes[0].getnewaddress("", "legacy")
+        toAmounts = {addr_DFI_DUSD: ["11@DFI", "71@DUSD"]}
+        self.nodes[0].accounttoaccount(account0, toAmounts)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan({
+            'vaultId': vaultId6,
+            'amounts': "100@DUSD"
+        })
+        self.nodes[0].generate(1)
+
+        vaultBefore = self.nodes[0].getvault(vaultId6)
+        [balanceDFIBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[0].split('@')
+        [balanceDUSDBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[1].split('@')
+        assert_equal(balanceDUSDBefore, '71.00000000')
+        assert_equal(balanceDFIBefore, '11.00000000')
+
+        try:
+            self.nodes[0].paybackloan({
+                'vaultId': vaultId6,
+                'from': addr_DFI_DUSD,
+                'amounts': ["70@DUSD", "10@DFI"]
+            })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Payback of loan via DFI token is not currently active" in errorString)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + iddUSD + '/payback_dfi':'true'}})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId6,
+            'from': addr_DFI_DUSD,
+            'amounts': ["70@DUSD", "10@DFI"]
+        })
+        self.nodes[0].generate(1)
+
+        vaultAfter = self.nodes[0].getvault(vaultId6)
+        assert_equal(vaultAfter["loanAmounts"], [])
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[1].split('@')
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[0].split('@')
+        assert_equal(Decimal(balanceDUSDBefore) - Decimal(balanceDUSDAfter), Decimal('5.00022832'))
+        assert_equal(Decimal(balanceDFIBefore) - Decimal(balanceDFIAfter), Decimal('10'))
 
 
 if __name__ == '__main__':
