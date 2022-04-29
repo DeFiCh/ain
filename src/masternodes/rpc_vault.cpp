@@ -325,7 +325,7 @@ UniValue closevault(const JSONRPCRequest& request) {
         // decode vaultId
         auto vault = pcustomcsview->GetVault(msg.vaultId);
         if (!vault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", msg.vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", msg.vaultId.GetHex()));
 
         if (vault->isUnderLiquidation)
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
@@ -598,7 +598,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
         // decode vaultId
         auto storedVault = pcustomcsview->GetVault(vaultId);
         if (!storedVault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
 
         if(storedVault->isUnderLiquidation)
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
@@ -822,7 +822,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
         // decode vaultId
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
 
         ownerAddress = vault->ownerAddress;
     }
@@ -1276,8 +1276,8 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
                        "[{},{}...]     (array) Objects with vault history information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       HelpExampleCli("listvaulthistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listvaulthistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
                },
     }.Check(request);
 

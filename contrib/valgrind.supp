@@ -41,3 +41,32 @@
    ...
    fun:_ZN7leveldbL14InitDefaultEnvEv
 }
+{
+   Suppress lbdb warning
+   Memcheck:Cond
+   fun:__log_putr.isra.0
+}
+{
+   Suppress libdb warning
+   Memcheck:Param
+   pwrite64(buf)
+   fun:__libc_pwrite64
+   ...
+   fun:__db_open_pp
+}
+{
+   Suppress SPV wallet
+   Memcheck:Cond
+   fun:bcmp
+   fun:BRBIP32PubKey
+   fun:BRWalletUnusedAddrs
+}
+{
+   Suppress libdb warning
+   Memcheck:Param
+   pwrite64(buf)
+   fun:__libc_pwrite64
+   fun:pwrite
+   fun:__os_io
+}
+

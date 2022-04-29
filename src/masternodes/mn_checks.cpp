@@ -87,6 +87,19 @@ std::string ToString(CustomTxType type) {
     return "None";
 }
 
+CustomTxType FromString(const std::string& str) {
+    static const auto customTxTypeMap = []() {
+     std::map<std::string, CustomTxType> generatedMap;
+     for (auto i = 0u; i < 256; i++) {
+          auto txType = static_cast<CustomTxType>(i);
+          generatedMap.emplace(ToString(txType), txType);
+     }
+     return generatedMap;
+    }();
+    auto type = customTxTypeMap.find(str);
+    return type == customTxTypeMap.end() ? CustomTxType::None : type->second;
+}
+
 static ResVal<CBalances> BurntTokens(CTransaction const & tx) {
     CBalances balances;
     for (const auto& out : tx.vout) {
@@ -413,7 +426,7 @@ public:
             ss >> name;
             auto var = GovVariable::Create(name);
             if (!var) {
-                return Res::Err("'%s': variable does not registered", name);
+                return Res::Err("'%s': variable is not registered", name);
             }
             ss >> *var;
             obj.govs.insert(std::move(var));
@@ -431,7 +444,7 @@ public:
         ss >> name;
         obj.govVar = GovVariable::Create(name);
         if (!obj.govVar) {
-            return Res::Err("'%s': variable does not registered", name);
+            return Res::Err("'%s': variable is not registered", name);
         }
         ss >> *obj.govVar;
         ss >> obj.startHeight;
