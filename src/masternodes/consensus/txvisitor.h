@@ -15,6 +15,7 @@ struct CBalances;
 class CCoinsViewCache;
 class CCollateralLoans;
 class CCustomCSView;
+class CFutureBaseView;
 struct CLoanSchemeData;
 class CScript;
 class CTokenImplementation;
@@ -31,12 +32,13 @@ protected:
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
+    CFutureBaseView& futureSwapView;
     const CTransaction& tx;
     const CCoinsViewCache& coins;
     const Consensus::Params& consensus;
 
 public:
-    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
+    CCustomTxVisitor(CCustomCSView& mnview, CFutureBaseView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
 
 protected:
     Res CheckCustomTx() const;

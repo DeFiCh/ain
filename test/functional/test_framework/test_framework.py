@@ -618,6 +618,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
             # Remove custom dirs
             shutil.rmtree(cache_path('burn'))
+            shutil.rmtree(cache_path('futureswap'))
 
             for entry in os.listdir(cache_path()):
                 if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'history']:  # Only keep chainstate and blocks folder

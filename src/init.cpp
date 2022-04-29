@@ -25,6 +25,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -1653,6 +1654,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomMinCacheSize, false, fReset || fReindexChainState);
                 }
 
+                // Create Future Swap DB
+                auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pfutureSwapView.reset();
+                pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1661,7 +1667,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pfutureSwapView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }

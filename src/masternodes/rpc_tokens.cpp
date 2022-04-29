@@ -1,6 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
 #include <masternodes/govvariables/attributes.h>
+#include <masternodes/futureswap.h>
 
 #include <index/txindex.h>
 
@@ -548,6 +549,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     Res res{};
 
     CCustomCSView mnview(*pcustomcsview);
+    CFutureSwapView futureSwapView(*pfutureSwapView);
 
     if (tx)
     {
@@ -589,7 +591,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         LOCK(cs_main);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
+        auto res = ApplyCustomTx(mnview, futureSwapView, view, *tx, Params().GetConsensus(), nHeight);
         result.pushKV("valid", res.ok);
     } else {
         if (nHeight >= Params().GetConsensus().DakotaHeight) {

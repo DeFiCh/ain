@@ -9,6 +9,7 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
@@ -1114,6 +1115,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     CAmount txfee = 0;
     acview->Discard();
     CCustomCSView viewDuplicate(*acview);
+    CFutureSwapView futureSwapView(*pfutureSwapView);
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
@@ -1128,7 +1130,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
+        auto res = ApplyCustomTx(viewDuplicate, futureSwapView, coinsCache, tx, Params().GetConsensus(), height);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

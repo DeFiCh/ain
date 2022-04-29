@@ -781,7 +781,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     }
 }
 
-void CCustomCSView::AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height)
+void CCustomCSView::AddUndo(CStorageView & cache, uint256 const & txid, uint32_t height)
 {
     auto flushable = cache.GetStorage().GetFlushableStorage();
     assert(flushable);

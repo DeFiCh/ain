@@ -114,6 +114,9 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB{GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true});
         pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
 
+        auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nMinDbCache << 20, true, true));
+        pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
+
         panchorauths.reset();
         panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
