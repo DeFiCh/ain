@@ -714,14 +714,12 @@ class VaultTest (DefiTestFramework):
 
         # Save burninfo and balances before create vault
         balance1Before = self.nodes[1].getbalance()
-        burninfoBefore = self.nodes[1].getburninfo()
 
         # Create vault
         vaultId = self.nodes[1].createvault(owner1)
         self.nodes[1].generate(1)
 
         # Save burninfo and balances after create vault
-        burninfoAfterCreate = self.nodes[1].getburninfo()
         balance1AfterCreate = self.nodes[1].getbalance()
 
         # Update vault to owner2

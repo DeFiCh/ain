@@ -600,6 +600,8 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         account_owner_node1 = self.nodes[1].getaccount(owner_node1)
         assert_equal(account_owner_node1, ['20.00000000@DUSD'])
+        account_owner_node0 = self.nodes[1].getaccount(owner_node0)
+        assert_equal(account_owner_node0, [])
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

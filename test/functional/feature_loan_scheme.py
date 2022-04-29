@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test Loan Scheme."""
 
-from typing_extensions import assert_never
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
