@@ -38,30 +38,13 @@ ResVal<CFuturesUserValue> CFutureBaseView::GetFuturesUserValues(const CFuturesUs
     return {source, Res::Ok()};
 }
 
-void CFutureSwapView::AddUndo(CFutureBaseView& cache, const uint256& txid, uint32_t height)
-{
-    auto flushable = cache.GetStorage().GetFlushableStorage();
-    assert(flushable);
-    SetUndo({height, txid}, CUndo::Construct(GetStorage(), flushable->GetRaw()));
-}
-
-void CFutureSwapView::OnUndoTx(const uint256& txid, uint32_t height)
-{
-    const auto undo = GetUndo(UndoKey{height, txid});
-    if (!undo) {
-        return;
-    }
-    CUndo::Revert(GetStorage(), *undo);
-    DelUndo(UndoKey{height, txid});
-}
-
 bool CFutureSwapView::GetDBActive() {
     if (dbActive) {
         return *dbActive;
     }
 
     bool active{};
-    Read(DbActive::prefix(), active);
+    Read(ByFuturesDbActive::prefix(), active);
 
     dbActive = active;
 
@@ -69,7 +52,7 @@ bool CFutureSwapView::GetDBActive() {
 }
 
 void CFutureSwapView::SetDBActive(bool active) {
-    Write(DbActive::prefix(), active);
+    Write(ByFuturesDbActive::prefix(), active);
 
     dbActive = active;
 }

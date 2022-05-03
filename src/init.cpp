@@ -1659,6 +1659,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pfutureSwapView.reset();
                 pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
 
+                // Create Future Swap DB
+                auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(pundosDB);
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1667,7 +1672,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pfutureSwapView.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pfutureSwapView.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }

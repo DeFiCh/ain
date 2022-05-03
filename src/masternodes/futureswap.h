@@ -72,7 +72,7 @@ public:
 
 class CFutureSwapView :
         public CFutureBaseView,
-        public CUndosView
+        public CUndosBaseView
 {
 public:
     explicit CFutureSwapView(std::shared_ptr<CStorageKV> st) : CStorageView(st) {}
@@ -81,10 +81,7 @@ public:
     bool GetDBActive();
     void SetDBActive(bool active);
 
-    void OnUndoTx(const uint256& txid, uint32_t height);
-    void AddUndo(CFutureBaseView& cache, const uint256& txid, uint32_t height);
-
-    struct DbActive { static constexpr uint8_t prefix() { return 'N'; } };
+    struct ByFuturesDbActive { static constexpr uint8_t prefix() { return 'N'; } };
 
 private:
     std::optional<bool> dbActive;

@@ -88,6 +88,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
     CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
     CScript owner = CScript(424242);
@@ -118,7 +119,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -134,7 +135,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.code, (uint32_t) CustomTxErrCodes::NotEnoughBalance);
         // check that nothing changes:
@@ -151,7 +152,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -168,7 +169,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(res.ok);
         // check result balances:
         auto const dfi90 = CTokenAmount{DFI, 90};

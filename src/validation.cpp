@@ -151,7 +151,7 @@ CTxMemPool mempool(&feeEstimator);
 CScript COINBASE_FLAGS;
 
 // used for db compacting
-std::vector<std::pair<CUndosView*, std::pair<TBytes, TBytes>>> compactDbs;
+std::vector<std::pair<CUndosBaseView*, std::pair<TBytes, TBytes>>> compactDbs;
 
 // Internal stuff
 namespace {
@@ -614,6 +614,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         CCustomCSView mnview(pool.accountsView(height, view));
         CFutureSwapView futureSwapView(*pfutureSwapView);
+        CUndosView undosView(*pundosView);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
@@ -629,7 +630,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, futureSwapView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -1648,7 +1649,7 @@ static bool IsLegacyAnchorTx(std::string network, std::string hash) {
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CFutureSwapView& futureSwapView, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndosView& undosView, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
 {
     bool fClean = true;
 
@@ -1669,8 +1670,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
-    mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
-    futureSwapView.OnUndoTx({}, static_cast<uint32_t>(pindex->nHeight)); // undo for "zero hash"
+    mnview.OnUndoTx({}, static_cast<uint32_t>(pindex->nHeight));
+    futureSwapView.OnUndoTx({}, static_cast<uint32_t>(pindex->nHeight));
+    undosView.OnUndoTx(UndoSource::CustomView, mnview, {}, static_cast<uint32_t>(pindex->nHeight));
+    undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, {}, static_cast<uint32_t>(pindex->nHeight));
 
     pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
     if (paccountHistoryDB) {
@@ -1778,8 +1781,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // process transactions revert for masternodes
-        mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        futureSwapView.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
+        mnview.OnUndoTx(tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
+        futureSwapView.OnUndoTx(tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
+        undosView.OnUndoTx(UndoSource::CustomView, mnview, tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
+        undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
     }
 
     // one time downgrade to revert CInterestRateV2 structure
@@ -2216,11 +2221,12 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
     return false;
 }
 
-void PruneUndos(CUndosView& view, const int height) {
+template <typename K, typename T>
+void PruneUndos(T& view, const int height) {
     bool pruneStarted = false;
     auto time = GetTimeMillis();
-    CUndosView pruned(view);
-    view.ForEachUndo([&](const UndoKey& key, CLazySerialize<CUndo>) {
+    T pruned(view);
+    view.ForEachUndo([&](const K& key, CLazySerialize<CUndo>) {
         if (static_cast<int>(key.height) >= height) { // don't erase checkpoint height
             return false;
         }
@@ -2245,7 +2251,7 @@ void PruneUndos(CUndosView& view, const int height) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview,
-                               CFutureSwapView& futureSwapView, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
+                               CFutureSwapView& futureSwapView, CUndosView& undosView, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2300,7 +2306,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, futureSwapView, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2565,7 +2571,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, futureSwapView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(accountsView, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2720,12 +2726,21 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (!futureSwapCache.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
         if (futureSwapView.GetDBActive()) {
-            futureSwapView.AddUndo(futureSwapCache, {}, pindex->nHeight);
+            if (undosView.GetDBActive()) {
+                undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
+            } else {
+                futureSwapView.AddUndo(futureSwapCache, {}, pindex->nHeight);
+            }
         }
         futureSwapCache.Flush();
     }
 
-    mnview.AddUndo(cache, {}, pindex->nHeight);
+    if (undosView.GetDBActive()) {
+        undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
+    } else {
+        mnview.AddUndo(cache, {}, pindex->nHeight);
+    }
+
     cache.Flush();
 
     if (!fIsFakeNet) {
@@ -2745,8 +2760,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     auto it = checkpoints.lower_bound(pindex->nHeight);
     if (it != checkpoints.begin()) {
         --it;
-        PruneUndos(*pcustomcsview, it->first);
-        PruneUndos(*pfutureSwapView, it->first);
+        PruneUndos<UndoKey>(*pcustomcsview, it->first);
+        PruneUndos<UndoKey>(*pfutureSwapView, it->first);
+        PruneUndos<UndoSourceKey>(*pundosView, it->first);
         // we can safety delete old interest keys
         if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
             CCustomCSView view(mnview);
@@ -3650,7 +3666,7 @@ bool CChainState::FlushStateToDisk(
             nLastWrite = nNow;
         }
         if (fDoFullFlush || mode == FlushStateMode::IF_NEEDED) {
-            if (!pcustomcsview->Flush() || !pfutureSwapView->Flush()) {
+            if (!pcustomcsview->Flush() || !pfutureSwapView->Flush() || !pundosView->Flush()) {
                 return AbortNode(state, "Failed to write db batch");
             }
         }
@@ -3813,15 +3829,16 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview);
         CFutureSwapView futureSwapView(*pfutureSwapView);
+        CUndosView undosView(*pundosView);
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
-        if (DisconnectBlock(block, pindexDelete, view, mnview, futureSwapView, disconnectedConfirms) != DISCONNECT_OK) {
+        if (DisconnectBlock(block, pindexDelete, view, mnview, futureSwapView, undosView, disconnectedConfirms) != DISCONNECT_OK) {
             m_disconnectTip = false;
             // no usable history
             DiscardWriters(paccountHistoryDB, pburnHistoryDB, pvaultHistoryDB);
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
-        bool flushed = view.Flush() && mnview.Flush() && futureSwapView.Flush();
+        bool flushed = view.Flush() && mnview.Flush() && futureSwapView.Flush() && undosView.Flush();
         assert(flushed);
 
         // flush history
@@ -3844,12 +3861,24 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         return false;
     }
 
-    // Revert FutureSwap DB activation if records now in old DB. Can be removed
-    // after a reindex update where no records will ever be in the old DB.
+    // Revert FutureSwap DB activation if records now in old DB.
+    // Can be removed after a reindex update where no records will ever be in the old DB.
     if (pfutureSwapView->GetDBActive()) {
         auto it = pcustomcsview->LowerBound<CFutureBaseView::ByFuturesSwapKey>(CFuturesUserKey{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
         if (it.Valid()) {
             pfutureSwapView->SetDBActive(false);
+        }
+    }
+
+    // Revert Undos DB activation if no records now in new DB and record in old.
+    // Can be removed after a reindex update where no records will ever be in the old DB.
+    if (pundosView->GetDBActive()) {
+        auto itUndo = pundosView->LowerBound<CUndosBaseView::ByUndoKey>(UndoKey{});
+        if (!itUndo.Valid()) {
+            auto it = pcustomcsview->LowerBound<CUndosBaseView::ByUndoKey>(UndoKey{});
+            if (it.Valid()) {
+                pundosView->SetDBActive(false);
+            }
         }
     }
 
@@ -3970,11 +3999,19 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime3;
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
+        // Can be removed after reindex update and DB set to active
+        // at the point of creation as the old DB will never be used for Undos on reindex.
+        // Always active going forward connecting blocks.
+        if (!pundosView->GetDBActive()) {
+            pundosView->SetDBActive(true);
+        }
+        CUndosView undosView(*pundosView);
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview);
         CFutureSwapView futureSwapView(*pfutureSwapView);
+
         std::vector<uint256> rewardedAnchors;
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, futureSwapView, chainparams, rewardedAnchors);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, futureSwapView, undosView, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid()) {
@@ -3986,7 +4023,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
-        bool flushed = view.Flush() && mnview.Flush() && futureSwapView.Flush();
+        bool flushed = view.Flush() && mnview.Flush() && futureSwapView.Flush() && undosView.Flush();
         assert(flushed);
 
         // flush history
@@ -4032,6 +4069,8 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
 
     // Enable FutureSwap DB. Can be removed after reindex update and DB set to active
     // at the point of creation as the old DB will never be used for FutureSwap on reindex.
+    // Set here to activate after FutureSwap payouts in ConnectBlock has wiped entries, or
+    // on clean sync.
     if (!pfutureSwapView->GetDBActive()) {
         auto it = pcustomcsview->LowerBound<CFutureBaseView::ByFuturesSwapKey>(CFuturesUserKey{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
         if (!it.Valid()) {
@@ -5476,6 +5515,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     std::vector<uint256> dummyRewardedAnchors;
     CCustomCSView mnview(*pcustomcsview);
     CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
@@ -5490,7 +5530,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, futureSwapView, chainparams, dummyRewardedAnchors, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, futureSwapView, undosView, chainparams, dummyRewardedAnchors, true))
         return false;
     assert(state.IsValid());
 
@@ -5875,6 +5915,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     CCoinsViewCache coins(coinsview);
     CCustomCSView mnview(*pcustomcsview);
     CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -5919,7 +5960,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + ::ChainstateActive().CoinsTip().DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
-            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, futureSwapView, disconnectedConfirms);
+            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, futureSwapView, undosView, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -5954,7 +5995,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             std::vector<uint256> dummyRewardedAnchors;
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, futureSwapView, chainparams, dummyRewardedAnchors))
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, futureSwapView, undosView, chainparams, dummyRewardedAnchors))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
@@ -5990,20 +6031,21 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     return true;
 }
 
-bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CFutureSwapView* futureSwapView)
+bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CFutureSwapView* futureSwapView, CUndosView* undosView)
 {
     LOCK(cs_main);
 
     CCoinsViewCache cache(view);
     CCustomCSView mncache(*mnview);
     CFutureSwapView futureCache(*futureSwapView);
+    CUndosView undosCache(*undosView);
 
     std::vector<uint256> hashHeads = view->GetHeadBlocks();
     if (hashHeads.empty()) return true; // We're already in a consistent state.
-    if (hashHeads.size() != 2) return error("ReplayBlocks(): unknown inconsistent state");
+    if (hashHeads.size() != 2) return error("%s: unknown inconsistent state", __func__);
 
     /// @todo may be it is possible to keep it run? how to safely connect blocks for mndb?
-    return error("ReplayBlocks() turned off for safety reasons. Make reindex!");
+    return error("%s turned off for safety reasons. Make reindex!", __func__);
 
     uiInterface.ShowProgress(_("Replaying blocks...").translated, 0, false);
     LogPrintf("Replaying blocks\n");
@@ -6013,13 +6055,13 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     const CBlockIndex* pindexFork = nullptr; // Latest block common to both the old and the new tip.
 
     if (m_blockman.m_block_index.count(hashHeads[0]) == 0) {
-        return error("ReplayBlocks(): reorganization to unknown block requested");
+        return error("%s: reorganization to unknown block requested", __func__);
     }
     pindexNew = m_blockman.m_block_index[hashHeads[0]];
 
     if (!hashHeads[1].IsNull()) { // The old tip is allowed to be 0, indicating it's the first flush.
         if (m_blockman.m_block_index.count(hashHeads[1]) == 0) {
-            return error("ReplayBlocks(): reorganization from unknown block requested");
+            return error("%s: reorganization from unknown block requested", __func__);
         }
         pindexOld = m_blockman.m_block_index[hashHeads[1]];
         pindexFork = LastCommonAncestor(pindexOld, pindexNew);
@@ -6035,7 +6077,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, futureCache, disconnectedConfirms);
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, futureCache, undosCache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
@@ -6063,8 +6105,8 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     return true;
 }
 
-bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CFutureSwapView* futureSwapView) {
-    return ::ChainstateActive().ReplayBlocks(params, view, mnview, futureSwapView);
+bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CFutureSwapView* futureSwapView, CUndosView* undosView) {
+    return ::ChainstateActive().ReplayBlocks(params, view, mnview, futureSwapView, undosView);
 }
 
 //! Helper for CChainState::RewindBlockIndex

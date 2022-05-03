@@ -550,6 +550,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 
     CCustomCSView mnview(*pcustomcsview);
     CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
 
     if (tx)
     {
@@ -591,7 +592,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         LOCK(cs_main);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        auto res = ApplyCustomTx(mnview, futureSwapView, view, *tx, Params().GetConsensus(), nHeight);
+        auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, *tx, Params().GetConsensus(), nHeight);
         result.pushKV("valid", res.ok);
     } else {
         if (nHeight >= Params().GetConsensus().DakotaHeight) {

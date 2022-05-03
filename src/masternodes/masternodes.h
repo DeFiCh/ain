@@ -391,7 +391,7 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CCommunityBalancesView
-        , public CUndosView
+        , public CUndosBaseView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
@@ -464,11 +464,6 @@ public:
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
-
-    void AddUndo(CStorageView & cache, uint256 const & txid, uint32_t height);
-
-    // simplified version of undo, without any unnecessary undo data
-    void OnUndoTx(uint256 const & txid, uint32_t height);
 
     bool CanSpend(const uint256 & txId, int height) const;
 

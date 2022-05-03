@@ -1116,6 +1116,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     acview->Discard();
     CCustomCSView viewDuplicate(*acview);
     CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
@@ -1130,7 +1131,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, futureSwapView, coinsCache, tx, Params().GetConsensus(), height);
+        auto res = ApplyCustomTx(viewDuplicate, futureSwapView, undosView, coinsCache, tx, Params().GetConsensus(), height);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
