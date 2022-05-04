@@ -54,7 +54,7 @@ public:
     CImmutableCSView(CImmutableCSView&&) = delete;
     CImmutableCSView(const CImmutableCSView&) = delete;
     CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
-    CImmutableCSView(CFutureBaseView& p) : CStorageView(p), CCustomCSView{} {}
+    CImmutableCSView(CFutureSwapView& p) : CStorageView(p), CCustomCSView{} {}
     CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const final;

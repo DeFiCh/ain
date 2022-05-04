@@ -60,8 +60,6 @@ public:
     CFutureBaseView() = default;
     CFutureBaseView(CFutureBaseView& other) = default;
 
-    Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
-    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
             {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
@@ -70,21 +68,13 @@ public:
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
 };
 
-class CFutureSwapView :
-        public CFutureBaseView,
-        public CUndosBaseView
+class CFutureSwapView : public CFutureBaseView
 {
 public:
     explicit CFutureSwapView(std::shared_ptr<CStorageKV> st) : CStorageView(st) {}
-    CFutureSwapView(CFutureSwapView& other) : CStorageView(other), dbActive(other.dbActive) {}
 
-    bool GetDBActive();
-    void SetDBActive(bool active);
-
-    struct ByFuturesDbActive { static constexpr uint8_t prefix() { return 'N'; } };
-
-private:
-    std::optional<bool> dbActive;
+    Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
 };
 
 extern std::unique_ptr<CFutureSwapView> pfutureSwapView;

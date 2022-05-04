@@ -16,12 +16,7 @@ public:
 
     void ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<CUndo>)> callback, UndoKey const & start = {});
 
-    [[nodiscard]] std::optional<CUndo> GetUndo(UndoKey const & key) const;
-    Res SetUndo(UndoKey const & key, CUndo const & undo);
-    Res DelUndo(UndoKey const & key);
-
-    void OnUndoTx(const uint256& txid, uint32_t height);
-    void AddUndo(CStorageView& cache, const uint256& txid, uint32_t height);
+    Res DelUndo(const UndoKey & key);
 
     // tags
     struct ByUndoKey { static constexpr uint8_t prefix() { return 'u'; } };
@@ -31,9 +26,6 @@ class CUndosView : public CUndosBaseView
 {
 public:
     explicit CUndosView(std::shared_ptr<CStorageKV> st) : CStorageView(st) {}
-
-    bool GetDBActive();
-    void SetDBActive(bool active);
 
     void ForEachUndo(std::function<bool(const UndoSourceKey &, CLazySerialize<CUndo>)> callback, const UndoSourceKey& start = {});
 
@@ -45,7 +37,6 @@ public:
     void OnUndoTx(const UndoSource key, CStorageView & source, uint256 const & txid, uint32_t height);
 
     // tags
-    struct ByUndosDbActive  { static constexpr uint8_t prefix() { return 'm'; } };
     struct ByMultiUndoKey { static constexpr uint8_t prefix() { return 'n'; } };
 
 private:

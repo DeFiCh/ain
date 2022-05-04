@@ -17,7 +17,7 @@
 #include <masternodes/tokens.h>
 
 CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
-                                   CFutureBaseView& futureSwapView,
+                                   CFutureSwapView& futureSwapView,
                                    const CCoinsViewCache& coins,
                                    const CTransaction& tx,
                                    const Consensus::Params& consensus,

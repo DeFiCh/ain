@@ -12,7 +12,7 @@
 
 #include <variant>
 
-class CFutureBaseView;
+class CFutureSwapView;
 
 enum VersionTypes : uint8_t {
     v0 = 0,
@@ -154,7 +154,7 @@ public:
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Ok(); };
-    Res Apply(CCustomCSView& mnview, CFutureBaseView& futureSwapView, const uint32_t height);
+    Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height);
 
     std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
@@ -249,7 +249,7 @@ private:
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable);
-    Res RefundFuturesContracts(CCustomCSView &mnview, CFutureBaseView& futureSwapView, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+    Res RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 
 ResVal<CScript> GetFutureSwapContractAddress();

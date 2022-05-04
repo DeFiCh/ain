@@ -2229,8 +2229,8 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue listFutures{UniValue::VARR};
-    CImmutableCSView futureSwapView = pfutureSwapView->GetDBActive() ? CImmutableCSView(*pfutureSwapView) : CImmutableCSView(*pcustomcsview);
-    CImmutableCSView view = CImmutableCSView(*pcustomcsview);
+    CImmutableCSView futureSwapView(*pfutureSwapView);
+    CImmutableCSView view(*pcustomcsview);
 
     futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
         CTxDestination dest;
@@ -2287,8 +2287,8 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     const auto owner = DecodeScript(request.params[0].get_str());
 
     UniValue listValues{UniValue::VARR};
-    CImmutableCSView futureSwapView = pfutureSwapView->GetDBActive() ? CImmutableCSView(*pfutureSwapView) : CImmutableCSView(*pcustomcsview);
-    CImmutableCSView view = CImmutableCSView(*pcustomcsview);
+    CImmutableCSView futureSwapView(*pfutureSwapView);
+    CImmutableCSView view(*pcustomcsview);
 
     futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futureValue) {
 

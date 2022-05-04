@@ -151,7 +151,8 @@ CTxMemPool mempool(&feeEstimator);
 CScript COINBASE_FLAGS;
 
 // used for db compacting
-std::vector<std::pair<CUndosBaseView*, std::pair<TBytes, TBytes>>> compactDbs;
+TBytes compactBegin;
+TBytes compactEnd;
 
 // Internal stuff
 namespace {
@@ -1670,8 +1671,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
-    mnview.OnUndoTx({}, static_cast<uint32_t>(pindex->nHeight));
-    futureSwapView.OnUndoTx({}, static_cast<uint32_t>(pindex->nHeight));
     undosView.OnUndoTx(UndoSource::CustomView, mnview, {}, static_cast<uint32_t>(pindex->nHeight));
     undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, {}, static_cast<uint32_t>(pindex->nHeight));
 
@@ -1781,8 +1780,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // process transactions revert for masternodes
-        mnview.OnUndoTx(tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
-        futureSwapView.OnUndoTx(tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
         undosView.OnUndoTx(UndoSource::CustomView, mnview, tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
         undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, tx.GetHash(), static_cast<uint32_t>(pindex->nHeight));
     }
@@ -2221,12 +2218,11 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
     return false;
 }
 
-template <typename K, typename T>
-void PruneUndos(T& view, const int height) {
+void PruneUndos(CUndosView& view, const int height) {
     bool pruneStarted = false;
     auto time = GetTimeMillis();
-    T pruned(view);
-    view.ForEachUndo([&](const K& key, CLazySerialize<CUndo>) {
+    CUndosView pruned(view);
+    view.ForEachUndo([&](const UndoSourceKey& key, CLazySerialize<CUndo>) {
         if (static_cast<int>(key.height) >= height) { // don't erase checkpoint height
             return false;
         }
@@ -2240,7 +2236,8 @@ void PruneUndos(T& view, const int height) {
         auto flushable = pruned.GetStorage().GetFlushableStorage();
         assert(flushable);
         auto& map = flushable->GetRaw();
-        compactDbs.emplace_back(&view, std::make_pair(map.begin()->first, map.rbegin()->first));
+        compactBegin = map.begin()->first;
+        compactEnd = map.rbegin()->first;
         pruned.Flush();
         LogPrintf("Pruning undo data finished.\n");
         LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
@@ -2688,7 +2685,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // make all changes to the new cache/snapshot to make it possible to take a diff later:
     CCustomCSView cache(mnview);
-    CFutureBaseView futureSwapCache = futureSwapView.GetDBActive() ? futureSwapView : CFutureBaseView(cache);
+    auto futureSwapCache(futureSwapView);
 
     // calculate rewards to current block
     ProcessRewardEvents(pindex, cache, chainparams);
@@ -2725,21 +2722,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     ProcessTokenToGovVar(pindex, cache, chainparams);
 
     if (!futureSwapCache.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        if (futureSwapView.GetDBActive()) {
-            if (undosView.GetDBActive()) {
-                undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
-            } else {
-                futureSwapView.AddUndo(futureSwapCache, {}, pindex->nHeight);
-            }
-        }
+        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
         futureSwapCache.Flush();
     }
 
-    if (undosView.GetDBActive()) {
-        undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
-    } else {
-        mnview.AddUndo(cache, {}, pindex->nHeight);
-    }
+    undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
 
     cache.Flush();
 
@@ -2760,9 +2747,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     auto it = checkpoints.lower_bound(pindex->nHeight);
     if (it != checkpoints.begin()) {
         --it;
-        PruneUndos<UndoKey>(*pcustomcsview, it->first);
-        PruneUndos<UndoKey>(*pfutureSwapView, it->first);
-        PruneUndos<UndoSourceKey>(*pundosView, it->first);
+        PruneUndos(undosView, it->first);
         // we can safety delete old interest keys
         if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
             CCustomCSView view(mnview);
@@ -3284,7 +3269,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     view.Flush();
 }
 
-void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, CFutureBaseView& futureSwapView, const CChainParams& chainparams)
+void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams)
 {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningRoadHeight) {
         return;
@@ -3491,7 +3476,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     });
 }
 
-void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, CFutureBaseView& futureSwapView, const CChainParams& chainparams) {
+void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
@@ -3500,7 +3485,7 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
     for (const auto& var : storedGovVars) {
         CCustomCSView govCache(cache);
-        CFutureBaseView futureSwapCache(futureSwapView);
+        CFutureSwapView futureSwapCache(futureSwapView);
         // Add to existing ATTRIBUTES instead of overwriting.
         if (var->GetName() == "ATTRIBUTES") {
             auto govVar = cache.GetAttributes();
@@ -3681,12 +3666,11 @@ bool CChainState::FlushStateToDisk(
                 return AbortNode(state, "Disk space is too low!", _("Error: Disk space is too low!").translated, CClientUIInterface::MSG_NOPREFIX);
             }
             bool hasCompaction = false;
-            if (!compactDbs.empty()) {
+            if (!compactBegin.empty() && !compactEnd.empty()) {
                 auto time = GetTimeMillis();
-                for (auto& [view, it] : compactDbs) {
-                    view->Compact(it.first, it.second);
-                }
-                compactDbs.clear();
+                pundosView->Compact(compactBegin, compactEnd);
+                compactBegin.clear();
+                compactEnd.clear();
                 hasCompaction = true;
                 LogPrint(BCLog::BENCH, "    - DB compacting takes: %dms\n", GetTimeMillis() - time);
             }
@@ -3861,27 +3845,6 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         return false;
     }
 
-    // Revert FutureSwap DB activation if records now in old DB.
-    // Can be removed after a reindex update where no records will ever be in the old DB.
-    if (pfutureSwapView->GetDBActive()) {
-        auto it = pcustomcsview->LowerBound<CFutureBaseView::ByFuturesSwapKey>(CFuturesUserKey{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
-        if (it.Valid()) {
-            pfutureSwapView->SetDBActive(false);
-        }
-    }
-
-    // Revert Undos DB activation if no records now in new DB and record in old.
-    // Can be removed after a reindex update where no records will ever be in the old DB.
-    if (pundosView->GetDBActive()) {
-        auto itUndo = pundosView->LowerBound<CUndosBaseView::ByUndoKey>(UndoKey{});
-        if (!itUndo.Valid()) {
-            auto it = pcustomcsview->LowerBound<CUndosBaseView::ByUndoKey>(UndoKey{});
-            if (it.Valid()) {
-                pundosView->SetDBActive(false);
-            }
-        }
-    }
-
     if (disconnectpool) {
         // Save transactions to re-add to mempool at end of reorg
         for (auto it = block.vtx.rbegin(); it != block.vtx.rend(); ++it) {
@@ -3999,12 +3962,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime3;
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
-        // Can be removed after reindex update and DB set to active
-        // at the point of creation as the old DB will never be used for Undos on reindex.
-        // Always active going forward connecting blocks.
-        if (!pundosView->GetDBActive()) {
-            pundosView->SetDBActive(true);
-        }
         CUndosView undosView(*pundosView);
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview);
@@ -4064,17 +4021,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         // Revote to pay any unrewarded anchor confirms
         if (!IsInitialBlockDownload()) {
             panchorAwaitingConfirms->ReVote();
-        }
-    }
-
-    // Enable FutureSwap DB. Can be removed after reindex update and DB set to active
-    // at the point of creation as the old DB will never be used for FutureSwap on reindex.
-    // Set here to activate after FutureSwap payouts in ConnectBlock has wiped entries, or
-    // on clean sync.
-    if (!pfutureSwapView->GetDBActive()) {
-        auto it = pcustomcsview->LowerBound<CFutureBaseView::ByFuturesSwapKey>(CFuturesUserKey{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
-        if (!it.Valid()) {
-            pfutureSwapView->SetDBActive(true);
         }
     }
 

@@ -250,7 +250,7 @@ class CCustomTxApplyVisitor
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
-    CFutureBaseView& futureSwapView;
+    CFutureSwapView& futureSwapView;
     const CTransaction& tx;
     const CCoinsViewCache& coins;
     const Consensus::Params& consensus;
@@ -274,7 +274,7 @@ public:
                           uint32_t height,
                           const CCoinsViewCache& coins,
                           CCustomCSView& mnview,
-                          CFutureBaseView& futureSwapView,
+                          CFutureSwapView& futureSwapView,
                           const Consensus::Params& consensus,
                           uint64_t time,
                           uint32_t txn)
@@ -362,7 +362,7 @@ bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView& mnview, CFutureBaseView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
+Res CustomTxVisit(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
@@ -435,7 +435,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
-    CFutureBaseView futureCopy = futureSwapView.GetDBActive() ? futureSwapView : CFutureBaseView(view);
+    auto futureCopy(futureSwapView);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (writers) {
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
@@ -473,21 +473,11 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
     }
 
     if (!futureCopy.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        if (futureSwapView.GetDBActive()) {
-            if (undosView.GetDBActive()) {
-                undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), height);
-            } else {
-                futureSwapView.AddUndo(futureCopy, tx.GetHash(), height);
-            }
-        }
+        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), height);
         futureCopy.Flush();
     }
 
-    if (undosView.GetDBActive()) {
-        undosView.AddUndo(UndoSource::CustomView, mnview, view, tx.GetHash(), height);
-    } else {
-        mnview.AddUndo(view, tx.GetHash(), height);
-    }
+    undosView.AddUndo(UndoSource::CustomView, mnview, view, tx.GetHash(), height);
 
     view.Flush();
 

@@ -1280,6 +1280,39 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+void MigrateDBs()
+{
+    LogPrintf("Migrating future swap and undo entries, might take a while...\n");
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    std::vector<std::pair<UndoKey, CUndo>> undos;
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        undos.emplace_back(key, undo);
+        return true;
+    });
+
+    for (const auto& [key, undo] : undos) {
+        pcustomcsview->DelUndo(key);
+        pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
+    }
+
+    // Migrate FutureSwaps
+    std::vector<std::pair<CFuturesUserKey, CFuturesUserValue>> swaps;
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& swap){
+        swaps.emplace_back(key, swap);
+        return true;
+    });
+
+    for (const auto& [key, swap] : swaps) {
+        pcustomcsview->EraseFuturesUserValues(key);
+        pfutureSwapView->StoreFuturesUserValues(key, swap);
+    }
+
+    LogPrintf("Migrating future swap and undo data finished.\n");
+    LogPrint(BCLog::BENCH, "    - Migrating future swap and undo data takes: %dms\n", GetTimeMillis() - time);
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1663,6 +1696,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomMinCacheSize, false, fReset || fReindexChainState));
                 pundosView.reset();
                 pundosView = std::make_unique<CUndosView>(pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate

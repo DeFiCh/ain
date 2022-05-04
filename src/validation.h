@@ -43,7 +43,7 @@ class CBlockIndex;
 class CBlockTreeDB;
 class CBlockUndo;
 class CChainParams;
-class CFutureBaseView;
+class CFutureSwapView;
 class CFutureSwapView;
 class CInv;
 class CConnman;
@@ -770,11 +770,11 @@ private:
 
     static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 
-    static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, CFutureBaseView& futureSwapView, const CChainParams& chainparams);
+    static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams);
 
     static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
 
-    static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, CFutureBaseView& futureSwapView, const CChainParams& chainparams);
+    static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.

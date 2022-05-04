@@ -430,7 +430,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     if (res) {
         LOCK(cs_main);
         CImmutableCSView view(*pcustomcsview);
-        CFutureBaseView futureSwapView = pfutureSwapView->GetDBActive() ? *pfutureSwapView : CFutureBaseView(*pcustomcsview);
+        auto futureSwapView(*pfutureSwapView);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);

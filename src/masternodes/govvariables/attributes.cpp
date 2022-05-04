@@ -435,7 +435,7 @@ ResVal<CScript> GetFutureSwapContractAddress()
     return {contractAddress, Res::Ok()};
 }
 
-Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, CFutureBaseView& futureSwapView, const uint32_t height, const uint32_t tokenID)
+Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID)
 {
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     const auto blockPeriod = GetValue(blockKey, CAmount{});
@@ -731,7 +731,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureBaseView& futureSwapView, const uint32_t height)
+Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
