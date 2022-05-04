@@ -1297,8 +1297,10 @@ void MigrateDBs()
         pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
     }
 
-    pcustomcsview->CompactBy<CUndosView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
-    pcustomcsview->Flush(true);
+    if (!undos.empty()) {
+        pcustomcsview->CompactBy<CUndosView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
+        pcustomcsview->Flush(true);
+    }
 
     // Migrate FutureSwaps
     std::vector<std::pair<CFuturesUserKey, CFuturesUserValue>> swaps;
