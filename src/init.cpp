@@ -1298,6 +1298,7 @@ void MigrateDBs()
     }
 
     if (!undos.empty()) {
+        pcustomcsview->Flush();
         pcustomcsview->CompactBy<CUndosView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
         pcustomcsview->Flush(true);
     }
