@@ -2290,31 +2290,43 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     CImmutableCSView futureSwapView(*pfutureSwapView);
     CImmutableCSView view(*pcustomcsview);
 
-    futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futureValue) {
-
-        if (key.owner == owner) {
-            UniValue value{UniValue::VOBJ};
-
-            const auto source = view.GetToken(futureValue.source.nTokenId);
-            if (!source)
-                return true;
-
-            value.pushKV("source", tokenAmountString(futureValue.source));
-
-            if (source->symbol == "DUSD") {
-                const auto destination = view.GetLoanTokenByID({futureValue.destination});
-                if (!destination)
-                    return true;
-
-                value.pushKV("destination", destination->symbol);
-            } else
-                value.pushKV("destination", "DUSD");
-
-            listValues.push_back(value);
+    std::vector<CFuturesUserKey> ownerEntries;
+    futureSwapView.ForEachFuturesCScript([&](const CFuturesCScriptKey& key, const CFuturesUserValue&){
+        if (key.owner != owner) {
+            return false;
         }
 
+        ownerEntries.push_back({key.height, key.owner, key.txn});
+
         return true;
-    }, {static_cast<uint32_t>(view.GetLastHeight()), owner, std::numeric_limits<uint32_t>::max()});
+    });
+
+    for (const auto& entry : ownerEntries) {
+        const auto resVal = futureSwapView.GetFuturesUserValues(entry);
+        if (!resVal)
+            continue;
+
+        const auto& futureValue = *resVal;
+        UniValue value{UniValue::VOBJ};
+
+        const auto source = view.GetToken(futureValue.source.nTokenId);
+        if (!source)
+            continue;
+
+        value.pushKV("source", tokenAmountString(futureValue.source));
+
+        if (source->symbol == "DUSD") {
+            const auto destination = view.GetLoanTokenByID({futureValue.destination});
+            if (!destination)
+                continue;
+
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listValues.push_back(value);
+    }
 
     UniValue obj{UniValue::VOBJ};
     obj.pushKV("owner", ScriptToString(owner));

@@ -41,6 +41,31 @@ struct CFuturesUserKey {
     }
 };
 
+struct CFuturesCScriptKey {
+    CScript owner;
+    uint32_t height;
+    uint32_t txn;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (ser_action.ForRead()) {
+            READWRITE(owner);
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+            READWRITE(WrapBigEndian(txn));
+            txn = ~txn;
+        } else {
+            READWRITE(owner);
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+            uint32_t txn_ = ~txn;
+            READWRITE(WrapBigEndian(txn_));
+        }
+    }
+};
+
 struct CFuturesUserValue {
     CTokenAmount source{};
     uint32_t destination{};
@@ -60,12 +85,16 @@ public:
     CFutureBaseView() = default;
     CFutureBaseView(CFutureBaseView& other) = default;
 
-    Res EraseFuturesUserValues(const CFuturesUserKey& key);
+    virtual Res EraseFuturesUserValues(const CFuturesUserKey& key);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
             {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
+    void ForEachFuturesCScript(std::function<bool(const CFuturesCScriptKey&, const CFuturesUserValue&)> callback, const CFuturesCScriptKey& start =
+            {{}, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
 
     // tags
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
+    struct ByFuturesOwnerKey  { static constexpr uint8_t prefix() { return 'N'; } };
 };
 
 class CFutureSwapView : public CFutureBaseView
@@ -74,7 +103,7 @@ public:
     explicit CFutureSwapView(std::shared_ptr<CStorageKV> st) : CStorageView(st) {}
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
-    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
+    Res EraseFuturesUserValues(const CFuturesUserKey& key) override;
 };
 
 extern std::unique_ptr<CFutureSwapView> pfutureSwapView;
