@@ -680,11 +680,36 @@ UniValue minttokens(const JSONRPCRequest& request) {
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-            if (token->IsDAT()) {
-                needFoundersAuth = true;
+
+            if (targetHeight < Params().GetConsensus().GreatWorldHeight && auths.empty())
+            {
+                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+                if (token->IsDAT()) {
+                    needFoundersAuth = true;
+                }
+                auths.insert(authCoin.out.scriptPubKey);
             }
-            auths.insert(authCoin.out.scriptPubKey);
+            else
+            {
+                for (auto const& member : Params().GetConsensus().foundationMembers)
+                {
+                    if (IsMineCached(*pwallet, member))
+                    {
+                        auths.insert(member);
+                        break;
+                    }
+                }
+                if (targetHeight >= Params().GetConsensus().GreatWorldHeight && auths.empty())
+                {
+                    auto attributes = pcustomcsview->GetAttributes();
+
+                    CDataStructureV0 membersKey{AttributeTypes::Token, kv.first.v, TokenKeys::ConsortiumMembers};
+                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+                    for (auto const& member : members)
+                        if (IsMineCached(*pwallet, member.ownerAddress))
+                            auths.insert(member.ownerAddress);
+                }
+            }
         }
     }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);

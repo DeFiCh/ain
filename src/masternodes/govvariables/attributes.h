@@ -32,12 +32,14 @@ enum ParamIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens    = 'b',
-    DFIP2203Current  = 'c',
-    DFIP2203Burned   = 'd',
-    DFIP2203Minted   = 'e',
-    DexTokens        = 'f',
+    PaybackDFITokens        = 'a',
+    PaybackTokens           = 'b',
+    DFIP2203Current         = 'c',
+    DFIP2203Burned          = 'd',
+    DFIP2203Minted          = 'e',
+    DexTokens               = 'f',
+    ConsortiumMinted        = 'g',
+    ConsortiumMembersMinted = 'h',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -61,6 +63,15 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor  = 'j',
     LoanMintingEnabled    = 'k',
     LoanMintingInterest   = 'l',
+    ConsortiumMembers     = 'm',
+    ConsortiumMintLimit   = 'n',
+};
+
+enum ConsortiumKeys : uint8_t  {
+    Members               = 'a',
+    MintLimit             = 'b',
+    MintLimitPerInterval  = 'c',
+    MintIntervalBlocks    = 'c',
 };
 
 enum PoolKeys : uint8_t {
@@ -141,9 +152,51 @@ struct CDexTokenInfo {
     }
 };
 
+struct CConsortiumMember {
+    static const uint8_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 64;
+
+    std::string name;
+    CScript ownerAddress;
+    std::string backingId;
+    CAmount mintLimit;
+    CAmount mintLimitPerInterval;
+    uint32_t mintIntervalBlocks;
+    uint8_t status;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(ownerAddress);
+        READWRITE(backingId);
+        READWRITE(mintLimit);
+        READWRITE(mintLimitPerInterval);
+        READWRITE(mintIntervalBlocks);
+        READWRITE(status);
+    }
+};
+
+struct CConsortiumMemberMinted {
+    CBalances minted;
+    CBalances mintedPerInterval;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(mintedPerInterval);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair>;
+using CConsortiumMembers = std::vector<CConsortiumMember>;
+using CConsortiumMembersMinted = std::vector<CConsortiumMemberMinted>;
+
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair,
+                                        CConsortiumMembers, CConsortiumMembersMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
