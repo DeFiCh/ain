@@ -47,9 +47,11 @@ void CUndosView::OnUndoTx(const UndoSource key, CStorageView & source, uint256 c
 
 std::optional<CUndo> CUndosView::GetUndo(UndoSourceKey const & key) const
 {
-    CUndo val{};
-    ReadBy<ByMultiUndoKey>(key, val);
-    return val;
+    CUndo val;
+    if (ReadBy<ByMultiUndoKey>(key, val)) {
+        return val;
+    }
+    return {};
 }
 
 Res CUndosView::DelUndo(const UndoSourceKey & key)
