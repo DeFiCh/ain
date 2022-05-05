@@ -13,11 +13,11 @@
 #include <util/strencodings.h>
 #include <versionbitsinfo.h>
 
+#include <algorithm>
 #include <cassert>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
@@ -31,15 +31,15 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         txNew.vin[0].scriptSig = CScript(); // << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
 
         CTxDestination operatorDest = DecodeDestination(addrs.operatorAddress, *this);
-        assert(operatorDest.which() == PKHashType || operatorDest.which() == WitV0KeyHashType);
+        assert(operatorDest.index() == PKHashType || operatorDest.index() == WitV0KeyHashType);
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
-        assert(ownerDest.which() == PKHashType || ownerDest.which() == WitV0KeyHashType);
+        assert(ownerDest.index() == PKHashType || ownerDest.index() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        CKeyID operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest)) ;
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-                 << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+                 << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
         CScript scriptMeta;
         scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -130,6 +130,7 @@ public:
         consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022. 
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -358,6 +359,7 @@ public:
         consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -547,6 +549,7 @@ public:
         consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -728,6 +731,7 @@ public:
         consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
+        consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -911,11 +915,11 @@ public:
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
-boost::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
+std::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            auto lowerArgName = boost::to_lower_copy(argName);
+            std::string lowerArgName = ToLower(argFlag);
             throw std::runtime_error(strprintf(
                 "Activation height %ld for %s is out of valid range. Use -1 to disable %s.",
                 height, argName, lowerArgName));
@@ -940,7 +944,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
     auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
     if (eunosHeight.has_value()){
-        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
+        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
     UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
@@ -948,6 +952,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
     UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
+    UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

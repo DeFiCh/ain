@@ -75,14 +75,14 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        if (height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+        if (height >= params.EunosPayaHeight) {
             timelock = mnView->GetTimelock(masternodeID, *nodePtr, height);
         }
 
         // Check against EunosPayaHeight here for regtest, does not hurt other networks.
         // Redundant checks, but intentionally kept for easier fork accounting.
-        if (height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
-            const auto usedHeight = height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : height;
+        if (height >= params.DakotaCrescentHeight || height >= params.EunosPayaHeight) {
+            const auto usedHeight = height <= params.EunosHeight ? creationHeight : height;
 
             // Get block times
             subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
@@ -183,7 +183,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
 }
 
-boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
     // if we are trying to sign a signed proof-of-stake block
     if (!pblock->sig.empty()) {
         throw std::logic_error{"Only non-complete PoS block templates are accepted"};
@@ -197,7 +197,7 @@ boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const 
     return {};
 }
 
-boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
+std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
     uint256 hashBlock = pblock->GetHash();
 
     // verify hash target and signature of coinstake tx

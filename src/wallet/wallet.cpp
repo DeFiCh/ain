@@ -444,7 +444,7 @@ void CWallet::UpgradeKeyMetadata()
         return;
     }
 
-    std::unique_ptr<WalletBatch> batch = MakeUnique<WalletBatch>(*database);
+    std::unique_ptr<WalletBatch> batch = std::make_unique<WalletBatch>(*database);
     for (auto& meta_pair : mapKeyMetadata) {
         CKeyMetadata& meta = meta_pair.second;
         if (!meta.hd_seed_id.IsNull() && !meta.has_key_origin && meta.hdKeypath != "s") { // If the hdKeypath is "s", that's the seed and it doesn't have a key origin
@@ -1187,7 +1187,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
 void CWallet::LoadToWallet(const CWalletTx& wtxIn)
 {
     auto ins = mapWallet.insert(wtxIn);
-    mapWallet.modify(ins.first, [this](CWalletTx& wtx) {
+    mapWallet.modify(ins.first, [this](CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) {
         wtx.BindWallet(this);
         AddToSpends(wtx);
         for (const CTxIn& txin : wtx.tx->vin) {
@@ -1920,14 +1920,28 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
     return GetVirtualTransactionSize(CTransaction(txNew));
 }
 
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
+int CWallet::CalculateMaximumSignedInputSizeCached(const CTxOut& txout, bool use_max_sig) const
 {
-    CMutableTransaction txn;
-    txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn.vin[0], txout, use_max_sig)) {
+    auto it = maxInputSizeCache.find(txout.scriptPubKey);
+    if (it == maxInputSizeCache.end()) {
+        int size = CalculateMaximumSignedInputSize(txout, use_max_sig);
+        it = maxInputSizeCache.emplace(txout.scriptPubKey, size).first;
+    }
+    return it->second;
+}
+
+int CWallet::CalculateMaximumSignedInputSize(const CTxOut& txout, bool use_max_sig) const
+{
+    CTxIn txin(COutPoint{});
+    if (!DummySignInput(txin, txout, use_max_sig)) {
         return -1;
     }
-    return GetVirtualTransactionInputSize(txn.vin[0]);
+    return GetVirtualTransactionInputSize(txin);
+}
+
+int CWalletTx::GetSpendSize(unsigned int out, bool use_max_sig) const
+{
+    return pwallet->CalculateMaximumSignedInputSize(tx->vout[out], use_max_sig);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -2002,8 +2016,8 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
     {
         auto locked_chain = chain().lock();
         LOCK(locked_chain->mutex());
-        const Optional<int> start_height = locked_chain->findFirstBlockWithTimeAndHeight(startTime - TIMESTAMP_WINDOW, 0, &start_block);
-        const Optional<int> tip_height = locked_chain->getHeight();
+        const std::optional<int> start_height = locked_chain->findFirstBlockWithTimeAndHeight(startTime - TIMESTAMP_WINDOW, 0, &start_block);
+        const std::optional<int> tip_height = locked_chain->getHeight();
         WalletLogPrintf("%s: Rescanning last %i blocks\n", __func__, tip_height && start_height ? *tip_height - *start_height + 1 : 0);
     }
 
@@ -2056,14 +2070,13 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
 
     fAbortRescan = false;
     uint256 tip_hash;
-    // The way the 'block_height' is initialized is just a workaround for the gcc bug #47679 since version 4.6.0.
-    Optional<int> block_height = MakeOptional(false, int());
+    std::optional<int> block_height;
     double progress_begin;
     double progress_end;
     {
         auto locked_chain = chain().lock();
         LOCK(locked_chain->mutex());
-        if (Optional<int> tip_height = locked_chain->getHeight()) {
+        if (std::optional<int> tip_height = locked_chain->getHeight()) {
             tip_hash = locked_chain->getBlockHash(*tip_height);
         }
         block_height = locked_chain->getBlockHeight(block_hash);
@@ -2108,7 +2121,7 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
         {
             auto locked_chain = chain().lock();
             LOCK(locked_chain->mutex());
-            Optional<int> tip_height = locked_chain->getHeight();
+            std::optional<int> tip_height = locked_chain->getHeight();
             if (!tip_height || *tip_height <= block_height || !locked_chain->getBlockHeight(block_hash)) {
                 // break successfully when rescan has reached the tip, or
                 // previous block is no longer on the chain due to a reorg
@@ -2595,16 +2608,14 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            if (coinControl && coinControl->matchDestination.which() != 0) {
-                CTxDestination dest;
-                ExtractDestination(wtx.tx->vout[i].scriptPubKey, dest);
-                if (dest != coinControl->matchDestination) {
+            if (coinControl && coinControl->matchDestination.index() != 0) {
+                if (wtx.tx->vout[i].scriptPubKey != GetScriptForDestination(coinControl->matchDestination)) {
                     continue;
                 }
             }
 
 
-            bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
+            bool solvable = wtx.IsSolvableOut(i);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
@@ -2679,7 +2690,7 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
     return ptx->vout[n];
 }
 
-bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, const std::vector<OutputGroup>& groups,
                                  std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
     setCoinsRet.clear();
@@ -2697,9 +2708,10 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
         CAmount cost_of_change = GetDiscardRate(*this).GetFee(coin_selection_params.change_spend_size) + coin_selection_params.effective_fee.GetFee(coin_selection_params.change_output_size);
 
         // Filter by the min conf specs and add to utxo_pool and calculate effective value
-        for (OutputGroup& group : groups) {
-            if (!group.EligibleForSpending(eligibility_filter)) continue;
+        for (const OutputGroup& cgroup : groups) {
+            if (!cgroup.EligibleForSpending(eligibility_filter)) continue;
 
+            auto group = cgroup;
             group.fee = 0;
             group.long_term_fee = 0;
             group.effective_value = 0;
@@ -2716,7 +2728,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
                     it = group.Discard(coin);
                 }
             }
-            if (group.effective_value > 0) utxo_pool.push_back(group);
+            if (group.effective_value > 0) utxo_pool.push_back(std::move(group));
         }
         // Calculate the fees for things that aren't inputs
         CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
@@ -2921,7 +2933,7 @@ static bool IsCurrentForAntiFeeSniping(interfaces::Chain& chain, interfaces::Cha
  */
 static uint32_t GetLocktimeForNewTransaction(interfaces::Chain& chain, interfaces::Chain::Lock& locked_chain)
 {
-    uint32_t const height = locked_chain.getHeight().get_value_or(-1);
+    uint32_t const height = locked_chain.getHeight().value_or(-1);
     uint32_t locktime;
     // Discourage fee sniping.
     //
@@ -3027,7 +3039,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         return false;
     }
 
-    const auto txVersion = GetTransactionVersion(locked_chain.getHeight().get_value_or(0));
+    const auto txVersion = GetTransactionVersion(locked_chain.getHeight().value_or(0));
     CMutableTransaction txNew(txVersion);
 
     if (!vTokenValues.empty() && txNew.nVersion < CTransaction::TOKENS_MIN_VERSION)
@@ -3056,7 +3068,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
             CScript scriptChange;
             // coin control: send change to custom address
-            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
+            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
                 scriptChange = GetScriptForDestination(coin_control.destChange);
             } else { // no coin control: send change to newly generated address
                 // Reserve a new key pair from key pool
@@ -3115,9 +3127,10 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             // TODO: pass in scriptChange instead of reservedest so
             // change transaction isn't always pay-to-defi-address
             CScript scriptChange;
+            bool isChangeOutput = false;
 
             // coin control: send change to custom address
-            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
+            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
                 scriptChange = GetScriptForDestination(coin_control.destChange);
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -3140,6 +3153,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     return false;
                 }
 
+                isChangeOutput = true;
                 scriptChange = GetScriptForDestination(dest);
             }
             CTxOut change_prototype_txout(0, scriptChange);
@@ -3211,7 +3225,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 if (pick_new_inputs) {
                     nValueIn = 0;
                     setCoins.clear();
-                    int change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
+                    int change_spend_size = isChangeOutput
+                                          ? CalculateMaximumSignedInputSize(change_prototype_txout)
+                                          : CalculateMaximumSignedInputSizeCached(change_prototype_txout);
                     // If the wallet doesn't know how to sign change output, assume p2sh-p2wpkh
                     // as lower-bound to allow BnB to do it's thing
                     if (change_spend_size == -1) {
@@ -3371,7 +3387,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         // to avoid conflicting with other possible uses of nSequence,
         // and in the spirit of "smallest possible change from prior
         // behavior."
-        const uint32_t nSequence = coin_control.m_signal_bip125_rbf.get_value_or(m_signal_rbf) ? MAX_BIP125_RBF_SEQUENCE : (CTxIn::SEQUENCE_FINAL - 1);
+        const uint32_t nSequence = coin_control.m_signal_bip125_rbf.value_or(m_signal_rbf) ? MAX_BIP125_RBF_SEQUENCE : (CTxIn::SEQUENCE_FINAL - 1);
         for (const auto& coin : selected_coins) {
             txNew.vin.push_back(CTxIn(coin.outpoint, CScript(), nSequence));
         }
@@ -3584,14 +3600,12 @@ DBErrors CWallet::ZapWalletTx(std::vector<CWalletTx>& vWtx)
 
 bool CWallet::SetAddressBookWithDB(WalletBatch& batch, const CTxDestination& address, const std::string& strName, const std::string& strPurpose)
 {
-    bool fUpdated = false;
     {
         LOCK(cs_wallet);
-        std::map<CTxDestination, CAddressBookData>::iterator mi = mapAddressBook.find(address);
-        fUpdated = mi != mapAddressBook.end();
-        mapAddressBook[address].name = strName;
+        auto& bookAddress = mapAddressBook[address];
+        bookAddress.name = strName;
         if (!strPurpose.empty()) /* update purpose only if requested */
-            mapAddressBook[address].purpose = strPurpose;
+            bookAddress.purpose = strPurpose;
     }
     if (!strPurpose.empty() && !batch.WritePurpose(EncodeDestination(address), strPurpose))
         return false;
@@ -4181,7 +4195,7 @@ void CWallet::GetKeyBirthTimes(interfaces::Chain::Lock& locked_chain, std::map<C
     }
 
     // map in which we'll infer heights of other keys
-    const Optional<int> tip_height = locked_chain.getHeight();
+    const std::optional<int> tip_height = locked_chain.getHeight();
     const int max_height = tip_height && *tip_height > 144 ? *tip_height - 144 : 0; // the tip can be reorganized; use a 144-block safety margin
     std::map<CKeyID, int> mapKeyFirstBlock;
     for (const CKeyID &keyid : GetKeys()) {
@@ -4196,7 +4210,7 @@ void CWallet::GetKeyBirthTimes(interfaces::Chain::Lock& locked_chain, std::map<C
     // find first block that affects those keys, if there are any left
     for (const auto& wtx : mapWallet.get<ByHash>()) {
         // iterate over all wallet transactions...
-        if (Optional<int> height = locked_chain.getBlockHeight(wtx.hashBlock)) {
+        if (std::optional<int> height = locked_chain.getBlockHeight(wtx.hashBlock)) {
             // ... which are already in a block
             for (const CTxOut &txout : wtx.tx->vout) {
                 // iterate over all their outputs
@@ -4277,7 +4291,7 @@ unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx) const
 
 bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (boost::get<CNoDestination>(&dest))
+    if (std::get_if<CNoDestination>(&dest))
         return false;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));
@@ -4293,7 +4307,7 @@ bool CWallet::EraseDestData(const CTxDestination &dest, const std::string &key)
 
 void CWallet::LoadDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (boost::get<CNoDestination>(&dest))
+    if (std::get_if<CNoDestination>(&dest))
         return;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));
@@ -4408,7 +4422,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     if (gArgs.GetBoolArg("-zapwallettxes", false)) {
         chain.initMessage(_("Zapping all transactions from wallet...").translated);
 
-        std::unique_ptr<CWallet> tempWallet = MakeUnique<CWallet>(&chain, location, WalletDatabase::Create(location.GetPath()));
+        std::unique_ptr<CWallet> tempWallet = std::make_unique<CWallet>(&chain, location, WalletDatabase::Create(location.GetPath()));
         DBErrors nZapWalletRet = tempWallet->ZapWalletTx(vWtx);
         if (nZapWalletRet != DBErrors::LOAD_OK) {
             chain.initError(strprintf(_("Error loading %s: Wallet corrupted").translated, walletFile));
@@ -4642,7 +4656,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
     walletInstance->TopUpKeyPool();
 
     auto locked_chain = chain.lock();
-    LOCK(walletInstance->cs_wallet);
+    LOCK2(walletInstance->cs_wallet, locked_chain->mutex());
 
     int rescan_height = 0;
     if (!gArgs.GetBoolArg("-rescan", false))
@@ -4650,13 +4664,13 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
         WalletBatch batch(*walletInstance->database);
         CBlockLocator locator;
         if (batch.ReadBestBlock(locator)) {
-            if (const Optional<int> fork_height = locked_chain->findLocatorFork(locator)) {
+            if (const std::optional<int> fork_height = locked_chain->findLocatorFork(locator)) {
                 rescan_height = *fork_height;
             }
         }
     }
 
-    const Optional<int> tip_height = locked_chain->getHeight();
+    const std::optional<int> tip_height = locked_chain->getHeight();
     if (tip_height) {
         walletInstance->m_last_block_processed = locked_chain->getBlockHash(*tip_height);
     } else {
@@ -4689,7 +4703,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
         // No need to read and scan block if block was created before
         // our wallet birthday (as adjusted for block time variability)
         if (walletInstance->nTimeFirstKey) {
-            if (Optional<int> first_block = locked_chain->findFirstBlockWithTimeAndHeight(walletInstance->nTimeFirstKey - TIMESTAMP_WINDOW, rescan_height, nullptr)) {
+            if (std::optional<int> first_block = locked_chain->findFirstBlockWithTimeAndHeight(walletInstance->nTimeFirstKey - TIMESTAMP_WINDOW, rescan_height, nullptr)) {
                 rescan_height = *first_block;
             }
         }
@@ -4815,6 +4829,15 @@ bool CWalletTx::IsImmatureCoinBase(interfaces::Chain::Lock& locked_chain) const
     return GetBlocksToMaturity(locked_chain) > 0;
 }
 
+bool CWalletTx::IsSolvableOut(unsigned int out) const
+{
+    auto it = solvableVouts.find(out);
+    if (it == solvableVouts.end()) {
+        it = solvableVouts.emplace(out, IsSolvable(*pwallet, tx->vout[out].scriptPubKey)).first;
+    }
+    return it->second;
+}
+
 void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
 {
     if (key.IsCompressed() && (type == OutputType::P2SH_SEGWIT || type == OutputType::BECH32)) {
@@ -4846,11 +4869,12 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
                 // Limit output groups to no more than 10 entries, to protect
                 // against inadvertently creating a too-large transaction
                 // when using -avoidpartialspends
-                if (gmap[dst].m_outputs.size() >= OUTPUT_GROUP_MAX_ENTRIES) {
-                    groups.push_back(gmap[dst]);
-                    gmap.erase(dst);
+                auto& goutput = gmap[dst];
+                if (goutput.m_outputs.size() >= OUTPUT_GROUP_MAX_ENTRIES) {
+                    groups.push_back(std::move(goutput));
+                    goutput = OutputGroup{};
                 }
-                gmap[dst].Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
+                goutput.Insert(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
             } else {
                 groups.emplace_back(input_coin, output.nDepth, output.tx->IsFromMe(ISMINE_ALL), ancestors, descendants);
             }

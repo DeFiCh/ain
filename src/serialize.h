@@ -24,7 +24,7 @@
 #include <prevector.h>
 #include <span.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 static const unsigned int MAX_DESER_SIZE = 0x08000000;    // 128M (for submit 64M block via rpc!), old value 32M (0x02000000)
 
@@ -484,9 +484,9 @@ public:
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        if (sizeof(I) == 2) {
+        if constexpr (sizeof(I) == 2) {
             ser_writedata16be(s, (uint16_t) m_val);
-        } else if (sizeof(I) == 4) {
+        } else if constexpr (sizeof(I) == 4) {
             ser_writedata32be(s, (uint32_t) m_val);
         }
     }
@@ -494,11 +494,33 @@ public:
     template<typename Stream>
     void Unserialize(Stream& s)
     {
-        if (sizeof(I) == 2) {
+        if constexpr (sizeof(I) == 2) {
             m_val = (uint16_t) ser_readdata16be(s);
-        } else if (sizeof(I) == 4) {
+        } else if constexpr (sizeof(I) == 4) {
             m_val = (uint32_t) ser_readdata32be(s);
         }
+    }
+};
+
+template<typename I>
+class BigEndianInv : public BigEndian<I>
+{
+public:
+    using BigEndian<I>::BigEndian;
+
+    template<typename Stream>
+    void Serialize(Stream& s) const
+    {
+        this->m_val = ~this->m_val;
+        BigEndian<I>::Serialize(s);
+        this->m_val = ~this->m_val;
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s)
+    {
+        BigEndian<I>::Unserialize(s);
+        this->m_val = ~this->m_val;
     }
 };
 
@@ -554,6 +576,9 @@ CVarInt<Mode, I> WrapVarInt(I& n) { return CVarInt<Mode, I>{n}; }
 
 template<typename I>
 BigEndian<I> WrapBigEndian(I& n) { return BigEndian<I>(n); }
+
+template<typename I>
+BigEndianInv<I> WrapBigEndianInv(I& n) { return BigEndianInv<I>(n); }
 
 /**
  * Forward declarations
@@ -621,8 +646,8 @@ template<typename Stream, typename T> void Unserialize(Stream& os, std::unique_p
 /**
  * variant
  */
-template<typename Stream, typename T, typename ...Args> void Serialize(Stream& os, const boost::variant<T, Args...>& var);
-template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, boost::variant<T, Args...>& var);
+template<typename Stream, typename T, typename ...Args> void Serialize(Stream& os, const std::variant<T, Args...>& var);
+template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, std::variant<T, Args...>& var);
 
 /**
  * If none of the specialized versions above matched, default to calling member function.
@@ -848,12 +873,11 @@ void Unserialize(Stream& is, std::map<K, T, Pred, A>& m)
 {
     m.clear();
     unsigned int nSize = ReadCompactSize(is);
-    typename std::map<K, T, Pred, A>::iterator mi = m.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
         std::pair<K, T> item;
         Unserialize(is, item);
-        mi = m.insert(mi, item);
+        m.insert(m.end(), item);
     }
 }
 
@@ -866,8 +890,8 @@ template<typename Stream, typename K, typename Pred, typename A>
 void Serialize(Stream& os, const std::set<K, Pred, A>& m)
 {
     WriteCompactSize(os, m.size());
-    for (typename std::set<K, Pred, A>::const_iterator it = m.begin(); it != m.end(); ++it)
-        Serialize(os, (*it));
+    for (const auto& entry : m)
+        Serialize(os, entry);
 }
 
 template<typename Stream, typename K, typename Pred, typename A>
@@ -875,12 +899,11 @@ void Unserialize(Stream& is, std::set<K, Pred, A>& m)
 {
     m.clear();
     unsigned int nSize = ReadCompactSize(is);
-    typename std::set<K, Pred, A>::iterator it = m.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
         K key;
         Unserialize(is, key);
-        it = m.insert(it, key);
+        m.insert(m.end(), key);
     }
 }
 
@@ -955,11 +978,11 @@ void UnserializeVariant(Stream& s, V& variant, int target, int index)
 }
 
 template<typename Stream, typename T, typename ...Args>
-void Unserialize(Stream& s, boost::variant<T, Args...>& var)
+void Unserialize(Stream& s, std::variant<T, Args...>& var)
 {
     int index;
     Unserialize(s, index);
-    using Variant = boost::variant<T, Args...>;
+    using Variant = std::variant<T, Args...>;
     UnserializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
 }
 
@@ -972,18 +995,18 @@ template<typename Stream, typename V, typename T, typename ...Args>
 void SerializeVariant(Stream& s, const V& variant, int target, int index)
 {
     if (index == target) {
-        Serialize(s, boost::get<const T>(variant));
+        Serialize(s, std::get<T>(variant));
     } else {
         SerializeVariant<Stream, V, Args...>(s, variant, target, index + 1);
     }
 }
 
 template<typename Stream, typename T, typename ...Args>
-void Serialize(Stream& s, const boost::variant<T, Args...>& var)
+void Serialize(Stream& s, const std::variant<T, Args...>& var)
 {
-    int index = var.which();
+    int index = var.index();
     Serialize(s, index);
-    using Variant = boost::variant<T, Args...>;
+    using Variant = std::variant<T, Args...>;
     SerializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
 }
 

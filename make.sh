@@ -25,7 +25,7 @@ setup_vars() {
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin11
+    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin18
     TARGET=${TARGET:-"${default_target}"}
 
     local default_compiler_flags=""

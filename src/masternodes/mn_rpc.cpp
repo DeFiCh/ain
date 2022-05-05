@@ -12,13 +12,12 @@
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
-CAccounts GetAllMineAccounts(CWallet * const pwallet) {
+CAccounts GetAllMineAccounts(CImmutableCSView& view, CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = ::ChainActive().Height() + 1;
+    CImmutableCSView mnview(view);
+    auto targetHeight = mnview.GetLastHeight() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -204,7 +203,7 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) :
     pwallet(std::move(pwallet)) {
 }
 
@@ -233,6 +232,13 @@ void CWalletCoinsUnlocker::AddLockedCoin(const COutPoint& coin) {
     coins.push_back(coin);
 }
 
+std::shared_ptr<ATTRIBUTES> CImmutableCSView::GetAttributes() const {
+    if (!attributes) {
+        attributes = CCustomCSView::GetAttributes();
+    }
+    return attributes;
+}
+
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx) {
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
@@ -244,14 +250,6 @@ std::string ScriptToString(CScript const& script) {
         return script.GetHex();
     }
     return EncodeDestination(dest);
-}
-
-int chainHeight(interfaces::Chain::Lock& locked_chain)
-{
-    LOCK(locked_chain.mutex());
-    if (auto height = locked_chain.getHeight())
-        return *height;
-    return 0;
 }
 
 static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
@@ -274,7 +272,7 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
-boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
+std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
@@ -282,7 +280,7 @@ boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -348,7 +346,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
     return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
-static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
+static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
@@ -381,7 +379,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         }
         auto authInput = GetAuthInputOnly(pwallet, destination);
         if (authInput) {
-            result.push_back(authInput.get());
+            result.push_back(authInput.value());
         }
         else {
             notFoundYet.insert(auth);
@@ -396,13 +394,13 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
             }
         } else {
-            auths.insert(anyFounder.get());
+            auths.insert(anyFounder.value());
             auto authInput = GetAnyFoundationAuthInput(pwallet);
             if (authInput) {
-                result.push_back(authInput.get());
+                result.push_back(authInput.value());
             }
             else {
-                notFoundYet.insert(anyFounder.get());
+                notFoundYet.insert(anyFounder.value());
             }
         }
     }
@@ -431,11 +429,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
+        CImmutableCSView view(*pcustomcsview);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
-        CCustomCSView view(*pcustomcsview);
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime);
+        auto time = ::ChainActive().Tip()->nTime;
+        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, time);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -453,11 +452,9 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<CAmount> GetFuturesBlock()
+std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
 {
-    LOCK(cs_main);
-
-    const auto attributes = pcustomcsview->GetAttributes();
+    const auto attributes = view.GetAttributes();
     if (!attributes) {
         return {};
     }
@@ -537,7 +534,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -631,7 +628,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -677,8 +674,6 @@ UniValue getgov(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    LOCK(cs_main);
-
     auto name = request.params[0].getValStr();
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
@@ -705,15 +700,14 @@ UniValue listgovs(const JSONRPCRequest& request) {
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
 
-    LOCK(cs_main);
-
     // Get all stored Gov var changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
+    CImmutableCSView view(*pcustomcsview);
+    auto pending = view.GetAllStoredVariables();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {
         UniValue innerResult(UniValue::VARR);
-        auto var = pcustomcsview->GetVariable(name);
+        auto var = view.GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
             ret.pushKV(var->GetName(),var->Export());
@@ -751,15 +745,13 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
 
-    LOCK(cs_main);
-
     UniValue result(UniValue::VBOOL);
     result.setBool(false);
 
     uint256 txHash = ParseHashV(request.params[0], "txid");
     int blockHeight = request.params[1].get_int();
 
-    auto blockindex = ::ChainActive()[blockHeight];
+    auto blockindex = WITH_LOCK(cs_main, return ::ChainActive()[blockHeight]);
     if (!blockindex) {
         return result;
     }
@@ -818,6 +810,8 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue arr(UniValue::VARR);
+    CImmutableCSView view(*pcustomcsview);
+
     for (const auto& item : Params().GetConsensus().smartContracts) {
         UniValue obj(UniValue::VOBJ);
         CTxDestination dest;
@@ -826,7 +820,7 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
         obj.pushKV("call", GetContractCall(item.first));
         obj.pushKV("address", EncodeDestination(dest));
 
-        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        view.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (owner != item.second) {
                 return false;
             }

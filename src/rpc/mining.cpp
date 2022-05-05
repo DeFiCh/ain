@@ -33,8 +33,6 @@
 #include <wallet/wallet.h>
 #include <warnings.h>
 
-#include <boost/thread.hpp>
-
 #include <memory>
 #include <stdint.h>
 
@@ -43,7 +41,7 @@
  * or from the last difficulty change if 'lookup' is nonpositive.
  * If 'height' is nonnegative, compute the estimate at the time when a given block was found.
  */
-static UniValue GetNetworkHashPS(int lookup, int height) {
+static UniValue GetNetworkHashPS(int lookup, int height) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
     CBlockIndex *pb = ::ChainActive().Tip();
 
     if (height >= 0 && height < ::ChainActive().Height())
@@ -120,7 +118,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
     int64_t nTried = 0;
 
     while (true) {
-        boost::this_thread::interruption_point();
+        if (ShutdownRequested()) break;
 
         try {
             auto status = staker.init(Params());

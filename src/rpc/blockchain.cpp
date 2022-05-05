@@ -26,7 +26,6 @@
 #include <script/descriptor.h>
 #include <streams.h>
 #include <sync.h>
-#include <txdb.h>
 #include <txmempool.h>
 #include <undo.h>
 #include <util/strencodings.h>
@@ -34,15 +33,12 @@
 #include <util/validation.h>
 #include <validation.h>
 #include <validationinterface.h>
-#include <versionbitsinfo.h>
 #include <warnings.h>
 
 #include <assert.h>
 #include <stdint.h>
 
 #include <univalue.h>
-
-#include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 #include <condition_variable>
 #include <memory>
@@ -1049,7 +1045,7 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     ::ChainstateActive().ForceFlushStateToDisk();
 
     CCoinsView* coins_view = WITH_LOCK(cs_main, return &ChainstateActive().CoinsDB());
-    if (GetUTXOStats(coins_view, stats)) {
+    if (GetUTXOStats(coins_view, stats, RpcInterruptionPoint)) {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
         ret.pushKV("transactions", (int64_t)stats.nTransactions);
@@ -1336,6 +1332,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningpark", consensusParams.FortCanningParkHeight);
     BuriedForkDescPushBack(softforks, "fortcanninghill", consensusParams.FortCanningHillHeight);
     BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
+    BuriedForkDescPushBack(softforks, "greatworld", consensusParams.GreatWorldHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
@@ -1606,12 +1603,10 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         ResetBlockFailureFlags(pblockindex);
     }
 
-    CValidationState state;
-    ActivateBestChain(state, Params());
-
-    if (!state.IsValid()) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, FormatStateMessage(state));
-    }
+    std::thread([]() {
+        CValidationState state;
+        ActivateBestChain(state, Params());
+    }).detach();
 
     return NullUniValue;
 }
@@ -1886,7 +1881,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         CAmount tx_total_out = 0;
         if (loop_outputs) {
             auto mintingOutputsStart = ~0u;
-            if (auto accountToUtxos = GetAccountToUtxosMsg(*tx)) {
+            if (auto accountToUtxos = GetIf<CAccountToUtxosMessage>(*tx, CustomTxType::AccountToUtxos)) {
                 mintingOutputsStart = accountToUtxos->mintingOutputsStart;
             }
             for (size_t i = 0; i < tx->vout.size(); ++i) {
@@ -2044,7 +2039,7 @@ bool FindScriptPubKey(std::atomic<int>& scan_progress, const std::atomic<bool>& 
         Coin coin;
         if (!cursor->GetKey(key) || !cursor->GetValue(coin)) return false;
         if (++count % 8192 == 0) {
-            boost::this_thread::interruption_point();
+            RpcInterruptionPoint();
             if (should_abort) {
                 // allow to abort the scan via the abort reference
                 return false;

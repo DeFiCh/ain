@@ -6,6 +6,7 @@
 #define DEFI_CONSENSUS_TX_VERIFY_H
 
 #include <amount.h>
+#include <sync.h>
 
 #include <stdint.h>
 #include <vector>
@@ -17,6 +18,8 @@ class CCustomCSView;
 class CTransaction;
 class CValidationState;
 
+extern RecursiveMutex cs_main;
+
 /** Transaction validation functions */
 
 namespace Consensus {
@@ -26,7 +29,7 @@ namespace Consensus {
  * @param[out] txfee Set to the transaction fee if successful.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CCustomCSView * mnview, int nSpendHeight, CAmount& txfee, const CChainParams& chainparams);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CCustomCSView& mnview, int nSpendHeight, CAmount& txfee, const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */

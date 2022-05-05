@@ -11,17 +11,12 @@
 class LP_LOAN_TOKEN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_TOKEN_SPLITS>
 {
 public:
-    virtual ~LP_LOAN_TOKEN_SPLITS() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "LP_LOAN_TOKEN_SPLITS"; }
     static GovVariable * Create() { return new LP_LOAN_TOKEN_SPLITS(); }
 

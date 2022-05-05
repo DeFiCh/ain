@@ -3,21 +3,19 @@
 #include <key_io.h>
 #include <masternodes/res.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/mn_rpc.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <univalue.h>
 
-#include <boost/variant/apply_visitor.hpp>
-#include <boost/variant/static_visitor.hpp>
-
 extern std::string ScriptToString(CScript const& script);
 
-class CCustomTxRpcVisitor : public boost::static_visitor<void>
+class CCustomTxRpcVisitor
 {
     uint32_t height;
     UniValue& rpcInfo;
-    CCustomCSView& mnview;
+    CImmutableCSView& mnview;
     const CTransaction& tx;
 
     void tokenInfo(const CToken& token) const {
@@ -60,8 +58,16 @@ class CCustomTxRpcVisitor : public boost::static_visitor<void>
         rpcInfo.pushKV("availablePairs", availablePairs);
     }
 
+    UniValue tokenBalances(const CBalances& balances) const {
+        UniValue info(UniValue::VOBJ);
+        for (const auto& kv : balances.balances) {
+            info.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
+        }
+        return info;
+    }
+
 public:
-    CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CCustomCSView& mnview, UniValue& rpcInfo)
+    CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CImmutableCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
     }
 
@@ -111,14 +117,7 @@ public:
     }
 
     void operator()(const CMintTokensMessage& obj) const {
-        for (auto const & kv : obj.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj));
     }
 
     void operator()(const CLiquidityMessage& obj) const {
@@ -182,13 +181,13 @@ public:
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
             tokenInfo(tokenPair->second);
-        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
+        if (auto tokenA = mnview.GetToken(obj.idTokenA))
             rpcInfo.pushKV("tokenA", tokenA->name);
-        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
+        if (auto tokenB = mnview.GetToken(obj.idTokenB))
             rpcInfo.pushKV("tokenB", tokenB->name);
-        rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
-        rpcInfo.pushKV("status", obj.poolPair.status);
-        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
+        rpcInfo.pushKV("commission", ValueFromAmount(obj.commission));
+        rpcInfo.pushKV("status", obj.status);
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         customRewardsInfo(obj.rewards);
     }
 
@@ -237,7 +236,8 @@ public:
     }
 
     void operator()(const CGovernanceMessage& obj) const {
-        for (const auto& var : obj.govs) {
+        for (const auto& gov : obj.govs) {
+            auto& var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }
@@ -255,9 +255,7 @@ public:
 
     void operator()(const CUpdateOracleAppointMessage& obj) const {
         rpcInfo.pushKV("oracleId", obj.oracleId.ToString());
-        rpcInfo.pushKV("oracleAddress", ScriptToString(obj.newOracleAppoint.oracleAddress));
-        rpcInfo.pushKV("weightage", obj.newOracleAppoint.weightage);
-        tokenCurrencyPairInfo(obj.newOracleAppoint.availablePairs);
+        (*this)(obj.newOracleAppoint);
     }
 
     void operator()(const CRemoveOracleAppointMessage& obj) const {
@@ -305,7 +303,7 @@ public:
         rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
         rpcInfo.pushKV("orderPrice", ValueFromAmount(obj.orderPrice));
-        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(obj.amountToFill) * arith_uint256(obj.orderPrice) / arith_uint256(COIN)).GetLow64()));
+        auto calcedAmount = MultiplyAmounts(obj.amountToFill, obj.orderPrice);
         rpcInfo.pushKV("amountToFillInToAsset", ValueFromAmount(calcedAmount));
         rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
     }
@@ -427,28 +425,13 @@ public:
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         if (!obj.to.empty())
             rpcInfo.pushKV("to", ScriptToString(obj.to));
-        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
-        for (auto const & kv : obj.amounts.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
     }
 
     void operator()(const CLoanPaybackLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("from", ScriptToString(obj.from));
-        for (auto const & kv : obj.amounts.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
-        }
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
     }
 
     void operator()(const CLoanPaybackLoanV2Message& obj) const {
@@ -457,23 +440,11 @@ public:
         UniValue loans{UniValue::VARR};
         for (auto const & idx : obj.loans) {
             UniValue loan{UniValue::VOBJ};
-            if (auto dtoken = mnview.GetToken(idx.first)) {
-                auto dtokenImpl = static_cast<CTokenImplementation const&>(*dtoken);
-                if (auto dtokenPair = mnview.GetTokenByCreationTx(dtokenImpl.creationTx)) {
-                    loan.pushKV("dTokens",dtokenPair->first.ToString());
-                }
-            }
-            for (auto const & kv : idx.second.balances) {
-                if (auto token = mnview.GetToken(kv.first)) {
-                    auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                    if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                        loan.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                    }
-                }
-            }
+            loan.pushKV("dToken", idx.first.ToString());
+            loan.pushKVs(tokenBalances(idx.second));
             loans.push_back(loan);
         }
-        rpcInfo.pushKV("dToken",loans);
+        rpcInfo.pushKV("dTokens", loans);
     }
 
     void operator()(const CAuctionBidMessage& obj) const {
@@ -496,8 +467,8 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
     auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
-        CCustomCSView mnview(*pcustomcsview);
-        boost::apply_visitor(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
+        CImmutableCSView mnview(*pcustomcsview);
+        std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
     }
     return res;
 }

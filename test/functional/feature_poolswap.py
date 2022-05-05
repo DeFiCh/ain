@@ -196,6 +196,11 @@ class PoolPairTest (DefiTestFramework):
         # 7 Sync
         self.sync_blocks([self.nodes[0], self.nodes[2]])
 
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        # silver is tokenB
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(idGS)], Decimal('9.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(idGS)], Decimal('1.0'))
+
         # 8 Checking that poolswap is correct
         goldCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idGold]
         silverCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idSilver]
@@ -253,6 +258,10 @@ class PoolPairTest (DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(idGS)], Decimal('189.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(idGS)], Decimal('21.0'))
+
         maxPrice = self.nodes[0].listpoolpairs()['1']['reserveB/reserveA']
         # exchange tokens each other should work
         self.nodes[0].poolswap({
@@ -273,6 +282,12 @@ class PoolPairTest (DefiTestFramework):
             "maxPrice": maxPrice,
         })
         self.nodes[0].generate(1)
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a'%(idGS)], Decimal('180.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a'%(idGS)], Decimal('20.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(idGS)], Decimal('369.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(idGS)], Decimal('41.0'))
 
         # Test fort canning max price change
         disconnect_nodes(self.nodes[0], 1)
@@ -390,6 +405,12 @@ class PoolPairTest (DefiTestFramework):
             })
         self.nodes[0].generate(1)
 
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_a'%(idBL)], Decimal('0.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_a'%(idBL)], Decimal('0.0'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_swap_b'%(idBL)], Decimal('0.00000189'))
+        assert_equal(attributes['v0/live/economy/dex/%s/total_commission_b'%(idBL)], Decimal('1E-8'))
+
         assert_equal(self.nodes[0].getaccount(new_dest, {}, True)[idBTC], Decimal('0.00000002'))
 
         # Reset swap and move to Fort Canning Park Height and try swap again
@@ -428,7 +449,9 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.05', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.08'})
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(idGS)], '0.05')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(idGS)], '0.08')
 
         result = self.nodes[0].getpoolpair(idGS)
         assert_equal(result[idGS]['dexFeePctTokenA'], Decimal('0.05'))
@@ -461,11 +484,17 @@ class PoolPairTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
 
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(idGS)], dexinfee)
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(idGS)], dexoutfee)
+
         # set 1% token dex fee and commission
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01'})
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(idGS)], '0.01')
 
         self.nodes[0].updatepoolpair({"pool": "GS", "commission": 0.01})
         self.nodes[0].generate(1)
@@ -489,7 +518,11 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'}})
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES'], {'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idGS): '0.01', 'v0/poolpairs/%s/token_a_fee_pct'%(idBL): '0.01', 'v0/poolpairs/%s/token_b_fee_pct'%(idBL): '0.01'})
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(idGS)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(idBL)], '0.01')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(idBL)], '0.01')
 
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
@@ -527,6 +560,10 @@ class PoolPairTest (DefiTestFramework):
         amountA = reserveA - pool['reserveA']
         dexoutfee = round(trunc(amountA * Decimal(0.05) * coin) / coin, 8)
         assert_equal(round(amountA - Decimal(dexoutfee), 8), round(swapped, 8))
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(idBL)], round(dexinfee, 8))
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(idBL)], Decimal(str(round(dexoutfee, 8))))
 
         # REVERTING:
         #========================

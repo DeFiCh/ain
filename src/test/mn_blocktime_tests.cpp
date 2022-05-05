@@ -19,7 +19,8 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     mn.ownerAuthAddress = minter;
     uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
 
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView view(*pcustomcsview);
+    CCustomCSView mnview(view);
     mnview.CreateMasternode(mnId, mn, 0);
 
     // Add time records
@@ -29,24 +30,24 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     mnview.Flush();
 
     // Make sure result is found and returns result previous to 200
-    const auto time200 = pcustomcsview->GetMasternodeLastBlockTime(minter, 200);
+    const auto time200 = view.GetMasternodeLastBlockTime(minter, 200);
     BOOST_CHECK_EQUAL(*time200, 1000);
 
     // Make sure result is found and returns result previous to 200
-    const auto time300 = pcustomcsview->GetMasternodeLastBlockTime(minter, 300);
+    const auto time300 = view.GetMasternodeLastBlockTime(minter, 300);
     BOOST_CHECK_EQUAL(*time300, 2000);
 
     // For max value we expect the last result
-    const auto timeMax = pcustomcsview->GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
+    const auto timeMax = view.GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
     BOOST_CHECK_EQUAL(*timeMax, 3000);
 
     // Delete entry
-    CCustomCSView mnviewTwo(*pcustomcsview.get());
+    CCustomCSView mnviewTwo(view);
     mnviewTwo.EraseMasternodeLastBlockTime(mnId, 300);
     mnviewTwo.Flush();
 
     // Should now return result before deleted entry
-    const auto time2001 = pcustomcsview->GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
+    const auto time2001 = view.GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
     BOOST_CHECK_EQUAL(*time2001, 2000);
 }
 
@@ -63,7 +64,8 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time_multi)
     mn.ownerAuthAddress = minter;
     uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
 
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView view(*pcustomcsview);
+    CCustomCSView mnview(view);
     mnview.CreateMasternode(mnId, mn, 0);
 
     // Add time records
@@ -82,33 +84,33 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time_multi)
     mnview.Flush();
 
     // Make sure result is found and returns result previous to 200
-    const auto time200 = pcustomcsview->GetSubNodesBlockTime(minter, 200);
+    const auto time200 = view.GetSubNodesBlockTime(minter, 200);
     BOOST_CHECK_EQUAL(time200[0], 1000);
     BOOST_CHECK_EQUAL(time200[1], 1000);
     BOOST_CHECK_EQUAL(time200[2], 1000);
     BOOST_CHECK_EQUAL(time200[3], 1000);
 
     // Make sure result is found and returns result previous to 200
-    const auto time300 = pcustomcsview->GetSubNodesBlockTime(minter, 300);
+    const auto time300 = view.GetSubNodesBlockTime(minter, 300);
     BOOST_CHECK_EQUAL(time300[0], 2000);
     BOOST_CHECK_EQUAL(time300[1], 2000);
     BOOST_CHECK_EQUAL(time300[2], 2000);
     BOOST_CHECK_EQUAL(time300[3], 2000);
 
     // For max value we expect the last result
-    const auto timeMax = pcustomcsview->GetSubNodesBlockTime(minter, std::numeric_limits<uint32_t>::max());
+    const auto timeMax = view.GetSubNodesBlockTime(minter, std::numeric_limits<uint32_t>::max());
     BOOST_CHECK_EQUAL(timeMax[0], 3000);
     BOOST_CHECK_EQUAL(timeMax[1], 3000);
     BOOST_CHECK_EQUAL(timeMax[2], 3000);
     BOOST_CHECK_EQUAL(timeMax[3], 3000);
 
     // Delete entry
-    CCustomCSView mnviewTwo(*pcustomcsview.get());
+    CCustomCSView mnviewTwo(view);
     mnviewTwo.EraseSubNodesLastBlockTime(mnId, 300);
     mnviewTwo.Flush();
 
     // Should now return result before deleted entry
-    const auto time2001 = pcustomcsview->GetSubNodesBlockTime(minter, std::numeric_limits<uint32_t>::max());
+    const auto time2001 = view.GetSubNodesBlockTime(minter, std::numeric_limits<uint32_t>::max());
     BOOST_CHECK_EQUAL(time2001[0], 2000);
     BOOST_CHECK_EQUAL(time2001[1], 2000);
     BOOST_CHECK_EQUAL(time2001[2], 2000);

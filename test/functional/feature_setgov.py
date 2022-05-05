@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -89,7 +89,7 @@ class GovsetTest (DefiTestFramework):
         try:
             self.nodes[0].setgov({
                 "LP_SPLITS": { "0": 0.5, "1": 0.4, "2": 0.2 }
-                })
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("id=0 not found" in errorString)
@@ -97,8 +97,8 @@ class GovsetTest (DefiTestFramework):
         # set LP_SPLITS with total >100%
         try:
             self.nodes[0].setgov({
-            "LP_SPLITS": { "1": 0.5, "2": 0.4, "3": 0.2 }
-                })
+                "LP_SPLITS": { "1": 0.5, "2": 0.4, "3": 0.2 }
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("total" in errorString)
@@ -121,8 +121,8 @@ class GovsetTest (DefiTestFramework):
         pool2 = self.nodes[0].getpoolpair("2", True)['2']
         pool3 = self.nodes[0].getpoolpair("3", True)['3']
         assert (pool1['rewardPct'] == Decimal('0.50000000')
-            and pool2['rewardPct'] == Decimal('0.40000000')
-            and pool3['rewardPct'] == Decimal('0.10000000'))
+                and pool2['rewardPct'] == Decimal('0.40000000')
+                and pool3['rewardPct'] == Decimal('0.10000000'))
 
         # start node 1 and sync for reverting to this chain point
         self.start_node(1)
@@ -140,8 +140,8 @@ class GovsetTest (DefiTestFramework):
         pool2 = self.nodes[1].getpoolpair("2", True)['2']
         pool3 = self.nodes[1].getpoolpair("3", True)['3']
         assert (pool1['rewardPct'] == Decimal('0.50000000')
-            and pool2['rewardPct'] == Decimal('0.40000000')
-            and pool3['rewardPct'] == Decimal('0.10000000'))
+                and pool2['rewardPct'] == Decimal('0.40000000')
+                and pool3['rewardPct'] == Decimal('0.10000000'))
 
         # disconnect node #1
         disconnect_nodes(self.nodes[0], 1)
@@ -185,8 +185,8 @@ class GovsetTest (DefiTestFramework):
         pool2 = self.nodes[0].getpoolpair("2", True)['2']
         pool3 = self.nodes[0].getpoolpair("3", True)['3']
         assert (pool1['rewardPct'] == Decimal('0.50000000')
-            and pool2['rewardPct'] == Decimal('0.40000000')
-            and pool3['rewardPct'] == Decimal('0.10000000'))
+                and pool2['rewardPct'] == Decimal('0.40000000')
+                and pool3['rewardPct'] == Decimal('0.10000000'))
         self.nodes[0].clearmempool()
 
         # Generate to Eunos hard fork
@@ -444,8 +444,8 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported version", self.nodes[0].setgov, {"ATTRIBUTES":{'1/token/15/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: locks, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
@@ -488,11 +488,11 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].setloantoken({
-                                    'symbol': 'TSLA',
-                                    'name': "TSLA",
-                                    'fixedIntervalPriceId': "TSLA/USD",
-                                    'mintable': False,
-                                    'interest': 5})
+            'symbol': 'TSLA',
+            'name': "TSLA",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': False,
+            'interest': 5})
         self.nodes[0].generate(1)
 
         # Test setting of new Gov var
@@ -582,6 +582,56 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
         assert_equal(result['v0/token/5/dfip2203'], 'true')
+
+        # Check GW attrs cannot be set yet
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+
+        # Move to GreatWorld
+        self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
+
+        # Set GW ATTRIBUTE with invalid settings
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Price feed DUFF/USD does not belong to any oracle", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'DUFF/USD'}})
+        assert_raises_rpc_error(-5, "Empty token / currency", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':' /USD'}})
+        assert_raises_rpc_error(-5, "Empty token / currency", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'DUFF/ '}})
+        assert_raises_rpc_error(-5, "Empty token / currency", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':' / '}})
+        assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/fixed_interval_price_id':'TSLA/USD'}})
+        assert_raises_rpc_error(-5, "Exactly two entires expected for currency pair", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'5'}})
+        assert_raises_rpc_error(-5, "Exactly two entires expected for currency pair", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'5/10/20'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'not_a_bool'}})
+        assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'-1'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000001'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'not_a_number'}})
+        assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_factor':'1'}})
+        assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'not_a_bool'}})
+        assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_minting_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'-1'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'not_a_number'}})
+        assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_minting_interest':'1'}})
+        assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'1'}})
+        assert_raises_rpc_error(-5, "Unrecognised locks argument provided, valid lockss are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/oracle/5':'true'}})
+        assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/4':'true'}})
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dex_in_fee_pct':'0.6','v0/token/5/dex_out_fee_pct':'0.12'}})
+        self.nodes[0].generate(1)
+
+        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attriutes['v0/token/5/dex_in_fee_pct'], '0.6')
+        assert_equal(attriutes['v0/token/5/dex_out_fee_pct'], '0.12')
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        self.nodes[0].generate(1)
+
+        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attriutes['v0/locks/token/5'], 'true')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

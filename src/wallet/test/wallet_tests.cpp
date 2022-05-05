@@ -48,6 +48,7 @@ static CMutableTransaction TestSimpleSpend(const CTransaction& from, uint32_t in
 
 BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
 {
+    LockAssertion lock(cs_main);
     uint256 masternodesID = testMasternodeKeys.begin()->first; // TODO: (temp) !!!
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* oldTip = ::ChainActive().Tip();
@@ -57,7 +58,6 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
 
     auto chain = interfaces::MakeChain();
     auto locked_chain = chain->lock();
-    LockAssertion lock(::cs_main);
 
     // Verify ScanForWalletTransactions accommodates a null start block.
     {
@@ -132,6 +132,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
 
 BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
 {
+    LockAssertion lock(cs_main);
     uint256 masternodesID = testMasternodeKeys.begin()->first;
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* oldTip = ::ChainActive().Tip();
@@ -141,7 +142,6 @@ BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
 
     auto chain = interfaces::MakeChain();
     auto locked_chain = chain->lock();
-    LockAssertion lock(::cs_main);
 
     // Prune the older block file.
     PruneOneBlockFile(oldTip->GetBlockPos().nFile);
@@ -194,6 +194,7 @@ BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
 // than or equal to key birthday.
 BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 {
+    LockAssertion lock(cs_main);
     uint256 masternodesID = testMasternodeKeys.begin()->first; // TODO: (temp) !!!
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.
@@ -210,7 +211,6 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 
     auto chain = interfaces::MakeChain();
     auto locked_chain = chain->lock();
-    LockAssertion lock(::cs_main);
 
     std::string backup_file = (GetDataDir() / "wallet.backup").string();
 
@@ -290,6 +290,9 @@ BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
 
 static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
 {
+    LockAssertion lock(cs_main);
+    LockAssertion wallet_lock(wallet.cs_wallet);
+
     CMutableTransaction tx;
     tx.nLockTime = lockTime;
     SetMockTime(mockTime);
@@ -309,11 +312,8 @@ static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64
     if (block) {
         wtx.SetMerkleBranch(block->GetBlockHash(), 0);
     }
-    {
-        LOCK(cs_main);
-        wallet.AddToWallet(wtx);
-    }
-    LOCK(wallet.cs_wallet);
+
+    wallet.AddToWallet(wtx);
     return wallet.GetWalletTx(wtx.GetHash())->nTimeSmart;
 }
 
@@ -366,7 +366,7 @@ public:
     {
         uint256 masternodesID = testMasternodeKeys.begin()->first;
         CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
-        wallet = MakeUnique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
+        wallet = std::make_unique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
         bool firstRun;
         wallet->LoadWallet(firstRun);
         AddKey(*wallet, coinbaseKey);
@@ -432,7 +432,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 1U);
 
     // Check initial balance from one mature coinbase transaction.
@@ -449,7 +449,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
 
     // Lock both coins. Confirm number of available coins drops to 0.
@@ -481,7 +481,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
         list = wallet->ListCoins(*locked_chain);
     }
     BOOST_CHECK_EQUAL(list.size(), 1U);
-    BOOST_CHECK_EQUAL(boost::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
+    BOOST_CHECK_EQUAL(std::get<PKHash>(list.begin()->first).ToString(), coinbaseAddress);
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 2U);
 }
 

@@ -171,7 +171,7 @@ UniValue stop(const JSONRPCRequest& jsonRequest)
     // this reply will get back to the client.
     StartShutdown();
     if (jsonRequest.params[0].isNum()) {
-        MilliSleep(jsonRequest.params[0].get_int());
+        UninterruptibleSleep(std::chrono::milliseconds{jsonRequest.params[0].get_int()});
     }
     return "Defi server stopping";
 }
@@ -307,6 +307,11 @@ bool IsRPCRunning()
     return g_rpc_running;
 }
 
+void RpcInterruptionPoint()
+{
+    if (!IsRPCRunning()) throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Shutting down");
+}
+
 void SetRPCWarmupStatus(const std::string& newStatus)
 {
     LOCK(cs_rpcWarmup);
@@ -337,34 +342,28 @@ bool IsDeprecatedRPCEnabled(const std::string& method)
 
 static UniValue JSONRPCExecOne(JSONRPCRequest jreq, const UniValue& req)
 {
-    UniValue rpc_result(UniValue::VOBJ);
-
     try {
         jreq.parse(req);
-
-        UniValue result = tableRPC.execute(jreq);
-        rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
+        return JSONRPCReplyObj(tableRPC.execute(jreq), NullUniValue, jreq.id);
     }
     catch (const UniValue& objError)
     {
-        rpc_result = JSONRPCReplyObj(NullUniValue, objError, jreq.id);
+        return JSONRPCReplyObj(NullUniValue, objError, jreq.id);
     }
     catch (const std::exception& e)
     {
-        rpc_result = JSONRPCReplyObj(NullUniValue,
-                                     JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+        return JSONRPCReplyObj(NullUniValue,
+                               JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
     }
-
-    return rpc_result;
 }
 
-std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq)
+UniValue JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq)
 {
     UniValue ret(UniValue::VARR);
     for (unsigned int reqIdx = 0; reqIdx < vReq.size(); reqIdx++)
         ret.push_back(JSONRPCExecOne(jreq, vReq[reqIdx]));
 
-    return ret.write() + "\n";
+    return ret;
 }
 
 /**

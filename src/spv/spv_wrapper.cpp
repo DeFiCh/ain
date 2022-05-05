@@ -31,7 +31,7 @@
 
 extern RecursiveMutex cs_main;
 
-RecursiveMutex cs_spvcallback;
+CLockFreeMutex cs_spvcallback;
 
 const int ENOSPV         = 100000;
 const int EPARSINGTX     = 100001;
@@ -96,21 +96,21 @@ void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
 }
 
 void syncStopped(void *info, int error)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
 }
 
 void txStatusUpdate(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
 }
@@ -129,14 +129,14 @@ void blockNotify(void *info, const UInt256& blockHash)
 
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
 }
 
 void threadCleanup(void *info)
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
 }
@@ -252,10 +252,10 @@ void CSpvWrapper::Load()
             if (entry.second.purpose == "spv")
             {
                 uint160 userHash;
-                if (entry.first.which() == PKHashType) {
-                    userHash = *boost::get<PKHash>(&entry.first);
-                } else if (entry.first.which() == WitV0KeyHashType) {
-                    userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
+                if (entry.first.index() == PKHashType) {
+                    userHash = std::get<PKHash>(entry.first);
+                } else if (entry.first.index() == WitV0KeyHashType) {
+                    userHash = std::get<WitnessV0KeyHash>(entry.first);
                 } else {
                     continue;
                 }
@@ -266,7 +266,7 @@ void CSpvWrapper::Load()
             }
             else if (entry.second.purpose == "htlc")
             {
-                uint160 userHash = *boost::get<ScriptHash>(&entry.first);
+                uint160 userHash = std::get<ScriptHash>(entry.first);
                 UInt160 spvHash;
                 UIntConvert(userHash.begin(), spvHash);
                 htlcAddresses->insert(spvHash);
@@ -301,7 +301,7 @@ void CSpvWrapper::Load()
 
 CSpvWrapper::~CSpvWrapper()
 {
-    LOCK(cs_spvcallback);
+    CLockFreeGuard lock(cs_spvcallback);
     if (manager) {
         BRPeerManagerFree(manager);
         manager = nullptr;
@@ -1360,7 +1360,7 @@ UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinat
         LOCK(item->cs_wallet);
         for (const auto& entry : item->mapAddressBook) {
             if (entry.second.purpose == "htlc") {
-                htlcAddresses.insert(*boost::get<ScriptHash>(&entry.first));
+                htlcAddresses.insert(std::get<ScriptHash>(entry.first));
             }
         }
     }

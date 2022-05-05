@@ -219,6 +219,8 @@ class RESTTest (DefiTestFramework):
         assert_equal(self.test_rest_request('/headers/1/{}'.format(bb_hash)), [])
         self.test_rest_request('/block/{}'.format(bb_hash))
         self.nodes[0].reconsiderblock(bb_hash)
+        # NOTE reconsiderblock does not block allowing further invalidation
+        self.nodes[0].waitforblock(bb_hash)
 
         # Check binary format
         response = self.test_rest_request("/block/{}".format(bb_hash), req_type=ReqType.BIN, ret_type=RetType.OBJ)

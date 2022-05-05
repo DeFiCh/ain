@@ -48,19 +48,33 @@ public:
     void AddLockedCoin(const COutPoint& coin);
 };
 
+// immutable type preventing accident data flush to parent view
+class CImmutableCSView : public CCustomCSView {
+public:
+    CImmutableCSView(CImmutableCSView&&) = delete;
+    CImmutableCSView(const CImmutableCSView&) = delete;
+    CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
+    CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
+
+    std::shared_ptr<ATTRIBUTES> GetAttributes() const final;
+
+private:
+    mutable std::shared_ptr<ATTRIBUTES> attributes;
+    bool Flush(bool = false) final { return false; }
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
-int chainHeight(interfaces::Chain::Lock& locked_chain);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
 std::string ScriptToString(CScript const& script);
-CAccounts GetAllMineAccounts(CWallet* const pwallet);
+CAccounts GetAllMineAccounts(CImmutableCSView& view, CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock();
+std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

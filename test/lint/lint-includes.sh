@@ -50,12 +50,9 @@ fi
 
 EXPECTED_BOOST_INCLUDES=(
     boost/algorithm/string.hpp
-    boost/algorithm/string/case_conv.hpp
     boost/algorithm/string/classification.hpp
-    boost/algorithm/string/join.hpp
     boost/algorithm/string/replace.hpp
     boost/algorithm/string/split.hpp
-    boost/chrono/chrono.hpp
     boost/date_time/posix_time/posix_time.hpp
     boost/filesystem.hpp
     boost/filesystem/fstream.hpp
@@ -68,24 +65,12 @@ EXPECTED_BOOST_INCLUDES=(
     boost/multi_index/mem_fun.hpp
     boost/multi_index/member.hpp
     boost/multi_index/tag.hpp
-    boost/optional.hpp
     boost/preprocessor/cat.hpp
     boost/preprocessor/stringize.hpp
-    boost/range/adaptor/transformed.hpp
-    boost/scoped_ptr.hpp
-    boost/shared_ptr.hpp
     boost/signals2/connection.hpp
     boost/signals2/last_value.hpp
     boost/signals2/signal.hpp
     boost/test/unit_test.hpp
-    boost/thread.hpp
-    boost/thread/condition_variable.hpp
-    boost/thread/mutex.hpp
-    boost/thread/thread.hpp
-    boost/variant.hpp
-    boost/variant/apply_visitor.hpp
-    boost/variant/static_visitor.hpp
-    boost/multiprecision/cpp_int.hpp
 )
 
 for BOOST_INCLUDE in $(git grep '^#include <boost/' -- "*.cpp" "*.h" | cut -f2 -d: | cut -f2 -d'<' | cut -f1 -d'>' | sort -u); do

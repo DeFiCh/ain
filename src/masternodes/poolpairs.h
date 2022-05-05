@@ -79,14 +79,13 @@ struct CPoolSwapMessageV2 {
     }
 };
 
-struct CPoolPairMessage {
+struct CPoolPairMessageBase {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;   // comission %% for traders
     CScript ownerAddress;
     bool status = true;
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(idTokenA);
@@ -97,14 +96,45 @@ struct CPoolPairMessage {
     }
 };
 
-class CPoolPair : public CPoolPairMessage
+struct CCreatePoolPairMessage : public CPoolPairMessageBase {
+    std::string pairSymbol;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPoolPairMessageBase, *this);
+        READWRITE(pairSymbol);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+struct CUpdatePoolPairMessage {
+    DCT_ID poolId;
+    bool status;
+    CAmount commission;
+    CScript ownerAddress;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(poolId.v);
+        READWRITE(status);
+        READWRITE(commission);
+        READWRITE(ownerAddress);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+class CPoolPair : public CPoolPairMessageBase
 {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE = 1000;
     static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair(CPoolPairMessage const & msg = {}) : CPoolPairMessage(msg) {}
-    virtual ~CPoolPair() = default;
 
     // temporary values, not serialized
     CAmount reserveA = 0;
@@ -151,7 +181,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         if (!ser_action.ForRead()) ioProofer();
 
-        READWRITEAS(CPoolPairMessage, *this);
+        READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(rewards);
         READWRITE(creationTx);
         READWRITE(creationHeight);
@@ -182,14 +212,7 @@ struct PoolHeightKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(poolID);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-        }
+        READWRITE(WrapBigEndianInv(height));
     }
 };
 
@@ -211,8 +234,8 @@ public:
     Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const & pool);
     Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress, CBalances const & rewards);
 
-    boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
+    std::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
+    std::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolId(std::function<bool(DCT_ID const &)> callback, DCT_ID const & start = DCT_ID{0});
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CPoolPair)> callback, DCT_ID const & start = DCT_ID{0});
@@ -221,7 +244,7 @@ public:
     Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height);
     Res DelShare(DCT_ID const & poolId, CScript const & provider);
 
-    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
+    std::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 

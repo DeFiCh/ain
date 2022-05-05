@@ -122,7 +122,7 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
     return Res::Ok();
 }
 
-boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
+std::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
 {
     const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
     auto it = LowerBound<ByFuturesSwapKey>(key);
@@ -133,11 +133,7 @@ boost::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
     return {};
 }
 
-ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key) {
-    CFuturesUserValue source;
-    if (!ReadBy<ByFuturesSwapKey>(key, source)) {
-        return Res::Err("Failed to read futures source");
-    }
-
-    return {source, Res::Ok()};
+std::optional<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key)
+{
+    return ReadBy<ByFuturesSwapKey, CFuturesUserValue>(key);
 }

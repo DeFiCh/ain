@@ -4,10 +4,11 @@
 
 #include <bench/bench.h>
 #include <interfaces/chain.h>
-#include <optional.h>
 #include <test/util.h>
 #include <validationinterface.h>
 #include <wallet/wallet.h>
+
+#include <optional>
 
 static void WalletBalance(benchmark::State& state, const bool set_dirty, const bool add_watchonly, const bool add_mine)
 {
@@ -22,11 +23,11 @@ static void WalletBalance(benchmark::State& state, const bool set_dirty, const b
     }
 
 
-    const Optional<std::string> address_mine{add_mine ? Optional<std::string>{getnewaddress(wallet)} : nullopt};
+    const std::optional<std::string> address_mine{add_mine ? std::optional<std::string>{getnewaddress(wallet)} : std::nullopt};
     if (add_watchonly) importaddress(wallet, ADDRESS_WATCHONLY);
 
     for (int i = 0; i < 100; ++i) {
-        generatetoaddress(address_mine.get_value_or(ADDRESS_WATCHONLY));
+        generatetoaddress(address_mine.value_or(ADDRESS_WATCHONLY));
         generatetoaddress(ADDRESS_WATCHONLY);
     }
     SyncWithValidationInterfaceQueue();
@@ -39,6 +40,7 @@ static void WalletBalance(benchmark::State& state, const bool set_dirty, const b
         if (add_mine) assert(bal.m_mine_trusted[DCT_ID{0}] > 0);            // tokens `0`
         if (add_watchonly) assert(bal.m_watchonly_trusted[DCT_ID{0}] > 0);  // tokens `0`
     }
+    wallet.NotifyUnload();
 }
 
 static void WalletBalanceDirty(benchmark::State& state) { WalletBalance(state, /* set_dirty */ true, /* add_watchonly */ true, /* add_mine */ true); }

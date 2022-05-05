@@ -9,13 +9,12 @@
 #include <script/script.h>
 #include <script/standard.h>
 #include <serialize.h>
+#include <shutdown.h>
+#include <sync.h>
 #include <uint256.h>
 
 #include <functional>
 #include <vector>
-
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -25,13 +24,13 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-#include <boost/thread.hpp>
-
 #include <dbwrapper.h>
 
 class CBlockIndex;
 class CKey;
 class CPubkey;
+
+extern RecursiveMutex cs_main;
 
 namespace spv
 {
@@ -53,7 +52,7 @@ struct CAnchorData
     uint256 previousAnchor;         ///< Previous tx-AnchorAnnouncement on BTC chain
     THeight height;                 ///< Height of the anchor block (DeFi)
     uint256 blockHash;              ///< Hash of the anchor block (DeFi)
-    CTeam nextTeam;                 ///< Calculated based on stake modifier at {blockHash}
+    CTeam heightAndHash;            ///< Single entry with anchor marker, height and block hash prefix
 
     uint256 GetSignHash() const;
 
@@ -64,7 +63,7 @@ struct CAnchorData
          READWRITE(previousAnchor);
          READWRITE(height);
          READWRITE(blockHash);
-         READWRITE(nextTeam);
+         READWRITE(heightAndHash);
     }
 };
 
@@ -173,14 +172,14 @@ public:
         >
     > Auths;
 
-    Auth const * GetAuth(uint256 const & msgHash) const;
-    Auth const * GetVote(uint256 const & signHash, CKeyID const & signer) const;
-    bool ValidateAuth(Auth const & auth) const;
-    bool AddAuth(Auth const & auth);
+    Auth const * GetAuth(uint256 const & msgHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    Auth const * GetVote(uint256 const & signHash, CKeyID const & signer) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ValidateAuth(Auth const & auth) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AddAuth(Auth const & auth) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
-    void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
-    void PruneOlderThan(THeight height);
+    CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void PruneOlderThan(THeight height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 private:
     Auths auths;
@@ -189,8 +188,8 @@ private:
 class CAnchorIndex
 {
 private:
-    boost::shared_ptr<CDBWrapper> db;
-    boost::scoped_ptr<CDBBatch> batch;
+    std::shared_ptr<CDBWrapper> db;
+    std::unique_ptr<CDBBatch> batch;
 public:
     using Signature = std::vector<unsigned char>;
     using CTeam = CAnchorData::CTeam;
@@ -226,29 +225,27 @@ public:
     > AnchorIndexImpl;
 
     CAnchorIndex(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    bool Load();
+    bool Load() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const;
-    AnchorRec const * GetActiveAnchor() const;
-    bool ActivateBestAnchor(bool forced = false); // rescan anchors
+    void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    AnchorRec const * GetActiveAnchor() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ActivateBestAnchor(bool forced = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main); // rescan anchors
 
-    AnchorRec const * GetAnchorByTx(uint256 const & hash) const;
+    AnchorRec const * GetAnchorByTx(uint256 const & hash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
-    bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
+    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool DeleteAnchorByBtcTx(uint256 const & btcTxHash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    CAnchorData::CTeam GetNextTeam(uint256 const & btcPrevTx) const;
-
-    AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
+    AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     using UnrewardedResult = std::set<uint256>;
-    UnrewardedResult GetUnrewarded() const;
+    UnrewardedResult GetUnrewarded() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    int GetAnchorConfirmations(uint256 const & txHash) const;
-    int GetAnchorConfirmations(AnchorRec const * rec) const;
+    int GetAnchorConfirmations(uint256 const & txHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    int GetAnchorConfirmations(AnchorRec const * rec) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     void CheckActiveAnchor(uint32_t height, bool forced = false);
-    void UpdateLastHeight(uint32_t height);
+    void UpdateLastHeight(uint32_t height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Post-fork anchor pending, requires chain context to validate. Some pending may be bogus, intentional or not.
     bool AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = false);
@@ -257,13 +254,13 @@ public:
     void ForEachPending(std::function<void (const uint256 &, AnchorRec &)> callback);
 
     // Used to apply chain context to post-fork anchors which get added to pending.
-    void CheckPendingAnchors();
+    void CheckPendingAnchors(uint32_t height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Store and read Bitcoin block hash by height, used in BestOfTwo calculation.
     bool WriteBlock(const uint32_t height, const uint256& blockHash);
     uint256 ReadBlockHash(const uint32_t& height);
 
-    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
+    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 private:
     AnchorIndexImpl anchors;
@@ -275,12 +272,12 @@ private:
     template <typename Key, typename Value>
     bool IterateTable(char prefix, std::function<void(Key const &, Value &)> callback)
     {
-        boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+        std::unique_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
         pcursor->Seek(prefix);
 
         while (pcursor->Valid())
         {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
             {
@@ -312,6 +309,8 @@ struct CAnchorConfirmData
     THeight prevAnchorHeight;
     CKeyID rewardKeyID;
     char rewardKeyType;
+    uint256 dfiBlockHash;
+    THeight btcTxHeight;
 
     uint256 GetSignHash() const;
 
@@ -324,73 +323,13 @@ struct CAnchorConfirmData
         READWRITE(prevAnchorHeight);
         READWRITE(rewardKeyID);
         READWRITE(rewardKeyType);
-    }
-};
-
-
-// derived from common struct at list to avoid serialization mistakes
-struct CAnchorFinalizationMessage : public CAnchorConfirmData
-{
-    using Signature = std::vector<unsigned char>;
-
-    // (base data + teams + all signs)
-    CAnchorData::CTeam nextTeam;
-    CAnchorData::CTeam currentTeam;
-    std::vector<Signature> sigs;
-
-    CAnchorFinalizationMessage(CAnchorConfirmData const & base = CAnchorConfirmData())
-        : CAnchorConfirmData(base)
-        , nextTeam()
-        , currentTeam()
-        , sigs()
-    {}
-
-    bool CheckConfirmSigs();
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CAnchorConfirmData, *this);
-        READWRITE(nextTeam);
-        READWRITE(currentTeam);
-        READWRITE(sigs);
-    }
-};
-
-
-struct CAnchorConfirmDataPlus : public CAnchorConfirmData
-{
-    uint256 dfiBlockHash;
-    THeight btcTxHeight{0};
-
-    CAnchorConfirmDataPlus(const uint256& btcTxHash, const THeight anchorHeight, const THeight prevAnchorHeight, const CKeyID& rewardKeyID,
-                           const char rewardKeyType, const uint256& dfiBlockHash, const THeight btcTxHeight)
-        : CAnchorConfirmData{btcTxHash, anchorHeight, prevAnchorHeight, rewardKeyID, rewardKeyType},
-          dfiBlockHash{dfiBlockHash},
-          btcTxHeight{btcTxHeight}
-    {}
-
-    explicit CAnchorConfirmDataPlus(const CAnchorFinalizationMessage& base)
-        : CAnchorConfirmData(base)
-    {}
-
-    CAnchorConfirmDataPlus() = default;
-
-    uint256 GetSignHash() const;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CAnchorConfirmData, *this);
         READWRITE(dfiBlockHash);
         READWRITE(btcTxHeight);
     }
 };
 
 // single confirmation message
-class CAnchorConfirmMessage : public CAnchorConfirmDataPlus
+class CAnchorConfirmMessage : public CAnchorConfirmData
 {
 public:
     using Signature = std::vector<unsigned char>;
@@ -398,12 +337,12 @@ public:
     // (base data + single sign)
     Signature signature;
 
-    CAnchorConfirmMessage(CAnchorConfirmDataPlus const & base = CAnchorConfirmDataPlus())
-        : CAnchorConfirmDataPlus(base)
+    CAnchorConfirmMessage(CAnchorConfirmData const & base = CAnchorConfirmData())
+        : CAnchorConfirmData(base)
         , signature()
     {}
 
-    static boost::optional<CAnchorConfirmMessage> CreateSigned(const CAnchor &anchor, const THeight prevAnchorHeight,
+    static std::optional<CAnchorConfirmMessage> CreateSigned(const CAnchor &anchor, const THeight prevAnchorHeight,
                                                                const uint256 &btcTxHash, CKey const & key, const THeight btcTxHeight);
     uint256 GetHash() const;
     CKeyID GetSigner() const;
@@ -412,7 +351,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CAnchorConfirmDataPlus, *this);
+        READWRITEAS(CAnchorConfirmData, *this);
         READWRITE(signature);
     }
 
@@ -424,22 +363,22 @@ public:
 };
 
 // derived from common struct at list to avoid serialization mistakes
-struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus
+struct CAnchorFinalizationMessage : public CAnchorConfirmData
 {
     std::vector<CAnchorConfirmMessage::Signature> sigs;
 
-    CAnchorFinalizationMessagePlus(CAnchorConfirmDataPlus const & base = CAnchorConfirmDataPlus())
-        : CAnchorConfirmDataPlus(base)
+    CAnchorFinalizationMessage(CAnchorConfirmData const & base = CAnchorConfirmData())
+        : CAnchorConfirmData(base)
         , sigs()
     {}
 
-    size_t CheckConfirmSigs(const uint32_t height);
+    size_t CheckConfirmSigs(CAnchorData::CTeam const & team, const uint32_t height);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CAnchorConfirmDataPlus, *this);
+        READWRITEAS(CAnchorConfirmData, *this);
         READWRITE(sigs);
     }
 };
@@ -466,7 +405,7 @@ private:
             // just to remember that there may be confirms with equal btcTxHeight, but with different teams!
             ordered_unique<
                 tag<Confirm::ByKey>, composite_key<Confirm,
-                    member<CAnchorConfirmDataPlus, THeight, &CAnchorConfirmDataPlus::btcTxHeight>,
+                    member<CAnchorConfirmData, THeight, &CAnchorConfirmData::btcTxHeight>,
                     member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>,
                     const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
@@ -475,7 +414,7 @@ private:
             // it may by quite expensive to index by GetSigner on the fly, but it should happen only on insertion
             ordered_unique<
                 tag<Confirm::ByVote>, composite_key<Confirm,
-                    const_mem_fun<CAnchorConfirmDataPlus, uint256, &CAnchorConfirmDataPlus::GetSignHash>,
+                    const_mem_fun<CAnchorConfirmData, uint256, &CAnchorConfirmData::GetSignHash>,
                     const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
             >
@@ -485,15 +424,15 @@ private:
     Confirms confirms;
 
 public:
-    bool EraseAnchor(AnchorTxHash const &txHash);
-    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const;
-    bool Add(CAnchorConfirmMessage const &newConfirmMessage);
-    bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-    void Clear();
-    void ReVote();
-    std::vector<CAnchorConfirmMessage> GetQuorumFor(CAnchorData::CTeam const & team) const;
+    bool EraseAnchor(AnchorTxHash const &txHash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool Add(CAnchorConfirmMessage const &newConfirmMessage) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool Validate(CAnchorConfirmMessage const &confirmMessage) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void Clear() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void ReVote() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(CAnchorData::CTeam const & team) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
+    void ForEachConfirm(std::function<void(Confirm const &)> callback) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 };
 
 template <typename TContainer>
@@ -517,13 +456,17 @@ CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations
-bool ValidateAnchor(CAnchor const & anchor);
+bool ValidateAnchor(CAnchor const & anchor) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Validate anchor in the context of the active chain. This is used for anchor auths and anchors read from Bitcoin.
-bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBlock, uint64_t &anchorCreationHeight);
+bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBlock, uint64_t &anchorCreationHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-// Get info from data embedded into CAnchorData::nextTeam
+// Get info from data embedded into CAnchorData::heightAndHash
 bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, std::shared_ptr<std::vector<unsigned char>>& prefix);
+
+void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor, const uint256 & btcTxHash, const CKey& masternodeKey) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 // Selects "best" of two anchors at the equal btc height (prevs must be checked before)
 CAnchorIndex::AnchorRec const* BestOfTwo(CAnchorIndex::AnchorRec const* a1, CAnchorIndex::AnchorRec const* a2);

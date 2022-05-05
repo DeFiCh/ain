@@ -1,4 +1,7 @@
 #include <masternodes/mn_rpc.h>
+
+#include <masternodes/govvariables/attributes.h>
+
 #include <index/txindex.h>
 
 UniValue createtoken(const JSONRPCRequest& request) {
@@ -75,7 +78,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
-    if (collateralDest.which() == 0) {
+    if (collateralDest.index() == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
     }
 
@@ -102,7 +105,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -205,59 +208,60 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[1].get_obj();
     UniValue const & txInputs = request.params[2];
 
-    CTokenImplementation tokenImpl;
+    std::optional<CTokenImplementation> token;
     CTxDestination ownerDest;
     CScript owner;
     int targetHeight;
     {
-        LOCK(cs_main);
         DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        CImmutableCSView view(*pcustomcsview);
+
+        token = view.GetTokenGuessId(tokenStr, id);
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
-        tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        if (tokenImpl.IsPoolShare()) {
+        if (token->IsPoolShare()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is the LPS token! Can't alter pool share's tokens!", tokenStr));
         }
 
-        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+        LOCK(cs_main);
+        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
         if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+                               strprintf("Can't extract destination for token's %s collateral", token->symbol));
         }
         owner = authCoin.out.scriptPubKey;
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
-        tokenImpl.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token->symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     }
     if (!metaObj["name"].isNull()) {
-        tokenImpl.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token->name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     }
     if (!metaObj["isDAT"].isNull()) {
-        tokenImpl.flags = metaObj["isDAT"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::DAT :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::DAT;
+        token->flags = metaObj["isDAT"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::DAT :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::DAT;
     }
     if (!metaObj["tradeable"].isNull()) {
-        tokenImpl.flags = metaObj["tradeable"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Tradeable :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
+        token->flags = metaObj["tradeable"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Tradeable :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
     }
     if (!metaObj["mintable"].isNull()) {
-        tokenImpl.flags = metaObj["mintable"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable :
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
+        token->flags = metaObj["mintable"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Mintable :
+                       token->flags & ~(uint8_t)CToken::TokenFlags::Mintable;
     }
     if (!metaObj["finalize"].isNull()) {
-        tokenImpl.flags = metaObj["finalize"].getBool() ?
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Finalized :
-                              tokenImpl.flags;
+        token->flags = metaObj["finalize"].getBool() ?
+                       token->flags | (uint8_t)CToken::TokenFlags::Finalized :
+                       token->flags;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -290,11 +294,11 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     // tx type and serialized data differ:
     if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
-                 << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
+                 << token->creationTx <<  metaObj["isDAT"].getBool();
     }
     else {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny)
-                 << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
+                 << token->creationTx << static_cast<CToken>(*token); // casting to base token's data
     }
 
     CScript scriptMeta;
@@ -319,7 +323,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
+UniValue tokenToJSON(CImmutableCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -333,7 +337,16 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
-        tokenObj.pushKV("isLoanToken", token.IsLoanToken());
+
+        auto loanToken{token.IsLoanToken()};
+        if (!loanToken) {
+            if (auto attributes = view.GetAttributes()) {
+                CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            }
+        }
+        tokenObj.pushKV("isLoanToken", loanToken);
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("creationTx", token.creationTx.ToString());
@@ -341,6 +354,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
         tokenObj.pushKV("destructionHeight", token.destructionHeight);
         if (!token.IsPoolShare()) {
+            LOCK(cs_main);
             const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
             tokenObj.pushKV("collateralAddress", ScriptToString(authCoin.out.scriptPubKey));
         } else {
@@ -410,14 +424,11 @@ UniValue listtokens(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
-
-        limit--;
-        return limit != 0;
+    CImmutableCSView view(*pcustomcsview);
+    view.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
+        ret.pushKVs(tokenToJSON(view, id, token, verbose));
+        return --limit != 0;
     }, start);
 
     return ret;
@@ -439,12 +450,11 @@ UniValue gettoken(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    LOCK(cs_main);
-
     DCT_ID id;
-    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    CImmutableCSView view(*pcustomcsview);
+    auto token = view.GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *token, true);
+        return tokenToJSON(view, id, *token, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
@@ -537,17 +547,18 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     UniValue txResults(UniValue::VOBJ);
     Res res{};
 
+    CCustomCSView mnview(*pcustomcsview);
+
     if (tx)
     {
-        LOCK(cs_main);
-
         // Found a block hash but no block index yet
         if (!hashBlock.IsNull() && !blockindex) {
+            LOCK(cs_main);
             blockindex = LookupBlockIndex(hashBlock);
         }
 
         // Default to next block height
-        nHeight = ::ChainActive().Height() + 1;
+        nHeight = mnview.GetLastHeight() + 1;
 
         // Get actual height if blockindex avaiable
         if (blockindex) {
@@ -576,7 +587,6 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     if (!actualHeight) {
 
         LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
@@ -596,13 +606,11 @@ UniValue getcustomtx(const JSONRPCRequest& request)
     }
 
     if (!hashBlock.IsNull()) {
-        LOCK(cs_main);
-
         result.pushKV("blockhash", hashBlock.GetHex());
         if (blockindex) {
             result.pushKV("blockHeight", blockindex->nHeight);
             result.pushKV("blockTime", blockindex->GetBlockTime());
-            result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
+            result.pushKV("confirmations", 1 + mnview.GetLastHeight() - blockindex->nHeight);
         } else {
             result.pushKV("confirmations", 0);
         }
@@ -654,7 +662,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue const & txInputs = request.params[1];
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    CImmutableCSView view(*pcustomcsview);
+
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -664,15 +674,14 @@ UniValue minttokens(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     bool needFoundersAuth = false;
     if (txInputs.isNull() || txInputs.empty()) {
-        LOCK(cs_main);
+        LOCK(cs_main); // needed for coins tip
         for (auto const & kv : minted.balances) {
-            auto token = pcustomcsview->GetToken(kv.first);
+            auto token = view.GetToken(kv.first);
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            auto& tokenImpl = static_cast<CTokenImplementation const& >(*token);
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-            if (tokenImpl.IsDAT()) {
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+            if (token->IsDAT()) {
                 needFoundersAuth = true;
             }
             auths.insert(authCoin.out.scriptPubKey);
@@ -756,7 +765,6 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 
     if (tx)
     {
-        LOCK(cs_main);
         // Default to INT_MAX
         nHeight = std::numeric_limits<int>::max();
 

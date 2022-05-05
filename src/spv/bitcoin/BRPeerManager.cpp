@@ -35,10 +35,9 @@
 #include <limits.h>
 #include <time.h>
 #include <assert.h>
+#include <thread>
 
 #include <compat.h>
-
-#include <boost/thread.hpp>
 
 //#include <pthread.h>
 //#include <errno.h>
@@ -206,7 +205,7 @@ struct BRPeerManagerStruct {
     void (*savePeers)(void *info, int replace, const BRPeer peers[], size_t peersCount);
     int (*networkIsReachable)(void *info);
     void (*threadCleanup)(void *info);
-    boost::mutex lock;
+    CLockFreeMutex lock;
 };
 
 static void _BRPeerManagerPeerMisbehavin(BRPeerManager *manager, BRPeer *peer)
@@ -763,7 +762,7 @@ static void *_findPeersThreadRoutine(void *arg)
 }
 
 // DNS peer discovery
-static void _BRPeerManagerFindPeers(BRPeerManager *manager)
+static void _BRPeerManagerFindPeers(BRPeerManager *manager) EXCLUSIVE_LOCKS_REQUIRED(manager->lock)
 {
     uint64_t services = SERVICES_NODE_NETWORK | SERVICES_NODE_BLOOM | manager->params->services;
     time_t now = time(NULL);
@@ -779,7 +778,7 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
     else {
         size_t peerCount = array_count(manager->peers);
 
-        std::vector<boost::thread> tmpDnsThreads;
+        std::vector<std::thread> tmpDnsThreads;
 
         for (size_t i = 1; manager->params->dnsSeeds[i]; i++) {
             info = (BRFindPeersInfo *)calloc(1, sizeof(BRFindPeersInfo));
@@ -788,7 +787,7 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
             info->hostname = manager->params->dnsSeeds[i];
             info->services = services;
 
-            tmpDnsThreads.push_back(boost::thread(boost::bind(_findPeersThreadRoutine, info)));
+            tmpDnsThreads.push_back(std::thread(std::bind(_findPeersThreadRoutine, info)));
             tmpDnsThreads.back().detach();
             manager->dnsThreadCount++;
         }
@@ -2069,14 +2068,17 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
 {
     assert(manager != NULL);
     assert(tx != NULL && BRTransactionIsSigned(tx));
-    if (tx) manager->lock.lock();
-    
-    if (tx && ! BRTransactionIsSigned(tx)) {
+    if (!tx)
+        return;
+
+    manager->lock.lock();
+
+    if (! BRTransactionIsSigned(tx)) {
         manager->lock.unlock();
         if (callback) callback(info, WSAEINVAL); // transaction not signed
-        tx = NULL;
+        return;
     }
-    else if (tx && ! manager->isConnected) {
+    else if (! manager->isConnected) {
         int connectFailureCount = manager->connectFailureCount;
 
         manager->lock.unlock();
@@ -2084,46 +2086,44 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
         if (connectFailureCount >= MAX_CONNECT_FAILURES ||
             (manager->networkIsReachable && ! manager->networkIsReachable(manager->info))) {
             if (callback) callback(info, ENOTCONN); // not connected to bitcoin network
-            tx = NULL;
-        }
-        else manager->lock.lock();
-    }
-    
-    if (tx) {
-        size_t i, count = 0;
-        
-        tx->timestamp = (uint32_t)time(NULL); // set timestamp to publish time
-        if (_BRPeerManagerAddTxToPublishList(manager, tx, info, callback) != 0) {
-            manager->lock.unlock();
-            if (callback)
-                callback(info, WSAEALREADY);
             return;
         }
-
-        for (i = array_count(manager->connectedPeers); i > 0; i--) {
-            if (BRPeerConnectStatus(manager->connectedPeers[i - 1]) == BRPeerStatusConnected) count++;
-        }
-
-        for (i = array_count(manager->connectedPeers); i > 0; i--) {
-            BRPeer *peer = manager->connectedPeers[i - 1];
-            BRPeerCallbackInfo *peerInfo;
-
-            if (BRPeerConnectStatus(peer) != BRPeerStatusConnected) continue;
-            
-            // instead of publishing to all peers, leave out downloadPeer to see if tx propogates/gets relayed back
-            // TODO: XXX connect to a random peer with an empty or fake bloom filter just for publishing
-            if (peer != manager->downloadPeer || count == 1) {
-                _BRPeerManagerPublishPendingTx(manager, peer);
-                peerInfo = (BRPeerCallbackInfo *)calloc(1, sizeof(*peerInfo));
-                assert(peerInfo != NULL);
-                peerInfo->peer = peer;
-                peerInfo->manager = manager;
-                BRPeerSendPing(peer, peerInfo, _publishTxInvDone);
-            }
-        }
-
-        manager->lock.unlock();
+        manager->lock.lock();
     }
+
+    size_t i = 0, count = 0;
+
+    tx->timestamp = (uint32_t)time(NULL); // set timestamp to publish time
+    if (_BRPeerManagerAddTxToPublishList(manager, tx, info, callback) != 0) {
+        manager->lock.unlock();
+        if (callback)
+            callback(info, WSAEALREADY);
+        return;
+    }
+
+    for (i = array_count(manager->connectedPeers); i > 0; i--) {
+        if (BRPeerConnectStatus(manager->connectedPeers[i - 1]) == BRPeerStatusConnected) count++;
+    }
+
+    for (i = array_count(manager->connectedPeers); i > 0; i--) {
+        BRPeer *peer = manager->connectedPeers[i - 1];
+        BRPeerCallbackInfo *peerInfo;
+
+        if (BRPeerConnectStatus(peer) != BRPeerStatusConnected) continue;
+
+        // instead of publishing to all peers, leave out downloadPeer to see if tx propogates/gets relayed back
+        // TODO: XXX connect to a random peer with an empty or fake bloom filter just for publishing
+        if (peer != manager->downloadPeer || count == 1) {
+            _BRPeerManagerPublishPendingTx(manager, peer);
+            peerInfo = (BRPeerCallbackInfo *)calloc(1, sizeof(*peerInfo));
+            assert(peerInfo != NULL);
+            peerInfo->peer = peer;
+            peerInfo->manager = manager;
+            BRPeerSendPing(peer, peerInfo, _publishTxInvDone);
+        }
+    }
+
+    manager->lock.unlock();
 }
 
 // number of connected peers that have relayed the given unconfirmed transaction

@@ -132,7 +132,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)};
     // encode
@@ -243,11 +243,11 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CUpdateOracleAppointMessage msg{
-            oracleId,
-            CAppointOracleMessage{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)}
+        oracleId,
+        CAppointOracleMessage{std::move(script), uint8_t(weightage), std::move(allowedPairs)}
     };
 
     // encode
@@ -328,7 +328,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     CRemoveOracleAppointMessage msg{};
     msg.oracleId = ParseHashV(request.params[0], "oracleid");
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -452,7 +452,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         auto currency = value[oraclefields::Currency].getValStr();
         auto tokenAmount = value[oraclefields::TokenAmount].getValStr();
         auto amounts = ParseTokenAmount(tokenAmount);
-        if (!amounts.ok) {
+        if (!amounts) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, amounts.msg);
         }
 
@@ -462,9 +462,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CTokenPrices tokenPrices;
 
     for (const auto &value : prices.get_array().getValues()) {
-        std::string currency;
-        std::pair<CAmount, std::string> tokenAmount;
-        std::tie(currency, tokenAmount) = parseDataItem(value);
+        const auto [currency, tokenAmount] = parseDataItem(value);
         tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
     }
 
@@ -473,15 +471,16 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     int targetHeight;
     CScript oracleAddress;
     {
-        LOCK(cs_main);
+        CImmutableCSView view(*pcustomcsview);
+
         // check if tx parameters are valid
-        auto oracleRes = pcustomcsview->GetOracleData(oracleId);
-        if (!oracleRes.ok) {
+        auto oracleRes = view.GetOracleData(oracleId);
+        if (!oracleRes) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
         oracleAddress = oracleRes.val->oracleAddress;
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     // timestamp is checked at consensus level
@@ -529,11 +528,11 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 }
 
 bool diffInHour(int64_t time1, int64_t time2) {
-    constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
+    constexpr const int64_t SECONDS_PER_HOUR = 3600u;
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
-std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CImmutableCSView &mnview){
     auto fixedBlocks = mnview.GetIntervalBlock();
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
@@ -607,11 +606,10 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+    CImmutableCSView mnview(*pcustomcsview); // don't write into actual DB
 
     auto oracleRes = mnview.GetOracleData(oracleId);
-    if (!oracleRes.ok) {
+    if (!oracleRes) {
         throw JSONRPCError(RPC_DATABASE_ERROR, oracleRes.msg);
     }
 
@@ -677,10 +675,8 @@ UniValue listoracles(const JSONRPCRequest &request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue value(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
+    CImmutableCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         if (!including_start)
         {
@@ -688,8 +684,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
             return (true);
         }
         value.push_back(id.GetHex());
-        limit--;
-        return limit != 0;
+        return --limit != 0;
     }, start);
 
     return value;
@@ -739,7 +734,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
-    boost::optional<CTokenCurrencyPair> tokenPair;
+    std::optional<CTokenCurrencyPair> tokenPair;
 
     // parse pagination
     COracleId start = {};
@@ -767,9 +762,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    CImmutableCSView mnview(*pcustomcsview);
+    auto height = mnview.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -805,7 +800,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto state = diffInHour(timestamp, lastBlockTime) ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
                 result.push_back(value);
-                limit--;
+                if (--limit == 0) {
+                    return false;
+                }
             }
         }
         return limit != 0;
@@ -840,13 +837,13 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
                 }
                 ++numLiveOracles;
                 sumWeights += oracle.weightage;
-                weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
+                weightedSum += arith_uint256(amount) * oracle.weightage;
             }
         }
         return true;
     });
 
-    static const auto minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
+    static const uint64_t minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
 
     if (numLiveOracles < minimumLiveOracles) {
         return Res::Err("no live oracles for specified request");
@@ -856,17 +853,17 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
         return Res::Err("all live oracles which meet specified request, have zero weight");
     }
 
-    ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+    ResVal<CAmount> res((weightedSum / sumWeights).GetLow64(), Res::Ok());
     LogPrint(BCLog::LOAN, "%s(): %s/%s=%lld\n", __func__, token, currency, *res.val);
     return res;
 }
 
 namespace {
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
+    UniValue GetAllAggregatePrices(CImmutableCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
         size_t limit = 100;
-        int start = 0;
+        uint32_t start = 0;
         bool including_start = true;
         if (!paginationObj.empty()){
             if (!paginationObj["limit"].isNull()) {
@@ -879,6 +876,9 @@ namespace {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
+            if (!including_start) {
+                ++start;
+            }
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
@@ -888,14 +888,9 @@ namespace {
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
             const auto& pairs = oracle.availablePairs;
-            if(start > pairs.size()-1)
-                return true;
-            const auto& startingPairIt = std::next(pairs.begin(), start);
-            if(!including_start){
-                setTokenCurrency.insert(std::next(pairs.begin(), start+1), pairs.end());
-                return true;
+            if (start < pairs.size()) {
+                setTokenCurrency.insert(std::next(pairs.begin(), start), pairs.end());
             }
-            setTokenCurrency.insert(startingPairIt, pairs.end());
             return true;
         });
         for (const auto& tokenCurrency : setTokenCurrency) {
@@ -912,9 +907,9 @@ namespace {
                 item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
             }
             result.push_back(item);
-            limit--;
-            if (limit == 0)
+            if (--limit == 0) {
                 break;
+            }
         }
         return result;
     }
@@ -948,9 +943,9 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    CImmutableCSView view(*pcustomcsview);
+    auto height = view.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
@@ -1008,9 +1003,9 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    CImmutableCSView view(*pcustomcsview);
+    auto height = view.GetLastHeight();
+    auto lastBlockTime = WITH_LOCK(cs_main, return ::ChainActive()[height]->GetBlockTime());
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
@@ -1038,24 +1033,27 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     }.Check(request);
 
     auto fixedIntervalStr = request.params[0].getValStr();
+
     UniValue objPrice{UniValue::VOBJ};
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
 
-    LOCK(cs_main);
     LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
-    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
-    if(!fixedPrice)
+
+    CImmutableCSView view(*pcustomcsview);
+    auto fixedPrice = view.GetFixedIntervalPrice(pairId);
+    if (!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    auto height = view.GetLastHeight();
+    auto priceBlocks = GetFixedIntervalPriceBlocks(height, view);
 
     objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
     objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
     objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
-    objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
+    objPrice.pushKV("isLive", fixedPrice.val->isLive(view.GetPriceDeviation()));
     return objPrice;
 }
 
@@ -1106,20 +1104,17 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
-
     UniValue listPrice{UniValue::VARR};
-    pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+    CImmutableCSView view(*pcustomcsview);
+    view.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         UniValue obj{UniValue::VOBJ};
         obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
         obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
         obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
         obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-        obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
+        obj.pushKV("isLive", fixedIntervalPrice.isLive(view.GetPriceDeviation()));
         listPrice.push_back(obj);
-        limit--;
-        return limit != 0;
+        return --limit != 0;
     }, start);
     return listPrice;
 }
@@ -1136,19 +1131,16 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    LOCK(cs_main);
+    CImmutableCSView view(*pcustomcsview);
+    const auto currentHeight = view.GetLastHeight();
 
-    const auto currentHeight = ::ChainActive().Height();
-
-    const auto block = GetFuturesBlock();
+    const auto block = GetFuturesBlock(view);
     if (!block) {
         return 0;
     }
 
     return currentHeight + (*block - (currentHeight % *block));
 }
-
-
 
 static const CRPCCommand commands[] =
 {
@@ -1165,7 +1157,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfutureswapblock",         &getfutureswapblock,          {}},
+    {"oracles",     "getfutureswapblock",      &getfutureswapblock,       {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

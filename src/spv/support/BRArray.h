@@ -61,7 +61,7 @@ extern "C" {
 
 #define array_new(array, capacity) do {\
     size_t _array_cap = (capacity);\
-    (array) = static_cast<std::decay<decltype(array)>::type>((void *)((size_t *)calloc(1, _array_cap*sizeof(*(array)) + sizeof(size_t)*2) + 2));\
+    (array) = static_cast<std::decay_t<decltype(array)>>((void *)((size_t *)calloc(1, _array_cap*sizeof(*(array)) + sizeof(size_t)*2) + 2));\
     assert((array) != NULL);\
     array_capacity(array) = _array_cap;\
     array_count(array) = 0;\
@@ -73,7 +73,7 @@ extern "C" {
     size_t _array_cap = (capacity);\
     assert((array) != NULL);\
     assert(_array_cap >= array_count(array));\
-    (array) = static_cast<std::decay<decltype(array)>::type>((void *)((size_t *)realloc((size_t *)(array) - 2, _array_cap*sizeof(*(array)) + sizeof(size_t)*2) + 2));\
+    (array) = static_cast<std::decay_t<decltype(array)>>((void *)((size_t *)realloc((size_t *)(array) - 2, _array_cap*sizeof(*(array)) + sizeof(size_t)*2) + 2));\
     assert((array) != NULL);\
     if (_array_cap > array_capacity(array))\
         memset((array) + array_capacity(array), 0, (_array_cap - array_capacity(array))*sizeof(*(array)));\

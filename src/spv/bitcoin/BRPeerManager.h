@@ -30,8 +30,12 @@
 #include "BRTransaction.h"
 #include "BRWallet.h"
 #include "BRChainParams.h"
+
+#include <map>
 #include <stddef.h>
 #include <inttypes.h>
+
+#include <map>
 
 #define PEER_MAX_CONNECTIONS 3
 

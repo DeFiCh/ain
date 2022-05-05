@@ -6,7 +6,6 @@
 #ifndef DEFI_MINER_H
 #define DEFI_MINER_H
 
-#include <optional.h>
 #include <primitives/block.h>
 #include <key.h>
 #include <timedata.h>
@@ -14,6 +13,7 @@
 #include <validation.h>
 
 #include <memory>
+#include <optional>
 #include <stdint.h>
 
 #include <boost/multi_index_container.hpp>
@@ -176,8 +176,8 @@ public:
     /** Construct a new block template with coinbase to scriptPubKeyIn */
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0);
 
-    static Optional<int64_t> m_last_block_num_txs;
-    static Optional<int64_t> m_last_block_weight;
+    inline static std::optional<int64_t> m_last_block_num_txs{};
+    inline static std::optional<int64_t> m_last_block_weight{};
 
 private:
     // utility functions
@@ -190,7 +190,7 @@ private:
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs, ::cs_main);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -254,8 +254,8 @@ namespace pos {
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
+        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs GUARDED_BY(cs_MNLastBlockCreationAttemptTs);
+        static CLockFreeMutex cs_MNLastBlockCreationAttemptTs;
 
         // Variables to manage search time across threads
         static int64_t nLastCoinStakeSearchTime;

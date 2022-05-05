@@ -29,8 +29,7 @@
 #include <set>
 #include <stdint.h>
 
-#include <boost/optional.hpp>
-
+class ATTRIBUTES;
 class CBlockIndex;
 class CTransaction;
 
@@ -131,6 +130,71 @@ public:
     friend bool operator!=(CMasternode const & a, CMasternode const & b);
 };
 
+struct CCreateMasterNodeMessage {
+    char operatorType;
+    CKeyID operatorAuthAddress;
+    uint16_t timelock{0};
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+
+        // Only available after EunosPaya
+        if (!s.eof()) {
+            READWRITE(timelock);
+        }
+    }
+};
+
+struct CResignMasterNodeMessage : public uint256 {
+    using uint256::uint256;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(uint256, *this);
+    }
+};
+
+struct CSetForcedRewardAddressMessage {
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(nodeId);
+        READWRITE(rewardAddressType);
+        READWRITE(rewardAddress);
+    }
+};
+
+struct CRemForcedRewardAddressMessage {
+    uint256 nodeId;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(nodeId);
+    }
+};
+
+struct CUpdateMasterNodeMessage {
+    uint256 mnId;
+    char operatorType;
+    CKeyID operatorAuthAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(mnId);
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+    }
+};
 
 struct MNBlockTimeKey
 {
@@ -142,14 +206,7 @@ struct MNBlockTimeKey
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(masternodeID);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        } else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
+        READWRITE(WrapBigEndianInv(blockHeight));
     }
 };
 
@@ -165,42 +222,30 @@ struct SubNodeBlockTimeKey
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(masternodeID);
         READWRITE(subnode);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        } else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
+        READWRITE(WrapBigEndianInv(blockHeight));
     }
 };
 
 class CMasternodesView : public virtual CStorageView
 {
-    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
-
 public:
-//    CMasternodesView() = default;
 
-    boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
-    boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
-    boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
+    std::optional<CMasternode> GetMasternode(uint256 const & id) const;
+    std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
+    std::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
     void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
 
     void IncrementMintedBy(const uint256& nodeId);
     void DecrementMintedBy(const uint256& nodeId);
 
-    boost::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
-    boost::optional<std::pair<CKeyID, uint256>> AmIOwner() const;
+    std::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
+    std::optional<std::pair<CKeyID, uint256>> AmIOwner() const;
 
     // Multiple operator support
     std::set<std::pair<CKeyID, uint256>> GetOperatorsMulti() const;
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-    Res UnCreateMasternode(uint256 const & nodeId);
-    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
     Res RemForcedRewardAddress(uint256 const & nodeId, int height);
     Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
@@ -210,7 +255,7 @@ public:
 
     // Non-subnode block times
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
-    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
+    std::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
 
@@ -258,12 +303,12 @@ class CTeamView : public virtual CStorageView
 public:
     using CTeam = CAnchorData::CTeam;
 
-    void SetTeam(CTeam const & newTeam);
     void SetAnchorTeams(CTeam const & authTeam, CTeam const & confirmTeam, const int height);
 
-    CTeam GetCurrentTeam() const;
-    boost::optional<CTeam> GetAuthTeam(int height) const;
-    boost::optional<CTeam> GetConfirmTeam(int height) const;
+    std::optional<CTeam> GetAuthTeam(int height) const;
+    std::optional<CTeam> GetConfirmTeam(int height) const;
+
+    void EraseLegacyTeam();
 
     struct AuthTeam     { static constexpr uint8_t prefix() { return 'v'; } };
     struct ConfirmTeam  { static constexpr uint8_t prefix() { return 'V'; } };
@@ -276,7 +321,7 @@ public:
     using RewardTxHash = uint256;
     using AnchorTxHash = uint256;
 
-    boost::optional<RewardTxHash> GetRewardForAnchor(AnchorTxHash const &btcTxHash) const;
+    std::optional<RewardTxHash> GetRewardForAnchor(AnchorTxHash const &btcTxHash) const;
 
     void AddRewardForAnchor(AnchorTxHash const &btcTxHash, RewardTxHash const & rewardTxHash);
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
@@ -290,11 +335,11 @@ class CAnchorConfirmsView : public virtual CStorageView
 public:
     using AnchorTxHash = uint256;
 
-    std::vector<CAnchorConfirmDataPlus> GetAnchorConfirmData();
+    std::vector<CAnchorConfirmData> GetAnchorConfirmData();
 
-    void AddAnchorConfirmData(const CAnchorConfirmDataPlus& data);
+    void AddAnchorConfirmData(const CAnchorConfirmData& data);
     void EraseAnchorConfirmData(const uint256 btcTxHash);
-    void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback);
+    void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmData>)> callback);
 
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
@@ -384,7 +429,7 @@ class CCustomCSView
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
-private:
+
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
@@ -397,27 +442,27 @@ public:
         CheckPrefixes();
     }
 
-    CCustomCSView(CStorageKV & st)
-        : CStorageView(new CFlushableStorageKV(st))
+    CCustomCSView(CStorageView&) = delete;
+    CCustomCSView(CCustomCSView&&) = default;
+    CCustomCSView(const CCustomCSView&) = delete;
+
+    CCustomCSView(std::shared_ptr<CStorageKV> st) : CStorageView(st)
     {
         CheckPrefixes();
     }
 
     // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB()))
+    CCustomCSView(CCustomCSView & other) : CStorageView(other)
     {
         CheckPrefixes();
     }
 
-    // cause depends on current mns:
-    CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
+    void SetBackend(CCustomCSView & backend);
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
 
-    /// @todo newbase move to networking?
-    void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec* anchor, const uint256 & btcTxHash, const CKey &masternodeKey);
+    void AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height);
 
     // simplified version of undo, without any unnecessary undo data
     void OnUndoTx(uint256 const & txid, uint32_t height);
@@ -430,7 +475,14 @@ public:
 
     ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
 
-    ResVal<CAmount> GetValidatedIntervalPrice(CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice);
+    ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice);
+
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const override;
+    [[nodiscard]] std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const override;
+
+    [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const override;
+    [[nodiscard]] std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const override;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const override;
 
     void SetDbVersion(int version);
 
@@ -438,18 +490,9 @@ public:
 
     uint256 MerkleRoot();
 
-    // we construct it as it
-    CFlushableStorageKV& GetStorage() {
-        return static_cast<CFlushableStorageKV&>(DB());
-    }
-
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
 
-std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team);
-
-/** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
-extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
 
 #endif // DEFI_MASTERNODES_MASTERNODES_H

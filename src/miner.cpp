@@ -92,9 +92,6 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
-Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
 {
     int64_t nTimeStart = GetTimeMicros();
@@ -117,7 +114,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
-    boost::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<std::pair<CKeyID, uint256>> myIDs;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)
@@ -177,7 +174,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
 
         if (createAnchorReward) {
-            CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+            CAnchorFinalizationMessage finMsg{confirms[0]};
 
             for (auto const &msg : confirms) {
                 finMsg.sigs.push_back(msg.signature);
@@ -650,7 +647,7 @@ namespace pos {
 
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
-    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    CLockFreeMutex Staker::cs_MNLastBlockCreationAttemptTs{};
     int64_t Staker::nLastCoinStakeSearchTime{0};
     int64_t Staker::nFutureTime{0};
     uint256 Staker::lastBlockSeen{};
@@ -716,15 +713,13 @@ namespace pos {
         {
             LOCK(cs_main);
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
-            if (!optMasternodeID)
-            {
+            if (!optMasternodeID) {
                 return Status::initWaiting;
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
-            {
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1)) {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
@@ -771,7 +766,7 @@ namespace pos {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
+
             lastBlockSeen = tip->GetBlockHash();
         }
 
@@ -785,7 +780,7 @@ namespace pos {
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)currentTime - t);
 
@@ -800,7 +795,7 @@ namespace pos {
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
 
@@ -810,7 +805,7 @@ namespace pos {
 
                 // Search forwards in time
                 for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)searchTime + t);
 
@@ -825,7 +820,7 @@ namespace pos {
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
         }, blockHeight);
@@ -904,7 +899,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
     for (auto& arg : args) {
         while (true) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             bool found = false;
             for (auto wallet : wallets) {
@@ -928,10 +923,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
     LogPrintf("ThreadStaker: started.\n");
 
     while (!args.empty()) {
-        boost::this_thread::interruption_point();
+        if (ShutdownRequested()) break;
 
         while (fImporting || fReindex) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             LogPrintf("ThreadStaker: waiting reindex...\n");
 
@@ -942,7 +937,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             pos::Staker staker;
 

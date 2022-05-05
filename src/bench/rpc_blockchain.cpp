@@ -3,7 +3,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <bench/data.h>
 
 #include <validation.h>
 #include <streams.h>
@@ -13,7 +12,12 @@
 #include <univalue.h>
 
 static void BlockToJsonVerbose(benchmark::State& state) {
-    CDataStream stream(benchmark::data::block413567, SER_NETWORK, PROTOCOL_VERSION);
+
+    const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << chainParams->GenesisBlock();
+
     char a = '\0';
     stream.write(&a, 1); // Prevent compaction
 
