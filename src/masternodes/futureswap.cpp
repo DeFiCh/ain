@@ -55,9 +55,9 @@ ResVal<CFuturesUserValue> CFutureBaseView::GetFuturesUserValues(const CFuturesUs
     return {source, Res::Ok()};
 }
 
-void CFutureBaseView::ForEachFuturesCScript(std::function<bool(const CFuturesCScriptKey&, const CFuturesUserValue&)> callback, const CFuturesCScriptKey& start)
+void CFutureBaseView::ForEachFuturesCScript(std::function<bool(const CFuturesCScriptKey&, const std::string&)> callback, const CFuturesCScriptKey& start)
 {
-    ForEach<ByFuturesOwnerKey, CFuturesCScriptKey, CFuturesUserValue>(callback, start);
+    ForEach<ByFuturesOwnerKey, CFuturesCScriptKey, std::string>(callback, start);
 }
 
 std::unique_ptr<CFutureSwapView> pfutureSwapView;

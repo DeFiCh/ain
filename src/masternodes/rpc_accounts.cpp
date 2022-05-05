@@ -2291,7 +2291,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     CImmutableCSView view(*pcustomcsview);
 
     std::vector<CFuturesUserKey> ownerEntries;
-    futureSwapView.ForEachFuturesCScript([&](const CFuturesCScriptKey& key, const CFuturesUserValue&){
+    futureSwapView.ForEachFuturesCScript([&](const CFuturesCScriptKey& key, const std::string&){
         if (key.owner != owner) {
             return false;
         }
@@ -2299,7 +2299,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
         ownerEntries.push_back({key.height, key.owner, key.txn});
 
         return true;
-    });
+    }, CFuturesCScriptKey{owner, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
 
     for (const auto& entry : ownerEntries) {
         const auto resVal = futureSwapView.GetFuturesUserValues(entry);

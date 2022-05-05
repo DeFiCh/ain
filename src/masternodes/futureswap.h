@@ -89,7 +89,7 @@ public:
     ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
             {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
-    void ForEachFuturesCScript(std::function<bool(const CFuturesCScriptKey&, const CFuturesUserValue&)> callback, const CFuturesCScriptKey& start =
+    void ForEachFuturesCScript(std::function<bool(const CFuturesCScriptKey&, const std::string&)> callback, const CFuturesCScriptKey& start =
             {{}, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
 
     // tags
