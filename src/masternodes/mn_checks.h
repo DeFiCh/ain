@@ -169,6 +169,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
 }
 
 std::string ToString(CustomTxType type);
+CustomTxType FromString(const std::string& str);
 
 // it's disabled after Dakota height
 inline bool NotAllowedToFail(CustomTxType txType, int height) {

@@ -87,6 +87,19 @@ std::string ToString(CustomTxType type) {
     return "None";
 }
 
+CustomTxType FromString(const std::string& str) {
+    static const auto customTxTypeMap = []() {
+     std::map<std::string, CustomTxType> generatedMap;
+     for (auto i = 0u; i < 256; i++) {
+          auto txType = static_cast<CustomTxType>(i);
+          generatedMap.emplace(ToString(txType), txType);
+     }
+     return generatedMap;
+    }();
+    auto type = customTxTypeMap.find(str);
+    return type == customTxTypeMap.end() ? CustomTxType::None : type->second;
+}
+
 static ResVal<CBalances> BurntTokens(CTransaction const & tx) {
     CBalances balances;
     for (const auto& out : tx.vout) {
