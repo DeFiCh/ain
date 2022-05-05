@@ -3560,8 +3560,8 @@ static void MigrateMapValues(ATTRIBUTES& attributes, const AttributeTypes type, 
     if (attributes.CheckKey(mapKey)) {
         const auto& value = attributes.GetValue(mapKey, T{});
         CDataStructureV0 newMapKey{type, to, key};
-        attributes.attributes[newMapKey] = value;
-        attributes.attributes.erase(mapKey);
+        attributes.SetValue(newMapKey, value);
+        attributes.EraseKey(mapKey);
     }
 }
 
@@ -3864,8 +3864,8 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
     }
 
-    attributes.attributes.erase(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
-    attributes.attributes[CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}] = true;
+    attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
+    attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
     auto res = attributes.Apply(view, height);
     if (!res) {
@@ -3989,10 +3989,10 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         const DCT_ID newTokenId{resVal.val->v};
 
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->attributes[newAscendantKey] = AscendantValue{oldTokenId.v, "split"};
+        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->attributes[descendantKey] = DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)};
+        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
         for (const auto& [key, type] : attributes->tokenKeysToType) {
             std::visit([&, key = key](auto& value){
