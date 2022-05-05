@@ -706,8 +706,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
                     CDataStructureV0 membersKey{AttributeTypes::Token, kv.first.v, TokenKeys::ConsortiumMembers};
                     auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
                     for (auto const& member : members)
-                        if (IsMineCached(*pwallet, member.ownerAddress))
-                            auths.insert(member.ownerAddress);
+                        if (IsMineCached(*pwallet, member.second.ownerAddress))
+                            auths.insert(member.second.ownerAddress);
                 }
             }
         }

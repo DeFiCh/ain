@@ -159,8 +159,6 @@ struct CConsortiumMember {
     CScript ownerAddress;
     std::string backingId;
     CAmount mintLimit;
-    CAmount mintLimitPerInterval;
-    uint32_t mintIntervalBlocks;
     uint8_t status;
 
     ADD_SERIALIZE_METHODS;
@@ -171,29 +169,14 @@ struct CConsortiumMember {
         READWRITE(ownerAddress);
         READWRITE(backingId);
         READWRITE(mintLimit);
-        READWRITE(mintLimitPerInterval);
-        READWRITE(mintIntervalBlocks);
         READWRITE(status);
-    }
-};
-
-struct CConsortiumMemberMinted {
-    CBalances minted;
-    CBalances mintedPerInterval;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(minted);
-        READWRITE(mintedPerInterval);
     }
 };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using CAttributeType = std::variant<CDataStructureV0>;
-using CConsortiumMembers = std::vector<CConsortiumMember>;
-using CConsortiumMembersMinted = std::vector<CConsortiumMemberMinted>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
+using CConsortiumMembersMinted = std::map<std::string, CBalances>;
 
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair,
                                         CConsortiumMembers, CConsortiumMembersMinted>;

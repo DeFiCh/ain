@@ -122,16 +122,17 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
 
-            for (size_t i=0; i < members.size(); i++)
+            for (auto const& tmp : members)
             {
-                auto member = members[i];
+                auto key = tmp.first;
+                auto member = tmp.second;
 
                 if (HasAuth(member.ownerAddress))
                 {
-                    if (membersBalances[i].minted.balances[tokenId] + amount > member.mintLimit)
+                    if (membersBalances[key].balances[tokenId] + amount > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
-                    membersBalances[i].minted.Add(CTokenAmount{tokenId, amount});
+                    membersBalances[key].Add(CTokenAmount{tokenId, amount});
                     *mintable.val = member.ownerAddress;
                     mintable.ok = true;
                     attributes->SetValue(membersMintedKey, membersBalances);
