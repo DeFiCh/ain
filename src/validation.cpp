@@ -3408,11 +3408,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->attributes[burnKey] = burned;
-    attributes->attributes[mintedKey] = minted;
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, std::move(balances));
     }
 
     cache.SetVariable(*attributes);
@@ -4165,17 +4165,19 @@ bool CChainState::FlushStateToDisk(
             if (!CheckDiskSpace(GetDataDir(), 48 * 2 * 2 * CoinsTip().GetCacheSize())) {
                 return AbortNode(state, "Disk space is too low!", _("Error: Disk space is too low!").translated, CClientUIInterface::MSG_NOPREFIX);
             }
-            // Flush the chainstate (which may refer to block index entries).
-            bool dbSync = mode == FlushStateMode::ALWAYS;
-            if (!CoinsTip().Flush() || !pcustomcsview->Flush(dbSync)) {
-                return AbortNode(state, "Failed to write to coin or masternode db to disk");
-            }
+            bool hasCompaction = false;
             if (!compactBegin.empty() && !compactEnd.empty()) {
                 auto time = GetTimeMillis();
                 pcustomcsview->Compact(compactBegin, compactEnd);
                 compactBegin.clear();
                 compactEnd.clear();
+                hasCompaction = true;
                 LogPrint(BCLog::BENCH, "    - DB compacting takes: %dms\n", GetTimeMillis() - time);
+            }
+            // Flush the chainstate (which may refer to block index entries).
+            bool dbSync = mode == FlushStateMode::ALWAYS || hasCompaction;
+            if (!CoinsTip().Flush() || !pcustomcsview->Flush(dbSync)) {
+                return AbortNode(state, "Failed to write to coin or masternode db to disk");
             }
             nLastFlush = nNow;
             full_flush_completed = true;

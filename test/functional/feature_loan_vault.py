@@ -744,7 +744,9 @@ class VaultTest (DefiTestFramework):
 
         # Invalidate fork block
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
-        assert_equal(len(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']), 0)
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        for key in result.keys():
+            assert key.startswith('v0/live')
 
         # Move to hard fork again
         self.move_to_gw_fork()
