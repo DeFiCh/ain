@@ -609,7 +609,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                             }
                             OracleSplits combined{*splitValue};
                             combined.merge(*attrMap);
-                            attributes[attribute] = combined;
+                            SetValue(attribute, combined);
                             return Res::Ok();
                         } catch (std::out_of_range &) {}
                     }
