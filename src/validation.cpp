@@ -1674,6 +1674,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     undosView.OnUndoTx(UndoSource::CustomView, mnview, {}, static_cast<uint32_t>(pindex->nHeight));
     undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, {}, static_cast<uint32_t>(pindex->nHeight));
 
+    // Remove manually added future swaps at DB migration. Remove after reindex update.
+    undosView.OnUndoTx(UndoSource::FutureView, futureSwapView, uint256S(std::string(64, '1')), static_cast<uint32_t>(pindex->nHeight));
+
     pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
     if (paccountHistoryDB) {
         paccountHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);

@@ -1282,6 +1282,11 @@ void SetupAnchorSPVDatabases(bool resync) {
 
 void MigrateDBs()
 {
+    auto it = pundosView->LowerBound<CUndosView::ByUndoKey>(UndoKey{});
+    if (it.Valid()) {
+        return;
+    }
+
     LogPrintf("Migrating future swap and undo entries, might take a while...\n");
     auto time = GetTimeMillis();
 
@@ -1289,12 +1294,12 @@ void MigrateDBs()
     std::vector<std::pair<UndoKey, CUndo>> undos;
     pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
         undos.emplace_back(key, undo);
+        pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
         return true;
     });
 
     for (const auto& [key, undo] : undos) {
         pcustomcsview->DelUndo(key);
-        pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
     }
 
     if (!undos.empty()) {
@@ -1304,15 +1309,27 @@ void MigrateDBs()
     }
 
     // Migrate FutureSwaps
-    std::vector<std::pair<CFuturesUserKey, CFuturesUserValue>> swaps;
+    std::multimap<uint32_t, std::pair<CFuturesUserKey, CFuturesUserValue>> keyMap;
     pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& swap){
-        swaps.emplace_back(key, swap);
+        keyMap.emplace(key.height, std::make_pair(key, swap));
         return true;
     });
 
-    for (const auto& [key, swap] : swaps) {
-        pcustomcsview->EraseFuturesUserValues(key);
-        pfutureSwapView->StoreFuturesUserValues(key, swap);
+    if (!keyMap.empty()) {
+        auto futureView(*pfutureSwapView);
+
+        for (auto heightIt = keyMap.begin(); heightIt != keyMap.end();) {
+            auto [start, end] = keyMap.equal_range(heightIt->first);
+            for (auto valueIt{start}; valueIt != end; ++valueIt) {
+                pcustomcsview->EraseFuturesUserValues(valueIt->second.first);
+                futureView.StoreFuturesUserValues(valueIt->second.first, valueIt->second.second);
+            }
+            pundosView->AddUndo(UndoSource::FutureView, *pfutureSwapView, futureView, uint256S(std::string(64, '1')), heightIt->first);
+            futureView.Flush();
+            heightIt = end;
+        }
+
+        pundosView->Flush();
     }
 
     LogPrintf("Migrating future swap and undo data finished.\n");
