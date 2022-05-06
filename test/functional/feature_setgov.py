@@ -585,7 +585,6 @@ class GovsetTest (DefiTestFramework):
 
         # Verify FCR results
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        print(result)
         assert_equal(result['v0/params/dfip2203/active'], 'true')
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
@@ -633,10 +632,12 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/epitaph': '1'}})
         assert_raises_rpc_error(-5, "Two int values expected for split in id/mutliplier", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1200': '1/50,600'}})
         assert_raises_rpc_error(-5, "Mutliplier cannot be zero", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/0'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Token (127) does not exist", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '4/50,127/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Token (127) does not exist", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '127/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '4/10'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Only DATs can be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '128/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Tokenised DFI cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '0/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Pool tokens cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set at or below current height", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/oracles/splits/{self.nodes[0].getblockcount()}': '5/50'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dex_in_fee_pct':'0.6','v0/token/5/dex_out_fee_pct':'0.12'}})
         self.nodes[0].generate(1)
@@ -651,8 +652,25 @@ class GovsetTest (DefiTestFramework):
         attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attriutes['v0/locks/token/5'], 'true')
 
+        # Set loan token for 4
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/4/fixed_interval_price_id':'TSLA/USD', f'v0/token/4/loan_minting_enabled':'true', f'v0/token/4/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50,5/5,'}})
         self.nodes[0].generate(1)
+
+        # Check auto lock
+        assert_equal(self.nodes[0].listgovs()[8][1]['3928'], {'v0/locks/token/4': 'true'})
+
+        # Disable auto lock
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/locks/token/4':'false'}}, 3928)
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listgovs()[8][1]['3928'], {'v0/locks/token/4': 'false'})
+
+        # Re-enable auto lock
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/locks/token/4':'true'}}, 3928)
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listgovs()[8][1]['3928'], {'v0/locks/token/4': 'true'})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'5/10'}})
         self.nodes[0].generate(1)

@@ -246,6 +246,7 @@ public:
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 

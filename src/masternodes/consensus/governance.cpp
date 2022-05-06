@@ -8,10 +8,10 @@
 #include <masternodes/gv.h>
 #include <masternodes/masternodes.h>
 
-Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) const {
+Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
 
     // Retrieve any stored GovVariables at startHeight
-    auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
 
     // Remove any pre-existing entry
     for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
@@ -25,7 +25,7 @@ Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) cons
     storedGovVars.insert(obj.govVar);
 
     // Store GovVariable set by height
-    return mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
@@ -68,7 +68,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
-                    storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff});
+                    storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff}, mnview);
                     continue;
                 }
             }
@@ -101,5 +101,5 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const 
         return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
 
     // Store pending Gov var change
-    return storeGovVars(obj);
+    return storeGovVars(obj, mnview);
 }

@@ -5,6 +5,7 @@
 #include <masternodes/govvariables/attributes.h>
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
+#include <masternodes/consensus/governance.h> /// storeGovVars
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
 
@@ -601,12 +602,15 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                        auto splitValue = std::get_if<OracleSplits>(&attrValue);
+                        if (!splitValue) {
+                            return Res::Err("Failed to get Oracle split value");
+                        }
+                        for (const auto& [id, multiplier] : *splitValue) {
+                            tokenSplits.insert(id);
+                        }
                         try {
                             auto attrMap = std::get_if<OracleSplits>(&attributes.at(attribute));
-                            auto splitValue = std::get_if<OracleSplits>(&attrValue);
-                            if (!splitValue) {
-                                return Res::Err("Failed to get Oracle split value");
-                            }
                             OracleSplits combined{*splitValue};
                             combined.merge(*attrMap);
                             SetValue(attribute, combined);
@@ -799,7 +803,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
                     return Res::Err("Cannot be set before GreatWorld");
                 }
-                if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                if (attrV0->typeId == OracleIDs::Splits) {
                     const auto value = std::get_if<OracleSplits>(&attribute.second);
                     if (!value) {
                         return Res::Err("Unsupported value");
@@ -817,6 +821,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         }
                         if (!token->IsDAT()) {
                             return Res::Err("Only DATs can be split");
+                        }
+                        if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
+                            return Res::Err("No loan token with id (%d)", tokenId);
                         }
                     }
                 } else {
@@ -990,6 +997,48 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
                 if (GetValue(activeKey, false)) {
                     return Res::Err("Cannot set block period while DFIP2203 is active");
+                }
+            }
+        } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+            const auto value = std::get_if<OracleSplits>(&attribute.second);
+            if (!value) {
+                return Res::Err("Unsupported value");
+            }
+            for (const auto split : tokenSplits) {
+                if (auto it{value->find(split)}; it == value->end()) {
+                    continue;
+                }
+                CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, split};
+                if (GetValue(lockKey, false)) {
+                    continue;
+                }
+
+                if (attrV0->key < height) {
+                    return Res::Err("Cannot be set at or below current height");
+                }
+
+                CGovernanceHeightMessage lock{"ATTRIBUTES"};
+                auto var = GovVariable::Create(lock.govName);
+                if (!var) {
+                    return Res::Err("Failed to create Gov var for lock");
+                }
+                auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                if (!govVar) {
+                    return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+                }
+                govVar->SetValue(lockKey, true);
+                lock.govVar = govVar;
+
+                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                if (height > startHeight) {
+                    lock.startHeight = height;
+                } else {
+                    lock.startHeight = startHeight;
+                }
+
+                const auto res = CGovernanceConsensus::storeGovVars(lock, mnview);
+                if (!res) {
+                    return Res::Err("Cannot be set at or below current height");
                 }
             }
         }
