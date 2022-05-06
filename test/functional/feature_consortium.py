@@ -136,8 +136,7 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[2].getaccount(account2)[0], '1.00000000@' + symbolBTC)
-        assert_equal(self.nodes[2].getaccount(account2)[1], '2.00000000@' + symbolDOGE)
+        assert_equal(self.nodes[2].getaccount(account2), ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE])
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE])
@@ -153,13 +152,31 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[2].getaccount(account2)[0], '1.00000000@' + symbolBTC)
-        assert_equal(self.nodes[2].getaccount(account2)[1], '1.00000000@' + symbolDOGE)
+        assert_equal(self.nodes[2].getaccount(account2), ['1.00000000@' + symbolBTC, '1.00000000@' + symbolDOGE])
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '1.00000000@' + symbolDOGE])
         assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{\"01\":[\"1.00000000@' + symbolBTC + '\",\"1.00000000@' + symbolDOGE + '\"]}')
 
+        self.nodes[2].accounttoaccount(account2, {account0: "1@" + symbolDOGE})
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].burntokens({
+            'amounts': "1@" + symbolDOGE,
+            'from': account0,
+            'context': account2
+        })
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[0].getaccount(account2), ['1.00000000@' + symbolBTC])
+        assert_equal(self.nodes[0].getaccount(account0), [])
+
+        attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC])
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{\"01\":[\"1.00000000@' + symbolBTC + '\"]}')
 
 if __name__ == '__main__':
     ConsortiumTest().main()

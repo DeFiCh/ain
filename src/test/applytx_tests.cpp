@@ -187,6 +187,8 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
         { consensus.EunosHeight,            "called before Eunos height" },
         { consensus.FortCanningHeight,      "called before FortCanning height" },
         { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+        { consensus.FortCanningRoadHeight,  "called before FortCanningRoad height" },
+        { consensus.GreatWorldHeight,       "called before GreatWorld height" },
     };
 
     auto parseValidator = [&](int height, auto msg, std::string error = {}) -> bool {

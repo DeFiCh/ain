@@ -197,10 +197,9 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             {
                 CTxDestination destination;
 
-                if (ExtractDestination(ownerAddress, destination))
-                    ownerAddress = DecodeScript(obj.context);
-                else
-                    return Res::Err("INvalid context data for this burn type!");
+                ownerAddress = DecodeScript(obj.context);
+                if (!ExtractDestination(ownerAddress, destination))
+                    return Res::Err("Invalid context data for this burn type!");
             }
             else ownerAddress = obj.from;
 
