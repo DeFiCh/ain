@@ -743,6 +743,117 @@ UniValue minttokens(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue burntokens(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"minttokens",
+               "\nCreates (and submits to local node and network) a transaction burning your token (for accounts and/or UTXOs). \n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing tokens to be burned."},
+                            {"burnType", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The type of the burn"},
+                            {"context", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Additional data necessary for specific burn type"},
+                        }
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("burntokens", "10@symbol")
+                       + HelpExampleCli("burntokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("burntokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot burn tokens while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    CBurnTokensMessage burnedTokens;
+    UniValue metaObj = request.params[0].get_obj();
+
+    if (!metaObj["amounts"].isNull())
+        burnedTokens.burned = DecodeAmounts(pwallet->chain(), metaObj["amounts"].getValStr(), "");
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+    if (!metaObj["from"].isNull())
+        burnedTokens.from = DecodeScript(metaObj["from"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+
+    burnedTokens.burnType = 0;
+    if (!metaObj["burnType"].isNull())
+        burnedTokens.burnType = static_cast<uint8_t>(metaObj["burnType"].get_int());
+    if (!metaObj["context"].isNull())
+        burnedTokens.context = trim_ws(metaObj["context"].getValStr()).substr(0, CBurnTokensMessage::MAX_BURN_CONTEXT_LENGHT);
+
+    UniValue const & txInputs = request.params[2];
+
+    CImmutableCSView view(*pcustomcsview);
+
+    int targetHeight = view.GetLastHeight() + 1;
+
+    for (auto const & kv : burnedTokens.burned.balances) {
+        auto token = view.GetToken(kv.first);
+        if (!token) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+        }
+    }
+
+    std::set<CScript> auths;
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    CTransactionRef optAuthTx;
+
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::BurnToken)
+             << burnedTokens;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue decodecustomtx(const JSONRPCRequest& request)
 {
     RPCHelpMan{"decodecustomtx",
@@ -832,6 +943,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"tokens",      "burntokens",            &burntokens,            {"metadata", "inputs"}},
     {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring", "iswitness"}},
 };
 

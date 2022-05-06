@@ -263,6 +263,11 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
     BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CAuctionBidMessage{}));
 
     BOOST_REQUIRE(parseValidator(consensus.FortCanningHillHeight, CSmartContractMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningRoadHeight, CFutureSwapMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningRoadHeight, CLoanPaybackLoanV2Message{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.GreatWorldHeight, CBurnTokensMessage{}));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

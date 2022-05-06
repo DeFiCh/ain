@@ -11,6 +11,8 @@
 #include <masternodes/tokens.h>
 #include <primitives/transaction.h>
 
+extern CScript DecodeScript(std::string const& str);
+
 Res CTokensConsensus::operator()(const CCreateTokenMessage& obj) const {
     auto res = CheckTokenCreationTx();
     if (!res)
@@ -135,7 +137,6 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
                     membersBalances[key].Add(CTokenAmount{tokenId, amount});
                     *mintable.val = member.ownerAddress;
                     mintable.ok = true;
-                    attributes->SetValue(membersMintedKey, membersBalances);
                     break;
                 }
             }
@@ -147,13 +148,14 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
 
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-            auto globalBalnaces = attributes->GetValue(consortiumMintedKey, CBalances{});
+            auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
 
-            if (globalBalnaces.balances[tokenId] + amount > maxLimit)
+            if (globalBalances.balances[tokenId] + amount > maxLimit)
                 return Res::Err("You will exceed global maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
-            globalBalnaces.Add(CTokenAmount{tokenId, amount});
-            attributes->SetValue(consortiumMintedKey, globalBalnaces);
+            globalBalances.Add(CTokenAmount{tokenId, amount});
+            attributes->SetValue(consortiumMintedKey, globalBalances);
+            attributes->SetValue(membersMintedKey, membersBalances);
 
             auto saved = mnview.SetVariable(*attributes);
             if (!saved)
@@ -171,4 +173,76 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
     }
 
     return Res::Ok();
+}
+
+Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
+    for (const auto& kv : obj.burned.balances)
+    {
+        DCT_ID tokenId = kv.first;
+        CAmount amount = kv.second;
+
+        // check auth
+        if (!HasAuth(obj.from))
+            return Res::Err("tx must have at least one input from account owner");
+
+        auto subMinted = mnview.SubMintedTokens(tokenId, amount);
+            if (!subMinted)
+                return subMinted;
+
+        if (obj.burnType == CBurnTokensMessage::BurnType::TokenBurn)
+        {
+            CScript ownerAddress;
+
+            if (obj.context.size() > 0)
+            {
+                CTxDestination destination;
+
+                if (ExtractDestination(ownerAddress, destination))
+                    ownerAddress = DecodeScript(obj.context);
+                else
+                    return Res::Err("INvalid context data for this burn type!");
+            }
+            else ownerAddress = obj.from;
+
+            auto attributes = mnview.GetAttributes();
+
+            CDataStructureV0 membersKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMembers};
+            auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+            CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
+            auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+            CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+            auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
+
+            std::cout << globalBalances.ToString() << std::endl;
+
+            bool setVariable = false;
+            for (auto const& tmp : members)
+                if (tmp.second.ownerAddress == ownerAddress)
+                {
+                    membersBalances[tmp.first].Sub(CTokenAmount{tokenId, amount});
+                    globalBalances.Sub(CTokenAmount{tokenId, amount});
+                    setVariable = true;
+                    break;
+                }
+
+            if (setVariable)
+            {
+                attributes->SetValue(membersMintedKey, membersBalances);
+                attributes->SetValue(consortiumMintedKey, globalBalances);
+
+                auto saved = mnview.SetVariable(*attributes);
+                if (!saved)
+                    return saved;
+            }
+        }
+
+        CalculateOwnerRewards(obj.from);
+
+        auto res = TransferTokenBalance(tokenId, amount, obj.from, consensus.burnAddress);
+        if (!res)
+            return res;
+    }
+
+    return Res::Ok();
+
 }
