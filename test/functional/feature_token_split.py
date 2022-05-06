@@ -357,6 +357,9 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Token split
+        print(self.idTSLA)
+        print(self.nodes[0].gettoken(self.idTSLA))
+        print(self.nodes[0].getloantoken(self.idTSLA))
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
         self.nodes[0].generate(2)
 
@@ -373,6 +376,9 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(new_amount, amount * 2)
 
         # Token split
+        print(self.idTSLA)
+        print(self.nodes[0].gettoken(self.idTSLA))
+        print(self.nodes[0].getloantoken(self.idTSLA))
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/-3'}})
         self.nodes[0].generate(2)
 

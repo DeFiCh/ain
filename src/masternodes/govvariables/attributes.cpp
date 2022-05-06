@@ -822,9 +822,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         if (!token->IsDAT()) {
                             return Res::Err("Only DATs can be split");
                         }
-                        if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
-                            return Res::Err("No loan token with id (%d)", tokenId);
-                        }
                     }
                 } else {
                     return Res::Err("Unsupported key");
