@@ -2613,6 +2613,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
 
     if (spv::pspv) {
         bool foundSPV{false};
+        LOCK(wallet->cs_wallet);
         for (const auto& entry : wallet->mapAddressBook) {
             if (entry.second.purpose == "spv") {
                 uint160 userHash;

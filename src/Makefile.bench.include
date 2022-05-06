@@ -6,10 +6,6 @@ bin_PROGRAMS += bench/bench_defi
 BENCH_SRCDIR = bench
 BENCH_BINARY = bench/bench_defi$(EXEEXT)
 
-RAW_BENCH_FILES = \
-  bench/data/block413567.raw
-GENERATED_BENCH_FILES = $(RAW_BENCH_FILES:.raw=.raw.h)
-
 bench_bench_defi_SOURCES = \
   $(RAW_BENCH_FILES) \
   bench/bench_defi.cpp \
@@ -18,8 +14,6 @@ bench_bench_defi_SOURCES = \
   bench/block_assemble.cpp \
   bench/checkblock.cpp \
   bench/checkqueue.cpp \
-  bench/data.h \
-  bench/data.cpp \
   bench/duplicate_inputs.cpp \
   bench/examples.cpp \
   bench/rollingbloom.cpp \
@@ -44,8 +38,6 @@ bench_bench_defi_SOURCES = \
   test/util.h \
   test/util.cpp
 
-nodist_bench_bench_defi_SOURCES = $(GENERATED_BENCH_FILES)
-
 bench_bench_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
 bench_bench_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bench_bench_defi_LDADD = \
@@ -59,7 +51,6 @@ bench_bench_defi_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_SPV) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
   $(LIBUNIVALUE) \
@@ -78,11 +69,9 @@ endif
 bench_bench_defi_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS)
 bench_bench_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
-CLEAN_DEFI_BENCH = bench/*.gcda bench/*.gcno $(GENERATED_BENCH_FILES)
+CLEAN_DEFI_BENCH = bench/*.gcda bench/*.gcno
 
 CLEANFILES += $(CLEAN_DEFI_BENCH)
-
-bench/data.cpp: bench/data/block413567.raw.h
 
 defi_bench: $(BENCH_BINARY)
 

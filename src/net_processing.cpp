@@ -400,7 +400,7 @@ limitedmap<uint256, std::chrono::microseconds> g_already_asked_for GUARDED_BY(cs
 static std::map<NodeId, CNodeState> mapNodeState GUARDED_BY(cs_main);
 
 static CNodeState *State(NodeId pnode) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
-    std::map<NodeId, CNodeState>::iterator it = mapNodeState.find(pnode);
+    auto it = mapNodeState.find(pnode);
     if (it == mapNodeState.end())
         return nullptr;
     return &it->second;
@@ -554,14 +554,12 @@ static void MaybeSetPeerAsAnnouncingHeaderAndIDs(NodeId nodeid, CConnman* connma
                 return;
             }
         }
-        connman->ForNode(nodeid, [connman](CNode* pfrom){
-            AssertLockHeld(cs_main);
+        connman->ForNode(nodeid, [connman](CNode* pfrom) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
             uint64_t nCMPCTBLOCKVersion = (pfrom->GetLocalServices() & NODE_WITNESS) ? 2 : 1;
             if (lNodesAnnouncingHeaderAndIDs.size() >= 3) {
                 // As per BIP152, we only get 3 of our peers to announce
                 // blocks using compact encodings.
-                connman->ForNode(lNodesAnnouncingHeaderAndIDs.front(), [connman, nCMPCTBLOCKVersion](CNode* pnodeStop){
-                    AssertLockHeld(cs_main);
+                connman->ForNode(lNodesAnnouncingHeaderAndIDs.front(), [connman, nCMPCTBLOCKVersion](CNode* pnodeStop) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
                     connman->PushMessage(pnodeStop, CNetMsgMaker(pnodeStop->GetSendVersion()).Make(NetMsgType::SENDCMPCT, /*fAnnounceUsingCMPCTBLOCK=*/false, nCMPCTBLOCKVersion));
                     return true;
                 });
@@ -1070,6 +1068,12 @@ static bool MaybePunishNode(NodeId nodeid, const CValidationState& state, bool v
     case ValidationInvalidReason::TX_MEMPOOL_POLICY:
         break;
     }
+    if (state.GetRejectCode() == REJECT_CUSTOMTX
+    || state.GetRejectReason() == "high-hash") {
+        LOCK(cs_main);
+        Misbehaving(nodeid, 100, message);
+        return true;
+    }
     if (message != "") {
         LogPrint(BCLog::NET, "peer=%d: %s\n", nodeid, message);
     }
@@ -1185,11 +1189,12 @@ void PeerLogicValidation::NewPoWValidBlock(const CBlockIndex *pindex, const std:
     }
 
     connman->ForEachNode([this, &pcmpctblock, pindex, &msgMaker, fWitnessEnabled, &hashBlock](CNode* pnode) {
-        AssertLockHeld(cs_main);
 
+        LockAssertion lock(cs_main);
         // TODO: Avoid the repeated-serialization here
         if (pnode->nVersion < INVALID_CB_NO_BAN_VERSION || pnode->fDisconnect)
             return;
+
         ProcessBlockAvailability(pnode->GetId());
         CNodeState &state = *State(pnode->GetId());
         // If the peer has, or we announced to them the previous block already,
@@ -1351,8 +1356,9 @@ void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* 
 
 void ResyncHeaders(CConnman & connman)
 {
-    connman.ForEachNode([](CNode* pnode)
-    {
+    LOCK(cs_main);
+    connman.ForEachNode([](CNode* pnode) {
+        LockAssertion lock(cs_main);
         LogPrintf("Ask for initial resync for peer=%d\n", pnode->GetId());
         CNodeState *state = State(pnode->GetId());
         state->pindexBestKnownBlock = nullptr;
@@ -2655,7 +2661,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // possible optimization: stops when first quorum reached (irl, no need to walk deeper)
         auto topAnchor = panchors->GetActiveAnchor();
         // limit requested by the top anchor, if any
-        if (topAnchor && topAnchor->anchor.height > pLowRequested->nHeight && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
+        if (topAnchor && static_cast<int>(topAnchor->anchor.height) > pLowRequested->nHeight && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
             pLowRequested = ::ChainActive()[topAnchor->anchor.height];
             assert(pLowRequested);
         }
@@ -2666,7 +2672,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         LogPrint(BCLog::NET, "getauths down from %d to %d for peer=%d\n", pHighRequested->nHeight, pLowRequested->nHeight, pfrom->GetId());
         std::vector<CInv> vInv;
-        panchorauths->ForEachAnchorAuthByHeight([pLowRequested, pHighRequested, &vInv](const CAnchorAuthIndex::Auth & auth) {
+        panchorauths->ForEachAnchorAuthByHeight([pLowRequested, pHighRequested, &vInv](const CAnchorAuthIndex::Auth & auth) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
             if ((int)auth.height > pHighRequested->nHeight)
                 return true; // continue
             if ((int)auth.height < pLowRequested->nHeight)
@@ -3662,8 +3668,7 @@ void PeerLogicValidation::EvictExtraOutboundPeers(int64_t time_in_seconds)
         int64_t oldest_block_announcement = std::numeric_limits<int64_t>::max();
 
         connman->ForEachNode([&](CNode* pnode) {
-            AssertLockHeld(cs_main);
-
+            LockAssertion lock(cs_main);
             // Ignore non-outbound peers, or nodes marked for disconnect already
             if (!IsOutboundDisconnectionCandidate(pnode) || pnode->fDisconnect) return;
             CNodeState *state = State(pnode->GetId());
@@ -3677,8 +3682,7 @@ void PeerLogicValidation::EvictExtraOutboundPeers(int64_t time_in_seconds)
         });
         if (worst_peer != -1) {
             bool disconnected = connman->ForNode(worst_peer, [&](CNode *pnode) {
-                AssertLockHeld(cs_main);
-
+                LockAssertion lock(cs_main);
                 // Only disconnect a peer that has been connected to us for
                 // some reasonable fraction of our check-frequency, to give
                 // it time for new information to have arrived.

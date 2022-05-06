@@ -26,8 +26,8 @@ Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CA
 
 void CCommunityBalancesView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CLazySerialize<CAmount>)> callback)
 {
-    ForEach<ById, unsigned char, CAmount>([&callback] (unsigned char const & key, CLazySerialize<CAmount> val) {
-        return callback(CommunityAccountCodeToType(key), val);
+    ForEach<ById, unsigned char, CAmount>([&callback] (unsigned char key, CLazySerialize<CAmount> val) {
+        return callback(CommunityAccountCodeToType(key), std::move(val));
     }, '\0');
 
 }
@@ -38,7 +38,7 @@ Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CA
         return Res::Ok();
     }
     auto res = SafeAdd(amount, GetCommunityBalance(account));
-    return !res.ok ? res : SetCommunityBalance(account, *res.val);
+    return !res ? res : SetCommunityBalance(account, res);
 }
 
 Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount)

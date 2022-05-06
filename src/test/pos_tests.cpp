@@ -83,6 +83,7 @@ BOOST_AUTO_TEST_CASE(check_stake_modifier)
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
 
+    LockAssertion lock(cs_main);
     uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     uint64_t height = 1;
     uint64_t mintedBlocks = 1;
@@ -166,6 +167,7 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
     CKey minterKey = pos->second.operatorKey;
     CheckContextState ctxState;
 
+    LockAssertion lock(cs_main);
     BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get(), ctxState, 0));
 
 //    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
@@ -199,6 +201,7 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
     BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
 
+    LockAssertion lock(cs_main);
     BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pcustomcsview.get()));
 }
 

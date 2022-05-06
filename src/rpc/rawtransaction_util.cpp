@@ -60,7 +60,7 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
         return {{tokenId, parsed.val->first}, Res::Ok()};
     } catch (...) {
         // assuming it's token symbol, read DCT_ID from DB
-        std::unique_ptr<CToken> token = chain.existTokenGuessId(parsed.val->second, tokenId);
+        auto token = chain.existTokenGuessId(parsed.val->second, tokenId);
         if (!token) {
             return Res::Err("Invalid Defi token: %s", parsed.val->second);
         }
@@ -383,8 +383,11 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
         auto coin = coins.find(txin.prevout);
-        if (coin == coins.end() || coin->second.IsSpent()) {
-            TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
+        if (coin == coins.end()) {
+            TxInErrorToJSON(txin, vErrors, "Input not found");
+            continue;
+        } else if (coin->second.IsSpent()) {
+            TxInErrorToJSON(txin, vErrors, "Input already spent");
             continue;
         }
         const CScript& prevPubKey = coin->second.out.scriptPubKey;

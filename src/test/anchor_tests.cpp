@@ -361,21 +361,21 @@ BOOST_AUTO_TEST_CASE(Test_AnchorConfirmationOrder)
     createTeams(signers, team);
 
     // Create confirm data
-    CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1};
-    CAnchorConfirmDataPlus confirmPlus{confirm};
+    CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1, {}, 0};
 
+    LockAssertion lock(cs_main);
     // Create 16 signed confirms that meet quorum
     const std::string digits = "0123456789ABCDEF";
     for (std::string::size_type j{1}; j <= digits.size(); ++j) {
         // Previous system organised on TX hash. Set lowest hash to highest height for tests.
-        confirmPlus.btcTxHash = uint256S(std::string(64, digits[digits.size() - j]));
+        confirm.btcTxHash = uint256S(std::string(64, digits[digits.size() - j]));
 
         // New system organises by TX height, lowest first.
-        confirmPlus.btcTxHeight = j * 1000;
+        confirm.btcTxHeight = j * 1000;
 
         // Sign with every key to meet quorum
         for (const auto& signee : signers) {
-            CAnchorConfirmMessage confirmMsg{confirmPlus};
+            CAnchorConfirmMessage confirmMsg{confirm};
             signee.SignCompact(confirmMsg.GetSignHash(), confirmMsg.signature);
             panchorAwaitingConfirms->Add(confirmMsg);
         }
@@ -400,12 +400,11 @@ BOOST_AUTO_TEST_CASE(Test_AnchorFinalMsgCount)
     createTeams(signers, team);
 
     // Create confirm data
-    CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1};
-    CAnchorConfirmDataPlus confirmPlus{confirm};
-    CAnchorFinalizationMessagePlus finalMsg{confirmPlus};
+    CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1, {}, 0};
+    CAnchorFinalizationMessage finalMsg{confirm};
 
-    for (int i{0}; i < 4 && i < signers.size(); ++i) {
-        CAnchorConfirmMessage confirmMsg{confirmPlus};
+    for (uint32_t i{0}; i < 4 && i < signers.size(); ++i) {
+        CAnchorConfirmMessage confirmMsg{confirm};
         signers[i < 3 ? i : i - 1].SignCompact(confirmMsg.GetSignHash(), confirmMsg.signature);
         finalMsg.sigs.push_back(confirmMsg.signature);
     }
@@ -428,7 +427,7 @@ BOOST_AUTO_TEST_CASE(Test_AnchorMsgCount)
     CAnchorData data{blockHash, 0, blockHash, CAnchorData::CTeam{}};
     CAnchor anchor{data};
 
-    for (int i{0}; i < 4 && i < signers.size(); ++i) {
+    for (uint32_t i{0}; i < 4 && i < signers.size(); ++i) {
         CAnchorAuthMessage authMsg{data};
         authMsg.SignWithKey(signers[i < 3 ? i : i - 1]);
         anchor.sigs.push_back(authMsg.GetSignature());

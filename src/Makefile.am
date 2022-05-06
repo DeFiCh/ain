@@ -4,7 +4,7 @@
 
 DIST_SUBDIRS = secp256k1 univalue
 
-AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
+AM_LDFLAGS = $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) $(HARDENED_CPPFLAGS)
 AM_LIBTOOLFLAGS = --preserve-dup-deps
@@ -156,6 +156,18 @@ DEFI_CORE_H = \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
+  masternodes/consensus/accounts.h \
+  masternodes/consensus/governance.h \
+  masternodes/consensus/icxorders.h \
+  masternodes/consensus/loans.h \
+  masternodes/consensus/masternodes.h \
+  masternodes/consensus/oracles.h \
+  masternodes/consensus/poolpairs.h \
+  masternodes/consensus/smartcontracts.h \
+  masternodes/consensus/tokens.h \
+  masternodes/consensus/txvisitor.h \
+  masternodes/consensus/vaults.h \
+  masternodes/customtx.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -287,7 +299,7 @@ obj/build.h: FORCE
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
 
-libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
   spv/bcash/BRBCashAddr.cpp \
@@ -362,6 +374,7 @@ libdefi_server_a_SOURCES = \
   chain.cpp \
   consensus/tx_verify.cpp \
   flatfile.cpp \
+  flushablestorage.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \
@@ -374,7 +387,17 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
-  masternodes/oracles.cpp \
+  masternodes/consensus/accounts.cpp \
+  masternodes/consensus/governance.cpp \
+  masternodes/consensus/icxorders.cpp \
+  masternodes/consensus/loans.cpp \
+  masternodes/consensus/masternodes.cpp \
+  masternodes/consensus/oracles.cpp \
+  masternodes/consensus/poolpairs.cpp \
+  masternodes/consensus/smartcontracts.cpp \
+  masternodes/consensus/tokens.cpp \
+  masternodes/consensus/txvisitor.cpp \
+  masternodes/consensus/vaults.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -391,6 +414,7 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/oracles.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \
@@ -400,9 +424,9 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_poolpair.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
-  masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/skipped_txs.cpp \
+  masternodes/tokens.cpp \
   masternodes/undos.cpp \
   masternodes/vault.cpp \
   masternodes/vaulthistory.cpp \
@@ -590,6 +614,7 @@ libdefi_common_a_SOURCES = \
   core_write.cpp \
   key.cpp \
   key_io.cpp \
+  masternodes/customtx.cpp \
   merkleblock.cpp \
   netaddress.cpp \
   netbase.cpp \
@@ -684,7 +709,6 @@ defid_LDADD = \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_CRYPTO) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
@@ -750,7 +774,6 @@ defi_wallet_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_ZMQ) \
   $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
   $(LIBUNIVALUE)
@@ -786,6 +809,7 @@ CLEANFILES = $(EXTRA_LIBRARIES)
 CLEANFILES += *.gcda *.gcno
 CLEANFILES += compat/*.gcda compat/*.gcno
 CLEANFILES += consensus/*.gcda consensus/*.gcno
+CLEANFILES += crc32c/src/*.gcda crc32c/src/*.gcno
 CLEANFILES += crypto/*.gcda crypto/*.gcno
 CLEANFILES += policy/*.gcda policy/*.gcno
 CLEANFILES += primitives/*.gcda primitives/*.gcno
@@ -831,9 +855,8 @@ if HARDEN
 	$(AM_V_at) READELF=$(READELF) OBJDUMP=$(OBJDUMP) $(PYTHON) $(top_srcdir)/contrib/devtools/security-check.py < $(bin_PROGRAMS)
 endif
 
-if EMBEDDED_LEVELDB
+include Makefile.crc32c.include
 include Makefile.leveldb.include
-endif
 
 if ENABLE_TESTS
 include Makefile.test.include

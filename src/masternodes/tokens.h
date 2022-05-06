@@ -8,6 +8,7 @@
 #include <flushablestorage.h>
 
 #include <amount.h>
+#include <masternodes/balances.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 #include <serialize.h>
@@ -32,7 +33,7 @@ public:
         DAT = 0x04,
         LPS = 0x08, // Liquidity Pool Share
         Finalized = 0x10, // locked forever
-        LoanToken = 0x20, // token created for loan
+        DeprecatedLoanToken = 0x20, // token created for loan
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -74,7 +75,7 @@ public:
     }
     inline bool IsLoanToken () const
     {
-        return flags & (uint8_t)TokenFlags::LoanToken;
+        return flags & (uint8_t)TokenFlags::DeprecatedLoanToken;
     }
     inline Res IsValidSymbol() const
     {
@@ -102,6 +103,50 @@ public:
     }
 };
 
+struct CCreateTokenMessage : public CToken {
+    using CToken::CToken;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CToken, *this);
+    }
+};
+
+struct CUpdateTokenPreAMKMessage {
+    uint256 tokenTx;
+    bool isDAT;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(isDAT);
+    }
+};
+
+struct CUpdateTokenMessage {
+    uint256 tokenTx;
+    CToken token;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(token);
+    }
+};
+
+struct CMintTokensMessage : public CBalances {
+    using CBalances::CBalances;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CBalances, *this);
+    }
+};
+
 class CTokenImplementation : public CToken
 {
 public:
@@ -115,8 +160,6 @@ public:
     CTokenImplementation()
         : CToken()
         , minted(0)
-        , creationTx()
-        , destructionTx()
         , creationHeight(-1)
         , destructionHeight(-1)
     {}
@@ -142,22 +185,21 @@ public:
     static const unsigned char DB_TOKEN_LASTID; // = 'L';
 
     using CTokenImpl = CTokenImplementation;
-    std::unique_ptr<CToken> GetToken(DCT_ID id) const;
-    std::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetToken(std::string const & symbol) const;
+    std::optional<CTokenImpl> GetToken(DCT_ID id) const;
+    std::optional<std::pair<DCT_ID, std::optional<CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
+    [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
-    Res RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
-    Res SubMintedTokens(uint256 const & tokenTx, CAmount const & amount);
+    Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);
+    Res SubMintedTokens(DCT_ID const & id, CAmount const & amount);
 
     // tags
     struct ID           { static constexpr uint8_t prefix() { return 'T'; } };
@@ -168,7 +210,6 @@ public:
 private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
-    DCT_ID DecrementLastDctId();
     std::optional<DCT_ID> ReadLastDctId() const;
 };
 

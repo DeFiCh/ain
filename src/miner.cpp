@@ -9,14 +9,15 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <coins.h>
-#include <consensus/tx_check.h>
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
+#include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <memory.h>
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -174,7 +175,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
 
         if (createAnchorReward) {
-            CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+            CAnchorFinalizationMessage finMsg{confirms[0]};
 
             for (auto const &msg : confirms) {
                 finMsg.sigs.push_back(msg.signature);
@@ -648,7 +649,7 @@ namespace pos {
 
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
-    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    CLockFreeMutex Staker::cs_MNLastBlockCreationAttemptTs{};
     int64_t Staker::nLastCoinStakeSearchTime{0};
     int64_t Staker::nFutureTime{0};
     uint256 Staker::lastBlockSeen{};
@@ -715,15 +716,13 @@ namespace pos {
         {
             LOCK(cs_main);
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
-            if (!optMasternodeID)
-            {
+            if (!optMasternodeID) {
                 return Status::initWaiting;
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview))
-            {
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1)) {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
@@ -771,7 +770,7 @@ namespace pos {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
+
             lastBlockSeen = tip->GetBlockHash();
         }
 
@@ -961,10 +960,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     nMinted[arg.operatorID]++;
                 }
                 else if (status == Staker::Status::initWaiting) {
-                    LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
+                    LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 }
                 else if (status == Staker::Status::stakeWaiting) {
-                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
+                    LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10,"ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             }
             catch (const std::runtime_error &e) {

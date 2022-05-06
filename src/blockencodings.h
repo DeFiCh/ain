@@ -6,10 +6,13 @@
 #define DEFI_BLOCKENCODINGS_H
 
 #include <primitives/block.h>
+#include <sync.h>
 
 #include <memory>
 
 class CTxMemPool;
+
+extern RecursiveMutex cs_main;
 
 // Dumb helper to handle CTransaction compression at serialize-time
 struct TransactionCompressor {
@@ -206,7 +209,7 @@ public:
     // extra_txn is a list of extra transactions to look at, in <witness hash, reference> form
     ReadStatus InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn);
     bool IsTxAvailable(size_t index) const;
-    ReadStatus FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const int height);
+    ReadStatus FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const int height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 };
 
 #endif // DEFI_BLOCKENCODINGS_H

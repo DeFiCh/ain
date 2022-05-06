@@ -11,17 +11,12 @@
 class LOAN_LIQUIDATION_PENALTY : public GovVariable, public AutoRegistrator<GovVariable, LOAN_LIQUIDATION_PENALTY>
 {
 public:
-    virtual ~LOAN_LIQUIDATION_PENALTY() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "LOAN_LIQUIDATION_PENALTY"; }
     static GovVariable * Create() { return new LOAN_LIQUIDATION_PENALTY(); }
 

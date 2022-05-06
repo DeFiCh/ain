@@ -21,15 +21,7 @@ struct AuctionHistoryKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        } else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
-
+        READWRITE(WrapBigEndianInv(blockHeight));
         READWRITE(owner);
         READWRITE(vaultId);
         READWRITE(index);

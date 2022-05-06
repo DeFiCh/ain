@@ -157,7 +157,7 @@ public:
     Res EraseVault(const CVaultId&);
     std::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
-    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
+    void ForEachVault(std::function<bool(const CVaultId&, CLazySerialize<CVaultData>)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
     Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
@@ -170,7 +170,7 @@ public:
     Res StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch);
     Res EraseAuctionBatch(const CVaultId& vaultId, uint32_t id);
     std::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
-    void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId = {});
+    void ForEachVaultAuction(std::function<bool(const CVaultId&, CLazySerialize<CAuctionData>)> callback, uint32_t height, const CVaultId& vaultId = {});
 
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
     Res StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount);

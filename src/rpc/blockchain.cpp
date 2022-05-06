@@ -1331,6 +1331,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningmuseum", consensusParams.FortCanningMuseumHeight);
     BuriedForkDescPushBack(softforks, "fortcanningpark", consensusParams.FortCanningParkHeight);
     BuriedForkDescPushBack(softforks, "fortcanninghill", consensusParams.FortCanningHillHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
     BuriedForkDescPushBack(softforks, "greatworld", consensusParams.GreatWorldHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
@@ -1602,12 +1603,10 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         ResetBlockFailureFlags(pblockindex);
     }
 
-    CValidationState state;
-    ActivateBestChain(state, Params());
-
-    if (!state.IsValid()) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, FormatStateMessage(state));
-    }
+    std::thread([]() {
+        CValidationState state;
+        ActivateBestChain(state, Params());
+    }).detach();
 
     return NullUniValue;
 }
@@ -1882,7 +1881,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         CAmount tx_total_out = 0;
         if (loop_outputs) {
             auto mintingOutputsStart = ~0u;
-            if (auto accountToUtxos = GetAccountToUtxosMsg(*tx)) {
+            if (auto accountToUtxos = GetIf<CAccountToUtxosMessage>(*tx, CustomTxType::AccountToUtxos)) {
                 mintingOutputsStart = accountToUtxos->mintingOutputsStart;
             }
             for (size_t i = 0; i < tx->vout.size(); ++i) {

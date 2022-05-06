@@ -9,8 +9,11 @@
 #include <flushablestorage.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/vault.h>
 #include <script/script.h>
 #include <uint256.h>
+
+#include <optional>
 
 class CVaultHistoryView;
 class CVaultHistoryStorage;
@@ -25,19 +28,8 @@ struct AccountHistoryKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(owner);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-            READWRITE(WrapBigEndian(txn));
-            txn = ~txn;
-        }
-        else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-            uint32_t txn_ = ~txn;
-            READWRITE(WrapBigEndian(txn_));
-        }
+        READWRITE(WrapBigEndianInv(blockHeight));
+        READWRITE(WrapBigEndianInv(txn));
     }
 };
 
@@ -59,98 +51,95 @@ struct AccountHistoryValue {
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
+    void CreateMultiIndexIfNeeded();
+    Res EraseAccountHistoryHeight(uint32_t height);
+    std::optional<AccountHistoryValue> ReadAccountHistory(AccountHistoryKey const & key) const;
     Res WriteAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
     Res EraseAccountHistory(AccountHistoryKey const & key);
-    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback,
+                               CScript const & owner = {}, uint32_t height = ~0u, uint32_t txn = ~0u);
 
     // tags
-    struct ByAccountHistoryKey { static constexpr uint8_t prefix() { return 'h'; } };
+    struct ByAccountHistoryKey    { static constexpr uint8_t prefix() { return 'h'; } };
+    struct ByAccountHistoryKeyNew { static constexpr uint8_t prefix() { return 'H'; } };
 };
 
 class CAccountHistoryStorage : public CAccountsHistoryView
                              , public CAuctionHistoryView
 {
 public:
+    CAccountHistoryStorage(CAccountHistoryStorage& accountHistory) : CStorageView(accountHistory) {}
     CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
 class CBurnHistoryStorage : public CAccountsHistoryView
 {
 public:
+    CBurnHistoryStorage(CBurnHistoryStorage& burnHistory) : CStorageView(burnHistory) {}
     CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
 class CHistoryWriters {
     CAccountHistoryStorage* historyView;
     CBurnHistoryStorage* burnView;
+    CVaultHistoryStorage* vaultView;
+    std::string schemeID;
+    std::optional<CVaultId> vaultID;
     std::map<CScript, TAmounts> diffs;
     std::map<CScript, TAmounts> burnDiffs;
+    std::optional<CLoanSchemeCreation> globalLoanScheme;
     std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
 
 public:
-    CVaultHistoryStorage* vaultView;
-    CLoanSchemeCreation globalLoanScheme;
-    std::string schemeID;
-
     CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
 
-    void AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
+    void AddBalance(const CScript& owner, const CTokenAmount amount);
     void AddFeeBurn(const CScript& owner, const CAmount amount);
-    void SubBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
-    void Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type, const uint256& vaultID);
-};
-
-class CHistoryErasers {
-    CAccountHistoryStorage* historyView;
-    CBurnHistoryStorage* burnView;
-    std::set<CScript> accounts;
-    std::set<CScript> burnAccounts;
-    std::set<uint256> vaults;
-
-public:
-    CVaultHistoryStorage* vaultView;
-    bool removeLoanScheme{false};
-    uint256 schemeCreationTxid;
-
-    CHistoryErasers(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
-
-    void AddBalance(const CScript& owner, const uint256& vaultID);
-    void SubFeeBurn(const CScript& owner);
-    void SubBalance(const CScript& owner, const uint256& vaultID);
-    void Flush(const uint32_t height, const uint32_t txn, const uint256& vaultID);
+    void SubBalance(const CScript& owner, const CTokenAmount amount);
+    void AddVault(const CVaultId& vaultId, const std::string& schemeId = {});
+    void AddLoanScheme(const CLoanSchemeMessage& loanScheme, const uint256& txid, uint32_t height, uint32_t txn);
+    void Flush(const uint32_t height, const uint256& txid, const uint32_t txn, const uint8_t type);
 };
 
 class CAccountsHistoryWriter : public CCustomCSView
 {
     const uint32_t height;
     const uint32_t txn;
-    const uint256 txid;
+    const uint256& txid;
     const uint8_t type;
     CHistoryWriters* writers;
 
 public:
-    uint256 vaultID;
-
     CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
+
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
+    bool Flush(bool sync = false) override;
 };
 
-class CAccountsHistoryEraser : public CCustomCSView
+template<typename T, typename... Args>
+inline void FlushWriters(std::unique_ptr<T>& writer, Args&... args)
 {
-    const uint32_t height;
-    const uint32_t txn;
-    CHistoryErasers& erasers;
+    static_assert(std::is_base_of<CStorageView, T>::value, "T should inherit CStorageView");
+    if (writer) {
+        writer->Flush();
+    }
+    if constexpr (sizeof...(Args) != 0) {
+        FlushWriters(args...);
+    }
+}
 
-public:
-    uint256 vaultID;
-
-    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers);
-    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
-    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
-};
+template<typename T, typename... Args>
+inline void DiscardWriters(std::unique_ptr<T>& writer, Args&... args)
+{
+    static_assert(std::is_base_of<CStorageView, T>::value, "T should inherit CStorageView");
+    if (writer) {
+        writer->Discard();
+    }
+    if constexpr (sizeof...(Args) != 0) {
+        DiscardWriters(args...);
+    }
+}
 
 extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
 extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;

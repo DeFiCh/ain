@@ -14,15 +14,15 @@
 class CICXOrder
 {
 public:
-    static const uint32_t DEFAULT_EXPIRY; // default period in blocks after order automatically expires
-    static const uint8_t TYPE_INTERNAL; // type for DFI/BTC orders
-    static const uint8_t TYPE_EXTERNAL; // type for BTC/DFI orders
-    static const uint8_t STATUS_OPEN;
-    static const uint8_t STATUS_CLOSED; // manually close status
-    static const uint8_t STATUS_FILLED; // completely filled status
-    static const uint8_t STATUS_EXPIRED; // offer expired status
-    static const std::string CHAIN_BTC;
-    static const std::string TOKEN_BTC; // name of BTC token on DFC
+    static constexpr uint32_t DEFAULT_EXPIRY = 2880;
+    static constexpr uint8_t TYPE_INTERNAL = 1; // type for DFI/BTC orders
+    static constexpr uint8_t TYPE_EXTERNAL = 2; // type for BTC/DFI orders
+    static constexpr uint8_t STATUS_OPEN = 0;
+    static constexpr uint8_t STATUS_CLOSED = 1; // manually close status
+    static constexpr uint8_t STATUS_FILLED = 2; // completely filled status
+    static constexpr uint8_t STATUS_EXPIRED = 3; // offer expired status
+    inline static const std::string CHAIN_BTC = "BTC";
+    inline static const std::string TOKEN_BTC = "BTC";
 
     uint8_t orderType = 0; //is maker buying or selling DFC asset to know which htlc to come first
     DCT_ID idToken{UINT_MAX}; // used for DFT/BTC
@@ -81,13 +81,13 @@ struct CICXCreateOrderMessage : public CICXOrder {
 class CICXMakeOffer
 {
 public:
-    static const uint32_t DEFAULT_EXPIRY; // default period in blocks after offer automatically expires
-    static const uint32_t EUNOSPAYA_DEFAULT_EXPIRY;
-    static const uint32_t MAKER_DEPOSIT_REFUND_TIMEOUT; // minimum period in DFC blocks in which 2nd HTLC must be created, otherwise makerDeposit is refunded to maker
-    static const uint8_t STATUS_OPEN;
-    static const uint8_t STATUS_CLOSED;
-    static const uint8_t STATUS_EXPIRED;
-    static const int64_t DEFAULT_TAKER_FEE_PER_BTC;
+    static constexpr uint32_t DEFAULT_EXPIRY = 10; // default period in blocks after offer automatically expires
+    static constexpr uint32_t EUNOSPAYA_DEFAULT_EXPIRY = 20;
+    static constexpr uint32_t MAKER_DEPOSIT_REFUND_TIMEOUT = 100; // minimum period in DFC blocks in which 2nd HTLC must be created, otherwise makerDeposit is refunded to maker
+    static constexpr uint8_t STATUS_OPEN = 0;
+    static constexpr uint8_t STATUS_CLOSED = 1;
+    static constexpr uint8_t STATUS_EXPIRED = 2;
+    static constexpr int64_t DEFAULT_TAKER_FEE_PER_BTC = 3 * COIN / 1000;
 
     uint256 orderTx; // txid for which order is the offer
     CAmount amount = 0; // amount of asset to swap
@@ -142,14 +142,14 @@ struct CICXMakeOfferMessage : public CICXMakeOffer {
 class CICXSubmitDFCHTLC
 {
 public:
-    static const uint32_t MINIMUM_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is first htlc
-    static const uint32_t EUNOSPAYA_MINIMUM_TIMEOUT;
-    static const uint32_t MINIMUM_2ND_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is second htlc
-    static const uint32_t EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
-    static const uint8_t STATUS_OPEN;
-    static const uint8_t STATUS_CLAIMED;
-    static const uint8_t STATUS_REFUNDED;
-    static const uint8_t STATUS_EXPIRED;
+    static constexpr uint32_t MINIMUM_TIMEOUT = 500; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is first htlc
+    static constexpr uint32_t EUNOSPAYA_MINIMUM_TIMEOUT = 1440;
+    static constexpr uint32_t MINIMUM_2ND_TIMEOUT = 250; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is second htlc
+    static constexpr uint32_t EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 480;
+    static constexpr uint8_t STATUS_OPEN = 0;
+    static constexpr uint8_t STATUS_CLAIMED = 1;
+    static constexpr uint8_t STATUS_REFUNDED = 2;
+    static constexpr uint8_t STATUS_EXPIRED = 3;
 
     // This tx is acceptance of the offer, HTLC tx and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
     uint256 offerTx; // txid for which offer is this HTLC
@@ -197,15 +197,15 @@ struct CICXSubmitDFCHTLCMessage : public CICXSubmitDFCHTLC {
 class CICXSubmitEXTHTLC
 {
 public:
-    static const uint32_t MINIMUM_TIMEOUT; // default period in blocks after htlc timeouts when it is first htlc
-    static const uint32_t EUNOSPAYA_MINIMUM_TIMEOUT;
-    static const uint32_t MINIMUM_2ND_TIMEOUT; // default period in blocks after htlc timeouts when it is second htlc
-    static const uint32_t EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
-    static const uint32_t BTC_BLOCKS_IN_DFI_BLOCKS; // number of BTC blocks in DFI blocks period
-    static const uint32_t EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS; // number of BTC blocks in DFI blocks period
-    static const uint8_t STATUS_OPEN;
-    static const uint8_t STATUS_CLOSED;
-    static const uint8_t STATUS_EXPIRED;
+    static constexpr uint32_t MINIMUM_TIMEOUT = 30; // default period in blocks after htlc timeouts when it is first htlc
+    static constexpr uint32_t EUNOSPAYA_MINIMUM_TIMEOUT = 72;
+    static constexpr uint32_t MINIMUM_2ND_TIMEOUT = 15; // default period in blocks after htlc timeouts when it is second htlc
+    static constexpr uint32_t EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 24;
+    static constexpr uint32_t BTC_BLOCKS_IN_DFI_BLOCKS = 16; // number of BTC blocks in DFI blocks period
+    static constexpr uint32_t EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS = 20; // number of BTC blocks in DFI blocks period
+    static constexpr uint8_t STATUS_OPEN = 0;
+    static constexpr uint8_t STATUS_CLOSED = 1;
+    static constexpr uint8_t STATUS_EXPIRED = 3;
 
     // This tx is acceptance of the offer and evidence of HTLC on external chain in the same time. It is a CustomTx on DFC chain
     uint256 offerTx; // txid for which offer is this HTLC
@@ -375,7 +375,7 @@ struct CICXCloseOfferMessage : public CICXCloseOffer {
 
 class CICXOrderView : public virtual CStorageView {
 public:
-    static const CAmount DEFAULT_DFI_BTC_PRICE;
+    static constexpr CAmount DEFAULT_DFI_BTC_PRICE = 15000;
 
     using OrderKey = std::pair<DCT_ID, uint256>;
     using TxidPairKey = std::pair<uint256, uint256>;
@@ -390,7 +390,7 @@ public:
     using CICXCloseOfferImpl = CICXCloseOfferImplemetation;
 
     //Order
-    std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
+    std::optional<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
     uint8_t GetICXOrderStatus(OrderKey const & key) const;
     Res ICXCreateOrder(CICXOrderImpl const & order);
     Res ICXUpdateOrder(CICXOrderImpl const & order);
@@ -398,10 +398,10 @@ public:
     void ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXOrderImpl> HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid);
+    std::optional<CICXOrderImpl> HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid);
 
     //MakeOffer
-    std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
+    std::optional<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
     uint8_t GetICXMakeOfferStatus(TxidPairKey const & key) const;
     Res ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer);
@@ -409,40 +409,40 @@ public:
     void ForEachICXMakeOfferOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
     void ForEachICXMakeOfferClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
     void ForEachICXMakeOfferExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXMakeOfferImpl> HasICXMakeOfferOpen(uint256 const & ordertxid, uint256 const & offertxid);
+    std::optional<CICXMakeOfferImpl> HasICXMakeOfferOpen(uint256 const & ordertxid, uint256 const & offertxid);
 
     //SubmitDFCHTLC
-    std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
     Res ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
     Res ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc, uint8_t const);
     void ForEachICXSubmitDFCHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXSubmitDFCHTLCImpl> HasICXSubmitDFCHTLCOpen(uint256 const & offertxid);
+    std::optional<CICXSubmitDFCHTLCImpl> HasICXSubmitDFCHTLCOpen(uint256 const & offertxid);
     bool ExistedICXSubmitDFCHTLC(uint256 const & offertxid, bool isPreEunosPaya);
 
 
     //SubmitEXTHTLC
-    std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
     Res ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
     Res ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & exthtlc, uint8_t const);
     void ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    std::unique_ptr<CICXSubmitEXTHTLCImpl> HasICXSubmitEXTHTLCOpen(uint256 const & offertxid);
+    std::optional<CICXSubmitEXTHTLCImpl> HasICXSubmitEXTHTLCOpen(uint256 const & offertxid);
     bool ExistedICXSubmitEXTHTLC(uint256 const & offertxid, bool isPreEunosPaya);
 
     //ClaimDFCHTLC
-    std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
+    std::optional<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
     Res ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, uint256 const & offertxid, CICXOrderImpl const & order);
     void ForEachICXClaimDFCHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
 
     //CloseOrder
-    std::unique_ptr<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(uint256 const & txid) const;
+    std::optional<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(uint256 const & txid) const;
     Res ICXCloseOrder(CICXCloseOrderImpl const & closeorder);
 
     //CloseOrder
-    std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
+    std::optional<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
     Res ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
 
     // ICX_TAKERFEE_PER_BTC

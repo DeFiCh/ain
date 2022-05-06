@@ -11,17 +11,12 @@
 class ORACLE_BLOCK_INTERVAL : public GovVariable, public AutoRegistrator<GovVariable, ORACLE_BLOCK_INTERVAL>
 {
 public:
-    virtual ~ORACLE_BLOCK_INTERVAL() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ORACLE_BLOCK_INTERVAL"; }
     static GovVariable * Create() { return new ORACLE_BLOCK_INTERVAL(); }
 

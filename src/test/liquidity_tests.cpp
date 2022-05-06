@@ -77,7 +77,7 @@ struct CLiquidityRewardsTest : public TestingSetup
 {
     CLiquidityRewardsTest()
     {
-        const_cast<int&>(Params().GetConsensus().FortCanningHillHeight) = 7;
+        const_cast<int&>(Params().GetConsensus().GreatWorldHeight) = 7;
     }
 };
 
@@ -425,6 +425,12 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         return std::make_pair(feeA, feeB);
     };
 
+    // fixes the bug
+    const int bugFixHeight = Params().GetConsensus().GreatWorldHeight;
+    BOOST_REQUIRE(bugFixHeight < 10);
+
+    std::map<std::pair<DCT_ID, uint32_t>, int> rewards, commissionsA, commissionsB;
+
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&]() -> CAmount {
             return mnview.GetBalance(shareAddress[0], idPool).nValue;
@@ -433,12 +439,15 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
                 case RewardType::Coinbase:
+                    rewards[std::make_pair(idPool, height)]++;
                     BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     break;
                 case RewardType::Commission:
                     if (amount.nTokenId == pool.idTokenA) {
+                        commissionsA[std::make_pair(idPool, height)]++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        commissionsB[std::make_pair(idPool, height)]++;
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                     break;
@@ -451,8 +460,26 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         return true;
     });
 
+    for (uint32_t i = 1; i < 10; i++) {
+        for (uint32_t j = 1; j < 10; j++) {
+            auto key = std::make_pair(DCT_ID{i}, j);
+            if (static_cast<int>(j) >= bugFixHeight) {
+                BOOST_REQUIRE(rewards[key]);
+            } else {
+                BOOST_REQUIRE(!rewards[key]);
+            }
+            if (j == 1) {
+                BOOST_REQUIRE(commissionsA[key]);
+                BOOST_REQUIRE(commissionsB[key]);
+            } else {
+                BOOST_REQUIRE(!commissionsA[key]);
+                BOOST_REQUIRE(!commissionsB[key]);
+            }
+        }
+    }
+
     // new calculation
-    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 6;
+    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 8;
 
     auto newRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
         return COIN / 2880 * pool.rewardPct / COIN * liquidity / pool.totalLiquidity;
@@ -466,11 +493,20 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         pool.swapEvent = true;
+        mnview.SetPoolPair(idPool, 8, pool);
         pool.ownerAddress = shareAddress[1];
         pool.rewards = CBalances{TAmounts{{DCT_ID{idPool.v+1}, COIN}}};
-        mnview.SetPoolPair(idPool, 8, pool);
+        mnview.UpdatePoolPair(idPool, 8, pool.status, pool.commission, pool.ownerAddress, pool.rewards);
         return false;
     });
+
+    int oldRewardsCount = 0;
+    int newRewardsCount = 0;
+    int poolRewardsCount = 0;
+    int oldCommissionACount = 0;
+    int newCommissionACount = 0;
+    int oldCommissionBCount = 0;
+    int newCommissionBCount = 0;
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         auto onLiquidity = [&] () -> CAmount {
@@ -478,25 +514,40 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
-                if (height >= Params().GetConsensus().BayfrontGardensHeight) {
+                BOOST_CHECK_EQUAL(idPool.v, 1);
+                if (static_cast<int>(height) >= Params().GetConsensus().BayfrontGardensHeight) {
                     if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
+                            poolRewardsCount++;
+                            BOOST_REQUIRE(height >= 8 && height <= 9);
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
                         }
                     } else if (type == RewardType::Coinbase) {
+                        newRewardsCount++;
+                        BOOST_REQUIRE(height >= 8 && height <= 9);
                         BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
+                        newCommissionACount++;
+                        BOOST_CHECK_EQUAL(height, 8);
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        newCommissionBCount++;
+                        BOOST_CHECK_EQUAL(height, 8);
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).second);
                     }
                 } else {
                     if (type & RewardType::Rewards) {
+                        oldRewardsCount++;
+                        BOOST_CHECK_EQUAL(height, 7);
                         BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
+                        oldCommissionACount++;
+                        BOOST_CHECK_EQUAL(height, 1);
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
+                        oldCommissionBCount++;
+                        BOOST_CHECK_EQUAL(height, 1);
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                 }
@@ -505,6 +556,14 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         );
         return false;
     });
+
+    BOOST_CHECK_EQUAL(oldRewardsCount, 1);
+    BOOST_CHECK_EQUAL(newRewardsCount, 2);
+    BOOST_CHECK_EQUAL(poolRewardsCount, 2);
+    BOOST_CHECK_EQUAL(oldCommissionACount, 1);
+    BOOST_CHECK_EQUAL(newCommissionACount, 1);
+    BOOST_CHECK_EQUAL(oldCommissionBCount, 1);
+    BOOST_CHECK_EQUAL(newCommissionBCount, 1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
