@@ -42,6 +42,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/consensus/accounts -> masternodes/consensus/txvisitor -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/accounts"
     "masternodes/consensus/governance -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/governance"
     "masternodes/consensus/smartcontracts -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/smartcontracts"
+    "masternodes/consensus/governance -> masternodes/govvariables/attributes -> masternodes/consensus/governance"
     "masternodes/govvariables/loan_splits -> masternodes/masternodes -> validation -> masternodes/govvariables/loan_splits"
     "masternodes/govvariables/lp_splits -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_splits"
     "masternodes/govvariables/attributes -> masternodes/masternodes -> masternodes/govvariables/attributes"
