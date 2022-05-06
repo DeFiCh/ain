@@ -430,11 +430,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     if (res) {
         LOCK(cs_main);
         CImmutableCSView view(*pcustomcsview);
+        auto futureSwapView(*pfutureSwapView);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
         auto time = ::ChainActive().Tip()->nTime;
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, time);
+        res = CustomTxVisit(view, futureSwapView, coins, tx, height, Params().GetConsensus(), txMessage, time);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

@@ -169,6 +169,7 @@ DEFI_CORE_H = \
   masternodes/consensus/vaults.h \
   masternodes/customtx.h \
   masternodes/factory.h \
+  masternodes/futureswap.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
@@ -398,6 +399,7 @@ libdefi_server_a_SOURCES = \
   masternodes/consensus/tokens.cpp \
   masternodes/consensus/txvisitor.cpp \
   masternodes/consensus/vaults.cpp \
+  masternodes/futureswap.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
