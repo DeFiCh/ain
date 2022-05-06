@@ -334,10 +334,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
-    if (request.params[0].isNull() || request.params[1].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 2 must be non-null");
-    }
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VOBJ, UniValue::VARR }, true);
 
     std::string const nodeIdStr = request.params[0].getValStr();
     const uint256 nodeId = uint256S(nodeIdStr);

@@ -175,7 +175,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GreatWorldHeight && txType == CustomTxType::UpdateMasternode)) {
-        CCustomCSView discardCache(const_cast<CCustomCSView&>(*mnview));
+        CCustomCSView discardCache(mnview);
         auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal) && txType != CustomTxType::UpdateMasternode) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
@@ -200,7 +200,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
         /// @todo tokens: later match the range with TotalSupply
-        if (canSpend != prevout.hash && prevout.n == 1 && !mnview->CanSpend(prevout.hash, nSpendHeight)) {
+        if (canSpend != prevout.hash && prevout.n == 1 && !mnview.CanSpend(prevout.hash, nSpendHeight)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }

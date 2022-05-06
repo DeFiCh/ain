@@ -42,6 +42,15 @@ CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 
+enum class UpdateMasternodeType : uint8_t
+{
+    None                   = 0x00,
+    OwnerAddress           = 0x01,
+    OperatorAddress        = 0x02,
+    SetRewardAddress       = 0x03,
+    RemRewardAddress       = 0x04
+};
+
 constexpr uint8_t SUBNODE_COUNT{4};
 
 class CMasternode
@@ -160,41 +169,15 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
-struct CSetForcedRewardAddressMessage {
-    uint256 nodeId;
-    char rewardAddressType;
-    CKeyID rewardAddress;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(nodeId);
-        READWRITE(rewardAddressType);
-        READWRITE(rewardAddress);
-    }
-};
-
-struct CRemForcedRewardAddressMessage {
-    uint256 nodeId;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(nodeId);
-    }
-};
-
 struct CUpdateMasterNodeMessage {
     uint256 mnId;
-    char operatorType;
-    CKeyID operatorAuthAddress;
+    std::vector<std::pair<uint8_t, std::pair<char, std::vector<unsigned char>>>> updates;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(mnId);
-        READWRITE(operatorType);
-        READWRITE(operatorAuthAddress);
+        READWRITE(updates);
     }
 };
 

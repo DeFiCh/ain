@@ -14,8 +14,6 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch (type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
-        case CustomTxType::SetForcedRewardAddress:
-        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
@@ -78,8 +76,6 @@ std::string ToString(CustomTxType type) {
     switch (type) {
         CustomTxTypeString(CreateMasternode);
         CustomTxTypeString(ResignMasternode);
-        CustomTxTypeString(SetForcedRewardAddress);
-        CustomTxTypeString(RemForcedRewardAddress);
         CustomTxTypeString(UpdateMasternode);
         CustomTxTypeString(CreateToken);
         CustomTxTypeString(UpdateToken);

@@ -722,7 +722,7 @@ namespace pos {
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
             nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1)) {
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview)) {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }

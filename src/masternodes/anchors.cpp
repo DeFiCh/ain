@@ -1117,7 +1117,7 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
             continue;
         }
 
-        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
+        if (node->IsActive(height, *pcustomcsview) && team.find(mnId.first) != team.end()) {
             CKey masternodeKey;
             for (auto const & wallet : GetWallets()) {
                 if (wallet->GetKey(mnId.first, masternodeKey)) {

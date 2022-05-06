@@ -136,11 +136,6 @@ public:
 
     template<typename T>
     Res EnabledAfter() const {
-        if constexpr (IsOneOf<T, CSetForcedRewardAddressMessage,
-                                 CRemForcedRewardAddressMessage,
-                                 CUpdateMasterNodeMessage>())
-            return Res::Err("tx is disabled for Fort Canning");
-        else
         if constexpr (IsOneOf<T, CCreateTokenMessage,
                                  CUpdateTokenPreAMKMessage,
                                  CUtxosToAccountMessage,
@@ -198,6 +193,9 @@ public:
         if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
+        else
+        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
                                  CResignMasterNodeMessage>())
