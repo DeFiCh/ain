@@ -199,7 +199,7 @@ std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CK
 
     bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
     if (!signingRes) {
-        return {std::string{} + "Block signing error"};
+        return "Block signing error";
     }
 
     return {};
