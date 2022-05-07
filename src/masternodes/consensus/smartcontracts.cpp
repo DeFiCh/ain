@@ -96,6 +96,11 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
     if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey))
         return Res::Err("DFIP2203 not currently active");
 
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+    if (const auto startBlock = attributes->GetValue(startKey, CAmount{}); height < startBlock) {
+        return Res::Err("DFIP2203 not active until block %d", startBlock);
+    }
+
     if (obj.source.nValue <= 0)
         return Res::Err("Source amount must be more than zero");
 
@@ -167,6 +172,10 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
         if (!res)
             return res;
     } else {
+        // some txs might be rejected due to not enough owner amount
+        if (static_cast<int>(height) >= consensus.GreatWorldHeight)
+            CalculateOwnerRewards(obj.owner);
+
         auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
         if (!res)
             return res;
