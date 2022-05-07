@@ -158,8 +158,8 @@ class TokenSplitTest(DefiTestFramework):
         self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
 
         # Set pool gov vars
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{self.idGD}/token_a_fee_pct': '0.01', f'v0/poolpairs/{self.idGD}/token_b_fee_pct': '0.01',
-                                            f'v0/token/{self.idGOOGL}/dex_in_fee_pct': '0.01', f'v0/token/{self.idGOOGL}/dex_out_fee_pct': '0.01'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{self.idGD}/token_a_fee_pct': '0.01', f'v0/poolpairs/{self.idGD}/token_b_fee_pct': '0.03',
+                                            f'v0/token/{self.idGOOGL}/dex_in_fee_pct': '0.02', f'v0/token/{self.idGOOGL}/dex_out_fee_pct': '0.005'}})
         self.nodes[0].setgov({"LP_SPLITS": { str(self.idGD): 1}})
         self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": { str(self.idGD): 1}})
         self.nodes[0].generate(1)
@@ -295,9 +295,9 @@ class TokenSplitTest(DefiTestFramework):
 
         # Validate new Gov vars set
         assert_equal(result[f'v0/poolpairs/{pool_id}/token_a_fee_pct'], '0.01')
-        assert_equal(result[f'v0/poolpairs/{pool_id}/token_b_fee_pct'], '0.01')
-        assert_equal(result[f'v0/token/{token_id}/dex_in_fee_pct'], '0.01')
-        assert_equal(result[f'v0/token/{token_id}/dex_out_fee_pct'], '0.01')
+        assert_equal(result[f'v0/poolpairs/{pool_id}/token_b_fee_pct'], '0.03')
+        assert_equal(result[f'v0/token/{token_id}/dex_in_fee_pct'], '0.02')
+        assert_equal(result[f'v0/token/{token_id}/dex_out_fee_pct'], '0.005')
 
         # Check new pool
         result = self.nodes[0].getpoolpair(pool_id)[pool_id]
@@ -310,7 +310,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['status'], True)
         assert_equal(result['tradeEnabled'], True)
         assert_equal(result['dexFeePctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['dexFeePctTokenB'], Decimal('0.01000000'))
+        assert_equal(result['dexFeePctTokenB'], Decimal('0.03000000'))
         assert_equal(result['dexFeeInPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['rewardPct'], Decimal('1.00000000'))
@@ -357,9 +357,6 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Token split
-        print(self.idTSLA)
-        print(self.nodes[0].gettoken(self.idTSLA))
-        print(self.nodes[0].getloantoken(self.idTSLA))
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
         self.nodes[0].generate(2)
 
@@ -376,9 +373,6 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(new_amount, amount * 2)
 
         # Token split
-        print(self.idTSLA)
-        print(self.nodes[0].gettoken(self.idTSLA))
-        print(self.nodes[0].getloantoken(self.idTSLA))
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/-3'}})
         self.nodes[0].generate(2)
 
@@ -405,6 +399,7 @@ class TokenSplitTest(DefiTestFramework):
 
         # Check pool before split
         result = self.nodes[0].getpoolpair(self.idGD)[self.idGD]
+        print(result)
         assert_equal(result['reserveA'], self.poolGDTotal)
         assert_equal(result['reserveB'], self.poolGDTotal)
         assert_equal(result['reserveA/reserveB'], Decimal('1.00000000'))
@@ -412,7 +407,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['status'], True)
         assert_equal(result['tradeEnabled'], True)
         assert_equal(result['dexFeePctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['dexFeePctTokenB'], Decimal('0.01000000'))
+        assert_equal(result['dexFeePctTokenB'], Decimal('0.03000000'))
         assert_equal(result['dexFeeInPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['rewardPct'], Decimal('1.00000000'))

@@ -809,15 +809,15 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     return Res::Err("Cannot be set before GreatWorld");
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
-                    const auto value = std::get_if<OracleSplits>(&attribute.second);
-                    if (!value) {
+                    const auto splitMap = std::get_if<OracleSplits>(&value);
+                    if (!splitMap) {
                         return Res::Err("Unsupported value");
                     }
-                    for (const auto& [tokenId, multipler] : *value) {
+                    for (const auto& [tokenId, multipler] : *splitMap) {
                         if (tokenId == 0) {
                             return Res::Err("Tokenised DFI cannot be split");
                         }
-                        if (view.HasPoolPair({tokenId})) {
+                        if (view.HasPoolPair(DCT_ID{tokenId})) {
                             return Res::Err("Pool tokens cannot be split");
                         }
                         const auto token = view.GetToken(DCT_ID{tokenId});

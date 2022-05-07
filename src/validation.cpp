@@ -2206,7 +2206,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     return batches;
 }
 
-bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
+bool ApplyGovVars(CCustomCSView& cache, CFutureSwapView& futureSwapView, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
     if (auto var = cache.GetAttributes()) {
         var->time = pindex.nTime;
 
@@ -2215,7 +2215,7 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
             obj.pushKV(key, value);
         }
 
-        if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+        if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, futureSwapView, pindex.nHeight) && cache.SetVariable(*var)) {
             return true;
         }
     }
@@ -2724,10 +2724,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     ProcessGovEvents(pindex, cache, futureSwapCache, chainparams);
 
     // Migrate loan and collateral tokens to Gov vars.
-    ProcessTokenToGovVar(pindex, cache, chainparams);
+    ProcessTokenToGovVar(pindex, cache, futureSwapCache, chainparams);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, chainparams);
+    ProcessTokenSplits(block, pindex, cache, futureSwapCache, chainparams);
 
     if (!futureSwapCache.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
         undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
@@ -3545,7 +3545,7 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
 }
 
-void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams) {
 
     // Migrate at +1 height so that GetLastHeight() in Gov var
     // Validate() has a height equal to the GW fork.
@@ -3593,7 +3593,8 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
         }
 
         CCustomCSView govCache(cache);
-        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+        CFutureSwapView discardCache(futureSwapView);
+        if (ApplyGovVars(govCache, discardCache, *pindex, attrsFirst) && ApplyGovVars(govCache, discardCache, *pindex, attrsSecond)) {
             govCache.Flush();
 
             // Erase old tokens afterwards to avoid invalid state during transition
@@ -3860,7 +3861,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("UpdatePoolPair on old pool pair: %s", res.msg));
             }
 
-            for (const auto& [key, type] : attributes.poolKeysToType) {
+            for (const auto& [key, type] : ATTRIBUTES::poolKeysToType) {
                 std::visit([&, key = key](auto& value){
                     MigrateMapValues<decltype(value), PoolKeys>(attributes, AttributeTypes::Poolpairs, oldPoolId.v, newPoolId.v, key);
                 }, type);
@@ -3875,6 +3876,8 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
+
+
         }
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
@@ -3883,7 +3886,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
     return Res::Ok();
 }
 
-static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
+static Res VaultSplits(CCustomCSView& view, CFutureSwapView& futureSwapView, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
 
     std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
     view.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
@@ -3923,7 +3926,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
     attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
-    auto res = attributes.Apply(view, height);
+    auto res = attributes.Apply(view, futureSwapView, height);
     if (!res) {
         return res;
     }
@@ -3971,7 +3974,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     return Res::Ok();
 }
 
-void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
         return;
     }
@@ -4103,14 +4106,15 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
+        CFutureSwapView discardCache(futureSwapView);
         if (view.GetLoanTokenByID(oldTokenId)) {
-            res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+            res = VaultSplits(view, discardCache, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
             if (!res) {
                 LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
                 continue;
             }
         } else {
-            auto res = attributes->Apply(view, pindex->nHeight);
+            auto res = attributes->Apply(view, discardCache, pindex->nHeight);
             if (!res) {
                 LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
                 continue;

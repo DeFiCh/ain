@@ -165,7 +165,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Ok(); };
+    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
     Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height);
 
     std::string GetName() const override { return TypeName(); }
