@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
+UniValue poolToJSON(CImmutableCSView& view, DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
@@ -9,11 +9,19 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenA)) {
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
+            poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
         }
-        if (const auto dexFee = pcustomcsview->GetDexFeePct(id, pool.idTokenB)) {
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
+            poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenB)) {
+            poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
+        }
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenA)) {
+            poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
         }
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
@@ -23,13 +31,13 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         if (pool.reserveB == 0) {
             poolObj.pushKV("reserveA/reserveB", "0");
         } else {
-            poolObj.pushKV("reserveA/reserveB", ValueFromAmount((arith_uint256(pool.reserveA) * arith_uint256(COIN) / pool.reserveB).GetLow64()));
+            poolObj.pushKV("reserveA/reserveB", ValueFromAmount(DivideAmounts(pool.reserveA, pool.reserveB)));
         }
 
         if (pool.reserveA == 0) {
             poolObj.pushKV("reserveB/reserveA", "0");
         } else {
-            poolObj.pushKV("reserveB/reserveA", ValueFromAmount((arith_uint256(pool.reserveB) * arith_uint256(COIN) / pool.reserveA).GetLow64()));
+            poolObj.pushKV("reserveB/reserveA", ValueFromAmount(DivideAmounts(pool.reserveB, pool.reserveA)));
         }
         poolObj.pushKV("tradeEnabled", pool.reserveA >= CPoolPair::SLOPE_SWAP_RATE && pool.reserveB >= CPoolPair::SLOPE_SWAP_RATE);
 
@@ -47,7 +55,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
                 ++next_it;
 
                 // Get token balance
-                const auto balance = pcustomcsview->GetBalance(pool.ownerAddress, it->first).nValue;
+                const auto balance = view.GetBalance(pool.ownerAddress, it->first).nValue;
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {
@@ -79,7 +87,7 @@ UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmoun
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("poolID", poolId.ToString());
     poolObj.pushKV("owner", ScriptToString(provider));
-    CAmount percentage = (arith_uint256(amount * 100) * arith_uint256(COIN) / arith_uint256(poolPair.totalLiquidity)).GetLow64();
+    CAmount percentage = (arith_uint256(amount) * 100 * COIN / poolPair.totalLiquidity).GetLow64();
     poolObj.pushKV("%", ValueFromAmount(percentage));
 
     if (verbose) {
@@ -123,12 +131,13 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
         tokenTo = metadataObj["tokenTo"].getValStr();
     }
     {
-        LOCK(cs_main);
-        auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
+        CImmutableCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
         if (!token)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
 
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
+        auto token2 = view.GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
 
@@ -202,13 +211,12 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
-        const auto token = pcustomcsview->GetToken(id);
+    CImmutableCSView view(*pcustomcsview);
+    view.ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
+        const auto token = view.GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            ret.pushKVs(poolToJSON(view, id, pool, *token, verbose));
             limit--;
         }
 
@@ -241,14 +249,13 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
         verbose = request.params[1].getBool();
     }
 
-    LOCK(cs_main);
-
     DCT_ID id;
-    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    CImmutableCSView view(*pcustomcsview);
+    auto token = view.GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        auto pool = pcustomcsview->GetPoolPair(id);
+        auto pool = view.GetPoolPair(id);
         if (pool) {
-            return poolToJSON(id, *pool, *token, verbose);
+            return poolToJSON(view, id, *pool, *token, verbose);
         }
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pool not found");
     }
@@ -307,12 +314,14 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VSTR, UniValue::VARR }, true);
 
+    CImmutableCSView view(*pcustomcsview);
+
     // decode
     CLiquidityMessage msg{};
     if (request.params[0].get_obj().getKeys().size() == 1 &&
         request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
 
-        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
+        CAccounts foundMineAccounts = GetAllMineAccounts(view, pwallet);
 
         CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
 
@@ -336,7 +345,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
     AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = view.GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -426,7 +435,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
     AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -551,33 +560,34 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
     {
-        LOCK(cs_main);
+        CImmutableCSView view(*pcustomcsview);
 
-        auto token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
+        auto token = view.GetTokenGuessId(tokenA, idtokenA);
         if (!token)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
 
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
+        auto token2 = view.GetTokenGuessId(tokenB, idtokenB);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
 
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
-    CPoolPairMessage poolPairMsg;
+    CCreatePoolPairMessage poolPairMsg{};
     poolPairMsg.idTokenA = idtokenA;
     poolPairMsg.idTokenB = idtokenB;
     poolPairMsg.commission = commission;
     poolPairMsg.status = status;
     poolPairMsg.ownerAddress = ownerAddress;
+    poolPairMsg.pairSymbol = pairSymbol;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        poolPairMsg.rewards = rewards;
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg << pairSymbol;
-
-    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        metadata << rewards;
-    }
+             << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -673,18 +683,19 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     DCT_ID poolId;
     int targetHeight;
     {
-        LOCK(cs_main);
-        auto token = pcustomcsview->GetTokenGuessId(poolStr, poolId);
+        CImmutableCSView view(*pcustomcsview);
+
+        auto token = view.GetTokenGuessId(poolStr, poolId);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
 
-        auto pool = pcustomcsview->GetPoolPair(poolId);
+        auto pool = view.GetPoolPair(poolId);
         if (!pool) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view.GetLastHeight() + 1;
     }
 
     if (!metaObj["status"].isNull()) {
@@ -712,14 +723,19 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
 
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
-             // serialize poolId as raw integer
-             << poolId.v << status << commission << ownerAddress;
+    CUpdatePoolPairMessage msg{};
+    msg.poolId = poolId;
+    msg.status = status;
+    msg.commission = commission;
+    msg.ownerAddress = ownerAddress;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        metadata << rewards;
+        msg.rewards = rewards;
     }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -809,7 +825,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap);
@@ -907,7 +923,8 @@ UniValue compositeswap(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    CImmutableCSView view(*pcustomcsview);
+    int targetHeight = view.GetLastHeight() + 1;
     if (targetHeight < Params().GetConsensus().FortCanningHeight) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
@@ -919,12 +936,11 @@ UniValue compositeswap(const JSONRPCRequest& request) {
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
     {
-        LOCK(cs_main);
         // If no direct swap found search for composite swap
-        if (!pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
+        if (!view.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
 
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-            poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
+            poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(view);
 
             // No composite or direct pools found
             if (poolSwapMsgV2.poolIDs.empty()) {
@@ -1003,6 +1019,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                        "One of auto/direct (default = direct)\n"
                        "auto - automatically use composite swap or direct swap as needed.\n"
                        "direct - uses direct path only or fails.\n"
+                       "composite - uses composite path only or fails.\n"
                        "Note: The default will be switched to auto in the upcoming versions."
                    },
                    {
@@ -1051,14 +1068,15 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     // test execution and get amount
     Res res = Res::Ok();
     {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
+        CImmutableCSView view(*pcustomcsview); // create dummy cache for test state writing
 
-        int targetHeight = ::ChainActive().Height() + 1;
+        int targetHeight = view.GetLastHeight() + 1;
+
+        auto poolPair = view.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        if (poolPair && path == "auto") path = "direct";
 
         // If no direct swap found search for composite swap
         if (path == "direct") {
-            auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
             if (!poolPair)
                 throw JSONRPCError(RPC_INVALID_REQUEST, std::string{"Direct pool pair not found. Use 'auto' mode to use composite swap."});
 
@@ -1066,20 +1084,24 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
-            auto dexfeeInPct = mnview_dummy.GetDexFeePct(poolPair->first, poolSwapMsg.idTokenFrom);
+
+            if (view.AreTokensLocked({pp.idTokenA.v, pp.idTokenB.v})) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Pool currently disabled due to locked token");
+            }
+
+            auto dexfeeInPct = view.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
-                auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
+                auto resPP = view.SetPoolPair(poolPair->first, targetHeight, pp);
                 if (!resPP) {
                     return resPP;
                 }
 
                 auto resultAmount = tokenAmount;
-                if (targetHeight >= Params().GetConsensus().FortCanningHillHeight) {
-                    if (auto dexfeeOutPct = mnview_dummy.GetDexFeePct(poolPair->first, tokenAmount.nTokenId)) {
-                        auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
-                        resultAmount.nValue -= dexfeeOutAmount;
-                    }
+                auto dexfeeOutPct = view.GetDexFeeOutPct(poolPair->first, tokenAmount.nTokenId);
+                if (dexfeeOutPct > 0) {
+                    auto dexfeeOutAmount = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
+                    resultAmount.nValue -= dexfeeOutAmount;
                 }
 
                 return Res::Ok(resultAmount.ToString());
@@ -1093,8 +1115,8 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
 
             std::vector<DCT_ID> poolIds;
-            if (path == "auto") {
-                poolIds = compositeSwap.CalculateSwaps(mnview_dummy, true);
+            if (path == "auto" || path == "composite") {
+                poolIds = compositeSwap.CalculateSwaps(view, true);
             } else {
                 path = "custom";
 
@@ -1109,13 +1131,13 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                     poolIds.push_back(DCT_ID::FromString(id.getValStr()));
                 }
 
-                auto availablePaths = compositeSwap.CalculatePoolPaths(mnview_dummy);
+                auto availablePaths = compositeSwap.CalculatePoolPaths(view);
                 if (std::find(availablePaths.begin(), availablePaths.end(), poolIds) == availablePaths.end()) {
                     throw JSONRPCError(RPC_INVALID_REQUEST, "Custom pool path is invalid.");
                 }
             }
 
-            res = compositeSwap.ExecuteSwap(mnview_dummy, poolIds, true);
+            res = compositeSwap.ExecuteSwap(view, poolIds, true);
             if (!res) {
                 std::string errorMsg{"Cannot find usable pool pair."};
                 if (!compositeSwap.errors.empty()) {
@@ -1210,17 +1232,14 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-
     PoolShareKey startKey{ start, CScript{} };
-//    startKey.poolID = start;
-//    startKey.owner = CScript(0);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
-        const CTokenAmount tokenAmount = pcustomcsview->GetBalance(provider, poolId);
+    CImmutableCSView view(*pcustomcsview);
+    view.ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
+        const CTokenAmount tokenAmount = view.GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
-            const auto poolPair = pcustomcsview->GetPoolPair(poolId);
+            const auto poolPair = view.GetPoolPair(poolId);
             if(poolPair) {
                 if (isMineOnly) {
                     if (IsMineCached(*pwallet, provider) == ISMINE_SPENDABLE) {

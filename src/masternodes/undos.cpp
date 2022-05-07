@@ -11,7 +11,9 @@ void CUndosView::ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<
 
 Res CUndosView::SetUndo(UndoKey const & key, CUndo const & undo)
 {
-    WriteBy<ByUndoKey>(key, undo);
+    if (!undo.before.empty()) {
+        WriteBy<ByUndoKey>(key, undo);
+    }
     return Res::Ok();
 }
 

@@ -168,18 +168,17 @@ static void _ProtoBufSetInt(uint8_t *buf, size_t bufLen, uint64_t i, uint64_t ke
 static void _ProtoBufUnknown(uint8_t **unknown, uint64_t key, uint64_t i, const void *data, size_t dataLen)
 {
     size_t bufLen = 10 + ((key & 0x07) == PROTOBUF_LENDELIM ? dataLen : 0);
-    uint8_t _buf[(bufLen <= 0x1000) ? bufLen : 0], *buf = (bufLen <= 0x1000) ? _buf : (uint8_t *)malloc(bufLen);
+    std::vector<uint8_t> buf(bufLen);
     size_t off = 0, o = 0, l;
     uint64_t k;
     
-    assert(buf != NULL);
-    _ProtoBufSetVarInt(buf, bufLen, key, &off);
+    _ProtoBufSetVarInt(buf.data(), bufLen, key, &off);
     
     switch (key & 0x07) {
-        case PROTOBUF_VARINT: _ProtoBufSetVarInt(buf, bufLen, i, &off); break;
-        case PROTOBUF_64BIT: _ProtoBufSetFixed(buf, bufLen, i, &off, sizeof(uint64_t)); break;
-        case PROTOBUF_LENDELIM: _ProtoBufSetLenDelim(buf, bufLen, data, dataLen, &off); break;
-        case PROTOBUF_32BIT: _ProtoBufSetFixed(buf, bufLen, i, &off, sizeof(uint32_t)); break;
+        case PROTOBUF_VARINT: _ProtoBufSetVarInt(buf.data(), bufLen, i, &off); break;
+        case PROTOBUF_64BIT: _ProtoBufSetFixed(buf.data(), bufLen, i, &off, sizeof(uint64_t)); break;
+        case PROTOBUF_LENDELIM: _ProtoBufSetLenDelim(buf.data(), bufLen, data, dataLen, &off); break;
+        case PROTOBUF_32BIT: _ProtoBufSetFixed(buf.data(), bufLen, i, &off, sizeof(uint32_t)); break;
         default: break;
     }
     
@@ -195,8 +194,7 @@ static void _ProtoBufUnknown(uint8_t **unknown, uint64_t key, uint64_t i, const 
         if (k >= key) break;
     }
     
-    array_insert_array(*unknown, o, buf, bufLen);
-    if (buf != _buf) free(buf);
+    array_insert_array(*unknown, o, buf.data(), bufLen);
 }
 
 typedef enum {
@@ -699,12 +697,12 @@ BRPaymentProtocolPayment *BRPaymentProtocolPaymentNew(const uint8_t *merchantDat
     }
     
     array_new(payment->refundTo, refundToCount);
-        
+    std::vector<uint8_t> script;
     for (size_t i = 0; i < refundToCount; i++) {
-        uint8_t script[BRAddressScriptPubKey(NULL, 0, refundToAddresses[i].s)];
-        size_t scriptLen = BRAddressScriptPubKey(script, sizeof(script), refundToAddresses[i].s);
+        script.resize(BRAddressScriptPubKey(NULL, 0, refundToAddresses[i].s));
+        size_t scriptLen = BRAddressScriptPubKey(script.data(), script.size(), refundToAddresses[i].s);
             
-        array_add(payment->refundTo, _BRPaymentProtocolOutput(refundToAmounts[i], script, scriptLen));
+        array_add(payment->refundTo, _BRPaymentProtocolOutput(refundToAmounts[i], script.data(), scriptLen));
     }
     
     payment->refundToCount = refundToCount;
@@ -1394,7 +1392,7 @@ size_t BRPaymentProtocolEncryptedMessageDecrypt(BRPaymentProtocolEncryptedMessag
     if (! ctx->defaults[encrypted_msg_status_code]) {
         snprintf(ad, adLen, "%" PRIu64 "%s", msg->statusCode, (msg->statusMsg) ? msg->statusMsg : "");
     }
-    else if (msg->statusMsg) strncpy(ad, msg->statusMsg, adLen);
+    else if (msg->statusMsg) strcpy(ad, msg->statusMsg);
     
     outLen = BRChacha20Poly1305AEADDecrypt(out, outLen, cek, iv, msg->message, msg->msgLen, ad, strlen(ad));
     mem_clean(cek, sizeof(cek));

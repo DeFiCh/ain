@@ -27,8 +27,7 @@ template <unsigned int BITS>
 base_uint<BITS>& base_uint<BITS>::operator<<=(unsigned int shift)
 {
     base_uint<BITS> a(*this);
-    for (int i = 0; i < WIDTH; i++)
-        pn[i] = 0;
+    pn.fill(0);
     int k = shift / 32;
     shift = shift % 32;
     for (int i = 0; i < WIDTH; i++) {
@@ -44,8 +43,7 @@ template <unsigned int BITS>
 base_uint<BITS>& base_uint<BITS>::operator>>=(unsigned int shift)
 {
     base_uint<BITS> a(*this);
-    for (int i = 0; i < WIDTH; i++)
-        pn[i] = 0;
+    pn.fill(0);
     int k = shift / 32;
     shift = shift % 32;
     for (int i = 0; i < WIDTH; i++) {
@@ -178,6 +176,19 @@ std::string base_uint<BITS>::GetHex() const
     for(int x=0; x<WIDTH; ++x)
         WriteLE32(b.begin() + x*4, pn[x]);
     return b.GetHex();
+}
+
+template <unsigned int BITS>
+std::string base_uint<BITS>::GetDecimal() const
+{
+    auto a = *this;
+    std::string str;
+    constexpr char dec[] = "0123456789";
+    do {
+        str.insert(str.begin(), dec[(a % 10).GetLow64()]);
+        a /= 10;
+    } while (a != 0);
+    return str;
 }
 
 template <unsigned int BITS>

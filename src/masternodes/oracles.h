@@ -16,6 +16,9 @@
 #include <string>
 #include <vector>
 
+class CTokenImplementation;
+class CLoanSetLoanTokenImplementation;
+
 using COracleId = uint256;
 using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
@@ -115,12 +118,16 @@ struct CFixedIntervalPrice
     }
 };
 
+struct CFuturesPrice
+{
+    CAmount discount;
+    CAmount premium;
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {
 public:
-    ~COracleView() override = default;
-
     /// register new oracle instance
     Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 
@@ -149,6 +156,10 @@ public:
 
     Res SetIntervalBlock(const uint32_t blockInterval);
     uint32_t GetIntervalBlock() const;
+
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
+    [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const & id) const = 0;
 
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
     struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };

@@ -10,6 +10,8 @@
 #include <masternodes/res.h>
 #include <univalue/include/univalue.h>
 
+#include <unordered_map>
+
 class ATTRIBUTES;
 class CCustomCSView;
 
@@ -36,6 +38,42 @@ public:
     virtual void Unserialize(CDataStream& s) = 0;
 };
 
+struct CGovernanceMessage {
+    std::unordered_map<std::string, std::shared_ptr<GovVariable>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        std::string name;
+        while(!s.empty()) {
+            s >> name;
+            auto& gov = govs[name];
+            auto var = GovVariable::Create(name);
+            if (!var) break;
+            s >> *var;
+            gov = std::move(var);
+        }
+    }
+};
+
+struct CGovernanceHeightMessage {
+    std::string govName;
+    std::shared_ptr<GovVariable> govVar;
+    uint32_t startHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!s.empty()) {
+            s >> govName;
+            if ((govVar = GovVariable::Create(govName))) {
+                s >> *govVar;
+                s >> startHeight;
+            }
+        }
+    }
+};
+
 class CGovView : public virtual CStorageView
 {
 public:
@@ -47,7 +85,9 @@ public:
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
-    std::shared_ptr<ATTRIBUTES> GetAttributes() const;
+    virtual std::shared_ptr<ATTRIBUTES> GetAttributes() const;
+
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
 
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
@@ -73,18 +113,13 @@ struct GovVarKey {
 class GV_EXAMPLE : public GovVariable, public AutoRegistrator<GovVariable, GV_EXAMPLE>
 {
 public:
-    virtual ~GV_EXAMPLE() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     // implement this methods:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "GV_EXAMPLE"; }
     static GovVariable * Create() { return new GV_EXAMPLE(); }
 

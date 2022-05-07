@@ -30,7 +30,7 @@ ResVal<CAmount> COracle::GetTokenPrice(const std::string& token, const std::stri
         return Res::Err("token <%s> - currency <%s> is not allowed", token, currency);
     }
 
-    return ResVal<CAmount>(tokenPrices[token][currency].first, Res::Ok());
+    return {tokenPrices[token][currency].first, Res::Ok()};
 }
 
 Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
@@ -125,7 +125,7 @@ ResVal<COracle> COracleView::GetOracleData(const COracleId& oracleId) const
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
 
-    return ResVal<COracle>(oracle, Res::Ok());
+    return {oracle, Res::Ok()};
 }
 
 void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start)
@@ -159,8 +159,25 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
     }
 
+    DCT_ID firstID{}, secondID{};
+    const auto firstToken = GetTokenGuessId(fixedIntervalPriceId.first, firstID);
+    const auto secondToken = GetTokenGuessId(fixedIntervalPriceId.second, secondID);
+
+    std::set<uint32_t> loanTokens;
+    if (firstToken && GetLoanTokenByID(firstID)) {
+        loanTokens.insert(firstID.v);
+    }
+
+    if (secondToken && GetLoanTokenByID(secondID)) {
+        loanTokens.insert(secondID.v);
+    }
+
+    if (AreTokensLocked(loanTokens)) {
+        return Res::Err("Fixed interval price currently disabled due to locked token");
+    }
+
     LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
-    return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
+    return {fixedIntervalPrice, Res::Ok()};
 }
 
 void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start)

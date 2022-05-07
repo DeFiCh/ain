@@ -7,16 +7,17 @@
 #include <base58.h>
 #include <policy/settings.h>
 
+#include <masternodes/govvariables/attributes.h>
+
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
-CAccounts GetAllMineAccounts(CWallet * const pwallet) {
+CAccounts GetAllMineAccounts(CImmutableCSView& view, CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = ::ChainActive().Height() + 1;
+    CImmutableCSView mnview(view);
+    auto targetHeight = mnview.GetLastHeight() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -202,7 +203,7 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) :
     pwallet(std::move(pwallet)) {
 }
 
@@ -231,6 +232,13 @@ void CWalletCoinsUnlocker::AddLockedCoin(const COutPoint& coin) {
     coins.push_back(coin);
 }
 
+std::shared_ptr<ATTRIBUTES> CImmutableCSView::GetAttributes() const {
+    if (!attributes) {
+        attributes = CCustomCSView::GetAttributes();
+    }
+    return attributes;
+}
+
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx) {
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
@@ -242,14 +250,6 @@ std::string ScriptToString(CScript const& script) {
         return script.GetHex();
     }
     return EncodeDestination(dest);
-}
-
-int chainHeight(interfaces::Chain::Lock& locked_chain)
-{
-    LOCK(locked_chain.mutex());
-    if (auto height = locked_chain.getHeight())
-        return *height;
-    return 0;
 }
 
 static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
@@ -431,11 +431,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
+        CImmutableCSView view(*pcustomcsview);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
-        CCustomCSView view(*pcustomcsview);
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime);
+        auto time = ::ChainActive().Tip()->nTime;
+        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, time);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -451,6 +452,28 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
 
     EnsureWalletIsAvailable(wallet.get(), request.fHelp);
     return CWalletCoinsUnlocker{std::move(wallet)};
+}
+
+std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
+{
+    const auto attributes = view.GetAttributes();
+    if (!attributes) {
+        return {};
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    const auto active = attributes->GetValue(activeKey, false);
+    if (!active) {
+        return {};
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+        return {};
+    }
+
+    return attributes->GetValue(blockKey, CAmount{});
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
@@ -514,7 +537,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     scriptMeta << OP_RETURN << ToByteVector(metadata);
     AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -609,7 +632,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     scriptMeta << OP_RETURN << ToByteVector(metadata);
     AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -655,8 +678,6 @@ UniValue getgov(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    LOCK(cs_main);
-
     auto name = request.params[0].getValStr();
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
@@ -683,15 +704,14 @@ UniValue listgovs(const JSONRPCRequest& request) {
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
 
-    LOCK(cs_main);
-
     // Get all stored Gov var changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
+    CImmutableCSView view(*pcustomcsview);
+    auto pending = view.GetAllStoredVariables();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {
         UniValue innerResult(UniValue::VARR);
-        auto var = pcustomcsview->GetVariable(name);
+        auto var = view.GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
             ret.pushKV(var->GetName(),var->Export());
@@ -729,15 +749,13 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
 
-    LOCK(cs_main);
-
     UniValue result(UniValue::VBOOL);
     result.setBool(false);
 
     uint256 txHash = ParseHashV(request.params[0], "txid");
     int blockHeight = request.params[1].get_int();
 
-    auto blockindex = ::ChainActive()[blockHeight];
+    auto blockindex = WITH_LOCK(cs_main, return ::ChainActive()[blockHeight]);
     if (!blockindex) {
         return result;
     }
@@ -796,6 +814,8 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue arr(UniValue::VARR);
+    CImmutableCSView view(*pcustomcsview);
+
     for (const auto& item : Params().GetConsensus().smartContracts) {
         UniValue obj(UniValue::VOBJ);
         CTxDestination dest;
@@ -804,7 +824,7 @@ UniValue listsmartcontracts(const JSONRPCRequest& request) {
         obj.pushKV("call", GetContractCall(item.first));
         obj.pushKV("address", EncodeDestination(dest));
 
-        pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        view.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (owner != item.second) {
                 return false;
             }
@@ -837,18 +857,29 @@ static UniValue clearmempool(const JSONRPCRequest& request)
                }
     ).Check(request);
 
+    SyncWithValidationInterfaceQueue();
+
     std::vector<uint256> vtxid;
-    mempool.queryHashes(vtxid);
+    {
+        LOCK(mempool.cs);
+        mempool.queryHashes(vtxid);
+        mempool.clear();
+    }
+
+    {
+        auto locked_chain = pwallet->chain().lock();
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+        std::vector<uint256> vHashOut;
+        if (pwallet->ZapSelectTx(vtxid, vHashOut) != DBErrors::LOAD_OK) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not delete mempool transactions from wallet");
+        }
+    }
 
     UniValue removed(UniValue::VARR);
-    for (const uint256& hash : vtxid)
+    for (const uint256& hash : vtxid) {
         removed.push_back(hash.ToString());
-
-    LOCK(cs_main);
-    mempool.clear();
-
-    std::vector<uint256> vHashOut;
-    pwallet->ZapSelectTx(vtxid, vHashOut);
+    }
 
     return removed;
 }

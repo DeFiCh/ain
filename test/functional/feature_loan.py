@@ -135,6 +135,9 @@ class LoanTest (DefiTestFramework):
         assert_equal(len(auctionlist[0]['batches']), 3)
         vault1 = self.nodes[0].getvault(vaultId1)
 
+        getloaninfo = self.nodes[0].getloaninfo()
+        assert_equal(getloaninfo['totals']['openAuctions'], 3)
+
         # Fail auction bid
         try:
             self.nodes[0].placeauctionbid(vaultId1, 0, account, "410@TSLA")

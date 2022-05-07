@@ -79,14 +79,13 @@ struct CPoolSwapMessageV2 {
     }
 };
 
-struct CPoolPairMessage {
+struct CPoolPairMessageBase {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;   // comission %% for traders
     CScript ownerAddress;
     bool status = true;
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(idTokenA);
@@ -97,14 +96,45 @@ struct CPoolPairMessage {
     }
 };
 
-class CPoolPair : public CPoolPairMessage
+struct CCreatePoolPairMessage : public CPoolPairMessageBase {
+    std::string pairSymbol;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPoolPairMessageBase, *this);
+        READWRITE(pairSymbol);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+struct CUpdatePoolPairMessage {
+    DCT_ID poolId;
+    bool status;
+    CAmount commission;
+    CScript ownerAddress;
+    CBalances rewards;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(poolId.v);
+        READWRITE(status);
+        READWRITE(commission);
+        READWRITE(ownerAddress);
+        if (!s.empty())
+            READWRITE(rewards);
+    }
+};
+
+class CPoolPair : public CPoolPairMessageBase
 {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE = 1000;
     static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair(CPoolPairMessage const & msg = {}) : CPoolPairMessage(msg) {}
-    virtual ~CPoolPair() = default;
 
     // temporary values, not serialized
     CAmount reserveA = 0;
@@ -151,7 +181,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         if (!ser_action.ForRead()) ioProofer();
 
-        READWRITEAS(CPoolPairMessage, *this);
+        READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(rewards);
         READWRITE(creationTx);
         READWRITE(creationHeight);
@@ -182,14 +212,7 @@ struct PoolHeightKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(poolID);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-        }
+        READWRITE(WrapBigEndianInv(height));
     }
 };
 
@@ -232,7 +255,8 @@ public:
     bool HasPoolPair(DCT_ID const & poolId) const;
 
     Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
-    CAmount GetDexFeePct(DCT_ID poolId, DCT_ID tokenId) const;
+    CAmount GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const;
+    CAmount GetDexFeeOutPct(DCT_ID poolId, DCT_ID tokenId) const;
 
     std::pair<CAmount, CAmount> UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 

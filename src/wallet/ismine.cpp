@@ -194,13 +194,10 @@ isminetype IsMine(const CWallet& keystore, const CTxDestination& dest)
     return IsMine(keystore, script);
 }
 
-struct CScriptHash
+uint32_t CScriptHash::operator()(const CScript& script) const
 {
-    uint32_t operator()(const CScript & script) const
-    {
-        return MurmurHash3(0x1234, script.data(), script.size());
-    }
-};
+    return MurmurHash3(0x1234, script.data(), script.size());
+}
 
 struct CCacheInfo
 {
@@ -210,8 +207,8 @@ struct CCacheInfo
 
 isminetype IsMineCached(const CWallet& keystore, CScript const & script)
 {
-    static std::atomic_bool cs_cache(false);
-    static std::unordered_map<const CWallet*, CCacheInfo> cache;
+    static CLockFreeMutex cs_cache;
+    static std::unordered_map<const CWallet*, CCacheInfo> cache GUARDED_BY(cs_cache);
     auto* wallet = &keystore;
     CLockFreeGuard lock(cs_cache);
     auto it = cache.find(wallet);

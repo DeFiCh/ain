@@ -9,6 +9,7 @@
 #include <threadsafety.h>
 
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <condition_variable>
 #include <thread>
@@ -195,8 +196,23 @@ using DebugLock = UniqueLock<typename std::remove_reference<typename std::remove
 #define AssertLockHeld(cs)
 #define AssertLockNotHeld(cs)
 
+template <typename Mutex, typename Base = typename Mutex::UniqueLock>
+class SCOPED_LOCKABLE UniqueLock : public Base
+{
+public:
+    explicit UniqueLock(Mutex& m) EXCLUSIVE_LOCK_FUNCTION(m) : Base(m) {}
+    UniqueLock(Mutex& m, std::defer_lock_t t) noexcept EXCLUSIVE_LOCK_FUNCTION(m) : Base(m, t) {} 
+    UniqueLock(Mutex& m, std::try_to_lock_t t) EXCLUSIVE_LOCK_FUNCTION(m) : Base(m, t) {}
+
+    ~UniqueLock() UNLOCK_FUNCTION()
+    {
+    }
+
+    using Base::operator bool;
+};
+
 template<typename T>
-using unique_lock_type = typename std::decay<T>::type::UniqueLock;
+using unique_lock_type = UniqueLock<std::decay_t<T>>;
 
 #define LOCK(cs) unique_lock_type<decltype(cs)> criticalblock1(cs)
 #define LOCK2(cs1, cs2)                                                   \
@@ -324,30 +340,46 @@ struct SCOPED_LOCKABLE LockAssertion
     template <typename Mutex>
     explicit LockAssertion(Mutex& mutex) EXCLUSIVE_LOCK_FUNCTION(mutex)
     {
-#ifdef DEBUG_LOCKORDER
         AssertLockHeld(mutex);
-#endif
     }
     ~LockAssertion() UNLOCK_FUNCTION() {}
 };
 
-class CLockFreeGuard
+class LOCKABLE CLockFreeMutex
 {
-    std::atomic_bool& lock;
+    std::atomic_bool lf_lock{false};
+
 public:
-    CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
+    bool try_lock() EXCLUSIVE_TRYLOCK_FUNCTION(true)
     {
-        bool desired = false;
-        while (!lock.compare_exchange_weak(desired, true,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
-            desired = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
+        bool locked = false;
+        return lf_lock.compare_exchange_weak(locked, true,
+                                             std::memory_order_release,
+                                             std::memory_order_relaxed);
     }
-    ~CLockFreeGuard()
+    void lock() EXCLUSIVE_LOCK_FUNCTION()
     {
-        lock.store(false, std::memory_order_release);
+        while (!try_lock())
+            std::this_thread::yield();
+    }
+    void unlock() UNLOCK_FUNCTION()
+    {
+        lf_lock.store(false, std::memory_order_release);
+    }
+};
+
+class SCOPED_LOCKABLE CLockFreeGuard
+{
+    CLockFreeMutex& lf_lock;
+
+public:
+    CLockFreeGuard(CLockFreeMutex& lf_lock) EXCLUSIVE_LOCK_FUNCTION(lf_lock) : lf_lock(lf_lock)
+    {
+        lf_lock.lock();
+    }
+    ~CLockFreeGuard() UNLOCK_FUNCTION()
+    {
+        lf_lock.unlock();
     }
 };
 

@@ -7,17 +7,12 @@
 class ICX_TAKERFEE_PER_BTC : public GovVariable, public AutoRegistrator<GovVariable, ICX_TAKERFEE_PER_BTC>
 {
 public:
-    virtual ~ICX_TAKERFEE_PER_BTC() override {}
-
-    std::string GetName() const override {
-        return TypeName();
-    }
-
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
+    std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ICX_TAKERFEE_PER_BTC"; }
     static GovVariable * Create() { return new ICX_TAKERFEE_PER_BTC(); }
 
