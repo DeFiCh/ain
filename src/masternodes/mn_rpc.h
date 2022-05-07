@@ -82,7 +82,6 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
 void AddVersionAndExpiration(CScript& metadata, const uint32_t height, const MetadataVersion version = MetadataVersion::One);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
