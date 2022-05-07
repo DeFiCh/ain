@@ -93,38 +93,6 @@ struct CFutureSwapMessage {
     }
 };
 
-struct CFuturesUserKey {
-    uint32_t height;
-    CScript owner;
-    uint32_t txn;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(WrapBigEndianInv(height));
-        READWRITE(owner);
-        READWRITE(WrapBigEndianInv(txn));
-    }
-
-    bool operator<(const CFuturesUserKey& o) const {
-        return std::tie(height, owner, txn) < std::tie(o.height, o.owner, o.txn);
-    }
-};
-
-struct CFuturesUserValue {
-    CTokenAmount source{};
-    uint32_t destination{};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(source);
-        READWRITE(destination);
-    }
-};
-
 class CAccountsView : public virtual CStorageView
 {
 public:
@@ -141,16 +109,9 @@ public:
     uint32_t GetBalancesHeight(CScript const & owner);
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
-    Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
-    std::optional<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
-    Res EraseFuturesUserValues(const CFuturesUserKey& key);
-    std::optional<uint32_t> GetMostRecentFuturesHeight();
-    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
-
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
-    struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);

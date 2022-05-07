@@ -6,6 +6,7 @@
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/consensus/governance.h> /// storeGovVars
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
 
@@ -520,7 +521,7 @@ ResVal<CScript> GetFutureSwapContractAddress()
     return {contractAddress, Res::Ok()};
 }
 
-Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID)
+Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID)
 {
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     const auto blockPeriod = GetValue(blockKey, CAmount{});
@@ -530,7 +531,7 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
 
     std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
-    mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+    futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
         if (tokenID != std::numeric_limits<uint32_t>::max()) {
             if (futuresValues.source.nTokenId.v == tokenID || futuresValues.destination == tokenID) {
                 userFuturesValues[key] = futuresValues;
@@ -554,7 +555,7 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
 
     for (const auto& [key, value] : userFuturesValues) {
 
-        mnview.EraseFuturesUserValues(key);
+        futureSwapView.EraseFuturesUserValues(key);
 
         CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
         CAccountsHistoryWriter subView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
@@ -878,7 +879,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
+Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -958,7 +959,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto res = RefundFuturesContracts(mnview, height, attrV0->typeId);
+                auto res = RefundFuturesContracts(mnview, futureSwapView, height, attrV0->typeId);
                 if (!res) {
                     return res;
                 }
@@ -978,7 +979,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto res = RefundFuturesContracts(mnview, height);
+                auto res = RefundFuturesContracts(mnview, futureSwapView, height);
                 if (!res) {
                     return res;
                 }

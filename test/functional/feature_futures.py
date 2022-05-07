@@ -262,6 +262,28 @@ class FuturesTest(DefiTestFramework):
         # Create user futures contracts
         self.nodes[0].futureswap(address_twtr, f'1@{self.symbolTWTR}')
         self.nodes[0].generate(1)
+
+        # Get user TWTR futures contracts by address
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
+        assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
+        assert_equal(result['values'][0]['destination'], self.symbolDUSD)
+
+        # Test rollback of single entry
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check empty
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
+        assert_equal(result['values'], [])
+
+        # Move forward and mint TX
+        self.nodes[0].generate(1)
+
+        # Get user TWTR futures contracts by address
+        result = self.nodes[0].getpendingfutureswaps(address_twtr)
+        assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
+        assert_equal(result['values'][0]['destination'], self.symbolDUSD)
+
+        # Create user futures contracts
         self.nodes[0].futureswap(address_tsla, f'1@{self.symbolTSLA}')
         self.nodes[0].generate(1)
         self.nodes[0].futureswap(address_googl, f'1@{self.symbolGOOGL}')
@@ -299,11 +321,6 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTSLA}')
         assert_equal(result['values'][0]['destination'], self.symbolDUSD)
 
-        # Get user TWTR futures contracts by address
-        result = self.nodes[0].getpendingfutureswaps(address_twtr)
-        assert_equal(result['values'][0]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
-        assert_equal(result['values'][0]['destination'], self.symbolDUSD)
-
         # Check DFI2203 amounts do not show up as burns yet
         result = self.nodes[0].getburninfo()
         assert_equal(result['dfip2203'], [])
@@ -321,18 +338,6 @@ class FuturesTest(DefiTestFramework):
         next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - (self.nodes[0].getblockcount() % self.futures_interval))
         self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
 
-        # Check total minted incremented as expected
-        new_total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
-        assert_equal(total_dusd + self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"], new_total_dusd)
-
-        # Check TXN ordering
-        txn_first = 4294967295
-        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'q'})
-        result.sort(key = sort_history, reverse = True)
-        for result_entry in result:
-            assert_equal(result_entry['txn'], txn_first)
-            txn_first -= 1
-
         # Pending futures should now be empty
         result = self.nodes[0].listpendingfutureswaps()
         assert_equal(len(result), 0)
@@ -344,6 +349,39 @@ class FuturesTest(DefiTestFramework):
         assert_equal(len(result['values']), 0)
         result = self.nodes[0].getpendingfutureswaps(address_twtr)
         assert_equal(len(result['values']), 0)
+
+        # Test rollback
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check all entries restored
+        result = self.nodes[0].listpendingfutureswaps()
+        assert_equal(result[0]['owner'], address_msft)
+        assert_equal(result[0]['source'], f'{Decimal("1.00000000")}@{self.symbolMSFT}')
+        assert_equal(result[0]['destination'], self.symbolDUSD)
+        assert_equal(result[1]['owner'], address_googl)
+        assert_equal(result[1]['source'], f'{Decimal("1.00000000")}@{self.symbolGOOGL}')
+        assert_equal(result[1]['destination'], self.symbolDUSD)
+        assert_equal(result[2]['owner'], address_tsla)
+        assert_equal(result[2]['source'], f'{Decimal("1.00000000")}@{self.symbolTSLA}')
+        assert_equal(result[2]['destination'], self.symbolDUSD)
+        assert_equal(result[3]['owner'], address_twtr)
+        assert_equal(result[3]['source'], f'{Decimal("1.00000000")}@{self.symbolTWTR}')
+        assert_equal(result[3]['destination'], self.symbolDUSD)
+
+        # Move forward again to swap block
+        self.nodes[0].generate(1)
+
+        # Check total minted incremented as expected
+        new_total_dusd = Decimal(self.nodes[0].gettoken(self.idDUSD)[self.idDUSD]['minted'])
+        assert_equal(total_dusd + self.prices[0]["discountPrice"] + self.prices[1]["discountPrice"] + self.prices[2]["discountPrice"] + self.prices[3]["discountPrice"], new_total_dusd)
+
+        # Check TXN ordering
+        txn_first = 4294967295
+        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'q'})
+        result.sort(key = sort_history, reverse = True)
+        for result_entry in result:
+            assert_equal(result_entry['txn'], txn_first)
+            txn_first -= 1
 
         # Check contract address
         result = self.nodes[0].getaccount(self.contract_address)

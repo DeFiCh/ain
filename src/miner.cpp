@@ -239,10 +239,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     CCustomCSView mnview(*pcustomcsview);
+    CFutureSwapView futureSwapView(*pfutureSwapView);
+    CUndosView undosView(*pundosView);
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, futureSwapView, undosView);
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -465,7 +467,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view, CFutureSwapView &futureSwapView, CUndosView& undosView)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -613,7 +615,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime);
+                auto res = ApplyCustomTx(view, futureSwapView, undosView, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {

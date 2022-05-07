@@ -52,7 +52,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
 
             // Validate as complete set. Check for future conflicts between key pairs.
             if (!(res = govVar->Import(var->Export()))
-            ||  !(res = govVar->Validate(mnview)))
+            ||  !(res = govVar->Validate(mnview))
+            ||  !(res = govVar->Apply(mnview, futureSwapView, height)))
                 return Res::Err("%s: %s", var->GetName(), res.msg);
 
             var = govVar;
@@ -72,11 +73,17 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
                     continue;
                 }
             }
+
+            res = var->Apply(mnview, height);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
         }
 
-        if (!(res = var->Apply(mnview, height))
-        ||  !(res = mnview.SetVariable(*var)))
+        res = mnview.SetVariable(*var);
+        if (!res) {
             return Res::Err("%s: %s", var->GetName(), res.msg);
+        }
     }
     return Res::Ok();
 }

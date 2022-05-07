@@ -781,23 +781,6 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     }
 }
 
-void CCustomCSView::AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height)
-{
-    auto flushable = cache.GetStorage().GetFlushableStorage();
-    assert(flushable);
-    SetUndo({height, txid}, CUndo::Construct(GetStorage(), flushable->GetRaw()));
-}
-
-void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
-{
-    const auto undo = GetUndo(UndoKey{height, txid});
-    if (!undo) {
-        return; // not custom tx, or no changes done
-    }
-    CUndo::Revert(GetStorage(), *undo); // revert the changes of this tx
-    DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
-}
-
 bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
 {
     auto node = GetMasternode(txId);
