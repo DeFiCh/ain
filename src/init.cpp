@@ -25,6 +25,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -1280,6 +1281,62 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+void MigrateDBs()
+{
+    auto it = pundosView->LowerBound<CUndosView::ByUndoKey>(UndoKey{});
+    if (it.Valid()) {
+        return;
+    }
+
+    LogPrintf("Migrating future swap and undo entries, might take a while...\n");
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    std::vector<std::pair<UndoKey, CUndo>> undos;
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        undos.emplace_back(key, undo);
+        pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
+        return true;
+    });
+
+    for (const auto& [key, undo] : undos) {
+        pcustomcsview->DelUndo(key);
+    }
+
+    if (!undos.empty()) {
+        pcustomcsview->Flush();
+        pcustomcsview->CompactBy<CUndosView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
+        pcustomcsview->Flush(true);
+    }
+
+    // Migrate FutureSwaps
+    std::multimap<uint32_t, std::pair<CFuturesUserKey, CFuturesUserValue>> keyMap;
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& swap){
+        keyMap.emplace(key.height, std::make_pair(key, swap));
+        return true;
+    });
+
+    if (!keyMap.empty()) {
+        auto futureView(*pfutureSwapView);
+
+        for (auto heightIt = keyMap.begin(); heightIt != keyMap.end();) {
+            auto [start, end] = keyMap.equal_range(heightIt->first);
+            for (auto valueIt{start}; valueIt != end; ++valueIt) {
+                pcustomcsview->EraseFuturesUserValues(valueIt->second.first);
+                futureView.StoreFuturesUserValues(valueIt->second.first, valueIt->second.second);
+            }
+            pundosView->AddUndo(UndoSource::FutureView, *pfutureSwapView, futureView, uint256S(std::string(64, '1')), heightIt->first);
+            futureView.Flush();
+            heightIt = end;
+        }
+
+        pundosView->Flush();
+    }
+
+    LogPrintf("Migrating future swap and undo data finished.\n");
+    LogPrint(BCLog::BENCH, "    - Migrating future swap and undo data takes: %dms\n", GetTimeMillis() - time);
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1657,6 +1714,19 @@ bool AppInitMain(InitInterfaces& interfaces)
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomMinCacheSize, false, fReset || fReindexChainState);
                 }
 
+                // Create Future Swap DB
+                auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pfutureSwapView.reset();
+                pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
+
+                // Create Future Swap DB
+                auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1665,7 +1735,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pfutureSwapView.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }
