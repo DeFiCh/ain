@@ -64,6 +64,11 @@ private:
     bool Flush(bool = false) final { return false; }
 };
 
+struct FutureSwapHeightInfo {
+    CAmount startBlock;
+    CAmount blockPeriod;
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
 int chainHeight(interfaces::Chain::Lock& locked_chain);
@@ -79,5 +84,6 @@ CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std
 CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
 void AddVersionAndExpiration(CScript& metadata, const uint32_t height, const MetadataVersion version = MetadataVersion::One);
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

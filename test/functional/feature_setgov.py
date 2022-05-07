@@ -590,6 +590,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
 
         # Move to GreatWorld
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
@@ -619,19 +620,33 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'1'}})
         assert_raises_rpc_error(-5, "Unrecognised locks argument provided, valid lockss are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/oracle/5':'true'}})
         assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/4':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dex_in_fee_pct':'0.6','v0/token/5/dex_out_fee_pct':'0.12'}})
         self.nodes[0].generate(1)
 
-        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/token/5/dex_in_fee_pct'], '0.6')
-        assert_equal(attriutes['v0/token/5/dex_out_fee_pct'], '0.12')
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/token/5/dex_in_fee_pct'], '0.6')
+        assert_equal(attributes['v0/token/5/dex_out_fee_pct'], '0.12')
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/locks/token/5':'true'}})
         self.nodes[0].generate(1)
 
-        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/locks/token/5'], 'true')
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/locks/token/5'], 'true')
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
+        self.nodes[0].generate(1)
+
+        # Set start block height
+        start_block = self.nodes[0].getblockcount() + 100
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/start_block':f'{start_block}'}})
+        self.nodes[0].generate(1)
+
+        # Check start block set as expected
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

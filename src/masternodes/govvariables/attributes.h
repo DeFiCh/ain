@@ -48,6 +48,7 @@ enum DFIPKeys : uint8_t  {
     MinSwap      = 'c',
     RewardPct    = 'd',
     BlockPeriod  = 'e',
+    StartBlock   = 'f',
 };
 
 enum TokenKeys : uint8_t  {

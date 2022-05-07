@@ -463,7 +463,7 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view)
 {
     const auto attributes = view.GetAttributes();
     if (!attributes) {
@@ -482,7 +482,9 @@ std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
         return {};
     }
 
-    return attributes->GetValue(blockKey, CAmount{});
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+
+    return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
