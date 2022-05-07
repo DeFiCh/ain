@@ -252,6 +252,14 @@ std::string ScriptToString(CScript const& script) {
     return EncodeDestination(dest);
 }
 
+int chainHeight(interfaces::Chain::Lock& locked_chain)
+{
+    LOCK(locked_chain.mutex());
+    if (auto height = locked_chain.getHeight())
+        return *height;
+    return 0;
+}
+
 static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     std::vector<CTxIn> vin{};
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {

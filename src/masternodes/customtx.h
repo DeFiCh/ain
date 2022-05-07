@@ -93,9 +93,16 @@ enum struct CustomTxType : uint8_t
     AuctionBid              = 'I'
 };
 
+enum class MetadataVersion : uint8_t {
+    None = 0,
+    One = 1,
+    Two = 2,
+};
+
 extern const std::vector<unsigned char> DfTxMarker;
 
-CustomTxType GuessCustomTxType(const CTransaction& tx, std::vector<unsigned char>& metadata, bool metadataValidation = false);
+CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
+                                      uint32_t height = 0, CExpirationAndVersion* customTxParams = nullptr);
 CAmount GetNonMintedValueOut(const CTransaction& tx, DCT_ID tokenID);
 TAmounts GetNonMintedValuesOut(const CTransaction& tx);
 bool NotAllowedToFail(CustomTxType txType, int height);

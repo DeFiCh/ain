@@ -30,7 +30,7 @@
 
 #include <algorithm>
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType) {
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version) {
     switch (txType)
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};

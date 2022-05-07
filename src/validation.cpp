@@ -4755,8 +4755,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
         TBytes dummy;
         uint8_t hashForks{HasForks::None};
-        hashForks |= height >= static_cast<uint32_t>(consensusParams.FortCanningHeight) ? HasForks::FortCanning : HasForks::None;
-        hashForks |= height >= static_cast<uint32_t>(consensusParams.GreatWorldHeight) ? HasForks::GreatWorld : HasForks::None;
+        hashForks |= height >= consensusParams.FortCanningHeight ? HasForks::FortCanning : HasForks::None;
+        hashForks |= height >= consensusParams.GreatWorldHeight ? HasForks::GreatWorld : HasForks::None;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
                 !IsAnchorRewardTx(*block.vtx[i], dummy, hashForks) &&
