@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <chainparams.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
@@ -225,6 +226,20 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     // after fee calc it is guaranteed that both values[0] exists (even if zero)
     if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
+    }
+
+    // check for tokens values
+    std::vector<unsigned char> dummy;
+    const auto txType = GuessCustomTxType(tx, dummy);
+
+    if (NotAllowedToFail(txType, nSpendHeight)) {
+        CCustomCSView discardCache(mnview);
+        CFutureSwapView futureSwapView(*pfutureSwapView);
+        CUndosView undosView(*pundosView);
+        auto res = ApplyCustomTx(discardCache, futureSwapView, undosView, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
+        if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
+        }
     }
 
     for (auto const & kv : non_minted_values_out) {

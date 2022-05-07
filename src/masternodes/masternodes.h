@@ -11,6 +11,7 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/gv.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
@@ -399,7 +400,7 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CCommunityBalancesView
-        , public CUndosView
+        , public CUndosBaseView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
@@ -407,6 +408,7 @@ class CCustomCSView
         , public CICXOrderView
         , public CLoanView
         , public CVaultView
+        , public CFutureBaseView
 {
     void CheckPrefixes()
     {
@@ -417,7 +419,7 @@ class CCustomCSView
             CFoundationsDebtView    ::  Debt,
             CAnchorRewardsView      ::  BtcTx,
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
-            CAccountsView           ::  ByBalanceKey, ByHeightKey, ByFuturesSwapKey,
+            CAccountsView           ::  ByBalanceKey, ByHeightKey,
             CCommunityBalancesView  ::  ById,
             CUndosView              ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
@@ -435,7 +437,8 @@ class CCustomCSView
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
-            CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
+            CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
+            CFutureBaseView         ::  ByFuturesSwapKey, ByFuturesOwnerKey
         >();
     }
 
@@ -470,11 +473,6 @@ public:
 
     // Generate auth and custom anchor teams based on current block
     void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
-
-    void AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height);
-
-    // simplified version of undo, without any unnecessary undo data
-    void OnUndoTx(uint256 const & txid, uint32_t height);
 
     bool CanSpend(const uint256 & txId, int height) const;
 
