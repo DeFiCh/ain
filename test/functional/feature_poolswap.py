@@ -62,7 +62,6 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.silverCheckN0 = self.nodes[0].getaccount(self.accountGN0, {}, True)[self.idSilver]
-        self.silverCheckN1 = self.nodes[1].getaccount(self.accountSN1, {}, True)[self.idSilver]
 
     def create_poolpair(self):
         self.nodes[0].createpoolpair({
@@ -137,9 +136,6 @@ class PoolPairTest (DefiTestFramework):
     def turn_on_pool_and_swap(self):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
-
-        goldCheckN1 = self.nodes[2].getaccount(self.accountSN1, {}, True)[self.idGold]
-        silverCheckN1 = self.nodes[2].getaccount(self.accountSN1, {}, True)[self.idSilver]
 
         testPoolSwapRes =  self.nodes[0].testpoolswap({
             "from": self.accountGN0,
