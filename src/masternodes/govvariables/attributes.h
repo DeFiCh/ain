@@ -71,17 +71,18 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor  = 'j',
     LoanMintingEnabled    = 'k',
     LoanMintingInterest   = 'l',
-    ConsortiumMembers     = 'm',
-    ConsortiumMintLimit   = 'n',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
+    ConsortiumMembers     = 'p',
+    ConsortiumMintLimit   = 'q',
 };
 
 enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
     MintLimitPerInterval  = 'c',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
+
 };
 
 enum PoolKeys : uint8_t {

@@ -322,8 +322,7 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
             if (ParseUInt32(value["status"].getValStr(), &tmp))
                 member.status = static_cast<uint8_t>(tmp);
             else
-            return Res::Err("Status must be a positive number!");
-
+                return Res::Err("Status must be a positive number!");
         }
 
         members[key] = member;
@@ -488,7 +487,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
 
     uint32_t typeKey{0};
     CDataStructureV0 attrV0{};
-    
+
     if (type == AttributeTypes::Locks) {
         typeKey = ParamIDs::TokenID;
         if (const auto keyValue = VerifyInt32(keys[3])) {
@@ -739,7 +738,7 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if ((attrV0->typeId == DFIP2203 && (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))
-                    || (attrV0->type == Token && attrV0->key == TokenKeys::ConsortiumMintLimit)) {) {
+                    || (attrV0->type == Token && attrV0->key == TokenKeys::ConsortiumMintLimit)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto uvalue = ValueFromAmount(*amount);
