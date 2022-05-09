@@ -298,7 +298,7 @@ class PoolPairTest (DefiTestFramework):
         current_block = self.nodes[0].getblockcount()
         self.nodes[0].generate((height - current_block) + 1)
 
-    def test_swap_full_amount_of_pool(self):
+    def test_swap_full_amount_of_one_side_of_pool(self):
         from_address = self.account_gs
         from_account = self.nodes[0].getaccount(from_address)
         to_address = self.nodes[0].getnewaddress("")
@@ -344,7 +344,7 @@ class PoolPairTest (DefiTestFramework):
 
         self.goto(self.FCR_HEIGHT) # Move to FCR
 
-        self.test_swap_full_amount_of_pool()
+        self.test_swap_full_amount_of_one_side_of_pool()
 
 if __name__ == '__main__':
     PoolPairTest ().main ()
