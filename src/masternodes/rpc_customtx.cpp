@@ -134,7 +134,8 @@ public:
         }
         rpcInfo.pushKV("type", type);
 
-        rpcInfo.pushKV("context", obj.context);
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
     }
 
     void operator()(const CLiquidityMessage& obj) const {

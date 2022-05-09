@@ -158,7 +158,7 @@ struct CBurnTokensMessage {
     CBalances burned;
     CScript from;
     uint8_t burnType;
-    std::string context;
+    std::variant<CScript> context;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>

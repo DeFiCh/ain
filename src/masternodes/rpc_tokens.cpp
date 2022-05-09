@@ -681,34 +681,25 @@ UniValue minttokens(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
 
-            if (targetHeight < Params().GetConsensus().GreatWorldHeight && auths.empty())
-            {
-                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-                if (token->IsDAT()) {
-                    needFoundersAuth = true;
-                }
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+            if (IsMineCached(*pwallet, authCoin.out.scriptPubKey))
                 auths.insert(authCoin.out.scriptPubKey);
-            }
-            else
-            {
-                for (auto const& member : Params().GetConsensus().foundationMembers)
-                {
-                    if (IsMineCached(*pwallet, member))
-                    {
-                        auths.insert(member);
-                        break;
-                    }
-                }
-                if (targetHeight >= Params().GetConsensus().GreatWorldHeight && auths.empty())
-                {
-                    auto attributes = pcustomcsview->GetAttributes();
 
-                    CDataStructureV0 membersKey{AttributeTypes::Token, kv.first.v, TokenKeys::ConsortiumMembers};
-                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-                    for (auto const& member : members)
-                        if (IsMineCached(*pwallet, member.second.ownerAddress))
-                            auths.insert(member.second.ownerAddress);
-                }
+            auto attributes = pcustomcsview->GetAttributes();
+            if (attributes)
+            {
+                CDataStructureV0 membersKey{AttributeTypes::Token, kv.first.v, TokenKeys::ConsortiumMembers};
+                auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+                for (auto const& member : members)
+                    if (IsMineCached(*pwallet, member.second.ownerAddress))
+                        auths.insert(member.second.ownerAddress);
+            }
+
+            if (auths.empty() && token->IsDAT())
+            {
+                if (!AmIFounder(pwallet))
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
+                needFoundersAuth = true;
             }
         }
     }
@@ -755,7 +746,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
                         {
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
                             {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing tokens to be burned."},
-                            {"burnType", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The type of the burn"},
+                            {"burnType", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The type of the burn {0 : token burn (Default)}"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Additional data necessary for specific burn type"},
                         }
                     },
@@ -802,9 +793,13 @@ UniValue burntokens(const JSONRPCRequest& request) {
     burnedTokens.burnType = 0;
     if (!metaObj["burnType"].isNull())
         burnedTokens.burnType = static_cast<uint8_t>(metaObj["burnType"].get_int());
-    if (!metaObj["context"].isNull())
-        burnedTokens.context = trim_ws(metaObj["context"].getValStr()).substr(0, CBurnTokensMessage::MAX_BURN_CONTEXT_LENGHT);
-
+    switch (burnedTokens.burnType)
+    {
+        case CBurnTokensMessage::BurnType::TokenBurn:
+            if (!metaObj["context"].isNull())
+                burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
+            break;
+    }
     UniValue const & txInputs = request.params[2];
 
     CImmutableCSView view(*pcustomcsview);
@@ -818,7 +813,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
         }
     }
 
-    std::set<CScript> auths;
+    std::set<CScript> auths{burnedTokens.from};
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;

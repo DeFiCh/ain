@@ -71,7 +71,6 @@ enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
     MintLimitPerInterval  = 'c',
-    MintIntervalBlocks    = 'c',
 };
 
 enum PoolKeys : uint8_t {
@@ -154,6 +153,11 @@ struct CDexTokenInfo {
 
 struct CConsortiumMember {
     static const uint8_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 64;
+    enum Status : uint8_t
+    {
+        Active = 0,
+        Disabled = 0x01,
+    };
 
     std::string name;
     CScript ownerAddress;

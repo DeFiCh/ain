@@ -263,7 +263,7 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         if (!value["ownerAddress"].isNull())
             member.ownerAddress = DecodeScript(value["ownerAddress"].getValStr());
         else
-            return Res::Err("Empty ownerAddress in consortium member data");
+            return Res::Err("Empty ownerAddress in consortium member data!");
 
         member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
         member.mintLimit = AmountFromValue(value["mintLimit"].getValStr());
@@ -274,7 +274,7 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
             if (ParseUInt32(value["status"].getValStr(), &tmp))
                 member.status = static_cast<uint8_t>(tmp);
             else
-            return Res::Err("Status must be a positiv number!");
+            return Res::Err("Status must be a positive number!");
 
         }
 

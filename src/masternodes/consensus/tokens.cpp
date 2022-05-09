@@ -11,8 +11,6 @@
 #include <masternodes/tokens.h>
 #include <primitives/transaction.h>
 
-extern CScript DecodeScript(std::string const& str);
-
 Res CTokensConsensus::operator()(const CCreateTokenMessage& obj) const {
     auto res = CheckTokenCreationTx();
     if (!res)
@@ -116,7 +114,11 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
         {
             mintable.ok = false;
 
+            Res res = Res::Ok();
+
             auto attributes = mnview.GetAttributes();
+            if (!attributes)
+               return Res::Err("Cannot read from attributes gov variable!");
 
             CDataStructureV0 membersKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMembers};
             auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
@@ -131,10 +133,16 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
 
                 if (HasAuth(member.ownerAddress))
                 {
-                    if (membersBalances[key].balances[tokenId] + amount > member.mintLimit)
+                    if (!(member.status == CConsortiumMember::Status::Active))
+                        return Res::Err("Cannot mint token, not an active member of consortium for %s!", tokenImpl.symbol);
+
+                    res = membersBalances[key].Add(CTokenAmount{tokenId, amount});
+                    if (!res)
+                        return res;
+
+                    if (membersBalances[key].balances[tokenId] > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
-                    membersBalances[key].Add(CTokenAmount{tokenId, amount});
                     *mintable.val = member.ownerAddress;
                     mintable.ok = true;
                     break;
@@ -150,10 +158,13 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
             auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
 
-            if (globalBalances.balances[tokenId] + amount > maxLimit)
+            res = globalBalances.Add(CTokenAmount{tokenId, amount});
+            if (!res)
+                return res;
+
+            if (globalBalances.balances[tokenId] > maxLimit)
                 return Res::Err("You will exceed global maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
-            globalBalances.Add(CTokenAmount{tokenId, amount});
             attributes->SetValue(consortiumMintedKey, globalBalances);
             attributes->SetValue(membersMintedKey, membersBalances);
 
@@ -186,24 +197,20 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             return Res::Err("tx must have at least one input from account owner");
 
         auto subMinted = mnview.SubMintedTokens(tokenId, amount);
-            if (!subMinted)
-                return subMinted;
+        if (!subMinted)
+            return subMinted;
 
         if (obj.burnType == CBurnTokensMessage::BurnType::TokenBurn)
         {
             CScript ownerAddress;
 
-            if (obj.context.size() > 0)
-            {
-                CTxDestination destination;
-
-                ownerAddress = DecodeScript(obj.context);
-                if (!ExtractDestination(ownerAddress, destination))
-                    return Res::Err("Invalid context data for this burn type!");
-            }
+            if (auto address = std::get_if<CScript>(&obj.context); address && !address->empty())
+                ownerAddress = *address;
             else ownerAddress = obj.from;
 
             auto attributes = mnview.GetAttributes();
+            if (!attributes)
+               return Res::Err("Cannot read from attributes gov variable!");
 
             CDataStructureV0 membersKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMembers};
             auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
@@ -211,8 +218,6 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
             auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
-
-            std::cout << globalBalances.ToString() << std::endl;
 
             bool setVariable = false;
             for (auto const& tmp : members)
