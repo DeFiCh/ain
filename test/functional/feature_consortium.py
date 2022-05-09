@@ -10,9 +10,10 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class ConsortiumTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 3
+        self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-greatworldheight=253', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-greatworldheight=253', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-greatworldheight=253', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-greatworldheight=253', '-txindex=1']]
@@ -25,6 +26,7 @@ class ConsortiumTest (DefiTestFramework):
 
         account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         account2 = self.nodes[2].get_genesis_keys().ownerAuthAddress
+        account3 = self.nodes[3].get_genesis_keys().ownerAuthAddress
 
         self.nodes[1].generate(150)
         self.sync_blocks()
@@ -68,13 +70,18 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idBTC + '/consortium_members' : '{"01":{"name":"test", \
                                                                                                   "ownerAddress":"' + account2 + '", \
                                                                                                   "backingId":"blablabla", \
-                                                                                                  "mintLimit":10.00000000}}'}})
+                                                                                                  "mintLimit":10.00000000}, \
+                                                                                            "02":{"name":"test123", \
+                                                                                                  "ownerAddress":"' + account3 + '", \
+                                                                                                  "backingId":"blablabla", \
+                                                                                                  "mintLimit":4.00000000}}'}})
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idBTC + '/consortium_mint_limit' : '1000000000'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"blablabla","mintLimit":10.00000000,"status":0}}')
+        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"blablabla","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"blablabla","mintLimit":4.00000000,"status":0}}')
         assert_equal(attribs['v0/token/' + idBTC + '/consortium_mint_limit'], '1000000000')
 
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
@@ -96,7 +103,7 @@ class ConsortiumTest (DefiTestFramework):
         self.sync_blocks()
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"blablabla","mintLimit":10.00000000,"status":0}}')
+        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"blablabla","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"blablabla","mintLimit":4.00000000,"status":0}}')
         assert_equal(attribs['v0/token/' + idBTC + '/consortium_mint_limit'], '1000000000')
 
         assert_equal(attribs['v0/token/' + idDOGE + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"blablabla","mintLimit":5.00000000,"status":0}}')
