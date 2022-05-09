@@ -193,10 +193,10 @@ using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<std::string, CBalances>;
 
+using CAttributeType = std::variant<CDataStructureV0>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
                                         CConsortiumMembers, CConsortiumMembersMinted>;
 

@@ -767,17 +767,15 @@ UniValue ATTRIBUTES::Export() const {
                 }
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
-                for (auto const& tmp : *members)
+                for (const auto& [id, member] : *members)
                 {
                     UniValue elem(UniValue::VOBJ);
-                    CConsortiumMember member(tmp.second);
-
                     elem.pushKV("name", member.name);
                     elem.pushKV("ownerAddress", ScriptToString(member.ownerAddress));
                     elem.pushKV("backingId", member.backingId);
                     elem.pushKV("mintLimit", ValueFromAmount(member.mintLimit));
                     elem.pushKV("status", member.status);
-                    result.pushKV(tmp.first, elem);
+                    result.pushKV(id, elem);
                 }
                 ret.pushKV(key, result.write());
             } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
@@ -786,7 +784,7 @@ UniValue ATTRIBUTES::Export() const {
                 for (auto const& memberMinted : *membersMinted)
                     result.pushKV(memberMinted.first, AmountsToJSON(memberMinted.second.balances));
 
-                ret.pushKV(key, result.write());
+                ret.pushKV(key, result);
             } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
                 for (const auto& [tokenId, multiplier] : *splitValues) {

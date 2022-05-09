@@ -110,7 +110,7 @@ class ConsortiumTest (DefiTestFramework):
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE])
-        assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{"01":["1.00000000@' + symbolBTC + '","2.00000000@' + symbolDOGE + '"]}')
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01' : ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE]})
 
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolDOGE + " token by minting this amount!", self.nodes[2].minttokens, ["3.00000001@" + symbolDOGE])
 
@@ -126,7 +126,7 @@ class ConsortiumTest (DefiTestFramework):
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '1.00000000@' + symbolDOGE])
-        assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{"01":["1.00000000@' + symbolBTC + '","1.00000000@' + symbolDOGE + '"]}')
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01' : ['1.00000000@' + symbolBTC, '1.00000000@' + symbolDOGE]})
 
         self.nodes[2].accounttoaccount(account2, {account0: "1@" + symbolDOGE})
         self.nodes[2].generate(1)
@@ -146,7 +146,7 @@ class ConsortiumTest (DefiTestFramework):
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE])
-        assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{"01":["1.00000000@' + symbolBTC + '","0.50000000@' + symbolDOGE + '"]}')
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01' : ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE]})
 
         self.nodes[0].burntokens({
             'amounts': "0.5@" + symbolDOGE,
@@ -160,7 +160,7 @@ class ConsortiumTest (DefiTestFramework):
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE])
-        assert_equal(attribs['v0/live/economy/consortium_members_minted'], '{"01":["1.00000000@' + symbolBTC + '","0.50000000@' + symbolDOGE + '"]}')
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01' : ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE]})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idDOGE + '/consortium_members' : '{"01":{"name":"test", \
                                                                                                    "ownerAddress":"' + account2 +'", \
