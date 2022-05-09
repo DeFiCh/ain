@@ -5,6 +5,7 @@
 #include <masternodes/govvariables/attributes.h>
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
+#include <masternodes/consensus/governance.h> /// storeGovVars
 #include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
@@ -24,12 +25,12 @@ static inline std::string trim_all_ws(std::string s) {
     return s;
 }
 
-static std::vector<std::string> KeyBreaker(const std::string& str){
+static std::vector<std::string> KeyBreaker(const std::string& str, const char delim = '/'){
     std::string section;
     std::istringstream stream(str);
     std::vector<std::string> strVec;
 
-    while (std::getline(stream, section, '/')) {
+    while (std::getline(stream, section, delim)) {
         strVec.push_back(section);
     }
     return strVec;
@@ -52,6 +53,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayVersions() {
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
         {"locks",       AttributeTypes::Locks},
+        {"oracles",     AttributeTypes::Oracles},
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
@@ -63,6 +65,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
         {AttributeTypes::Live,      "live"},
         {AttributeTypes::Locks,     "locks"},
+        {AttributeTypes::Oracles,   "oracles"},
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
@@ -91,6 +94,20 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2203,    "dfip2203"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+    };
+    return params;
+}
+
+const std::map<std::string, uint8_t>& ATTRIBUTES::allowedOracleIDs() {
+    static const std::map<std::string, uint8_t> params{
+        {"splits",    OracleIDs::Splits}
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
+    static const std::map<uint8_t, std::string> params{
+        {OracleIDs::Splits,    "splits"},
     };
     return params;
 }
@@ -133,6 +150,23 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
     return keys;
 }
 
+const std::map<TokenKeys, CAttributeValue> ATTRIBUTES::tokenKeysToType {
+    {TokenKeys::PaybackDFI,            bool{}},
+    {TokenKeys::PaybackDFIFeePCT,      CAmount{}},
+    {TokenKeys::DexInFeePct,           CAmount{}},
+    {TokenKeys::DexOutFeePct,          CAmount{}},
+    {TokenKeys::FixedIntervalPriceId,  CTokenCurrencyPair{}},
+    {TokenKeys::LoanCollateralEnabled, bool{}},
+    {TokenKeys::LoanCollateralFactor,  CAmount{}},
+    {TokenKeys::LoanMintingEnabled,    bool{}},
+    {TokenKeys::LoanMintingInterest,   CAmount{}},
+};
+
+const std::map<PoolKeys, CAttributeValue> ATTRIBUTES::poolKeysToType {
+    {PoolKeys::TokenAFeePCT,      CAmount{}},
+    {PoolKeys::TokenBFeePCT,      CAmount{}},
+};
+
 const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys() {
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
         {
@@ -149,6 +183,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
                 {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
                 {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
+                {TokenKeys::Ascendant,             "ascendant"},
+                {TokenKeys::Descendant,            "descendant"},
+                {TokenKeys::Epitaph,               "epitaph"},
             }
         },
         {
@@ -181,6 +218,14 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
 }
 
 static ResVal<int32_t> VerifyInt32(const std::string& str) {
+    int32_t int32;
+    if (!ParseInt32(str, &int32)) {
+        return Res::Err("Value must be an integer");
+    }
+    return {int32, Res::Ok()};
+}
+
+static ResVal<int32_t> VerifyPositiveInt32(const std::string& str) {
     int32_t int32;
     if (!ParseInt32(str, &int32) || int32 < 0) {
         return Res::Err("Value must be a positive integer");
@@ -239,6 +284,35 @@ static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
+    const auto values = KeyBreaker(str, ',');
+    if (values.empty()) {
+        return Res::Err(R"(No valid values supplied, "id/multiplier, ...")");
+    }
+
+    OracleSplits splits;
+    for (const auto& item : values) {
+        const auto pairs = KeyBreaker(item);
+        if (pairs.size() != 2) {
+            return Res::Err("Two int values expected for split in id/mutliplier");
+        }
+        const auto resId = VerifyPositiveInt32(pairs[0]);
+        if (!resId) {
+            return resId;
+        }
+        const auto resMultiplier = VerifyInt32(pairs[1]);
+        if (!resMultiplier) {
+            return resMultiplier;
+        }
+        if (*resMultiplier == 0) {
+            return Res::Err("Mutliplier cannot be zero");
+        }
+        splits[*resId] = *resMultiplier;
+    }
+
+    return {splits, Res::Ok()};
+}
+
 const std::map<uint8_t, std::map<uint8_t,
     std::function<ResVal<CAttributeValue>(const std::string&)>>>& ATTRIBUTES::parseValue() {
 
@@ -281,6 +355,11 @@ const std::map<uint8_t, std::map<uint8_t,
                 {ParamIDs::TokenID,          VerifyBool},
             }
         },
+        {
+            AttributeTypes::Oracles, {
+                {OracleIDs::Splits,          VerifySplit},
+            }
+        },
     };
     return parsers;
 }
@@ -309,12 +388,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Empty value");
     }
 
-    auto iver = allowedVersions().find(keys[0]);
+    const auto& iver = allowedVersions().find(keys[0]);
     if (iver == allowedVersions().end()) {
         return Res::Err("Unsupported version");
     }
 
-    auto version = iver->second;
+    const auto& version = iver->second;
     if (version != VersionTypes::v0) {
         return Res::Err("Unsupported version");
     }
@@ -328,7 +407,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return ::ShowError("type", allowedTypes());
     }
 
-    auto type = itype->second;
+    const auto& type = itype->second;
 
     uint32_t typeId{0};
     if (type == AttributeTypes::Param) {
@@ -343,6 +422,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return ::ShowError("locks", allowedLocksIDs());
         }
         typeId = id->second;
+    } else if (type == AttributeTypes::Oracles) {
+        auto id = allowedOracleIDs().find(keys[2]);
+        if (id == allowedOracleIDs().end()) {
+            return ::ShowError("oracles", allowedOracleIDs());
+        }
+        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -351,9 +436,20 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         typeId = *id.val;
     }
 
-    uint8_t typeKey;
-    uint32_t locksKey{0};
-    if (type != AttributeTypes::Locks) {
+    uint32_t typeKey{0};
+    CDataStructureV0 attrV0{};
+    
+    if (type == AttributeTypes::Locks) {
+        typeKey = ParamIDs::TokenID;
+        if (const auto keyValue = VerifyInt32(keys[3])) {
+            attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        }
+    } else if (type == AttributeTypes::Oracles) {
+        typeKey = OracleIDs::Splits;
+        if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
+            attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        }
+    } else {
         auto ikey = allowedKeys().find(type);
         if (ikey == allowedKeys().end()) {
             return Res::Err("Unsupported type {%d}", type);
@@ -386,10 +482,22 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 return Res::Err("Unsupported Param ID");
             }
         }
+
+        attrV0 = CDataStructureV0{type, typeId, typeKey};
+    }
+
+    if (attrV0.IsExtendedSize()) {
+        if (keys.size() != 5 || keys[4].empty()) {
+            return Res::Err("Exact 5 keys are required {%d}", keys.size());
+        }
+        auto id = VerifyInt32(keys[4]);
+        if (!id) {
+            return std::move(id);
+        }
+        attrV0.keyId = *id.val;
     } else {
-        typeKey = ParamIDs::TokenID;
-        if (const auto keyValue = VerifyInt32(keys[3])) {
-            locksKey = *keyValue;
+        if (keys.size() != 4) {
+            return Res::Err("Exact 4 keys are required {%d}", keys.size());
         }
     }
 
@@ -399,28 +507,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (!attribValue) {
                 return std::move(attribValue);
             }
-
-            if (type == AttributeTypes::Locks) {
-                return applyVariable(CDataStructureV0{type, typeId, locksKey}, *attribValue.val);
-            }
-
-            CDataStructureV0 attrV0{type, typeId, typeKey};
-
-            if (attrV0.IsExtendedSize()) {
-                if (keys.size() != 5 || keys[4].empty()) {
-                    return Res::Err("Exact 5 keys are required {%d}", keys.size());
-                }
-                auto id = VerifyInt32(keys[4]);
-                if (!id) {
-                    return std::move(id);
-                }
-                attrV0.keyId = *id.val;
-            } else {
-                if (keys.size() != 4) {
-                    return Res::Err("Exact 4 keys are required {%d}", keys.size());
-                }
-            }
-
             return applyVariable(attrV0, *attribValue.val);
         }
     } catch (const std::out_of_range&) {
@@ -514,10 +600,30 @@ Res ATTRIBUTES::Import(const UniValue & val) {
         auto res = ProcessVariable(key, value.get_str(),
             [this](const CAttributeType& attribute, const CAttributeValue& attrValue) {
                 if (auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
-                    if (attrV0->type == AttributeTypes::Live) {
-                        return Res::Err("Live attribute cannot be set externally");
+                    if (attrV0->type == AttributeTypes::Live ||
+                       (attrV0->type == AttributeTypes::Token &&
+                       (attrV0->key == TokenKeys::Ascendant ||
+                        attrV0->key == TokenKeys::Descendant ||
+                        attrV0->key == TokenKeys::Epitaph))) {
+                        return Res::Err("Attribute cannot be set externally");
+                    } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                        auto splitValue = std::get_if<OracleSplits>(&attrValue);
+                        if (!splitValue) {
+                            return Res::Err("Failed to get Oracle split value");
+                        }
+                        for (const auto& [id, multiplier] : *splitValue) {
+                            tokenSplits.insert(id);
+                        }
+                        try {
+                            auto attrMap = std::get_if<OracleSplits>(&attributes.at(attribute));
+                            OracleSplits combined{*splitValue};
+                            combined.merge(*attrMap);
+                            SetValue(attribute, combined);
+                            return Res::Ok();
+                        } catch (std::out_of_range &) {}
                     }
-                    // applay DFI via old keys
+
+                    // apply DFI via old keys
                     if (attrV0->IsExtendedSize() && attrV0->keyId == 0) {
                         auto newAttr = *attrV0;
                         if (attrV0->key == TokenKeys::LoanPayback) {
@@ -531,12 +637,12 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                 }
                 SetValue(attribute, attrValue);
                 return Res::Ok();
-            }
-        );
+            });
         if (!res) {
             return res;
         }
     }
+
     return Res::Ok();
 }
 
@@ -548,22 +654,21 @@ UniValue ATTRIBUTES::Export() const {
             continue;
         }
         try {
-            const auto id = attrV0->type == AttributeTypes::Param
-                            || attrV0->type == AttributeTypes::Live
-                            || attrV0->type == AttributeTypes::Locks
-                            ? displayParamsIDs().at(attrV0->typeId)
-                            : KeyBuilder(attrV0->typeId);
+            std::string id;
+            if (attrV0->type == AttributeTypes::Param || attrV0->type == AttributeTypes::Live || attrV0->type == AttributeTypes::Locks) {
+                id = displayParamsIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::Oracles) {
+                id = displayOracleIDs().at(attrV0->typeId);
+            } else {
+                id = KeyBuilder(attrV0->typeId);
+            }
 
-
-
-            const auto keyId = attrV0->type == AttributeTypes::Locks
-                               ? KeyBuilder(attrV0->key)
-                               : displayKeys().at(attrV0->type).at(attrV0->key);
+            auto const v0Key = attrV0->type == AttributeTypes::Oracles || attrV0->type == AttributeTypes::Locks ? KeyBuilder(attrV0->key) : displayKeys().at(attrV0->type).at(attrV0->key);
 
             auto key = KeyBuilder(displayVersions().at(VersionTypes::v0),
                                   displayTypes().at(attrV0->type),
                                   id,
-                                  keyId);
+                                  v0Key);
 
             if (attrV0->IsExtendedSize()) {
                 key = KeyBuilder(key, attrV0->keyId);
@@ -599,6 +704,16 @@ UniValue ATTRIBUTES::Export() const {
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
+            } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
+                std::string keyValue;
+                for (const auto& [tokenId, multiplier] : *splitValues) {
+                    keyValue += KeyBuilder(tokenId, multiplier) + ',';
+                }
+                ret.pushKV(key, keyValue);
+            } else if (const auto& descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
+            } else if (const auto& ascendantPair = std::get_if<AscendantValue>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -680,8 +795,41 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                         break;
+                    case TokenKeys::Ascendant:
+                    case TokenKeys::Descendant:
+                    case TokenKeys::Epitaph:
+                        break;
                     default:
                         return Res::Err("Unsupported key");
+                }
+                break;
+
+            case AttributeTypes::Oracles:
+                if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                    return Res::Err("Cannot be set before GreatWorld");
+                }
+                if (attrV0->typeId == OracleIDs::Splits) {
+                    const auto splitMap = std::get_if<OracleSplits>(&value);
+                    if (!splitMap) {
+                        return Res::Err("Unsupported value");
+                    }
+                    for (const auto& [tokenId, multipler] : *splitMap) {
+                        if (tokenId == 0) {
+                            return Res::Err("Tokenised DFI cannot be split");
+                        }
+                        if (view.HasPoolPair(DCT_ID{tokenId})) {
+                            return Res::Err("Pool tokens cannot be split");
+                        }
+                        const auto token = view.GetToken(DCT_ID{tokenId});
+                        if (!token) {
+                            return Res::Err("Token (%d) does not exist", tokenId);
+                        }
+                        if (!token->IsDAT()) {
+                            return Res::Err("Only DATs can be split");
+                        }
+                    }
+                } else {
+                    return Res::Err("Unsupported key");
                 }
                 break;
 
@@ -762,7 +910,7 @@ Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, co
             }
         } else if (attrV0->type == AttributeTypes::Token) {
             if (attrV0->key == TokenKeys::DexInFeePct
-            ||  attrV0->key == TokenKeys::DexOutFeePct) {
+                ||  attrV0->key == TokenKeys::DexOutFeePct) {
                 DCT_ID tokenA{attrV0->typeId}, tokenB{~0u};
                 if (attrV0->key == TokenKeys::DexOutFeePct) {
                     std::swap(tokenA, tokenB);
@@ -842,6 +990,48 @@ Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, co
                 CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
                 if (GetValue(activeKey, false)) {
                     return Res::Err("Cannot set block period while DFIP2203 is active");
+                }
+            }
+        } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+            const auto value = std::get_if<OracleSplits>(&attribute.second);
+            if (!value) {
+                return Res::Err("Unsupported value");
+            }
+            for (const auto split : tokenSplits) {
+                if (auto it{value->find(split)}; it == value->end()) {
+                    continue;
+                }
+                CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, split};
+                if (GetValue(lockKey, false)) {
+                    continue;
+                }
+
+                if (attrV0->key < height) {
+                    return Res::Err("Cannot be set at or below current height");
+                }
+
+                CGovernanceHeightMessage lock{"ATTRIBUTES"};
+                auto var = GovVariable::Create(lock.govName);
+                if (!var) {
+                    return Res::Err("Failed to create Gov var for lock");
+                }
+                auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                if (!govVar) {
+                    return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+                }
+                govVar->SetValue(lockKey, true);
+                lock.govVar = govVar;
+
+                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                if (height > startHeight) {
+                    lock.startHeight = height;
+                } else {
+                    lock.startHeight = startHeight;
+                }
+
+                const auto res = CGovernanceConsensus::storeGovVars(lock, mnview);
+                if (!res) {
+                    return Res::Err("Cannot be set at or below current height");
                 }
             }
         }

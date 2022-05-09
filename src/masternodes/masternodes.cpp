@@ -929,7 +929,6 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);

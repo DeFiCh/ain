@@ -24,7 +24,7 @@ DCT_ID CreateToken(CCustomCSView &mnview, std::string const & symbol, uint8_t fl
     token.symbol = symbol;
     token.flags = flags;
 
-    auto res = mnview.CreateToken(token, false);
+    auto res = mnview.CreateToken(token);
     if (!res.ok) printf("%s\n", res.msg.c_str());
     BOOST_REQUIRE(res.ok);
     return *res.val;

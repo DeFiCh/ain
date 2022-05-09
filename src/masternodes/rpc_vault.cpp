@@ -130,7 +130,6 @@ namespace {
             collaterals = CBalances{};
 
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
-        LogPrint(BCLog::LOAN,"%s():\n", __func__);
         auto rate = view.GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
 
         if (rate) {
@@ -148,20 +147,19 @@ namespace {
             TAmounts interestBalances{};
             CAmount totalInterests{0};
 
-            for (const auto& loan : loanTokens->balances) {
-                auto token = view.GetLoanTokenByID(loan.first);
+            for (const auto& [id, amount] : loanTokens->balances) {
+                auto token = view.GetLoanTokenByID(id);
                 if (!token) continue;
-                auto rate = view.GetInterestRate(vaultId, loan.first, height);
+                auto rate = view.GetInterestRate(vaultId, id, height);
                 if (!rate) continue;
-                LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
-                auto value = loan.second + totalInterest;
+                auto value = amount + totalInterest;
                 if (auto priceFeed = view.GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
-                totalBalances.insert({loan.first, value});
-                interestBalances.insert({loan.first, totalInterest});
+                totalBalances.insert({id, value});
+                interestBalances.insert({id, totalInterest});
             }
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);

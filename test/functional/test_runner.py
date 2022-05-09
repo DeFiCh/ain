@@ -122,6 +122,7 @@ BASE_SCRIPTS = [
     'feature_lock_unspends.py',
     'feature_bitcoin_wallet.py',
     'feature_bitcoin_htlc.py',
+    'feature_token_split.py',
     'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
     'feature_setgov.py',

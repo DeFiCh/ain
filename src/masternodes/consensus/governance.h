@@ -11,11 +11,12 @@ struct CGovernanceMessage;
 struct CGovernanceHeightMessage;
 
 class CGovernanceConsensus : public CCustomTxVisitor {
-    Res storeGovVars(const CGovernanceHeightMessage& obj) const;
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
     Res operator()(const CGovernanceMessage& obj) const;
     Res operator()(const CGovernanceHeightMessage& obj) const;
+
+    static Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 };
 
 #endif // DEFI_MASTERNODES_CONSENSUS_GOVERNANCE_H
