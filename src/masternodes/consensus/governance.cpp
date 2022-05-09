@@ -8,10 +8,10 @@
 #include <masternodes/gv.h>
 #include <masternodes/masternodes.h>
 
-Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) const {
+Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
 
     // Retrieve any stored GovVariables at startHeight
-    auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
 
     // Remove any pre-existing entry
     for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
@@ -25,7 +25,7 @@ Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) cons
     storedGovVars.insert(obj.govVar);
 
     // Store GovVariable set by height
-    return mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
@@ -52,7 +52,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
 
             // Validate as complete set. Check for future conflicts between key pairs.
             if (!(res = govVar->Import(var->Export()))
-            ||  !(res = govVar->Validate(mnview)))
+            ||  !(res = govVar->Validate(mnview))
+            ||  !(res = govVar->Apply(mnview, futureSwapView, height)))
                 return Res::Err("%s: %s", var->GetName(), res.msg);
 
             var = govVar;
@@ -68,15 +69,21 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
-                    storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff});
+                    storeGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff}, mnview);
                     continue;
                 }
             }
+
+            res = var->Apply(mnview, height);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
         }
 
-        if (!(res = var->Apply(mnview, height))
-        ||  !(res = mnview.SetVariable(*var)))
+        res = mnview.SetVariable(*var);
+        if (!res) {
             return Res::Err("%s: %s", var->GetName(), res.msg);
+        }
     }
     return Res::Ok();
 }
@@ -101,5 +108,5 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const 
         return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
 
     // Store pending Gov var change
-    return storeGovVars(obj);
+    return storeGovVars(obj, mnview);
 }

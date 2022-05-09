@@ -54,6 +54,7 @@ public:
     CImmutableCSView(CImmutableCSView&&) = delete;
     CImmutableCSView(const CImmutableCSView&) = delete;
     CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
+    CImmutableCSView(CFutureSwapView& p) : CStorageView(p), CCustomCSView{} {}
     CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const final;
@@ -61,6 +62,11 @@ public:
 private:
     mutable std::shared_ptr<ATTRIBUTES> attributes;
     bool Flush(bool = false) final { return false; }
+};
+
+struct FutureSwapHeightInfo {
+    CAmount startBlock;
+    CAmount blockPeriod;
 };
 
 // common functions
@@ -75,7 +81,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
 std::optional<CScript> AmIFounder(CWallet* const pwallet);
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

@@ -12,12 +12,15 @@
 
 #include <variant>
 
+class CFutureSwapView;
+
 enum VersionTypes : uint8_t {
     v0 = 0,
 };
 
 enum AttributeTypes : uint8_t {
     Live      = 'l',
+    Oracles   = 'o',
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
@@ -29,6 +32,10 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
+};
+
+enum OracleIDs : uint8_t  {
+    Splits    = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -48,6 +55,7 @@ enum DFIPKeys : uint8_t  {
     MinSwap      = 'c',
     RewardPct    = 'd',
     BlockPeriod  = 'e',
+    StartBlock   = 'f',
 };
 
 enum TokenKeys : uint8_t  {
@@ -71,6 +79,9 @@ enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
     MintLimitPerInterval  = 'c',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -178,11 +189,14 @@ struct CConsortiumMember {
 };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<std::string, CBalances>;
 
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair,
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
                                         CConsortiumMembers, CConsortiumMembersMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
@@ -191,7 +205,8 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView &mnview, const uint32_t height) override;
+    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
+    Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height);
 
     std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
@@ -268,10 +283,14 @@ public:
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
+    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
+    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 
@@ -280,13 +299,14 @@ private:
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
+    static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable);
-    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+    Res RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 
 ResVal<CScript> GetFutureSwapContractAddress();

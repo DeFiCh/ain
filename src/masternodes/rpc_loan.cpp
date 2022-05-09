@@ -1406,7 +1406,6 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     std::map<DCT_ID, CInterestStat> interestStats;
 
-    LogPrint(BCLog::LOAN,"%s():\n", __func__);
     auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRateV2 rate)
     {
         auto vault = view.GetVault(vaultId);

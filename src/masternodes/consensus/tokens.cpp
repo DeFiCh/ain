@@ -40,15 +40,14 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage& obj) const {
     if (!pair)
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
 
-    const auto& token = pair->second;
+    auto& token = pair->second;
 
     //check foundation auth
     auto res = HasFoundationAuth();
 
     if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
-        CToken newToken = static_cast<CToken>(token); // keeps old and triggers only DAT!
-        newToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-        return !res ? res : mnview.UpdateToken(token.creationTx, newToken, true);
+        token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+        return !res ? res : mnview.UpdateToken(token, true);
     }
     return res;
 }
@@ -87,11 +86,14 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage& obj) const {
         if (obj.token.IsDAT() != token.IsDAT() && !HasFoundationAuth()) //no need to check Authority if we don't create isDAT
             return Res::Err("can't set isDAT to true, tx not from foundation member");
 
-    auto updatedToken = obj.token;
+    CTokenImplementation updatedToken{obj.token};
+    updatedToken.creationTx = token.creationTx;
+    updatedToken.destructionTx = token.destructionTx;
+    updatedToken.destructionHeight = token.destructionHeight;
     if (static_cast<int>(height) >= consensus.FortCanningHeight)
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-    return mnview.UpdateToken(token.creationTx, updatedToken, false);
+    return mnview.UpdateToken(updatedToken);
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {

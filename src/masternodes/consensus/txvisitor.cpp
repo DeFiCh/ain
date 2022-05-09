@@ -17,6 +17,7 @@
 #include <masternodes/tokens.h>
 
 CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
+                                   CFutureSwapView& futureSwapView,
                                    const CCoinsViewCache& coins,
                                    const CTransaction& tx,
                                    const Consensus::Params& consensus,
@@ -24,7 +25,7 @@ CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
                                    uint64_t time,
                                    uint32_t txn)
 
-        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+        : txn(txn), time(time), height(height), mnview(mnview), futureSwapView(futureSwapView), tx(tx), coins(coins), consensus(consensus) {}
 
 bool CCustomTxVisitor::HasAuth(const CScript& auth) const {
     for (const auto& input : tx.vin) {

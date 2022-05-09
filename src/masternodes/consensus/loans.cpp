@@ -95,7 +95,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto tokenId = mnview.CreateToken(token, false);
+    auto tokenId = mnview.CreateToken(token);
     if (!tokenId)
         return std::move(tokenId);
 
@@ -140,7 +140,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
     if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
-    res = mnview.UpdateToken(pair->second.creationTx, pair->second, false);
+    res = mnview.UpdateToken(pair->second);
     return !res ? res : mnview.UpdateLoanToken(*loanToken, pair->first);
 }
 
@@ -352,7 +352,6 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
             return res;
     }
 
-    LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
     return CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals);
 }

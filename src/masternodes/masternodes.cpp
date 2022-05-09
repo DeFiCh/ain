@@ -781,23 +781,6 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     }
 }
 
-void CCustomCSView::AddUndo(CCustomCSView & cache, uint256 const & txid, uint32_t height)
-{
-    auto flushable = cache.GetStorage().GetFlushableStorage();
-    assert(flushable);
-    SetUndo({height, txid}, CUndo::Construct(GetStorage(), flushable->GetRaw()));
-}
-
-void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
-{
-    const auto undo = GetUndo(UndoKey{height, txid});
-    if (!undo) {
-        return; // not custom tx, or no changes done
-    }
-    CUndo::Revert(GetStorage(), *undo); // revert the changes of this tx
-    DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
-}
-
 bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
 {
     auto node = GetMasternode(txId);
@@ -946,7 +929,6 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
@@ -1015,13 +997,13 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
 
         auto tokenCurrency = attributes->GetValue(pairKey, std::optional<CTokenCurrencyPair>{});
         auto interest = attributes->GetValue(interestKey, std::optional<CAmount>{});
-        auto mitable = attributes->GetValue(mintableKey, std::optional<bool>{});
+        auto mintable = attributes->GetValue(mintableKey, std::optional<bool>{});
 
-        if (auto token = GetToken(id); token && tokenCurrency && interest && mitable) {
+        if (auto token = GetToken(id); token && tokenCurrency && interest && mintable) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
             loanToken.fixedIntervalPriceId = *tokenCurrency;
             loanToken.interest = *interest;
-            loanToken.mintable = *mitable;
+            loanToken.mintable = *mintable;
             loanToken.symbol = token->symbol;
             loanToken.name = token->name;
             return loanToken;

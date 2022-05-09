@@ -130,7 +130,6 @@ namespace {
             collaterals = CBalances{};
 
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
-        LogPrint(BCLog::LOAN,"%s():\n", __func__);
         auto rate = view.GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
 
         if (rate) {
@@ -148,20 +147,19 @@ namespace {
             TAmounts interestBalances{};
             CAmount totalInterests{0};
 
-            for (const auto& loan : loanTokens->balances) {
-                auto token = view.GetLoanTokenByID(loan.first);
+            for (const auto& [id, amount] : loanTokens->balances) {
+                auto token = view.GetLoanTokenByID(id);
                 if (!token) continue;
-                auto rate = view.GetInterestRate(vaultId, loan.first, height);
+                auto rate = view.GetInterestRate(vaultId, id, height);
                 if (!rate) continue;
-                LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
-                auto value = loan.second + totalInterest;
+                auto value = amount + totalInterest;
                 if (auto priceFeed = view.GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
-                totalBalances.insert({loan.first, value});
-                interestBalances.insert({loan.first, totalInterest});
+                totalBalances.insert({id, value});
+                interestBalances.insert({id, totalInterest});
             }
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
@@ -320,7 +318,7 @@ UniValue closevault(const JSONRPCRequest& request) {
         // decode vaultId
         auto vault = view.GetVault(msg.vaultId);
         if (!vault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", msg.vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", msg.vaultId.GetHex()));
 
         if (vault->isUnderLiquidation)
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
@@ -609,7 +607,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
         // decode vaultId
         auto storedVault = view.GetVault(vaultId);
         if (!storedVault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
 
         if(storedVault->isUnderLiquidation)
             throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
@@ -834,7 +832,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
         // decode vaultId
         auto vault = view.GetVault(vaultId);
         if (!vault)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
 
         ownerAddress = vault->ownerAddress;
         targetHeight = view.GetLastHeight() + 1;
@@ -1285,8 +1283,8 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
                        "[{},{}...]     (array) Objects with vault history information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listburnhistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       HelpExampleCli("listvaulthistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listvaulthistory", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2, '{\"maxBlockHeight\":160,\"depth\":10}'")
                },
     }.Check(request);
 

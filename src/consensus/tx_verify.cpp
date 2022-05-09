@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <chainparams.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
@@ -221,7 +222,9 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     if (NotAllowedToFail(txType, nSpendHeight)) {
         CCustomCSView discardCache(mnview);
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
+        CFutureSwapView futureSwapView(*pfutureSwapView);
+        CUndosView undosView(*pundosView);
+        auto res = ApplyCustomTx(discardCache, futureSwapView, undosView, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

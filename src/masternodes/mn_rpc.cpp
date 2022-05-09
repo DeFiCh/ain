@@ -430,11 +430,12 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     if (res) {
         LOCK(cs_main);
         CImmutableCSView view(*pcustomcsview);
+        auto futureSwapView(*pfutureSwapView);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
         auto time = ::ChainActive().Tip()->nTime;
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, time);
+        res = CustomTxVisit(view, futureSwapView, coins, tx, height, Params().GetConsensus(), txMessage, time);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -452,7 +453,7 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view)
 {
     const auto attributes = view.GetAttributes();
     if (!attributes) {
@@ -471,7 +472,9 @@ std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
         return {};
     }
 
-    return attributes->GetValue(blockKey, CAmount{});
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+
+    return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
