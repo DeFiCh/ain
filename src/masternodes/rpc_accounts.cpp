@@ -1027,6 +1027,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
                 txType = CustomTxCodeToType(str[0]);
+            } else {
+                txType = FromString(str);
             }
         }
         if (!optionsObj["limit"].isNull()) {
@@ -2123,7 +2125,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"withdrawfutureswap",
-               "\nCreates and submits to the network a withdrawl from futures contract transaction.\n"
+               "\nCreates and submits to the network a withdrawal from futures contract transaction.\n"
                " Withdrawal will be back to the address specified in the futures contract." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -2146,8 +2148,8 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
-                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
+                       HelpExampleCli("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
+                       + HelpExampleRpc("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
                },
     }.Check(request);
 

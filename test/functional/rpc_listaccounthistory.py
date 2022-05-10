@@ -114,6 +114,8 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         result = self.nodes[1].listaccounthistory()
         assert_equal(result, [])
 
+        assert_equal(self.nodes[0].listaccounthistory('all', {"txtype": "MintToken"}), self.nodes[0].listaccounthistory('all', {"txtype": "M"}))
+
         # REVERTING:
         #========================
         self.start_node(2)
