@@ -103,6 +103,8 @@ ifneq ($(zmq_packages_),)
 packages += $(zmq_packages)
 endif
 
+packages += $(libain_packages)
+
 ifeq ($(rapidcheck_packages_),)
 packages += $(rapidcheck_packages)
 endif

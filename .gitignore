@@ -20,6 +20,7 @@ src/defid
 src/defi-cli
 src/defi-tx
 src/defi-wallet
+src/rpc/libain.cpp
 src/test/test_defi
 src/test/test_defi_fuzzy
 

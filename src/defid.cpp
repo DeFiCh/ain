@@ -14,6 +14,7 @@
 #include <init.h>
 #include <interfaces/chain.h>
 #include <noui.h>
+#include <libain.hpp>
 #include <shutdown.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
@@ -64,6 +65,10 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
+
+    auto rt = init_runtime();
+
+    rt = start_servers(std::move(rt), "[::1]:50050", "[::1]:50051");
 
     //
     // Parameters
@@ -176,6 +181,7 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
+    stop_servers(std::move(rt));
 
     return fRet;
 }
