@@ -138,11 +138,14 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
                     if (!(member.status == CConsortiumMember::Status::Active))
                         return Res::Err("Cannot mint token, not an active member of consortium for %s!", tokenImpl.symbol);
 
-                    res = membersBalances[key].Add(CTokenAmount{tokenId, amount});
+                    res = membersBalances[key].minted.Add(CTokenAmount{tokenId, amount});
+                    if (!res)
+                        return res;
+                    res = membersBalances[key].supply.Add(CTokenAmount{tokenId, amount});
                     if (!res)
                         return res;
 
-                    if (membersBalances[key].balances[tokenId] > member.mintLimit)
+                    if (membersBalances[key].supply.balances[tokenId] > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
                     *mintable.val = member.ownerAddress;
@@ -158,13 +161,16 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
 
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-            auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
+            auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumMinted{});
 
-            res = globalBalances.Add(CTokenAmount{tokenId, amount});
+            res = globalBalances.minted.Add(CTokenAmount{tokenId, amount});
+            if (!res)
+                return res;
+            res = globalBalances.supply.Add(CTokenAmount{tokenId, amount});
             if (!res)
                 return res;
 
-            if (globalBalances.balances[tokenId] > maxLimit)
+            if (globalBalances.supply.balances[tokenId] > maxLimit)
                 return Res::Err("You will exceed global maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
             attributes->SetValue(consortiumMintedKey, globalBalances);
@@ -219,14 +225,17 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-            auto globalBalances = attributes->GetValue(consortiumMintedKey, CBalances{});
+            auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumMinted{});
 
             bool setVariable = false;
             for (auto const& tmp : members)
                 if (tmp.second.ownerAddress == ownerAddress)
                 {
-                    membersBalances[tmp.first].Sub(CTokenAmount{tokenId, amount});
-                    globalBalances.Sub(CTokenAmount{tokenId, amount});
+                    membersBalances[tmp.first].burnt.Add(CTokenAmount{tokenId, amount});
+                    membersBalances[tmp.first].supply.Sub(CTokenAmount{tokenId, amount});
+
+                    globalBalances.burnt.Add(CTokenAmount{tokenId, amount});
+                    globalBalances.supply.Sub(CTokenAmount{tokenId, amount});
                     setVariable = true;
                     break;
                 }

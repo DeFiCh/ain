@@ -163,7 +163,8 @@ struct CDexTokenInfo {
     }
 };
 
-struct CConsortiumMember {
+struct CConsortiumMember
+{
     static const uint8_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 64;
     enum Status : uint8_t
     {
@@ -189,16 +190,32 @@ struct CConsortiumMember {
     }
 };
 
+struct CConsortiumMinted
+{
+    CBalances minted;
+    CBalances burnt;
+    CBalances supply;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(burnt);
+        READWRITE(supply);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
-using CConsortiumMembersMinted = std::map<std::string, CBalances>;
+using CConsortiumMembersMinted = std::map<std::string, CConsortiumMinted>;
 
 using CAttributeType = std::variant<CDataStructureV0>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
-                                        CConsortiumMembers, CConsortiumMembersMinted>;
+                                        CConsortiumMembers, CConsortiumMinted, CConsortiumMembersMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
