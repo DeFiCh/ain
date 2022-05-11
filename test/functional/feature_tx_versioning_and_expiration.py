@@ -46,10 +46,6 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         self.nodes[0].utxostoaccount({address: "10@DFI"})
         self.nodes[0].generate(1)
 
-        # Sync and disconnect nodes
-        self.sync_blocks()
-        disconnect_nodes(self.nodes[0], 1)
-
         # Create transaction to use in testing
         tx = self.nodes[0].addpoolliquidity({address: ["0.1@LTC", "10@DFI"]}, address)
         rawtx = self.nodes[0].getrawtransaction(tx)
