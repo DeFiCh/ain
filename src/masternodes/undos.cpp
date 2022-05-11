@@ -24,7 +24,10 @@ void CUndosView::AddUndo(const UndoSource key, CStorageView & source, CStorageVi
 {
     auto flushable = cache.GetStorage().GetFlushableStorage();
     assert(flushable);
-    SetUndo({height, txid, key}, CUndo::Construct(source.GetStorage(), flushable->GetRaw()));
+    auto& rawMap = flushable->GetRaw();
+    if (!rawMap.empty()) {
+        SetUndo({{height, txid}, key}, CUndo::Construct(source.GetStorage(), rawMap));
+    }
 }
 
 Res CUndosView::SetUndo(const UndoSourceKey& key, const CUndo& undo)
@@ -37,12 +40,12 @@ Res CUndosView::SetUndo(const UndoSourceKey& key, const CUndo& undo)
 
 void CUndosView::OnUndoTx(const UndoSource key, CStorageView & source, uint256 const & txid, uint32_t height)
 {
-    const auto undo = GetUndo({height, txid, key});
+    const auto undo = GetUndo({{height, txid}, key});
     if (!undo) {
         return; // not custom tx, or no changes done
     }
     CUndo::Revert(source.GetStorage(), *undo); // revert the changes of this tx
-    DelUndo({height, txid, key}); // erase undo data, it served its purpose
+    DelUndo({{height, txid}, key}); // erase undo data, it served its purpose
 }
 
 std::optional<CUndo> CUndosView::GetUndo(UndoSourceKey const & key) const

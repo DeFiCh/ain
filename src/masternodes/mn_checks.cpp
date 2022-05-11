@@ -426,7 +426,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndosView& undosView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -442,9 +442,11 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
+
+    auto futureCopy(futureSwapView);
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
-    auto futureCopy(futureSwapView);
+
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (writers) {
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
@@ -484,15 +486,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
         return res;
     }
 
-    if (!futureCopy.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), height);
-        futureCopy.Flush();
-    }
-
-    undosView.AddUndo(UndoSource::CustomView, mnview, view, tx.GetHash(), height);
-
     view.Flush();
-
+    futureCopy.Flush();
     return res;
 }
 

@@ -30,17 +30,14 @@ struct UndoKey {
     }
 };
 
-struct UndoSourceKey {
-    uint32_t height; // height is there to be able to prune older undos using lexicographic iteration
-    uint256 txid;
+struct UndoSourceKey : UndoKey {
     uint8_t key;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(WrapBigEndian(height));
-        READWRITE(txid);
+        READWRITEAS(UndoKey, *this);
         READWRITE(key);
     }
 };
