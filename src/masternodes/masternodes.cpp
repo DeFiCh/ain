@@ -68,6 +68,19 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
+CAmount GetPropsCreationFee(int, CPropType prop)
+{
+    switch(prop) {
+        case CPropType::CommunityFundProposal:
+            return Params().GetConsensus().props.cfp.fee;
+        case CPropType::BlockRewardReallocation:
+            return Params().GetConsensus().props.brp.fee;
+        case CPropType::VoteOfConfidence:
+            return Params().GetConsensus().props.voc.fee;
+    }
+    return -1;
+}
+
 CMasternode::CMasternode()
     : mintedBlocks(0)
     , ownerAuthAddress()
@@ -939,7 +952,6 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);

@@ -15,6 +15,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <memory.h>
@@ -208,6 +209,33 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
     }
 
+    // TXs for the creationTx field in new tokens created via token split
+    if (nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
+        const auto attributes = pcustomcsview->GetAttributes();
+        if (attributes) {
+            CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
+            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+
+            for (const auto& [id, multiplier] : splits) {
+                for (uint32_t i{0}; i < 2; ++i) {
+                    CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+                    metadata << i << id << multiplier;
+
+                    CMutableTransaction mTx(txVersion);
+                    mTx.vin.resize(1);
+                    mTx.vin[0].prevout.SetNull();
+                    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                    mTx.vout.resize(1);
+                    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                    mTx.vout[0].nValue = 0;
+                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+                    pblocktemplate->vTxFees.push_back(0);
+                    pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                }
+            }
+        }
+    }
+
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     CCustomCSView mnview(*pcustomcsview);
@@ -235,7 +263,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        coinbaseTx.vout.resize(2);
+        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        if (nHeight < consensus.GreatWorldHeight) {
+            coinbaseTx.vout.resize(2);
+            // Community payment always expected
+            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].nValue = foundationValue;
+        }
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
@@ -244,12 +278,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        // Community payment always expected
-        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
