@@ -103,6 +103,14 @@ Res CCustomTxVisitor::CheckCustomTx() const {
     return Res::Ok();
 }
 
+Res CCustomTxVisitor::CheckProposalTx(uint8_t type) const {
+    auto propType = static_cast<CPropType>(type);
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, propType) || tx.vout[0].nTokenId != DCT_ID{0})
+        return Res::Err("malformed tx vouts (wrong creation fee)");
+
+    return Res::Ok();
+}
+
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, CScript const & from, CScript const & to) const {
     assert(!from.empty() || !to.empty());
 

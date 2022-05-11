@@ -18,6 +18,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -41,6 +42,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, CPropType prop);
 
 constexpr uint8_t SUBNODE_COUNT{4};
 
@@ -400,6 +402,7 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CFutureBaseView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
@@ -429,7 +432,8 @@ class CCustomCSView
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CFutureBaseView         ::  ByFuturesSwapKey, ByFuturesOwnerKey
+            CFutureBaseView         ::  ByFuturesSwapKey, ByFuturesOwnerKey,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 

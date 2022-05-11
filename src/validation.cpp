@@ -1413,7 +1413,8 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     Coin coin;
     for(size_t i = 0; i < tx.vin.size(); ++i)
     {
-        if (inputs.GetCoin(tx.vin[i].prevout, coin) && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
+        if (inputs.GetCoin(tx.vin[i].prevout, coin)
+        && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
         {
             return false;
         }
@@ -1762,7 +1763,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 // Check for burn outputs
                 if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
                 {
-                    eraseBurnEntries.push_back({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
+                    eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
                 }
             }
         }
@@ -2006,7 +2007,11 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (height >= consensus.AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.EunosHeight)
+        if (height >= consensus.GreatWorldHeight)
+        {
+            // no foundation reward check anymore
+        }
+        else if (height >= consensus.EunosHeight)
         {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
         }
@@ -2045,6 +2050,12 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             CAmount subsidy;
             for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < consensus.GreatWorldHeight) {
+                        continue;
+                    }
+                }
+
                 subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 Res res = Res::Ok();
@@ -2101,6 +2112,12 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
         {
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < Params().GetConsensus().GreatWorldHeight) {
+                        continue;
+                    }
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Loan and Options balances from Unallocated
@@ -2626,8 +2643,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
-                pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), i},
-                                            {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}});
+                pburnHistoryDB->WriteAccountHistory({tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
+                                                    {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}});
             }
         }
 
@@ -2735,6 +2752,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
+
+    // proposal activations
+    ProcessProposalEvents(pindex, cache, chainparams);
 
     cache.Flush();
 
@@ -3543,6 +3563,89 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+        return;
+    }
+
+    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    if (balance.nValue > 0) {
+        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+    }
+
+    std::set<uint256> activeMasternodes;
+    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
+
+        if (activeMasternodes.empty()) {
+            cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+                if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                    activeMasternodes.insert(mnId);
+                }
+                return true;
+            });
+            if (activeMasternodes.empty()) {
+                return false;
+            }
+        }
+
+        uint32_t voteYes = 0, voters = 0;
+        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+            if (pId != propId || cycle != prop.cycle) {
+                return false;
+            }
+            if (activeMasternodes.count(mnId)) {
+                ++voters;
+                if (vote == CPropVoteType::VoteYes) {
+                    ++voteYes;
+                }
+            }
+            return true;
+        }, CMnVotePerCycle{propId, prop.cycle});
+
+        if (lround(voters * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        uint32_t majorityThreshold;
+        switch(prop.type) {
+        case CPropType::CommunityFundProposal:
+            majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+            break;
+        case CPropType::BlockRewardReallocation:
+            majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+            break;
+        case CPropType::VoteOfConfidence:
+            majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+            break;
+        }
+
+        if (lround(voteYes * 10000.f / voters) <= majorityThreshold) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        if (prop.nCycles == prop.cycle) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+        } else {
+            assert(prop.nCycles > prop.cycle);
+            cache.UpdatePropCycle(propId, prop.cycle + 1);
+        }
+
+        if (prop.type == CPropType::CommunityFundProposal) {
+            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
+            if (res) {
+                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+            } else {
+                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+            }
+        }
+        return true;
+    }, pindex->nHeight);
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams) {

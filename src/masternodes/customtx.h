@@ -91,7 +91,12 @@ enum struct CustomTxType : uint8_t
     TakeLoan                = 'X',
     PaybackLoan             = 'H',
     PaybackLoanV2           = 'k',
-    AuctionBid              = 'I'
+    AuctionBid              = 'I',
+
+    // On-Chain-Gov
+    CreateCfp               = 'P',
+    Vote                    = 'O',
+    CreateVoc               = 'E',
 };
 
 CustomTxType GuessCustomTxType(const CTransaction& tx, std::vector<unsigned char>& metadata, bool metadataValidation = false);

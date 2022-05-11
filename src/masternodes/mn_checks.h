@@ -77,7 +77,9 @@ using CCustomTxMessage = std::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
