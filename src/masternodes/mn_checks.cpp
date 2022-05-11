@@ -11,6 +11,7 @@
 #include <masternodes/consensus/masternodes.h>
 #include <masternodes/consensus/oracles.h>
 #include <masternodes/consensus/poolpairs.h>
+#include <masternodes/consensus/proposals.h>
 #include <masternodes/consensus/smartcontracts.h>
 #include <masternodes/consensus/tokens.h>
 #include <masternodes/consensus/vaults.h>
@@ -81,6 +82,9 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
+        case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
@@ -194,7 +198,9 @@ public:
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
-        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage>())
+        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage>(),
+                                 CCreatePropMessage,
+                                 CPropVoteMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
@@ -290,7 +296,8 @@ public:
                                    CPoolPairsConsensus,
                                    CSmartContractsConsensus,
                                    CTokensConsensus,
-                                   CVaultsConsensus
+                                   CVaultsConsensus,
+                                   CProposalsConsensus
                                 >(obj);
     }
 
@@ -451,7 +458,10 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
         }
 
         // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+        if (txType == CustomTxType::CreateToken
+        || txType == CustomTxType::CreateMasternode
+        || txType == CustomTxType::CreateCfp
+        || txType == CustomTxType::CreateVoc) {
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }

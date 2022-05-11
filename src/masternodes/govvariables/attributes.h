@@ -20,6 +20,7 @@ enum VersionTypes : uint8_t {
 
 enum AttributeTypes : uint8_t {
     Live      = 'l',
+    Oracles   = 'o',
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
@@ -31,6 +32,10 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
+};
+
+enum OracleIDs : uint8_t  {
+    Splits    = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -48,6 +53,7 @@ enum DFIPKeys : uint8_t  {
     MinSwap      = 'c',
     RewardPct    = 'd',
     BlockPeriod  = 'e',
+    StartBlock   = 'f',
 };
 
 enum TokenKeys : uint8_t  {
@@ -63,6 +69,9 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor  = 'j',
     LoanMintingEnabled    = 'k',
     LoanMintingInterest   = 'l',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -144,8 +153,11 @@ struct CDexTokenInfo {
 };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -153,7 +165,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Ok(); };
+    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
     Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height);
 
     std::string GetName() const override { return TypeName(); }
@@ -231,10 +243,14 @@ public:
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
+    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
+    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 
@@ -243,6 +259,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
+    static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

@@ -342,6 +342,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "decodecustomtx", 1, "iswitness" },
 
     { "setmockcheckpoint", 0, "height" },
+
+    { "createcfp", 0, "data" },
+    { "createcfp", 1, "inputs" },
+    { "createvoc", 1, "inputs" },
+    { "vote", 3, "inputs" },
 };
 // clang-format on
 
