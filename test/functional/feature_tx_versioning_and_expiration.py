@@ -7,7 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, disconnect_nodes
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class TxVersionAndExpirationTest (DefiTestFramework):
     def set_test_params(self):
