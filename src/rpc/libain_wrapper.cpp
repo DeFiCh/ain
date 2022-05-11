@@ -6,5 +6,5 @@
 void GetBestBlockHash(BlockResult &result)
 {
     LOCK(cs_main);
-    result.hex_data = ::ChainActive().Tip()->GetBlockHash().GetHex();
+    result.hash = ::ChainActive().Tip()->GetBlockHash().GetHex();
 }

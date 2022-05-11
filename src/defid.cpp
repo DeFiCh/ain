@@ -68,7 +68,7 @@ static bool AppInit(int argc, char* argv[])
 
     auto rt = init_runtime();
 
-    rt = start_servers(std::move(rt), "[::1]:50050", "[::1]:50051");
+    rt = start_servers(std::move(rt), "127.0.0.1:50050", "127.0.0.1:50051");
 
     //
     // Parameters
