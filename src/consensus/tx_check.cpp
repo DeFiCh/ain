@@ -52,7 +52,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy) || IsTokenSplitTx(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsTokenSplitTx(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -112,21 +112,6 @@ bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & meta
         return false;
     }
     uint8_t hasAdditionalOpcodes{HasForks::None};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
-    if (hasForks & HasForks::FortCanning && !(hasForks & HasForks::GreatWorld) && hasAdditionalOpcodes & HasForks::FortCanning) {
-        return false;
-    } else if (hasForks & HasForks::GreatWorld && hasAdditionalOpcodes & HasForks::GreatWorld) {
-        return false;
-    }
-    return result;
-}
-
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks)
-{
-    if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
-        return false;
-    }
-    uint8_t hasAdditionalOpcodes{HasForks::None};
     const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
     if (hasForks & HasForks::FortCanning && !(hasForks & HasForks::GreatWorld) && hasAdditionalOpcodes & HasForks::FortCanning) {
         return false;
@@ -144,7 +129,7 @@ bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metada
     if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {
         return false;
     }
-    bool hasAdditionalOpcodes{false};
+    uint8_t hasAdditionalOpcodes{HasForks::None};
     const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTokenSplitMarker, metadata, hasAdditionalOpcodes);
     if (hasAdditionalOpcodes) {
         return false;
