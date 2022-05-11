@@ -581,7 +581,6 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
     CScript scriptBurn;
     scriptBurn << OP_RETURN;
 
@@ -736,7 +735,6 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
@@ -841,7 +839,6 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         }
 
         scriptMeta << OP_RETURN << ToByteVector(dummyMetadata);
-        AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
         LogPrint(BCLog::ESTIMATEFEE, "%s: dummyMetadata size %d\n", __func__, dummyMetadata.size());
     }
 
@@ -877,7 +874,6 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos)
                        << msg;
         scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-        AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
     }
     rawTx.vout[0].scriptPubKey = scriptMeta;
 
@@ -1677,7 +1673,6 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     if (scriptMeta.size() > nMaxDatacarrierBytes) {
         throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."

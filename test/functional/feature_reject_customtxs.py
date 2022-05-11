@@ -14,7 +14,7 @@ class RejectCustomTx(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=120', '-greatworldheight=130', '-customtxexpiration=6']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=120', '-greatworldheight=140', '-customtxexpiration=6']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -114,19 +114,45 @@ class RejectCustomTx(DefiTestFramework):
             errorString = e.error['message']
         assert("Invalid custom transaction" in errorString)
 
+        # Set up for GW TX expiration tests
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Create token
+        self.nodes[0].createtoken({
+            "symbol": "LTC",
+            "name": "Litecoin",
+            "isDAT": True,
+            "collateralAddress": address
+        })
+        self.nodes[0].generate(1)
+
+        # Create pool
+        self.nodes[0].createpoolpair({
+            "tokenA": 'LTC',
+            "tokenB": 'DFI',
+            "commission": 0.01,
+            "status": True,
+            "ownerAddress": address
+        }, [])
+        self.nodes[0].generate(1)
+
+        # Fund address with DFI and LTC
+        self.nodes[0].minttokens(["0.1@LTC"])
+        self.nodes[0].sendtoaddress(address, 0.1)
+        self.nodes[0].utxostoaccount({address: "10@DFI"})
+        self.nodes[0].generate(1)
+
         # Move to GreatWorld height
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(140 - self.nodes[0].getblockcount())
 
         # Create transaction with new expiration and version fields
-        address = self.nodes[0].getnewaddress("", "legacy")
-        tx = self.nodes[0].utxostoaccount({address:"1@DFI"})
+        tx = self.nodes[0].addpoolliquidity({address: ["0.1@LTC", "10@DFI"]}, address)
         rawtx = self.nodes[0].getrawtransaction(tx)
-        expiration = self.nodes[0].getblockcount() + 6
-        assert_equal(self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex'][94:], '05' + hex(expiration)[2:] + '00000001')
         self.nodes[0].clearmempool()
 
         # Append extra data and test failure
-        rawtx = rawtx.replace('feffffff0200e1f5050000000035', 'feffffff0200e1f5050000000036')
+        rawtx = rawtx.replace('ffffffff0200000000000000005c', 'ffffffff0200000000000000005d')
+        expiration = self.nodes[0].getblockcount() + 6
         rawtx = rawtx.replace('05' + hex(expiration)[2:] + '00000001', '05' + hex(expiration)[2:] + '0000000100')
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_raises_rpc_error(-26, "Invalid custom transaction", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])

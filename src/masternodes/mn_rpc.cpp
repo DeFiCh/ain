@@ -252,14 +252,6 @@ std::string ScriptToString(CScript const& script) {
     return EncodeDestination(dest);
 }
 
-int chainHeight(interfaces::Chain::Lock& locked_chain)
-{
-    LOCK(locked_chain.mutex());
-    if (auto height = locked_chain.getHeight())
-        return *height;
-    return 0;
-}
-
 static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     std::vector<CTxIn> vin{};
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -321,7 +313,6 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
     mtx.vout.push_back(CTxOut(0, scriptMeta));
 
     // Only set change to auth on single auth TXs
@@ -546,7 +537,6 @@ UniValue setgov(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
@@ -641,7 +631,6 @@ UniValue setgovheight(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
-    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = pcustomcsview->GetLastHeight() + 1;
 

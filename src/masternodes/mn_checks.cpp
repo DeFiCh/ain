@@ -437,9 +437,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
         if (customTxParams.expiration == 0) {
             return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction expiration set");
         }
-        if (customTxParams.version != static_cast<uint8_t>(MetadataVersion::None) &&
-            customTxParams.version != static_cast<uint8_t>(MetadataVersion::One) &&
-            customTxParams.version != static_cast<uint8_t>(MetadataVersion::Two)) {
+        if (customTxParams.version > static_cast<uint8_t>(MetadataVersion::Two)) {
             return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
         }
         if (height > customTxParams.expiration) {

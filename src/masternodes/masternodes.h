@@ -43,7 +43,7 @@ CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 
 constexpr uint8_t SUBNODE_COUNT{4};
-constexpr uint32_t DEFAULT_CUSTOM_TX_EXPIRATION{6};
+constexpr uint32_t DEFAULT_CUSTOM_TX_EXPIRATION{120};
 
 class CMasternode
 {
