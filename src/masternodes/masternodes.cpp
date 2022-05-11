@@ -1052,9 +1052,13 @@ uint256 CCustomCSView::MerkleRoot() {
         return {};
     }
     std::vector<uint256> hashes;
-    for (const auto& it : rawMap) {
-        auto value = it.second ? *it.second : TBytes{};
-        hashes.push_back(Hash2(it.first, value));
+    for (const auto& [key, value] : rawMap) {
+        MapKV map = {std::make_pair(key, TBytes{})};
+        // Attributes should not be part of merkle root
+        static const std::string attributes("ATTRIBUTES");
+        if (!NewKVIterator<CGovView::ByName>(attributes, map).Valid()) {
+            hashes.push_back(Hash2(key, value ? *value : TBytes{}));
+        }
     }
     return ComputeMerkleRoot(std::move(hashes));
 }
