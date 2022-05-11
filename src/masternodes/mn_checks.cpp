@@ -198,7 +198,7 @@ public:
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
-        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage>(),
+        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage,
                                  CCreatePropMessage,
                                  CPropVoteMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
