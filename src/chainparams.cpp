@@ -684,8 +684,8 @@ public:
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
 
         // owner base58, operator base58
-        vMasternodes.push_back({"7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA"});
-        vMasternodes.push_back({"77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk"});
+        vMasternodes.push_back({"7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA", "7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA"});
+        vMasternodes.push_back({"77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk", "77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk"});
         vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
         vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
 
