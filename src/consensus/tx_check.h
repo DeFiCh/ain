@@ -29,7 +29,7 @@ bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
                          bool& hasAdditionalOpcodes);
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
 bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool greatWorld = true);
 

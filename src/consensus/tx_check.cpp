@@ -92,17 +92,13 @@ bool ParseScriptByMarker(CScript const & script,
     return true;
 }
 
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning)
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
     bool hasAdditionalOpcodes{false};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
-    if (fortCanning && hasAdditionalOpcodes) {
-        return false;
-    }
-    return result;
+    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
 }
 
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning)
