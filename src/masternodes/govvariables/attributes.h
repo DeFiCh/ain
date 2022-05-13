@@ -165,7 +165,7 @@ struct CDexTokenInfo {
 
 struct CConsortiumMember
 {
-    static const uint8_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 64;
+    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 512;
     enum Status : uint8_t
     {
         Active = 0,

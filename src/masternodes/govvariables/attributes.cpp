@@ -319,6 +319,7 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         if (!value["status"].isNull())
         {
             uint32_t tmp;
+
             if (ParseUInt32(value["status"].getValStr(), &tmp))
                 member.status = static_cast<uint8_t>(tmp);
             else
@@ -687,7 +688,13 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                             auto members = GetValue(*attrV0, CConsortiumMembers{});
 
                             for (auto const & member : *value)
+                            {
+                                for (auto const & tmp : members)
+                                    if (tmp.first != member.first && tmp.second.ownerAddress == member.second.ownerAddress)
+                                        return Res::Err("Cannot add a member with an owner address of a existing consortium member!");
+
                                 members[member.first] = member.second;
+                            }
                             SetValue(*attrV0, members);
 
                             return Res::Ok();
