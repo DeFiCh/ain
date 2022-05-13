@@ -129,7 +129,8 @@ public:
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022. 
+        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
+        consensus.FortCanningGreenHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -358,6 +359,7 @@ public:
         consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
+        consensus.FortCanningGreenHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -547,6 +549,7 @@ public:
         consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningGreenHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -728,6 +731,7 @@ public:
         consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
+        consensus.FortCanningGreenHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -948,6 +952,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
     UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
+    UpdateHeightValidation("Fort Canning Green", "-fortcanninggreenheight", consensus.FortCanningGreenHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

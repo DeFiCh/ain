@@ -55,19 +55,11 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollat
     return {};
 }
 
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
+boost::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const & txid) const
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
         return GetLoanTokenByID(*id);
-    return {};
-}
-
-std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanTokenByID(DCT_ID const & id) const
-{
-    auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(id);
-    if (loanToken)
-        return MakeUnique<CLoanSetLoanTokenImpl>(*loanToken);
     return {};
 }
 

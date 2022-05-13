@@ -49,6 +49,8 @@ public:
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const;
 
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
+
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
 };

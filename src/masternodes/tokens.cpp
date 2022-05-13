@@ -5,7 +5,6 @@
 #include <masternodes/tokens.h>
 
 #include <amount.h>
-#include <core_io.h>
 #include <primitives/transaction.h>
 
 #include <univalue.h>
@@ -46,34 +45,6 @@ boost::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTok
     if (ReadBy<CreationTx, uint256>(txid, id)) {
         if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
             return std::make_pair(id, std::move(*tokenImpl));
-        }
-    }
-    return {};
-}
-
-boost::optional<CTokensView::CTokenImpl> CTokensView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
-{
-    std::string const key = trim_ws(str);
-
-    if (key.empty()) {
-        id = DCT_ID{0};
-        return GetToken(id);
-    }
-    if (ParseUInt32(key, &id.v))
-        return GetToken(id);
-
-    uint256 tx;
-    if (ParseHashStr(key, tx)) {
-        auto pair = GetTokenByCreationTx(tx);
-        if (pair) {
-            id = pair->first;
-            return pair->second;
-        }
-    } else {
-        auto pair = GetToken(key);
-        if (pair) {
-            id = pair->first;
-            return pair->second;
         }
     }
     return {};

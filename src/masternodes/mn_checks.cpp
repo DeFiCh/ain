@@ -1071,6 +1071,10 @@ public:
             return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
         }
 
+        if (mnview.AreTokensLocked({pair->first.v})) {
+            return Res::Err("Cannot update token during lock");
+        }
+
         const auto& token = pair->second;
 
         // need to check it exectly here cause lps has no collateral auth (that checked next)
@@ -4112,6 +4116,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
                 return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
             }
+        }
+
+        if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
+            return Res::Err("Pool currently disabled due to locked token");
         }
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);

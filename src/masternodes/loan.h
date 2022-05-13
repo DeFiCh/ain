@@ -330,8 +330,8 @@ public:
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
-    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const;
+    boost::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
+    [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const = 0;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});

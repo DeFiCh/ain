@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanninggreenheight=1200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanninggreenheight=1200', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -444,7 +444,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported version", self.nodes[0].setgov, {"ATTRIBUTES":{'1/token/15/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: locks, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
@@ -582,6 +582,23 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
         assert_equal(result['v0/token/5/dfip2203'], 'true')
+
+        # Check errors
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+
+        # Move to FCG fork
+        self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
+
+        # Check errors
+        assert_raises_rpc_error(-5, "Unrecognised locks argument provided, valid lockss are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/oracle/5':'true'}})
+        assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/4':'true'}})
+
+        # Set locks
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        self.nodes[0].generate(1)
+
+        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attriutes['v0/locks/token/5'], 'true')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

@@ -241,6 +241,7 @@ BASE_SCRIPTS = [
     'wallet_resendwallettransactions.py',
     'feature_custom_poolreward.py',
     'wallet_fallbackfee.py',
+    'feature_token_lock.py',
     'feature_minchainwork.py',
     'rpc_getblockstats.py',
     'feature_median_time.py',
