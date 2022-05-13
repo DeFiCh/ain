@@ -788,21 +788,27 @@ UniValue ATTRIBUTES::Export() const {
             } else if (auto consortiumMinted = std::get_if<CConsortiumMinted>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
 
+                CBalances supply = consortiumMinted->minted;
+                supply.SubBalances(consortiumMinted->burnt.balances);
+
                 result.pushKV("minted", AmountsToJSON(consortiumMinted->minted.balances));
                 result.pushKV("burnt", AmountsToJSON(consortiumMinted->burnt.balances));
-                result.pushKV("supply", AmountsToJSON(consortiumMinted->supply.balances));
+                result.pushKV("supply", AmountsToJSON(supply.balances));
 
                 ret.pushKV(key, result);
-            }  else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
+            } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
 
                 for (auto const& memberMinted : *membersMinted)
                 {
                     UniValue member(UniValue::VOBJ);
 
+                    CBalances supply = memberMinted.second.minted;
+                    supply.SubBalances(memberMinted.second.burnt.balances);
+
                     member.pushKV("minted", AmountsToJSON(memberMinted.second.minted.balances));
                     member.pushKV("burnt", AmountsToJSON(memberMinted.second.burnt.balances));
-                    member.pushKV("supply", AmountsToJSON(memberMinted.second.supply.balances));
+                    member.pushKV("supply", AmountsToJSON(supply.balances));
 
                     result.pushKV(memberMinted.first, member);
                 }

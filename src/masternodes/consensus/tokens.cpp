@@ -141,11 +141,13 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
                     res = membersBalances[key].minted.Add(CTokenAmount{tokenId, amount});
                     if (!res)
                         return res;
-                    res = membersBalances[key].supply.Add(CTokenAmount{tokenId, amount});
+
+                    CBalances supply = membersBalances[key].minted;
+                    res = supply.SubBalances(membersBalances[key].burnt.balances);
                     if (!res)
                         return res;
 
-                    if (membersBalances[key].supply.balances[tokenId] > member.mintLimit)
+                    if (supply.balances[tokenId] > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
                     *mintable.val = member.ownerAddress;
@@ -166,11 +168,13 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             res = globalBalances.minted.Add(CTokenAmount{tokenId, amount});
             if (!res)
                 return res;
-            res = globalBalances.supply.Add(CTokenAmount{tokenId, amount});
+
+            CBalances supply = globalBalances.minted;
+            res = supply.SubBalances(globalBalances.burnt.balances);
             if (!res)
                 return res;
 
-            if (globalBalances.supply.balances[tokenId] > maxLimit)
+            if (supply.balances[tokenId] > maxLimit)
                 return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
             attributes->SetValue(consortiumMintedKey, globalBalances);
@@ -234,14 +238,8 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
                     auto res = membersBalances[tmp.first].burnt.Add(CTokenAmount{tokenId, amount});
                     if (!res)
                         return res;
-                    res = membersBalances[tmp.first].supply.Sub(CTokenAmount{tokenId, amount});
-                    if (!res)
-                        return res;
 
                     res = globalBalances.burnt.Add(CTokenAmount{tokenId, amount});
-                    if (!res)
-                        return res;
-                    res = globalBalances.supply.Sub(CTokenAmount{tokenId, amount});
                     if (!res)
                         return res;
 

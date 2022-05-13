@@ -194,7 +194,6 @@ struct CConsortiumMinted
 {
     CBalances minted;
     CBalances burnt;
-    CBalances supply;
 
     ADD_SERIALIZE_METHODS;
 
@@ -202,7 +201,6 @@ struct CConsortiumMinted
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(minted);
         READWRITE(burnt);
-        READWRITE(supply);
     }
 };
 
