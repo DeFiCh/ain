@@ -142,12 +142,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
                     if (!res)
                         return res;
 
-                    CBalances supply = membersBalances[key].minted;
-                    res = supply.SubBalances(membersBalances[key].burnt.balances);
-                    if (!res)
-                        return res;
-
-                    if (supply.balances[tokenId] > member.mintLimit)
+                    if (membersBalances[key].minted.balances[tokenId] > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
                     *mintable.val = member.ownerAddress;
@@ -169,12 +164,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             if (!res)
                 return res;
 
-            CBalances supply = globalBalances.minted;
-            res = supply.SubBalances(globalBalances.burnt.balances);
-            if (!res)
-                return res;
-
-            if (supply.balances[tokenId] > maxLimit)
+            if (globalBalances.minted.balances[tokenId] > maxLimit)
                 return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", tokenImpl.symbol);
 
             attributes->SetValue(consortiumMintedKey, globalBalances);

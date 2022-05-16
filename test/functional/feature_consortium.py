@@ -199,13 +199,21 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_blocks()
 
+        # burn to check that total minted is checked against max limit
+        self.nodes[2].burntokens({
+            'amounts': "6@" + symbolBTC,
+            'from': account2,
+        })
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
         self.nodes[3].minttokens(["2@" + symbolBTC])
         self.nodes[3].generate(1)
         self.sync_blocks()
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_minted'], {'minted': ['9.00000000@BTC', '2.00000000@DOGE'], 'burnt': ['1.50000000@DOGE'], 'supply': ['9.00000000@BTC', '0.50000000@DOGE']})
-        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01': {'minted' : ['7.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE], 'burnt': ['1.50000000@DOGE'], 'supply': ['7.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE]},
+        assert_equal(attribs['v0/live/economy/consortium_minted'], {'minted': ['9.00000000@BTC', '2.00000000@DOGE'], 'burnt': ['6.00000000@BTC', '1.50000000@DOGE'], 'supply': ['3.00000000@BTC', '0.50000000@DOGE']})
+        assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01': {'minted' : ['7.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE], 'burnt': ['6.00000000@BTC', '1.50000000@DOGE'], 'supply': ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE]},
                                                                             '02': {'minted' : ['2.00000000@' + symbolBTC], 'burnt': [], 'supply': ['2.00000000@' + symbolBTC]}})
 
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolBTC + " token by minting this amount!", self.nodes[3].minttokens, ["2.00000001@" + symbolBTC])
