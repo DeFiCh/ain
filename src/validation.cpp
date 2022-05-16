@@ -2629,11 +2629,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
             } // Old anchor TXs.
-            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
-                if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
-                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+            else if (IsAnchorRewardTx(tx, metadata)) {
+                if (IsLegacyAnchorTx(chainparams.NetworkIDString(), tx.GetHash().ToString())) {
+                    if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
+                        mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+                    } else {
+                        mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                    }
                 } else {
-                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("%s: %s", __func__, "Unexpected coinbase transaction"),
+                                         REJECT_INVALID, "erroneous-cb-tx");
                 }
             }
         }
@@ -5432,7 +5438,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
+                !IsAnchorRewardTx(*block.vtx[i], dummy) &&
                 !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
                 !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.GreatWorldHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
