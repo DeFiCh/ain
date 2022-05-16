@@ -2049,10 +2049,12 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 if ((height < consensus.FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
                     kv.first == CommunityAccountType::Options)
                 {
+                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                 }
                 else
                 {
+                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                 }
 
@@ -2068,6 +2070,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         {
             for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
                 CAmount subsidy = blockReward * kv.second / COIN;
+                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
                     return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
