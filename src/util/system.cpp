@@ -1036,7 +1036,9 @@ void DirectoryCommit(const fs::path &dirname)
 #ifndef WIN32
     FILE* file = fsbridge::fopen(dirname, "r");
     if (file) {
-        fsync(fileno(file));
+        if (fsync(fileno(file)) != 0 && errno != EINVAL) {
+            LogPrintf("%s: fsync failed: %d\n", __func__, errno);
+        }
         fclose(file);
     }
 #endif
