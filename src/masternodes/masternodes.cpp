@@ -998,7 +998,8 @@ uint256 CCustomCSView::MerkleRoot()
         auto pair = std::make_pair(key, TBytes{});
         // Attributes should not be part of merkle root
         static const std::string attributes("ATTRIBUTES");
-        if (!NewKVIterator<CGovView::ByName>(attributes, {pair}).Valid()) {
+        auto it = NewKVIterator<CGovView::ByName>(attributes, {pair});
+        if (!it.Valid() || it.Key() != attributes) {
             hashes.push_back(Hash2(key, value ? *value : TBytes{}));
         }
     }
