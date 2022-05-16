@@ -3837,6 +3837,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
     mnview.SetTeam(finMsg.nextTeam);
     if (height >= consensusParams.AMKHeight) {
+        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%d community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {
@@ -3913,6 +3914,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
+    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%d community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
