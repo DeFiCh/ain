@@ -82,6 +82,10 @@ bool LoadWallets(interfaces::Chain& chain, const std::vector<std::string>& walle
     return true;
 }
 
+static std::thread wbThread;
+static std::atomic_bool wbRun{false};
+static std::condition_variable_any wbWaiter;
+
 void StartWallets(CScheduler& scheduler)
 {
     for (auto& pwallet : GetWallets()) {
@@ -128,19 +132,18 @@ void StartWallets(CScheduler& scheduler)
                 }
             }
         };
-        static std::condition_variable_any waiter;
-        std::thread{[everyMinutes, backupWallet]() {
-            TraceThread("walletBackup", [everyMinutes, backupWallet]() {
-                CLockFreeMutex mutex;
-                CLockFreeGuard lock(mutex);
-                using namespace std::chrono;
-                auto millis = duration_cast<milliseconds>(minutes(everyMinutes));
-                while (!ShutdownRequested() && waiter.wait_for(mutex, millis) == std::cv_status::timeout) {
-                    backupWallet();
-                }
-            });
-        }}.detach();
-        scheduler.scheduleEvery([]() { if (ShutdownRequested()) waiter.notify_one(); }, 1000);
+        assert(!wbRun);
+        wbRun = true;
+        wbThread = std::thread(std::bind(TraceThread<std::function<void()>>,
+                                        "walletBackup", [everyMinutes, backupWallet]() {
+            CLockFreeMutex mutex;
+            CLockFreeGuard lock(mutex);
+            using namespace std::chrono;
+            auto millis = duration_cast<milliseconds>(minutes(everyMinutes));
+            while (wbRun && wbWaiter.wait_for(mutex, millis) == std::cv_status::timeout) {
+                backupWallet();
+            }
+        }));
         // do first backup
         backupWallet();
     }
@@ -155,6 +158,11 @@ void FlushWallets()
 
 void StopWallets()
 {
+    if (wbRun) {
+        wbRun = false;
+        wbWaiter.notify_one();
+        wbThread.join();
+    }
     for (auto& pwallet : GetWallets()) {
         pwallet->Flush(true);
     }
