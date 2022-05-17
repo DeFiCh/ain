@@ -3,12 +3,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <wallet/load.h>
-
+#include <chrono>
+#include <condition_variable>
 #include <interfaces/chain.h>
+#include <logging.h>
 #include <scheduler.h>
+#include <shutdown.h>
+#include <sync.h>
 #include <util/system.h>
+#include <util/time.h>
 #include <util/translation.h>
+#include <wallet/load.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
@@ -77,27 +82,88 @@ bool LoadWallets(interfaces::Chain& chain, const std::vector<std::string>& walle
     return true;
 }
 
+static std::thread wbThread;
+static std::atomic_bool wbRun{false};
+static std::condition_variable_any wbWaiter;
+
 void StartWallets(CScheduler& scheduler)
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    for (auto& pwallet : GetWallets()) {
         pwallet->postInitProcess();
     }
 
     // Schedule periodic wallet flushes and tx rebroadcasts
     scheduler.scheduleEvery(MaybeCompactWalletDB, 2000);
     scheduler.scheduleEvery(MaybeResendWalletTxs, 1000);
+
+    // Schedule periodic wallet backup
+    auto everyMinutes = gArgs.GetArg("-walletbackup", DEFAULT_WALLET_BACKUP_MINUTES);
+    if (everyMinutes > 0) {
+        auto backupWallet = []() {
+            for (auto& pwallet : GetWallets()) {
+                pwallet->BlockUntilSyncedToCurrentChain();
+
+                auto locked_chain = pwallet->chain().lock();
+                LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+                auto walletFile = pwallet->GetLocation().GetFilePath();
+                if (fs::is_directory(walletFile)) {
+                    walletFile += "/wallet.dat";
+                }
+                if (!fs::exists(walletFile)) {
+                    continue;
+                }
+                auto now = GetTime();
+                auto prevBackup = strprintf("%s.auto.%d.bak1", walletFile, now);
+                if (fs::exists(prevBackup)) {
+                    fs::remove(prevBackup);
+                }
+                if (pwallet->BackupWallet(prevBackup)) {
+                    auto currBackup = strprintf("%s.auto.%d.bak", walletFile, now);
+                    if (fs::exists(currBackup)) {
+                        fs::remove(currBackup);
+                    }
+                    LogPrintf("rename %s to %s\n", prevBackup, currBackup);
+                    try {
+                        fs::rename(prevBackup, currBackup);
+                    } catch (const fs::filesystem_error&) {
+                        LogPrintf("rename fails, make sure to backup by yourself!\n");
+                    }
+                }
+            }
+        };
+        assert(!wbRun);
+        wbRun = true;
+        wbThread = std::thread(std::bind(TraceThread<std::function<void()>>,
+                                        "walletBackup", [everyMinutes, backupWallet]() {
+            CLockFreeMutex mutex;
+            CLockFreeGuard lock(mutex);
+            using namespace std::chrono;
+            auto millis = duration_cast<milliseconds>(minutes(everyMinutes));
+            while (wbRun && wbWaiter.wait_for(mutex, millis) == std::cv_status::timeout) {
+                backupWallet();
+            }
+        }));
+        // do first backup
+        backupWallet();
+    }
 }
 
 void FlushWallets()
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    for (auto& pwallet : GetWallets()) {
         pwallet->Flush(false);
     }
 }
 
 void StopWallets()
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    if (wbRun) {
+        wbRun = false;
+        wbWaiter.notify_one();
+        wbThread.join();
+    }
+    for (auto& pwallet : GetWallets()) {
         pwallet->Flush(true);
     }
 }

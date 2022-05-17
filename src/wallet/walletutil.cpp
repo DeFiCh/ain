@@ -96,7 +96,7 @@ WalletLocation::WalletLocation(const std::string& name)
     : m_name(name)
     , m_path(fs::absolute(name, GetWalletDir()))
 {
-    m_file_path = (m_path / m_name).string();
+    m_file_path = m_path.string();
 }
 
 bool WalletLocation::Exists() const
