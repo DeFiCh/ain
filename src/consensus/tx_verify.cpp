@@ -223,8 +223,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if (NotAllowedToFail(txType, nSpendHeight)) {
         CCustomCSView discardCache(mnview);
         CFutureSwapView futureSwapView(*pfutureSwapView);
-        CUndosView undosView(*pundosView);
-        auto res = ApplyCustomTx(discardCache, futureSwapView, undosView, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
+        auto res = ApplyCustomTx(discardCache, futureSwapView, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

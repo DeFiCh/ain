@@ -617,7 +617,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         CCustomCSView mnview(pool.accountsView(height, view));
         CFutureSwapView futureSwapView(*pfutureSwapView);
-        CUndosView undosView(*pundosView);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
@@ -633,7 +632,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        auto res = ApplyCustomTx(mnview, futureSwapView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2307,9 +2306,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // problems.
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
-
-        // Add sleep here to avoid hot looping over failed but not invalidated block.
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
@@ -2331,13 +2327,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             mnview.CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
+                const auto& tx = *block.vtx[i];
+                CCustomCSView mnviewCopy(mnview);
+                CFutureSwapView futureCopy(futureSwapView);
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
-                                 __func__, block.vtx[i]->GetHash().ToString(), res.msg);
+                                 __func__, tx.GetHash().ToString(), res.msg);
                 }
-                AddCoins(view, *block.vtx[i], 0);
+                undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), pindex->nHeight);
+                undosView.AddUndo(UndoSource::CustomView, mnview, mnviewCopy, tx.GetHash(), pindex->nHeight);
+                mnviewCopy.Flush();
+                futureCopy.Flush();
+                AddCoins(view, tx, 0);
             }
         }
         return true;
@@ -2596,8 +2599,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
+            CCustomCSView mnviewCopy(accountsView);
+            CFutureSwapView futureCopy(futureSwapView);
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2609,6 +2614,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                 __func__, tx.GetHash().ToString(), res.msg);
                 }
             }
+            undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), pindex->nHeight);
+            undosView.AddUndo(UndoSource::CustomView, accountsView, mnviewCopy, tx.GetHash(), pindex->nHeight);
+            mnviewCopy.Flush();
+            futureCopy.Flush();
             // log
             if (!fJustCheck && !res.msg.empty()) {
                 if (res.ok) {
@@ -2760,16 +2769,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Loan splits
     ProcessTokenSplits(block, pindex, cache, futureSwapCache, chainparams);
 
-    if (!futureSwapCache.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
-        futureSwapCache.Flush();
-    }
-
-    undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
-
     // proposal activations
     ProcessProposalEvents(pindex, cache, chainparams);
 
+    undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
+    undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
+    futureSwapCache.Flush();
     cache.Flush();
 
     if (!fIsFakeNet) {
