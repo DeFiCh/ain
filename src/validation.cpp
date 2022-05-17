@@ -2065,14 +2065,13 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
-
+                        LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s txid=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::Unallocated), tx.GetHash().ToString(), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 else
                 {
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s txid=%s change=%s\n", GetCommunityAccountName(kv.first), tx.GetHash().ToString(), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
 
                 if (!res.ok)
@@ -2091,7 +2090,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 if (!res.ok) {
                     return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
                 } else {
-                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
+                    LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s txid=%s change=%s\n", GetCommunityAccountName(kv.first), tx.GetHash().ToString(), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 nonUtxoTotal += subsidy;
             }
@@ -2648,7 +2647,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             else if (IsAnchorRewardTx(tx, metadata)) {
                 if (IsLegacyAnchorTx(chainparams.NetworkIDString(), tx.GetHash().ToString())) {
                     if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
-                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%d community=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
+                        LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s txid=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::AnchorReward), tx.GetHash().ToString(), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
                         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
                     } else {
                         mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
@@ -2926,7 +2925,8 @@ void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& 
     if (!res) {
         LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
     } else {
-        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: ProcessRewardEvents community=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::IncentiveFunding), (CBalances{{{{0}, -distributed.first}}}.ToString()));
+        if (distributed.first != 0)
+            LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s event=ProcessRewardEvents change=%s\n", GetCommunityAccountName(CommunityAccountType::IncentiveFunding), (CBalances{{{{0}, -distributed.first}}}.ToString()));
     }
 
     if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
@@ -2934,7 +2934,8 @@ void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& 
         if (!res) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
         } else {
-            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: ProcessRewardEvents community=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::Loan), (CBalances{{{{0}, -distributed.second}}}.ToString()));
+            if (distributed.second != 0)
+                LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s event=ProcessRewardEvents change=%s\n", GetCommunityAccountName(CommunityAccountType::Loan), (CBalances{{{{0}, -distributed.second}}}.ToString()));
         }
     }
 }
@@ -3661,7 +3662,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         if (prop.type == CPropType::CommunityFundProposal) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
-                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: ProcessProposalEvents community=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::CommunityDevFunds), (CBalances{{{{0}, -prop.nAmount}}}.ToString()));
+                LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s event=ProcessProposalEvents change=%s\n", GetCommunityAccountName(CommunityAccountType::CommunityDevFunds), (CBalances{{{{0}, -prop.nAmount}}}.ToString()));
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
                 cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
             } else {
