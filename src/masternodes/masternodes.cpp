@@ -995,6 +995,13 @@ uint256 CCustomCSView::MerkleRoot()
     }
     std::vector<uint256> hashes;
     for (const auto& [key, value] : rawMap) {
+        std::string s;
+        for (auto& k : key)
+            s += strprintf("%02X", k);
+        s += " : ";
+        if (value) for (auto& v : *value)
+            s += strprintf("%02X", v);
+        LogPrintf("[key : value] : [%s]\n", s);
         auto pair = std::make_pair(key, TBytes{});
         // Attributes should not be part of merkle root
         static const std::string attributes("ATTRIBUTES");
