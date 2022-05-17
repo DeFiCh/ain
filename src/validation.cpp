@@ -136,7 +136,6 @@ bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 size_t nCoinCacheUsage = 5000 * 300;
-size_t nCustomMemUsage = nDefaultDbCache << 10;
 uint64_t nPruneTarget = 0;
 bool fIsFakeNet = false;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;

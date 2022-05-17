@@ -1581,7 +1581,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     int64_t nTxIndexCache = nTotalCache;
     int64_t nCoinDBCache = nTotalCache;
     nCoinCacheUsage = nTotalCache;
-    nCustomMemUsage = std::max((nTotalCache >> 8), (nMinDbCache << 16));
     
     int64_t filter_index_cache = 0;
     if (!g_enabled_filter_types.empty()) {
