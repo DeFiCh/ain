@@ -3937,37 +3937,79 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 oldPoolPair->totalLiquidity -= amount;
 
                 CAmount amountA{0}, amountB{0};
-                DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
                 if (oldPoolPair->idTokenA == oldTokenId) {
                     amountA = CalculateNewAmount(multiplier, resAmountA);
                     totalBalance += amountA;
                     amountB = resAmountB;
-                    view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
-                    view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
                 } else {
                     amountA = resAmountA;
                     amountB = CalculateNewAmount(multiplier, resAmountB);
                     totalBalance += amountB;
-                    view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
-                    view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
                 }
 
-                view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenA);
-                view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenB);
+                auto refundBalances = [&, owner = owner]() {
+                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                };
 
-                newPoolPair.AddLiquidity(amountA, amountB, [&, owner = owner] (CAmount liqAmount) {
-                    res = view.AddBalances(owner, {{{newPoolId, liqAmount}}});
-                    if (!res) {
-                        throw std::runtime_error(strprintf("Add liquidity AddBalances: %s", res.msg));
-                    }
+                if (amountA <= 0 || amountB <= 0) {
+                    refundBalances();
+                    continue;
+                }
 
-                    res = view.SetShare(newPoolId, owner, pindex->nHeight);
-                    if (!res) {
-                        throw std::runtime_error(strprintf("Add liquidity SetShare: %s", res.msg));
+                CAmount liquidity{0};
+                if (newPoolPair.totalLiquidity == 0) {
+                    liquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64();
+                    liquidity -= CPoolPair::MINIMUM_LIQUIDITY;
+                    newPoolPair.totalLiquidity = CPoolPair::MINIMUM_LIQUIDITY;
+                } else {
+                    CAmount liqA = (arith_uint256(amountA) * newPoolPair.totalLiquidity / newPoolPair.reserveA).GetLow64();
+                    CAmount liqB = (arith_uint256(amountB) * newPoolPair.totalLiquidity / newPoolPair.reserveB).GetLow64();
+                    liquidity = std::min(liqA, liqB);
+
+                    if (liquidity == 0) {
+                        refundBalances();
+                        continue;
                     }
-                    return Res::Ok();
-                });
+                }
+
+                auto resTotal = SafeAdd(newPoolPair.totalLiquidity, liquidity);
+                if (!resTotal) {
+                    refundBalances();
+                    continue;
+                }
+                newPoolPair.totalLiquidity = resTotal;
+
+                auto resA = SafeAdd(newPoolPair.reserveA, amountA);
+                auto resB = SafeAdd(newPoolPair.reserveB, amountB);
+                if (resA && resB) {
+                    newPoolPair.reserveA = resA;
+                    newPoolPair.reserveB = resB;
+                } else {
+                    refundBalances();
+                    continue;
+                }
+
+                res = view.AddBalance(owner, {newPoolId, liquidity});
+                if (!res) {
+                    refundBalances();
+                    continue;
+                }
+
+                view.SetShare(newPoolId, owner, pindex->nHeight);
             }
+
+            DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
+            if (oldPoolPair->idTokenA == oldTokenId) {
+                view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
+            } else {
+                view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
+            }
+
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenA);
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenB);
 
             if (oldPoolPair->totalLiquidity != 0) {
                 throw std::runtime_error(strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
