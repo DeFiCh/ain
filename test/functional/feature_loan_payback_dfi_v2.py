@@ -6,7 +6,7 @@
 """Test Loan - payback loan dfi."""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes
+from test_framework.util import assert_equal, assert_raises_rpc_error
 from test_framework.authproxy import JSONRPCException
 
 import calendar
@@ -17,12 +17,11 @@ from decimal import Decimal, ROUND_UP
 class PaybackDFILoanTest (DefiTestFramework):
     def set_test_params(self):
         self.FCR_HEIGHT = 800
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.FINISHED_SETUP_BLOCK = 0
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ]
+            ['-walletbroadcast=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ],
         ]
         self.symbolDFI = "DFI"
         self.symbolBTC = "BTC"
@@ -33,14 +32,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].generate(self.FCR_HEIGHT+1)
 
     def reset_chain(self):
-        # REVERTING
-        # mine blocks at node 1
-        self.nodes[1].generate(20)
-
-        connect_nodes(self.nodes[0], 1)
-        self.sync_blocks()
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(1))
-        self.nodes[0].generate(1)
 
     def create_tokens(self):
         self.nodes[0].createtoken({
