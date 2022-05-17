@@ -558,7 +558,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
-    LogPrint(BCLog::ACCOUNTCHANGE, "CommunityBalanceChange: %s txid=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::AnchorReward), tx.GetHash().ToString(), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
+    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
