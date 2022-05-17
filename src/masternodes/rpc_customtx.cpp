@@ -120,6 +120,24 @@ public:
         rpcInfo.pushKVs(tokenBalances(obj));
     }
 
+    void operator()(const CBurnTokensMessage& obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj.burned));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        std::string type;
+        switch (obj.burnType)
+        {
+            case CBurnTokensMessage::BurnType::TokenBurn:
+                type = "TokenBurn";
+                break;
+            default:
+                type = "TokenBurn";
+        }
+        rpcInfo.pushKV("type", type);
+
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
+    }
+
     void operator()(const CLiquidityMessage& obj) const {
         CBalances sumTx = SumAllTransfers(obj.from);
         if (sumTx.balances.size() == 2) {

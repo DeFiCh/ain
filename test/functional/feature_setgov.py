@@ -445,7 +445,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: locks, oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: consortium_members, consortium_mint_limit, dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
@@ -597,6 +597,11 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_members' : '{"01":{"name":"test", \
+                                                                                                                                                                "ownerAddress":"' + owner +'", \
+                                                                                                                                                                "backingId":"blablabla", \
+                                                                                                                                                                "mintLimit":10.00000000}}'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_mint_limit':'1000000000'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
 
@@ -628,6 +633,20 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'1'}})
         assert_raises_rpc_error(-5, "Unrecognised locks argument provided, valid lockss are: token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/oracle/5':'true'}})
         assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/4':'true'}})
+        assert_raises_rpc_error(-5, "recipient () does not refer to any valid address", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_members' : '{"01":{"name":"test", \
+                                                                                                                                                                       "ownerAddress":"", \
+                                                                                                                                                                       "backingId":"blablabla", \
+                                                                                                                                                                       "mintLimit":10.00000000}}'}})
+        assert_raises_rpc_error(-5, "Not a valid consortium member object", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_members' : '{"01":{"name":"test",} \
+                                                                                                                                                           "ownerAddress":"' + owner +'", \
+                                                                                                                                                           "backingId":"blablabla", \
+                                                                                                                                                           "mintLimit":10.00000000}}'}})
+        assert_raises_rpc_error(-5, "Status must be a positive number", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_members' : '{"01":{"name":"test", \
+                                                                                                                                                       "ownerAddress":"' + owner +'", \
+                                                                                                                                                       "backingId":"blablabla", \
+                                                                                                                                                       "mintLimit":10.00000000, \
+                                                                                                                                                       "status":-1}}'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/consortium_mint_limit':'-1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/ascendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/descendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/epitaph': '1'}})

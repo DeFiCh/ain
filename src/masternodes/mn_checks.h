@@ -37,6 +37,7 @@ using CCustomTxMessage = std::variant<
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
     CMintTokensMessage,
+    CBurnTokensMessage,
     CCreatePoolPairMessage,
     CUpdatePoolPairMessage,
     CPoolSwapMessage,

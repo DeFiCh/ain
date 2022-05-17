@@ -43,6 +43,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
         case CustomTxType::MintToken:               return CMintTokensMessage{};
+        case CustomTxType::BurnToken:               return CBurnTokensMessage{};
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
@@ -205,7 +206,8 @@ public:
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
-        if constexpr (IsOneOf<T, CCreatePropMessage,
+        if constexpr (IsOneOf<T, CBurnTokensMessage,
+                                 CCreatePropMessage,
                                  CPropVoteMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else

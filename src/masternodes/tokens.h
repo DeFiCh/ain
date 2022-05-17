@@ -137,6 +137,29 @@ struct CMintTokensMessage : public CBalances {
     }
 };
 
+struct CBurnTokensMessage {
+    enum BurnType : uint8_t
+    {
+        TokenBurn = 0,
+        PoolBurn = 0x01,
+    };
+    static const uint8_t MAX_BURN_CONTEXT_LENGHT = 64;
+
+    CBalances burned;
+    CScript from;
+    uint8_t burnType;
+    std::variant<CScript> context;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(burned);
+        READWRITE(from);
+        READWRITE(burnType);
+        READWRITE(context);
+    }
+};
+
 class CTokenImplementation : public CToken
 {
 public:

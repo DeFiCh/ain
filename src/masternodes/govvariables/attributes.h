@@ -39,12 +39,14 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens    = 'b',
-    DFIP2203Current  = 'c',
-    DFIP2203Burned   = 'd',
-    DFIP2203Minted   = 'e',
-    DexTokens        = 'f',
+    PaybackDFITokens        = 'a',
+    PaybackTokens           = 'b',
+    DFIP2203Current         = 'c',
+    DFIP2203Burned          = 'd',
+    DFIP2203Minted          = 'e',
+    DexTokens               = 'f',
+    ConsortiumMinted        = 'g',
+    ConsortiumMembersMinted = 'h',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -72,6 +74,15 @@ enum TokenKeys : uint8_t  {
     Ascendant             = 'm',
     Descendant            = 'n',
     Epitaph               = 'o',
+    ConsortiumMembers     = 'p',
+    ConsortiumMintLimit   = 'q',
+};
+
+enum ConsortiumKeys : uint8_t  {
+    Members               = 'a',
+    MintLimit             = 'b',
+    MintLimitPerInterval  = 'c',
+
 };
 
 enum PoolKeys : uint8_t {
@@ -152,12 +163,57 @@ struct CDexTokenInfo {
     }
 };
 
+struct CConsortiumMember
+{
+    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGHT = 512;
+    enum Status : uint8_t
+    {
+        Active = 0,
+        Disabled = 0x01,
+    };
+
+    std::string name;
+    CScript ownerAddress;
+    std::string backingId;
+    CAmount mintLimit;
+    uint8_t status;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(ownerAddress);
+        READWRITE(backingId);
+        READWRITE(mintLimit);
+        READWRITE(status);
+    }
+};
+
+struct CConsortiumMinted
+{
+    CBalances minted;
+    CBalances burnt;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(burnt);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
+using CConsortiumMembersMinted = std::map<std::string, CConsortiumMinted>;
+
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
+                                        CConsortiumMembers, CConsortiumMinted, CConsortiumMembersMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
