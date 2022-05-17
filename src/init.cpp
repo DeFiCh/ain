@@ -1633,8 +1633,8 @@ bool AppInitMain(InitInterfaces& interfaces)
                             shouldReindex &= !attributes->CheckKey(dexKey);
                         }
                         if (shouldReindex) {
-                            strLoadError = _("Live dex needs reindex").translated;
-                            break;
+                  //          strLoadError = _("Live dex needs reindex").translated;
+                  //          break;
                         }
                     }
                 }
