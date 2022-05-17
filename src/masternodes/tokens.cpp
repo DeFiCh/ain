@@ -5,6 +5,8 @@
 #include <masternodes/tokens.h>
 
 #include <amount.h>
+#include <chainparams.h> // Params()
+#include <core_io.h>
 #include <primitives/transaction.h>
 
 #include <univalue.h>
@@ -133,11 +135,11 @@ Res CTokensView::RevertCreateToken(const uint256 & txid)
     return Res::Ok();
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool skipNameValidation)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
+    auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+        return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());
     }
     DCT_ID id = pair->first;
     CTokenImpl & oldToken = pair->second;
@@ -150,9 +152,11 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, boo
     oldToken.name = newToken.name;
 
     // check new symbol correctness
-    auto checkSymbolRes = newToken.IsValidSymbol();
-    if (!checkSymbolRes.ok) {
-        return checkSymbolRes;
+    if (!skipNameValidation) {
+        auto checkSymbolRes = newToken.IsValidSymbol();
+        if (!checkSymbolRes.ok) {
+            return checkSymbolRes;
+        }
     }
 
     // deal with DB symbol indexes before touching symbols/DATs:
@@ -181,6 +185,14 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, boo
 
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
+
+    if (oldToken.destructionHeight != newToken.destructionHeight) {
+        oldToken.destructionHeight = newToken.destructionHeight;
+    }
+
+    if (oldToken.destructionTx != newToken.destructionTx) {
+        oldToken.destructionTx = newToken.destructionTx;
+    }
 
     WriteBy<ID>(id, oldToken);
     return Res::Ok();
@@ -277,4 +289,18 @@ boost::optional<DCT_ID> CTokensView::ReadLastDctId() const
         return {lastDctId};
     }
     return {};
+}
+
+inline Res CTokenImplementation::IsValidSymbol() const
+{
+    if (symbol.size() == 0 || IsDigit(symbol[0])) {
+        return Res::Err("token symbol should be non-empty and starts with a letter");
+    }
+    if (symbol.find('#') != std::string::npos) {
+        return Res::Err("token symbol should not contain '#'");
+    }
+    if (creationHeight >= Params().GetConsensus().FortCanningGreenHeight && symbol.find('/') != std::string::npos) {
+        return Res::Err("token symbol should not contain '/'");
+    }
+    return Res::Ok();
 }

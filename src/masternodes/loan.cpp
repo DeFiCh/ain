@@ -386,6 +386,11 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
     return Res::Ok();
 }
 
+void CLoanView::EraseInterestDirect(const CVaultId& vaultId, DCT_ID id)
+{
+    EraseBy<LoanInterestV2ByVault>(std::make_pair(vaultId, id));
+}
+
 void CLoanView::RevertInterestRateToV1()
 {
     std::vector<std::pair<CVaultId, DCT_ID>> pairs;

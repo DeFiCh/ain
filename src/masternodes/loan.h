@@ -268,6 +268,8 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 boost::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
+base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
+
 class CLoanTakeLoanMessage
 {
 public:
@@ -351,6 +353,7 @@ public:
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     Res DeleteInterest(const CVaultId& vaultId, uint32_t height);
+    void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id);
     boost::optional<CInterestRateV2> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
     void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);

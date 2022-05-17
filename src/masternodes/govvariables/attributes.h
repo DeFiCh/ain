@@ -15,6 +15,7 @@ enum VersionTypes : uint8_t {
 
 enum AttributeTypes : uint8_t {
     Live      = 'l',
+    Oracles   = 'o',
     Param     = 'a',
     Token     = 't',
     Poolpairs = 'p',
@@ -26,6 +27,10 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
+};
+
+enum OracleIDs : uint8_t  {
+    Splits    = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -51,7 +56,10 @@ enum TokenKeys : uint8_t  {
     LoanPaybackFeePCT   = 'd',
     DexInFeePct         = 'e',
     DexOutFeePct        = 'f',
-    DFIP2203Enabled    = 'g',
+    DFIP2203Enabled     = 'g',
+    Ascendant           = 'm',
+    Descendant          = 'n',
+    Epitaph             = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -115,8 +123,11 @@ struct CTokenPayback {
 
 ResVal<CScript> GetFutureSwapContractAddress();
 
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, OracleSplits, DescendantValue, AscendantValue>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -162,6 +173,9 @@ public:
 
     std::map<CAttributeType, CAttributeValue> attributes;
 
+    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
+    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
+
 private:
     bool futureBlockUpdated{};
 
@@ -170,6 +184,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
+    static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
@@ -178,11 +193,15 @@ private:
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+
+private:
+    std::set<uint32_t> tokenSplits{};
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

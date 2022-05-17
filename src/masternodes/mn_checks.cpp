@@ -877,27 +877,6 @@ public:
         });
         return found;
     }
-
-    void storeGovVars(const CGovernanceHeightMessage& obj) const {
-
-        // Retrieve any stored GovVariables at startHeight
-        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
-
-        // Remove any pre-existing entry
-        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
-            if ((*it)->GetName() == obj.govVar->GetName()) {
-                it = storedGovVars.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        // Add GovVariable to set for storage
-        storedGovVars.insert(obj.govVar);
-
-        // Store GovVariable set by height
-        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
-    }
 };
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor
@@ -1048,16 +1027,14 @@ public:
         if (!pair) {
             return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
         }
-        const auto& token = pair->second;
+        auto token = pair->second;
 
         //check foundation auth
         auto res = HasFoundationAuth();
 
         if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
-            CToken newToken = static_cast<CToken>(token); // keeps old and triggers only DAT!
-            newToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-
-            return !res ? res : mnview.UpdateToken(token.creationTx, newToken, true);
+            token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+            return !res ? res : mnview.UpdateToken(token, true);
         }
         return res;
     }
@@ -1101,12 +1078,15 @@ public:
             }
         }
 
-        auto updatedToken = obj.token;
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
         if (height >= consensus.FortCanningHeight) {
             updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         }
 
-        return mnview.UpdateToken(token.creationTx, updatedToken, false);
+        return mnview.UpdateToken(updatedToken);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
@@ -1182,7 +1162,7 @@ public:
         token.creationTx = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token, false);
+        auto tokenId = mnview.CreateToken(token);
         if (!tokenId) {
             return std::move(tokenId);
         }
@@ -1647,7 +1627,7 @@ public:
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
-                    storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
+                    storeGovVars({var, height + mnview.GetIntervalBlock() - diff}, mnview);
                     continue;
                 }
             } else if (var->GetName() == "ATTRIBUTES") {
@@ -1710,7 +1690,7 @@ public:
         }
 
         // Store pending Gov var change
-        storeGovVars(obj);
+        storeGovVars(obj, mnview);
 
         return Res::Ok();
     }
@@ -2402,7 +2382,7 @@ public:
         token.creationTx = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token, false);
+        auto tokenId = mnview.CreateToken(token);
         if (!tokenId)
             return std::move(tokenId);
 
@@ -2447,7 +2427,7 @@ public:
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
-        res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
+        res = mnview.UpdateToken(pair->second);
         if (!res)
             return res;
 
@@ -4261,4 +4241,26 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
     return true;
+}
+
+
+Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
+
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
