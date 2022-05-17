@@ -120,7 +120,11 @@ void StartWallets(CScheduler& scheduler)
                         fs::remove(currBackup);
                     }
                     LogPrintf("rename %s to %s\n", prevBackup, currBackup);
-                    fs::rename(prevBackup, currBackup);
+                    try {
+                        fs::rename(prevBackup, currBackup);
+                    } catch (const fs::filesystem_error&) {
+                        LogPrintf("rename fails, make sure to backup by yourself!\n");
+                    }
                 }
             }
         };
