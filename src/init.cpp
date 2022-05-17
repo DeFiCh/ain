@@ -1574,25 +1574,24 @@ bool AppInitMain(InitInterfaces& interfaces)
     int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
     nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
-    auto nCustomMinCacheSize = nMinDbCache << 20;
-    auto nCustomDefaultCacheSize = std::max(nTotalCache / 2, nCustomMinCacheSize);
-    int64_t nBlockTreeDBCache = std::min(nTotalCache / 8, nMaxBlockDBCache << 20);
-    nTotalCache -= nBlockTreeDBCache;
-    int64_t nTxIndexCache = std::min(nTotalCache / 8, gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? nMaxTxIndexCache << 20 : 0);
-    nTotalCache -= nTxIndexCache;
+    
+    // Use the same dbcache for each
+    int64_t nCustomDefaultCacheSize = nTotalCache;
+    int64_t nBlockTreeDBCache = nTotalCache;
+    int64_t nTxIndexCache = nTotalCache;
+    int64_t nCoinDBCache = nTotalCache;
+    nCoinCacheUsage = nTotalCache;
+    nCustomMemUsage = std::max((nTotalCache >> 8), (nMinDbCache << 16));
+    
     int64_t filter_index_cache = 0;
     if (!g_enabled_filter_types.empty()) {
         size_t n_indexes = g_enabled_filter_types.size();
-        int64_t max_cache = std::min(nTotalCache / 8, max_filter_index_cache << 20);
+        int64_t max_cache = std::min(nTotalCache, max_filter_index_cache << 20);
         filter_index_cache = max_cache / n_indexes;
-        nTotalCache -= filter_index_cache * n_indexes;
     }
-    int64_t nCoinDBCache = std::min(nTotalCache / 2, (nTotalCache / 4) + (1 << 23)); // use 25%-50% of the remainder for disk cache
-    nCoinDBCache = std::min(nCoinDBCache, nMaxCoinsDBCache << 20); // cap total coins db cache
-    nTotalCache -= nCoinDBCache;
-    nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
-    nCustomMemUsage = std::max((nTotalCache >> 8), (nMinDbCache << 16)); // use significant less in-memory cache
+
     int64_t nMempoolSizeMax = gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
+
     LogPrintf("Cache configuration:\n");
     LogPrintf("* Using %.1f MiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
@@ -1682,7 +1681,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                         "", CClientUIInterface::MSG_ERROR);
                 });
 
-                auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "enhancedcs", 2 * nCustomDefaultCacheSize, false, fReset || fReindexChainState));
+                auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "enhancedcs", nCustomDefaultCacheSize, false, fReset || fReindexChainState));
                 pcustomcsview.reset();
                 pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
                 if (!fReset && !fReindexChainState) {
@@ -1698,27 +1697,27 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
-                    paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", 2 * nCustomDefaultCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history",  nCustomDefaultCacheSize, false, fReset || fReindexChainState);
                     paccountHistoryDB->CreateMultiIndexIfNeeded();
                 }
 
                 pburnHistoryDB.reset();
-                pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomMinCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomDefaultCacheSize, false, fReset || fReindexChainState);
                 pburnHistoryDB->CreateMultiIndexIfNeeded();
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
-                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomMinCacheSize, false, fReset || fReindexChainState);
+                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomDefaultCacheSize, false, fReset || fReindexChainState);
                 }
 
                 // Create Future Swap DB
-                auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nCustomDefaultCacheSize, false, fReset || fReindexChainState));
                 pfutureSwapView.reset();
                 pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
 
-                // Create Future Swap DB
-                auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                // Create Undos DB
+                auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomDefaultCacheSize, false, fReset || fReindexChainState));
                 pundosView.reset();
                 pundosView = std::make_unique<CUndosView>(pundosDB);
 

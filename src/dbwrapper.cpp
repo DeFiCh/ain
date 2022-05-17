@@ -101,7 +101,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
 {
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize);
-    options.filter_policy = leveldb::NewBloomFilterPolicy(10);
+    options.filter_policy = leveldb::NewBloomFilterPolicy(24);
     options.compression = leveldb::kNoCompression;
     options.info_log = new CDefiLevelDBLogger();
     if (leveldb::kMajorVersion > 1 || (leveldb::kMajorVersion == 1 && leveldb::kMinorVersion >= 16)) {
@@ -120,7 +120,7 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     readoptions.verify_checksums = true;
     iteroptions.verify_checksums = true;
     iteroptions.fill_cache = false;
-    syncoptions.sync = true;
+    syncoptions.sync = false;
     options = GetOptions(nCacheSize);
     options.create_if_missing = true;
     if (fMemory) {
