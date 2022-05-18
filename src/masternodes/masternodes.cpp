@@ -985,21 +985,39 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
     return Res::Ok();
 }
 
-uint256 CCustomCSView::MerkleRoot()
+uint256 CCustomCSView::MerkleRoot(CUndosView& undo)
 {
     auto flushable = GetStorage().GetFlushableStorage();
     assert(flushable);
-    auto& rawMap = flushable->GetRaw();
+    auto rawMap = flushable->GetRaw();
     if (rawMap.empty()) {
         return {};
     }
-    std::vector<uint256> hashes;
-    for (const auto& [key, value] : rawMap) {
-        auto pair = std::make_pair(key, TBytes{});
+    auto isAttributes = [](const TBytes& key) {
         // Attributes should not be part of merkle root
         static const std::string attributes("ATTRIBUTES");
+        auto pair = std::make_pair(key, TBytes{});
         auto it = NewKVIterator<CGovView::ByName>(attributes, {pair});
-        if (!it.Valid() || it.Key() != attributes) {
+        return it.Valid() && it.Key() == attributes;
+    };
+    auto undoStorage = undo.GetStorage().GetFlushableStorage();
+    assert(undoStorage);
+    auto& undoMap = undoStorage->GetRaw();
+    auto it = NewKVIterator<CUndosView::ByMultiUndoKey>(UndoSourceKey{}, undoMap);
+    for (; it.Valid(); it.Next()) {
+        if (it.Key().key == UndoSource::CustomView) {
+            CUndo value = it.Value();
+            auto& map = value.before;
+            for (auto it = map.begin(); it != map.end();) {
+                isAttributes(it->first) ? map.erase(it++) : ++it;
+            }
+            auto key = std::make_pair(CUndosBaseView::ByUndoKey::prefix(), static_cast<const UndoKey&>(it.Key()));
+            rawMap[DbTypeToBytes(key)] = DbTypeToBytes(value);
+        }
+    }
+    std::vector<uint256> hashes;
+    for (const auto& [key, value] : rawMap) {
+        if (!isAttributes(key)) {
             hashes.push_back(Hash2(key, value ? *value : TBytes{}));
         }
     }
