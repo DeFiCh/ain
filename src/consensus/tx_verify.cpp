@@ -230,6 +230,19 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
     }
 
+    // check for tokens values
+    std::vector<unsigned char> dummy;
+    const auto txType = GuessCustomTxType(tx, dummy);
+
+    if (NotAllowedToFail(txType, nSpendHeight)) {
+        CCustomCSView discardCache(mnview);
+        CFutureSwapView futureSwapView(*pfutureSwapView);
+        auto res = ApplyCustomTx(discardCache, futureSwapView, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
+        if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
+        }
+    }
+
     for (auto const & kv : non_minted_values_out) {
         DCT_ID const & tokenId = kv.first;
 

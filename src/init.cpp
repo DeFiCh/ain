@@ -1282,7 +1282,7 @@ void SetupAnchorSPVDatabases(bool resync) {
 
 void MigrateDBs()
 {
-    auto it = pundosView->LowerBound<CUndosView::ByUndoKey>(UndoKey{});
+    auto it = pundosView->LowerBound<CUndosView::ByMultiUndoKey>(UndoSourceKey{});
     if (it.Valid()) {
         return;
     }
@@ -1294,7 +1294,7 @@ void MigrateDBs()
     std::vector<std::pair<UndoKey, CUndo>> undos;
     pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
         undos.emplace_back(key, undo);
-        pundosView->SetUndo({key.height, key.txid, UndoSource::CustomView}, undo);
+        pundosView->SetUndo({{key.height, key.txid}, UndoSource::CustomView}, undo);
         return true;
     });
 
@@ -1304,7 +1304,7 @@ void MigrateDBs()
 
     if (!undos.empty()) {
         pcustomcsview->Flush();
-        pcustomcsview->CompactBy<CUndosView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
+        pcustomcsview->CompactBy<CUndosBaseView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
         pcustomcsview->Flush(true);
     }
 
@@ -1324,12 +1324,14 @@ void MigrateDBs()
                 pcustomcsview->EraseFuturesUserValues(valueIt->second.first);
                 futureView.StoreFuturesUserValues(valueIt->second.first, valueIt->second.second);
             }
-            pundosView->AddUndo(UndoSource::FutureView, *pfutureSwapView, futureView, uint256S(std::string(64, '1')), heightIt->first);
+            static const auto txIdAllOne = uint256S(std::string(64, '1'));
+            pundosView->AddUndo(UndoSource::FutureView, *pfutureSwapView, futureView, txIdAllOne, heightIt->first);
             futureView.Flush();
             heightIt = end;
         }
 
         pundosView->Flush();
+        pfutureSwapView->Flush();
     }
 
     LogPrintf("Migrating future swap and undo data finished.\n");

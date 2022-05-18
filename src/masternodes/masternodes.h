@@ -424,7 +424,7 @@ class CCustomCSView
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
             CAccountsView           ::  ByBalanceKey, ByHeightKey,
             CCommunityBalancesView  ::  ById,
-            CUndosView              ::  ByUndoKey,
+            CUndosBaseView          ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity, ByDailyLoanReward,
                                         ByPoolLoanReward, ByTokenDexFeePct,
