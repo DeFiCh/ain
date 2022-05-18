@@ -189,8 +189,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         collTokens = self.nodes[0].listcollateraltokens()
-        assert_equal(len(collTokens), 2)
-        collTokens = self.nodes[0].listcollateraltokens()
         assert_equal(len(collTokens), 4)
 
 if __name__ == '__main__':
