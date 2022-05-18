@@ -87,12 +87,18 @@ UniValue creategovcfp(const JSONRPCRequest& request)
 
     if (!data["title"].isNull()) {
         title = data["title"].get_str();
+        if (title.length() > MAX_PROP_TITLE_SIZE) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<title> must be %d characters or under", int(MAX_PROP_TITLE_SIZE)));
+        }
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<title> is required");
     }
 
     if (!data["context"].isNull()) {
         context = data["context"].get_str();
+        if (context.length() > MAX_PROP_CONTEXT_SIZE) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<context> must be %d characters or under", int(MAX_PROP_CONTEXT_SIZE)));
+        }
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
@@ -127,8 +133,8 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     pm.address = GetScriptForDestination(address);
     pm.nAmount = amount;
     pm.nCycles = cycles;
-    pm.title = title.substr(0, MAX_PROP_TITLE_SIZE);
-    pm.context = context.substr(0, MAX_PROP_CONTEXT_SIZE);
+    pm.title = title;
+    pm.context = context;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -208,12 +214,20 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     const auto title = request.params[0].get_str();
     const auto context = request.params[1].get_str();
 
+    if (title.length() > MAX_PROP_TITLE_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<title> must be %d characters or under", int(MAX_PROP_TITLE_SIZE)));
+    }
+
+    if (context.length() > MAX_PROP_CONTEXT_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<context> must be %d characters or under", int(MAX_PROP_CONTEXT_SIZE)));
+    }
+
     CCreatePropMessage pm;
     pm.type = CPropType::VoteOfConfidence;
     pm.nAmount = 0;
     pm.nCycles = VOC_CYCLES;
-    pm.title = title.substr(0, MAX_PROP_TITLE_SIZE);
-    pm.context = context.substr(0, MAX_PROP_CONTEXT_SIZE);
+    pm.title = title;
+    pm.context = context;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
