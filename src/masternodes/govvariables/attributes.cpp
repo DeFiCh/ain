@@ -748,8 +748,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled:
                     case TokenKeys::LoanMintingInterest: {
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
-                            return Res::Err("Cannot be set before FortCanningGreen");
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
                         }
                         if (!VerifyToken(view, attrV0->typeId)) {
                             return Res::Err("No such token (%d)", attrV0->typeId);
@@ -762,8 +762,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         break;
                     }
                     case TokenKeys::FixedIntervalPriceId:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
-                            return Res::Err("Cannot be set before FortCanningGreen");
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
                         }
                         if (!VerifyToken(view, attrV0->typeId)) {
                             return Res::Err("No such token (%d)", attrV0->typeId);
@@ -787,8 +787,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Oracles:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
-                    return Res::Err("Cannot be set before FortCanningGreen");
+                if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                    return Res::Err("Cannot be set before GreatWorld");
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
                     const auto splitMap = boost::get<OracleSplits>(&attribute.second);
@@ -846,8 +846,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Locks:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
-                    return Res::Err("Cannot be set before FortCanningGreen");
+                if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                    return Res::Err("Cannot be set before GreatWorld");
                 }
                 if (attrV0->typeId != ParamIDs::TokenID) {
                     return Res::Err("Unrecognised locks id");

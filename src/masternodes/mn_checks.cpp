@@ -249,9 +249,9 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
-    Res isPostFortCanningGreenFork() const {
-        if(static_cast<int>(height) < consensus.FortCanningGreenHeight) {
-            return Res::Err("called before FortCanningGreenHeight height");
+    Res isPostGreatWorldFork() const {
+        if(static_cast<int>(height) < consensus.GreatWorldHeight) {
+            return Res::Err("called before GreatWorldHeight height");
         }
         return Res::Ok();
     }
@@ -522,24 +522,24 @@ public:
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostFortCanningGreenFork();
-        return res ? Res::Err("called after FortCanningGreen height") : serialize(obj);
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanSetLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostFortCanningGreenFork();
-        return res ? Res::Err("called after FortCanningGreen height") : serialize(obj);
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostFortCanningGreenFork();
-        return res ? Res::Err("called after FortCanningGreen height") : serialize(obj);
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {

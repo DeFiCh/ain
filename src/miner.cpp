@@ -213,7 +213,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().FortCanningGreenHeight) {
+    if (nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
         const auto attributes = pcustomcsview->GetAttributes();
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};

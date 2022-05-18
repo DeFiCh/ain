@@ -20,7 +20,7 @@ class TokenSplitTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanninggreenheight=150', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-greatworldheight=150', '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
@@ -329,7 +329,7 @@ class TokenSplitTest(DefiTestFramework):
 
     def token_split(self):
 
-        # Move to FCG
+        # Move to GW
         self.nodes[0].generate(151 - self.nodes[0].getblockcount())
 
         # Make sure we cannot make a token with '/' in its symbol

@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanninggreenheight=1200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanninggreenheight=1200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -591,15 +591,15 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result['v0/token/5/dfip2203'], 'true')
 
         # Check errors
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningGreen", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
 
-        # Move to FCG fork
+        # Move to GW fork
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
 
         # Check errors
