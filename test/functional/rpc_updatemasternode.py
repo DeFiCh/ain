@@ -359,7 +359,8 @@ class TestForcedRewardAddress(DefiTestFramework):
 
         # Try updating two nodes to the same address
         self.nodes[0].updatemasternode(mn1, {'ownerAddress':new_mn1_owner})
-        assert_raises_rpc_error(-26, "Masternode exist with that owner address pending already", self.nodes[0].updatemasternode, mn2, {'ownerAddress':new_mn1_owner})
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-32600, "Masternode exist with that owner address pending already", self.nodes[0].updatemasternode, mn2, {'ownerAddress':new_mn1_owner})
 
         # Test updating several MNs owners in the same block
         self.nodes[0].updatemasternode(mn2, {'ownerAddress':new_mn2_owner})
