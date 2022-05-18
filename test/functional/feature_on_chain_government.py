@@ -6,6 +6,7 @@
 """Test on chain government behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error
@@ -58,6 +59,20 @@ class ChainGornmentTest(DefiTestFramework):
         title = "Create test community fund request proposal"
         context = "<Git issue url>"
         tx = node0.creategovcfp({"title":title, "context": context, "amount":100, "cycles":2, "payoutAddress":address})
+
+        # Test invalid title
+        try:
+            node0.creategovcfp({"title":"a" * 129, "context": context, "amount":100, "cycles":2, "payoutAddress":address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("128 characters or under" in errorString)
+
+        # Test invalid context
+        try:
+            node0.creategovcfp({"title":title, "context": "a" * 513, "amount":100, "cycles":2, "payoutAddress":address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("512 characters or under" in errorString)
 
         node0.sendtoaddress(address1, Decimal("1.0"))
         node0.sendtoaddress(address2, Decimal("1.0"))
