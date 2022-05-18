@@ -8,6 +8,7 @@
 #include <amount.h>
 #include <masternodes/balances.h>
 #include <masternodes/gv.h>
+#include <masternodes/oracles.h>
 
 enum VersionTypes : uint8_t {
     v0 = 0,
@@ -50,16 +51,21 @@ enum DFIPKeys : uint8_t  {
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI          = 'a',
-    PaybackDFIFeePCT    = 'b',
-    LoanPayback         = 'c',
-    LoanPaybackFeePCT   = 'd',
-    DexInFeePct         = 'e',
-    DexOutFeePct        = 'f',
-    DFIP2203Enabled     = 'g',
-    Ascendant           = 'm',
-    Descendant          = 'n',
-    Epitaph             = 'o',
+    PaybackDFI            = 'a',
+    PaybackDFIFeePCT      = 'b',
+    LoanPayback           = 'c',
+    LoanPaybackFeePCT     = 'd',
+    DexInFeePct           = 'e',
+    DexOutFeePct          = 'f',
+    DFIP2203Enabled       = 'g',
+    FixedIntervalPriceId  = 'h',
+    LoanCollateralEnabled = 'i',
+    LoanCollateralFactor  = 'j',
+    LoanMintingEnabled    = 'k',
+    LoanMintingInterest   = 'l',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -127,7 +133,7 @@ using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, OracleSplits, DescendantValue, AscendantValue>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
@@ -163,6 +169,19 @@ public:
         return attributes.count(key) > 0;
     }
 
+    template<typename C, typename K>
+    void ForEach(const C& callback, const K& key) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        static_assert(std::is_invocable_r_v<bool, C, K, CAttributeValue>);
+        for (auto it = attributes.lower_bound(key); it != attributes.end(); ++it) {
+            if (auto attrV0 = boost::get<K>(&it->first)) {
+                if (!std::invoke(callback, *attrV0, it->second)) {
+                    break;
+                }
+            }
+        }
+    }
+
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
@@ -172,7 +191,14 @@ public:
     }
 
     std::map<CAttributeType, CAttributeValue> attributes;
+    uint32_t time{0};
 
+    // For formatting in export
+    static const std::map<uint8_t, std::string>& displayVersions();
+    static const std::map<uint8_t, std::string>& displayTypes();
+    static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
+    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
     static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
     static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 
@@ -188,13 +214,6 @@ private:
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
-
-    // For formatting in export
-    static const std::map<uint8_t, std::string>& displayVersions();
-    static const std::map<uint8_t, std::string>& displayTypes();
-    static const std::map<uint8_t, std::string>& displayParamsIDs();
-    static const std::map<uint8_t, std::string>& displayOracleIDs();
-    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);

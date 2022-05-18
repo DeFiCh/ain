@@ -435,6 +435,8 @@ public:
     [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const override;
     [[nodiscard]] boost::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const override;
     [[nodiscard]] boost::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const override;
+    [[nodiscard]] boost::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const override;
+    [[nodiscard]] boost::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const override;
 
     void SetDbVersion(int version);
 

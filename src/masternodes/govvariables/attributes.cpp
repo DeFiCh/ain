@@ -6,6 +6,7 @@
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/masternodes.h> /// CCustomCSView
+#include <masternodes/mn_checks.h> /// GetAggregatePrice
 #include <masternodes/mn_checks.h> /// CustomTxType
 
 #include <core_io.h> /// ValueFromAmount
@@ -13,16 +14,14 @@
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
 
-template<typename T>
-static std::string KeyBuilder(const T& value){
-    std::ostringstream oss;
-    oss << value;
-    return oss.str();
-}
-
-template<typename T, typename ... Args >
-static std::string KeyBuilder(const T& value, const Args& ... args){
-    return KeyBuilder(value) + '/' + KeyBuilder(args...);
+static inline std::string trim_all_ws(std::string s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
 }
 
 static std::vector<std::string> KeyBreaker(const std::string& str, const char delim = '/'){
@@ -116,13 +115,18 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
             AttributeTypes::Token, {
-                {"payback_dfi",         TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct", TokenKeys::PaybackDFIFeePCT},
-                {"loan_payback",        TokenKeys::LoanPayback},
-                {"loan_payback_fee_pct",TokenKeys::LoanPaybackFeePCT},
-                {"dex_in_fee_pct",      TokenKeys::DexInFeePct},
-                {"dex_out_fee_pct",     TokenKeys::DexOutFeePct},
-                {"dfip2203",            TokenKeys::DFIP2203Enabled},
+                {"payback_dfi",             TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
+                {"loan_payback",            TokenKeys::LoanPayback},
+                {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
+                {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
+                {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
+                {"dfip2203",                TokenKeys::DFIP2203Enabled},
+                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
+                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
+                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
+                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
+                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
             }
         },
         {
@@ -149,6 +153,11 @@ const std::map<TokenKeys, CAttributeValue> ATTRIBUTES::tokenKeysToType {
         {TokenKeys::PaybackDFIFeePCT,      CAmount{}},
         {TokenKeys::DexInFeePct,           CAmount{}},
         {TokenKeys::DexOutFeePct,          CAmount{}},
+        {TokenKeys::FixedIntervalPriceId,  CTokenCurrencyPair{}},
+        {TokenKeys::LoanCollateralEnabled, bool{}},
+        {TokenKeys::LoanCollateralFactor,  CAmount{}},
+        {TokenKeys::LoanMintingEnabled,    bool{}},
+        {TokenKeys::LoanMintingInterest,   CAmount{}},
 };
 
 const std::map<PoolKeys, CAttributeValue> ATTRIBUTES::poolKeysToType {
@@ -160,16 +169,21 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,       "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT, "payback_dfi_fee_pct"},
-                {TokenKeys::LoanPayback,      "loan_payback"},
-                {TokenKeys::LoanPaybackFeePCT,"loan_payback_fee_pct"},
-                {TokenKeys::DexInFeePct,      "dex_in_fee_pct"},
-                {TokenKeys::DexOutFeePct,     "dex_out_fee_pct"},
-                {TokenKeys::DFIP2203Enabled,  "dfip2203"},
-                {TokenKeys::Ascendant,        "ascendant"},
-                {TokenKeys::Descendant,       "descendant"},
-                {TokenKeys::Epitaph,          "epitaph"},
+                {TokenKeys::PaybackDFI,            "payback_dfi"},
+                {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
+                {TokenKeys::LoanPayback,           "loan_payback"},
+                {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
+                {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
+                {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
+                {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
+                {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
+                {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
+                {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
+                {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
+                {TokenKeys::DFIP2203Enabled,       "dfip2203"},
+                {TokenKeys::Ascendant,             "ascendant"},
+                {TokenKeys::Descendant,            "descendant"},
+                {TokenKeys::Epitaph,               "epitaph"},
             }
         },
         {
@@ -278,6 +292,23 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     return {splits, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
+    const auto value = KeyBreaker(str);
+    if (value.size() != 2) {
+        return Res::Err("Exactly two entires expected for currency pair");
+    }
+    auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    if (token.empty() || currency.empty()) {
+        return Res::Err("Empty token / currency");
+    }
+    return {CTokenCurrencyPair{token, currency}, Res::Ok()};
+}
+
+static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
+    return view.GetToken(DCT_ID{id}).has_value();
+}
+
 const std::map<uint8_t, std::map<uint8_t,
     std::function<ResVal<CAttributeValue>(const std::string&)>>>& ATTRIBUTES::parseValue() {
 
@@ -285,13 +316,18 @@ const std::map<uint8_t, std::map<uint8_t,
         std::function<ResVal<CAttributeValue>(const std::string&)>>> parsers{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,       VerifyBool},
-                {TokenKeys::PaybackDFIFeePCT, VerifyPct},
-                {TokenKeys::LoanPayback,      VerifyBool},
-                {TokenKeys::LoanPaybackFeePCT,VerifyPct},
-                {TokenKeys::DexInFeePct,      VerifyPct},
-                {TokenKeys::DexOutFeePct,     VerifyPct},
-                {TokenKeys::DFIP2203Enabled, VerifyBool},
+                {TokenKeys::PaybackDFI,            VerifyBool},
+                {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
+                {TokenKeys::LoanPayback,           VerifyBool},
+                {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
+                {TokenKeys::DexInFeePct,           VerifyPct},
+                {TokenKeys::DexOutFeePct,          VerifyPct},
+                {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
+                {TokenKeys::LoanCollateralEnabled, VerifyBool},
+                {TokenKeys::LoanCollateralFactor,  VerifyPct},
+                {TokenKeys::LoanMintingEnabled,    VerifyBool},
+                {TokenKeys::LoanMintingInterest,   VerifyFloat},
+                {TokenKeys::DFIP2203Enabled,       VerifyBool},
             }
         },
         {
@@ -658,6 +694,8 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
             } else if (const auto& ascendantPair = boost::get<AscendantValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
+            } else if (auto currencyPair = boost::get<CTokenCurrencyPair>(&attribute.second)) {
+                ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -706,6 +744,31 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanCollateralEnabled:
+                    case TokenKeys::LoanCollateralFactor:
+                    case TokenKeys::LoanMintingEnabled:
+                    case TokenKeys::LoanMintingInterest: {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
+                            return Res::Err("Cannot be set before FortCanningGreen");
+                        }
+                        if (!VerifyToken(view, attrV0->typeId)) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        CDataStructureV0 intervalPriceKey{AttributeTypes::Token, attrV0->typeId,
+                                                          TokenKeys::FixedIntervalPriceId};
+                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
+                            return Res::Err("Fixed interval price currency pair must be set first");
+                        }
+                        break;
+                    }
+                    case TokenKeys::FixedIntervalPriceId:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreenHeight) {
+                            return Res::Err("Cannot be set before FortCanningGreen");
+                        }
+                        if (!VerifyToken(view, attrV0->typeId)) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        break;
                     case TokenKeys::DFIP2203Enabled:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                             return Res::Err("Cannot be set before FortCanningRoad");
@@ -832,6 +895,31 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 auto valuePct = boost::get<CAmount>(attribute.second);
                 if (auto res = mnview.SetDexFeePct(tokenA, tokenB, valuePct); !res) {
                     return res;
+                }
+            }
+            if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
+                if (const auto &currencyPair = boost::get<CTokenCurrencyPair>(&attribute.second)) {
+                    // Already exists, skip.
+                    if (mnview.GetFixedIntervalPrice(*currencyPair)) {
+                        continue;
+                    } else if (!OraclePriceFeed(mnview, *currencyPair)) {
+                        return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first,
+                                        currencyPair->second);
+                    }
+                    CFixedIntervalPrice fixedIntervalPrice;
+                    fixedIntervalPrice.priceFeedId = *currencyPair;
+                    fixedIntervalPrice.timestamp = time;
+                    fixedIntervalPrice.priceRecord[1] = -1;
+                    const auto aggregatePrice = GetAggregatePrice(mnview,
+                                                                  fixedIntervalPrice.priceFeedId.first,
+                                                                  fixedIntervalPrice.priceFeedId.second,
+                                                                  time);
+                    if (aggregatePrice) {
+                        fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+                    }
+                    mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+                } else {
+                    return Res::Err("Unrecognised value for FixedIntervalPriceId");
                 }
             }
             if (attrV0->key == TokenKeys::DFIP2203Enabled) {

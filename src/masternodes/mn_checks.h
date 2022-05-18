@@ -394,6 +394,18 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
 Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 
+inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {
+    // Allow hard coded DUSD/USD
+    if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
+        return true;
+    }
+    bool found = false;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
+    });
+    return found;
+}
+
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */

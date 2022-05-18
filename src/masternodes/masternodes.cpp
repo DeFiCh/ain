@@ -1113,7 +1113,7 @@ boost::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByI
         return loanToken;
     }
 
-    return {};
+    return GetLoanTokenFromAttributes(id);
 }
 
 std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
@@ -1145,4 +1145,49 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
     }
 
     return operatorDetails;
+}
+
+boost::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
+    if (const auto token = GetToken(id)) {
+        if (const auto attributes = GetAttributes()) {
+            CLoanView::CLoanSetLoanTokenImpl loanToken;
+
+            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+            CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+
+            if (attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
+
+                loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+                loanToken.interest = attributes->GetValue(interestKey, CAmount{0});
+                loanToken.mintable = attributes->GetValue(mintableKey, false);
+                loanToken.symbol = token->symbol;
+                loanToken.name = token->name;
+
+                return loanToken;
+            }
+        }
+    }
+
+    return {};
+}
+
+boost::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
+    if (const auto attributes = GetAttributes()) {
+        CLoanSetCollateralTokenImplementation collToken;
+
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
+
+        if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
+
+            collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+            collToken.factor = attributes->GetValue(factorKey, CAmount{0});
+            collToken.idToken = id;
+
+            return collToken;
+        }
+    }
+
+    return {};
 }

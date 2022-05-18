@@ -326,16 +326,17 @@ public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
-    std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
+    boost::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
     Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    Res UpdateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
+    Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken);
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
-    std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
+    boost::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
     boost::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
     [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const = 0;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res EraseLoanToken(const DCT_ID& id);
     void ForEachLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
@@ -366,10 +367,13 @@ public:
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
-    void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
+    void ForEachLoanTokenAmount(std::function<bool (const CVaultId&,  const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
+
+    [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual boost::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };

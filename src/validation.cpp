@@ -14,6 +14,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
 #include <flatfile.h>
 #include <hash.h>
@@ -2248,6 +2249,25 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     return batches;
 }
 
+bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
+    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
+        if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+            var->time = pindex.nTime;
+
+            UniValue obj(UniValue::VOBJ);
+            for (const auto& [key, value] : attrs) {
+                obj.pushKV(key, value);
+            }
+
+            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2856,6 +2876,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
             cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
         }
+
+        // Migrate loan and collateral tokens to Gov vars.
+        ProcessTokenToGovVar(pindex, cache, chainparams);
 
         // Loan splits
         ProcessTokenSplits(block, pindex, cache, chainparams);
@@ -3507,6 +3530,71 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     });
 }
 
+void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    // Migrate at +1 height so that GetLastHeight() in Gov var
+    // Validate() has a height equal to the GW fork.
+    if (pindex->nHeight != chainparams.GetConsensus().FortCanningGreenHeight + 1) {
+        return;
+    }
+
+    std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
+    std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
+
+    cache.ForEachLoanToken([&](const DCT_ID& key, const CLoanSetLoanToken& loanToken) {
+        loanTokens[key] = loanToken;
+        return true;
+    });
+
+    cache.ForEachLoanCollateralToken([&](const CollateralTokenKey& key, const uint256& collTokenTx) {
+        auto collToken = cache.GetLoanCollateralToken(collTokenTx);
+        if (collToken) {
+            collateralTokens.push_back(*collToken);
+        }
+        return true;
+    });
+
+    // Apply fixed_interval_price_id first
+    std::map<std::string, std::string> attrsFirst;
+    std::map<std::string, std::string> attrsSecond;
+
+    int loanCount = 0, collateralCount = 0;
+
+    try {
+        for (const auto& [id, token] : loanTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token),id.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+            ++loanCount;
+        }
+
+        for (const auto& token : collateralTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token), token.idToken.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+            ++collateralCount;
+        }
+
+        CCustomCSView govCache(cache);
+        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+            govCache.Flush();
+
+            // Erase old tokens afterwards to avoid invalid state during transition
+            for (const auto& item : loanTokens) {
+                cache.EraseLoanToken(item.first);
+            }
+
+            for (const auto& token : collateralTokens) {
+                cache.EraseLoanCollateralToken(token);
+            }
+        }
+    } catch(std::out_of_range&) {
+        LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
+    }
+}
+
 template<typename T, typename K>
 static void MigrateMapValues(ATTRIBUTES& attributes, const AttributeTypes type, const uint32_t from, const uint32_t to, const K key) {
     CDataStructureV0 mapKey{type, from, key};
@@ -3827,7 +3915,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
 
     std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
-    view.ForEachLoanToken([&](const CVaultId& vaultId,  const CBalances& balances){
+    view.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
         for (const auto& [tokenId, amount] : balances.balances) {
             if (tokenId == oldTokenId) {
                 loanTokenAmounts.emplace_back(vaultId, amount);

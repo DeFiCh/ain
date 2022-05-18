@@ -52,6 +52,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/govvariables/oracle_block_interval -> masternodes/gv -> masternodes/govvariables/oracle_block_interval"
     "masternodes/govvariables/oracle_block_interval -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/govvariables/oracle_block_interval"
     "masternodes/govvariables/oracle_deviation -> masternodes/gv -> masternodes/govvariables/oracle_deviation"
+    "masternodes/loan -> masternodes/masternodes -> masternodes/loan"
     "masternodes/masternodes -> masternodes/mn_checks -> masternodes/masternodes"
     "masternodes/masternodes -> masternodes/mn_checks -> masternodes/vaulthistory -> masternodes/masternodes"
     "masternodes/masternodes -> masternodes/oracles -> masternodes/masternodes"
