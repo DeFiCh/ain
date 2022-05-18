@@ -31,6 +31,9 @@ double GetDifficulty(const CBlockIndex* blockindex);
 /** Callback for when block tip changed. */
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);
 
+/** Get block after checking for its existence */
+CBlock GetBlockChecked(const CBlockIndex* pblockindex);
+
 /** Block description to JSON */
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails = false) LOCKS_EXCLUDED(cs_main);
 

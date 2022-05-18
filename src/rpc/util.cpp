@@ -92,14 +92,19 @@ bool AmountFromValue(const UniValue& value, CAmount& amount)
     return true;
 }
 
-uint256 ParseHashV(const UniValue& v, std::string strName)
+uint256 ParseHashS(std::string strHex, std::string strName)
 {
-    std::string strHex(v.get_str());
     if (64 != strHex.length())
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s must be of length %d (not %d, for '%s')", strName, 64, strHex.length(), strHex));
     if (!IsHex(strHex)) // Note: IsHex("") is false
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strName + " must be hexadecimal string (not '" + strHex + "')");
     return uint256S(strHex);
+}
+
+uint256 ParseHashV(const UniValue& v, std::string strName)
+{
+    std::string strHex(v.get_str());
+    return ParseHashS(strHex, strName);
 }
 uint256 ParseHashO(const UniValue& o, std::string strKey)
 {
