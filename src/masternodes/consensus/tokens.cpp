@@ -117,8 +117,6 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
         {
             mintable.ok = false;
 
-            Res res = Res::Ok();
-
             auto attributes = mnview.GetAttributes();
             if (!attributes)
                return Res::Err("Cannot read from attributes gov variable!");
@@ -139,9 +137,10 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
                     if (!(member.status == CConsortiumMember::Status::Active))
                         return Res::Err("Cannot mint token, not an active member of consortium for %s!", tokenImpl.symbol);
 
-                    res = SafeAdd(membersBalances[tokenId][key].minted, amount);
-                    if (!res)
-                        return res;
+                    auto add = SafeAdd(membersBalances[tokenId][key].minted, amount);
+                    if (!add)
+                        return (std::move(add));
+                    membersBalances[tokenId][key].minted = add;
 
                     if (membersBalances[tokenId][key].minted > member.mintLimit)
                         return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", tokenImpl.symbol);
@@ -161,9 +160,11 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
             auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
 
-            res = SafeAdd(globalBalances[tokenId].minted, amount);
-            if (!res)
-                return res;
+            auto add = SafeAdd(globalBalances[tokenId].minted, amount);
+            if (!add)
+                return (std::move(add));
+
+            globalBalances[tokenId].minted = add;
 
             if (globalBalances[tokenId].minted > maxLimit)
                 return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", tokenImpl.symbol);
@@ -226,17 +227,20 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
 
             bool setVariable = false;
-            Res res = Res::Ok();
             for (auto const& tmp : members)
                 if (tmp.second.ownerAddress == ownerAddress)
                 {
-                    res = SafeAdd(membersBalances[tokenId][tmp.first].burnt, amount);
-                    if (!res)
-                        return res;
+                    auto add = SafeAdd(membersBalances[tokenId][tmp.first].burnt, amount);
+                    if (!add)
+                        return (std::move(add));
 
-                    res = SafeAdd(globalBalances[tokenId].burnt, amount);
-                    if (!res)
-                        return res;
+                    membersBalances[tokenId][tmp.first].burnt = add;
+
+                    add = SafeAdd(globalBalances[tokenId].burnt, amount);
+                    if (!add)
+                        return (std::move(add));
+
+                    globalBalances[tokenId].burnt = add;
 
                     setVariable = true;
                     break;
