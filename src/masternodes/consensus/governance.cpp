@@ -103,6 +103,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const 
         return Res::Err("%s: %s", obj.govVar->GetName(), "Cannot set via setgovheight.");
 
     // Validate GovVariables before storing
+    // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
     if (height >= uint32_t(consensus.GreatWorldHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
 
         auto govVar = mnview.GetAttributes();
