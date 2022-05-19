@@ -52,7 +52,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsTokenSplitTx(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy) || IsTokenSplitTx(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");

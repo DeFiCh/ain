@@ -1719,7 +1719,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         if (is_coinbase) {
             std::vector<unsigned char> metadata;
-            if (IsAnchorRewardTx(tx, metadata))
+            if (IsAnchorRewardTxPlus(tx, metadata))
             {
                 LogPrint(BCLog::ANCHORING, "%s: disconnecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1770,7 +1770,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         TBytes dummy;
-        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
+        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("%s: transaction and undo data inconsistent", __func__);
@@ -2633,7 +2633,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
         } else {
             std::vector<unsigned char> metadata;
-            if (IsAnchorRewardTx(tx, metadata)) {
+            if (IsAnchorRewardTxPlus(tx, metadata)) {
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
