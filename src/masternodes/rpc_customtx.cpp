@@ -118,7 +118,7 @@ public:
     }
 
     void operator()(const CBurnTokensMessage& obj) const {
-        rpcInfo.pushKVs(tokenBalances(obj.burned));
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         std::string type;
         switch (obj.burnType)

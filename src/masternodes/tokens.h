@@ -145,7 +145,7 @@ struct CBurnTokensMessage {
     };
     static const uint8_t MAX_BURN_CONTEXT_LENGHT = 64;
 
-    CBalances burned;
+    CBalances amounts;
     CScript from;
     uint8_t burnType;
     std::variant<CScript> context;
@@ -153,7 +153,7 @@ struct CBurnTokensMessage {
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(burned);
+        READWRITE(amounts);
         READWRITE(from);
         READWRITE(burnType);
         READWRITE(context);

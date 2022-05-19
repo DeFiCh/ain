@@ -739,7 +739,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
 UniValue burntokens(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"minttokens",
+    RPCHelpMan{"burntokens",
                "\nCreates (and submits to local node and network) a transaction burning your token (for accounts and/or UTXOs). \n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -748,7 +748,6 @@ UniValue burntokens(const JSONRPCRequest& request) {
                         {
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
                             {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing tokens to be burned."},
-                            {"burnType", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The type of the burn {0 : token burn (Default)}"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Additional data necessary for specific burn type"},
                         }
                     },
@@ -768,9 +767,10 @@ UniValue burntokens(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("burntokens", "10@symbol")
-                       + HelpExampleCli("burntokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("burntokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                       HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}'")
+                       + HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\",\"context\":\"consortium_member_address\"}'")
+                       + HelpExampleCli("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("burntokens", "'{\"amounts\":\"10@symbol\",\"from\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -784,7 +784,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
 
     if (!metaObj["amounts"].isNull())
-        burnedTokens.burned = DecodeAmounts(pwallet->chain(), metaObj["amounts"].getValStr(), "");
+        burnedTokens.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"].getValStr(), "");
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
     if (!metaObj["from"].isNull())
@@ -792,9 +792,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
 
-    burnedTokens.burnType = 0;
-    if (!metaObj["burnType"].isNull())
-        burnedTokens.burnType = static_cast<uint8_t>(metaObj["burnType"].get_int());
+    burnedTokens.burnType = CBurnTokensMessage::BurnType::TokenBurn;
     switch (burnedTokens.burnType)
     {
         case CBurnTokensMessage::BurnType::TokenBurn:
@@ -802,13 +800,14 @@ UniValue burntokens(const JSONRPCRequest& request) {
                 burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
             break;
     }
+
     UniValue const & txInputs = request.params[2];
 
     CImmutableCSView view(*pcustomcsview);
 
     int targetHeight = view.GetLastHeight() + 1;
 
-    for (auto const & kv : burnedTokens.burned.balances) {
+    for (auto const & kv : burnedTokens.amounts.balances) {
         auto token = view.GetToken(kv.first);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));

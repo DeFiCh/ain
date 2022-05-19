@@ -189,7 +189,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
 }
 
 Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
-    for (const auto& kv : obj.burned.balances)
+    for (const auto& kv : obj.amounts.balances)
     {
         DCT_ID tokenId = kv.first;
         CAmount amount = kv.second;
@@ -201,6 +201,9 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
         auto subMinted = mnview.SubMintedTokens(tokenId, amount);
         if (!subMinted)
             return subMinted;
+
+        if (obj.burnType != CBurnTokensMessage::BurnType::TokenBurn)
+            return Res::Err("Currently only burn type 0 - TokenBurn is supported!");
 
         if (obj.burnType == CBurnTokensMessage::BurnType::TokenBurn)
         {

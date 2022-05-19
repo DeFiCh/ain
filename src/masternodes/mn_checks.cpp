@@ -202,7 +202,7 @@ public:
         if constexpr (IsOneOf<T, CBurnTokensMessage,
                                  CCreatePropMessage,
                                  CPropVoteMessage,
-                                 CUpdateMasterNodeMessage,>())
+                                 CUpdateMasterNodeMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
