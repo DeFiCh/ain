@@ -26,8 +26,6 @@ enum struct CustomTxType : uint8_t
     CreateMasternode        = 'C',
     ResignMasternode        = 'R',
     UpdateMasternode        = 'm',
-    SetForcedRewardAddress  = 'F',
-    RemForcedRewardAddress  = 'f',
 
     // tokens
     CreateToken             = 'T',

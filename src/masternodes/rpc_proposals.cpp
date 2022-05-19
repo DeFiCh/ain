@@ -444,7 +444,7 @@ UniValue getproposal(const JSONRPCRequest& request)
 
     std::set<uint256> activeMasternodes;
     view.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
-        if (node.IsActive(targetHeight) && node.mintedBlocks) {
+        if (node.IsActive(targetHeight, view) && node.mintedBlocks) {
             activeMasternodes.insert(mnId);
         }
         return true;

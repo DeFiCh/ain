@@ -2330,7 +2330,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 CCustomCSView mnviewCopy(mnview);
                 CFutureSwapView futureCopy(futureSwapView);
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, tx.GetHash().ToString(), res.msg);
@@ -2373,11 +2373,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
+        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
+        if (block.stakeModifier != stakeModifier) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
-                            __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
+                            __func__, block.stakeModifier.ToString(), block.stakeModifier.ToString()),
                     REJECT_INVALID,
                     "bad-minted-blocks");
         }
@@ -2537,6 +2539,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!tx.IsCoinBase())
         {
+
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
@@ -2545,14 +2548,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     // defined for a block, so we reset the reason flag to
                     // CONSENSUS here.
                     state.Invalid(ValidationInvalidReason::CONSENSUS, false,
-                            state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
+                                  state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
                 }
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: accumulated fee in the block out of range.", __func__),
-                                 REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
+                                     REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
             }
 
             // Check that transaction is BIP68 final
@@ -2601,7 +2604,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             CCustomCSView mnviewCopy(accountsView);
             CFutureSwapView futureCopy(futureSwapView);
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2767,6 +2770,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Loan splits
     ProcessTokenSplits(block, pindex, cache, futureSwapCache, chainparams);
+
+    if (pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
+        // Apply any pending masternode owner changes
+        cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+            if (value.blockHeight == pindex->nHeight) {
+                auto node = cache.GetMasternode(value.masternodeID);
+                assert(node);
+                assert(key == node->collateralTx);
+                const auto& coin = view.AccessCoin({node->collateralTx, 1});
+                assert(!coin.IsSpent());
+                CTxDestination dest;
+                assert(ExtractDestination(coin.out.scriptPubKey, dest));
+                const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+                cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+            }
+            return true;
+        });
+    }
 
     // proposal activations
     ProcessProposalEvents(pindex, cache, chainparams);
@@ -3606,7 +3627,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
-                if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
                     activeMasternodes.insert(mnId);
                 }
                 return true;

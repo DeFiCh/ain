@@ -190,6 +190,7 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
         { consensus.EunosHeight,            "called before Eunos height" },
         { consensus.FortCanningHeight,      "called before FortCanning height" },
         { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+        { consensus.GreatWorldHeight,       "called before GreatWorld height" },
     };
 
     auto parseValidator = [&](int height, auto msg, std::string error = {}) -> bool {
@@ -212,12 +213,6 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
                                  "CDataStream::read(): end of data: iostream error"));
     BOOST_REQUIRE(parseValidator(0, CResignMasterNodeMessage{},
                                  "CDataStream::read(): end of data: iostream error"));
-    BOOST_REQUIRE(parseValidator(0, CSetForcedRewardAddressMessage{},
-                                 "tx is disabled for Fort Canning"));
-    BOOST_REQUIRE(parseValidator(0, CRemForcedRewardAddressMessage{},
-                                 "tx is disabled for Fort Canning"));
-    BOOST_REQUIRE(parseValidator(0, CUpdateMasterNodeMessage{},
-                                 "tx is disabled for Fort Canning"));
 
     BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CCreateTokenMessage{}));
     BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CUpdateTokenPreAMKMessage{}));
