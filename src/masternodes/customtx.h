@@ -32,6 +32,7 @@ enum struct CustomTxType : uint8_t
     MintToken               = 'M',
     UpdateToken             = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny          = 'n', // new type of token's update with any flags/fields possible
+    BurnToken               = 'W',
 
     // poolpairs
     CreatePoolPair          = 'p',
@@ -53,6 +54,7 @@ enum struct CustomTxType : uint8_t
 
     // governance
     SetGovVariable          = 'G',
+    UnsetGovVariable        = 'Z',
     SetGovVariableHeight    = 'j',
 
     // Auto auth

@@ -41,6 +41,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
         case CustomTxType::MintToken:               return CMintTokensMessage{};
+        case CustomTxType::BurnToken:               return CBurnTokensMessage{};
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
@@ -54,6 +55,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
         case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
@@ -194,13 +196,17 @@ public:
         if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
         else
+        if constexpr (IsOneOf<T, CGovernanceUnsetMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight);
+        else
         if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
-        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage,
+        if constexpr (IsOneOf<T, CBurnTokensMessage,
                                  CCreatePropMessage,
-                                 CPropVoteMessage>())
+                                 CPropVoteMessage,
+                                 CUpdateMasterNodeMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
@@ -449,7 +455,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const 
 
         if (canSpend && txType == CustomTxType::UpdateMasternode) {
             auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
-            for (const auto item : obj.updates) {
+            for (const auto& item : obj.updates) {
                 if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                     if (const auto node = mnview.GetMasternode(obj.mnId)) {
                         *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
