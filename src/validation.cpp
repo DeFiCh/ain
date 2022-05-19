@@ -3801,7 +3801,7 @@ static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attribute
     return Res::Ok();
 }
 
-static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, uint256& poolCreationTx) {
+static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
     bool opcodes{false};
     std::vector<unsigned char> metadata;
     uint32_t type;
@@ -3819,8 +3819,8 @@ static bool GetCreationTransactions(const CBlock& block, const uint32_t id, cons
                 if (id == metaId && multiplier == metaMultiplier) {
                     if (type == 0) {
                         tokenCreationTx = tx->GetHash();
-                    } else if (type == 1) {
-                        poolCreationTx = tx->GetHash();
+                    } else if (type > 0) {
+                        poolCreationTx.push_back(tx->GetHash());
                     }
                 }
             } catch (const std::ios_base::failure&) {
@@ -3829,7 +3829,7 @@ static bool GetCreationTransactions(const CBlock& block, const uint32_t id, cons
         }
     }
 
-    if (tokenCreationTx == uint256{} || poolCreationTx == uint256{}) {
+    if (tokenCreationTx == uint256{}) {
         LogPrintf("%s: Token split failed. Coinbase TX for new token not found.\n", __func__);
         return false;
     }
@@ -3862,7 +3862,7 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 }
 
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
-                       const CBlockIndex* pindex, const uint256& poolCreationTx, const std::string& newTokenSuffix, const int32_t multiplier) {
+                       const CBlockIndex* pindex, const std::vector<uint256>& poolCreationTx, const std::string& newTokenSuffix, const int32_t multiplier) {
 
     std::set<DCT_ID> poolsToMigrate;
     view.ForEachPoolPair([&](DCT_ID const & poolId, const CPoolPair& pool){
@@ -3872,7 +3872,12 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
         return true;
     });
 
+    if (poolsToMigrate.size() != poolCreationTx.size()) {
+        Res::Err("Mismatch of pools to pool creation TX size. Pools: %d TXs: %d", poolsToMigrate.size(), poolCreationTx.size());
+    }
+
     try {
+        auto poolTx = poolCreationTx.begin();
         for (const auto& oldPoolId : poolsToMigrate) {
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
@@ -3881,7 +3886,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             CTokenImplementation newPoolToken{*oldPoolToken};
             newPoolToken.creationHeight = pindex->nHeight;
-            newPoolToken.creationTx = poolCreationTx;
+            newPoolToken.creationTx = *poolTx++;
             newPoolToken.minted = 0;
 
             oldPoolToken->symbol += newTokenSuffix;
@@ -3912,7 +3917,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             } else {
                 newPoolPair.idTokenB = newTokenId;
             }
-            newPoolPair.creationTx = poolCreationTx;
+            newPoolPair.creationTx = newPoolToken.creationTx;
             newPoolPair.creationHeight = pindex->nHeight;
             newPoolPair.reserveA = 0;
             newPoolPair.reserveB = 0;
@@ -4178,7 +4183,6 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
-    std::map<uint32_t, uint32_t> oldToNew;
     for (const auto& [id, multiplier] : splits) {
 
         if (!cache.AreTokensLocked({id})) {
@@ -4203,7 +4207,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        uint256 tokenCreationTx{}, poolCreationTx{};
+        uint256 tokenCreationTx{};
+        std::vector<uint256> poolCreationTx;
         if (!GetCreationTransactions(block, oldTokenId.v, multiplier, tokenCreationTx, poolCreationTx)) {
             continue;
         }
