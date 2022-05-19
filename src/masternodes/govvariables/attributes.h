@@ -218,11 +218,13 @@ using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CD
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView& mnview, const uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
-    Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height);
+    Res Apply(CCustomCSView& mnview, uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
+    Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, uint32_t height);
+    Res Erase(CCustomCSView& mnview, uint32_t height, std::vector<std::string> const &) override;
 
     std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
@@ -261,10 +263,13 @@ public:
     }
 
     template<typename K>
-    void EraseKey(const K& key) {
+    bool EraseKey(const K& key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
-        changed.insert(key);
-        attributes.erase(key);
+        if (attributes.erase(key)) {
+            changed.insert(key);
+            return true;
+        }
+        return false;
     }
 
     template<typename K>
@@ -320,7 +325,7 @@ private:
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
+    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
                         const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable);
     Res RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };

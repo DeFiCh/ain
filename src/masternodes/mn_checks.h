@@ -49,6 +49,7 @@ using CCustomTxMessage = std::variant<
     CSmartContractMessage,
     CFutureSwapMessage,
     CGovernanceMessage,
+    CGovernanceUnsetMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,
