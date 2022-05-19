@@ -123,7 +123,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             if (!attributes)
                return Res::Err("Cannot read from attributes gov variable!");
 
-            CDataStructureV0 membersKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMembers};
+            CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
             auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
 
             CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
@@ -155,7 +155,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
             if (!mintable)
                 return Res::Err("You are not a foundation or consortium member and cannot mint this token!");
 
-            CDataStructureV0 maxLimitKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMintLimit};
+            CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
             auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
 
             CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
@@ -218,7 +218,7 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage& obj) const {
             if (!attributes)
                return Res::Err("Cannot read from attributes gov variable!");
 
-            CDataStructureV0 membersKey{AttributeTypes::Token, tokenId.v, TokenKeys::ConsortiumMembers};
+            CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
             auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
             CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
             auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});

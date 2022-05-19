@@ -69,7 +69,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolBTC])
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idBTC + '/consortium_members' : '{"01":{"name":"test", \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"01":{"name":"test", \
                                                                                                   "ownerAddress":"' + account2 + '", \
                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
                                                                                                   "mintLimit":10.00000000}, \
@@ -78,18 +78,18 @@ class ConsortiumTest (DefiTestFramework):
                                                                                                   "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
                                                                                                   "mintLimit":4.00000000}}'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idBTC + '/consortium_mint_limit' : '1000000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '1000000000'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/' + idBTC + '/consortium_members' : '{"03":{"name":"test", \
+        assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"03":{"name":"test", \
                                                                                                                                                                 "ownerAddress":"' + account2 +'", \
                                                                                                                                                                 "backingId":"7cb2f6954291d81d2270c9a6a52442b3f8c637b1ec793c731cb5f5a8f7fb9b9d", \
                                                                                                                                                                 "mintLimit":10.00000000}}'}})
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_mint_limit'], '1000000000')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '1000000000')
 
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
 
@@ -101,20 +101,20 @@ class ConsortiumTest (DefiTestFramework):
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/consortium_minted'], {'minted': ['1.00000000@BTC'], 'burnt': [], 'supply': ['1.00000000@BTC']})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idDOGE + '/consortium_members' : '{"01":{"name":"test", \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : '{"01":{"name":"test", \
                                                                                                    "ownerAddress":"' + account2 +'", \
                                                                                                    "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
                                                                                                    "mintLimit":5.00000000}}'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idDOGE + '/consortium_mint_limit' : '600000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '600000000'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
-        assert_equal(attribs['v0/token/' + idBTC + '/consortium_mint_limit'], '1000000000')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '1000000000')
 
-        assert_equal(attribs['v0/token/' + idDOGE + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":0}}')
-        assert_equal(attribs['v0/token/' + idDOGE + '/consortium_mint_limit'], '600000000')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit'], '600000000')
 
         self.nodes[2].minttokens(["2@" + symbolDOGE])
         self.nodes[2].generate(1)
@@ -176,7 +176,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_minted'], {'minted': ['1.00000000@BTC', '2.00000000@DOGE'], 'burnt': ['1.50000000@DOGE'], 'supply': ['1.00000000@BTC', '0.50000000@DOGE']})
         assert_equal(attribs['v0/live/economy/consortium_members_minted'], {'01': {'minted' : ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE], 'burnt': ['1.50000000@DOGE'], 'supply': ['1.00000000@' + symbolBTC, '0.50000000@' + symbolDOGE]}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idDOGE + '/consortium_members' : '{"01":{"name":"test", \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : '{"01":{"name":"test", \
                                                                                                    "ownerAddress":"' + account2 +'", \
                                                                                                    "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
                                                                                                    "mintLimit":5.00000000, \
@@ -185,7 +185,7 @@ class ConsortiumTest (DefiTestFramework):
         self.sync_blocks()
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/token/' + idDOGE + '/consortium_members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":1}}')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":1}}')
         assert_equal(self.nodes[0].getburninfo(), {'address': 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG', 'amount': Decimal('0E-8'), 'tokens': [], 'consortiumtokens': ['2.00000000@DOGE'], 'feeburn': Decimal('2.00000000'), 'auctionburn': Decimal('0E-8'), 'paybackburn': Decimal('0E-8'), 'dexfeetokens': [], 'dfipaybackfee': Decimal('0E-8'), 'dfipaybacktokens': [], 'paybackfees': [], 'paybacktokens': [], 'emissionburn': Decimal('4831.15500000'), 'dfip2203': []})
 
         assert_raises_rpc_error(-32600, "Cannot mint token, not an active member of consortium for DOGE!", self.nodes[2].minttokens, ["1@" + symbolDOGE])
@@ -218,6 +218,18 @@ class ConsortiumTest (DefiTestFramework):
 
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolBTC + " token by minting this amount!", self.nodes[3].minttokens, ["2.00000001@" + symbolBTC])
         assert_raises_rpc_error(-32600, "You will exceed global maximum consortium mint limit for " + symbolBTC + " token by minting this amount!", self.nodes[3].minttokens, ["1.00000001@" + symbolBTC])
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"02":{"name":"test123", \
+                                                                                                  "ownerAddress":"' + account3 + '", \
+                                                                                                  "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
+                                                                                                  "mintLimit":6.00000000}}'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '2000000000'}})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[3].minttokens(["2@" + symbolBTC])
+        self.nodes[3].generate(1)
+        self.sync_blocks()
 
 if __name__ == '__main__':
     ConsortiumTest().main()

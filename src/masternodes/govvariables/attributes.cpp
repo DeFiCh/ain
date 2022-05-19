@@ -60,6 +60,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
+        {"consortium",  AttributeTypes::Consortium},
     };
     return types;
 }
@@ -72,6 +73,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
+        {AttributeTypes::Consortium,"consortium"},
     };
     return types;
 }
@@ -131,8 +133,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
                 {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
                 {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
-                {"consortium_members",      TokenKeys::ConsortiumMembers},
-                {"consortium_mint_limit",   TokenKeys::ConsortiumMintLimit},
+            }
+        },
+        {
+            AttributeTypes::Consortium, {
+                {"members",             ConsortiumKeys::Members},
+                {"mint_limit",          ConsortiumKeys::MintLimit},
             }
         },
         {
@@ -188,11 +194,15 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
                 {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
                 {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
-                {TokenKeys::ConsortiumMembers,     "consortium_members"},
-                {TokenKeys::ConsortiumMintLimit,   "consortium_mint_limit"},
                 {TokenKeys::Ascendant,             "ascendant"},
                 {TokenKeys::Descendant,            "descendant"},
                 {TokenKeys::Epitaph,               "epitaph"},
+            }
+        },
+        {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::Members,     "members"},
+                {ConsortiumKeys::MintLimit,   "mint_limit"},
             }
         },
         {
@@ -380,8 +390,13 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::LoanCollateralFactor,  VerifyPct},
                 {TokenKeys::LoanMintingEnabled,    VerifyBool},
                 {TokenKeys::LoanMintingInterest,   VerifyFloat},
-                {TokenKeys::ConsortiumMembers,     VerifyConsortiumMember},
-                {TokenKeys::ConsortiumMintLimit,   VerifyInt64},
+
+            }
+        },
+        {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::Members,          VerifyConsortiumMember},
+                {ConsortiumKeys::MintLimit,        VerifyInt64},
             }
         },
         {
@@ -692,7 +707,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         }
                         SetValue(newAttr, attrValue);
                         return Res::Ok();
-                    } else if (attrV0->key == TokenKeys::ConsortiumMembers) {
+                    } else if (attrV0->type == AttributeTypes::Consortium && attrV0->key == ConsortiumKeys::Members) {
                         if (auto value = std::get_if<CConsortiumMembers>(&attrValue)) {
                             auto members = GetValue(*attrV0, CConsortiumMembers{});
 
@@ -754,7 +769,7 @@ UniValue ATTRIBUTES::Export() const {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if ((attrV0->typeId == DFIP2203 && (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))
-                    || (attrV0->type == Token && attrV0->key == TokenKeys::ConsortiumMintLimit)) {
+                    || (attrV0->type == Consortium && attrV0->key == ConsortiumKeys::MintLimit)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto uvalue = ValueFromAmount(*amount);
@@ -913,25 +928,32 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                         break;
-                    case TokenKeys::ConsortiumMembers:
-                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
-                            return Res::Err("Cannot be set before GreatWorld");
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
-                        break;
-                    case TokenKeys::ConsortiumMintLimit:
-                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
-                            return Res::Err("Cannot be set before GreatWorld");
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
-                        break;
                     case TokenKeys::Ascendant:
                     case TokenKeys::Descendant:
                     case TokenKeys::Epitaph:
+                        break;
+                    default:
+                        return Res::Err("Unsupported key");
+                }
+                break;
+
+            case AttributeTypes::Consortium:
+                switch (attrV0->key) {
+                    case ConsortiumKeys::Members:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        break;
+                    case ConsortiumKeys::MintLimit:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
                         break;
                     default:
                         return Res::Err("Unsupported key");

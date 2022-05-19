@@ -19,12 +19,13 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live      = 'l',
-    Oracles   = 'o',
-    Param     = 'a',
-    Token     = 't',
-    Poolpairs = 'p',
-    Locks     = 'L',
+    Live       = 'l',
+    Oracles    = 'o',
+    Param      = 'a',
+    Token      = 't',
+    Poolpairs  = 'p',
+    Locks      = 'L',
+    Consortium = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -74,15 +75,11 @@ enum TokenKeys : uint8_t  {
     Ascendant             = 'm',
     Descendant            = 'n',
     Epitaph               = 'o',
-    ConsortiumMembers     = 'p',
-    ConsortiumMintLimit   = 'q',
 };
 
 enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
-    MintLimitPerInterval  = 'c',
-
 };
 
 enum PoolKeys : uint8_t {
