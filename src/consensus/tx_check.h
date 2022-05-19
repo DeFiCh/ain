@@ -38,7 +38,8 @@ bool ParseScriptByMarker(CScript const & script,
                          std::vector<unsigned char> & metadata,
                          uint8_t& hasAdditionalOpcodes,
                          CExpirationAndVersion* customTxParams = nullptr);
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks = HasForks::None);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks = HasForks::None);
 bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool greatWorld = true);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

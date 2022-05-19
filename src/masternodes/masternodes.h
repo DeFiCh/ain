@@ -416,7 +416,7 @@ class CCustomCSView
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
             CAccountsView           ::  ByBalanceKey, ByHeightKey,
             CCommunityBalancesView  ::  ById,
-            CUndosView              ::  ByUndoKey,
+            CUndosBaseView          ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity, ByDailyLoanReward,
                                         ByPoolLoanReward, ByTokenDexFeePct,
@@ -493,7 +493,7 @@ public:
 
     int GetDbVersion() const;
 
-    uint256 MerkleRoot();
+    uint256 MerkleRoot(CUndosView& undo);
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 

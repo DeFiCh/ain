@@ -129,7 +129,7 @@ public:
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022. 
+        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -674,16 +674,18 @@ public:
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
 
         // now it is for devnet and regtest only, 2 first of genesis MNs acts as foundation members
-        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this)));
-        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this)));
+        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA", *this)));
+        // cQieU9KNjuUK9jSs7B5tqnByjXtMPEyAJG1YHzRMQus4Fg5Wms9t
+        consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk", *this)));
+        // cSjyfiS4stWnk1hqWqZR2e5Rj58gQjPCAfuLGNPHp7ZqZLv4Pft7
 
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
 
         // owner base58, operator base58
-        vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
-        vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
+        vMasternodes.push_back({"7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA", "7AEMWykWPPSFuKrQtgRvTtGp5eTvoDfcFA"});
+        vMasternodes.push_back({"77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk", "77Mdyp5E54JLVAwJwvYK7LSM7vAzb6wiUk"});
         vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
         vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
 
@@ -699,8 +701,8 @@ public:
         genesis = CreateGenesisBlock(1585132338, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x0000099a168f636895a019eacfc1798ec54c593c015cfc5aac1f12817f7ddff7"));
-        assert(genesis.hashMerkleRoot == uint256S("0x3f327ba2475176bcf8226b10d871f0f992e17ba9e040ff3dbd11d17c1e5914cb"));
+        assert(consensus.hashGenesisBlock == uint256S("0x2d77a1099b52f23aa96075551907786995c4bad4c86599b1b08790ce49e25c40"));
+        assert(genesis.hashMerkleRoot == uint256S("0xf9079b6644798cbba8097b52596969b6e26cf03f2916a0b499662731eadef242"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
