@@ -455,7 +455,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const 
 
         if (canSpend && txType == CustomTxType::UpdateMasternode) {
             auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
-            for (const auto item : obj.updates) {
+            for (const auto& item : obj.updates) {
                 if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                     if (const auto node = mnview.GetMasternode(obj.mnId)) {
                         *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;

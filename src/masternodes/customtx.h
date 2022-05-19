@@ -54,7 +54,7 @@ enum struct CustomTxType : uint8_t
 
     // governance
     SetGovVariable          = 'G',
-    UnsetGovVariable        = 'W',
+    UnsetGovVariable        = 'Z',
     SetGovVariableHeight    = 'j',
 
     // Auto auth

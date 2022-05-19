@@ -108,7 +108,8 @@ Res CTokensConsensus::operator()(const CMintTokensMessage& obj) const {
 
         auto tokenImpl = static_cast<const CTokenImplementation&>(*token);
 
-        auto mintable = MintableToken(tokenId, tokenImpl);
+        bool checkOnlyFoundationForDAT = false;
+        auto mintable = MintableToken(tokenId, tokenImpl, checkOnlyFoundationForDAT);
         if (!mintable)
             return std::move(mintable);
 
