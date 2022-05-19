@@ -180,7 +180,7 @@ ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplement
     if (!HasAuth(auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
         if (!token.IsDAT())
             return Res::Err("tx must have at least one input from token owner");
-        else if (!HasFoundationAuth()) // Is a DAT, check founders auth
+        else if (static_cast<int>(height) < consensus.GreatWorldHeight && !HasFoundationAuth()) // Is a DAT, check founders auth
             return Res::Err("token is DAT and tx not from foundation member");
     }
 

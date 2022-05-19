@@ -16,6 +16,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
+        case CustomTxType::BurnToken:
         case CustomTxType::UpdateToken:
         case CustomTxType::UpdateTokenAny:
         case CustomTxType::CreatePoolPair:
@@ -33,6 +34,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::SetGovVariable:
+        case CustomTxType::UnsetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
         case CustomTxType::AppointOracle:
@@ -83,6 +85,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(UpdateToken);
         CustomTxTypeString(UpdateTokenAny);
         CustomTxTypeString(MintToken);
+        CustomTxTypeString(BurnToken);
         CustomTxTypeString(CreatePoolPair);
         CustomTxTypeString(UpdatePoolPair);
         CustomTxTypeString(PoolSwap);
@@ -97,6 +100,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(FutureSwapExecution);
         CustomTxTypeString(FutureSwapRefund);
         CustomTxTypeString(SetGovVariable);
+        CustomTxTypeString(UnsetGovVariable);
         CustomTxTypeString(SetGovVariableHeight);
         CustomTxTypeString(AppointOracle);
         CustomTxTypeString(RemoveOracleAppoint);

@@ -190,6 +190,7 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
         { consensus.EunosHeight,            "called before Eunos height" },
         { consensus.FortCanningHeight,      "called before FortCanning height" },
         { consensus.FortCanningHillHeight,  "called before FortCanningHill height" },
+        { consensus.FortCanningRoadHeight,  "called before FortCanningRoad height" },
         { consensus.GreatWorldHeight,       "called before GreatWorld height" },
     };
 
@@ -261,6 +262,11 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
     BOOST_REQUIRE(parseValidator(consensus.FortCanningHeight, CAuctionBidMessage{}));
 
     BOOST_REQUIRE(parseValidator(consensus.FortCanningHillHeight, CSmartContractMessage{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningRoadHeight, CFutureSwapMessage{}));
+    BOOST_REQUIRE(parseValidator(consensus.FortCanningRoadHeight, CLoanPaybackLoanV2Message{}));
+
+    BOOST_REQUIRE(parseValidator(consensus.GreatWorldHeight, CBurnTokensMessage{}));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

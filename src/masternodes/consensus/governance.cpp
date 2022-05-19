@@ -88,6 +88,26 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
     return Res::Ok();
 }
 
+Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage& obj) const {
+    //check foundation auth
+    if (!HasFoundationAuth())
+        return Res::Err("tx not from foundation member");
+
+    for(const auto& gov : obj.govs) {
+        auto var = mnview.GetVariable(gov.first);
+        if (!var)
+            return Res::Err("'%s': variable does not registered", gov.first);
+
+        auto res = var->Erase(mnview, height, gov.second);
+        if (!res)
+            return Res::Err("%s: %s", var->GetName(), res.msg);
+
+        if (!(res = mnview.SetVariable(*var)))
+            return Res::Err("%s: %s", var->GetName(), res.msg);
+    }
+    return Res::Ok();
+}
+
 Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const {
     //check foundation auth
     if (!HasFoundationAuth())
