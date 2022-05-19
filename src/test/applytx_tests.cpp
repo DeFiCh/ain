@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.code, (uint32_t) CustomTxErrCodes::NotEnoughBalance);
         // check that nothing changes:
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, futureSwapView, undosView, coinview, CTransaction(rawTx), amkCheated, 1);
+        res = ApplyCustomTx(mnview, futureSwapView, coinview, CTransaction(rawTx), amkCheated, 1);
         BOOST_CHECK(res.ok);
         // check result balances:
         auto const dfi90 = CTokenAmount{DFI, 90};
@@ -214,12 +214,6 @@ BOOST_AUTO_TEST_CASE(hardfork_guard)
                                  "CDataStream::read(): end of data: iostream error"));
     BOOST_REQUIRE(parseValidator(0, CResignMasterNodeMessage{},
                                  "CDataStream::read(): end of data: iostream error"));
-    BOOST_REQUIRE(parseValidator(0, CSetForcedRewardAddressMessage{},
-                                 "tx is disabled for Fort Canning"));
-    BOOST_REQUIRE(parseValidator(0, CRemForcedRewardAddressMessage{},
-                                 "tx is disabled for Fort Canning"));
-    BOOST_REQUIRE(parseValidator(0, CUpdateMasterNodeMessage{},
-                                 "tx is disabled for Fort Canning"));
 
     BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CCreateTokenMessage{}));
     BOOST_REQUIRE(parseValidator(consensus.AMKHeight, CUpdateTokenPreAMKMessage{}));

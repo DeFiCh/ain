@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(undo)
 
     // write undo
     auto snap_undo1 = TakeSnapshot(base_raw);
-    undoView.SetUndo({1, uint256S("0x1"), UndoSource::CustomView}, undo);
+    undoView.SetUndo({{1, uint256S("0x1")}, UndoSource::CustomView}, undo);
 
     auto snap_undo = TakeSnapshot(undo_raw);
     BOOST_CHECK_EQUAL(snap_undo.size() - undoStart.size(), 1); // undo

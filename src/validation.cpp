@@ -617,7 +617,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         CCustomCSView mnview(pool.accountsView(height, view));
         CFutureSwapView futureSwapView(*pfutureSwapView);
-        CUndosView undosView(*pundosView);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
@@ -633,7 +632,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
+        auto res = ApplyCustomTx(mnview, futureSwapView, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2065,10 +2064,14 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                     kv.first == CommunityAccountType::Options)
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                    if (res)
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 else
                 {
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
+                    if (res)
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
 
                 if (!res.ok)
@@ -2086,6 +2089,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
                     return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
+                } else {
+                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
                 }
                 nonUtxoTotal += subsidy;
             }
@@ -2300,9 +2305,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // problems.
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
-
-        // Add sleep here to avoid hot looping over failed but not invalidated block.
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
@@ -2324,13 +2326,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             mnview.CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
+                const auto& tx = *block.vtx[i];
+                CCustomCSView mnviewCopy(mnview);
+                CFutureSwapView futureCopy(futureSwapView);
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, futureSwapView, undosView, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
-                                 __func__, block.vtx[i]->GetHash().ToString(), res.msg);
+                                 __func__, tx.GetHash().ToString(), res.msg);
                 }
-                AddCoins(view, *block.vtx[i], 0);
+                undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), pindex->nHeight);
+                undosView.AddUndo(UndoSource::CustomView, mnview, mnviewCopy, tx.GetHash(), pindex->nHeight);
+                mnviewCopy.Flush();
+                futureCopy.Flush();
+                AddCoins(view, tx, 0);
             }
         }
         return true;
@@ -2364,11 +2373,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
+        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
+        if (block.stakeModifier != stakeModifier) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
-                            __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
+                            __func__, block.stakeModifier.ToString(), block.stakeModifier.ToString()),
                     REJECT_INVALID,
                     "bad-minted-blocks");
         }
@@ -2528,6 +2539,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!tx.IsCoinBase())
         {
+
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
@@ -2536,14 +2548,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     // defined for a block, so we reset the reason flag to
                     // CONSENSUS here.
                     state.Invalid(ValidationInvalidReason::CONSENSUS, false,
-                            state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
+                                  state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
                 }
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: accumulated fee in the block out of range.", __func__),
-                                 REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
+                                     REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
             }
 
             // Check that transaction is BIP68 final
@@ -2589,8 +2601,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
+            CCustomCSView mnviewCopy(accountsView);
+            CFutureSwapView futureCopy(futureSwapView);
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, futureSwapView, undosView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(mnviewCopy, futureCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2602,6 +2616,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                 __func__, tx.GetHash().ToString(), res.msg);
                 }
             }
+            undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), pindex->nHeight);
+            undosView.AddUndo(UndoSource::CustomView, accountsView, mnviewCopy, tx.GetHash(), pindex->nHeight);
+            mnviewCopy.Flush();
+            futureCopy.Flush();
             // log
             if (!fJustCheck && !res.msg.empty()) {
                 if (res.ok) {
@@ -2629,11 +2647,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
             } // Old anchor TXs.
-            else if (IsLegacyAnchorTx(Params().NetworkIDString(), tx.GetHash().ToString())) {
-                if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
-                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+            else if (IsAnchorRewardTx(tx, metadata)) {
+                if (IsLegacyAnchorTx(chainparams.NetworkIDString(), tx.GetHash().ToString())) {
+                    if (pindex->nHeight >= chainparams.GetConsensus().AMKHeight) {
+                        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
+                        mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0);
+                    } else {
+                        mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                    }
                 } else {
-                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("%s: %s", __func__, "Unexpected coinbase transaction"),
+                                         REJECT_INVALID, "erroneous-cb-tx");
                 }
             }
         }
@@ -2679,7 +2704,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     && pindex->nHeight < chainparams.GetConsensus().EunosKampungHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
-        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
+        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot(undosView))) {
             return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
         }
 
@@ -2746,16 +2771,30 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Loan splits
     ProcessTokenSplits(block, pindex, cache, futureSwapCache, chainparams);
 
-    if (!futureSwapCache.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
-        futureSwapCache.Flush();
+    if (pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
+        // Apply any pending masternode owner changes
+        cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+            if (value.blockHeight == pindex->nHeight) {
+                auto node = cache.GetMasternode(value.masternodeID);
+                assert(node);
+                assert(key == node->collateralTx);
+                const auto& coin = view.AccessCoin({node->collateralTx, 1});
+                assert(!coin.IsSpent());
+                CTxDestination dest;
+                assert(ExtractDestination(coin.out.scriptPubKey, dest));
+                const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+                cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+            }
+            return true;
+        });
     }
-
-    undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
 
     // proposal activations
     ProcessProposalEvents(pindex, cache, chainparams);
 
+    undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureSwapCache, {}, pindex->nHeight);
+    undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
+    futureSwapCache.Flush();
     cache.Flush();
 
     if (!fIsFakeNet) {
@@ -2906,12 +2945,18 @@ void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& 
     auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed.first);
     if (!res) {
         LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
+    } else {
+        if (distributed.first != 0)
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::IncentiveFunding), (CBalances{{{{0}, -distributed.first}}}.ToString()));
     }
 
     if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
         res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
         if (!res) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
+        } else {
+            if (distributed.second != 0)
+                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::Loan), (CBalances{{{{0}, -distributed.second}}}.ToString()));
         }
     }
 }
@@ -3546,13 +3591,14 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     }
 
     // Apply any pending GovVariable changes. Will come into effect on the next block.
-    auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+    auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
     for (const auto& var : storedGovVars) {
         CCustomCSView govCache(cache);
         CFutureSwapView futureSwapCache(futureSwapView);
         // Add to existing ATTRIBUTES instead of overwriting.
         if (var->GetName() == "ATTRIBUTES") {
             auto govVar = cache.GetAttributes();
+            govVar->time = pindex->GetBlockTime();
             if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, futureSwapCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                 govCache.Flush();
                 futureSwapCache.Flush();
@@ -3581,7 +3627,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
-                if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
                     activeMasternodes.insert(mnId);
                 }
                 return true;
@@ -3638,6 +3684,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         if (prop.type == CPropType::CommunityFundProposal) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
+                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessProposalEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::CommunityDevFunds), (CBalances{{{{0}, -prop.nAmount}}}.ToString()));
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
                 cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
             } else {
@@ -3913,37 +3960,79 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 oldPoolPair->totalLiquidity -= amount;
 
                 CAmount amountA{0}, amountB{0};
-                DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
                 if (oldPoolPair->idTokenA == oldTokenId) {
                     amountA = CalculateNewAmount(multiplier, resAmountA);
                     totalBalance += amountA;
                     amountB = resAmountB;
-                    view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
-                    view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
                 } else {
                     amountA = resAmountA;
                     amountB = CalculateNewAmount(multiplier, resAmountB);
                     totalBalance += amountB;
-                    view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
-                    view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
                 }
 
-                view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenA);
-                view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenB);
+                auto refundBalances = [&, owner = owner]() {
+                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                };
 
-                newPoolPair.AddLiquidity(amountA, amountB, [&, owner = owner] (CAmount liqAmount) {
-                    res = view.AddBalances(owner, {{{newPoolId, liqAmount}}});
-                    if (!res) {
-                        throw std::runtime_error(strprintf("Add liquidity AddBalances: %s", res.msg));
-                    }
+                if (amountA <= 0 || amountB <= 0) {
+                    refundBalances();
+                    continue;
+                }
 
-                    res = view.SetShare(newPoolId, owner, pindex->nHeight);
-                    if (!res) {
-                        throw std::runtime_error(strprintf("Add liquidity SetShare: %s", res.msg));
+                CAmount liquidity{0};
+                if (newPoolPair.totalLiquidity == 0) {
+                    liquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64();
+                    liquidity -= CPoolPair::MINIMUM_LIQUIDITY;
+                    newPoolPair.totalLiquidity = CPoolPair::MINIMUM_LIQUIDITY;
+                } else {
+                    CAmount liqA = (arith_uint256(amountA) * newPoolPair.totalLiquidity / newPoolPair.reserveA).GetLow64();
+                    CAmount liqB = (arith_uint256(amountB) * newPoolPair.totalLiquidity / newPoolPair.reserveB).GetLow64();
+                    liquidity = std::min(liqA, liqB);
+
+                    if (liquidity == 0) {
+                        refundBalances();
+                        continue;
                     }
-                    return Res::Ok();
-                });
+                }
+
+                auto resTotal = SafeAdd(newPoolPair.totalLiquidity, liquidity);
+                if (!resTotal) {
+                    refundBalances();
+                    continue;
+                }
+                newPoolPair.totalLiquidity = resTotal;
+
+                auto resA = SafeAdd(newPoolPair.reserveA, amountA);
+                auto resB = SafeAdd(newPoolPair.reserveB, amountB);
+                if (resA && resB) {
+                    newPoolPair.reserveA = resA;
+                    newPoolPair.reserveB = resB;
+                } else {
+                    refundBalances();
+                    continue;
+                }
+
+                res = view.AddBalance(owner, {newPoolId, liquidity});
+                if (!res) {
+                    refundBalances();
+                    continue;
+                }
+
+                view.SetShare(newPoolId, owner, pindex->nHeight);
             }
+
+            DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
+            if (oldPoolPair->idTokenA == oldTokenId) {
+                view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
+            } else {
+                view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
+            }
+
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenA);
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenB);
 
             if (oldPoolPair->totalLiquidity != 0) {
                 throw std::runtime_error(strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
@@ -5432,7 +5521,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
+                !IsAnchorRewardTx(*block.vtx[i], dummy) &&
                 !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
                 !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.GreatWorldHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");

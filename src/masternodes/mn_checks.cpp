@@ -36,8 +36,6 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-        case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
-        case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
         case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
@@ -143,11 +141,6 @@ public:
 
     template<typename T>
     Res EnabledAfter() const {
-        if constexpr (IsOneOf<T, CSetForcedRewardAddressMessage,
-                                 CRemForcedRewardAddressMessage,
-                                 CUpdateMasterNodeMessage>())
-            return Res::Err("tx is disabled for Fort Canning");
-        else
         if constexpr (IsOneOf<T, CCreateTokenMessage,
                                  CUpdateTokenPreAMKMessage,
                                  CUtxosToAccountMessage,
@@ -208,7 +201,8 @@ public:
         else
         if constexpr (IsOneOf<T, CBurnTokensMessage,
                                  CCreatePropMessage,
-                                 CPropVoteMessage>())
+                                 CPropVoteMessage,
+                                 CUpdateMasterNodeMessage,>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
@@ -428,7 +422,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndosView& undosView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -444,14 +438,28 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
+
+    auto futureCopy(futureSwapView);
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
-    auto futureCopy(futureSwapView);
+
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (writers) {
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, futureCopy, coins, tx, height, consensus, txMessage, time, txn);
+
+        if (canSpend && txType == CustomTxType::UpdateMasternode) {
+            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+            for (const auto item : obj.updates) {
+                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken
@@ -486,15 +494,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndos
         return res;
     }
 
-    if (!futureCopy.GetStorage().GetFlushableStorage()->GetRaw().empty()) {
-        undosView.AddUndo(UndoSource::FutureView, futureSwapView, futureCopy, tx.GetHash(), height);
-        futureCopy.Flush();
-    }
-
-    undosView.AddUndo(UndoSource::CustomView, mnview, view, tx.GetHash(), height);
-
     view.Flush();
-
+    futureCopy.Flush();
     return res;
 }
 
@@ -565,6 +566,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
+    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 

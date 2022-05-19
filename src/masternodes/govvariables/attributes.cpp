@@ -1131,6 +1131,11 @@ Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, co
                     continue;
                 }
 
+                // Loan token check imposed on lock
+                if (!mnview.GetLoanTokenByID(DCT_ID{split}).has_value()) {
+                    return Res::Err("Auto lock. No loan token with id (%d)", split);
+                }
+
                 if (attrV0->key < height) {
                     return Res::Err("Cannot be set at or below current height");
                 }

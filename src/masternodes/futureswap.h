@@ -21,19 +21,9 @@ struct CFuturesUserKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-            READWRITE(owner);
-            READWRITE(WrapBigEndian(txn));
-            txn = ~txn;
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-            READWRITE(owner);
-            uint32_t txn_ = ~txn;
-            READWRITE(WrapBigEndian(txn_));
-        }
+        READWRITE(WrapBigEndianInv(height));
+        READWRITE(owner);
+        READWRITE(WrapBigEndianInv(txn));
     }
 
     bool operator<(const CFuturesUserKey& o) const {
@@ -50,19 +40,9 @@ struct CFuturesCScriptKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        if (ser_action.ForRead()) {
-            READWRITE(owner);
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-            READWRITE(WrapBigEndian(txn));
-            txn = ~txn;
-        } else {
-            READWRITE(owner);
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-            uint32_t txn_ = ~txn;
-            READWRITE(WrapBigEndian(txn_));
-        }
+        READWRITE(owner);
+        READWRITE(WrapBigEndianInv(height));
+        READWRITE(WrapBigEndianInv(txn));
     }
 };
 
@@ -82,9 +62,6 @@ struct CFuturesUserValue {
 class CFutureBaseView : public virtual CStorageView
 {
 public:
-    CFutureBaseView() = default;
-    CFutureBaseView(CFutureBaseView& other) = default;
-
     virtual Res EraseFuturesUserValues(const CFuturesUserKey& key);
     ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
@@ -100,6 +77,7 @@ public:
 class CFutureSwapView : public CFutureBaseView
 {
 public:
+    CFutureSwapView(CFutureSwapView& other) : CStorageView(other) {}
     explicit CFutureSwapView(std::shared_ptr<CStorageKV> st) : CStorageView(st) {}
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
