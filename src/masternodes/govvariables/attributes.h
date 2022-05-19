@@ -189,8 +189,8 @@ struct CConsortiumMember
 
 struct CConsortiumMinted
 {
-    CBalances minted;
-    CBalances burnt;
+    CAmount minted;
+    CAmount burnt;
 
     ADD_SERIALIZE_METHODS;
 
@@ -206,11 +206,12 @@ using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
-using CConsortiumMembersMinted = std::map<std::string, CConsortiumMinted>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumMinted>>;
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 
 using CAttributeType = std::variant<CDataStructureV0>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
-                                        CConsortiumMembers, CConsortiumMinted, CConsortiumMembersMinted>;
+                                        CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {

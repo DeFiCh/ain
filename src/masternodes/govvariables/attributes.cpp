@@ -228,8 +228,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2203Burned,           "dfip2203_burned"},
                 {EconomyKeys::DFIP2203Minted,           "dfip2203_minted"},
                 {EconomyKeys::DexTokens,                "dex"},
-                {EconomyKeys::ConsortiumMinted,         "consortium_minted"},
-                {EconomyKeys::ConsortiumMembersMinted,  "consortium_members_minted"},
+                {EconomyKeys::ConsortiumMinted,         "consortium_global"},
+                {EconomyKeys::ConsortiumMembersMinted,  "consortium_members"},
             }
         },
     };
@@ -809,34 +809,32 @@ UniValue ATTRIBUTES::Export() const {
                     result.pushKV(id, elem);
                 }
                 ret.pushKV(key, result.write());
-            } else if (auto consortiumMinted = std::get_if<CConsortiumMinted>(&attribute.second)) {
-                UniValue result(UniValue::VOBJ);
-
-                CBalances supply = consortiumMinted->minted;
-                supply.SubBalances(consortiumMinted->burnt.balances);
-
-                result.pushKV("minted", AmountsToJSON(consortiumMinted->minted.balances));
-                result.pushKV("burnt", AmountsToJSON(consortiumMinted->burnt.balances));
-                result.pushKV("supply", AmountsToJSON(supply.balances));
-
-                ret.pushKV(key, result);
-            } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
-                UniValue result(UniValue::VOBJ);
-
-                for (auto const& memberMinted : *membersMinted)
+            } else if (auto consortiumMinted = std::get_if<CConsortiumGlobalMinted>(&attribute.second)) {
+                for (const auto& token : *consortiumMinted)
                 {
-                    UniValue member(UniValue::VOBJ);
+                    auto& minted = token.second.minted;
+                    auto& burnt = token.second.burnt;
 
-                    CBalances supply = memberMinted.second.minted;
-                    supply.SubBalances(memberMinted.second.burnt.balances);
-
-                    member.pushKV("minted", AmountsToJSON(memberMinted.second.minted.balances));
-                    member.pushKV("burnt", AmountsToJSON(memberMinted.second.burnt.balances));
-                    member.pushKV("supply", AmountsToJSON(supply.balances));
-
-                    result.pushKV(memberMinted.first, member);
+                    auto tokenKey = KeyBuilder(key, token.first.v);
+                    ret.pushKV(KeyBuilder(tokenKey, "minted"), ValueFromAmount(minted));
+                    ret.pushKV(KeyBuilder(tokenKey, "burnt"), ValueFromAmount(burnt));
+                    ret.pushKV(KeyBuilder(tokenKey, "supply"), ValueFromAmount(minted - burnt));
                 }
-                ret.pushKV(key, result);
+            } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
+                for (const auto& token : *membersMinted)
+                {
+                    for (const auto& member : token.second)
+                    {
+                        auto& minted = member.second.minted;
+                        auto& burnt = member.second.burnt;
+
+                        auto tokenKey = KeyBuilder(key, token.first.v);
+                        auto memberKey = KeyBuilder(tokenKey, member.first);
+                        ret.pushKV(KeyBuilder(memberKey, "minted"), ValueFromAmount(minted));
+                        ret.pushKV(KeyBuilder(memberKey, "burnt"), ValueFromAmount(burnt));
+                        ret.pushKV(KeyBuilder(memberKey, "supply"), ValueFromAmount(minted - burnt));
+                    }
+                }
             } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
                 for (const auto& [tokenId, multiplier] : *splitValues) {
