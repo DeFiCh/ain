@@ -3570,13 +3570,14 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     }
 
     // Apply any pending GovVariable changes. Will come into effect on the next block.
-    auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+    auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
     for (const auto& var : storedGovVars) {
         CCustomCSView govCache(cache);
         CFutureSwapView futureSwapCache(futureSwapView);
         // Add to existing ATTRIBUTES instead of overwriting.
         if (var->GetName() == "ATTRIBUTES") {
             auto govVar = cache.GetAttributes();
+            govVar->time = pindex->GetBlockTime();
             if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, futureSwapCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                 govCache.Flush();
                 futureSwapCache.Flush();
