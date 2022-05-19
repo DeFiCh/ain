@@ -3595,14 +3595,18 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     for (const auto& var : storedGovVars) {
         CCustomCSView govCache(cache);
         CFutureSwapView futureSwapCache(futureSwapView);
+
         // Add to existing ATTRIBUTES instead of overwriting.
         if (var->GetName() == "ATTRIBUTES") {
             auto govVar = cache.GetAttributes();
-            govVar->time = pindex->GetBlockTime();
-            if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, futureSwapCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+            if (Params().NetworkIDString() == CBaseChainParams::MAIN && pindex->nHeight == 1896000) {
+                govCache.SetVariable(*var);
+                govCache.Flush();
+            } else if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, futureSwapCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                 govCache.Flush();
                 futureSwapCache.Flush();
             }
+
         // Ignore any Gov variables that fail to validate, apply or be set.
         } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
             govCache.Flush();
