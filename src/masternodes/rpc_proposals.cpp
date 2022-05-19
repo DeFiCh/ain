@@ -33,11 +33,11 @@ UniValue propVoteToJSON(CPropId const& propId, uint8_t cycle, uint256 const & mn
 /*
  *  Issued by: any
 */
-UniValue createcfp(const JSONRPCRequest& request)
+UniValue creategovcfp(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"createcfp",
+    RPCHelpMan{"creategovcfp",
                "\nCreates a Community Fund Proposal" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -45,6 +45,7 @@ UniValue createcfp(const JSONRPCRequest& request)
                         "data in json-form, containing cfp data",
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of community fund request"},
+                            {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field of community fund request"},
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
@@ -65,8 +66,8 @@ UniValue createcfp(const JSONRPCRequest& request)
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createcfp", "'{\"title\":\"The cfp title\",\"amount\":10,\"payoutAddress\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("createcfp", "'{\"title\":\"The cfp title\",\"amount\":10,\"payoutAddress\":\"address\"} '[{\"txid\":\"id\",\"vout\":0}]'")
+                       HelpExampleCli("creategovcfp", "'{\"title\":\"The cfp title\",\"context\":\"The cfp context\",\"amount\":10,\"payoutAddress\":\"address\"}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("creategovcfp", "'{\"title\":\"The cfp title\",\"context\":\"The cfp context\",\"amount\":10,\"payoutAddress\":\"address\"} '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -80,7 +81,7 @@ UniValue createcfp(const JSONRPCRequest& request)
 
     CAmount amount;
     int cycles = 1;
-    std::string title, addressStr;
+    std::string title, context, addressStr;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -88,6 +89,12 @@ UniValue createcfp(const JSONRPCRequest& request)
         title = data["title"].get_str();
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<title> is required");
+    }
+
+    if (!data["context"].isNull()) {
+        context = data["context"].get_str();
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
     if (!data["cycles"].isNull()) {
@@ -117,7 +124,8 @@ UniValue createcfp(const JSONRPCRequest& request)
     pm.address = GetScriptForDestination(address);
     pm.nAmount = amount;
     pm.nCycles = cycles;
-    pm.title = title.substr(0, 128);
+    pm.title = title;
+    pm.context = context;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -156,15 +164,16 @@ UniValue createcfp(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue createvoc(const JSONRPCRequest& request)
+UniValue creategovvoc(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"createvoc",
+    RPCHelpMan{"creategovvoc",
                "\nCreates a Vote of Confidence" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of vote of confidence"},
+                       {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field for vote of confidence"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
                                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -180,8 +189,8 @@ UniValue createvoc(const JSONRPCRequest& request)
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createvoc", "'The voc title' '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("createvoc", "'The voc title' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       HelpExampleCli("creategovvoc", "'The voc title' 'The voc context' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("creategovvoc", "'The voc title' 'The voc context' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -191,15 +200,17 @@ UniValue createvoc(const JSONRPCRequest& request)
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
 
     const auto title = request.params[0].get_str();
+    const auto context = request.params[1].get_str();
 
     CCreatePropMessage pm;
     pm.type = CPropType::VoteOfConfidence;
     pm.nAmount = 0;
     pm.nCycles = VOC_CYCLES;
-    pm.title = title.substr(0, 128);
+    pm.title = title;
+    pm.context = context;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -215,7 +226,7 @@ UniValue createvoc(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[2]);
 
     CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
@@ -238,11 +249,11 @@ UniValue createvoc(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue vote(const JSONRPCRequest& request)
+UniValue votegov(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"vote",
+    RPCHelpMan{"votegov",
                "\nVote for community proposal" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -264,8 +275,8 @@ UniValue vote(const JSONRPCRequest& request)
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("vote", "txid masternodeId yes")
-                       + HelpExampleRpc("vote", "txid masternodeId yes")
+                       HelpExampleCli("votegov", "txid masternodeId yes")
+                       + HelpExampleRpc("votegov", "txid masternodeId yes")
                },
     }.Check(request);
 
@@ -346,11 +357,11 @@ UniValue vote(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue listvotes(const JSONRPCRequest& request)
+UniValue listgovvotes(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listvotes",
+    RPCHelpMan{"listgovvotes",
                "\nReturns information about proposal votes.\n",
                {
                         {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
@@ -360,8 +371,8 @@ UniValue listvotes(const JSONRPCRequest& request)
                        "{id:{...},...}     (array) Json object with proposal vote information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listvotes", "txid")
-                       + HelpExampleRpc("listvotes", "txid")
+                       HelpExampleCli("listgovvotes", "txid")
+                       + HelpExampleRpc("listgovvotes", "txid")
                },
     }.Check(request);
 
@@ -407,9 +418,9 @@ UniValue listvotes(const JSONRPCRequest& request)
     return ret;
 }
 
-UniValue getproposal(const JSONRPCRequest& request)
+UniValue getgovproposal(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"getproposal",
+    RPCHelpMan{"getgovproposal",
                "\nReturns real time information about proposal state.\n",
                {
                         {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
@@ -418,8 +429,8 @@ UniValue getproposal(const JSONRPCRequest& request)
                        "{id:{...},...}     (obj) Json object with proposal vote information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getproposal", "txid")
-                       + HelpExampleRpc("getproposal", "txid")
+                       HelpExampleCli("getgovproposal", "txid")
+                       + HelpExampleRpc("getgovproposal", "txid")
                },
     }.Check(request);
 
@@ -518,9 +529,9 @@ UniValue getproposal(const JSONRPCRequest& request)
     return ret;
 }
 
-UniValue listproposals(const JSONRPCRequest& request)
+UniValue listgovproposals(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"listproposals",
+    RPCHelpMan{"listgovproposals",
                "\nReturns information about proposals.\n",
                {
                         {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
@@ -532,8 +543,8 @@ UniValue listproposals(const JSONRPCRequest& request)
                        "{id:{...},...}     (array) Json object with proposals information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listproposals", "")
-                       + HelpExampleRpc("listproposals", "")
+                       HelpExampleCli("listgovproposals", "")
+                       + HelpExampleRpc("listgovproposals", "")
                },
     }.Check(request);
 
@@ -588,12 +599,12 @@ static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
-    {"proposals",   "createcfp",             &createcfp,             {"data", "inputs"} },
-    {"proposals",   "createvoc",             &createvoc,             {"title", "inputs"} },
-    {"proposals",   "vote",                  &vote,                  {"proposalId", "masternodeId", "decision", "inputs"} },
-    {"proposals",   "listvotes",             &listvotes,             {"proposalId", "masternode"} },
-    {"proposals",   "getproposal",           &getproposal,           {"proposalId"} },
-    {"proposals",   "listproposals",         &listproposals,         {"type", "status"} },
+    {"proposals",   "creategovcfp",          &creategovcfp,          {"data", "inputs"} },
+    {"proposals",   "creategovvoc",          &creategovvoc,          {"title", "inputs"} },
+    {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
+    {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode"} },
+    {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },
+    {"proposals",   "listgovproposals",      &listgovproposals,      {"type", "status"} },
 };
 
 void RegisterProposalRPCCommands(CRPCTable& tableRPC) {
