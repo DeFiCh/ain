@@ -36,8 +36,6 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version) {
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-        case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
-        case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
         case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
@@ -142,11 +140,6 @@ public:
 
     template<typename T>
     Res EnabledAfter() const {
-        if constexpr (IsOneOf<T, CSetForcedRewardAddressMessage,
-                                 CRemForcedRewardAddressMessage,
-                                 CUpdateMasterNodeMessage>())
-            return Res::Err("tx is disabled for Fort Canning");
-        else
         if constexpr (IsOneOf<T, CCreateTokenMessage,
                                  CUpdateTokenPreAMKMessage,
                                  CUtxosToAccountMessage,
@@ -205,7 +198,8 @@ public:
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
         else
-        if constexpr (IsOneOf<T, CCreatePropMessage,
+        if constexpr (IsOneOf<T, CUpdateMasterNodeMessage,
+                                 CCreatePropMessage,
                                  CPropVoteMessage>())
             return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
@@ -426,7 +420,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -466,6 +460,18 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const 
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, futureCopy, coins, tx, height, consensus, txMessage, time, txn);
+
+        if (canSpend && txType == CustomTxType::UpdateMasternode) {
+            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+            for (const auto item : obj.updates) {
+                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken
