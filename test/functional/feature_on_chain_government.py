@@ -6,6 +6,7 @@
 """Test on chain government behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error
@@ -56,7 +57,22 @@ class ChainGornmentTest(DefiTestFramework):
         address = node0.getnewaddress()
         assert_equal(node0.getburninfo()['feeburn'], 0)
         title = "Create test community fund request proposal"
-        tx = node0.createcfp({"title":title, "amount":100, "cycles":2, "payoutAddress":address})
+        context = "<Git issue url>"
+        tx = node0.creategovcfp({"title":title, "context": context, "amount":100, "cycles":2, "payoutAddress":address})
+
+        # Test invalid title
+        try:
+            node0.creategovcfp({"title":"a" * 129, "context": context, "amount":100, "cycles":2, "payoutAddress":address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("128 characters or under" in errorString)
+
+        # Test invalid context
+        try:
+            node0.creategovcfp({"title":title, "context": "a" * 513, "amount":100, "cycles":2, "payoutAddress":address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("512 characters or under" in errorString)
 
         node0.sendtoaddress(address1, Decimal("1.0"))
         node0.sendtoaddress(address2, Decimal("1.0"))
@@ -69,22 +85,22 @@ class ChainGornmentTest(DefiTestFramework):
 
         assert_equal(node0.getburninfo()['feeburn'], Decimal('1.00000000'))
         # cannot vote by non owning masternode
-        assert_raises_rpc_error(-5, "Incorrect authorization", node0.vote, tx, mn2, "yes")
+        assert_raises_rpc_error(-5, "Incorrect authorization", node0.votegov, tx, mn2, "yes")
 
-        node0.vote(tx, mn1, "yes")
+        node0.votegov(tx, mn1, "yes")
         node0.generate(1)
-        node1.vote(tx, mn2, "no")
+        node1.votegov(tx, mn2, "no")
         node1.generate(1)
-        node2.vote(tx, mn3, "yes")
+        node2.votegov(tx, mn3, "yes")
         node2.generate(1)
         self.sync_all()
 
-        assert_raises_rpc_error(None, "does not mine at least one block", node3.vote, tx, mn4, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", node3.votegov, tx, mn4, "neutral")
 
         cycle1 = 102 + (102 % 70) + 70
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
-        results = node0.listproposals()
+        results = node0.listgovproposals()
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result["proposalId"], tx)
@@ -97,22 +113,22 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["payoutAddress"], address)
         assert_equal(result["finalizeAfter"], finalHeight)
 
-        results = node1.listvotes(tx, mn1)
+        results = node1.listgovvotes(tx, mn1)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = node1.listvotes(tx, mn2)
+        results = node1.listgovvotes(tx, mn2)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = node1.listvotes(tx, mn3)
+        results = node1.listgovvotes(tx, mn3)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        result = node1.listvotes(tx, "all")
+        result = node1.listgovvotes(tx, "all")
         assert_equal(len(result), 3)
 
         node0.generate(cycle1 - node0.getblockcount() - 1)
@@ -125,7 +141,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464") - Decimal(100))
         # payout address
         assert_equal(node1.getaccount(address), ['100.00000000@DFI'])
-        results = node0.listproposals()
+        results = node0.listgovproposals()
         result = results[0]
         assert_equal(result["status"], "Voting")
         assert_equal(result["cyclesPaid"], 2)
@@ -139,34 +155,35 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(node1.getaccount(address), ['100.00000000@DFI'])
         # proposal fails, CommunityDevelopmentFunds does not charged
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.55772984"))
-        results = node0.listproposals()
+        results = node0.listgovproposals()
         result = results[0]
         # not votes on 2nd cycle makes proposal to rejected
         assert_equal(result["status"], "Rejected")
 
-        assert_equal(node0.listproposals("all", "voting"), [])
-        assert_equal(node0.listproposals("all", "completed"), [])
+        assert_equal(node0.listgovproposals("all", "voting"), [])
+        assert_equal(node0.listgovproposals("all", "completed"), [])
 
         # Test Vote of Confidence
         assert_equal(node0.getburninfo()['feeburn'], Decimal('1.00000000'))
         title = "Create vote of confidence"
-        tx = node0.createvoc(title)
+        context = "<Git issue url>"
+        tx = node0.creategovvoc(title, context)
         self.sync_mempools()
         node3.generate(1)
         self.sync_all()
         assert_equal(node0.getburninfo()['feeburn'], Decimal('6.00000000'))
 
-        node0.vote(tx, mn1, "yes")
+        node0.votegov(tx, mn1, "yes")
         node0.generate(1)
-        node1.vote(tx, mn2, "no")
+        node1.votegov(tx, mn2, "no")
         node1.generate(1)
-        node2.vote(tx, mn3, "yes")
+        node2.votegov(tx, mn3, "yes")
         node2.generate(1)
-        node3.vote(tx, mn4, "yes")
+        node3.votegov(tx, mn4, "yes")
         node3.generate(1)
         self.sync_all()
 
-        result = node0.getproposal(tx)
+        result = node0.getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
         assert_equal(result["type"], "VoteOfConfidence")
