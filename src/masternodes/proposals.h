@@ -15,6 +15,8 @@
 using CPropId = uint256;
 constexpr const uint8_t VOC_CYCLES = 2;
 constexpr const uint8_t MAX_CYCLES = 3;
+constexpr const uint16_t MAX_PROP_TITLE_SIZE = 128;
+constexpr const uint16_t MAX_PROP_CONTEXT_SIZE = 512;
 
 enum CPropType : uint8_t {
     CommunityFundProposal   = 0x01,
@@ -44,6 +46,7 @@ struct CCreatePropMessage {
     CAmount nAmount;
     uint8_t nCycles;
     std::string title;
+    std::string context;
 
     ADD_SERIALIZE_METHODS;
 
@@ -55,6 +58,7 @@ struct CCreatePropMessage {
         READWRITE(nAmount);
         READWRITE(nCycles);
         READWRITE(title);
+        READWRITE(context);
     }
 };
 

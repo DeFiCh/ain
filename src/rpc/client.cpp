@@ -345,10 +345,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "logaccountbalances", 0, "logfile" },
     { "logaccountbalances", 1, "rpcresult" },
 
-    { "createcfp", 0, "data" },
-    { "createcfp", 1, "inputs" },
-    { "createvoc", 1, "inputs" },
-    { "vote", 3, "inputs" },
+    { "creategovcfp", 0, "data" },
+    { "creategovcfp", 1, "inputs" },
+    { "creategovvoc", 1, "inputs" },
+    { "votegov", 3, "inputs" },
 };
 // clang-format on
 

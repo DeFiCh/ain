@@ -6,6 +6,7 @@
 """Test on chain government behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error
@@ -71,17 +72,33 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Create address for CFP
         address = self.nodes[0].getnewaddress()
+        context = "<Git issue url>"
 
         # Check errors
-        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].createcfp, {"title": "test", "amount": 100, "cycles": 4, "payoutAddress": address})
-        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].createcfp, {"title": "test", "amount": 100, "cycles": 0, "payoutAddress": address})
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 0, "payoutAddress": address})
 
         # Check burn empty
         assert_equal(self.nodes[0].getburninfo()['feeburn'], 0)
 
-        # Create CFP
         title = "Create test community fund request proposal"
-        tx = self.nodes[0].createcfp({"title": title, "amount": 100, "cycles": 2, "payoutAddress": address})
+        # Test invalid title
+        try:
+            self.nodes[0].creategovcfp({"title":"a" * 129, "context": context, "amount":100, "cycles":2, "payoutAddress":address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("proposal title cannot be more than 128 bytes" in errorString)
+
+        # Test invalid context
+        try:
+            self.nodes[0].creategovcfp(
+                {"title": title, "context": "a" * 513, "amount": 100, "cycles": 2, "payoutAddress": address})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("proposal context cannot be more than 512 bytes" in errorString)
+
+        # Create CFP
+        tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(address1, Decimal("1.0"))
@@ -98,26 +115,26 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('1.00000000'))
 
         # cannot vote by non owning masternode
-        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].vote, tx, mn1, "yes")
+        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")
 
         # Vote on proposal
-        self.nodes[0].vote(tx, mn0, "yes")
+        self.nodes[0].votegov(tx, mn0, "yes")
         self.nodes[0].generate(1)
-        self.nodes[1].vote(tx, mn1, "no")
+        self.nodes[1].votegov(tx, mn1, "no")
         self.nodes[1].generate(1)
-        self.nodes[2].vote(tx, mn2, "yes")
+        self.nodes[2].votegov(tx, mn2, "yes")
         self.nodes[2].generate(1)
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].vote, tx, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
 
         # Calculate cycle
         cycle1 = 102 + (102 % 70) + 70
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
         # Check proposal and votes
-        result = self.nodes[0].listproposals()
+        result = self.nodes[0].listgovproposals()
         assert_equal(len(result), 1)
         assert_equal(result[0]["proposalId"], tx)
         assert_equal(result[0]["title"], title)
@@ -130,23 +147,23 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["finalizeAfter"], finalHeight)
 
         # Check individual MN votes
-        results = self.nodes[1].listvotes(tx, mn0)
+        results = self.nodes[1].listgovvotes(tx, mn0)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = self.nodes[1].listvotes(tx, mn1)
+        results = self.nodes[1].listgovvotes(tx, mn1)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = self.nodes[1].listvotes(tx, mn2)
+        results = self.nodes[1].listgovvotes(tx, mn2)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
         # Check total votes
-        result = self.nodes[1].listvotes(tx, "all")
+        result = self.nodes[1].listgovvotes(tx, "all")
         assert_equal(len(result), 3)
 
         # Move to just before cycle payout
@@ -164,7 +181,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # payout address
         assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
-        result = self.nodes[0].listproposals()[0]
+        result = self.nodes[0].listgovproposals()[0]
         assert_equal(result["status"], "Voting")
         assert_equal(result["nextCycle"], 2)
 
@@ -183,16 +200,16 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.55772984"))
 
         # not votes on 2nd cycle makes proposal to rejected
-        result = self.nodes[0].listproposals()[0]
+        result = self.nodes[0].listgovproposals()[0]
         assert_equal(result["status"], "Rejected")
 
         # No proposals pending
-        assert_equal(self.nodes[0].listproposals("all", "voting"), [])
-        assert_equal(self.nodes[0].listproposals("all", "completed"), [])
+        assert_equal(self.nodes[0].listgovproposals("all", "voting"), [])
+        assert_equal(self.nodes[0].listgovproposals("all", "completed"), [])
 
         # Test Vote of Confidence
         title = "Create vote of confidence"
-        tx = self.nodes[0].createvoc(title)
+        tx = self.nodes[0].creategovvoc(title, "Test context")
         raw_tx = self.nodes[0].getrawtransaction(tx)
         self.nodes[3].sendrawtransaction(raw_tx)
         self.nodes[3].generate(1)
@@ -202,24 +219,24 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('6.00000000'))
 
         # Cast votes
-        self.nodes[0].vote(tx, mn0, "yes")
+        self.nodes[0].votegov(tx, mn0, "yes")
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[1].vote(tx, mn1, "no")
+        self.nodes[1].votegov(tx, mn1, "no")
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        self.nodes[2].vote(tx, mn2, "yes")
+        self.nodes[2].votegov(tx, mn2, "yes")
         self.nodes[2].generate(1)
         self.sync_blocks()
 
-        self.nodes[3].vote(tx, mn3, "yes")
+        self.nodes[3].votegov(tx, mn3, "yes")
         self.nodes[3].generate(1)
         self.sync_blocks()
 
         # Check results
-        result = self.nodes[0].getproposal(tx)
+        result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
         assert_equal(result["type"], "VoteOfConfidence")

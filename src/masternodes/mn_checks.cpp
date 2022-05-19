@@ -3553,8 +3553,20 @@ public:
         if (obj.nAmount >= MAX_MONEY)
             return Res::Err("proposal wants to gain all money");
 
-        if (obj.title.size() > 128)
-            return Res::Err("proposal title cannot be more than 128 bytes");
+        if (obj.title.empty())
+            return Res::Err("proposal title must not be empty");
+
+        if (obj.title.size() > MAX_PROP_TITLE_SIZE)
+            return Res::Err("proposal title cannot be more than %d bytes", MAX_PROP_TITLE_SIZE);
+
+        if (obj.context.empty())
+            return Res::Err("proposal context must not be empty");
+
+        if (obj.context.size() > MAX_PROP_CONTEXT_SIZE)
+            return Res::Err("proposal context cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
+
+        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
+            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
         return mnview.CreateProp(tx.GetHash(), height, obj);
     }
@@ -4151,7 +4163,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
         const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
-      
+
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
         auto& balances = dexBalances[currentID];
         auto forward = swapAmount.nTokenId == pool->idTokenA;
