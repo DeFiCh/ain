@@ -2271,6 +2271,43 @@ void PruneUndos(CUndosView& view, const int height) {
     }
 }
 
+
+static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
+    bool opcodes{false};
+    std::vector<unsigned char> metadata;
+    uint32_t type;
+    uint32_t metaId;
+    int32_t metaMultiplier;
+
+    for (const auto& tx : block.vtx) {
+        if (ParseScriptByMarker(tx->vout[0].scriptPubKey, DfTokenSplitMarker, metadata, opcodes)) {
+            try {
+                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+                ss >> type;
+                ss >> metaId;
+                ss >> metaMultiplier;
+
+                if (id == metaId && multiplier == metaMultiplier) {
+                    if (type == 0) {
+                        tokenCreationTx = tx->GetHash();
+                    } else if (type > 0) {
+                        poolCreationTx.push_back(tx->GetHash());
+                    }
+                }
+            } catch (const std::ios_base::failure&) {
+                LogPrintf("Failed to read ID and multiplier from token split coinbase TXs. TX: %s\n", tx->GetHash().ToString());
+            }
+        }
+    }
+
+    if (tokenCreationTx == uint256{}) {
+        LogPrintf("%s: Token split failed. Coinbase TX for new token not found.\n", __func__);
+        return false;
+    }
+
+    return true;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2696,6 +2733,43 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
+    // Reject block without token split coinbase TX outputs.
+    const auto attributes = accountsView.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+
+    CreationTxs creationTxs;
+    for (const auto& [id, multiplier] : splits) {
+        uint256 tokenCreationTx{};
+        std::vector<uint256> poolCreationTx;
+        if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__),
+                                 REJECT_INVALID, "bad-cb-token-split");
+        }
+
+        std::vector<DCT_ID> poolsToMigrate;
+        accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
+            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                poolsToMigrate.push_back(poolId);
+            }
+            return true;
+        });
+
+        if (poolsToMigrate.size() != poolCreationTx.size()) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__),
+                                 REJECT_INVALID, "bad-cb-pool-split");
+        }
+
+        std::vector<std::pair<DCT_ID, uint256>> poolPairs;
+        poolPairs.reserve(poolsToMigrate.size());
+        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), poolCreationTx.begin(), std::back_inserter(poolPairs),
+                       [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
+
+        creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
+    }
+
     if (fJustCheck)
         return accountsView.Flush(); // keeps compatibility
 
@@ -2769,25 +2843,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     ProcessTokenToGovVar(pindex, cache, futureSwapCache, chainparams);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, futureSwapCache, chainparams);
+    ProcessTokenSplits(block, pindex, cache, futureSwapCache, creationTxs, chainparams);
 
-    if (pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
-        // Apply any pending masternode owner changes
-        cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
-            if (value.blockHeight == pindex->nHeight) {
-                auto node = cache.GetMasternode(value.masternodeID);
-                assert(node);
-                assert(key == node->collateralTx);
-                const auto& coin = view.AccessCoin({node->collateralTx, 1});
-                assert(!coin.IsSpent());
-                CTxDestination dest;
-                assert(ExtractDestination(coin.out.scriptPubKey, dest));
-                const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-                cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
-            }
-            return true;
-        });
-    }
+    // Masternode updates
+    ProcessMasternodeUpdates(pindex, cache, view, chainparams);
 
     // proposal activations
     ProcessProposalEvents(pindex, cache, chainparams);
@@ -3102,6 +3161,28 @@ void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cac
 
         return true;
     },  pindex->nHeight);
+}
+
+void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, CCoinsViewCache& view, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+        return;
+    }
+
+    // Apply any pending masternode owner changes
+    cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+        if (value.blockHeight == pindex->nHeight) {
+            auto node = cache.GetMasternode(value.masternodeID);
+            assert(node);
+            assert(key == node->collateralTx);
+            const auto& coin = view.AccessCoin({node->collateralTx, 1});
+            assert(!coin.IsSpent());
+            CTxDestination dest;
+            assert(ExtractDestination(coin.out.scriptPubKey, dest));
+            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+        }
+        return true;
+    });
 }
 
 void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
@@ -3801,42 +3882,6 @@ static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attribute
     return Res::Ok();
 }
 
-static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
-    bool opcodes{false};
-    std::vector<unsigned char> metadata;
-    uint32_t type;
-    uint32_t metaId;
-    int32_t metaMultiplier;
-
-    for (const auto& tx : block.vtx) {
-        if (ParseScriptByMarker(tx->vout[0].scriptPubKey, DfTokenSplitMarker, metadata, opcodes)) {
-            try {
-                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                ss >> type;
-                ss >> metaId;
-                ss >> metaMultiplier;
-
-                if (id == metaId && multiplier == metaMultiplier) {
-                    if (type == 0) {
-                        tokenCreationTx = tx->GetHash();
-                    } else if (type > 0) {
-                        poolCreationTx.push_back(tx->GetHash());
-                    }
-                }
-            } catch (const std::ios_base::failure&) {
-                LogPrintf("Failed to read ID and multiplier from token split coinbase TXs. TX: %s\n", tx->GetHash().ToString());
-            }
-        }
-    }
-
-    if (tokenCreationTx == uint256{}) {
-        LogPrintf("%s: Token split failed. Coinbase TX for new token not found.\n", __func__);
-        return false;
-    }
-
-    return true;
-}
-
 template<typename GovVar>
 static Res UpdateLiquiditySplits(CCustomCSView& view, const DCT_ID oldPoolId, const DCT_ID newPoolId, const uint32_t height) {
     if (auto var = view.GetVariable(GovVar::TypeName())) {
@@ -3862,23 +3907,11 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 }
 
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
-                       const CBlockIndex* pindex, const std::vector<uint256>& poolCreationTx, const std::string& newTokenSuffix, const int32_t multiplier) {
-
-    std::set<DCT_ID> poolsToMigrate;
-    view.ForEachPoolPair([&](DCT_ID const & poolId, const CPoolPair& pool){
-        if (pool.idTokenA == oldTokenId || pool.idTokenB == oldTokenId) {
-            poolsToMigrate.insert(poolId);
-        }
-        return true;
-    });
-
-    if (poolsToMigrate.size() != poolCreationTx.size()) {
-        Res::Err("Mismatch of pools to pool creation TX size. Pools: %d TXs: %d", poolsToMigrate.size(), poolCreationTx.size());
-    }
+                       const CBlockIndex* pindex, const CreationTxs& creationTxs, const std::string& newTokenSuffix, const int32_t multiplier) {
 
     try {
-        auto poolTx = poolCreationTx.begin();
-        for (const auto& oldPoolId : poolsToMigrate) {
+        assert(creationTxs.count(oldTokenId.v));
+        for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
                 throw std::runtime_error(strprintf("Failed to get related pool token: %d", oldPoolId.v));
@@ -3886,7 +3919,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             CTokenImplementation newPoolToken{*oldPoolToken};
             newPoolToken.creationHeight = pindex->nHeight;
-            newPoolToken.creationTx = *poolTx++;
+            newPoolToken.creationTx = creationTx;
             newPoolToken.minted = 0;
 
             oldPoolToken->symbol += newTokenSuffix;
@@ -3929,7 +3962,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             }
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            view.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+            view.ForEachBalance([&, oldPoolId = oldPoolId](CScript const & owner, CTokenAmount balance) {
                 if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
                     balancesToMigrate.emplace_back(owner, balance.nValue);
                 }
@@ -4171,7 +4204,7 @@ static Res VaultSplits(CCustomCSView& view, CFutureSwapView& futureSwapView, ATT
     return Res::Ok();
 }
 
-void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams) {
+void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, CreationTxs& creationTxs, const CChainParams& chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
         return;
     }
@@ -4207,15 +4240,10 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        uint256 tokenCreationTx{};
-        std::vector<uint256> poolCreationTx;
-        if (!GetCreationTransactions(block, oldTokenId.v, multiplier, tokenCreationTx, poolCreationTx)) {
-            continue;
-        }
-
         CTokenImplementation newToken{*token};
         newToken.creationHeight = pindex->nHeight;
-        newToken.creationTx = tokenCreationTx;
+        assert(creationTxs.count(id));
+        newToken.creationTx = creationTxs[id].first;
         newToken.minted = 0;
 
         token->symbol += newTokenSuffix;
@@ -4258,7 +4286,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, poolCreationTx, newTokenSuffix, multiplier);
+        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, newTokenSuffix, multiplier);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
             continue;
