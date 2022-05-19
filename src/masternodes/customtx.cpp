@@ -16,6 +16,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
+        case CustomTxType::BurnToken:
         case CustomTxType::UpdateToken:
         case CustomTxType::UpdateTokenAny:
         case CustomTxType::CreatePoolPair:
@@ -83,6 +84,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(UpdateToken);
         CustomTxTypeString(UpdateTokenAny);
         CustomTxTypeString(MintToken);
+        CustomTxTypeString(BurnToken);
         CustomTxTypeString(CreatePoolPair);
         CustomTxTypeString(UpdatePoolPair);
         CustomTxTypeString(PoolSwap);

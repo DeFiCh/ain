@@ -11,6 +11,7 @@ struct CCreateTokenMessage;
 struct CUpdateTokenPreAMKMessage;
 struct CUpdateTokenMessage;
 struct CMintTokensMessage;
+struct CBurnTokensMessage;
 
 class CTokensConsensus : public CCustomTxVisitor {
 public:
@@ -19,6 +20,7 @@ public:
     Res operator()(const CUpdateTokenPreAMKMessage& obj) const;
     Res operator()(const CUpdateTokenMessage& obj) const;
     Res operator()(const CMintTokensMessage& obj) const;
+    Res operator()(const CBurnTokensMessage& obj) const;
 };
 
 #endif // DEFI_MASTERNODES_CONSENSUS_TOKENS_H
