@@ -490,7 +490,7 @@ public:
 
     int GetDbVersion() const;
 
-    uint256 MerkleRoot();
+    uint256 MerkleRoot(CUndosView& undo);
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
