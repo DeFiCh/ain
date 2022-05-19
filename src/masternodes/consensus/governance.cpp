@@ -110,26 +110,21 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const 
             return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
         }
 
+        auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
+        storedGovVars.emplace_back(obj.startHeight, obj.govVar);
+
         Res res{};
         CCustomCSView govCache(mnview);
         CFutureSwapView futureSwapCache(futureSwapView);
-        const auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
         for (const auto& [varHeight, var] : storedGovVars) {
             if (var->GetName() == "ATTRIBUTES") {
                 if (!(res = govVar->Import(var->Export())) ||
                     !(res = govVar->Validate(govCache)) ||
                     !(res = govVar->Apply(govCache, futureSwapCache, varHeight))) {
-                    return Res::Err("%s: Cumulative application of stored Gov vars failed: %s", obj.govVar->GetName(), res.msg);
+                    return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
                 }
             }
         }
-
-        if (!(res = govVar->Import(obj.govVar->Export())) ||
-            !(res = govVar->Validate(govCache)) ||
-            !(res = govVar->Apply(govCache, futureSwapCache, obj.startHeight))) {
-            return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
-        }
-
     } else {
         auto result = obj.govVar->Validate(mnview);
         if (!result)
