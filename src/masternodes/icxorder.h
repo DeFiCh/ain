@@ -447,6 +447,7 @@ public:
 
     // ICX_TAKERFEE_PER_BTC
     Res ICXSetTakerFeePerBTC(CAmount amount);
+    Res ICXEraseTakerFeePerBTC();
     CAmount ICXGetTakerFeePerBTC();
 
     struct ICXOrderCreationTx         { static constexpr uint8_t prefix() { return '1'; } };

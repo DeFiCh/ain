@@ -66,8 +66,9 @@ enum class CustomTxType : uint8_t
     AnyAccountsToAccounts = 'a',
     SmartContract         = 'K',
     DFIP2203              = 'Q',
-    //set governance variable
+    // governance
     SetGovVariable        = 'G',
+    UnsetGovVariable      = 'W',
     SetGovVariableHeight  = 'j',
     // Auto auth TX
     AutoAuthPrep          = 'A',
@@ -131,6 +132,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::DFIP2203:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
+        case CustomTxType::UnsetGovVariable:
         case CustomTxType::AutoAuthPrep:
         case CustomTxType::AppointOracle:
         case CustomTxType::RemoveOracleAppoint:
@@ -326,6 +328,10 @@ struct CGovernanceHeightMessage {
     uint32_t startHeight;
 };
 
+struct CGovernanceUnsetMessage {
+    std::map<std::string, std::vector<std::string>> govs;
+};
+
 struct CCustomTxMessageNone {};
 
 using CCustomTxMessage = std::variant<
@@ -352,6 +358,7 @@ using CCustomTxMessage = std::variant<
     CSmartContractMessage,
     CFutureSwapMessage,
     CGovernanceMessage,
+    CGovernanceUnsetMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,

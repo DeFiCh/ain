@@ -360,8 +360,8 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
     return Res::Err(error);
 }
 
-Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
-                                std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
+Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
+                                const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable) {
 
     if (key.size() > 128) {
         return Res::Err("Identifier exceeds maximum length (128)");
@@ -372,7 +372,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Empty version");
     }
 
-    if (value.empty()) {
+    if (value && value->empty()) {
         return Res::Err("Empty value");
     }
 
@@ -488,9 +488,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
     }
 
+    if (!value) {
+        return applyVariable(attrV0, {});
+    }
+
     try {
         if (auto parser = parseValue().at(type).at(typeKey)) {
-            auto attribValue = parser(value);
+            auto attribValue = parser(*value);
             if (!attribValue) {
                 return std::move(attribValue);
             }
@@ -501,7 +505,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     return Res::Err("No parse function {%d, %d}", type, typeKey);
 }
 
-Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID)
+bool ATTRIBUTES::IsEmpty() const
+{
+    return attributes.empty();
+}
+
+Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView& mnview, const uint32_t height, const uint32_t tokenID)
 {
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     const auto blockPeriod = GetValue(blockKey, CAmount{});
@@ -888,7 +897,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
+Res ATTRIBUTES::Apply(CCustomCSView& mnview, uint32_t height)
 {
     for (const auto& attribute : attributes) {
         const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -1073,6 +1082,51 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     SetValue(lockKey, true);
                 }
             }
+        }
+    }
+    return Res::Ok();
+}
+
+Res ATTRIBUTES::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const & keys)
+{
+    for (const auto& key : keys) {
+        auto res = ProcessVariable(key, {},
+            [&](const CAttributeType& attribute, const CAttributeValue&) {
+                auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+                if (!attrV0) {
+                    return Res::Ok();
+                }
+                if (attrV0->type == AttributeTypes::Live) {
+                    return Res::Err("Live attribute cannot be deleted");
+                }
+                if (!EraseKey(attribute)) {
+                    return Res::Err("Attribute {%d} not exists", attrV0->type);
+                }
+                if (attrV0->type == AttributeTypes::Poolpairs) {
+                    auto poolId = DCT_ID{attrV0->typeId};
+                    auto pool = mnview.GetPoolPair(poolId);
+                    if (!pool) {
+                        return Res::Err("No such pool (%d)", poolId.v);
+                    }
+                    auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                                                pool->idTokenA : pool->idTokenB;
+
+                    return mnview.EraseDexFeePct(poolId, tokenId);
+                } else if (attrV0->type == AttributeTypes::Token) {
+                    if (attrV0->key == TokenKeys::DexInFeePct
+                    ||  attrV0->key == TokenKeys::DexOutFeePct) {
+                        DCT_ID tokenA{attrV0->typeId}, tokenB{~0u};
+                        if (attrV0->key == TokenKeys::DexOutFeePct) {
+                            std::swap(tokenA, tokenB);
+                        }
+                        return mnview.EraseDexFeePct(tokenA, tokenB);
+                    }
+                }
+                return Res::Ok();
+            }
+        );
+        if (!res) {
+            return res;
         }
     }
 

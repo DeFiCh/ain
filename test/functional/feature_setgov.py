@@ -760,6 +760,46 @@ class GovsetTest (DefiTestFramework):
         # Check auto lock
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/locks/token/5'], 'true')
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0.07000000'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')})
+
+        self.nodes[0].unsetgov({'ATTRIBUTES': ['v0/token/5/fixed_interval_price_id', 'v0/token/5/loan_minting_enabled', 'v0/token/5/loan_minting_interest', 'v0/token/5/loan_payback/1', 'v0/token/5/loan_payback/2', 'v0/token/5/loan_payback_fee_pct/1']})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ATTRIBUTES')
+        attributes = result['ATTRIBUTES']
+        assert 'v0/token/5/fixed_interval_price_id' not in attributes
+        assert 'v0/token/5/loan_minting_enabled' not in attributes
+        assert 'v0/token/5/loan_minting_interest' not in attributes
+        assert 'v0/token/5/loan_payback/1' not in attributes
+        assert 'v0/token/5/loan_payback/2' not in attributes
+        assert 'v0/token/5/loan_payback_fee_pct/1' not in attributes
+
+        self.nodes[0].unsetgov({'ATTRIBUTES': ['v0/params/dfip2203/active', 'v0/params/dfip2203/reward_pct', 'v0/params/dfip2203/block_period', 'v0/token/5/dfip2203']})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ATTRIBUTES')
+        attributes = result['ATTRIBUTES']
+        assert 'v0/params/dfip2203/active' not in attributes
+        assert 'v0/params/dfip2203/reward_pct' not in attributes
+        assert 'v0/params/dfip2203/block_period' not in attributes
+        assert 'v0/token/5/dfip2203' not in attributes
+
+        self.nodes[0].unsetgov({'ORACLE_DEVIATION':'', 'LP_SPLITS':['1', '2'], 'ATTRIBUTES':['v0/params/dfip2201/active', 'v0/params/dfip2201/premium', 'v0/params/dfip2201/minswap', 'v0/token/5/payback_dfi_fee_pct', 'v0/token/5/dex_in_fee_pct', 'v0/token/5/dex_out_fee_pct']})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0E-8'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'3': Decimal('0.10000000')})
+
+        result = self.nodes[0].getgov('ATTRIBUTES')
+        attributes = result['ATTRIBUTES']
+        assert_equal(attributes['v0/token/5/payback_dfi'], 'true')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

@@ -469,6 +469,12 @@ Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
     return Res::Ok();
 }
 
+Res CLoanView::EraseLoanLiquidationPenalty()
+{
+    Erase(LoanLiquidationPenalty::prefix());
+    return Res::Ok();
+}
+
 CAmount CLoanView::GetLoanLiquidationPenalty()
 {
     CAmount penalty;

@@ -51,6 +51,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::SmartContract:       return "SmartContract";
         case CustomTxType::DFIP2203:            return "DFIP2203";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
+        case CustomTxType::UnsetGovVariable:    return "UnsetGovVariable";
         case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
         case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
@@ -149,6 +150,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
         case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
@@ -448,6 +450,27 @@ public:
         return Res::Ok();
     }
 
+    Res operator()(const CGovernanceUnsetMessage& obj) const
+    {
+        // check foundation auth
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member");
+
+        for (const auto& gov : obj.govs) {
+            auto var = mnview.GetVariable(gov.first);
+            if (!var)
+                return Res::Err("'%s': variable does not registered", gov.first);
+
+            auto res = var->Erase(mnview, height, gov.second);
+            if (!res)
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+
+            if (!(res = mnview.SetVariable(*var)))
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+        }
+        return Res::Ok();
+    }
+
     Res operator()(CGovernanceHeightMessage& obj) const {
         auto res = isPostFortCanningFork();
         if (!res) {
@@ -640,7 +663,7 @@ public:
         }
         return Res::Ok();
     }
-
+x
     Res HasFoundationAuth() const {
         for (const auto& input : tx.vin) {
             const Coin& coin = coins.AccessCoin(input.prevout);
