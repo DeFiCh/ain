@@ -108,9 +108,9 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView& mnv
     if (!collateralTx.IsNull()) {
         auto idHeight = mnview.GetNewCollateral(collateralTx);
         assert(idHeight);
-        if (height < idHeight->blockHeight) {
+        if (static_cast<uint32_t>(height) < idHeight->blockHeight) {
             return State::TRANSFERRING;
-        } else if (height < idHeight->blockHeight + GetMnActivationDelay(idHeight->blockHeight)) {
+        } else if (static_cast<uint32_t>(height) < idHeight->blockHeight + GetMnActivationDelay(idHeight->blockHeight)) {
             return State::PRE_ENABLED;
         }
     }

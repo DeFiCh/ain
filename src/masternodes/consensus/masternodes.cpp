@@ -106,7 +106,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage& obj) const
             }
             ownerType = true;
             bool collateralFound{false};
-            for (const auto vin : tx.vin) {
+            for (const auto& vin : tx.vin) {
                 if (vin.prevout.hash == collateralTx && vin.prevout.n == 1) {
                     collateralFound = true;
                 }
