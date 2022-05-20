@@ -19,12 +19,13 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live      = 'l',
-    Oracles   = 'o',
-    Param     = 'a',
-    Token     = 't',
-    Poolpairs = 'p',
-    Locks     = 'L',
+    Live       = 'l',
+    Oracles    = 'o',
+    Param      = 'a',
+    Token      = 't',
+    Poolpairs  = 'p',
+    Locks      = 'L',
+    Consortium = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -74,15 +75,11 @@ enum TokenKeys : uint8_t  {
     Ascendant             = 'm',
     Descendant            = 'n',
     Epitaph               = 'o',
-    ConsortiumMembers     = 'p',
-    ConsortiumMintLimit   = 'q',
 };
 
 enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
-    MintLimitPerInterval  = 'c',
-
 };
 
 enum PoolKeys : uint8_t {
@@ -192,8 +189,8 @@ struct CConsortiumMember
 
 struct CConsortiumMinted
 {
-    CBalances minted;
-    CBalances burnt;
+    CAmount minted;
+    CAmount burnt;
 
     ADD_SERIALIZE_METHODS;
 
@@ -209,11 +206,12 @@ using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
-using CConsortiumMembersMinted = std::map<std::string, CConsortiumMinted>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumMinted>>;
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 
 using CAttributeType = std::variant<CDataStructureV0>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
-                                        CConsortiumMembers, CConsortiumMinted, CConsortiumMembersMinted>;
+                                        CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
