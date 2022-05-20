@@ -2845,8 +2845,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CCustomCSView govCache(cache);
                     // Add to existing ATTRIBUTES instead of overwriting.
                     if (var->GetName() == "ATTRIBUTES") {
-                        auto govVar = mnview.GetVariable(var->GetName());
-                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        auto govVar = mnview.GetAttributes();
+                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                             govCache.Flush();
                         }
                     } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
