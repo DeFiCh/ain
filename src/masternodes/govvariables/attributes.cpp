@@ -228,7 +228,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2203Burned,           "dfip2203_burned"},
                 {EconomyKeys::DFIP2203Minted,           "dfip2203_minted"},
                 {EconomyKeys::DexTokens,                "dex"},
-                {EconomyKeys::ConsortiumMinted,         "consortium_global"},
+                {EconomyKeys::ConsortiumMinted,         "consortium"},
                 {EconomyKeys::ConsortiumMembersMinted,  "consortium_members"},
             }
         },

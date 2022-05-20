@@ -99,9 +99,9 @@ class ConsortiumTest (DefiTestFramework):
 
         assert_equal(self.nodes[2].getaccount(account2)[0], '1.00000000@' + symbolBTC)
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('1.00000000'))
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : '{"01":{"name":"test", \
                                                                                                    "ownerAddress":"' + account2 +'", \
@@ -125,12 +125,12 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(self.nodes[2].getaccount(account2), ['1.00000000@' + symbolBTC, '2.00000000@' + symbolDOGE])
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/minted'], Decimal('2.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/supply'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('2.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
@@ -151,12 +151,12 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(self.nodes[2].getaccount(account2), ['1.00000000@' + symbolBTC, '1.00000000@' + symbolDOGE])
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/minted'], Decimal('2.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/burnt'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
@@ -181,12 +181,12 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(account0), ['0.50000000@' + symbolDOGE])
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/minted'], Decimal('2.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/burnt'], Decimal('1.50000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/supply'], Decimal('0.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
@@ -205,12 +205,12 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(account0), [])
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('0.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('1.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/minted'], Decimal('2.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/burnt'], Decimal('1.50000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/supply'], Decimal('0.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('0.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
@@ -254,12 +254,12 @@ class ConsortiumTest (DefiTestFramework):
         self.sync_blocks()
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/live/economy/consortium_global/1/minted'], Decimal('9.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/burnt'], Decimal('6.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/1/supply'], Decimal('3.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/minted'], Decimal('2.00000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/burnt'], Decimal('1.50000000'))
-        assert_equal(attribs['v0/live/economy/consortium_global/2/supply'], Decimal('0.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/minted'], Decimal('9.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/burnt'], Decimal('6.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/1/supply'], Decimal('3.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
+        assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('7.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('6.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
