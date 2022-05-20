@@ -2845,8 +2845,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CCustomCSView govCache(cache);
                     // Add to existing ATTRIBUTES instead of overwriting.
                     if (var->GetName() == "ATTRIBUTES") {
-                        auto govVar = mnview.GetVariable(var->GetName());
-                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        auto govVar = mnview.GetAttributes();
+                        auto it = govVar->attributes.begin();
+                        while (it != govVar->attributes.end()) {
+                            auto key = boost::get<const CDataStructureV0>(&it->first);
+                            // We shouldn't have any non v0 keys at this point, but we'll
+                            // erase everything that's not live attrs. 
+                            if (!key || key->type != AttributeTypes::Live) {
+                                govVar->attributes.erase(it++);
+                            } else {
+                                it++;
+                            }
+                        }
+                        if (govVar->Import(var->Export())
+                            && govVar->Validate(govCache) 
+                            && govVar->Apply(govCache, pindex->nHeight)
+                            && govCache.SetVariable(*govVar)) {
                             govCache.Flush();
                         }
                     } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
