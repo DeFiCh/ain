@@ -19,7 +19,7 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         self.nodes[0].generate(101)
 
         # Create token and pool address
-        address = self.nodes[0].getnewaddress("", "legacy")
+        address = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
         # Create token
         self.nodes[0].createtoken({
@@ -42,7 +42,6 @@ class TxVersionAndExpirationTest (DefiTestFramework):
 
         # Fund address with DFI and LTC
         self.nodes[0].minttokens(["0.1@LTC"])
-        self.nodes[0].sendtoaddress(address, 0.1)
         self.nodes[0].utxostoaccount({address: "10@DFI"})
         self.nodes[0].generate(1)
 
@@ -52,6 +51,7 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test invalid version
+        print(rawtx)
         invalid_version = rawtx.replace('05e000000001', '05e0000000ff')
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(invalid_version)
         assert_raises_rpc_error(-26, "Invalid transaction version set", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
