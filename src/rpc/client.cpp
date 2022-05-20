@@ -190,6 +190,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtokens", 1, "verbose" },
     { "minttokens", 0, "amounts" },
     { "minttokens", 1, "inputs"},
+    { "burntokens", 0, "metadata" },
+    { "burntokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
     { "sendutxosfrom", 2, "amount" },
@@ -310,11 +312,15 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
+    { "unsetgov", 0, "variables" },
+    { "unsetgov", 1, "inputs" },
+
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
+    { "setcustomtxexpiration", 0, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },

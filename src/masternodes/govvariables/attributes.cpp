@@ -14,6 +14,9 @@
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
+extern std::string ScriptToString(CScript const& script);
+extern CAmount AmountFromValue(const UniValue& value);
+extern CScript DecodeScript(std::string const& str);
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
@@ -57,6 +60,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
+        {"consortium",  AttributeTypes::Consortium},
     };
     return types;
 }
@@ -69,6 +73,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
+        {AttributeTypes::Consortium,"consortium"},
     };
     return types;
 }
@@ -131,6 +136,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
             }
         },
         {
+            AttributeTypes::Consortium, {
+                {"members",             ConsortiumKeys::Members},
+                {"mint_limit",          ConsortiumKeys::MintLimit},
+            }
+        },
+        {
             AttributeTypes::Poolpairs, {
                 {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
                 {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
@@ -189,6 +200,12 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
             }
         },
         {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::Members,     "members"},
+                {ConsortiumKeys::MintLimit,   "mint_limit"},
+            }
+        },
+        {
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
                 {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
@@ -206,11 +223,13 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Live, {
-                {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
-                {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
-                {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
-                {EconomyKeys::DexTokens,         "dex"},
+                {EconomyKeys::PaybackDFITokens,         "dfi_payback_tokens"},
+                {EconomyKeys::DFIP2203Current,          "dfip2203_current"},
+                {EconomyKeys::DFIP2203Burned,           "dfip2203_burned"},
+                {EconomyKeys::DFIP2203Minted,           "dfip2203_minted"},
+                {EconomyKeys::DexTokens,                "dex"},
+                {EconomyKeys::ConsortiumMinted,         "consortium"},
+                {EconomyKeys::ConsortiumMembersMinted,  "consortium_members"},
             }
         },
     };
@@ -284,6 +303,45 @@ static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
+    UniValue values(UniValue::VOBJ);
+    CConsortiumMembers members;
+
+    if (!values.read(str))
+        return Res::Err("Not a valid consortium member object!");
+
+    for (const auto &key : values.getKeys())
+    {
+        UniValue value(values[key].get_obj());
+        CConsortiumMember member;
+
+        member.status = 0;
+
+        member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
+        if (!value["ownerAddress"].isNull())
+            member.ownerAddress = DecodeScript(value["ownerAddress"].getValStr());
+        else
+            return Res::Err("Empty ownerAddress in consortium member data!");
+
+        member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
+        member.mintLimit = AmountFromValue(value["mintLimit"].getValStr());
+
+        if (!value["status"].isNull())
+        {
+            uint32_t tmp;
+
+            if (ParseUInt32(value["status"].getValStr(), &tmp))
+                member.status = static_cast<uint8_t>(tmp);
+            else
+                return Res::Err("Status must be a positive number!");
+        }
+
+        members[key] = member;
+    }
+
+    return {members, Res::Ok()};
+}
+
 static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     const auto values = KeyBreaker(str, ',');
     if (values.empty()) {
@@ -332,6 +390,13 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::LoanCollateralFactor,  VerifyPct},
                 {TokenKeys::LoanMintingEnabled,    VerifyBool},
                 {TokenKeys::LoanMintingInterest,   VerifyFloat},
+
+            }
+        },
+        {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::Members,          VerifyConsortiumMember},
+                {ConsortiumKeys::MintLimit,        VerifyInt64},
             }
         },
         {
@@ -372,7 +437,7 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
     return Res::Err(error);
 }
 
-Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
+Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
                                 const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable) {
 
     if (key.size() > 128) {
@@ -384,7 +449,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Empty version");
     }
 
-    if (value.empty()) {
+    if (value && value->empty()) {
         return Res::Err("Empty value");
     }
 
@@ -438,7 +503,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
 
     uint32_t typeKey{0};
     CDataStructureV0 attrV0{};
-    
+
     if (type == AttributeTypes::Locks) {
         typeKey = ParamIDs::TokenID;
         if (const auto keyValue = VerifyInt32(keys[3])) {
@@ -501,9 +566,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
     }
 
+    if (!value) {
+        return applyVariable(attrV0, {});
+    }
+
     try {
         if (auto parser = parseValue().at(type).at(typeKey)) {
-            auto attribValue = parser(value);
+            auto attribValue = parser(*value);
             if (!attribValue) {
                 return std::move(attribValue);
             }
@@ -512,6 +581,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     } catch (const std::out_of_range&) {
     }
     return Res::Err("No parse function {%d, %d}", type, typeKey);
+}
+
+bool ATTRIBUTES::IsEmpty() const
+{
+    return attributes.empty();
 }
 
 ResVal<CScript> GetFutureSwapContractAddress()
@@ -633,6 +707,23 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         }
                         SetValue(newAttr, attrValue);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Consortium && attrV0->key == ConsortiumKeys::Members) {
+                        if (auto value = std::get_if<CConsortiumMembers>(&attrValue)) {
+                            auto members = GetValue(*attrV0, CConsortiumMembers{});
+
+                            for (auto const & member : *value)
+                            {
+                                for (auto const & tmp : members)
+                                    if (tmp.first != member.first && tmp.second.ownerAddress == member.second.ownerAddress)
+                                        return Res::Err("Cannot add a member with an owner address of a existing consortium member!");
+
+                                members[member.first] = member.second;
+                            }
+                            SetValue(*attrV0, members);
+
+                            return Res::Ok();
+                        } else
+                            return Res::Err("Invalid member data");
                     }
                 }
                 SetValue(attribute, attrValue);
@@ -677,7 +768,8 @@ UniValue ATTRIBUTES::Export() const {
             if (auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if (attrV0->typeId == DFIP2203 && (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
+                if ((attrV0->typeId == DFIP2203 && (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))
+                    || (attrV0->type == Consortium && attrV0->key == ConsortiumKeys::MintLimit)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto uvalue = ValueFromAmount(*amount);
@@ -703,6 +795,45 @@ UniValue ATTRIBUTES::Export() const {
                     ret.pushKV(KeyBuilder(poolkey, "fee_burn_b"), ValueFromUint(dexTokenB.feeburn));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
+                }
+            } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
+                UniValue result(UniValue::VOBJ);
+                for (const auto& [id, member] : *members)
+                {
+                    UniValue elem(UniValue::VOBJ);
+                    elem.pushKV("name", member.name);
+                    elem.pushKV("ownerAddress", ScriptToString(member.ownerAddress));
+                    elem.pushKV("backingId", member.backingId);
+                    elem.pushKV("mintLimit", ValueFromAmount(member.mintLimit));
+                    elem.pushKV("status", member.status);
+                    result.pushKV(id, elem);
+                }
+                ret.pushKV(key, result.write());
+            } else if (auto consortiumMinted = std::get_if<CConsortiumGlobalMinted>(&attribute.second)) {
+                for (const auto& token : *consortiumMinted)
+                {
+                    auto& minted = token.second.minted;
+                    auto& burnt = token.second.burnt;
+
+                    auto tokenKey = KeyBuilder(key, token.first.v);
+                    ret.pushKV(KeyBuilder(tokenKey, "minted"), ValueFromAmount(minted));
+                    ret.pushKV(KeyBuilder(tokenKey, "burnt"), ValueFromAmount(burnt));
+                    ret.pushKV(KeyBuilder(tokenKey, "supply"), ValueFromAmount(minted - burnt));
+                }
+            } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
+                for (const auto& token : *membersMinted)
+                {
+                    for (const auto& member : token.second)
+                    {
+                        auto& minted = member.second.minted;
+                        auto& burnt = member.second.burnt;
+
+                        auto tokenKey = KeyBuilder(key, token.first.v);
+                        auto memberKey = KeyBuilder(tokenKey, member.first);
+                        ret.pushKV(KeyBuilder(memberKey, "minted"), ValueFromAmount(minted));
+                        ret.pushKV(KeyBuilder(memberKey, "burnt"), ValueFromAmount(burnt));
+                        ret.pushKV(KeyBuilder(memberKey, "supply"), ValueFromAmount(minted - burnt));
+                    }
                 }
             } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
@@ -804,6 +935,29 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 }
                 break;
 
+            case AttributeTypes::Consortium:
+                switch (attrV0->key) {
+                    case ConsortiumKeys::Members:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        break;
+                    case ConsortiumKeys::MintLimit:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            return Res::Err("Cannot be set before GreatWorld");
+                        }
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
+                        break;
+                    default:
+                        return Res::Err("Unsupported key");
+                }
+                break;
+
             case AttributeTypes::Oracles:
                 if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
                     return Res::Err("Cannot be set before GreatWorld");
@@ -834,9 +988,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 break;
 
             case AttributeTypes::Poolpairs:
-                if (!std::get_if<CAmount>(&value)) {
-                    return Res::Err("Unsupported value");
-                }
                 switch (attrV0->key) {
                     case PoolKeys::TokenAFeePCT:
                     case PoolKeys::TokenBFeePCT:
@@ -888,7 +1039,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const uint32_t height)
+Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, uint32_t height)
 {
     for (const auto& attribute : attributes) {
         auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -1039,6 +1190,51 @@ Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, co
                     return Res::Err("Cannot be set at or below current height");
                 }
             }
+        }
+    }
+    return Res::Ok();
+}
+
+Res ATTRIBUTES::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const & keys)
+{
+    for (const auto& key : keys) {
+        auto res = ProcessVariable(key, {},
+            [&](const CAttributeType& attribute, const CAttributeValue&) {
+                auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+                if (!attrV0) {
+                    return Res::Ok();
+                }
+                if (attrV0->type == AttributeTypes::Live) {
+                    return Res::Err("Live attribute cannot be deleted");
+                }
+                if (!EraseKey(attribute)) {
+                    return Res::Err("Attribute {%d} not exists", attrV0->type);
+                }
+                if (attrV0->type == AttributeTypes::Poolpairs) {
+                    auto poolId = DCT_ID{attrV0->typeId};
+                    auto pool = mnview.GetPoolPair(poolId);
+                    if (!pool) {
+                        return Res::Err("No such pool (%d)", poolId.v);
+                    }
+                    auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                                                pool->idTokenA : pool->idTokenB;
+
+                    return mnview.EraseDexFeePct(poolId, tokenId);
+                } else if (attrV0->type == AttributeTypes::Token) {
+                    if (attrV0->key == TokenKeys::DexInFeePct
+                    ||  attrV0->key == TokenKeys::DexOutFeePct) {
+                        DCT_ID tokenA{attrV0->typeId}, tokenB{~0u};
+                        if (attrV0->key == TokenKeys::DexOutFeePct) {
+                            std::swap(tokenA, tokenB);
+                        }
+                        return mnview.EraseDexFeePct(tokenA, tokenB);
+                    }
+                }
+                return Res::Ok();
+            }
+        );
+        if (!res) {
+            return res;
         }
     }
 

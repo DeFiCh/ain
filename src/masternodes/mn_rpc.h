@@ -71,6 +71,7 @@ struct FutureSwapHeightInfo {
 
 // common functions
 bool IsSkippedTx(const uint256& hash);
+int chainHeight(interfaces::Chain::Lock& locked_chain);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
@@ -81,6 +82,8 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
+std::optional<CScript> AmIFounder(CWallet* const pwallet);
+void AddVersionAndExpiration(CScript& metadata, const uint32_t height, const MetadataVersion version = MetadataVersion::One);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

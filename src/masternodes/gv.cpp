@@ -15,15 +15,20 @@
 
 Res CGovView::SetVariable(GovVariable const & var)
 {
-    auto WriteVar = [this](GovVariable const & var) {
-        return WriteBy<ByName>(var.GetName(), var) ? Res::Ok() : Res::Err("can't write to DB");
+    auto WriteOrEraseVar = [this](GovVariable const & var) {
+        if (var.IsEmpty()) {
+            EraseBy<ByName>(var.GetName());
+        } else {
+            WriteBy<ByName>(var.GetName(), var);
+        }
+        return Res::Ok();
     };
     if (var.GetName() != "ATTRIBUTES") {
-        return WriteVar(var);
+        return WriteOrEraseVar(var);
     }
     auto attributes = GetAttributes();
     if (!attributes) {
-        return WriteVar(var);
+        return WriteOrEraseVar(var);
     }
     auto& current = dynamic_cast<const ATTRIBUTES&>(var);
     if (current.changed.empty()) {
@@ -37,7 +42,7 @@ Res CGovView::SetVariable(GovVariable const & var)
             attributes->attributes[key] = it->second;
         }
     }
-    return WriteVar(*attributes);
+    return WriteOrEraseVar(*attributes);
 }
 
 std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const & name) const

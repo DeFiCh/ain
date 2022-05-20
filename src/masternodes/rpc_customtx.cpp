@@ -117,6 +117,24 @@ public:
         rpcInfo.pushKVs(tokenBalances(obj));
     }
 
+    void operator()(const CBurnTokensMessage& obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        std::string type;
+        switch (obj.burnType)
+        {
+            case CBurnTokensMessage::BurnType::TokenBurn:
+                type = "TokenBurn";
+                break;
+            default:
+                type = "TokenBurn";
+        }
+        rpcInfo.pushKV("type", type);
+
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
+    }
+
     void operator()(const CLiquidityMessage& obj) const {
         CBalances sumTx = SumAllTransfers(obj.from);
         if (sumTx.balances.size() == 2) {
@@ -236,6 +254,16 @@ public:
         for (const auto& gov : obj.govs) {
             auto& var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
+        }
+    }
+
+    void operator()(const CGovernanceUnsetMessage& obj) const {
+        for (const auto& gov : obj.govs) {
+            UniValue keys(UniValue::VARR);
+            for (const auto& key : gov.second)
+                keys.push_back(key);
+
+            rpcInfo.pushKV(gov.first, keys);
         }
     }
 
@@ -485,11 +513,12 @@ public:
 
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniValue& results) {
     std::vector<unsigned char> metadata;
-    txType = GuessCustomTxType(tx, metadata);
+    CExpirationAndVersion customTxParams;
+    txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
     if (txType == CustomTxType::None) {
         return Res::Ok();
     }
-    auto txMessage = customTypeToMessage(txType);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         CImmutableCSView mnview(*pcustomcsview);

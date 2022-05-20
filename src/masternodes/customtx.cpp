@@ -16,6 +16,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
+        case CustomTxType::BurnToken:
         case CustomTxType::UpdateToken:
         case CustomTxType::UpdateTokenAny:
         case CustomTxType::CreatePoolPair:
@@ -33,6 +34,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::SetGovVariable:
+        case CustomTxType::UnsetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
         case CustomTxType::AppointOracle:
@@ -83,6 +85,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(UpdateToken);
         CustomTxTypeString(UpdateTokenAny);
         CustomTxTypeString(MintToken);
+        CustomTxTypeString(BurnToken);
         CustomTxTypeString(CreatePoolPair);
         CustomTxTypeString(UpdatePoolPair);
         CustomTxTypeString(PoolSwap);
@@ -97,6 +100,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(FutureSwapExecution);
         CustomTxTypeString(FutureSwapRefund);
         CustomTxTypeString(SetGovVariable);
+        CustomTxTypeString(UnsetGovVariable);
         CustomTxTypeString(SetGovVariableHeight);
         CustomTxTypeString(AppointOracle);
         CustomTxTypeString(RemoveOracleAppoint);
@@ -138,7 +142,8 @@ std::string ToString(CustomTxType type) {
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */
-CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation) {
+CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation,
+                                      uint32_t height, CExpirationAndVersion* customTxParams){
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
@@ -147,21 +152,25 @@ CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned cha
     if (metadataValidation) {
         for (size_t i{1}; i < tx.vout.size(); ++i) {
             std::vector<unsigned char> dummydata;
-            bool dummyOpcodes{false};
+            uint8_t dummyOpcodes{HasForks::None};
             if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
                 return CustomTxType::Reject;
             }
         }
     }
 
-    bool hasAdditionalOpcodes{false};
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes, customTxParams)) {
         return CustomTxType::None;
     }
 
     // If metadata contains additional opcodes mark as Reject.
-    if (metadataValidation && hasAdditionalOpcodes) {
-        return CustomTxType::Reject;
+    if (metadataValidation) {
+        if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::FortCanning) {
+            return CustomTxType::Reject;
+        } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::GreatWorld) {
+            return CustomTxType::Reject;
+        }
     }
 
     auto txType = CustomTxCodeToType(metadata[0]);

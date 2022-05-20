@@ -102,8 +102,6 @@ class AnchorRewardsTest (DefiTestFramework):
         self.mine_diff(60)
 
         # Anchor data
-        print(self.nodes[0].spv_listanchorauths())
-        print(self.nodes[0].getblockcount())
         wait_until(lambda: len(self.nodes[0].spv_listanchorauths()) > 0 and self.nodes[0].spv_listanchorauths()[0]['signers'] == 3, timeout=10)
 
         auth = self.nodes[0].spv_listanchorauths()
@@ -261,7 +259,6 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
 
         anchors = self.nodes[0].spv_listanchors()
-        print(anchors)
         assert_equal(anchors[0]['confirmations'], 6) # Bitcoin confirmations
         if anchors[0]['active']:
             activeAnc = anchors[0]

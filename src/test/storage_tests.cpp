@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE(SnapshotTest)
             ++count;
             return true;
         });
-        BOOST_CHECK_EQUAL(count, 2);
+        BOOST_CHECK_EQUAL(count, 2u);
 
         count = 0;
         view2.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE(SnapshotTest)
             ++count;
             return true;
         });
-        BOOST_CHECK_EQUAL(count, 4);
+        BOOST_CHECK_EQUAL(count, 4u);
     }
 }
 
@@ -530,7 +530,7 @@ BOOST_AUTO_TEST_CASE(ViewFlush)
         // view contains view2 changes, pcustomcsview keeps changes in the batch
         view.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
             BOOST_REQUIRE(count < 1);
-            BOOST_CHECK_EQUAL(key.n, count + 2);
+            BOOST_CHECK_EQUAL((int)key.n, count + 2);
             BOOST_CHECK_EQUAL(value, count + 3);
             ++count;
             return true;
@@ -547,7 +547,7 @@ BOOST_AUTO_TEST_CASE(ViewFlush)
         // pcustomcsview does not contains view2 changes
         pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
             BOOST_REQUIRE(count < 2);
-            BOOST_CHECK_EQUAL(key.n, count);
+            BOOST_CHECK_EQUAL((int)key.n, count);
             ++count;
             BOOST_CHECK_EQUAL(value, count);
             return true;
@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(SnapshotParallel)
             int count = 0;
             pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
                 BOOST_REQUIRE(count < 9);
-                BOOST_CHECK_EQUAL(key.n, count);
+                BOOST_CHECK_EQUAL((int)key.n, count);
                 ++count;
                 BOOST_CHECK_EQUAL(value, count);
                 return true;

@@ -32,6 +32,7 @@ enum struct CustomTxType : uint8_t
     MintToken               = 'M',
     UpdateToken             = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny          = 'n', // new type of token's update with any flags/fields possible
+    BurnToken               = 'W',
 
     // poolpairs
     CreatePoolPair          = 'p',
@@ -53,6 +54,7 @@ enum struct CustomTxType : uint8_t
 
     // governance
     SetGovVariable          = 'G',
+    UnsetGovVariable        = 'Z',
     SetGovVariableHeight    = 'j',
 
     // Auto auth
@@ -96,7 +98,14 @@ enum struct CustomTxType : uint8_t
     CreateVoc               = 'E',
 };
 
-CustomTxType GuessCustomTxType(const CTransaction& tx, std::vector<unsigned char>& metadata, bool metadataValidation = false);
+enum class MetadataVersion : uint8_t {
+    None = 0,
+    One = 1,
+    Two = 2,
+};
+
+CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
+                                      uint32_t height = 0, CExpirationAndVersion* customTxParams = nullptr);
 CAmount GetNonMintedValueOut(const CTransaction& tx, DCT_ID tokenID);
 TAmounts GetNonMintedValuesOut(const CTransaction& tx);
 bool NotAllowedToFail(CustomTxType txType, int height);
