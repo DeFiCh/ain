@@ -690,7 +690,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
             auto attributes = pcustomcsview->GetAttributes();
             if (attributes)
             {
-                CDataStructureV0 membersKey{AttributeTypes::Token, kv.first.v, TokenKeys::ConsortiumMembers};
+                CDataStructureV0 membersKey{AttributeTypes::Consortium, kv.first.v, ConsortiumKeys::Members};
                 auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
                 for (auto const& member : members)
                     if (IsMineCached(*pwallet, member.second.ownerAddress))
