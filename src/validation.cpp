@@ -4092,7 +4092,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             }
 
             for (const auto& [key, type] : ATTRIBUTES::poolKeysToType) {
-                std::visit([&, key = key](auto& value){
+                std::visit([&, key = key, oldPoolId = oldPoolId](auto& value){
                     MigrateMapValues<decltype(value), PoolKeys>(attributes, AttributeTypes::Poolpairs, oldPoolId.v, newPoolId.v, key);
                 }, type);
             }
