@@ -674,38 +674,46 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     // auth
     std::set<CScript> auths;
-    bool needFoundersAuth = false;
+    auto needFoundersAuth{false};
     if (txInputs.isNull() || txInputs.empty()) {
         LOCK(cs_main); // needed for coins tip
-        for (auto const & kv : minted.balances) {
-            auto token = view.GetToken(kv.first);
+        for (auto const & [id, amount] : minted.balances) {
+            const auto token = view.GetToken(id);
             if (!token) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", id.ToString()));
             }
 
-            auto attributes = view.GetAttributes();
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
             if (!token->IsDAT()) {
+                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
                 if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
                     auths.insert(authCoin.out.scriptPubKey);
                 }
             } else {
+                auto attributes = view.GetAttributes();
                 if (attributes) {
-                    CDataStructureV0 membersKey{AttributeTypes::Consortium, kv.first.v, ConsortiumKeys::Members};
+                    CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::Members};
                     auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-                    for (auto const& member : members)
-                        if (IsMineCached(*pwallet, member.second.ownerAddress))
-                            auths.insert(member.second.ownerAddress);
-                }
 
-                if (auths.empty()) {
-                    if (!AmIFounder(pwallet))
-                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
-                    needFoundersAuth = true;
+                    auto found{false};
+                    for (auto const& member : members) {
+                        if (IsMineCached(*pwallet, member.second.ownerAddress)) {
+                            auths.insert(member.second.ownerAddress);
+                            found = true;
+                        }
+                    }
+
+                    if (!found) {
+                        needFoundersAuth = true;
+                    }
                 }
             }
         }
     }
+
+    if (needFoundersAuth && !AmIFounder(pwallet)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
+    }
+
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
