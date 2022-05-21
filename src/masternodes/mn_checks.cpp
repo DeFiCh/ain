@@ -31,7 +31,7 @@
 
 #include <algorithm>
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType) {
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version) {
     switch (txType)
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
@@ -426,15 +426,15 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = static_cast<int>(height) >= consensus.FortCanningHeight;
-
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxParams);
     if (txType == CustomTxType::None) {
         return res;
     }
@@ -442,9 +442,23 @@ Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const 
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
+    if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+        if (customTxParams.expiration == 0) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction expiration set");
+        }
+        if (customTxParams.version > static_cast<uint8_t>(MetadataVersion::Two)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
+        }
+        if (height > customTxParams.expiration) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Transaction has expired");
+        }
+        if (customTxExpiration) {
+            *customTxExpiration = customTxParams.expiration;
+        }
+    }
 
     auto futureCopy(futureSwapView);
-    auto txMessage = customTypeToMessage(txType);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
 
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {

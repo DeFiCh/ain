@@ -343,6 +343,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, view.GetLastHeight());
 
     int targetHeight = view.GetLastHeight() + 1;
 
@@ -432,6 +433,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, pcustomcsview->GetLastHeight());
 
     int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
@@ -834,6 +836,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, pcustomcsview->GetLastHeight());
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -964,6 +967,7 @@ UniValue compositeswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, view.GetLastHeight());
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);

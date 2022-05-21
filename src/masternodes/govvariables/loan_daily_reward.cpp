@@ -15,7 +15,11 @@ bool LP_DAILY_LOAN_TOKEN_REWARD::IsEmpty() const
 
 Res LP_DAILY_LOAN_TOKEN_REWARD::Import(const UniValue & val)
 {
-    dailyReward = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    dailyReward = amount;
     return Res::Ok();
 }
 

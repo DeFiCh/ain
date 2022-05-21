@@ -55,6 +55,7 @@ enum class UpdateMasternodeType : uint8_t
 };
 
 constexpr uint8_t SUBNODE_COUNT{4};
+constexpr uint32_t DEFAULT_CUSTOM_TX_EXPIRATION{120};
 
 class CMasternode
 {
@@ -449,6 +450,8 @@ class CCustomCSView
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
+    uint32_t globalCustomTxExpiration{DEFAULT_CUSTOM_TX_EXPIRATION};
+
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
@@ -502,6 +505,9 @@ public:
     uint256 MerkleRoot(CUndosView& undo);
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
+
+    void SetGlobalCustomTxExpiration(const uint32_t height);
+    uint32_t GetGlobalCustomTxExpiration() const;
 };
 
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
