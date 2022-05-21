@@ -651,6 +651,7 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                                        "backingId":"blablabla", \
                                                                                                                                                        "mintLimit":10.00000000, \
                                                                                                                                                        "status":-1}}'}})
+        assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", "ownerAddress":"' + owner +'", "backingId":"blablabla", "mintLimit":10.00000000, "status":2}}'}})
         assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'-1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/ascendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/descendant': '1'}})

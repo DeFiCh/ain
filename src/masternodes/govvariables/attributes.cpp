@@ -318,13 +318,13 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
 
         member.status = 0;
 
-        member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
+        member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
         if (!value["ownerAddress"].isNull())
             member.ownerAddress = DecodeScript(value["ownerAddress"].getValStr());
         else
             return Res::Err("Empty ownerAddress in consortium member data!");
 
-        member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
+        member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
         if (!AmountFromValue(value["mintLimit"], member.mintLimit)) {
             return Res::Err("mint limit is an invalid amount");
         }
@@ -333,10 +333,14 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         {
             uint32_t tmp;
 
-            if (ParseUInt32(value["status"].getValStr(), &tmp))
+            if (ParseUInt32(value["status"].getValStr(), &tmp)) {
+                if (tmp > 1) {
+                    return Res::Err("Status can be either 0 or 1");
+                }
                 member.status = static_cast<uint8_t>(tmp);
-            else
+            } else {
                 return Res::Err("Status must be a positive number!");
+            }
         }
 
         members[key] = member;

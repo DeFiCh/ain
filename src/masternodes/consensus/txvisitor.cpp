@@ -147,7 +147,7 @@ CAmount CCustomTxVisitor::CalculateTakerFee(CAmount amount) const {
           * GetDFIperBTC(pair->second) / COIN).GetLow64();
 }
 
-ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplementation& token, bool checkOnlyFoundationForDAT) const {
+ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplementation& token) const {
     if (token.destructionTx != uint256{})
         return Res::Err("token %s already destroyed at height %i by tx %s", token.symbol,
                         token.destructionHeight, token.destructionTx.GetHex());
@@ -181,7 +181,7 @@ ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplement
         if (!token.IsDAT())
             return Res::Err("tx must have at least one input from token owner");
         else if (!HasFoundationAuth()) // Is a DAT, check founders auth
-            if (static_cast<int>(height) < consensus.GreatWorldHeight || (static_cast<int>(height) < consensus.GreatWorldHeight && checkOnlyFoundationForDAT))
+            if (height < static_cast<uint32_t>(consensus.GreatWorldHeight))
                 return Res::Err("token is DAT and tx not from foundation member");
     }
 

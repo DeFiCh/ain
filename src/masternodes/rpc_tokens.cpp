@@ -683,25 +683,26 @@ UniValue minttokens(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
 
+            auto attributes = view.GetAttributes();
             const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-            if (IsMineCached(*pwallet, authCoin.out.scriptPubKey))
-                auths.insert(authCoin.out.scriptPubKey);
+            if (!token->IsDAT()) {
+                if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
+                    auths.insert(authCoin.out.scriptPubKey);
+                }
+            } else {
+                if (attributes) {
+                    CDataStructureV0 membersKey{AttributeTypes::Consortium, kv.first.v, ConsortiumKeys::Members};
+                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+                    for (auto const& member : members)
+                        if (IsMineCached(*pwallet, member.second.ownerAddress))
+                            auths.insert(member.second.ownerAddress);
+                }
 
-            auto attributes = pcustomcsview->GetAttributes();
-            if (attributes)
-            {
-                CDataStructureV0 membersKey{AttributeTypes::Consortium, kv.first.v, ConsortiumKeys::Members};
-                auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-                for (auto const& member : members)
-                    if (IsMineCached(*pwallet, member.second.ownerAddress))
-                        auths.insert(member.second.ownerAddress);
-            }
-
-            if (auths.empty() && token->IsDAT())
-            {
-                if (!AmIFounder(pwallet))
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
-                needFoundersAuth = true;
+                if (auths.empty()) {
+                    if (!AmIFounder(pwallet))
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
+                    needFoundersAuth = true;
+                }
             }
         }
     }
@@ -793,15 +794,10 @@ UniValue burntokens(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
 
     burnedTokens.burnType = CBurnTokensMessage::BurnType::TokenBurn;
-    switch (burnedTokens.burnType)
-    {
-        case CBurnTokensMessage::BurnType::TokenBurn:
-            if (!metaObj["context"].isNull())
-                burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
-            break;
-    }
+    if (!metaObj["context"].isNull())
+        burnedTokens.context = DecodeScript(metaObj["context"].getValStr());
 
-    UniValue const & txInputs = request.params[2];
+    UniValue const & txInputs = request.params[1];
 
     CImmutableCSView view(*pcustomcsview);
 
