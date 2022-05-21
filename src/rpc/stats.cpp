@@ -99,7 +99,7 @@ void CRPCStats::add(const std::string& name, const int64_t latency, const int64_
 }
 
 UniValue CRPCStats::toJSON() {
-    CLockFreeGuard lock(lock_stats);
+    auto map = CRPCStats::getMap();
 
     UniValue ret(UniValue::VARR);
     for (auto &[_, stats] : map) {

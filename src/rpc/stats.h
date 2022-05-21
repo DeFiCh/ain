@@ -77,6 +77,10 @@ public:
         }
         return it->second;
     };
+    std::map<std::string, RPCStats> getMap() {
+        CLockFreeGuard lock(lock_stats);
+        return map;
+    };
     UniValue toJSON();
 
     void save() {
