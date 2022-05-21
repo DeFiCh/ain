@@ -2274,7 +2274,7 @@ void PruneUndos(CUndosView& view, const int height) {
 
 
 static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
-    bool opcodes{false};
+    uint8_t opcodes{HasForks::None};
     std::vector<unsigned char> metadata;
     uint32_t type;
     uint32_t metaId;
@@ -3851,17 +3851,6 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
     }
 }
 
-template<typename T, typename K>
-static void MigrateMapValues(ATTRIBUTES& attributes, const AttributeTypes type, const uint32_t from, const uint32_t to, const K key) {
-    CDataStructureV0 mapKey{type, from, key};
-    if (attributes.CheckKey(mapKey)) {
-        const auto& value = attributes.GetValue(mapKey, T{});
-        CDataStructureV0 newMapKey{type, to, key};
-        attributes.SetValue(newMapKey, value);
-        attributes.EraseKey(mapKey);
-    }
-}
-
 static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attributes, const uint32_t id, std::string& newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
     if (attributes.CheckKey(ascendantKey)) {
@@ -4100,10 +4089,17 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("UpdatePoolPair on old pool pair: %s", res.msg));
             }
 
-            for (const auto& [key, type] : ATTRIBUTES::poolKeysToType) {
-                std::visit([&, key = key, oldPoolId = oldPoolId](auto& value){
-                    MigrateMapValues<decltype(value), PoolKeys>(attributes, AttributeTypes::Poolpairs, oldPoolId.v, newPoolId.v, key);
-                }, type);
+            std::vector<CDataStructureV0> eraseKeys;
+            for (const auto& [key, value] : attributes.attributes) {
+                if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
+                    attributes.SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                }
+            }
+
+            for (const auto& key : eraseKeys) {
+                attributes.EraseKey(key);
             }
 
             res = UpdateLiquiditySplits<LP_SPLITS>(view, oldPoolId, newPoolId, pindex->nHeight);
@@ -4281,17 +4277,34 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         const DCT_ID newTokenId{resVal.val->v};
 
+        std::vector<CDataStructureV0> eraseKeys;
+        for (const auto& [key, value] : attributes->attributes) {
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+                if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->typeId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                }
+            }
+        }
+
+        for (const auto& key : eraseKeys) {
+            attributes->EraseKey(key);
+        }
+
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
         attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
-
-        for (const auto& [key, type] : attributes->tokenKeysToType) {
-            std::visit([&, key = key](auto& value){
-                MigrateMapValues<decltype(value), TokenKeys>(*attributes, AttributeTypes::Token, oldTokenId.v, newTokenId.v, key);
-            }, type);
-        }
 
         CAmount totalBalance{0};
 
