@@ -15,7 +15,11 @@ bool LOAN_LIQUIDATION_PENALTY::IsEmpty() const
 
 Res LOAN_LIQUIDATION_PENALTY::Import(const UniValue & val)
 {
-    penalty = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    penalty = amount;
     return Res::Ok();
 }
 
