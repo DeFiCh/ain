@@ -298,20 +298,19 @@ public:
     }
 
     uint32_t time{0};
+    std::map<CAttributeType, CAttributeValue> attributes;
+
     // For formatting in export
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
-    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
-    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
     std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
-    std::map<CAttributeType, CAttributeValue> attributes;
 
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
