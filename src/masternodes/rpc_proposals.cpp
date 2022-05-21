@@ -617,7 +617,7 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"proposals",   "creategovcfp",          &creategovcfp,          {"data", "inputs"} },
-    {"proposals",   "creategovvoc",          &creategovvoc,          {"title", "inputs"} },
+    {"proposals",   "creategovvoc",          &creategovvoc,          {"title", "context", "inputs"} },
     {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
     {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode"} },
     {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },
