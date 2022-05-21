@@ -638,7 +638,7 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                                                        "ownerAddress":"", \
                                                                                                                                                                        "backingId":"blablabla", \
                                                                                                                                                                        "mintLimit":10.00000000}}'}})
-        assert_raises_rpc_error(-3, "Amount out of range", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
+        assert_raises_rpc_error(-5, "mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                                                                                                        "ownerAddress":"' + owner +'", \
                                                                                                                                                        "backingId":"blablabla", \
                                                                                                                                                        "mintLimit":-10.00000000}}'}})

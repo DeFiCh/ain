@@ -9,13 +9,14 @@
 #include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
+#include <masternodes/mn_rpc.h> /// ScriptToString
 
 #include <core_io.h> /// ValueFromAmount
+#include <rpc/util.h> /// AmountFromValue
+
 #include <util/strencodings.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
-extern std::string ScriptToString(CScript const& script);
-extern CAmount AmountFromValue(const UniValue& value);
 extern CScript DecodeScript(std::string const& str);
 
 static inline std::string trim_all_ws(std::string s) {
@@ -324,7 +325,9 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
             return Res::Err("Empty ownerAddress in consortium member data!");
 
         member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGHT);
-        member.mintLimit = AmountFromValue(value["mintLimit"].getValStr());
+        if (!AmountFromValue(value["mintLimit"], member.mintLimit)) {
+            return Res::Err("mint limit is an invalid amount");
+        }
 
         if (!value["status"].isNull())
         {
