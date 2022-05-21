@@ -14,7 +14,11 @@ bool ICX_TAKERFEE_PER_BTC::IsEmpty() const
 
 Res ICX_TAKERFEE_PER_BTC::Import(const UniValue & val)
 {
-    takerFeePerBTC = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    takerFeePerBTC = amount;
     return Res::Ok();
 }
 

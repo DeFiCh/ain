@@ -22,7 +22,11 @@ Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val)
         const auto id = DCT_ID::FromString(key);
         if (!id)
             return std::move(id);
-        splits.emplace(*id.val, AmountFromValue(val[key]));
+        CAmount amount;
+        if (!AmountFromValue(val[key], amount)) {
+            return Res::Err("Invalid amount");
+        }
+        splits.emplace(*id.val, amount);
     }
     return Res::Ok();
 }

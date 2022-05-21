@@ -15,7 +15,11 @@ bool ORACLE_DEVIATION::IsEmpty() const
 
 Res ORACLE_DEVIATION::Import(const UniValue & val)
 {
-    deviation = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    deviation = amount;
     return Res::Ok();
 }
 
