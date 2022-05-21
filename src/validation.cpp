@@ -2274,7 +2274,7 @@ void PruneUndos(CUndosView& view, const int height) {
 
 
 static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
-    bool opcodes{false};
+    uint8_t opcodes{HasForks::None};
     std::vector<unsigned char> metadata;
     uint32_t type;
     uint32_t metaId;
