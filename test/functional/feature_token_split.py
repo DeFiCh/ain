@@ -335,6 +335,10 @@ class TokenSplitTest(DefiTestFramework):
         # Set extra Gov vars for token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/dfip2203':'true',
                                             f'v0/token/{self.idTSLA}/loan_payback/{self.idDUSD}': 'true',
+                                            f'v0/token/{self.idGOOGL}/loan_payback/{self.idTSLA}': 'true',
+                                            f'v0/token/{self.idTSLA}/loan_payback/{self.idTSLA}': 'true',
+                                            f'v0/token/{self.idGOOGL}/loan_payback_fee_pct/{self.idTSLA}': '0.25',
+                                            f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}': '0.25',
                                             f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idDUSD}': '0.25'}})
         self.nodes[0].generate(1)
 
@@ -376,7 +380,11 @@ class TokenSplitTest(DefiTestFramework):
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result[f'v0/token/{self.idTSLA}/dfip2203'], 'true')
         assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback/{self.idDUSD}'], 'true')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_payback/{self.idTSLA}'], 'true')
+        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback/{self.idTSLA}'], 'true')
         assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idDUSD}'], '0.25')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
+        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
 
         # Check new balances
         for [address, amount] in funded_addresses:
@@ -411,7 +419,6 @@ class TokenSplitTest(DefiTestFramework):
 
         # Check pool before split
         result = self.nodes[0].getpoolpair(self.idGD)[self.idGD]
-        print(result)
         assert_equal(result['reserveA'], self.poolGDTotal)
         assert_equal(result['reserveB'], self.poolGDTotal)
         assert_equal(result['reserveA/reserveB'], Decimal('1.00000000'))

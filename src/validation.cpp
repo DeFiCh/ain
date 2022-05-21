@@ -4279,10 +4279,20 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->attributes) {
-            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token && v0Key->typeId == oldTokenId.v) {
-                CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                attributes->SetValue(newKey, value);
-                eraseKeys.push_back(*v0Key);
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+                if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->typeId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                }
             }
         }
 
