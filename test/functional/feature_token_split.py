@@ -154,6 +154,38 @@ class TokenSplitTest(DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        self.nodes[0].createpoolpair({
+            "tokenA": self.symbolDUSD,
+            "tokenB": self.symbolDFI,
+            "commission": Decimal('0.001'),
+            "status": True,
+            "ownerAddress": self.address
+        }, [])
+        self.nodes[0].generate(1)
+
+        self.nodes[0].createpoolpair({
+            "tokenA": self.symbolDUSD,
+            "tokenB": self.symbolNVDA,
+            "commission": Decimal('0.001'),
+            "status": True,
+            "ownerAddress": self.address
+        }, [])
+        self.nodes[0].generate(1)
+
+        # Fund address for pool
+        self.nodes[0].utxostoaccount({self.address: f'100@{self.symbolDFI}'})
+        self.nodes[0].minttokens([f'200@{self.idDUSD}', f'100@{self.idNVDA}'])
+        self.nodes[0].generate(1)
+
+        # Fund pools
+        self.nodes[0].addpoolliquidity({
+            self.address: [f'100@{self.symbolDUSD}', f'100@{self.symbolDFI}']
+        }, self.address)
+        self.nodes[0].addpoolliquidity({
+            self.address: [f'100@{self.symbolDUSD}', f'100@{self.symbolNVDA}']
+        }, self.address)
+        self.nodes[0].generate(1)
+
         # Store pool ID
         self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
 
@@ -197,7 +229,7 @@ class TokenSplitTest(DefiTestFramework):
                 # Deposit random collateral
                 collateral = round(random.uniform(1, 100), 8)
                 loan = truncate(str(collateral / 3), 8)
-                self.nodes[0].deposittovault(vault_id, self.address, f'{str(collateral)}@DFI')
+                self.nodes[0].deposittovault(vault_id, self.address, f'{str(collateral)}@{self.symbolDFI}')
                 self.nodes[0].generate(1)
 
                 # Take loan
@@ -490,8 +522,9 @@ class TokenSplitTest(DefiTestFramework):
         # Gather pre-split info to compare later
         pre_get_interest = self.nodes[0].getinterest('LOAN0001', 'NVDA')[0]
         for vault_info in self.nodes[0].listvaults():
-            vault = self.nodes[0].getvault(vault_info['vaultId'])
-            self.vault_balances.append([vault_info['vaultId'], vault])
+            if self.skip_vault != vault_info['vaultId']:
+                vault = self.nodes[0].getvault(vault_info['vaultId'])
+                self.vault_balances.append([vault_info['vaultId'], vault])
 
         # Move to split block
         self.nodes[0].generate(1)
@@ -532,6 +565,31 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def vault_split(self):
+
+        # Create vault to test split after payback
+        self.skip_vault = self.nodes[0].createvault(self.address, '')
+        self.nodes[0].generate(1)
+
+        # Deposit to vault
+        self.nodes[0].deposittovault(self.skip_vault, self.address, f'100@{self.symbolDFI}')
+        self.nodes[0].generate(1)
+
+        # Take loan
+        self.nodes[0].takeloan({
+            'vaultId': self.skip_vault,
+            'amounts': f'100@{self.symbolNVDA}'
+        })
+        self.nodes[0].generate(1)
+
+        # Payback loan
+        result = self.nodes[0].getvault(self.skip_vault)
+        self.nodes[0].paybackloan({
+            'vaultId': self.skip_vault,
+            'from': self.address,
+            'amounts': result['loanAmounts'][0]
+        })
+        self.nodes[0].generate(1)
+
         # Multiplier 2
         self.execute_vault_split(self.idNVDA, self.symbolNVDA, 2, '/v1')
 
