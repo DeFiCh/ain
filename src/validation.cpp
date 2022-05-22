@@ -2868,6 +2868,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     // Add to existing ATTRIBUTES instead of overwriting.
                     if (var->GetName() == "ATTRIBUTES") {
                         auto govVar = mnview.GetAttributes();
+                        govVar->time = pindex->GetBlockTime();
                         if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                             govCache.Flush();
                         }
