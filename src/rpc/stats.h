@@ -54,7 +54,7 @@ struct RPCStats {
 class CRPCStats
 {
 private:
-    CLockFreeMutex lock_stats;
+    std::atomic_bool lock_stats{false};
     std::map<std::string, RPCStats> map;
     std::atomic_bool active{DEFAULT_RPC_STATS};
 
