@@ -199,8 +199,6 @@ public:
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
-    static const std::map<TokenKeys, CAttributeValue> tokenKeysToType;
-    static const std::map<PoolKeys, CAttributeValue> poolKeysToType;
 
 private:
     bool futureBlockUpdated{};

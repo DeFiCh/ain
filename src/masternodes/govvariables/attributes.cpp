@@ -148,23 +148,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
     return keys;
 }
 
-const std::map<TokenKeys, CAttributeValue> ATTRIBUTES::tokenKeysToType {
-        {TokenKeys::PaybackDFI,            bool{}},
-        {TokenKeys::PaybackDFIFeePCT,      CAmount{}},
-        {TokenKeys::DexInFeePct,           CAmount{}},
-        {TokenKeys::DexOutFeePct,          CAmount{}},
-        {TokenKeys::FixedIntervalPriceId,  CTokenCurrencyPair{}},
-        {TokenKeys::LoanCollateralEnabled, bool{}},
-        {TokenKeys::LoanCollateralFactor,  CAmount{}},
-        {TokenKeys::LoanMintingEnabled,    bool{}},
-        {TokenKeys::LoanMintingInterest,   CAmount{}},
-};
-
-const std::map<PoolKeys, CAttributeValue> ATTRIBUTES::poolKeysToType {
-        {PoolKeys::TokenAFeePCT,      CAmount{}},
-        {PoolKeys::TokenBFeePCT,      CAmount{}},
-};
-
 const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys() {
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
         {
