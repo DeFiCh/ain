@@ -40,6 +40,7 @@
 #include <policy/settings.h>
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
+#include <rpc/stats.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <scheduler.h>
@@ -591,6 +592,7 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -2065,6 +2067,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         ));
     }
+
+    if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS)) statsRPC.setActive(false);
 
     return true;
 }
