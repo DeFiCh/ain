@@ -375,7 +375,7 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>",
+        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>", "-stop-block=<hash|height",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -1287,6 +1287,34 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &heightStore) {
+    // Experimental: Block height or hash to invalidate on and stop sync
+    auto val = gArgs.GetArg(argName, "");
+    auto flagName = argName.substr(1);
+    if (val.empty())
+        return false;
+    if (val.size() == 64) {
+        hashStore = val;
+        LogPrintf("flag: %s hash: %s\n", flagName, hashStore);
+    } else {
+        std::stringstream ss(val);
+        ss >> heightStore;
+       if (heightStore) {
+            LogPrintf("flag: %s height: %d\n", flagName, heightStore);
+       } else {
+            LogPrintf("%s: invalid hash or height provided: %s\n", flagName, val);
+       }
+    }
+    return true;
+}
+
+void SetupInterrupts() {
+    auto isSet = false;
+    isSet = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight) || isSet;
+    isSet = SetupInterruptArg("-stop-block", fStopBlockHash, fStopBlockHeight) || isSet;
+    fStopOrInterrupt = isSet;
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1503,23 +1531,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     // Setup interrupts
-
-    // Experimental: Block height or hash to invalidate on and stop sync
-    auto interruptBlock = gArgs.GetArg("-interrupt-block", "");
-    if (!interruptBlock.empty()) {
-        if (interruptBlock.size() == 64) {
-            fInterruptBlockHash = interruptBlock;
-            LogPrintf("flag: interrupt block hash: %s\n", fInterruptBlockHash);
-        } else {
-            try {
-                fInterruptBlockHeight = std::stoi(interruptBlock);
-                LogPrintf("flag: interrupt block height: %d\n", fInterruptBlockHeight);
-            } catch (...) {
-                LogPrintf("interrupt-block: invalid hash or height provided: %s\n", interruptBlock);
-                throw;
-            };
-        }
-    }
+    SetupInterrupts();
 
     // ********************************************************* Step 7: load block chain
 

@@ -161,8 +161,12 @@ extern int nScriptCheckThreads;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
+
+extern bool fStopOrInterrupt;
 extern std::string fInterruptBlockHash;
 extern int fInterruptBlockHeight;
+extern std::string fStopBlockHash;
+extern int fStopBlockHeight;
 
 extern size_t nCoinCacheUsage;
 extern size_t nCustomMemUsage;
