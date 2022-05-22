@@ -4188,11 +4188,6 @@ static Res VaultSplits(CCustomCSView& view, CFutureSwapView& futureSwapView, ATT
     });
 
     for (auto& [vaultId, rate, schemeId] : loanInterestRates) {
-        auto amounts = view.GetLoanTokens(vaultId);
-        if (!amounts) {
-            return Res::Err("Failed to get loan token amounts.");
-        }
-
         CAmount loanSchemeRate{0};
         try {
             loanSchemeRate = loanSchemes.at(schemeId);
@@ -4202,7 +4197,12 @@ static Res VaultSplits(CCustomCSView& view, CFutureSwapView& futureSwapView, ATT
 
         view.EraseInterestDirect(vaultId, oldTokenId);
         rate.interestToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
-        rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+
+        auto amounts = view.GetLoanTokens(vaultId);
+        if (amounts) {
+            rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+        }
+
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, height);
     }
 
