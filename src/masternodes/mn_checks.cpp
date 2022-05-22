@@ -953,9 +953,11 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
-
+                } else {
+                    return false;
+                }
     return true;
 }
