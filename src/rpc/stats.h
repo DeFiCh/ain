@@ -6,7 +6,7 @@
 #include <univalue.h>
 #include <util/time.h>
 #include <util/system.h>
-
+#include <optional>
 #include <boost/circular_buffer.hpp>
 
 const char * const DEFAULT_STATSFILE = "stats.log";
@@ -39,9 +39,10 @@ struct RPCStats {
 
     RPCStats() : history(RPC_STATS_HISTORY_SIZE) {}
 
-    RPCStats(const std::string& name, int64_t latency, int64_t payload) : name(name), latency(latency), payload(payload), history(RPC_STATS_HISTORY_SIZE) {
-        lastUsedTime = GetSystemTimeInSeconds();
-        count = 1;
+    RPCStats(const std::string& name, int64_t latency, int64_t payload) : 
+        name(name), latency(latency), payload(payload), history(RPC_STATS_HISTORY_SIZE) {
+            lastUsedTime = GetSystemTimeInSeconds();
+            count = 1;
     };
 
     UniValue toJSON();
@@ -59,58 +60,14 @@ private:
     std::atomic_bool active{DEFAULT_RPC_STATS};
 
 public:
-    bool isActive() {
-        return active.load();
-    }
-    void setActive(bool isActive) {
-        active.store(isActive);
-    }
-
+    bool isActive();
+    void setActive(bool isActive);
     void add(const std::string& name, const int64_t latency, const int64_t payload);
-
-    std::optional<RPCStats> get(const std::string& name) {
-        CLockFreeGuard lock(lock_stats);
-
-        auto it = map.find(name);
-        if (it == map.end()) {
-            return {};
-        }
-        return it->second;
-    };
-    std::map<std::string, RPCStats> getMap() {
-        CLockFreeGuard lock(lock_stats);
-        return map;
-    };
+    std::optional<RPCStats> get(const std::string& name);
+    std::map<std::string, RPCStats> getMap();
     UniValue toJSON();
-
-    void save() {
-        fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
-        fsbridge::ofstream file(statsPath);
-
-        file << toJSON().write() << '\n';
-        file.close();
-    };
-
-    void load() {
-        fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
-        fsbridge::ifstream file(statsPath);
-        if (!file.is_open()) return;
-
-        std::string line;
-        file >> line;
-
-        if (!line.size()) return;
-
-        UniValue arr(UniValue::VARR);
-        arr.read((const std::string)line);
-
-        CLockFreeGuard lock(lock_stats);
-        for (const auto &val : arr.getValues()) {
-            auto name = val["name"].get_str();
-            map[name] = RPCStats::fromJSON(val);
-        }
-        file.close();
-    };
+    void save();
+    void load();
 };
 
 extern CRPCStats statsRPC;

@@ -375,7 +375,7 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb",
+        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -809,6 +809,8 @@ static bool InitSanityCheck()
 
 static bool AppInitServers()
 {
+    if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS))
+        statsRPC.setActive(false);
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
     if (!InitHTTPServer())
@@ -1500,6 +1502,25 @@ bool AppInitMain(InitInterfaces& interfaces)
         nMaxOutboundLimit = gArgs.GetArg("-maxuploadtarget", DEFAULT_MAX_UPLOAD_TARGET)*1024*1024;
     }
 
+    // Setup interrupts
+
+    // Experimental: Block height or hash to invalidate on and stop sync
+    auto interruptBlock = gArgs.GetArg("-interrupt-block", "");
+    if (!interruptBlock.empty()) {
+        if (interruptBlock.size() == 64) {
+            fInterruptBlockHash = interruptBlock;
+            LogPrintf("flag: interrupt block hash: %s\n", fInterruptBlockHash);
+        } else {
+            try {
+                fInterruptBlockHeight = std::stoi(interruptBlock);
+                LogPrintf("flag: interrupt block height: %d\n", fInterruptBlockHeight);
+            } catch (...) {
+                LogPrintf("interrupt-block: invalid hash or height provided: %s\n", interruptBlock);
+                throw;
+            };
+        }
+    }
+
     // ********************************************************* Step 7: load block chain
 
     fReindex = gArgs.GetBoolArg("-reindex", false);
@@ -2068,8 +2089,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         ));
     }
-
-    if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS)) statsRPC.setActive(false);
 
     return true;
 }

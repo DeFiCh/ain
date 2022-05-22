@@ -161,6 +161,9 @@ extern int nScriptCheckThreads;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
+extern std::string fInterruptBlockHash;
+extern int fInterruptBlockHeight;
+
 extern size_t nCoinCacheUsage;
 extern size_t nCustomMemUsage;
 /** A fee rate smaller than this is considered zero fee (for relaying, mining and transaction creation) */

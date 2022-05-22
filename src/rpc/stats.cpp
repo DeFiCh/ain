@@ -1,7 +1,53 @@
 #include <rpc/stats.h>
-
 #include <rpc/server.h>
 #include <rpc/util.h>
+
+bool CRPCStats::isActive() { return active.load(); }
+void CRPCStats::setActive(bool isActive) { active.store(isActive); }
+
+std::optional<RPCStats> CRPCStats::get(const std::string& name) {
+    CLockFreeGuard lock(lock_stats);
+
+    auto it = map.find(name);
+    if (it == map.end()) {
+        return {};
+    }
+    return it->second;
+}
+
+std::map<std::string, RPCStats> CRPCStats::getMap() {
+    CLockFreeGuard lock(lock_stats);
+    return map;
+}
+
+void CRPCStats::save() {
+    fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
+    fsbridge::ofstream file(statsPath);
+
+    file << toJSON().write() << '\n';
+    file.close();
+}
+
+void CRPCStats::load() {
+    fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
+    fsbridge::ifstream file(statsPath);
+    if (!file.is_open()) return;
+
+    std::string line;
+    file >> line;
+
+    if (!line.size()) return;
+
+    UniValue arr(UniValue::VARR);
+    arr.read((const std::string)line);
+
+    CLockFreeGuard lock(lock_stats);
+    for (const auto &val : arr.getValues()) {
+        auto name = val["name"].get_str();
+        map[name] = RPCStats::fromJSON(val);
+    }
+    file.close();
+}
 
 UniValue RPCStats::toJSON() {
     UniValue stats(UniValue::VOBJ),

@@ -136,6 +136,9 @@ bool fHavePruned = false;
 bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
+std::string fInterruptBlockHash = "";
+int fInterruptBlockHeight = 0;
+
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
 uint64_t nPruneTarget = 0;
@@ -2314,6 +2317,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
+
+    // Interrupt on hash or height requested. Invalidate the block.
+    if (fInterruptBlockHeight == pindex->nHeight || 
+    (!fInterruptBlockHash.empty() && fInterruptBlockHash == pindex->phashBlock->ToString())) {
+        return state.Invalid(
+                    ValidationInvalidReason::CONSENSUS,
+                    error("ConnectBlock(): user interrupt"),
+                    REJECT_INVALID,
+                    "user-interrupt-request");
+    }
 
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
