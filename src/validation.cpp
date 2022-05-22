@@ -3549,11 +3549,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->attributes[burnKey] = burned;
-    attributes->attributes[mintedKey] = minted;
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, std::move(balances));
     }
 
     cache.SetVariable(*attributes);
@@ -3910,16 +3910,16 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             }
 
             std::vector<CDataStructureV0> eraseKeys;
-            for (const auto& [key, value] : attributes.attributes) {
+            for (const auto& [key, value] : attributes.GetAttributesMap()) {
                 if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
-                    attributes.attributes[newKey] = value;
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 }
             }
 
             for (const auto& key : eraseKeys) {
-                attributes.attributes.erase(key);
+                attributes.EraseKey(key);
             }
 
             res = UpdateLiquiditySplits<LP_SPLITS>(view, oldPoolId, newPoolId, pindex->nHeight);
@@ -3978,8 +3978,8 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
     }
 
-    attributes.attributes.erase(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
-    attributes.attributes[CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}] = true;
+    attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
+    attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
     auto res = attributes.Apply(view, height);
     if (!res) {
@@ -4098,33 +4098,33 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         const DCT_ID newTokenId{resVal.val->v};
 
         std::vector<CDataStructureV0> eraseKeys;
-        for (const auto& [key, value] : attributes->attributes) {
+        for (const auto& [key, value] : attributes->GetAttributesMap()) {
             if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
                 if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
-                    attributes->attributes[newKey] = value;
+                    attributes->SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->typeId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                    attributes->attributes[newKey] = value;
+                    attributes->SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
-                    attributes->attributes[newKey] = value;
+                    attributes->SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 }
             }
         }
 
         for (const auto& key : eraseKeys) {
-            attributes->attributes.erase(key);
+            attributes->EraseKey(key);
         }
 
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->attributes[newAscendantKey] = AscendantValue{oldTokenId.v, "split"};
+        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->attributes[descendantKey] = DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)};
+        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
         CAmount totalBalance{0};
 

@@ -1585,7 +1585,7 @@ public:
             balances.Add(obj.source);
         }
 
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, balances);
 
         mnview.SetVariable(*attributes);
 
@@ -3183,7 +3183,7 @@ public:
 
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -3196,7 +3196,7 @@ public:
 
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 

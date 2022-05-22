@@ -163,6 +163,21 @@ public:
         return std::move(value);
     }
 
+    template<typename K, typename T>
+    void SetValue(const K& key, T&& value) {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        static_assert(std::is_convertible_v<T, CAttributeValue>);
+        changed.insert(key);
+        attributes[key] = std::forward<T>(value);
+    }
+
+    template<typename K>
+    void EraseKey(const K& key) {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
+        changed.insert(key);
+        attributes.erase(key);
+    }
+
     template<typename K>
     [[nodiscard]] bool CheckKey(const K& key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
@@ -182,6 +197,10 @@ public:
         }
     }
 
+    [[nodiscard]] const std::map<CAttributeType, CAttributeValue>& GetAttributesMap() const {
+        return attributes;
+    }
+
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
@@ -190,7 +209,6 @@ public:
         READWRITE(attributes);
     }
 
-    std::map<CAttributeType, CAttributeValue> attributes;
     uint32_t time{0};
 
     // For formatting in export
@@ -201,7 +219,10 @@ public:
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
 private:
+    friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<CAttributeType> changed;
+    std::map<CAttributeType, CAttributeValue> attributes;
 
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
