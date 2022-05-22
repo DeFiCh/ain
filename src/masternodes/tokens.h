@@ -140,10 +140,8 @@ struct CMintTokensMessage : public CBalances {
 struct CBurnTokensMessage {
     enum BurnType : uint8_t
     {
-        TokenBurn = 0,
-        PoolBurn = 0x01,
+        TokenBurn = 0
     };
-    static const uint8_t MAX_BURN_CONTEXT_LENGHT = 64;
 
     CBalances amounts;
     CScript from;

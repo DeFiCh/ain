@@ -60,7 +60,7 @@ protected:
     Res AddBalancesSetShares(const CAccounts& accounts) const;
     Res SubBalancesDelShares(const CAccounts& accounts) const;
     Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
-    ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token, bool checkOnlyFoundationForDAT) const;
+    ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript& from, const CScript& to) const;
     ResVal<CCollateralLoans> CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const;
     Res CheckNextCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals) const;
