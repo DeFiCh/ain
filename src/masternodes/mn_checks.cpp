@@ -1132,6 +1132,10 @@ public:
             return Res::Err("wrong commission");
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight) && obj.pairSymbol.find('/') != std::string::npos) {
+            return Res::Err("token symbol should not contain '/'");
+        }
+
         /// @todo ownerAddress validity checked only in rpc. is it enough?
         CPoolPair poolPair(obj.poolPair);
         auto pairSymbol = obj.pairSymbol;
