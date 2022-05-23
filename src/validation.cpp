@@ -4041,6 +4041,11 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
+    if (!splits.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+    }
+
     for (const auto& [id, multiplier] : splits) {
 
         if (!cache.AreTokensLocked({id})) {
@@ -4185,8 +4190,34 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
                 continue;
             }
-            view.SetVariable(*attributes);
         }
+
+        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
+        for (const auto& [key, value] : attributes->GetAttributesMap()) {
+            if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
+                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
+                if (const auto splitMap = boost::get<OracleSplits>(&value)) {
+                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
+                        if (splitMapKey == oldTokenId.v) {
+                            auto copyMap{*splitMap};
+                            copyMap.erase(splitMapKey);
+                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const auto& [key, value] : updateAttributesKeys) {
+            if (value.empty()) {
+                attributes->EraseKey(key);
+            } else {
+                attributes->SetValue(key, value);
+            }
+        }
+
+        view.SetVariable(*attributes);
 
         view.Flush();
     }
