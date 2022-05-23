@@ -623,11 +623,14 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     return Res::Ok();
 }
 
-UniValue ATTRIBUTES::Export() const {
+UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
         auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
         if (!attrV0) {
+            continue;
+        }
+        if (filter == GovVarsFilter::LiveAttributes && attrV0->type != AttributeTypes::Live) {
             continue;
         }
         try {
@@ -649,6 +652,12 @@ UniValue ATTRIBUTES::Export() const {
 
             if (attrV0->IsExtendedSize()) {
                 key = KeyBuilder(key, attrV0->keyId);
+            }
+
+            if (filter == GovVarsFilter::PrefixedAttributes) {
+                if (key.compare(0, prefix.size(), prefix) != 0) {
+                    continue;
+                }
             }
 
             if (auto bool_val = boost::get<const bool>(&attribute.second)) {
@@ -685,6 +694,10 @@ UniValue ATTRIBUTES::Export() const {
         }
     }
     return ret;
+}
+
+UniValue ATTRIBUTES::Export() const {
+    return ExportFiltered(GovVarsFilter::All, "");
 }
 
 Res ATTRIBUTES::Validate(const CCustomCSView & view) const
