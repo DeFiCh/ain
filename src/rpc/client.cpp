@@ -314,6 +314,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },
+    { "listgovs", 0, "prefix" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },

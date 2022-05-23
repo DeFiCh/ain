@@ -693,36 +693,40 @@ UniValue listgovs(const JSONRPCRequest& request) {
                "\nReturns information about all governance variables including pending changes\n",
                {
                    {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "One of -all, -legacy, -gov or prefix of attributes to filter with."},
+                       "One of all, legacy, gov, live. Any other string is treated as a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
                },
                RPCResult{
                        "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("listgovs", "")
-                       + HelpExampleCli("listgovs", "-gov")
+                       + HelpExampleCli("listgovs", "gov")
+                       + HelpExampleCli("listgovs", "live")
                        + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleCli("listgovs", "token/15")
                        + HelpExampleRpc("listgovs", "")
-                       + HelpExampleRpc("listgovs", "token/")
+                       + HelpExampleRpc("listgovs", "live")
+                       + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleRpc("listgovs", "token/15")
                },
     }.Check(request);
 
     GovVarsFilter mode;
-    std::string prefix = "";
+    std::string prefix;
     if (request.params.size() > 0) {
         prefix = request.params[0].getValStr();
     }
     if (prefix.empty()) {
-        prefix = "-legacy";
+        prefix = "legacy";
     }
 
-    if (prefix == "-all") {
+    if (prefix == "all") {
         mode = GovVarsFilter::All;
-    } else if (prefix == "-legacy") {
+    } else if (prefix == "legacy") {
         mode = GovVarsFilter::Legacy;
-    } else if (prefix == "-gov") {
+    } else if (prefix == "gov") {
         mode = GovVarsFilter::NoAttributes;
-    } else if (prefix == "-live") {
+    } else if (prefix == "live") {
         mode = GovVarsFilter::LiveAttributes;
     } else {
         mode = GovVarsFilter::PrefixedAttributes;
