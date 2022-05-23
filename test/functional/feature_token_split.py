@@ -392,7 +392,7 @@ class TokenSplitTest(DefiTestFramework):
     def revert(self, block):
         blockhash = self.nodes[0].getblockhash(block)
         self.nodes[0].invalidateblock(blockhash)
-
+        self.nodes[0].clearmempool()
 
     def check_tributes_on_split(self, poolId, tokenId, revert=False):
         self.nodes[0].generate(10)
