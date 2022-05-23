@@ -28,7 +28,19 @@ class TokenSplitTest(DefiTestFramework):
         self.GREAT_WORLD_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-greatworldheight={self.GREAT_WORLD_HEIGHT}', '-subsidytest=1', '-jellyfish_regtest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=150', '-subsidytest=1']]
+
+    def run_test(self):
+        self.setup_test_tokens()
+        self.token_split()
+        self.setup_test_pools()
+        self.pool_split()
+        self.setup_test_vaults()
+        self.vault_split()
+        self.check_govvar_deletion()
+
+    def setup_test_tokens(self):
+        self.nodes[0].generate(101)
 
     def setup_oracles(self):
         # Symbols

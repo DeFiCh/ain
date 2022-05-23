@@ -249,6 +249,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostFortCanningCrunchFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningCrunchHeight) {
+            return Res::Err("called before FortCanningCrunch height");
+        }
+        return Res::Ok();
+    }
+
     Res isPostGreatWorldFork() const {
         if(static_cast<int>(height) < consensus.GreatWorldHeight) {
             return Res::Err("called before GreatWorldHeight height");
@@ -520,26 +527,20 @@ public:
 
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (!res)
-            return res;
-        res = isPostGreatWorldFork();
-        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanSetLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (!res)
-            return res;
-        res = isPostGreatWorldFork();
-        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostGreatWorldFork();
-        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
+        res = isPostFortCanningCrunchFork();
+        return res ? Res::Err("called after FortCanningCrunch height") : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {
@@ -1129,6 +1130,10 @@ public:
         }
         if (obj.poolPair.commission < 0 || obj.poolPair.commission > COIN) {
             return Res::Err("wrong commission");
+        }
+
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight) && obj.pairSymbol.find('/') != std::string::npos) {
+            return Res::Err("token symbol should not contain '/'");
         }
 
         /// @todo ownerAddress validity checked only in rpc. is it enough?
@@ -2303,14 +2308,40 @@ public:
         if (!res)
             return res;
 
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member!");
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        {
+            const auto& tokenId = obj.idToken.v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
+            CDataStructureV0 collateralFactor{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralFactor};
+            CDataStructureV0 pairKey{AttributeTypes::Token, tokenId, TokenKeys::FixedIntervalPriceId};
+
+            attributes->SetValue(collateralEnabled, true);
+            attributes->SetValue(collateralFactor, obj.factor);
+            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         CLoanSetCollateralTokenImplementation collToken;
         static_cast<CLoanSetCollateralToken&>(collToken) = obj;
 
         collToken.creationTx = tx.GetHash();
         collToken.creationHeight = height;
-
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member!");
 
         auto token = mnview.GetToken(collToken.idToken);
         if (!token)
@@ -2349,45 +2380,72 @@ public:
         if (!res)
             return res;
 
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member!");
+
+        if (obj.interest < 0) {
+            return Res::Err("interest rate cannot be less than 0!");
+        }
+
+        CTokenImplementation token;
+        token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx = tx.GetHash();
+        token.creationHeight = height;
+        token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default) : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+        token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
+
+        auto tokenId = mnview.CreateToken(token);
+        if (!tokenId)
+            return std::move(tokenId);
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        {
+            const auto& id = tokenId.val->v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
+            CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
+
+            attributes->SetValue(mintEnabled, obj.mintable);
+            attributes->SetValue(mintInterest, obj.interest);
+            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         CLoanSetLoanTokenImplementation loanToken;
         static_cast<CLoanSetLoanToken&>(loanToken) = obj;
 
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
-        CFixedIntervalPrice fixedIntervalPrice;
-        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
-
-        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        auto nextPrice = GetAggregatePrice(mnview, obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second, time);
         if (!nextPrice)
             return Res::Err(nextPrice.msg);
 
+        if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
 
-        LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
-
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member!");
-
-        if (!OraclePriceFeed(mnview, loanToken.fixedIntervalPriceId))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
-
-        CTokenImplementation token;
-        token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
-        token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
-
-        token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.creationTx = tx.GetHash();
-        token.creationHeight = height;
-
-        auto tokenId = mnview.CreateToken(token);
-        if (!tokenId)
-            return std::move(tokenId);
 
         return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }

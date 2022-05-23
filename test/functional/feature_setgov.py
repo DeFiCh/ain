@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-greatworldheight=1200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -630,13 +630,13 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result, [[{'ICX_TAKERFEE_PER_BTC': Decimal('0.00200000')}], [{'LP_DAILY_LOAN_TOKEN_REWARD': Decimal('13020.86331792')}], [{'LP_LOAN_TOKEN_SPLITS': {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')}}], [{'LP_DAILY_DFI_REWARD': Decimal('13427.10581184')}], [{'LOAN_LIQUIDATION_PENALTY': Decimal('0.01000000')}], [{'LP_SPLITS': {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')}}], [{'ORACLE_BLOCK_INTERVAL': 30}], [{'ORACLE_DEVIATION': Decimal('0.07000000')}], [{'ATTRIBUTES': {'v0/params/dfip2201/active': 'true', 'v0/params/dfip2201/premium': '0.025', 'v0/params/dfip2201/minswap': '0.001', 'v0/params/dfip2203/active': 'true', 'v0/params/dfip2203/reward_pct': '0.05', 'v0/params/dfip2203/block_period': '20160', 'v0/token/5/payback_dfi': 'true', 'v0/token/5/payback_dfi_fee_pct': '0.33', 'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25', 'v0/token/5/dex_in_fee_pct': '0.6', 'v0/token/5/dex_out_fee_pct': '0.12', 'v0/token/5/dfip2203': 'true'}}]])
 
         # Check errors
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'TSLA/USD'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
 
         # Move to GW fork
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())

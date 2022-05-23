@@ -2350,7 +2350,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTimeStart = GetTimeMicros();
 
     // Interrupt on hash or height requested. Invalidate the block.
-    if (StopOrInterruptConnect(pindex, state)) 
+    if (StopOrInterruptConnect(pindex, state))
         return false;
 
     // Reset phanton TX to block TX count
@@ -3655,7 +3655,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
 
     // Migrate at +1 height so that GetLastHeight() in Gov var
     // Validate() has a height equal to the GW fork.
-    if (pindex->nHeight != chainparams.GetConsensus().GreatWorldHeight + 1) {
+    if (pindex->nHeight != chainparams.GetConsensus().FortCanningCrunchHeight + 1) {
         return;
     }
 
@@ -3787,18 +3787,16 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             size_t suffixCount{1};
             view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
-                if (pool.idTokenA == oldTokenId || pool.idTokenB == oldTokenId) {
-                    const auto tokenA = view.GetToken(pool.idTokenA);
-                    const auto tokenB = view.GetToken(pool.idTokenB);
-                    assert(tokenA);
-                    assert(tokenB);
-                    if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
-                        (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
-                        const auto poolToken = view.GetToken(poolId);
-                        assert(poolToken);
-                        if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
-                            ++suffixCount;
-                        }
+                const auto tokenA = view.GetToken(pool.idTokenA);
+                const auto tokenB = view.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
+                    (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
+                    const auto poolToken = view.GetToken(poolId);
+                    assert(poolToken);
+                    if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
+                        ++suffixCount;
                     }
                 }
                 return true;
@@ -4094,7 +4092,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 }
 
 void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningCrunchHeight) {
         return;
     }
     const auto attributes = cache.GetAttributes();
@@ -5562,7 +5560,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             if (block.vtx[i]->IsCoinBase() &&
                 !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
                 !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
-                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.GreatWorldHeight))
+                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningCrunchHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }

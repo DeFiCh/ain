@@ -136,6 +136,7 @@ class BlockchainTest(DefiTestFramework):
             'fortcanningpark': {'type': 'buried', 'active': False, 'height': 10000000},
             'fortcanninghill': {'type': 'buried', 'active': False, 'height': 10000000},
             'fortcanningroad': {'type': 'buried', 'active': False, 'height': 10000000},
+            'fortcanningcrunch': {'type': 'buried', 'active': False, 'height': 10000000},
             'greatworld': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
