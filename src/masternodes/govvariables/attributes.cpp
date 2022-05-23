@@ -623,6 +623,20 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     return Res::Ok();
 }
 
+// Keys to exclude when using the legacy filter mode, to keep things the 
+// same as pre 2.7.x versions, to reduce noise. Eventually, the APIs that 
+// cause too much noise can be deprecated and this code removed.
+std::set<uint32_t> legacyTokenKeysBlacklist = {
+    TokenKeys::LoanCollateralEnabled,
+    TokenKeys::LoanCollateralFactor,
+    TokenKeys::LoanMintingEnabled,
+    TokenKeys::LoanMintingInterest,
+    TokenKeys::FixedIntervalPriceId,
+    TokenKeys::Ascendant,
+    TokenKeys::Descendant,
+    TokenKeys::Epitaph,
+};
+
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
@@ -630,8 +644,13 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::LiveAttributes && attrV0->type != AttributeTypes::Live) {
-            continue;
+        if (filter == GovVarsFilter::LiveAttributes && 
+            attrV0->type != AttributeTypes::Live) {
+                continue;
+        } else if (filter == GovVarsFilter::Legacy) {
+            if (attrV0->type == AttributeTypes::Token && 
+            legacyTokenKeysBlacklist.find(attrV0->key) != legacyTokenKeysBlacklist.end()) 
+                continue;
         }
         try {
             std::string id;
