@@ -136,6 +136,13 @@ bool fHavePruned = false;
 bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
+
+bool fStopOrInterrupt = false;
+std::string fInterruptBlockHash = "";
+int fInterruptBlockHeight = 0;
+std::string fStopBlockHash = "";
+int fStopBlockHeight = 0;
+
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
 uint64_t nPruneTarget = 0;
@@ -2304,6 +2311,33 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
     return false;
 }
 
+bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) {
+    if (!fStopOrInterrupt)
+        return false;
+
+    const auto checkMatch = [](const CBlockIndex *index, const int height, const std::string& hash) {
+        return height == index->nHeight || (!hash.empty() && hash == index->phashBlock->ToString());
+    };
+
+    // Stop is processed first. So, if a block has both stop and interrupt
+    // stop will take priority.
+    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash)) {
+        StartShutdown();
+        return true;
+    }
+
+    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
+        state.Invalid(
+                    ValidationInvalidReason::CONSENSUS,
+                    error("ConnectBlock(): user interrupt"),
+                    REJECT_INVALID,
+                    "user-interrupt-request");
+        return true;
+    }
+
+    return false;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2314,6 +2348,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
+
+    // Interrupt on hash or height requested. Invalidate the block.
+    if (StopOrInterruptConnect(pindex, state)) 
+        return false;
 
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
@@ -4218,7 +4256,6 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         view.SetVariable(*attributes);
-
         view.Flush();
     }
 }

@@ -89,6 +89,7 @@ src/univalue/gen
 Makefile
 !depends/Makefile
 background.tiff*
+configure~
 
 # Qt Creator
 Makefile.am.user
