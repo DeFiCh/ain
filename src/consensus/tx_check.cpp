@@ -117,9 +117,9 @@ bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & 
     return result;
 }
 
-bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningGreen)
+bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningCrunch)
 {
-    if (!fortCanningGreen) {
+    if (!fortCanningCrunch) {
         return false;
     }
     if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {

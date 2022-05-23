@@ -18,8 +18,8 @@ class VaultTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningspicegardenheight=1700', '-jellyfish_regtest=1', '-simulatemainnet'],
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningspicegardenheight=1700', '-jellyfish_regtest=1', '-simulatemainnet']
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700', '-jellyfish_regtest=1', '-simulatemainnet'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanninghillheight=300', '-fortcanningcrunchheight=1700', '-jellyfish_regtest=1', '-simulatemainnet']
             ]
         self.vaults = []
         self.owner_addresses = []
@@ -750,7 +750,7 @@ class VaultTest (DefiTestFramework):
         self.move_to_gw_fork()
 
         # Try and call disabled RPC calls
-        assert_raises_rpc_error(-32600, 'called after FortCanningSpiceGarden height', self.nodes[0].updateloantoken, "DUSD", {
+        assert_raises_rpc_error(-32600, 'called after FortCanningCrunch height', self.nodes[0].updateloantoken, "DUSD", {
             'symbol': "DUSD",
             'name': "DUSD stable token",
             'fixedIntervalPriceId': "DUSD/USD",
