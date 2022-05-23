@@ -360,7 +360,7 @@ public:
         consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
-        consensus.FortCanningSpiceGardenHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningSpiceGardenHeight = 1011600;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
