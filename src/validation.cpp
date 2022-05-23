@@ -3787,18 +3787,16 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             size_t suffixCount{1};
             view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
-                if (pool.idTokenA == oldTokenId || pool.idTokenB == oldTokenId) {
-                    const auto tokenA = view.GetToken(pool.idTokenA);
-                    const auto tokenB = view.GetToken(pool.idTokenB);
-                    assert(tokenA);
-                    assert(tokenB);
-                    if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
-                        (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
-                        const auto poolToken = view.GetToken(poolId);
-                        assert(poolToken);
-                        if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
-                            ++suffixCount;
-                        }
+                const auto tokenA = view.GetToken(pool.idTokenA);
+                const auto tokenB = view.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
+                    (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
+                    const auto poolToken = view.GetToken(poolId);
+                    assert(poolToken);
+                    if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
+                        ++suffixCount;
                     }
                 }
                 return true;
