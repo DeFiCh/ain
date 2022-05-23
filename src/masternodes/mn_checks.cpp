@@ -2379,29 +2379,32 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
+        if (obj.interest < 0) {
+            return Res::Err("interest rate cannot be less than 0!");
+        }
+
+        CTokenImplementation token;
+        token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx = tx.GetHash();
+        token.creationHeight = height;
+        token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default) : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+        token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
+
+        auto tokenId = mnview.CreateToken(token);
+        if (!tokenId)
+            return std::move(tokenId);
+
         if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
         {
-            CTokenImplementation token;
-            token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-            token.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-            token.creationTx = tx.GetHash();
-            token.creationHeight = height;
-            token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default) : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
-            token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
-
-            auto resVal = mnview.CreateToken(token);
-            if ( !resVal) {
-                return res;
-            }
-
-            const auto& tokenId = resVal.val->v;
+            const auto& id = tokenId.val->v;
 
             auto attributes = mnview.GetAttributes();
             attributes->time = time;
 
-            CDataStructureV0 mintEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanMintingEnabled};
-            CDataStructureV0 mintInterest{AttributeTypes::Token, tokenId, TokenKeys::LoanMintingInterest};
-            CDataStructureV0 pairKey{AttributeTypes::Token, tokenId, TokenKeys::FixedIntervalPriceId};
+            CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
+            CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
 
             attributes->SetValue(mintEnabled, obj.mintable);
             attributes->SetValue(mintInterest, obj.interest);
@@ -2424,36 +2427,21 @@ public:
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
-        CFixedIntervalPrice fixedIntervalPrice;
-        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
-
-        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        auto nextPrice = GetAggregatePrice(mnview, obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second, time);
         if (!nextPrice)
             return Res::Err(nextPrice.msg);
 
+        if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
 
-        LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
-
-        if (!OraclePriceFeed(mnview, loanToken.fixedIntervalPriceId))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
-
-        CTokenImplementation token;
-        token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
-        token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
-
-        token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.creationTx = tx.GetHash();
-        token.creationHeight = height;
-
-        auto tokenId = mnview.CreateToken(token);
-        if (!tokenId)
-            return std::move(tokenId);
 
         return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }

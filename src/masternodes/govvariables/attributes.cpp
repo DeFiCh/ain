@@ -916,7 +916,10 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     if (aggregatePrice) {
                         fixedIntervalPrice.priceRecord[1] = aggregatePrice;
                     }
-                    mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+                    const auto res = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+                    if (!res) {
+                        return res;
+                    }
                 } else {
                     return Res::Err("Unrecognised value for FixedIntervalPriceId");
                 }
