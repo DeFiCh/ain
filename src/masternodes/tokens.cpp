@@ -299,7 +299,7 @@ inline Res CTokenImplementation::IsValidSymbol() const
     if (symbol.find('#') != std::string::npos) {
         return Res::Err("token symbol should not contain '#'");
     }
-    if (creationHeight >= Params().GetConsensus().FortCanningSpiceGardenHeight && symbol.find('/') != std::string::npos) {
+    if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight && symbol.find('/') != std::string::npos) {
         return Res::Err("token symbol should not contain '/'");
     }
     return Res::Ok();

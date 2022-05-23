@@ -2350,7 +2350,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTimeStart = GetTimeMicros();
 
     // Interrupt on hash or height requested. Invalidate the block.
-    if (StopOrInterruptConnect(pindex, state)) 
+    if (StopOrInterruptConnect(pindex, state))
         return false;
 
     // Reset phanton TX to block TX count
@@ -2781,7 +2781,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         std::vector<DCT_ID> poolsToMigrate;
         accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
             if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                poolsToMigrate.push_back(poolId);
+                const auto tokenA = accountsView.GetToken(pool.idTokenA);
+                const auto tokenB = accountsView.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                    poolsToMigrate.push_back(poolId);
+                }
             }
             return true;
         });
@@ -3648,7 +3655,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
 
     // Migrate at +1 height so that GetLastHeight() in Gov var
     // Validate() has a height equal to the GW fork.
-    if (pindex->nHeight != chainparams.GetConsensus().FortCanningSpiceGardenHeight + 1) {
+    if (pindex->nHeight != chainparams.GetConsensus().FortCanningCrunchHeight + 1) {
         return;
     }
 
@@ -3763,7 +3770,7 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 }
 
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
-                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const std::string& newTokenSuffix, const int32_t multiplier) {
+                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
     try {
         assert(creationTxs.count(oldTokenId.v));
@@ -3778,7 +3785,26 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             newPoolToken.creationTx = creationTx;
             newPoolToken.minted = 0;
 
-            oldPoolToken->symbol += newTokenSuffix;
+            size_t suffixCount{1};
+            view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
+                if (pool.idTokenA == oldTokenId || pool.idTokenB == oldTokenId) {
+                    const auto tokenA = view.GetToken(pool.idTokenA);
+                    const auto tokenB = view.GetToken(pool.idTokenB);
+                    assert(tokenA);
+                    assert(tokenB);
+                    if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
+                        (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
+                        const auto poolToken = view.GetToken(poolId);
+                        assert(poolToken);
+                        if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
+                            ++suffixCount;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            oldPoolToken->symbol += "/v" + std::to_string(suffixCount);
             oldPoolToken->flags |= static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
@@ -4068,7 +4094,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 }
 
 void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().FortCanningSpiceGardenHeight) {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningCrunchHeight) {
         return;
     }
     const auto attributes = cache.GetAttributes();
@@ -4171,7 +4197,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs,newTokenSuffix, multiplier);
+        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
             continue;
@@ -5536,7 +5562,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             if (block.vtx[i]->IsCoinBase() &&
                 !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
                 !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
-                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningSpiceGardenHeight))
+                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningCrunchHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }

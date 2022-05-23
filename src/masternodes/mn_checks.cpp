@@ -249,9 +249,9 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
-    Res isPostFortCanningSpiceGardenFork() const {
-        if(static_cast<int>(height) < consensus.FortCanningSpiceGardenHeight) {
-            return Res::Err("called before FortCanningSpiceGarden height");
+    Res isPostFortCanningCrunchFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningCrunchHeight) {
+            return Res::Err("called before FortCanningCrunch height");
         }
         return Res::Ok();
     }
@@ -539,8 +539,8 @@ public:
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostFortCanningSpiceGardenFork();
-        return res ? Res::Err("called after FortCanningSpiceGarden height") : serialize(obj);
+        res = isPostFortCanningCrunchFork();
+        return res ? Res::Err("called after FortCanningCrunch height") : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {
@@ -1130,6 +1130,10 @@ public:
         }
         if (obj.poolPair.commission < 0 || obj.poolPair.commission > COIN) {
             return Res::Err("wrong commission");
+        }
+
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight) && obj.pairSymbol.find('/') != std::string::npos) {
+            return Res::Err("token symbol should not contain '/'");
         }
 
         /// @todo ownerAddress validity checked only in rpc. is it enough?
@@ -2307,7 +2311,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
         {
             const auto& tokenId = obj.idToken.v;
 
@@ -2395,7 +2399,7 @@ public:
         if (!tokenId)
             return std::move(tokenId);
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
         {
             const auto& id = tokenId.val->v;
 
