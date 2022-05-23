@@ -4246,21 +4246,38 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
-        for (const auto& collateral : collaterals->balances)
-            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
+        for (const auto& collateral : collaterals->balances) {
+            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height})) {
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)) {
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
                         return false;
-
-    if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto& loan : loans->balances)
-            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
-                        return false;
+                    }
                 } else {
+                    // No fixed interval prices available. Should not have happened.
                     return false;
                 }
+            } else {
+                // Not a collateral token. Should not have happened.
+                return false;
+            }
+        }
+
+    if (auto loans = mnview.GetLoanTokens(vaultId))
+        for (const auto& loan : loans->balances) {
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first)) {
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
+                        return false;
+                    }
+                } else {
+                    // No fixed interval prices available. Should not have happened.
+                    return false;
+                }
+            } else {
+                // Not a loan token. Should not have happened.
+                return false;
+            }
+        }
     return true;
 }
 

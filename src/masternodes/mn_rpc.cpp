@@ -2,11 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <regex>
 #include <masternodes/mn_rpc.h>
-
 #include <base58.h>
 #include <policy/settings.h>
-
 #include <masternodes/govvariables/attributes.h>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
@@ -692,15 +691,50 @@ UniValue getgov(const JSONRPCRequest& request) {
 UniValue listgovs(const JSONRPCRequest& request) {
     RPCHelpMan{"listgovs",
                "\nReturns information about all governance variables including pending changes\n",
-               {},
+               {
+                   {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "One of all, legacy, gov, live. Any other string is treated as a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
+               },
                RPCResult{
                        "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("listgovs", "")
+                       + HelpExampleCli("listgovs", "gov")
+                       + HelpExampleCli("listgovs", "live")
+                       + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleCli("listgovs", "token/15")
                        + HelpExampleRpc("listgovs", "")
+                       + HelpExampleRpc("listgovs", "live")
+                       + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleRpc("listgovs", "token/15")
                },
     }.Check(request);
+
+    GovVarsFilter mode;
+    std::string prefix;
+    if (request.params.size() > 0) {
+        prefix = request.params[0].getValStr();
+    }
+    if (prefix.empty()) {
+        prefix = "legacy";
+    }
+
+    if (prefix == "all") {
+        mode = GovVarsFilter::All;
+    } else if (prefix == "legacy") {
+        mode = GovVarsFilter::Legacy;
+    } else if (prefix == "gov") {
+        mode = GovVarsFilter::NoAttributes;
+    } else if (prefix == "live") {
+        mode = GovVarsFilter::LiveAttributes;
+    } else {
+        mode = GovVarsFilter::PrefixedAttributes;
+        const std::regex versionRegex("v[0-9].*");
+        if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
+            prefix = "v0/" + prefix;
+        }
+    }
 
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
@@ -716,8 +750,27 @@ UniValue listgovs(const JSONRPCRequest& request) {
         auto var = pcustomcsview->GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
-            ret.pushKV(var->GetName(),var->Export());
-            innerResult.push_back(ret);
+            UniValue val;
+            bool skip = false;
+            auto name = var->GetName();
+            if (name == "ATTRIBUTES") {
+                if (mode == GovVarsFilter::NoAttributes) {
+                    skip = true;
+                } else {
+                    auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                    val = a->ExportFiltered(mode, prefix);
+                }
+            } else {
+                if (mode == GovVarsFilter::LiveAttributes || 
+                    mode == GovVarsFilter::PrefixedAttributes) {
+                    continue;
+                }
+                val = var->Export();
+            }
+            if (!skip) {
+                ret.pushKV(name,val);
+                innerResult.push_back(ret);
+            }
         }
 
         // Get and add any pending changes
@@ -894,7 +947,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
-    {"blockchain",  "listgovs",              &listgovs,              {""}},
+    {"blockchain",  "listgovs",              &listgovs,              {"prefix"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
     {"blockchain",  "clearmempool",          &clearmempool,          {} },

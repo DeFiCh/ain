@@ -590,6 +590,45 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result['v0/params/dfip2203/block_period'], '20160')
         assert_equal(result['v0/token/5/dfip2203'], 'true')
 
+        # Test listgovs additional attributes
+
+        # prefix filter
+        result = self.nodes[0].listgovs("token")
+        # Should only have attributes
+        assert_equal(len(result[0]), 1)
+        # Verify attributes
+        assert_equal(result[0][0], {'ATTRIBUTES': {'v0/token/5/payback_dfi': 'true', 'v0/token/5/payback_dfi_fee_pct': '0.33', 'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25', 'v0/token/5/dex_in_fee_pct': '0.6', 'v0/token/5/dex_out_fee_pct': '0.12', 'v0/token/5/dfip2203': 'true'}})
+
+        result = self.nodes[0].listgovs("token/5/loan")
+        # Should only have attributes
+        assert_equal(len(result[0]), 1)
+        # Verify attributes
+        assert_equal(result[0][0], {'ATTRIBUTES': {'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25'}})
+
+        # test for manual v0 prefix
+        result = self.nodes[0].listgovs("v0/token/5/loan")
+        # Should only have attributes
+        assert_equal(len(result[0]), 1)
+        # Verify attributes
+        assert_equal(result[0][0], {'ATTRIBUTES': {'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25'}})
+
+        # gov only test
+        result = self.nodes[0].listgovs("gov")
+        assert_equal(result, [[{'ICX_TAKERFEE_PER_BTC': Decimal('0.00200000')}], [{'LP_DAILY_LOAN_TOKEN_REWARD': Decimal('13020.86331792')}], [{'LP_LOAN_TOKEN_SPLITS': {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')}}], [{'LP_DAILY_DFI_REWARD': Decimal('13427.10581184')}], [{'LOAN_LIQUIDATION_PENALTY': Decimal('0.01000000')}], [{'LP_SPLITS': {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')}}], [{'ORACLE_BLOCK_INTERVAL': 30}], [{'ORACLE_DEVIATION': Decimal('0.07000000')}], []])
+
+        # live test. No live on this. For now, just ensure, no other attrs are listed
+        assert_equal(self.nodes[0].listgovs("live"), [[{'ATTRIBUTES': {}}]])
+
+        result_all = self.nodes[0].listgovs("all")
+        result_legacy = self.nodes[0].listgovs("legacy")
+        result = self.nodes[0].listgovs()
+
+        # For now it's all the same.
+        assert_equal(result, result_legacy)
+        assert_equal(result, result_all)
+
+        assert_equal(result, [[{'ICX_TAKERFEE_PER_BTC': Decimal('0.00200000')}], [{'LP_DAILY_LOAN_TOKEN_REWARD': Decimal('13020.86331792')}], [{'LP_LOAN_TOKEN_SPLITS': {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')}}], [{'LP_DAILY_DFI_REWARD': Decimal('13427.10581184')}], [{'LOAN_LIQUIDATION_PENALTY': Decimal('0.01000000')}], [{'LP_SPLITS': {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')}}], [{'ORACLE_BLOCK_INTERVAL': 30}], [{'ORACLE_DEVIATION': Decimal('0.07000000')}], [{'ATTRIBUTES': {'v0/params/dfip2201/active': 'true', 'v0/params/dfip2201/premium': '0.025', 'v0/params/dfip2201/minswap': '0.001', 'v0/params/dfip2203/active': 'true', 'v0/params/dfip2203/reward_pct': '0.05', 'v0/params/dfip2203/block_period': '20160', 'v0/token/5/payback_dfi': 'true', 'v0/token/5/payback_dfi_fee_pct': '0.33', 'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25', 'v0/token/5/dex_in_fee_pct': '0.6', 'v0/token/5/dex_out_fee_pct': '0.12', 'v0/token/5/dfip2203': 'true'}}]])
+
         # Check errors
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningSpiceGarden", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/locks/token/5':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningSpiceGarden", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000': '1/50'}})
