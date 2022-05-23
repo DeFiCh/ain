@@ -249,6 +249,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostGreatWorldFork() const {
+        if(static_cast<int>(height) < consensus.GreatWorldHeight) {
+            return Res::Err("called before GreatWorldHeight height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -513,17 +520,26 @@ public:
 
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (!res)
+            return res;
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanSetLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (!res)
+            return res;
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
+        if (!res)
+            return res;
+        res = isPostGreatWorldFork();
+        return res ? Res::Err("called after GreatWorld height") : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {
@@ -865,39 +881,6 @@ public:
         tokenCurrency = std::move(trimmed);
         return Res::Ok();
     }
-
-    bool oraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
-        // Allow hard coded DUSD/USD
-        if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
-            return true;
-        }
-        bool found = false;
-        mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
-            return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
-        });
-        return found;
-    }
-
-    void storeGovVars(const CGovernanceHeightMessage& obj) const {
-
-        // Retrieve any stored GovVariables at startHeight
-        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
-
-        // Remove any pre-existing entry
-        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
-            if ((*it)->GetName() == obj.govVar->GetName()) {
-                it = storedGovVars.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        // Add GovVariable to set for storage
-        storedGovVars.insert(obj.govVar);
-
-        // Store GovVariable set by height
-        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
-    }
 };
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor
@@ -1048,16 +1031,14 @@ public:
         if (!pair) {
             return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
         }
-        const auto& token = pair->second;
+        auto token = pair->second;
 
         //check foundation auth
         auto res = HasFoundationAuth();
 
         if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
-            CToken newToken = static_cast<CToken>(token); // keeps old and triggers only DAT!
-            newToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-
-            return !res ? res : mnview.UpdateToken(token.creationTx, newToken, true);
+            token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+            return !res ? res : mnview.UpdateToken(token, true);
         }
         return res;
     }
@@ -1069,6 +1050,10 @@ public:
         }
         if (pair->first == DCT_ID{0}) {
             return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
+        }
+
+        if (mnview.AreTokensLocked({pair->first.v})) {
+            return Res::Err("Cannot update token during lock");
         }
 
         const auto& token = pair->second;
@@ -1097,12 +1082,15 @@ public:
             }
         }
 
-        auto updatedToken = obj.token;
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
         if (height >= consensus.FortCanningHeight) {
             updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         }
 
-        return mnview.UpdateToken(token.creationTx, updatedToken, false);
+        return mnview.UpdateToken(updatedToken);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
@@ -1178,7 +1166,7 @@ public:
         token.creationTx = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token, false);
+        auto tokenId = mnview.CreateToken(token);
         if (!tokenId) {
             return std::move(tokenId);
         }
@@ -1597,7 +1585,7 @@ public:
             balances.Add(obj.source);
         }
 
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, balances);
 
         mnview.SetVariable(*attributes);
 
@@ -1632,50 +1620,49 @@ public:
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        for(const auto& var : obj.govs) {
-            auto res = var->Validate(mnview);
-            if (!res) {
-                return Res::Err("%s: %s", var->GetName(), res.msg);
-            }
+        for(const auto& gov : obj.govs) {
+            Res res{};
 
-            if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
-                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
-                const auto diff = height % mnview.GetIntervalBlock();
-                if (diff != 0) {
-                    // Store as pending change
-                    storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
-                    continue;
-                }
-            } else if (var->GetName() == "ATTRIBUTES") {
+            auto var = gov;
+
+            if (var->GetName() == "ATTRIBUTES") {
                 // Add to existing ATTRIBUTES instead of overwriting.
-                auto govVar = mnview.GetVariable(var->GetName());
-                res = govVar->Import(var->Export());
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                auto govVar = mnview.GetAttributes();
+
+                if (!govVar) {
+                    return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
                 }
+
+                govVar->time = time;
 
                 // Validate as complete set. Check for future conflicts between key pairs.
-                res = govVar->Validate(mnview);
+                if (!(res = govVar->Import(var->Export()))
+                    ||  !(res = govVar->Validate(mnview))
+                    ||  !(res = govVar->Apply(mnview, height)))
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+
+                var = govVar;
+            } else {
+                // After GW, some ATTRIBUTES changes require the context of its map to validate,
+                // moving this Validate() call to else statement from before this conditional.
+                res = var->Validate(mnview);
+                if (!res)
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+
+                if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                    // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+                    const auto diff = height % mnview.GetIntervalBlock();
+                    if (diff != 0) {
+                        // Store as pending change
+                        storeGovVars({var, height + mnview.GetIntervalBlock() - diff}, mnview);
+                        continue;
+                    }
+                }
+
+                res = var->Apply(mnview, height);
                 if (!res) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
                 }
-
-                res = govVar->Apply(mnview, height);
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
-
-                res = mnview.SetVariable(*govVar);
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
-
-                continue;
-            }
-
-            res = var->Apply(mnview, height);
-            if (!res) {
-                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
 
             res = mnview.SetVariable(*var);
@@ -1706,7 +1693,7 @@ public:
         }
 
         // Store pending Gov var change
-        storeGovVars(obj);
+        storeGovVars(obj, mnview);
 
         return Res::Ok();
     }
@@ -2335,7 +2322,7 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
+        if (!OraclePriceFeed(mnview, collToken.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
 
         CFixedIntervalPrice fixedIntervalPrice;
@@ -2386,7 +2373,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (!oraclePriceFeed(loanToken.fixedIntervalPriceId))
+        if (!OraclePriceFeed(mnview, loanToken.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
         CTokenImplementation token;
@@ -2398,7 +2385,7 @@ public:
         token.creationTx = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token, false);
+        auto tokenId = mnview.CreateToken(token);
         if (!tokenId)
             return std::move(tokenId);
 
@@ -2434,7 +2421,7 @@ public:
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
         if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
-            if (!oraclePriceFeed(obj.fixedIntervalPriceId))
+            if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
                 return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
 
             loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
@@ -2443,7 +2430,7 @@ public:
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
-        res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
+        res = mnview.UpdateToken(pair->second);
         if (!res)
             return res;
 
@@ -2745,6 +2732,14 @@ public:
         // vault under liquidation
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot deposit to vault under liquidation");
+
+        // If collateral token exist make sure it is enabled.
+        if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
+            CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
+            if (const auto attributes = mnview.GetAttributes(); !attributes->GetValue(collateralKey, false)) {
+                return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
+            }
+        }
 
         //check balance
         CalculateOwnerRewards(obj.from);
@@ -3188,7 +3183,7 @@ public:
 
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -3201,7 +3196,7 @@ public:
 
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -4114,6 +4109,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
+        if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
+            return Res::Err("Pool currently disabled due to locked token");
+        }
+
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
 
         // Perform swap
@@ -4249,8 +4248,33 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto& loan : loans->balances)
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
                     if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
+                } else {
+                    return false;
+                }
     return true;
+}
+
+
+Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
+
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }

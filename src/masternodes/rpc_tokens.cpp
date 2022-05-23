@@ -1,4 +1,7 @@
 #include <masternodes/mn_rpc.h>
+
+#include <masternodes/govvariables/attributes.h>
+
 #include <index/txindex.h>
 
 UniValue createtoken(const JSONRPCRequest& request) {
@@ -319,7 +322,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
+UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -333,7 +336,15 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
-        tokenObj.pushKV("isLoanToken", token.IsLoanToken());
+        auto loanToken{token.IsLoanToken()};
+        if (!loanToken) {
+            if (auto attributes = view.GetAttributes()) {
+                CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            }
+        }
+        tokenObj.pushKV("isLoanToken", loanToken);
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("creationTx", token.creationTx.ToString());
@@ -414,7 +425,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+        ret.pushKVs(tokenToJSON(*pcustomcsview, id, token, verbose));
 
         limit--;
         return limit != 0;
@@ -444,7 +455,7 @@ UniValue gettoken(const JSONRPCRequest& request) {
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *token, true);
+        return tokenToJSON(*pcustomcsview, id, *token, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }

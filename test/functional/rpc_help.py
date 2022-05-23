@@ -33,7 +33,7 @@ class HelpRpcTest(DefiTestFramework):
         # command titles
         titles = [line[3:-3] for line in node.help().splitlines() if line.startswith('==')]
 
-        components = ['Accounts', 'Blockchain', 'Control', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes', 'Mining', 'Network', 'Oracles', 'Poolpair', 'Rawtransactions', 'Spv', 'Tokens', 'Util', 'Vault']
+        components = ['Accounts', 'Blockchain', 'Control', 'Generating', 'Icxorderbook', 'Loan', 'Masternodes', 'Mining', 'Network', 'Oracles', 'Poolpair', 'Rawtransactions', 'Spv', 'Stats', 'Tokens', 'Util', 'Vault']
 
         if self.is_wallet_compiled():
             components.append('Wallet')

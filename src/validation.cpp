@@ -14,6 +14,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
 #include <flatfile.h>
 #include <hash.h>
@@ -23,6 +24,8 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
+#include <masternodes/govvariables/lp_splits.h>
+#include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
@@ -1641,6 +1644,42 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
+static bool GetCreationTransactions(const CBlock& block, const uint32_t id, const int32_t multiplier, uint256& tokenCreationTx, std::vector<uint256>& poolCreationTx) {
+    bool opcodes{false};
+    std::vector<unsigned char> metadata;
+    uint32_t type;
+    uint32_t metaId;
+    int32_t metaMultiplier;
+
+    for (const auto& tx : block.vtx) {
+        if (ParseScriptByMarker(tx->vout[0].scriptPubKey, DfTokenSplitMarker, metadata, opcodes)) {
+            try {
+                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+                ss >> type;
+                ss >> metaId;
+                ss >> metaMultiplier;
+
+                if (id == metaId && multiplier == metaMultiplier) {
+                    if (type == 0) {
+                        tokenCreationTx = tx->GetHash();
+                    } else if (type > 0) {
+                        poolCreationTx.push_back(tx->GetHash());
+                    }
+                }
+            } catch (const std::ios_base::failure&) {
+                LogPrintf("Failed to read ID and multiplier from token split coinbase TXs. TX: %s\n", tx->GetHash().ToString());
+            }
+        }
+    }
+
+    if (tokenCreationTx == uint256{}) {
+        LogPrintf("%s: Token split failed. Coinbase TX for new token not found.\n", __func__);
+        return false;
+    }
+
+    return true;
+}
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
@@ -1767,7 +1806,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         TBytes dummy;
-        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy)) { // not coinbases
+        if (i > 0 && !IsAnchorRewardTx(tx, dummy) && !IsAnchorRewardTxPlus(tx, dummy) && !IsTokenSplitTx(tx, dummy)) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("DisconnectBlock(): transaction and undo data inconsistent");
@@ -2246,6 +2285,25 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     return batches;
 }
 
+bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::map<std::string, std::string>& attrs){
+    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
+        if (auto var = dynamic_cast<ATTRIBUTES*>(govVar.get())) {
+            var->time = pindex.nTime;
+
+            UniValue obj(UniValue::VOBJ);
+            for (const auto& [key, value] : attrs) {
+                obj.pushKV(key, value);
+            }
+
+            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2666,6 +2724,43 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
+    // Reject block without token split coinbase TX outputs.
+    const auto attributes = accountsView.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+
+    CreationTxs creationTxs;
+    for (const auto& [id, multiplier] : splits) {
+        uint256 tokenCreationTx{};
+        std::vector<uint256> poolCreationTx;
+        if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__),
+                                 REJECT_INVALID, "bad-cb-token-split");
+        }
+
+        std::vector<DCT_ID> poolsToMigrate;
+        accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
+            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                poolsToMigrate.push_back(poolId);
+            }
+            return true;
+        });
+
+        if (poolsToMigrate.size() != poolCreationTx.size()) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__),
+                                 REJECT_INVALID, "bad-cb-pool-split");
+        }
+
+        std::vector<std::pair<DCT_ID, uint256>> poolPairs;
+        poolPairs.reserve(poolsToMigrate.size());
+        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), poolCreationTx.begin(), std::back_inserter(poolPairs),
+                       [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
+
+        creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
+    }
+
     if (fJustCheck)
         return accountsView.Flush(); // keeps compatibility
 
@@ -2845,8 +2940,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CCustomCSView govCache(cache);
                     // Add to existing ATTRIBUTES instead of overwriting.
                     if (var->GetName() == "ATTRIBUTES") {
-                        auto govVar = mnview.GetVariable(var->GetName());
-                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                        auto govVar = mnview.GetAttributes();
+                        govVar->time = pindex->GetBlockTime();
+                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
                             govCache.Flush();
                         }
                     } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
@@ -2856,6 +2952,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
             cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
         }
+
+        // Migrate loan and collateral tokens to Gov vars.
+        ProcessTokenToGovVar(pindex, cache, chainparams);
+
+        // Loan splits
+        ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3447,11 +3549,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->attributes[burnKey] = burned;
-    attributes->attributes[mintedKey] = minted;
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, std::move(balances));
     }
 
     cache.SetVariable(*attributes);
@@ -3502,6 +3604,625 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         }
         return true;
     });
+}
+
+void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    // Migrate at +1 height so that GetLastHeight() in Gov var
+    // Validate() has a height equal to the GW fork.
+    if (pindex->nHeight != chainparams.GetConsensus().GreatWorldHeight + 1) {
+        return;
+    }
+
+    std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
+    std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
+
+    cache.ForEachLoanToken([&](const DCT_ID& key, const CLoanSetLoanToken& loanToken) {
+        loanTokens[key] = loanToken;
+        return true;
+    });
+
+    cache.ForEachLoanCollateralToken([&](const CollateralTokenKey& key, const uint256& collTokenTx) {
+        auto collToken = cache.GetLoanCollateralToken(collTokenTx);
+        if (collToken) {
+            collateralTokens.push_back(*collToken);
+        }
+        return true;
+    });
+
+    // Apply fixed_interval_price_id first
+    std::map<std::string, std::string> attrsFirst;
+    std::map<std::string, std::string> attrsSecond;
+
+    int loanCount = 0, collateralCount = 0;
+
+    try {
+        for (const auto& [id, token] : loanTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token),id.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingEnabled))] = token.mintable ? "true" : "false";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanMintingInterest))] = KeyBuilder(ValueFromAmount(token.interest).get_real());
+            ++loanCount;
+        }
+
+        for (const auto& token : collateralTokens) {
+            std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token), token.idToken.v);
+            attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralEnabled))] = "true";
+            attrsSecond[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::LoanCollateralFactor))] = KeyBuilder(ValueFromAmount(token.factor).get_real());
+            ++collateralCount;
+        }
+
+        CCustomCSView govCache(cache);
+        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+            govCache.Flush();
+
+            // Erase old tokens afterwards to avoid invalid state during transition
+            for (const auto& item : loanTokens) {
+                cache.EraseLoanToken(item.first);
+            }
+
+            for (const auto& token : collateralTokens) {
+                cache.EraseLoanCollateralToken(token);
+            }
+        }
+    } catch(std::out_of_range&) {
+        LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
+    }
+}
+
+static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attributes, const uint32_t id, std::string& newSuffix) {
+    CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
+    if (attributes.CheckKey(ascendantKey)) {
+        const auto& [previousID, str] = attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
+        auto previousToken = view.GetToken(DCT_ID{previousID});
+        if (!previousToken) {
+            return Res::Err("Previous token %d not found\n", id);
+        }
+        const auto found = previousToken->symbol.find(newSuffix);
+        if (found == std::string::npos) {
+            return Res::Err("Previous token name not valid: %s\n", previousToken->symbol);
+        }
+
+        const auto versionNumber  = previousToken->symbol.substr(found + newSuffix.size());
+        uint32_t previousVersion{};
+        try {
+            previousVersion = std::stoi(versionNumber);
+        } catch (...) {
+            return Res::Err("Previous token name not valid.");
+        }
+
+        newSuffix += std::to_string(++previousVersion);
+    } else {
+        newSuffix += '1';
+    }
+
+    return Res::Ok();
+}
+
+template<typename GovVar>
+static Res UpdateLiquiditySplits(CCustomCSView& view, const DCT_ID oldPoolId, const DCT_ID newPoolId, const uint32_t height) {
+    if (auto var = view.GetVariable(GovVar::TypeName())) {
+        if (auto lpVar = std::dynamic_pointer_cast<GovVar>(var)) {
+            if (lpVar->splits.count(oldPoolId) > 0) {
+                const auto value = lpVar->splits[oldPoolId];
+                lpVar->splits.erase(oldPoolId);
+                lpVar->splits[newPoolId] = value;
+                lpVar->Apply(view, height);
+                view.SetVariable(*lpVar);
+            }
+        }
+    } else {
+        return Res::Err("Failed to get %s", LP_SPLITS::TypeName());
+    }
+
+    return Res::Ok();
+}
+
+template<typename T>
+static inline T CalculateNewAmount(const int multiplier, const T amount) {
+    return multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
+}
+
+static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
+                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const std::string& newTokenSuffix, const int32_t multiplier) {
+
+    try {
+        assert(creationTxs.count(oldTokenId.v));
+        for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
+            auto oldPoolToken = view.GetToken(oldPoolId);
+            if (!oldPoolToken) {
+                throw std::runtime_error(strprintf("Failed to get related pool token: %d", oldPoolId.v));
+            }
+
+            CTokenImplementation newPoolToken{*oldPoolToken};
+            newPoolToken.creationHeight = pindex->nHeight;
+            newPoolToken.creationTx = creationTx;
+            newPoolToken.minted = 0;
+
+            oldPoolToken->symbol += newTokenSuffix;
+            oldPoolToken->flags |= static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+            oldPoolToken->destructionHeight = pindex->nHeight;
+            oldPoolToken->destructionTx = pindex->GetBlockHash();
+
+            auto res = view.UpdateToken(*oldPoolToken, true, true);
+            if (!res) {
+                throw std::runtime_error(res.msg);
+            }
+
+            auto resVal = view.CreateToken(newPoolToken);
+            if (!resVal) {
+                throw std::runtime_error(resVal.msg);
+            }
+
+            const DCT_ID newPoolId{resVal.val->v};
+
+            auto oldPoolPair = view.GetPoolPair(oldPoolId);
+            if (!oldPoolPair) {
+                throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
+            }
+
+            CPoolPair newPoolPair{*oldPoolPair};
+            if (oldPoolPair->idTokenA == oldTokenId) {
+                newPoolPair.idTokenA = newTokenId;
+            } else {
+                newPoolPair.idTokenB = newTokenId;
+            }
+            newPoolPair.creationTx = newPoolToken.creationTx;
+            newPoolPair.creationHeight = pindex->nHeight;
+            newPoolPair.reserveA = 0;
+            newPoolPair.reserveB = 0;
+            newPoolPair.totalLiquidity = 0;
+
+            res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
+            if (!res) {
+                throw std::runtime_error(strprintf("SetPoolPair on new pool pair: %s", res.msg));
+            }
+
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            view.ForEachBalance([&, oldPoolId = oldPoolId](CScript const & owner, CTokenAmount balance) {
+                if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+
+            // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
+            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
+                return a.second > b.second;
+            });
+
+            for (auto& [owner, amount] : balancesToMigrate) {
+
+                if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
+                    throw std::runtime_error("totalLiquidity less than minimum.");
+                }
+
+                view.CalculateOwnerRewards(owner, pindex->nHeight);
+
+                res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
+                if (!res.ok) {
+                    throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
+                }
+
+                if (oldPoolPair->totalLiquidity - amount == CPoolPair::MINIMUM_LIQUIDITY) {
+                    amount += CPoolPair::MINIMUM_LIQUIDITY;
+                }
+
+                CAmount resAmountA = (arith_uint256(amount) * oldPoolPair->reserveA / oldPoolPair->totalLiquidity).GetLow64();
+                CAmount resAmountB = (arith_uint256(amount) * oldPoolPair->reserveB / oldPoolPair->totalLiquidity).GetLow64();
+                oldPoolPair->reserveA -= resAmountA;
+                oldPoolPair->reserveB -= resAmountB;
+                oldPoolPair->totalLiquidity -= amount;
+
+                CAmount amountA{0}, amountB{0};
+                if (oldPoolPair->idTokenA == oldTokenId) {
+                    amountA = CalculateNewAmount(multiplier, resAmountA);
+                    totalBalance += amountA;
+                    amountB = resAmountB;
+                } else {
+                    amountA = resAmountA;
+                    amountB = CalculateNewAmount(multiplier, resAmountB);
+                    totalBalance += amountB;
+                }
+
+                auto refundBalances = [&, owner = owner]() {
+                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                };
+
+                if (amountA <= 0 || amountB <= 0) {
+                    refundBalances();
+                    continue;
+                }
+
+                CAmount liquidity{0};
+                if (newPoolPair.totalLiquidity == 0) {
+                    liquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64();
+                    liquidity -= CPoolPair::MINIMUM_LIQUIDITY;
+                    newPoolPair.totalLiquidity = CPoolPair::MINIMUM_LIQUIDITY;
+                } else {
+                    CAmount liqA = (arith_uint256(amountA) * newPoolPair.totalLiquidity / newPoolPair.reserveA).GetLow64();
+                    CAmount liqB = (arith_uint256(amountB) * newPoolPair.totalLiquidity / newPoolPair.reserveB).GetLow64();
+                    liquidity = std::min(liqA, liqB);
+
+                    if (liquidity == 0) {
+                        refundBalances();
+                        continue;
+                    }
+                }
+
+                auto resTotal = SafeAdd(newPoolPair.totalLiquidity, liquidity);
+                if (!resTotal) {
+                    refundBalances();
+                    continue;
+                }
+                newPoolPair.totalLiquidity = resTotal;
+
+                auto resA = SafeAdd(newPoolPair.reserveA, amountA);
+                auto resB = SafeAdd(newPoolPair.reserveB, amountB);
+                if (resA && resB) {
+                    newPoolPair.reserveA = resA;
+                    newPoolPair.reserveB = resB;
+                } else {
+                    refundBalances();
+                    continue;
+                }
+
+                res = view.AddBalance(owner, {newPoolId, liquidity});
+                if (!res) {
+                    refundBalances();
+                    continue;
+                }
+
+                view.SetShare(newPoolId, owner, pindex->nHeight);
+            }
+
+            DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
+            if (oldPoolPair->idTokenA == oldTokenId) {
+                view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
+            } else {
+                view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
+                view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
+            }
+
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenA);
+            view.EraseDexFeePct(oldPoolId, oldPoolPair->idTokenB);
+
+            if (oldPoolPair->totalLiquidity != 0) {
+                throw std::runtime_error(strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
+            }
+
+            res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
+            if (!res) {
+                throw std::runtime_error(strprintf("SetPoolPair on new pool pair: %s", res.msg));
+            }
+
+            res = view.SetPoolPair(oldPoolId, pindex->nHeight, *oldPoolPair);
+            if (!res) {
+                throw std::runtime_error(strprintf("SetPoolPair on old pool pair: %s", res.msg));
+            }
+
+            res = view.UpdatePoolPair(oldPoolId, pindex->nHeight, false, -1, CScript{}, CBalances{});
+            if (!res) {
+                throw std::runtime_error(strprintf("UpdatePoolPair on old pool pair: %s", res.msg));
+            }
+
+            std::vector<CDataStructureV0> eraseKeys;
+            for (const auto& [key, value] : attributes.GetAttributesMap()) {
+                if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
+                    attributes.SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                }
+            }
+
+            for (const auto& key : eraseKeys) {
+                attributes.EraseKey(key);
+            }
+
+            res = UpdateLiquiditySplits<LP_SPLITS>(view, oldPoolId, newPoolId, pindex->nHeight);
+            if (!res) {
+                throw std::runtime_error(res.msg);
+            }
+
+            res = UpdateLiquiditySplits<LP_LOAN_TOKEN_SPLITS>(view, oldPoolId, newPoolId, pindex->nHeight);
+            if (!res) {
+                throw std::runtime_error(res.msg);
+            }
+
+
+        }
+    } catch (const std::runtime_error& e) {
+        return Res::Err(e.what());
+    }
+
+    return Res::Ok();
+}
+
+static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
+
+    std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
+    view.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenId == oldTokenId) {
+                loanTokenAmounts.emplace_back(vaultId, amount);
+            }
+        }
+        return true;
+    });
+
+    for (auto& [vaultId, amount] : loanTokenAmounts) {
+        const auto res = view.SubLoanToken(vaultId, {oldTokenId, amount});
+        if (!res) {
+            return res;
+        }
+    }
+
+    CVaultId failedVault;
+    std::vector<std::tuple<CVaultId, CInterestRateV2, std::string>> loanInterestRates;
+    view.ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2& rate) {
+        if (tokenId == oldTokenId) {
+            const auto vaultData = view.GetVault(vaultId);
+            if (!vaultData) {
+                failedVault = vaultId;
+                return false;
+            }
+            loanInterestRates.emplace_back(vaultId, rate, vaultData->schemeId);
+        }
+        return true;
+    });
+
+    if (failedVault != CVaultId{}) {
+        return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
+    }
+
+    attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
+    attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
+
+    auto res = attributes.Apply(view, height);
+    if (!res) {
+        return res;
+    }
+    view.SetVariable(attributes);
+
+    for (auto& [vaultId, amount] : loanTokenAmounts) {
+        amount = CalculateNewAmount(multiplier, amount);
+        res = view.AddLoanToken(vaultId, {newTokenId, amount});
+        if (!res) {
+            return res;
+        }
+    }
+
+    const auto loanToken = view.GetLoanTokenByID(newTokenId);
+    if (!loanToken) {
+        return Res::Err("Failed to get loan token.");
+    }
+
+    // Pre-populate to save repeated calls to get loan scheme
+    std::map<std::string, CAmount> loanSchemes;
+    view.ForEachLoanScheme([&](const std::string& key, const CLoanSchemeData& data) {
+        loanSchemes.emplace(key, data.rate);
+        return true;
+    });
+
+    for (auto& [vaultId, rate, schemeId] : loanInterestRates) {
+        CAmount loanSchemeRate{0};
+        try {
+            loanSchemeRate = loanSchemes.at(schemeId);
+        } catch (const std::out_of_range&) {
+            return Res::Err("Failed to get loan scheme.");
+        }
+
+        view.EraseInterestDirect(vaultId, oldTokenId);
+        rate.interestToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+
+        auto amounts = view.GetLoanTokens(vaultId);
+        if (amounts) {
+            rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+        }
+
+        rate.height = height;
+
+        view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, height);
+    }
+
+    return Res::Ok();
+}
+
+void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+        return;
+    }
+    const auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+
+    if (!splits.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+    }
+
+    for (const auto& [id, multiplier] : splits) {
+
+        if (!cache.AreTokensLocked({id})) {
+            LogPrintf("%s: Token split failed. Token %d not locked\n", __func__, id);
+            continue;
+        }
+
+        auto view{cache};
+
+        const DCT_ID oldTokenId{id};
+
+        auto token = view.GetToken(oldTokenId);
+        if (!token) {
+            LogPrintf("%s: Token split failed. Token %d not found\n", __func__, oldTokenId.v);
+            continue;
+        }
+
+        std::string newTokenSuffix = "/v";
+        auto res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        CTokenImplementation newToken{*token};
+        newToken.creationHeight = pindex->nHeight;
+        assert(creationTxs.count(id));
+        newToken.creationTx = creationTxs.at(id).first;
+        newToken.minted = 0;
+
+        token->symbol += newTokenSuffix;
+        token->destructionHeight = pindex->nHeight;
+        token->destructionTx = pindex->GetBlockHash();
+        token->flags &= ~static_cast<uint8_t>(CToken::TokenFlags::Default);
+        token->flags |= static_cast<uint8_t>(CToken::TokenFlags::Finalized);
+
+        res = view.SubMintedTokens(oldTokenId, token->minted);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        res = view.UpdateToken(*token, false, true);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        auto resVal = view.CreateToken(newToken);
+        if (!resVal) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, resVal.msg);
+            continue;
+        }
+
+        const DCT_ID newTokenId{resVal.val->v};
+
+        std::vector<CDataStructureV0> eraseKeys;
+        for (const auto& [key, value] : attributes->GetAttributesMap()) {
+            if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+                if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->typeId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                } else if (v0Key->keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
+                    attributes->SetValue(newKey, value);
+                    eraseKeys.push_back(*v0Key);
+                }
+            }
+        }
+
+        for (const auto& key : eraseKeys) {
+            attributes->EraseKey(key);
+        }
+
+        CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
+        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
+
+        CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
+        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+
+        CAmount totalBalance{0};
+
+        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs,newTokenSuffix, multiplier);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        CAccounts addAccounts;
+        CAccounts subAccounts;
+
+        view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
+            if (oldTokenId.v == balance.nTokenId.v) {
+                const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
+                addAccounts[owner].Add({newTokenId, newBalance});
+                subAccounts[owner].Add(balance);
+                totalBalance += newBalance;
+            }
+            return true;
+        });
+
+        res = view.AddMintedTokens(newTokenId, totalBalance);
+        if (!res) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        try {
+            for (const auto& [owner, balances] : addAccounts) {
+                res = view.AddBalances(owner, balances);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+            }
+
+            for (const auto& [owner, balances] : subAccounts) {
+                res = view.SubBalances(owner, balances);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+            }
+
+        } catch (const std::runtime_error& e) {
+            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            continue;
+        }
+
+        if (view.GetLoanTokenByID(oldTokenId)) {
+            res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+            if (!res) {
+                LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+                continue;
+            }
+        } else {
+            auto res = attributes->Apply(view, pindex->nHeight);
+            if (!res) {
+                LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+                continue;
+            }
+        }
+
+        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
+        for (const auto& [key, value] : attributes->GetAttributesMap()) {
+            if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
+                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
+                if (const auto splitMap = boost::get<OracleSplits>(&value)) {
+                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
+                        if (splitMapKey == oldTokenId.v) {
+                            auto copyMap{*splitMap};
+                            copyMap.erase(splitMapKey);
+                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const auto& [key, value] : updateAttributesKeys) {
+            if (value.empty()) {
+                attributes->EraseKey(key);
+            } else {
+                attributes->SetValue(key, value);
+            }
+        }
+
+        view.SetVariable(*attributes);
+
+        view.Flush();
+    }
 }
 
 bool CChainState::FlushStateToDisk(
@@ -4779,7 +5500,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
                 !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight))
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
+                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.GreatWorldHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
