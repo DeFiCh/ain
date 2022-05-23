@@ -221,7 +221,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
 
     // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
+    if (nHeight >= chainparams.GetConsensus().FortCanningSpiceGardenHeight) {
         const auto attributes = mnview.GetAttributes();
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
@@ -708,31 +708,6 @@ namespace pos {
         return Status::stakeReady;
     }
 
-    // This is an internal only method to ignore some mints, even though it's valid. 
-    // This is done to workaround https://github.com/DeFiCh/ain/issues/693, so on specific bug condition, 
-    // i.e, when subnode 1 stakes before subnode 0 on Eunos Paya+ (in particular to target pre-Eunos Paya masternodes that's carried over), it's ignored.
-    // in order to give time for subnode 0 to first succeed and create a record. 
-    // 
-    // This is done to ensure that we can workaround the bug, without waiting for consensus change in next update.
-    // This shouldn't have any effect on the mining, even though we ignore some successful hashes since the
-    // Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with 
-    // higher coinage / TM.
-    //
-    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, int64_t creationHeight, 
-        const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
-            
-        auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
-        if (blockHeight < eunosPayaHeight || creationHeight >= eunosPayaHeight) {
-            return false;
-        }
-
-        if (subNode == 1 && subNodesBlockTime[0] == subNodesBlockTime[1]) {
-            LogPrint(BCLog::STAKING, "MakeStake: kernel ignored\n");
-            return true;
-        }
-        return false;
-    }
-
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
 
         bool found = false;
@@ -807,7 +782,7 @@ namespace pos {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
+
             lastBlockSeen = tip->GetBlockHash();
         }
 
@@ -828,8 +803,6 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
-                            break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                         found = true;
@@ -853,8 +826,6 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
-                            break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                         found = true;
