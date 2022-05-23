@@ -623,7 +623,7 @@ class GovsetTest (DefiTestFramework):
         result_legacy = self.nodes[0].listgovs("legacy")
         result = self.nodes[0].listgovs()
 
-        # For now it's all the same. 
+        # For now it's all the same.
         assert_equal(result, result_legacy)
         assert_equal(result, result_all)
 
