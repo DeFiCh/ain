@@ -756,10 +756,6 @@ class VaultTest (DefiTestFramework):
             'fixedIntervalPriceId': "DUSD/USD",
             'mintable': True,
             'interest': 1})
-        assert_raises_rpc_error(-32600, 'called after FortCanningSpiceGarden height', self.nodes[0].setcollateraltoken, {
-            'token': self.idDFI,
-            'factor': 1,
-            'fixedIntervalPriceId': "DFI/USD"})
 
         # Test setting collateral token partially
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true'}})

@@ -527,10 +527,7 @@ public:
 
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (!res)
-            return res;
-        res = isPostFortCanningSpiceGardenFork();
-        return res ? Res::Err("called after FortCanningSpiceGarden height") : serialize(obj);
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanSetLoanTokenMessage& obj) const {
@@ -2307,14 +2304,40 @@ public:
         if (!res)
             return res;
 
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member!");
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
+        {
+            const auto& tokenId = obj.idToken.v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
+            CDataStructureV0 collateralFactor{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralFactor};
+            CDataStructureV0 pairKey{AttributeTypes::Token, tokenId, TokenKeys::FixedIntervalPriceId};
+
+            attributes->SetValue(collateralEnabled, true);
+            attributes->SetValue(collateralFactor, obj.factor);
+            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         CLoanSetCollateralTokenImplementation collToken;
         static_cast<CLoanSetCollateralToken&>(collToken) = obj;
 
         collToken.creationTx = tx.GetHash();
         collToken.creationHeight = height;
-
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member!");
 
         auto token = mnview.GetToken(collToken.idToken);
         if (!token)
