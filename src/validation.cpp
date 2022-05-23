@@ -2781,7 +2781,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         std::vector<DCT_ID> poolsToMigrate;
         accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
             if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                poolsToMigrate.push_back(poolId);
+                const auto tokenA = accountsView.GetToken(pool.idTokenA);
+                const auto tokenB = accountsView.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                    poolsToMigrate.push_back(poolId);
+                }
             }
             return true;
         });
