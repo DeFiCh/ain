@@ -135,6 +135,7 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params)
 {
     assert(pindexLast != nullptr);
+
     if (params.pos.fNoRetargeting)
         return pindexLast->nBits;
 
@@ -143,6 +144,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     int nHeight{pindexLast->nHeight + 1};
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
+    if (nHeight >= params.GreatWorldHeight) {
+        return nProofOfWorkLimit;
+    }
     // Restore previous difficulty adjust on testnet after FC
     if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
         newDifficultyAdjust = false;
