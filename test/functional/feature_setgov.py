@@ -591,7 +591,7 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result['v0/token/5/dfip2203'], 'true')
 
         # Test listgovs additional attributes
-        
+
         # prefix filter
         result = self.nodes[0].listgovs("token")
         # Should only have attributes
@@ -611,7 +611,7 @@ class GovsetTest (DefiTestFramework):
         assert_equal(len(result[0]), 1)
         # Verify attributes
         assert_equal(result[0][0], {'ATTRIBUTES': {'v0/token/5/loan_payback/1': 'true', 'v0/token/5/loan_payback/2': 'true', 'v0/token/5/loan_payback_fee_pct/1': '0.25'}})
-        
+
         # gov only test
         result = self.nodes[0].listgovs("gov")
         assert_equal(result, [[{'ICX_TAKERFEE_PER_BTC': Decimal('0.00200000')}], [{'LP_DAILY_LOAN_TOKEN_REWARD': Decimal('13020.86331792')}], [{'LP_LOAN_TOKEN_SPLITS': {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')}}], [{'LP_DAILY_DFI_REWARD': Decimal('13427.10581184')}], [{'LOAN_LIQUIDATION_PENALTY': Decimal('0.01000000')}], [{'LP_SPLITS': {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')}}], [{'ORACLE_BLOCK_INTERVAL': 30}], [{'ORACLE_DEVIATION': Decimal('0.07000000')}], []])
