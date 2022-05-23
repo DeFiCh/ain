@@ -130,7 +130,7 @@ public:
         consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
-        consensus.FortCanningSpiceGardenHeight = 1936000; // June 2, 2022.
+        consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -360,7 +360,7 @@ public:
         consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
-        consensus.FortCanningSpiceGardenHeight = 1011600;
+        consensus.FortCanningCrunchHeight = 1011600;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -551,7 +551,7 @@ public:
         consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
-        consensus.FortCanningSpiceGardenHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -734,7 +734,7 @@ public:
         consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
-        consensus.FortCanningSpiceGardenHeight = 10000000;
+        consensus.FortCanningCrunchHeight = 10000000;
         consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -956,7 +956,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
     UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
-    UpdateHeightValidation("Fort Canning Split", "-fortcanningspicegardenheight", consensus.FortCanningSpiceGardenHeight);
+    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {

@@ -249,9 +249,9 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
-    Res isPostFortCanningSpiceGardenFork() const {
-        if(static_cast<int>(height) < consensus.FortCanningSpiceGardenHeight) {
-            return Res::Err("called before FortCanningSpiceGarden height");
+    Res isPostFortCanningCrunchFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningCrunchHeight) {
+            return Res::Err("called before FortCanningCrunch height");
         }
         return Res::Ok();
     }
@@ -539,8 +539,8 @@ public:
         auto res = isPostFortCanningFork();
         if (!res)
             return res;
-        res = isPostFortCanningSpiceGardenFork();
-        return res ? Res::Err("called after FortCanningSpiceGarden height") : serialize(obj);
+        res = isPostFortCanningCrunchFork();
+        return res ? Res::Err("called after FortCanningCrunch height") : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {

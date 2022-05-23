@@ -31,6 +31,6 @@ bool ParseScriptByMarker(CScript const & script,
                          bool& hasAdditionalOpcodes);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
-bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningGreen = true);
+bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningCrunch = true);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H
