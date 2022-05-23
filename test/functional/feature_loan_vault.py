@@ -750,12 +750,6 @@ class VaultTest (DefiTestFramework):
         self.move_to_gw_fork()
 
         # Try and call disabled RPC calls
-        assert_raises_rpc_error(-32600, 'called after FortCanningSpiceGarden height', self.nodes[0].setloantoken, {
-            'symbol': "DUSD",
-            'name': "DUSD stable token",
-            'fixedIntervalPriceId': "DUSD/USD",
-            'mintable': True,
-            'interest': 1})
         assert_raises_rpc_error(-32600, 'called after FortCanningSpiceGarden height', self.nodes[0].updateloantoken, "DUSD", {
             'symbol': "DUSD",
             'name': "DUSD stable token",
