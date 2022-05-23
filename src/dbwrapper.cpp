@@ -99,9 +99,21 @@ static void SetMaxOpenFiles(leveldb::Options *options) {
 
 static leveldb::Options GetOptions(size_t nCacheSize)
 {
+    const auto upper_power_of_two = [](uint64_t v)
+    {
+        v--;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v++;
+        return v;
+    };
+    
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
-    options.write_buffer_size = 16 << 20; // Simpler with fixed cache
+    options.write_buffer_size = upper_power_of_two(std::min(64 << 20, nCacheSize / 4)); // Max of 64mb -more is not useful
     options.filter_policy = leveldb::NewBloomFilterPolicy(16);
     options.compression = leveldb::kNoCompression;
     options.info_log = new CDefiLevelDBLogger();
