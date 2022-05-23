@@ -375,7 +375,7 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>", "-stop-block=<hash|height",
+        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
