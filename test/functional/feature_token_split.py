@@ -3,6 +3,13 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+
+# TODO
+# Multiple pools with split stock OK
+# Both sides with split token
+# Two splits same height
+# MINIMUM_LIQUIDITY 1000sats
+# Merge with one side bigger in value max_limit
 """Test token split"""
 
 from test_framework.test_framework import DefiTestFramework
@@ -18,40 +25,26 @@ def truncate(str, decimal):
 class TokenSplitTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
+        self.GREAT_WORLD_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-greatworldheight=150', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-greatworldheight={self.GREAT_WORLD_HEIGHT}', '-subsidytest=1', '-jellyfish_regtest=1']]
 
-    def run_test(self):
-        self.setup_test_tokens()
-        self.token_split()
-        self.setup_test_pools()
-        self.pool_split()
-        self.setup_test_vaults()
-        self.vault_split()
-        self.check_govvar_deletion()
-
-    def setup_test_tokens(self):
-        self.nodes[0].generate(101)
-
+    def setup_oracles(self):
         # Symbols
-        self.symbolDFI = 'DFI'
         self.symbolDUSD = 'DUSD'
-        self.symbolTSLA = 'TSLA'
-        self.symbolGOOGL = 'GOOGL'
-        self.symbolNVDA = 'NVDA'
-        self.symbolGD = 'GOOGL-DUSD'
-
-        # Store address
-        self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.symbolDFI = 'DFI'
+        self.symbolT1 = 'T1'
+        self.symbolT2 = 'T2'
+        self.symbolT3 = 'T3'
 
         # Price feeds
         price_feed = [
             {"currency": "USD", "token": self.symbolDFI},
             {"currency": "USD", "token": self.symbolDUSD},
-            {"currency": "USD", "token": self.symbolGOOGL},
-            {"currency": "USD", "token": self.symbolTSLA},
-            {"currency": "USD", "token": self.symbolNVDA},
+            {"currency": "USD", "token": self.symbolT2},
+            {"currency": "USD", "token": self.symbolT1},
+            {"currency": "USD", "token": self.symbolT3},
         ]
 
         # Appoint oracle
@@ -61,20 +54,21 @@ class TokenSplitTest(DefiTestFramework):
 
         # Set Oracle prices
         oracle_prices = [
-            {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolDUSD}"},
-            {"currency": "USD", "tokenAmount": f"1@{self.symbolGOOGL}"},
-            {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
-            {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
+            {"currency": "USD", "tokenAmount": f"3@{self.symbolDFI}"},
+            {"currency": "USD", "tokenAmount": f"10000@{self.symbolT1}"},
+            {"currency": "USD", "tokenAmount": f"100@{self.symbolT2}"},
+            {"currency": "USD", "tokenAmount": f"0.00000001@{self.symbolT3}"},
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
+    def setup_tokens(self):
         # Set loan tokens
         self.nodes[0].setloantoken({
-            'symbol': self.symbolGOOGL,
-            'name': self.symbolGOOGL,
-            'fixedIntervalPriceId': f"{self.symbolGOOGL}/USD",
+            'symbol': self.symbolT2,
+            'name': self.symbolT2,
+            'fixedIntervalPriceId': f"{self.symbolT2}/USD",
             "isDAT": True,
             'interest': 0
         })
@@ -90,18 +84,18 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].setloantoken({
-            'symbol': self.symbolTSLA,
-            'name': self.symbolTSLA,
-            'fixedIntervalPriceId': f"{self.symbolTSLA}/USD",
+            'symbol': self.symbolT1,
+            'name': self.symbolT1,
+            'fixedIntervalPriceId': f"{self.symbolT1}/USD",
             'mintable': True,
             'interest': 0
         })
         self.nodes[0].generate(1)
 
         self.nodes[0].setloantoken({
-            'symbol': self.symbolNVDA,
-            'name': self.symbolNVDA,
-            'fixedIntervalPriceId': f"{self.symbolNVDA}/USD",
+            'symbol': self.symbolT3,
+            'name': self.symbolT3,
+            'fixedIntervalPriceId': f"{self.symbolT3}/USD",
             'mintable': True,
             'interest': 0
         })
@@ -123,106 +117,187 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
-            'token': self.symbolGOOGL,
+            'token': self.symbolT2,
             'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolGOOGL}/USD"
+            'fixedIntervalPriceId': f"{self.symbolT2}/USD"
         })
         self.nodes[0].generate(1)
 
         self.nodes[0].setcollateraltoken({
-            'token': self.symbolTSLA,
+            'token': self.symbolT1,
             'factor': 1,
-            'fixedIntervalPriceId': f"{self.symbolTSLA}/USD"
+            'fixedIntervalPriceId': f"{self.symbolT1}/USD"
         })
         self.nodes[0].generate(1)
 
         # Store token IDs
         self.idDUSD = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
-        self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
-        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
-        self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
+        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+        self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
 
-    def setup_test_pools(self):
+    def setup_accounts(self):
+        self.account1 = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.account2 = self.nodes[0].getnewaddress()
+        self.account3 = self.nodes[0].getnewaddress()
 
-        # Create pool pair
+        self.nodes[0].utxostoaccount({self.account1: "100000@DFI"})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].minttokens("110300001@DUSD")
+        self.nodes[0].minttokens("110000@T1")
+        self.nodes[0].minttokens("205000@T2")
+        self.nodes[0].minttokens("100000000@T3")
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].accounttoaccount(self.account1, {self.account2: ["55039700.499@DUSD", "49900@DFI", "54890@T1", "102295@T2", "49900000@T3"]})
+        self.nodes[0].accounttoaccount(self.account1, {self.account3: ["110300.0010@DUSD", "100@DFI", "110@T1", "205@T2", "100000@T3"]})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+    def setup_pools(self):
         self.nodes[0].createpoolpair({
-            "tokenA": self.symbolGOOGL,
+            "tokenA": self.symbolDFI,
             "tokenB": self.symbolDUSD,
-            "commission": 0.001,
+            "commission": 0.01,
             "status": True,
-            "ownerAddress": self.address,
-            "symbol": self.symbolGD
+            "ownerAddress": self.account1,
         })
         self.nodes[0].generate(1)
+        self.symbolDFI_DUSD = "DFI-DUSD"
+        self.idDFI_DUSD = list(self.nodes[0].gettoken(self.symbolDFI_DUSD).keys())[0]
 
         self.nodes[0].createpoolpair({
-            "tokenA": self.symbolDUSD,
-            "tokenB": self.symbolDFI,
-            "commission": Decimal('0.001'),
+            "tokenA": self.symbolT1,
+            "tokenB": self.symbolDUSD,
+            "commission": 0.01,
             "status": True,
-            "ownerAddress": self.address
-        }, [])
+            "ownerAddress": self.account1,
+        })
+        self.nodes[0].generate(1)
+        self.symbolT1_DUSD = "T1-DUSD"
+        self.idT1_DUSD = list(self.nodes[0].gettoken(self.symbolT1_DUSD).keys())[0]
+
+        self.nodes[0].createpoolpair({
+            "tokenA": self.symbolT2,
+            "tokenB": self.symbolDUSD,
+            "commission": 0.05,
+            "status": True,
+            "ownerAddress": self.account1,
+        })
+        self.nodes[0].generate(1)
+        self.symbolT2_DUSD = "T2-DUSD"
+        self.idT2_DUSD = list(self.nodes[0].gettoken(self.symbolT2_DUSD).keys())[0]
+
+        self.nodes[0].createpoolpair({
+            "tokenA": self.symbolT3,
+            "tokenB": self.symbolDUSD,
+            "commission": 0.01,
+            "status": True,
+            "ownerAddress": self.account1,
+        })
+        self.nodes[0].generate(1)
+        self.symbolT3_DUSD = "T3-DUSD"
+        self.idT3_DUSD = list(self.nodes[0].gettoken(self.symbolT3_DUSD).keys())[0]
+
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
-            "tokenA": self.symbolDUSD,
-            "tokenB": self.symbolNVDA,
-            "commission": Decimal('0.001'),
+            "tokenA": self.symbolT1,
+            "tokenB": self.symbolT2,
+            "commission": 0.001,
             "status": True,
-            "ownerAddress": self.address
-        }, [])
+            "ownerAddress": self.account1,
+        })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
-        # Fund address for pool
-        self.nodes[0].utxostoaccount({self.address: f'100@{self.symbolDFI}'})
-        self.nodes[0].minttokens([f'200@{self.idDUSD}', f'100@{self.idNVDA}'])
-        self.nodes[0].generate(1)
+        self.symbolT1_T2 = "T1-T2"
+        self.idT1_T2 = list(self.nodes[0].gettoken(self.symbolT1_T2).keys())[0]
 
-        # Fund pools
-        self.nodes[0].addpoolliquidity({
-            self.address: [f'100@{self.symbolDUSD}', f'100@{self.symbolDFI}']
-        }, self.address)
-        self.nodes[0].addpoolliquidity({
-            self.address: [f'100@{self.symbolDUSD}', f'100@{self.symbolNVDA}']
-        }, self.address)
-        self.nodes[0].generate(1)
 
-        # Store pool ID
-        self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
-
-        # Set pool gov vars
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{self.idGD}/token_a_fee_pct': '0.01', f'v0/poolpairs/{self.idGD}/token_b_fee_pct': '0.03',
-                                            f'v0/token/{self.idGOOGL}/dex_in_fee_pct': '0.02', f'v0/token/{self.idGOOGL}/dex_out_fee_pct': '0.005'}})
-        self.nodes[0].setgov({"LP_SPLITS": { str(self.idGD): 1}})
-        self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": { str(self.idGD): 1}})
-        self.nodes[0].generate(1)
-
-        # Randomly populate pool
-        self.poolGDTotal = Decimal('0')
-        for _ in range(100):
-            amount = round(random.uniform(1, 1000), 8)
-            self.nodes[0].minttokens([f'{str(amount)}@{self.idDUSD}'])
-            self.nodes[0].minttokens([f'{str(amount)}@{self.idGOOGL}'])
+        # Add liquidity
+        for _ in range(10):
+            self.nodes[0].addpoolliquidity({self.account1: ["5000@DFI", "15000@DUSD"]}, self.account1)
             self.nodes[0].generate(1)
-            self.nodes[0].addpoolliquidity({
-                self.address: [f'{str(amount)}@{self.idDUSD}', f'{str(amount)}@{self.idGOOGL}']
-            }, self.address)
+            self.nodes[0].addpoolliquidity({self.account2: ["4990@DFI", "14970@DUSD"]}, self.account2)
             self.nodes[0].generate(1)
-            self.poolGDTotal += Decimal(str(amount))
+            self.nodes[0].addpoolliquidity({self.account3: ["10@DFI", "30@DUSD"]}, self.account3)
+            self.nodes[0].generate(1)
+
+        for _ in range(10):
+            self.nodes[0].addpoolliquidity({self.account1: ["500@T1", "5000000@DUSD"]}, self.account1)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account2: ["499@T1", "4990000@DUSD"]}, self.account2)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account3: ["1@T1", "10000@DUSD"]}, self.account3)
+            self.nodes[0].generate(1)
+
+        for _ in range(10):
+            self.nodes[0].addpoolliquidity({self.account1: ["10000@T2", "500000@DUSD"]}, self.account1)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account2: ["9980@T2", "499000@DUSD"]}, self.account2)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account3: ["20@T2", "1000@DUSD"]}, self.account3)
+            self.nodes[0].generate(1)
+
+        for _ in range(10):
+            self.nodes[0].addpoolliquidity({self.account1: ["5000000@T3", "0.05@DUSD"]}, self.account1)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account2: ["4990000@T3", "0.0499@DUSD"]}, self.account2)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account3: ["10000@T3", "0.0001@DUSD"]}, self.account3)
+            self.nodes[0].generate(1)
+
+        for _ in range(10):
+            self.nodes[0].addpoolliquidity({self.account1: ["5000@T1", "250@T2"]}, self.account1)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account2: ["4990@T1", "249.5@T2"]}, self.account2)
+            self.nodes[0].generate(1)
+            self.nodes[0].addpoolliquidity({self.account3: ["10@T1", "0.5@T2"]}, self.account3)
+            self.nodes[0].generate(1)
+
+    def gotoGW(self):
+        height = self.nodes[0].getblockcount()
+        if height < self.GREAT_WORLD_HEIGHT:
+            self.nodes[0].generate((self.GREAT_WORLD_HEIGHT - height) + 2)
+
+    def setup(self):
+        self.nodes[0].generate(101)
+        self.setup_oracles()
+        self.setup_tokens()
+        self.setup_accounts()
+        self.setup_pools()
+        self.gotoGW()
+
+
+    def run_test(self):
+        self.setup()
+
+        self.check_tributes_on_split(self.idT1_DUSD, self.idT1, revert=True)
+        self.check_tributes_on_split(self.idT2_DUSD, self.idT2, revert=True)
+        self.check_tributes_on_split(self.idT1_T2, self.idT1, revert=True)
+        self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=True)
+        self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=False)
+
+        self.token_split_T3()
+        self.token_split_T1()
+        self.setup_test_vaults()
+        self.vault_split()
 
     def setup_test_vaults(self):
-
         # Create loan scheme
         self.nodes[0].createloanscheme(100, 0.1, 'LOAN0001')
         self.nodes[0].generate(1)
 
         # Fund address for vault creation
-        self.nodes[0].utxostoaccount({self.address: f'30000@{self.symbolDFI}'})
+        self.nodes[0].utxostoaccount({self.account1: f'30000@{self.symbolDFI}'})
         self.nodes[0].generate(1)
 
         for _ in range(100):
             # Create vault
-            vault_id = self.nodes[0].createvault(self.address, '')
+            vault_id = self.nodes[0].createvault(self.account1, '')
             self.nodes[0].generate(1)
 
             # Take 1 to 3 loans
@@ -230,13 +305,13 @@ class TokenSplitTest(DefiTestFramework):
                 # Deposit random collateral
                 collateral = round(random.uniform(1, 100), 8)
                 loan = truncate(str(collateral / 3), 8)
-                self.nodes[0].deposittovault(vault_id, self.address, f'{str(collateral)}@{self.symbolDFI}')
+                self.nodes[0].deposittovault(vault_id, self.account1, f'{str(collateral)}@DFI')
                 self.nodes[0].generate(1)
 
                 # Take loan
                 self.nodes[0].takeloan({
                     'vaultId': vault_id,
-                    'amounts': f"{str(loan)}@{self.symbolNVDA}"
+                    'amounts': f"{str(loan)}@{self.symbolT3}"
                 })
                 self.nodes[0].generate(1)
 
@@ -275,7 +350,7 @@ class TokenSplitTest(DefiTestFramework):
         if loan:
             assert_equal(result[f'v0/token/{token_id}/loan_minting_enabled'], 'true')
             assert_equal(result[f'v0/token/{token_id}/loan_minting_interest'], '0')
-        assert(f'v0/oracles/splits/{self.nodes[0].getblockcount()}' not in result)
+        assert_equal(result[f'v0/oracles/splits/{self.nodes[0].getblockcount()}'], f'{token_idv1}/{multiplier},')
         assert_equal(result[f'v0/token/{token_idv1}/descendant'], f'{token_id}/{self.nodes[0].getblockcount()}')
         assert_equal(result[f'v0/token/{token_id}/ascendant'], f'{token_idv1}/split')
         assert_equal(result[f'v0/locks/token/{token_id}'], 'true')
@@ -283,7 +358,7 @@ class TokenSplitTest(DefiTestFramework):
         # Check new token
         result = self.nodes[0].gettoken(token_id)[token_id]
         assert_equal(result['symbol'], f'{token_symbol}')
-        assert_equal(result['minted'], Decimal(f'{minted}'))
+        assert_equal(result['minted'], minted)
         assert_equal(result['mintable'], True)
         assert_equal(result['tradeable'], True)
         assert_equal(result['finalized'], False)
@@ -293,11 +368,92 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['destructionHeight'], -1)
 
         # Make sure no old tokens remain in the account
-        result = self.nodes[0].getaccount(self.address)
+        result = self.nodes[0].getaccount(self.account1)
         for val in result:
             assert_equal(val.find(f'{token_symbol}{token_suffix}'), -1)
 
-    def check_pool_split(self, pool_id, pool_symbol, token_id, token_symbol, token_suffix, minted, reserve_a, reserve_b):
+    # Make the split and return split height for revert if needed
+    def split(self, tokenId):
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
+        self.nodes[0].generate(1)
+
+        # Token split
+        splitHeight = self.nodes[0].getblockcount() + 2
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
+        self.nodes[0].generate(2)
+
+        return splitHeight
+
+    def getTokenSymbolFromId(self, tokenId):
+        token = self.nodes[0].gettoken(tokenId)
+        tokenSymbol = token[tokenId]["symbol"]
+        return tokenSymbol
+
+    def revert(self, block):
+        blockhash = self.nodes[0].getblockhash(block)
+        self.nodes[0].invalidateblock(blockhash)
+
+
+    def check_tributes_on_split(self, poolId, tokenId, revert=False):
+        self.nodes[0].generate(10)
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
+        poolSymbol = self.getTokenSymbolFromId(poolId)
+        revert_block = self.nodes[0].getblockcount()
+        # set LP and Tokens gov vars
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{poolId}/token_a_fee_pct': '0.01',
+                                            f'v0/poolpairs/{poolId}/token_b_fee_pct': '0.03',
+                                            f'v0/token/{tokenId}/dex_in_fee_pct': '0.02',
+                                            f'v0/token/{tokenId}/dex_out_fee_pct': '0.005'}})
+
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+        assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+        assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+        assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+
+        splitHeight = self.split(tokenId)
+        self.nodes[0].generate(1)
+
+        new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+        new_pool_id = list(self.nodes[0].gettoken(poolSymbol).keys())[0]
+
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
+        assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
+        assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
+        assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
+
+        assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' in result)
+        assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' in result)
+        assert(f'v0/token/{new_token_id}/dex_in_fee_pct' in result)
+        assert(f'v0/token/{new_token_id}/dex_out_fee_pct' in result)
+
+        if revert:
+            self.revert(splitHeight)
+            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+            assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+            assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+
+            self.revert(revert_block)
+            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
+            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
+            assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
+            assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
+
+    def check_pool_split(self, pool_id, pool_symbol, token_id, token_symbol, token_suffix, reserve_a, reserve_b, reserve_a_b, reserve_b_a):
 
         # Check old pool
         result = self.nodes[0].getpoolpair(pool_id)[pool_id]
@@ -327,18 +483,20 @@ class TokenSplitTest(DefiTestFramework):
         pool_id = list(self.nodes[0].gettoken(pool_symbol).keys())[0]
 
         # Validate new Gov vars set
-        assert_equal(result[f'v0/poolpairs/{pool_id}/token_a_fee_pct'], '0.01')
-        assert_equal(result[f'v0/poolpairs/{pool_id}/token_b_fee_pct'], '0.03')
-        assert_equal(result[f'v0/token/{token_id}/dex_in_fee_pct'], '0.02')
-        assert_equal(result[f'v0/token/{token_id}/dex_out_fee_pct'], '0.005')
+        if isT3:
+            assert_equal(result[f'v0/poolpairs/{pool_id}/token_a_fee_pct'], '0.01')
+            assert_equal(result[f'v0/poolpairs/{pool_id}/token_b_fee_pct'], '0.03')
+            assert_equal(result[f'v0/token/{token_id}/dex_in_fee_pct'], '0.02')
+            assert_equal(result[f'v0/token/{token_id}/dex_out_fee_pct'], '0.005')
 
         # Check new pool
         result = self.nodes[0].getpoolpair(pool_id)[pool_id]
+        breakpoint()
         assert_equal(result['symbol'], f'{pool_symbol}')
-        assert_equal(result['reserveA'], Decimal(f'{minted}'))
-        assert_equal(result['reserveB'], self.poolGDTotal)
-        assert_equal(result['reserveA/reserveB'], reserve_a)
-        assert_equal(result['reserveB/reserveA'], reserve_b)
+        assert_equal(result['reserveA'], reserve_a)
+        assert_equal(result['reserveB'], reserve_b)
+        assert_equal(result['reserveA/reserveB'], reserve_a_b)
+        assert_equal(result['reserveB/reserveA'], reserve_b_a)
         assert_equal(result['idTokenA'], str(token_id))
         assert_equal(result['status'], True)
         assert_equal(result['tradeEnabled'], True)
@@ -346,17 +504,18 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['dexFeePctTokenB'], Decimal('0.03000000'))
         assert_equal(result['dexFeeInPctTokenA'], Decimal('0.01000000'))
         assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['rewardPct'], Decimal('1.00000000'))
-        assert_equal(result['rewardLoanPct'], Decimal('1.00000000'))
+        assert_equal(result['rewardPct'], Decimal('0E-8'))
+        assert_equal(result['rewardLoanPct'], Decimal('0E-8'))
         assert_equal(result['creationTx'], self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'][2])
         assert_equal(result['creationHeight'], self.nodes[0].getblockcount())
 
         # Make sure no old pool tokens remain in the account
-        result = self.nodes[0].getaccount(self.address)
+        result = self.nodes[0].getaccount(self.account1)
         for val in result:
             assert_equal(val.find(f'{pool_symbol}{token_suffix}'), -1)
 
         # Check that LP_SPLITS and LP_LOAN_TOKEN_SPLITS updated
+        breakpoint()
         assert_equal(self.nodes[0].getgov('LP_SPLITS')['LP_SPLITS'], {pool_id: Decimal('1.00000000')})
         assert_equal(self.nodes[0].getgov('LP_LOAN_TOKEN_SPLITS')['LP_LOAN_TOKEN_SPLITS'], {pool_id: Decimal('1.00000000')})
 
@@ -365,59 +524,39 @@ class TokenSplitTest(DefiTestFramework):
         # Move to GW
         self.nodes[0].generate(151 - self.nodes[0].getblockcount())
 
-        # Set extra Gov vars for token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/dfip2203':'true',
-                                            f'v0/token/{self.idTSLA}/loan_payback/{self.idDUSD}': 'true',
-                                            f'v0/token/{self.idGOOGL}/loan_payback/{self.idTSLA}': 'true',
-                                            f'v0/token/{self.idTSLA}/loan_payback/{self.idTSLA}': 'true',
-                                            f'v0/token/{self.idGOOGL}/loan_payback_fee_pct/{self.idTSLA}': '0.25',
-                                            f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}': '0.25',
-                                            f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idDUSD}': '0.25'}})
-        self.nodes[0].generate(1)
-
         # Make sure we cannot make a token with '/' in its symbol
         assert_raises_rpc_error(-32600, "token symbol should not contain '/'", self.nodes[0].createtoken, {
             'symbol': 'bad/v1',
-            "collateralAddress": self.address
+            "collateralAddress": self.account1
         })
 
         # Create funded addresses
         funded_addresses = []
         for _ in range(100):
             amount = round(random.uniform(1, 1000), 8)
-            self.nodes[0].minttokens([f'{str(amount)}@{self.idTSLA}'])
+            self.nodes[0].minttokens([f'{str(amount)}@{self.idT3}'])
             self.nodes[0].generate(1)
             address = self.nodes[0].getnewaddress()
-            self.nodes[0].accounttoaccount(self.address, {address: f'{str(amount)}@{self.idTSLA}'})
+            self.nodes[0].accounttoaccount(self.account1, {address: f'{str(amount)}@{self.idT3}'})
             self.nodes[0].generate(1)
             funded_addresses.append([address, Decimal(str(amount))])
 
         # Set expected minted amount
-        minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'] * 2
+        minted = self.nodes[0].gettoken(self.idT3)[self.idT3]['minted'] * 2
 
         # Lock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT3}':'true'}})
         self.nodes[0].generate(1)
 
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT3}/2'}})
         self.nodes[0].generate(2)
 
         # Check token split correctly
-        self.check_token_split(self.idTSLA, self.symbolTSLA, '/v1', 2, minted, True, True)
+        self.check_token_split(self.idT3, self.symbolT1, '/v1', 2, minted, True, True)
 
         # Swap old for new values
-        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
-
-        # Verify extra Gov vars copied
-        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result[f'v0/token/{self.idTSLA}/dfip2203'], 'true')
-        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback/{self.idDUSD}'], 'true')
-        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_payback/{self.idTSLA}'], 'true')
-        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback/{self.idTSLA}'], 'true')
-        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idDUSD}'], '0.25')
-        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
-        assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
+        self.idT3 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
 
         # Check new balances
         for [address, amount] in funded_addresses:
@@ -426,7 +565,7 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(new_amount, amount * 2)
 
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT3}/-3'}})
         self.nodes[0].generate(2)
 
         # Check new balances
@@ -439,66 +578,113 @@ class TokenSplitTest(DefiTestFramework):
             minted += new_amount
 
         # Check token split correctly
-        self.check_token_split(self.idTSLA, self.symbolTSLA, '/v2', -3, minted, True, True)
+        self.check_token_split(self.idT3, self.symbolT1, '/v2', -3, minted, True, True)
 
         # Swap old for new values
-        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+        self.idT3 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
 
         # Unlock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT3}':'false'}})
         self.nodes[0].generate(1)
 
-    def pool_split(self):
+    def token_split_T3(self):
+        self.nodes[0].generate(30) # Go to GreatWorldHeight
 
         # Check pool before split
-        result = self.nodes[0].getpoolpair(self.idGD)[self.idGD]
-        assert_equal(result['reserveA'], self.poolGDTotal)
-        assert_equal(result['reserveB'], self.poolGDTotal)
-        assert_equal(result['reserveA/reserveB'], Decimal('1.00000000'))
-        assert_equal(result['reserveB/reserveA'], Decimal('1.00000000'))
+        result = self.nodes[0].getpoolpair(self.symbolT3_DUSD)[self.idT3_DUSD]
+        assert_equal(result['reserveA'], Decimal('100000000.00000000'))
+        assert_equal(result['reserveB'], Decimal('1.00000000'))
+        assert_equal(result['reserveA/reserveB'], Decimal('100000000.00000000'))
+        assert_equal(result['reserveB/reserveA'], Decimal('1E-8'))
         assert_equal(result['status'], True)
         assert_equal(result['tradeEnabled'], True)
-        assert_equal(result['dexFeePctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['dexFeePctTokenB'], Decimal('0.03000000'))
-        assert_equal(result['dexFeeInPctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
-        assert_equal(result['rewardPct'], Decimal('1.00000000'))
-        assert_equal(result['rewardLoanPct'], Decimal('1.00000000'))
 
         # Lock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT3}':'true'}})
         self.nodes[0].generate(1)
-
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idGOOGL}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT3}/2'}})
         self.nodes[0].generate(2)
 
         # Check token split correctly
-        self.check_token_split(self.idGOOGL, self.symbolGOOGL, '/v1', 2, str(self.poolGDTotal * 2), False, True)
+        self.check_token_split(self.idT3, self.symbolT3, '/v1', 2, Decimal('200000000.00000000'), True, False)
 
         # Check pool migrated successfully
-        self.check_pool_split(self.idGD, self.symbolGD, self.idGOOGL, self.symbolGOOGL, '/v1', self.poolGDTotal * 2, Decimal('2.00000000'), Decimal('0.50000000'))
+        self.check_pool_split(self.idT3_DUSD, self.symbolT3_DUSD, self.idT3, self.symbolT3, '/v1', Decimal('200000000.00000000'), Decimal('1.00000000'), Decimal('200000000.00000000'), Decimal('0E-8'))
 
         # Swap old for new values
-        self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
-        self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+        self.idT2_DUSD = list(self.nodes[0].gettoken(self.symbolT2_DUSD).keys())[0]
 
         # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idGOOGL}/-3'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT2}/-3'}})
         self.nodes[0].generate(2)
 
         # Check token split correctly
-        minted = truncate(str(self.poolGDTotal * 2 / 3), 8)
-        self.check_token_split(self.idGOOGL, self.symbolGOOGL, '/v2', -3, minted, False, True)
+        minted = truncate(str(self.poolT2_DUSDTotal * 2 / 3), 8)
+        self.check_token_split(self.idT2, self.symbolT2, '/v2', -3, minted, False, True)
 
         # Check pool migrated successfully
-        self.check_pool_split(self.idGD, self.symbolGD, self.idGOOGL, self.symbolGOOGL, '/v2', minted, Decimal('0.66666666'), Decimal('1.50000000'))
+        self.check_pool_split(self.idT2_DUSD, self.symbolT2_DUSD, self.idT2, self.symbolT2, '/v2', minted, Decimal('0.66666666'), Decimal('1.50000000'))
 
         # Swap old for new values
-        self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
 
         # Unlock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idGOOGL}':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT2}':'false'}})
+        self.nodes[0].generate(1)
+
+    def token_split_T1(self):
+        self.nodes[0].generate(30) # Go to GreatWorldHeight
+
+        # Check pool before split
+        result = self.nodes[0].getpoolpair(self.symbolT1_DUSD)[self.idT1_DUSD]
+        assert_equal(result['reserveA'], Decimal('10000.00000000'))
+        assert_equal(result['reserveB'], Decimal('100000000.00000000'))
+        assert_equal(result['reserveA/reserveB'], Decimal('0.00010000'))
+        assert_equal(result['reserveB/reserveA'], Decimal('10000.00000000'))
+        assert_equal(result['status'], True)
+        assert_equal(result['tradeEnabled'], True)
+       # assert_equal(result['dexFeePctTokenA'], Decimal('0.01000000'))
+       # assert_equal(result['dexFeePctTokenB'], Decimal('0.03000000'))
+       # assert_equal(result['dexFeeInPctTokenA'], Decimal('0.01000000'))
+       # assert_equal(result['dexFeeOutPctTokenA'], Decimal('0.01000000'))
+       # assert_equal(result['rewardPct'], Decimal('1.00000000'))
+       # assert_equal(result['rewardLoanPct'], Decimal('1.00000000'))
+
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT1}':'true'}})
+        self.nodes[0].generate(1)
+        # Token split
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT1}/2'}})
+        self.nodes[0].generate(2)
+
+        # Check token split correctly
+        self.check_token_split(self.idT1, self.symbolT1, '/v1', 2, Decimal('220000.00000000'), True, True)
+
+        # Check pool migrated successfully
+        self.check_pool_split(self.idT2_DUSD, self.symbolT2_DUSD, self.idT2, self.symbolT2, '/v1', self.poolT2_DUSDTotal * 2, Decimal('2.00000000'), Decimal('0.50000000'))
+
+        # Swap old for new values
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+        self.idT2_DUSD = list(self.nodes[0].gettoken(self.symbolT2_DUSD).keys())[0]
+
+        # Token split
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idT2}/-3'}})
+        self.nodes[0].generate(2)
+
+        # Check token split correctly
+        minted = truncate(str(self.poolT2_DUSDTotal * 2 / 3), 8)
+        self.check_token_split(self.idT2, self.symbolT2, '/v2', -3, minted, False, True)
+
+        # Check pool migrated successfully
+        self.check_pool_split(self.idT2_DUSD, self.symbolT2_DUSD, self.idT2, self.symbolT2, '/v2', minted, Decimal('0.66666666'), Decimal('1.50000000'))
+
+        # Swap old for new values
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT2}':'false'}})
         self.nodes[0].generate(1)
 
     def execute_vault_split(self, token_id, token_symbol, multiplier, suffix):
@@ -523,9 +709,8 @@ class TokenSplitTest(DefiTestFramework):
         # Gather pre-split info to compare later
         pre_get_interest = self.nodes[0].getinterest('LOAN0001', 'NVDA')[0]
         for vault_info in self.nodes[0].listvaults():
-            if self.skip_vault != vault_info['vaultId']:
-                vault = self.nodes[0].getvault(vault_info['vaultId'])
-                self.vault_balances.append([vault_info['vaultId'], vault])
+            vault = self.nodes[0].getvault(vault_info['vaultId'])
+            self.vault_balances.append([vault_info['vaultId'], vault])
 
         # Move to split block
         self.nodes[0].generate(1)
@@ -566,73 +751,14 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def vault_split(self):
-
-        # Create vault to test split after payback
-        self.skip_vault = self.nodes[0].createvault(self.address, '')
-        self.nodes[0].generate(1)
-
-        # Deposit to vault
-        self.nodes[0].deposittovault(self.skip_vault, self.address, f'100@{self.symbolDFI}')
-        self.nodes[0].generate(1)
-
-        # Take loan
-        self.nodes[0].takeloan({
-            'vaultId': self.skip_vault,
-            'amounts': f'100@{self.symbolNVDA}'
-        })
-        self.nodes[0].generate(1)
-
-        # Payback loan
-        result = self.nodes[0].getvault(self.skip_vault)
-        self.nodes[0].paybackloan({
-            'vaultId': self.skip_vault,
-            'from': self.address,
-            'amounts': result['loanAmounts'][0]
-        })
-        self.nodes[0].generate(1)
-
         # Multiplier 2
-        self.execute_vault_split(self.idNVDA, self.symbolNVDA, 2, '/v1')
+        self.execute_vault_split(self.idT3, self.symbolT3, 2, '/v1')
 
         # Swap old for new values
-        self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
+        self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
 
         # Multiplier -3
-        self.execute_vault_split(self.idNVDA, self.symbolNVDA, -3, '/v2')
-
-        # Swap old for new values
-        self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
-
-    def check_govvar_deletion(self):
-        # Lock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'true'}})
-        self.nodes[0].generate(1)
-
-        # Token split
-        split_height = self.nodes[0].getblockcount() + 2
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{split_height}':f'{self.idTSLA}/2'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/500000':f'{self.idTSLA}/2'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idTSLA}/2'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idNVDA}/2'}})
-        self.nodes[0].generate(1)
-
-        # Check splits
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2,')
-        assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2,')
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2,')
-
-        # Split
-        self.nodes[0].generate(1)
-
-        # Check TSLA entries removed
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert(f'v0/oracles/splits/{split_height}' not in result)
-        assert(f'v0/oracles/splits/500000' not in result)
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2,')
-
-        # Swap old for new values
-        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+        self.execute_vault_split(self.idT3, self.symbolT3, -3, '/v2')
 
 if __name__ == '__main__':
     TokenSplitTest().main()
