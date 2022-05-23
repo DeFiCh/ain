@@ -29,6 +29,7 @@ class TokenSplitTest(DefiTestFramework):
         self.pool_split()
         self.setup_test_vaults()
         self.vault_split()
+        self.check_govvar_deletion()
 
     def setup_test_tokens(self):
         self.nodes[0].generate(101)
@@ -274,7 +275,7 @@ class TokenSplitTest(DefiTestFramework):
         if loan:
             assert_equal(result[f'v0/token/{token_id}/loan_minting_enabled'], 'true')
             assert_equal(result[f'v0/token/{token_id}/loan_minting_interest'], '0')
-        assert_equal(result[f'v0/oracles/splits/{self.nodes[0].getblockcount()}'], f'{token_idv1}/{multiplier},')
+        assert(f'v0/oracles/splits/{self.nodes[0].getblockcount()}' not in result)
         assert_equal(result[f'v0/token/{token_idv1}/descendant'], f'{token_id}/{self.nodes[0].getblockcount()}')
         assert_equal(result[f'v0/token/{token_id}/ascendant'], f'{token_idv1}/split')
         assert_equal(result[f'v0/locks/token/{token_id}'], 'true')
@@ -598,6 +599,40 @@ class TokenSplitTest(DefiTestFramework):
 
         # Multiplier -3
         self.execute_vault_split(self.idNVDA, self.symbolNVDA, -3, '/v2')
+
+        # Swap old for new values
+        self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
+
+    def check_govvar_deletion(self):
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'true'}})
+        self.nodes[0].generate(1)
+
+        # Token split
+        split_height = self.nodes[0].getblockcount() + 2
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{split_height}':f'{self.idTSLA}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/500000':f'{self.idTSLA}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idTSLA}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idNVDA}/2'}})
+        self.nodes[0].generate(1)
+
+        # Check splits
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2,')
+        assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2,')
+        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2,')
+
+        # Split
+        self.nodes[0].generate(1)
+
+        # Check TSLA entries removed
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert(f'v0/oracles/splits/{split_height}' not in result)
+        assert(f'v0/oracles/splits/500000' not in result)
+        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2,')
+
+        # Swap old for new values
+        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
 
 if __name__ == '__main__':
     TokenSplitTest().main()

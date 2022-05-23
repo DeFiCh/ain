@@ -971,6 +971,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         if (!token->IsDAT()) {
                             return Res::Err("Only DATs can be split");
                         }
+                        if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
+                            return Res::Err("No loan token with id (%d)", tokenId);
+                        }
                     }
                 } else {
                     return Res::Err("Unsupported key");
@@ -1147,7 +1150,6 @@ Res ATTRIBUTES::Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, ui
                     continue;
                 }
 
-                // Loan token check imposed on lock
                 if (!mnview.GetLoanTokenByID(DCT_ID{split}).has_value()) {
                     return Res::Err("Auto lock. No loan token with id (%d)", split);
                 }

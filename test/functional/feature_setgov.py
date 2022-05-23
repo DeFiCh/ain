@@ -664,7 +664,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Pool tokens cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set at or below current height", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/oracles/splits/{self.nodes[0].getblockcount()}': '5/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
-        assert_raises_rpc_error(-32600, "Auto lock. No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000':'4/2'}})
+        assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000':'4/2'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/5/dex_in_fee_pct':'0.6','v0/token/5/dex_out_fee_pct':'0.12'}})
         self.nodes[0].generate(1)
