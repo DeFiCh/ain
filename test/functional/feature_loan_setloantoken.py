@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal,assert_raises_rpc_error
 
 from decimal import Decimal
 import calendar
@@ -152,6 +152,14 @@ class LoanSetLoanTokenTest (DefiTestFramework):
 
         # Move to fork height
         self.nodes[0].generate(110 - self.nodes[0].getblockcount())
+
+        assert_raises_rpc_error(-32600, 'token symbol should be non-empty and starts with a letter', self.nodes[0].setloantoken, {
+            'symbol': "",
+            'name': "Google",
+            'fixedIntervalPriceId': "MSFT/USD",
+            'mintable': True,
+            'interest': 0.01
+        })
 
         # Create loan tokens
         self.nodes[0].setloantoken({
