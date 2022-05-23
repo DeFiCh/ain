@@ -101,7 +101,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
 {
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
-    options.write_buffer_size = 16 << 20; // Dynamic caches never quite align well
+    options.write_buffer_size = 16 << 20; // Simpler with fixed cache
     options.filter_policy = leveldb::NewBloomFilterPolicy(16);
     options.compression = leveldb::kNoCompression;
     options.info_log = new CDefiLevelDBLogger();
