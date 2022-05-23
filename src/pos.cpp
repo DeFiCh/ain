@@ -140,8 +140,14 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
 
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
 
+   
+
     int nHeight{pindexLast->nHeight + 1};
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
+
+    if (pindexLast->nHeight >= params.FortCanningCrunchHeight) { 
+         return nProofOfWorkLimit;
+    }
 
     // Restore previous difficulty adjust on testnet after FC
     if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
