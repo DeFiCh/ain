@@ -231,7 +231,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 uint32_t entries{1};
                 mnview.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
                     if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                        ++entries;
+                        const auto tokenA = mnview.GetToken(pool.idTokenA);
+                        const auto tokenB = mnview.GetToken(pool.idTokenB);
+                        assert(tokenA);
+                        assert(tokenB);
+                        if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                            (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                            ++entries;
+                        }
                     }
                     return true;
                 });
