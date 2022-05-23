@@ -274,12 +274,18 @@ class TokenSplitTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
+        initialStateBlock = self.nodes[0].getblockcount()
 
         self.check_tributes_on_split(self.idT1_DUSD, self.idT1, revert=True)
         self.check_tributes_on_split(self.idT2_DUSD, self.idT2, revert=True)
         self.check_tributes_on_split(self.idT1_T2, self.idT1, revert=True)
         self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=True)
         self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=False)
+        self.check_tributes_on_split(self.idT1_DUSD, self.idT1, revert=False)
+        breakpoint()
+        self.check_tributes_on_split(self.idT2_DUSD, self.idT2, revert=False)
+
+        self.revert(initialStateBlock)
 
         self.token_split_T3()
         self.token_split_T1()
@@ -373,7 +379,8 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(val.find(f'{token_symbol}{token_suffix}'), -1)
 
     # Make the split and return split height for revert if needed
-    def split(self, tokenId):
+    def split(self, tokenId, keepLocked=False):
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
         self.nodes[0].generate(1)
 
@@ -382,11 +389,16 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
         self.nodes[0].generate(2)
 
+        tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+        if not keepLocked:
+            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
+            self.nodes[0].generate(1)
+
         return splitHeight
 
     def getTokenSymbolFromId(self, tokenId):
         token = self.nodes[0].gettoken(tokenId)
-        tokenSymbol = token[tokenId]["symbol"]
+        tokenSymbol = token[str(tokenId)]["symbol"]
         return tokenSymbol
 
     def revert(self, block):
@@ -491,7 +503,6 @@ class TokenSplitTest(DefiTestFramework):
 
         # Check new pool
         result = self.nodes[0].getpoolpair(pool_id)[pool_id]
-        breakpoint()
         assert_equal(result['symbol'], f'{pool_symbol}')
         assert_equal(result['reserveA'], reserve_a)
         assert_equal(result['reserveB'], reserve_b)
@@ -515,7 +526,6 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(val.find(f'{pool_symbol}{token_suffix}'), -1)
 
         # Check that LP_SPLITS and LP_LOAN_TOKEN_SPLITS updated
-        breakpoint()
         assert_equal(self.nodes[0].getgov('LP_SPLITS')['LP_SPLITS'], {pool_id: Decimal('1.00000000')})
         assert_equal(self.nodes[0].getgov('LP_LOAN_TOKEN_SPLITS')['LP_LOAN_TOKEN_SPLITS'], {pool_id: Decimal('1.00000000')})
 
