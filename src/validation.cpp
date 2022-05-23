@@ -3770,7 +3770,7 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 }
 
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
-                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const std::string& newTokenSuffix, const int32_t multiplier) {
+                      const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
     try {
         assert(creationTxs.count(oldTokenId.v));
@@ -3785,7 +3785,26 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             newPoolToken.creationTx = creationTx;
             newPoolToken.minted = 0;
 
-            oldPoolToken->symbol += newTokenSuffix;
+            size_t suffixCount{1};
+            view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
+                if (pool.idTokenA == oldTokenId || pool.idTokenB == oldTokenId) {
+                    const auto tokenA = view.GetToken(pool.idTokenA);
+                    const auto tokenB = view.GetToken(pool.idTokenB);
+                    assert(tokenA);
+                    assert(tokenB);
+                    if ((tokenA->destructionHeight != -1 && tokenA->destructionTx != uint256{}) ||
+                        (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
+                        const auto poolToken = view.GetToken(poolId);
+                        assert(poolToken);
+                        if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
+                            ++suffixCount;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            oldPoolToken->symbol += "/v" + std::to_string(suffixCount);
             oldPoolToken->flags |= static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
@@ -4178,7 +4197,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs,newTokenSuffix, multiplier);
+        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
             continue;
