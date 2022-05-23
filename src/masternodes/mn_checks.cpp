@@ -1132,7 +1132,7 @@ public:
             return Res::Err("wrong commission");
         }
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningSpiceGardenHeight) && obj.pairSymbol.find('/') != std::string::npos) {
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight) && obj.pairSymbol.find('/') != std::string::npos) {
             return Res::Err("token symbol should not contain '/'");
         }
 
