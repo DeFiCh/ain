@@ -19,7 +19,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningspicegardenheight=110', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -48,7 +48,11 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert("no live oracles for specified request" in errorString)
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [
+            {"currency": "USD", "token": "TSLA"},
+            {"currency": "USD", "token": "GOOGL"},
+            {"currency": "USD", "token": "AMZN"},
+        ]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
@@ -74,7 +78,11 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             errorString = e.error['message']
         assert("price feed not in valid format - token/currency" in errorString)
 
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@TSLA"}]
+        oracle1_prices = [
+            {"currency": "USD", "tokenAmount": "1@TSLA"},
+            {"currency": "USD", "tokenAmount": "1@GOOGL"},
+            {"currency": "USD", "tokenAmount": "1@AMZN"},
+        ]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(1)
@@ -141,6 +149,58 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             'name': "DUSD",
             'mintable': True,
             'interest': 0})
+
+        # Move to fork height
+        self.nodes[0].generate(110 - self.nodes[0].getblockcount())
+
+        # Create loan tokens
+        self.nodes[0].setloantoken({
+            'symbol': "GOOGL",
+            'name': "Google",
+            'fixedIntervalPriceId': "GOOGL/USD",
+            'mintable': True,
+            'interest': 0.01})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setloantoken({
+            'symbol': "AMZN",
+            'name': "Amazon",
+            'fixedIntervalPriceId': "AMZN/USD",
+            'mintable': False,
+            'interest': 0.01})
+        self.nodes[0].generate(1)
+
+        # Check tokens
+        result = self.nodes[0].gettoken("GOOGL")['4']
+        assert_equal(result['symbol'], 'GOOGL')
+        assert_equal(result['symbolKey'], 'GOOGL')
+        assert_equal(result['name'], 'Google')
+        assert_equal(result['mintable'], True)
+        assert_equal(result['tradeable'], True)
+        assert_equal(result['isDAT'], True)
+        assert_equal(result['isLPS'], False)
+        assert_equal(result['finalized'], False)
+        assert_equal(result['isLoanToken'], True)
+
+        result = self.nodes[0].gettoken("AMZN")['5']
+        assert_equal(result['symbol'], 'AMZN')
+        assert_equal(result['symbolKey'], 'AMZN')
+        assert_equal(result['name'], 'Amazon')
+        assert_equal(result['mintable'], False)
+        assert_equal(result['tradeable'], True)
+        assert_equal(result['isDAT'], True)
+        assert_equal(result['isLPS'], False)
+        assert_equal(result['finalized'], False)
+        assert_equal(result['isLoanToken'], True)
+
+        # Check attributess
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/token/4/loan_minting_enabled'], 'true')
+        assert_equal(result['v0/token/4/loan_minting_interest'], '0.01')
+        assert_equal(result['v0/token/4/fixed_interval_price_id'], 'GOOGL/USD')
+        assert_equal(result['v0/token/5/loan_minting_enabled'], 'false')
+        assert_equal(result['v0/token/5/loan_minting_interest'], '0.01')
+        assert_equal(result['v0/token/5/fixed_interval_price_id'], 'AMZN/USD')
 
 if __name__ == '__main__':
     LoanSetLoanTokenTest().main()
