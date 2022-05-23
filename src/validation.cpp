@@ -4023,9 +4023,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
         }
 
-        rate.height = height;
-
-        view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, height);
+        view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
     }
 
     return Res::Ok();
