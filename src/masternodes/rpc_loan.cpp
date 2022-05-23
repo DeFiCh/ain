@@ -1,14 +1,16 @@
 #include <masternodes/mn_rpc.h>
 
-extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+#include <masternodes/govvariables/attributes.h>
+
+extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern UniValue listauctions(const JSONRPCRequest& request);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
-UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
+UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
 {
     UniValue collTokenObj(UniValue::VOBJ);
 
-    auto token = pcustomcsview->GetToken(collToken.idToken);
+    auto token = view.GetToken(collToken.idToken);
     if (!token)
         return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
@@ -21,20 +23,22 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
     return (collTokenObj);
 }
 
-UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
+UniValue setLoanTokenToJSON(CCustomCSView& view, CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
 {
     UniValue loanTokenObj(UniValue::VOBJ);
 
-    auto token = pcustomcsview->GetToken(tokenId);
+    auto token = view.GetToken(tokenId);
     if (!token)
         return (UniValue::VNULL);
 
-    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *token, true));
+    loanTokenObj.pushKV("token", tokenToJSON(view, tokenId, *token, true));
     loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
+    loanTokenObj.pushKV("mintable", loanToken.mintable);
 
     return (loanTokenObj);
 }
+
 CTokenCurrencyPair DecodePriceFeedString(const std::string& value){
     auto delim = value.find('/');
     if (delim == value.npos || value.find('/', delim + 1) != value.npos)
@@ -209,7 +213,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     auto collToken = pcustomcsview->HasLoanCollateralToken(start);
     if (collToken && collToken->factor)
     {
-        ret.pushKVs(setCollateralTokenToJSON(*collToken));
+        ret.pushKVs(setCollateralTokenToJSON(*pcustomcsview, *collToken));
     }
 
     return (ret);
@@ -219,15 +223,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
 UniValue listcollateraltokens(const JSONRPCRequest& request) {
     RPCHelpMan{"listcollateraltokens",
                 "Return list of all created collateral tokens. If no parameters passed it will return all current valid setcollateraltoken transactions.\n",
-                {
-                    {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Valid at specified height"},
-                            {"all", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Alltime setcollateraltoken transactions"},
-                        },
-                    },
-
-                },
+                {},
                 RPCResult
                 {
                     "{...}     (object) Json object with collateral token information\n"
@@ -238,52 +234,38 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
      }.Check(request);
 
     UniValue ret(UniValue::VARR);
-    DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
-    uint32_t height = ::ChainActive().Height();
-    bool all = false;
+    CCustomCSView view(*pcustomcsview);
 
-    if (request.params.size() > 0)
-    {
-        UniValue byObj = request.params[0].get_obj();
-        std::string tokenSymbol;
-
-        if (!byObj["height"].isNull())
-            height = (size_t) byObj["height"].get_int64();
-        if (!byObj["all"].isNull())
-            all =  byObj["all"].get_bool();
-    }
-
-    LOCK(cs_main);
-
-    CollateralTokenKey start{DCT_ID{0}, height};
-    if (all)
-    {
-        pcustomcsview->ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
-        {
-            auto collToken = pcustomcsview->GetLoanCollateralToken(collTokenTx);
-            if (collToken)
-                ret.push_back(setCollateralTokenToJSON(*collToken));
-
-            return true;
-        });
-
-        return (ret);
-    }
-
-    pcustomcsview->ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
-    {
-        if ((key.height > height || currentToken == key.id)) return true;
-
-        currentToken = key.id;
-        auto collToken = pcustomcsview->GetLoanCollateralToken(collTokenTx);
+    view.ForEachLoanCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
+        auto collToken = view.GetLoanCollateralToken(collTokenTx);
         if (collToken)
-        {
-            ret.push_back(setCollateralTokenToJSON(*collToken));
+            ret.push_back(setCollateralTokenToJSON(view, *collToken));
+
+        return true;
+    });
+
+    if (!ret.empty()) {
+        return ret;
+    }
+
+    auto attributes = view.GetAttributes();
+    if (!attributes) {
+        return ret;
+    }
+
+    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+        if (attr.type != AttributeTypes::Token) {
+            return false;
+        }
+        if (attr.key == TokenKeys::LoanCollateralEnabled) {
+            if (auto collToken = view.GetCollateralTokenFromAttributes({attr.typeId})) {
+                ret.push_back(setCollateralTokenToJSON(view, *collToken));
+            }
         }
         return true;
-    }, start);
+    }, CDataStructureV0{AttributeTypes::Token});
 
-    return (ret);
+    return ret;
 }
 
 UniValue setloantoken(const JSONRPCRequest& request) {
@@ -445,7 +427,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[1].get_obj();
     UniValue const & txInputs = request.params[2];
 
-    std::unique_ptr<CLoanSetLoanTokenImplementation> loanToken;
+    boost::optional<CLoanSetLoanTokenImplementation> loanToken;
     CTokenImplementation tokenImpl;
 
     int targetHeight;
@@ -532,14 +514,36 @@ UniValue listloantokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
-    LOCK(cs_main);
+    CCustomCSView view(*pcustomcsview);
 
-    pcustomcsview->ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        ret.push_back(setLoanTokenToJSON(loanToken,key));
+    view.ForEachLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        ret.push_back(setLoanTokenToJSON(view, loanToken, key));
         return true;
     });
 
-    return (ret);
+    if (!ret.empty()) {
+        return ret;
+    }
+
+    auto attributes = view.GetAttributes();
+    if (!attributes) {
+        return ret;
+    }
+
+    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+        if (attr.type != AttributeTypes::Token) {
+            return false;
+        }
+        if (attr.key == TokenKeys::LoanMintingEnabled) {
+            auto tokenId = DCT_ID{attr.typeId};
+            if (auto loanToken = view.GetLoanTokenFromAttributes(tokenId)) {
+                ret.push_back(setLoanTokenToJSON(view, *loanToken, tokenId));
+            }
+        }
+        return true;
+    }, CDataStructureV0{AttributeTypes::Token});
+
+    return ret;
 }
 
 UniValue getloantoken(const JSONRPCRequest& request)
@@ -577,7 +581,7 @@ UniValue getloantoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
     }
 
-    return setLoanTokenToJSON(*loanToken, idToken);
+    return setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
 }
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
