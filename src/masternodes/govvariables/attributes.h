@@ -116,6 +116,14 @@ ResVal<CScript> GetFutureSwapContractAddress();
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback>;
 
+enum GovVarsFilter {
+    Legacy,
+    All,
+    NoAttributes,
+    PrefixedAttributes,
+    LiveAttributes,
+};
+
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
@@ -127,7 +135,9 @@ public:
 
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
-    Res Validate(CCustomCSView const &mnview) const override;
+    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
+    
+    Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
