@@ -2307,7 +2307,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
         {
             const auto& tokenId = obj.idToken.v;
 
@@ -2379,7 +2379,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningSpiceGardenHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
         {
             CTokenImplementation token;
             token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
