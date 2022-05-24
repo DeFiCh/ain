@@ -644,10 +644,10 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::Version2Dot7 && 
+        if (filter == GovVarsFilter::Live && 
             attrV0->type != AttributeTypes::Live) {
                 continue;
-        } else if (filter == GovVarsFilter::) {
+        } else if (filter == GovVarsFilter::Version2Dot7) {
             if (attrV0->type == AttributeTypes::Token && 
             attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end()) 
                 continue;
