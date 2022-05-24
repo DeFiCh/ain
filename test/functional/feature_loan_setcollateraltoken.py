@@ -233,7 +233,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         result = self.nodes[0].listcollateraltokens()[2]
         assert_equal(result['token'], 'GOOGL')
         assert_equal(result['tokenId'], token['creationTx'])
-        assert_equal(result['factor'], Decimal('0.50000000'))
+        assert_equal(result['factor'], Decimal('0.12345678'))
         assert_equal(result['fixedIntervalPriceId'], 'GOOGL/USD')
 
 if __name__ == '__main__':
