@@ -1684,6 +1684,7 @@ static bool GetCreationTransactions(const CBlock& block, const uint32_t id, cons
         return false;
     }
 
+    LogPrintf("%s: success\n", __func__);
     return true;
 }
 
@@ -2303,11 +2304,13 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
             }
 
             if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) && cache.SetVariable(*var)) {
+                LogPrintf("%s: Applied gov vars\n", __func__);
                 return true;
             }
         }
     }
 
+    LogPrintf("%s: Skipped applying gov vars\n", __func__);
     return false;
 }
 
@@ -2798,6 +2801,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                  REJECT_INVALID, "bad-cb-pool-split");
         }
 
+        LogPrintf("%s: Processed pool pairs for id: %d\n", __func__, id);
         std::vector<std::pair<DCT_ID, uint256>> poolPairs;
         poolPairs.reserve(poolsToMigrate.size());
         std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), poolCreationTx.begin(), std::back_inserter(poolPairs),
@@ -3675,6 +3679,8 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
         return true;
     });
 
+    LogPrintf("%s: Collected loan and collateral tokens\n", __func__);
+
     // Apply fixed_interval_price_id first
     std::map<std::string, std::string> attrsFirst;
     std::map<std::string, std::string> attrsSecond;
@@ -3690,6 +3696,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
             ++loanCount;
         }
 
+        LogPrintf("%s: Processed loan tokens\n", __func__);
         for (const auto& token : collateralTokens) {
             std::string prefix = KeyBuilder(ATTRIBUTES::displayVersions().at(VersionTypes::v0), ATTRIBUTES::displayTypes().at(AttributeTypes::Token), token.idToken.v);
             attrsFirst[KeyBuilder(prefix, ATTRIBUTES::displayKeys().at(AttributeTypes::Token).at(TokenKeys::FixedIntervalPriceId))] = token.fixedIntervalPriceId.first + '/' + token.fixedIntervalPriceId.second;
@@ -3698,6 +3705,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
             ++collateralCount;
         }
 
+        LogPrintf("%s: Processed collateral tokens\n", __func__);
         CCustomCSView govCache(cache);
         if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
             govCache.Flush();
@@ -3714,6 +3722,8 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
     } catch(std::out_of_range&) {
         LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
     }
+
+    LogPrintf("%s: Processed token to gov vars %\n", __func__);
 }
 
 static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attributes, const uint32_t id, std::string& newSuffix) {
@@ -3940,6 +3950,8 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 view.SetShare(newPoolId, owner, pindex->nHeight);
             }
 
+            LogPrintf("%s: Migrated balances for new pool ID %d\n", __func__, newPoolId.v);
+
             DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
             if (oldPoolPair->idTokenA == oldTokenId) {
                 view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
@@ -3994,7 +4006,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
 
-
+            LogPrintf("%s: Updated liquidity for split pool (old: %d, new: %d) %d\n", __func__, oldPoolId.v, newPoolId.v);
         }
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
@@ -4100,6 +4112,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         return;
     }
 
+    LogPrintf("%s: Fetched attributes from cache\n", __func__);
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
@@ -4132,6 +4145,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
+        LogPrintf("%s: Fetched token info for ID: %d\n", __func__, id);
         CTokenImplementation newToken{*token};
         newToken.creationHeight = pindex->nHeight;
         assert(creationTxs.count(id));
@@ -4163,6 +4177,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         const DCT_ID newTokenId{resVal.val->v};
+        LogPrintf("%s: New token %d for split %d\n", __func__, newTokenId.v, id);
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
@@ -4204,7 +4219,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CAccounts addAccounts;
         CAccounts subAccounts;
 
-        view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
+        view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
                 addAccounts[owner].Add({newTokenId, newBalance});
@@ -4214,6 +4229,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             return true;
         });
 
+        LogPrintf("%s: Collected account balance for new token %d, split %d\n", __func__, newTokenId.v, id);
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
@@ -4240,6 +4256,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
+        LogPrintf("%s: Reflected new token %d balance on accounts, split %d\n", __func__, newTokenId.v, id);
         if (view.GetLoanTokenByID(oldTokenId)) {
             res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
             if (!res) {
@@ -4254,6 +4271,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             }
         }
 
+        LogPrintf("%s: Applying attributes for new token %d, split %d\n", __func__, newTokenId.v, id);
         std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
             if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
