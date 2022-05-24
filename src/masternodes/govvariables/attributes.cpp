@@ -9,6 +9,7 @@
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
 #include <masternodes/mn_checks.h> /// CustomTxType
 
+#include <amount.h> /// GetDecimaleString
 #include <core_io.h> /// ValueFromAmount
 #include <util/strencodings.h>
 
@@ -665,6 +666,10 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
                 if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
                     ret.pushKV(key, KeyBuilder(*amount));
+                } else if (attrV0->type == AttributeTypes::Token &&
+                          (attrV0->key == TokenKeys::LoanMintingInterest ||
+                           attrV0->key == TokenKeys::LoanCollateralFactor)) {
+                    ret.pushKV(key, GetDecimaleString(*amount));
                 } else {
                     auto uvalue = ValueFromAmount(*amount);
                     ret.pushKV(key, KeyBuilder(uvalue.get_real()));
