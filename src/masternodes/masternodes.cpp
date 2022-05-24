@@ -1185,6 +1185,11 @@ boost::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollat
             collToken.factor = attributes->GetValue(factorKey, CAmount{0});
             collToken.idToken = id;
 
+            auto token = GetToken(id);
+            if (token) {
+                collToken.creationTx = token->creationTx;
+            }
+
             return collToken;
         }
     }
