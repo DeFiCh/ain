@@ -254,7 +254,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['destructionHeight'], self.nodes[0].getblockcount())
 
         # Check old token in Gov vars
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert(f'v0/token/{token_id}/fixed_interval_price_id' not in result)
         if collateral:
             assert(f'v0/token/{token_id}/loan_collateral_enabled' not in result)
@@ -318,7 +318,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['rewardLoanPct'], Decimal('0.00000000'))
 
         # Validate old Gov vars removed
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert(f'v0/poolpairs/{pool_id}/token_a_fee_pct' not in result)
         assert(f'v0/poolpairs/{pool_id}/token_b_fee_pct' not in result)
         assert(f'v0/token/{token_id}/dex_in_fee_pct' not in result)
@@ -619,7 +619,7 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check splits
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2')
         assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2')
         assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2')
@@ -628,7 +628,7 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check TSLA entries removed
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert(f'v0/oracles/splits/{split_height}' not in result)
         assert(f'v0/oracles/splits/500000' not in result)
         assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2')

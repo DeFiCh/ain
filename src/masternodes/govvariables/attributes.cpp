@@ -9,6 +9,7 @@
 #include <masternodes/mn_checks.h> /// GetAggregatePrice
 #include <masternodes/mn_checks.h> /// CustomTxType
 
+#include <amount.h> /// GetDecimaleString
 #include <core_io.h> /// ValueFromAmount
 #include <util/strencodings.h>
 
@@ -290,6 +291,12 @@ static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
 
 static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
+}
+
+static inline void rtrim(std::string& s, unsigned char remove) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) {
+        return ch != remove;
+    }).base(), s.end());
 }
 
 const std::map<uint8_t, std::map<uint8_t,
@@ -623,6 +630,20 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     return Res::Ok();
 }
 
+// Keys to exclude when using the legacy filter mode, to keep things the 
+// same as pre 2.7.x versions, to reduce noise. Eventually, the APIs that 
+// cause too much noise can be deprecated and this code removed.
+std::set<uint32_t> attrsVersion27TokenHiddenSet = {
+    TokenKeys::LoanCollateralEnabled,
+    TokenKeys::LoanCollateralFactor,
+    TokenKeys::LoanMintingEnabled,
+    TokenKeys::LoanMintingInterest,
+    TokenKeys::FixedIntervalPriceId,
+    TokenKeys::Ascendant,
+    TokenKeys::Descendant,
+    TokenKeys::Epitaph,
+};
+
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
@@ -630,8 +651,13 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::LiveAttributes && attrV0->type != AttributeTypes::Live) {
-            continue;
+        if (filter == GovVarsFilter::LiveAttributes && 
+            attrV0->type != AttributeTypes::Live) {
+                continue;
+        } else if (filter == GovVarsFilter::Version2Dot7) {
+            if (attrV0->type == AttributeTypes::Token && 
+            attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end()) 
+                continue;
         }
         try {
             std::string id;
@@ -666,8 +692,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
-                    auto uvalue = ValueFromAmount(*amount);
-                    ret.pushKV(key, KeyBuilder(uvalue.get_real()));
+                    auto decimalStr = GetDecimaleString(*amount);
+                    rtrim(decimalStr, '0');
+                    ret.pushKV(key, decimalStr);
                 }
             } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
