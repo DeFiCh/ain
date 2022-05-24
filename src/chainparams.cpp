@@ -19,6 +19,10 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
+bool fMockNetwork = false;
+std::string sMockFoundationPubKey;
+uint64_t nMockBlockTimeSecs = 0;
+
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
     std::vector<CTransactionRef> mnTxs;
@@ -325,6 +329,15 @@ public:
             /* nTxCount */ 1091894,
             /* dTxRate  */ 0.1841462153145931
         };
+
+        if (fMockNetwork) {
+            consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
+            consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
+            // Add additional foundation members here for testing
+            if (!sMockFoundationPubKey.empty()) {
+                consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
+            }
+        }
     }
 };
 
