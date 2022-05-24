@@ -99,7 +99,7 @@ static void SetMaxOpenFiles(leveldb::Options *options) {
 
 static leveldb::Options GetOptions(size_t nCacheSize)
 {
-    const auto upper_power_of_two = [](uint64_t v) {
+    const auto upper_power_of_two = [](size_t v) {
         v--;
         v |= v >> 1;
         v |= v >> 2;
