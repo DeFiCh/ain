@@ -2735,7 +2735,7 @@ public:
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
             } else {
-                return Res::Err("There is not default loan scheme");
+                return Res::Err("There is no default loan scheme");
             }
         }
 
