@@ -25,22 +25,10 @@ def truncate(str, decimal):
 class TokenSplitTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.GREAT_WORLD_HEIGHT = 300
+        self.FCC_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=150', '-subsidytest=1']]
-
-    def run_test(self):
-        self.setup_test_tokens()
-        self.token_split()
-        self.setup_test_pools()
-        self.pool_split()
-        self.setup_test_vaults()
-        self.vault_split()
-        self.check_govvar_deletion()
-
-    def setup_test_tokens(self):
-        self.nodes[0].generate(101)
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.FCC_HEIGHT}', '-jellyfish_regtest=1', '-subsidytest=1']]
 
     def setup_oracles(self):
         # Symbols
@@ -270,10 +258,10 @@ class TokenSplitTest(DefiTestFramework):
             self.nodes[0].addpoolliquidity({self.account3: ["10@T1", "0.5@T2"]}, self.account3)
             self.nodes[0].generate(1)
 
-    def gotoGW(self):
+    def gotoFCC(self):
         height = self.nodes[0].getblockcount()
-        if height < self.GREAT_WORLD_HEIGHT:
-            self.nodes[0].generate((self.GREAT_WORLD_HEIGHT - height) + 2)
+        if height < self.FCC_HEIGHT:
+            self.nodes[0].generate((self.FCC_HEIGHT - height) + 2)
 
     def setup(self):
         self.nodes[0].generate(101)
@@ -281,58 +269,263 @@ class TokenSplitTest(DefiTestFramework):
         self.setup_tokens()
         self.setup_accounts()
         self.setup_pools()
-        self.gotoGW()
+        self.gotoFCC()
 
+    # Make the split and return split height for revert if needed
+    def split(self, tokenId, keepLocked=False):
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
+        self.nodes[0].generate(1)
+
+        # Token split
+        splitHeight = self.nodes[0].getblockcount() + 2
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
+        self.nodes[0].generate(2)
+
+        tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+        if not keepLocked:
+            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
+            self.nodes[0].generate(1)
+
+        return splitHeight
+
+    def getTokenSymbolFromId(self, tokenId):
+        token = self.nodes[0].gettoken(tokenId)
+        tokenSymbol = token[str(tokenId)]["symbol"].split('/')[0]
+        return tokenSymbol
+
+    def revert(self, block, revertTokeIds=False):
+        blockhash = self.nodes[0].getblockhash(block)
+        self.nodes[0].invalidateblock(blockhash)
+        self.nodes[0].clearmempool()
+        if revertTokeIds:
+            self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
+            self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+            self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
+
+    # Returns a list of pool token ids in which token is present
+    def getTokenPools(self, tokenId):
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
+        tokenPools = {}
+        currentPools = self.nodes[0].listpoolpairs()
+        for pool in currentPools:
+            if tokenSymbol in currentPools[pool]["symbol"] and currentPools[pool]["status"]:
+                tokenPools[pool] = currentPools[pool]
+        assert(len(tokenPools) > 0)
+        return tokenPools
+
+    def check_attributes_on_split(self, tokenId, revert=False):
+        self.nodes[0].generate(10)
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
+        revert_block = self.nodes[0].getblockcount()
+        pools = self.getTokenPools(tokenId)
+        poolsSymbol = []
+        for pool in pools:
+            poolsSymbol.append(self.getTokenSymbolFromId(pool))
+
+        # set LP and Tokens gov vars
+        for poolId in pools:
+            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{poolId}/token_a_fee_pct': '0.01',
+                                                f'v0/poolpairs/{poolId}/token_b_fee_pct': '0.03'}})
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{tokenId}/dex_in_fee_pct': '0.02',
+                                            f'v0/token/{tokenId}/dex_out_fee_pct': '0.005'}})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+        assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+        for poolId in pools:
+            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+
+        splitHeight = self.split(tokenId)
+        self.nodes[0].generate(1)
+
+        new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+        new_pools = []
+        for poolSymbol in poolsSymbol:
+            new_pools.append(list(self.nodes[0].gettoken(poolSymbol).keys())[0])
+
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+
+        for poolId in pools:
+            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
+            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
+        assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
+        assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
+
+        for new_pool_id in new_pools:
+            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' in result)
+            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' in result)
+        assert(f'v0/token/{new_token_id}/dex_in_fee_pct' in result)
+        assert(f'v0/token/{new_token_id}/dex_out_fee_pct' in result)
+
+        if not revert:
+            return new_token_id
+        else:
+            self.revert(splitHeight)
+            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+            for poolId in pools:
+                assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
+                assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
+            assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
+            assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
+            for new_pool_id in new_pools:
+                assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+                assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+
+            self.revert(revert_block)
+            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+            for new_pool_id in new_pools:
+                assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
+                assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
+            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
+            return 0
+
+    def getAmountFromAccount(self, account, symbol):
+        amounts = self.nodes[0].getaccount(account)
+        amountStr = '0'
+        for amount in amounts:
+            amountSplit = amount.split('@')
+            if symbol == amountSplit[1]:
+                amountStr = amountSplit[0]
+        return amountStr
+
+    def check_amounts_on_split(self, poolId, tokenId, revert=False):
+        self.nodes[0].generate(10)
+        tokenSymbol = self.getTokenSymbolFromId(tokenId)
+        poolSymbol = self.getTokenSymbolFromId(poolId)
+        tokenBSymbol = poolSymbol.split('-')[0]
+        if tokenBSymbol == tokenSymbol:
+            tokenBSymbol = poolSymbol.split('-')[1]
+        revertHeight = self.nodes[0].getblockcount()
+
+        amountLPBeforeAcc1 = self.getAmountFromAccount(self.account1, poolSymbol)
+        amountLPBeforeAcc2 = self.getAmountFromAccount(self.account2, poolSymbol)
+        amountLPBeforeAcc3 = self.getAmountFromAccount(self.account3, poolSymbol)
+        if amountLPBeforeAcc1 != '0':
+            self.nodes[0].removepoolliquidity(self.account1, amountLPBeforeAcc1+"@"+poolSymbol, [])
+            self.nodes[0].generate(1)
+        if amountLPBeforeAcc2 != '0':
+            self.nodes[0].removepoolliquidity(self.account2, amountLPBeforeAcc2+"@"+poolSymbol, [])
+            self.nodes[0].generate(1)
+        if amountLPBeforeAcc3 != '0':
+            self.nodes[0].removepoolliquidity(self.account3, amountLPBeforeAcc3+"@"+poolSymbol, [])
+            self.nodes[0].generate(1)
+
+        amountTokenBeforeAcc1 = self.getAmountFromAccount(self.account1, tokenSymbol)
+        amountTokenB_BeforeAcc1 = self.getAmountFromAccount(self.account1, tokenBSymbol)
+        amountTokenBeforeAcc2 = self.getAmountFromAccount(self.account2, tokenSymbol)
+        amountTokenB_BeforeAcc2 = self.getAmountFromAccount(self.account2, tokenBSymbol)
+        amountTokenBeforeAcc3 = self.getAmountFromAccount(self.account3, tokenSymbol)
+        amountTokenB_BeforeAcc3 = self.getAmountFromAccount(self.account3, tokenBSymbol)
+
+        self.revert(revertHeight)
+
+        self.split(tokenId)
+        new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+
+        amountLPAfterAcc1 = self.getAmountFromAccount(self.account1, poolSymbol)
+        amountLPAfterAcc2 = self.getAmountFromAccount(self.account2, poolSymbol)
+        amountLPAfterAcc3 = self.getAmountFromAccount(self.account3, poolSymbol)
+        self.nodes[0].removepoolliquidity(self.account1, amountLPAfterAcc1+"@"+poolSymbol, [])
+        self.nodes[0].generate(1)
+        self.nodes[0].removepoolliquidity(self.account2, amountLPAfterAcc2+"@"+poolSymbol, [])
+        self.nodes[0].generate(1)
+        self.nodes[0].removepoolliquidity(self.account3, amountLPAfterAcc3+"@"+poolSymbol, [])
+        self.nodes[0].generate(1)
+        amountTokenAfterAcc1 = self.getAmountFromAccount(self.account1, tokenSymbol)
+        amountTokenB_AfterAcc1 = self.getAmountFromAccount(self.account1, tokenBSymbol)
+        amountTokenAfterAcc2 = self.getAmountFromAccount(self.account2, tokenSymbol)
+        amountTokenB_AfterAcc2 = self.getAmountFromAccount(self.account2, tokenBSymbol)
+        amountTokenAfterAcc3 = self.getAmountFromAccount(self.account3, tokenSymbol)
+        amountTokenB_AfterAcc3 = self.getAmountFromAccount(self.account3, tokenBSymbol)
+
+        # Check difference is not grater than 0,001% rounding difference
+        assert((Decimal(amountTokenB_BeforeAcc1) - Decimal(amountTokenB_AfterAcc1)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc1)))
+        assert((Decimal(amountTokenB_BeforeAcc2) - Decimal(amountTokenB_AfterAcc2)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc2)))
+        assert((Decimal(amountTokenB_BeforeAcc3) - Decimal(amountTokenB_AfterAcc3)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc3)))
+        assert(((Decimal(amountTokenBeforeAcc1)*2) - Decimal(amountTokenAfterAcc1)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc1))
+        assert(((Decimal(amountTokenBeforeAcc2)*2) - Decimal(amountTokenAfterAcc2)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc2))
+        assert(((Decimal(amountTokenBeforeAcc3)*2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc3))
+
+        if revert:
+            self.revert(revertHeight)
+
+        return new_token_id
 
     def run_test(self):
         self.setup()
         initialStateBlock = self.nodes[0].getblockcount()
 
-        self.check_tributes_on_split(self.idT1_DUSD, self.idT1, revert=True)
-        self.check_tributes_on_split(self.idT2_DUSD, self.idT2, revert=True)
-        self.check_tributes_on_split(self.idT1_T2, self.idT1, revert=True)
-        self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=True)
-        self.check_tributes_on_split(self.idT3_DUSD, self.idT3, revert=False)
-        self.check_tributes_on_split(self.idT1_DUSD, self.idT1, revert=False)
+        self.check_attributes_on_split(self.idT1, revert=True)
+        self.check_attributes_on_split(self.idT2, revert=True)
+        self.check_attributes_on_split(self.idT1, revert=True)
+        self.check_attributes_on_split(self.idT3, revert=True)
+        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
+        self.idT1 = self.check_attributes_on_split(self.idT1, revert=False)
+        self.idT2 = self.check_attributes_on_split(self.idT2, revert=False)
+        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
+        # second round split
+        self.check_attributes_on_split(self.idT1, revert=True)
+        self.check_attributes_on_split(self.idT2, revert=True)
+        self.check_attributes_on_split(self.idT1, revert=True)
+        self.check_attributes_on_split(self.idT3, revert=True)
+        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
+        self.idT1 = self.check_attributes_on_split(self.idT1, revert=False)
+        self.idT2 = self.check_attributes_on_split(self.idT2, revert=False)
+        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
+
+        self.revert(initialStateBlock, revertTokeIds=True)
+        self.gotoFCC()
+
+        self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=True)
+        self.check_amounts_on_split(self.idT2_DUSD, self.idT2, revert=True)
+        self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=True)
+        self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=True)
+        self.check_amounts_on_split(self.idT1_T2, self.idT1, revert=True)
+        self.idT1 = self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=False)
+        self.idT2 = self.check_amounts_on_split(self.idT2_DUSD, self.idT2, revert=False)
+        self.idT3 = self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=False)
         breakpoint()
-        self.check_tributes_on_split(self.idT2_DUSD, self.idT2, revert=False)
+        self.idT2 = self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=False)
+#        self.token_split_T1()
+#        self.setup_test_vaults()
+#        self.vault_split()
 
-        self.revert(initialStateBlock)
-
-        self.token_split_T3()
-        self.token_split_T1()
-        self.setup_test_vaults()
-        self.vault_split()
-
-    def setup_test_vaults(self):
-        # Create loan scheme
-        self.nodes[0].createloanscheme(100, 0.1, 'LOAN0001')
-        self.nodes[0].generate(1)
-
-        # Fund address for vault creation
-        self.nodes[0].utxostoaccount({self.account1: f'30000@{self.symbolDFI}'})
-        self.nodes[0].generate(1)
-
-        for _ in range(100):
-            # Create vault
-            vault_id = self.nodes[0].createvault(self.account1, '')
-            self.nodes[0].generate(1)
-
-            # Take 1 to 3 loans
-            for _ in range(1, 4):
-                # Deposit random collateral
-                collateral = round(random.uniform(1, 100), 8)
-                loan = truncate(str(collateral / 3), 8)
-                self.nodes[0].deposittovault(vault_id, self.account1, f'{str(collateral)}@DFI')
-                self.nodes[0].generate(1)
-
-                # Take loan
-                self.nodes[0].takeloan({
-                    'vaultId': vault_id,
-                    'amounts': f"{str(loan)}@{self.symbolT3}"
-                })
-                self.nodes[0].generate(1)
-
+#    def setup_test_vaults(self):
+#        # Create loan scheme
+#        self.nodes[0].createloanscheme(100, 0.1, 'LOAN0001')
+#        self.nodes[0].generate(1)
+#
+#        # Fund address for vault creation
+#        self.nodes[0].utxostoaccount({self.account1: f'30000@{self.symbolDFI}'})
+#        self.nodes[0].generate(1)
+#
+#        for _ in range(100):
+#            # Create vault
+#            vault_id = self.nodes[0].createvault(self.account1, '')
+#            self.nodes[0].generate(1)
+#
+#            # Take 1 to 3 loans
+#            for _ in range(1, 4):
+#                # Deposit random collateral
+#                collateral = round(random.uniform(1, 100), 8)
+#                loan = truncate(str(collateral / 3), 8)
+#                self.nodes[0].deposittovault(vault_id, self.account1, f'{str(collateral)}@DFI')
+#                self.nodes[0].generate(1)
+#
+#                # Take loan
+#                self.nodes[0].takeloan({
+#                    'vaultId': vault_id,
+#                    'amounts': f"{str(loan)}@{self.symbolT3}"
+#                })
+#                self.nodes[0].generate(1)
+#
     def check_token_split(self, token_id, token_symbol, token_suffix, multiplier, minted, loan, collateral):
 
         # Check old token
@@ -389,93 +582,6 @@ class TokenSplitTest(DefiTestFramework):
         result = self.nodes[0].getaccount(self.account1)
         for val in result:
             assert_equal(val.find(f'{token_symbol}{token_suffix}'), -1)
-
-    # Make the split and return split height for revert if needed
-    def split(self, tokenId, keepLocked=False):
-        tokenSymbol = self.getTokenSymbolFromId(tokenId)
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
-        self.nodes[0].generate(1)
-
-        # Token split
-        splitHeight = self.nodes[0].getblockcount() + 2
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
-        self.nodes[0].generate(2)
-
-        tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
-        if not keepLocked:
-            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
-            self.nodes[0].generate(1)
-
-        return splitHeight
-
-    def getTokenSymbolFromId(self, tokenId):
-        token = self.nodes[0].gettoken(tokenId)
-        tokenSymbol = token[str(tokenId)]["symbol"]
-        return tokenSymbol
-
-    def revert(self, block):
-        blockhash = self.nodes[0].getblockhash(block)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
-
-    def check_tributes_on_split(self, poolId, tokenId, revert=False):
-        self.nodes[0].generate(10)
-        tokenSymbol = self.getTokenSymbolFromId(tokenId)
-        poolSymbol = self.getTokenSymbolFromId(poolId)
-        revert_block = self.nodes[0].getblockcount()
-        # set LP and Tokens gov vars
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/poolpairs/{poolId}/token_a_fee_pct': '0.01',
-                                            f'v0/poolpairs/{poolId}/token_b_fee_pct': '0.03',
-                                            f'v0/token/{tokenId}/dex_in_fee_pct': '0.02',
-                                            f'v0/token/{tokenId}/dex_out_fee_pct': '0.005'}})
-
-        self.nodes[0].generate(1)
-
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
-        assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
-        assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
-        assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
-
-        splitHeight = self.split(tokenId)
-        self.nodes[0].generate(1)
-
-        new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
-        new_pool_id = list(self.nodes[0].gettoken(poolSymbol).keys())[0]
-
-        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-        assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
-        assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
-        assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
-        assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
-
-        assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' in result)
-        assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' in result)
-        assert(f'v0/token/{new_token_id}/dex_in_fee_pct' in result)
-        assert(f'v0/token/{new_token_id}/dex_out_fee_pct' in result)
-
-        if revert:
-            self.revert(splitHeight)
-            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
-            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
-            assert(f'v0/token/{tokenId}/dex_in_fee_pct' in result)
-            assert(f'v0/token/{tokenId}/dex_out_fee_pct' in result)
-            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
-            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
-
-            self.revert(revert_block)
-            result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
-            assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
-            assert(f'v0/poolpairs/{new_pool_id}/token_b_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
-            assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
-            assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' not in result)
-            assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' not in result)
-            assert(f'v0/token/{tokenId}/dex_in_fee_pct' not in result)
-            assert(f'v0/token/{tokenId}/dex_out_fee_pct' not in result)
 
     def check_pool_split(self, pool_id, pool_symbol, token_id, token_symbol, token_suffix, reserve_a, reserve_b, reserve_a_b, reserve_b_a):
 
