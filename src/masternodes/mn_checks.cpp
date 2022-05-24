@@ -2319,9 +2319,23 @@ public:
             CDataStructureV0 collateralFactor{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralFactor};
             CDataStructureV0 pairKey{AttributeTypes::Token, tokenId, TokenKeys::FixedIntervalPriceId};
 
-            attributes->SetValue(collateralEnabled, true);
-            attributes->SetValue(collateralFactor, obj.factor);
-            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(collateralEnabled, true);
+            var->SetValue(collateralFactor, obj.factor);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
 
             res = attributes->Validate(mnview);
             if (!res)
@@ -2407,9 +2421,23 @@ public:
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
             CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
 
-            attributes->SetValue(mintEnabled, obj.mintable);
-            attributes->SetValue(mintInterest, obj.interest);
-            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(mintEnabled, obj.mintable);
+            var->SetValue(mintInterest, obj.interest);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
 
             res = attributes->Validate(mnview);
             if (!res)
@@ -2498,9 +2526,23 @@ public:
             CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
             CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
 
-            attributes->SetValue(mintEnabled, obj.mintable);
-            attributes->SetValue(mintInterest, obj.interest);
-            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(mintEnabled, obj.mintable);
+            var->SetValue(mintInterest, obj.interest);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
 
             res = attributes->Validate(mnview);
             if (!res)
