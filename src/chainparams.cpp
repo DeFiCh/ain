@@ -21,7 +21,7 @@
 
 bool fMockNetwork = false;
 std::string sMockFoundationPubKey;
-uint64_t nMockBlockTimeSecs = 8;
+uint64_t nMockBlockTimeSecs = 0;
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
