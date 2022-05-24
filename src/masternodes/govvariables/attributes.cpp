@@ -293,6 +293,12 @@ static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static inline void rtrim(std::string& s, unsigned char remove) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) {
+        return ch != remove;
+    }).base(), s.end());
+}
+
 const std::map<uint8_t, std::map<uint8_t,
     std::function<ResVal<CAttributeValue>(const std::string&)>>>& ATTRIBUTES::parseValue() {
 
@@ -666,13 +672,10 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
                 if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
                     ret.pushKV(key, KeyBuilder(*amount));
-                } else if (attrV0->type == AttributeTypes::Token &&
-                          (attrV0->key == TokenKeys::LoanMintingInterest ||
-                           attrV0->key == TokenKeys::LoanCollateralFactor)) {
-                    ret.pushKV(key, GetDecimaleString(*amount));
                 } else {
-                    auto uvalue = ValueFromAmount(*amount);
-                    ret.pushKV(key, KeyBuilder(uvalue.get_real()));
+                    auto decimalStr = GetDecimaleString(*amount);
+                    rtrim(decimalStr, '0');
+                    ret.pushKV(key, decimalStr);
                 }
             } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));

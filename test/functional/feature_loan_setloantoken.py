@@ -212,7 +212,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(result['v0/token/4/loan_minting_interest'], '15.12345678')
         assert_equal(result['v0/token/4/fixed_interval_price_id'], 'GOOGL/USD')
         assert_equal(result['v0/token/5/loan_minting_enabled'], 'false')
-        assert_equal(result['v0/token/5/loan_minting_interest'], '0.01000000')
+        assert_equal(result['v0/token/5/loan_minting_interest'], '0.01')
         assert_equal(result['v0/token/5/fixed_interval_price_id'], 'AMZN/USD')
 
         # Update loan token
@@ -239,7 +239,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         # Check attributess
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result['v0/token/4/loan_minting_enabled'], 'false')
-        assert_equal(result['v0/token/4/loan_minting_interest'], '0.05000000')
+        assert_equal(result['v0/token/4/loan_minting_interest'], '0.05')
         assert_equal(result['v0/token/4/fixed_interval_price_id'], 'MSFT/USD')
 
 if __name__ == '__main__':
