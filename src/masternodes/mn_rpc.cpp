@@ -722,6 +722,9 @@ UniValue listgovs(const JSONRPCRequest& request) {
             mode = GovVarsFilter::All;
         } else if (prefix == "gov") {
             mode = GovVarsFilter::NoAttributes;
+        } else if (prefix == "attrs") {
+            mode = GovVarsFilter::AttributesOnly;
+
         } else if (prefix == "live") {
             mode = GovVarsFilter::LiveAttributes;
         } else {
@@ -759,7 +762,8 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || 
-                    mode == GovVarsFilter::PrefixedAttributes) {
+                    mode == GovVarsFilter::PrefixedAttributes ||
+                    mode == GovVarsFilter::AttributesOnly){
                     continue;
                 }
                 val = var->Export();

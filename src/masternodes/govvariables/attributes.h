@@ -139,6 +139,7 @@ enum GovVarsFilter {
     Legacy,
     All,
     NoAttributes,
+    AttributesOnly,
     PrefixedAttributes,
     LiveAttributes,
 };
