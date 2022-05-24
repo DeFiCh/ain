@@ -693,7 +693,8 @@ UniValue listgovs(const JSONRPCRequest& request) {
                "\nReturns information about all governance variables including pending changes\n",
                {
                    {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "One of all, legacy, gov, live. Any other string is treated as a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
+                       "One of all, gov, live. Defaults to the legacy view. Any other string is treated as\n"
+                       "a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
                },
                RPCResult{
                        "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
