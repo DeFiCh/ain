@@ -249,6 +249,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['mintable'], False)
         assert_equal(result['tradeable'], False)
         assert_equal(result['finalized'], True)
+        assert_equal(result['isLoanToken'], False)
         assert_equal(result['destructionTx'], self.nodes[0].getbestblockhash())
         assert_equal(result['destructionHeight'], self.nodes[0].getblockcount())
 
@@ -287,6 +288,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['mintable'], True)
         assert_equal(result['tradeable'], True)
         assert_equal(result['finalized'], False)
+        assert_equal(result['isLoanToken'], True)
         assert_equal(result['creationTx'], self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'][1])
         assert_equal(result['creationHeight'], self.nodes[0].getblockcount())
         assert_equal(result['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
