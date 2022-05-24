@@ -444,7 +444,6 @@ class TokenSplitTest(DefiTestFramework):
         amountTokenB_AfterAcc2 = self.getAmountFromAccount(self.account2, tokenBSymbol)
         amountTokenAfterAcc3 = self.getAmountFromAccount(self.account3, tokenSymbol)
         amountTokenB_AfterAcc3 = self.getAmountFromAccount(self.account3, tokenBSymbol)
-
         # Check difference is not grater than 0,001% rounding difference
         assert((Decimal(amountTokenB_BeforeAcc1) - Decimal(amountTokenB_AfterAcc1)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc1)))
         assert((Decimal(amountTokenB_BeforeAcc2) - Decimal(amountTokenB_AfterAcc2)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc2)))
@@ -455,7 +454,6 @@ class TokenSplitTest(DefiTestFramework):
 
         if revert:
             self.revert(revertHeight)
-
         return new_token_id
 
     def run_test(self):

@@ -79,6 +79,7 @@ src/univalue/gen
 # Only ignore unexpected patches
 *.patch
 !depends/patches/**/*.patch
+!contrib/devtools/*.patch
 
 #libtool object files
 *.lo

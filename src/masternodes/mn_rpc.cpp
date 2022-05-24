@@ -693,7 +693,8 @@ UniValue listgovs(const JSONRPCRequest& request) {
                "\nReturns information about all governance variables including pending changes\n",
                {
                    {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "One of all, legacy, gov, live. Any other string is treated as a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
+                       "One of all, gov, attrs, live. Defaults to the all view. Any other string is treated as\n"
+                       "a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
                },
                RPCResult{
                        "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
@@ -711,28 +712,31 @@ UniValue listgovs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    GovVarsFilter mode;
+    GovVarsFilter mode{GovVarsFilter::All};
     std::string prefix;
     if (request.params.size() > 0) {
         prefix = request.params[0].getValStr();
     }
-    if (prefix.empty()) {
-        prefix = "legacy";
-    }
-
-    if (prefix == "all") {
-        mode = GovVarsFilter::All;
-    } else if (prefix == "legacy") {
-        mode = GovVarsFilter::Legacy;
-    } else if (prefix == "gov") {
-        mode = GovVarsFilter::NoAttributes;
-    } else if (prefix == "live") {
-        mode = GovVarsFilter::LiveAttributes;
-    } else {
-        mode = GovVarsFilter::PrefixedAttributes;
-        const std::regex versionRegex("v[0-9].*");
-        if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
-            prefix = "v0/" + prefix;
+    if (!prefix.empty()) {
+        if (prefix == "all") {
+            mode = GovVarsFilter::All;
+        } else if (prefix == "gov") {
+            mode = GovVarsFilter::NoAttributes;
+        } else if (prefix == "attrs") {
+            mode = GovVarsFilter::AttributesOnly;
+        } else if (prefix == "v/2.7") {
+            // Undocumented. Make be removed or deprecated without notice. 
+            // Only here for unforeseen compatibility concern downstream
+            // for transitions.
+            mode = GovVarsFilter::Version2Dot7;
+        } else if (prefix == "live") {
+            mode = GovVarsFilter::LiveAttributes;
+        } else {
+            mode = GovVarsFilter::PrefixedAttributes;
+            const std::regex versionRegex("^v[0-9].*");
+            if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
+                prefix = "v0/" + prefix;
+            }
         }
     }
 
@@ -762,7 +766,8 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || 
-                    mode == GovVarsFilter::PrefixedAttributes) {
+                    mode == GovVarsFilter::PrefixedAttributes ||
+                    mode == GovVarsFilter::AttributesOnly){
                     continue;
                 }
                 val = var->Export();

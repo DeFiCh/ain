@@ -136,11 +136,12 @@ using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
 
 enum GovVarsFilter {
-    Legacy,
     All,
     NoAttributes,
+    AttributesOnly,
     PrefixedAttributes,
     LiveAttributes,
+    Version2Dot7,
 };
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
