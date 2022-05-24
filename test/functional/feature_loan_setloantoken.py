@@ -52,6 +52,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             {"currency": "USD", "token": "TSLA"},
             {"currency": "USD", "token": "GOOGL"},
             {"currency": "USD", "token": "AMZN"},
+            {"currency": "USD", "token": "MSFT"},
         ]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
@@ -82,6 +83,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             {"currency": "USD", "tokenAmount": "1@TSLA"},
             {"currency": "USD", "tokenAmount": "1@GOOGL"},
             {"currency": "USD", "tokenAmount": "1@AMZN"},
+            {"currency": "USD", "tokenAmount": "1@MSFT"},
         ]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
@@ -209,6 +211,33 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(result['v0/token/5/loan_minting_enabled'], 'false')
         assert_equal(result['v0/token/5/loan_minting_interest'], '0.01')
         assert_equal(result['v0/token/5/fixed_interval_price_id'], 'AMZN/USD')
+
+        # Update loan token
+        self.nodes[0].updateloantoken("GOOGL", {
+            'symbol': "MSFT",
+            'name': "Microsoft",
+            'fixedIntervalPriceId': "MSFT/USD",
+            'mintable': False,
+            'interest': 0.05})
+        self.nodes[0].generate(1)
+
+        # Check tokens
+        result = self.nodes[0].gettoken("MSFT")['4']
+        assert_equal(result['symbol'], 'MSFT')
+        assert_equal(result['symbolKey'], 'MSFT')
+        assert_equal(result['name'], 'Microsoft')
+        assert_equal(result['mintable'], False)
+        assert_equal(result['tradeable'], True)
+        assert_equal(result['isDAT'], True)
+        assert_equal(result['isLPS'], False)
+        assert_equal(result['finalized'], False)
+        assert_equal(result['isLoanToken'], True)
+
+        # Check attributess
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/token/4/loan_minting_enabled'], 'false')
+        assert_equal(result['v0/token/4/loan_minting_interest'], '0.05')
+        assert_equal(result['v0/token/4/fixed_interval_price_id'], 'MSFT/USD')
 
 if __name__ == '__main__':
     LoanSetLoanTokenTest().main()
