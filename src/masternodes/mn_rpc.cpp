@@ -711,28 +711,24 @@ UniValue listgovs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    GovVarsFilter mode;
+    GovVarsFilter mode{GovVarsFilter::Legacy};
     std::string prefix;
     if (request.params.size() > 0) {
         prefix = request.params[0].getValStr();
     }
-    if (prefix.empty()) {
-        prefix = "legacy";
-    }
-
-    if (prefix == "all") {
-        mode = GovVarsFilter::All;
-    } else if (prefix == "legacy") {
-        mode = GovVarsFilter::Legacy;
-    } else if (prefix == "gov") {
-        mode = GovVarsFilter::NoAttributes;
-    } else if (prefix == "live") {
-        mode = GovVarsFilter::LiveAttributes;
-    } else {
-        mode = GovVarsFilter::PrefixedAttributes;
-        const std::regex versionRegex("v[0-9].*");
-        if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
-            prefix = "v0/" + prefix;
+    if (!prefix.empty()) {
+        if (prefix == "all") {
+            mode = GovVarsFilter::All;
+        } else if (prefix == "gov") {
+            mode = GovVarsFilter::NoAttributes;
+        } else if (prefix == "live") {
+            mode = GovVarsFilter::LiveAttributes;
+        } else {
+            mode = GovVarsFilter::PrefixedAttributes;
+            const std::regex versionRegex("v[0-9].*");
+            if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
+                prefix = "v0/" + prefix;
+            }
         }
     }
 
