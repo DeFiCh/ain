@@ -428,14 +428,14 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[2];
 
     boost::optional<CLoanSetLoanTokenImplementation> loanToken;
-    CTokenImplementation tokenImpl;
+    boost::optional<CTokenImplementation> token;
 
     int targetHeight;
     {
         LOCK(cs_main);
 
         DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        token = pcustomcsview->GetTokenGuessId(tokenStr, id);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
@@ -469,7 +469,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateLoanToken)
-             << static_cast<CLoanSetLoanToken>(*loanToken) << loanToken->creationTx;
+             << static_cast<CLoanSetLoanToken>(*loanToken) << token->creationTx;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
