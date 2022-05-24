@@ -644,7 +644,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::Live && 
+        if (filter == GovVarsFilter::LiveAttributes && 
             attrV0->type != AttributeTypes::Live) {
                 continue;
         } else if (filter == GovVarsFilter::Version2Dot7) {
