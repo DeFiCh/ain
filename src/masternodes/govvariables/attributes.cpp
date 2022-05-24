@@ -694,6 +694,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 } else {
                     auto decimalStr = GetDecimaleString(*amount);
                     rtrim(decimalStr, '0');
+                    if (decimalStr.back() == '.') {
+                        decimalStr.pop_back();
+                    }
                     ret.pushKV(key, decimalStr);
                 }
             } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
