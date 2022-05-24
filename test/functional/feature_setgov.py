@@ -619,7 +619,7 @@ class GovsetTest (DefiTestFramework):
         # live test. No live on this. For now, just ensure, no other attrs are listed
         assert_equal(self.nodes[0].listgovs("live"), [[{'ATTRIBUTES': {}}]])
 
-        result_all = self.nodes[0].listgovs("all")
+        result_all = self.nodes[0].listgovs("attrs")
         result_legacy = self.nodes[0].listgovs()
         result = self.nodes[0].listgovs()
 
