@@ -3480,6 +3480,8 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     std::map<DCT_ID, CFuturesPrice> futuresPrices;
     CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
 
+    std::vector<std::pair<DCT_ID, CLoanView::CLoanSetLoanTokenImpl>> loanTokens;
+
     cache.ForEachLoanToken([&](const DCT_ID& id, const CLoanView::CLoanSetLoanTokenImpl& loanToken) {
         tokenKey.typeId = id.v;
         const auto enabled = attributes->GetValue(tokenKey, true);
@@ -3487,17 +3489,45 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
             return true;
         }
 
+        loanTokens.emplace_back(id, loanToken);
+
+        return true;
+    });
+
+    if (loanTokens.empty()) {
+        attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+            if (attr.type != AttributeTypes::Token) {
+                return false;
+            }
+
+            tokenKey.typeId = attr.typeId;
+            const auto enabled = attributes->GetValue(tokenKey, true);
+            if (!enabled) {
+                return true;
+            }
+
+            if (attr.key == TokenKeys::LoanMintingEnabled) {
+                auto tokenId = DCT_ID{attr.typeId};
+                if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                    loanTokens.emplace_back(tokenId, *loanToken);
+                }
+            }
+
+            return true;
+        }, CDataStructureV0{AttributeTypes::Token});
+    }
+
+    for (const auto& [id, loanToken] : loanTokens) {
+
         const auto useNextPrice{false}, requireLivePrice{true};
         const auto discountPrice = cache.GetAmountInCurrency(discount, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
         const auto premiumPrice = cache.GetAmountInCurrency(premium, loanToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!discountPrice || !premiumPrice) {
-            return true;
+            continue;
         }
 
         futuresPrices.emplace(id, CFuturesPrice{*discountPrice, *premiumPrice});
-
-        return true;
-    });
+    }
 
     CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
     CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
@@ -3711,6 +3741,8 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
                 cache.EraseLoanCollateralToken(token);
             }
         }
+
+        LogPrintf("Migrated %d loan tokens and %d collateral tokens (height: %d)\n", loanCount, collateralCount, pindex->nHeight);
     } catch(std::out_of_range&) {
         LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
     }
@@ -3824,6 +3856,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
             }
 
+            LogPrintf("Old pool pair (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
+                oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v, oldPoolPair->reserveA, oldPoolPair->reserveB, oldPoolPair->totalLiquidity);
+
             CPoolPair newPoolPair{*oldPoolPair};
             if (oldPoolPair->idTokenA == oldTokenId) {
                 newPoolPair.idTokenA = newTokenId;
@@ -3848,6 +3883,8 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 }
                 return true;
             });
+
+            LogPrintf("Migrating %d balances from old pool\n", balancesToMigrate.size());
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
@@ -3956,6 +3993,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
             }
 
+            LogPrintf("New pool pair (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
+                newPoolPair.idTokenA.v, newPoolPair.idTokenB.v, newPoolPair.reserveA, newPoolPair.reserveB, newPoolPair.totalLiquidity);
+
             res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
             if (!res) {
                 throw std::runtime_error(strprintf("SetPoolPair on new pool pair: %s", res.msg));
@@ -3993,8 +4033,6 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
-
-
         }
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
@@ -4163,6 +4201,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         const DCT_ID newTokenId{resVal.val->v};
+        LogPrintf("Token split %d (symbol: %s, old token id: %d, new token id: %d)\n", id, token->symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
@@ -4204,7 +4243,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CAccounts addAccounts;
         CAccounts subAccounts;
 
-        view.ForEachBalance([&, multiplier = multiplier](CScript const & owner, const CTokenAmount& balance) {
+        view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
                 addAccounts[owner].Add({newTokenId, newBalance});
@@ -4214,6 +4253,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             return true;
         });
 
+        LogPrintf("Token split %d (symbol: %s, add: %d, sub: %d, balance: %d)\n",
+            id, token->symbol, addAccounts.size(), subAccounts.size(), totalBalance);
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
             LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
