@@ -537,10 +537,7 @@ public:
 
     Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        if (!res)
-            return res;
-        res = isPostFortCanningCrunchFork();
-        return res ? Res::Err("called after FortCanningCrunch height") : serialize(obj);
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CLoanSchemeMessage& obj) const {
@@ -2458,7 +2455,16 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        auto loanToken = mnview.GetLoanToken(obj.tokenTx);
+        if (obj.interest < 0)
+            return Res::Err("interest rate cannot be less than 0!");
+
+        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
+        if (!pair)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        auto loanToken = height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) ?
+                mnview.GetLoanTokenByID(pair->first) : mnview.GetLoanToken(obj.tokenTx);
+
         if (!loanToken)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
@@ -2468,22 +2474,11 @@ public:
         if (obj.interest != loanToken->interest)
             loanToken->interest = obj.interest;
 
-        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
-        if (!pair)
-            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
-
         if (obj.symbol != pair->second.symbol)
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-
-        if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
-            if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
-                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
-
-            loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
-        }
 
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
@@ -2491,6 +2486,39 @@ public:
         res = mnview.UpdateToken(pair->second);
         if (!res)
             return res;
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        {
+            const auto& id = pair->first.v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
+            CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
+
+            attributes->SetValue(mintEnabled, obj.mintable);
+            attributes->SetValue(mintInterest, obj.interest);
+            attributes->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
+        if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
+            if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
+                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
+            loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
+        }
 
         return mnview.UpdateLoanToken(*loanToken, pair->first);
     }

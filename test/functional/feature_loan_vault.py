@@ -749,14 +749,6 @@ class VaultTest (DefiTestFramework):
         # Move to hard fork again
         self.move_to_gw_fork()
 
-        # Try and call disabled RPC calls
-        assert_raises_rpc_error(-32600, 'called after FortCanningCrunch height', self.nodes[0].updateloantoken, "DUSD", {
-            'symbol': "DUSD",
-            'name': "DUSD stable token",
-            'fixedIntervalPriceId': "DUSD/USD",
-            'mintable': True,
-            'interest': 1})
-
         # Test setting collateral token partially
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true'}})
         self.nodes[0].generate(1)
