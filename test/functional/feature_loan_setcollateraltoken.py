@@ -216,14 +216,14 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         # Create collateral token
         self.nodes[0].setcollateraltoken({
             'token': idGOOGL,
-            'factor': 0.5,
+            'factor': 0.12345678,
             'fixedIntervalPriceId': "GOOGL/USD"})
         self.nodes[0].generate(1)
 
         # Check attributess
         result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
         assert_equal(result[f'v0/token/{idGOOGL}/loan_collateral_enabled'], 'true')
-        assert_equal(result[f'v0/token/{idGOOGL}/loan_collateral_factor'], '0.5')
+        assert_equal(result[f'v0/token/{idGOOGL}/loan_collateral_factor'], '0.12345678')
         assert_equal(result[f'v0/token/{idGOOGL}/fixed_interval_price_id'], 'GOOGL/USD')
 
 if __name__ == '__main__':
