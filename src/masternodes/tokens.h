@@ -151,7 +151,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
     Res RevertCreateToken(uint256 const & txid);
-    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool skipNameValidation = false);
+    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool tokenSplitUpdatea = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);

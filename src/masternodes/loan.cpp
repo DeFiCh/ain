@@ -74,9 +74,6 @@ Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID cons
 
 Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
-    if (loanToken.interest < 0)
-        return Res::Err("interest rate cannot be less than 0!");
-
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
 
     return Res::Ok();

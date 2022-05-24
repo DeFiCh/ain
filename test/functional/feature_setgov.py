@@ -690,7 +690,7 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/4/fixed_interval_price_id':'TSLA/USD', f'v0/token/4/loan_minting_enabled':'true', f'v0/token/4/loan_minting_interest':'1'}})
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50,5/5,'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50,5/5'}})
         self.nodes[0].generate(1)
 
         # Check auto lock
@@ -710,7 +710,7 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50,5/10,')
+        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50,5/10')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

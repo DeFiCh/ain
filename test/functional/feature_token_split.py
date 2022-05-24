@@ -249,6 +249,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['mintable'], False)
         assert_equal(result['tradeable'], False)
         assert_equal(result['finalized'], True)
+        assert_equal(result['isLoanToken'], False)
         assert_equal(result['destructionTx'], self.nodes[0].getbestblockhash())
         assert_equal(result['destructionHeight'], self.nodes[0].getblockcount())
 
@@ -287,6 +288,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['mintable'], True)
         assert_equal(result['tradeable'], True)
         assert_equal(result['finalized'], False)
+        assert_equal(result['isLoanToken'], True)
         assert_equal(result['creationTx'], self.nodes[0].getblock(self.nodes[0].getbestblockhash())['tx'][1])
         assert_equal(result['creationHeight'], self.nodes[0].getblockcount())
         assert_equal(result['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
@@ -618,9 +620,9 @@ class TokenSplitTest(DefiTestFramework):
 
         # Check splits
         result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
-        assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2,')
-        assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2,')
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2,')
+        assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2')
+        assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2')
+        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2')
 
         # Split
         self.nodes[0].generate(1)
@@ -629,7 +631,7 @@ class TokenSplitTest(DefiTestFramework):
         result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert(f'v0/oracles/splits/{split_height}' not in result)
         assert(f'v0/oracles/splits/500000' not in result)
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2,')
+        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2')
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]

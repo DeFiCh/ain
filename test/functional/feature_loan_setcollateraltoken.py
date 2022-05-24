@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 from decimal import Decimal
 import calendar
@@ -96,14 +96,10 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(1)
 
-        try:
-            self.nodes[0].setcollateraltoken({
-                            'token': idDFI,
-                            'factor': 2,
-                            'fixedIntervalPriceId': "DFI/USD"})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("setCollateralToken factor must be lower or equal than 1" in errorString)
+        assert_raises_rpc_error(-32600, "setCollateralToken factor must be lower or equal than 1", self.nodes[0].setcollateraltoken, {
+            'token': idDFI,
+            'factor': 2,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         try:
             self.nodes[0].setcollateraltoken({
@@ -210,6 +206,12 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         # Move to fork height
         self.nodes[0].generate(150 - self.nodes[0].getblockcount())
+
+        # Check errors
+        assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setcollateraltoken, {
+            'token': idDFI,
+            'factor': 1.01,
+            'fixedIntervalPriceId': "DFI/USD"})
 
         # Create collateral token
         self.nodes[0].setcollateraltoken({
