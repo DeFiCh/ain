@@ -135,7 +135,7 @@ Res CTokensView::RevertCreateToken(const uint256 & txid)
     return Res::Ok();
 }
 
-Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool skipNameValidation)
+Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool tokenSplitUpdate)
 {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
@@ -152,7 +152,7 @@ Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, con
     oldToken.name = newToken.name;
 
     // check new symbol correctness
-    if (!skipNameValidation) {
+    if (!tokenSplitUpdate) {
         auto checkSymbolRes = newToken.IsValidSymbol();
         if (!checkSymbolRes.ok) {
             return checkSymbolRes;
@@ -185,6 +185,9 @@ Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, con
 
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
+
+    if (tokenSplitUpdate && oldToken.IsLoanToken() != newToken.IsLoanToken())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::LoanToken;
 
     if (oldToken.destructionHeight != newToken.destructionHeight) {
         oldToken.destructionHeight = newToken.destructionHeight;
