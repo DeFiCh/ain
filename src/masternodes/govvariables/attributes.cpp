@@ -626,7 +626,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 // Keys to exclude when using the legacy filter mode, to keep things the 
 // same as pre 2.7.x versions, to reduce noise. Eventually, the APIs that 
 // cause too much noise can be deprecated and this code removed.
-std::set<uint32_t> legacyTokenKeysBlacklist = {
+std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::LoanCollateralEnabled,
     TokenKeys::LoanCollateralFactor,
     TokenKeys::LoanMintingEnabled,
@@ -644,12 +644,12 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::LiveAttributes && 
+        if (filter == GovVarsFilter::Version2Dot7 && 
             attrV0->type != AttributeTypes::Live) {
                 continue;
-        } else if (filter == GovVarsFilter::Legacy) {
+        } else if (filter == GovVarsFilter::) {
             if (attrV0->type == AttributeTypes::Token && 
-            legacyTokenKeysBlacklist.find(attrV0->key) != legacyTokenKeysBlacklist.end()) 
+            attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end()) 
                 continue;
         }
         try {

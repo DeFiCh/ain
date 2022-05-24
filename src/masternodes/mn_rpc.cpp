@@ -693,7 +693,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                "\nReturns information about all governance variables including pending changes\n",
                {
                    {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "One of all, gov, live. Defaults to the legacy view. Any other string is treated as\n"
+                       "One of all, gov, attrs, live. Defaults to the all view. Any other string is treated as\n"
                        "a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
                },
                RPCResult{
@@ -712,7 +712,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    GovVarsFilter mode{GovVarsFilter::Legacy};
+    GovVarsFilter mode{GovVarsFilter::All};
     std::string prefix;
     if (request.params.size() > 0) {
         prefix = request.params[0].getValStr();
@@ -724,12 +724,16 @@ UniValue listgovs(const JSONRPCRequest& request) {
             mode = GovVarsFilter::NoAttributes;
         } else if (prefix == "attrs") {
             mode = GovVarsFilter::AttributesOnly;
-
+        } else if (prefix == "v/2.7") {
+            // Undocumented. Make be removed or deprecated without notice. 
+            // Only here for unforeseen compatibility concern downstream
+            // for transitions.
+            mode = GovVarsFilter::Version2Dot7;
         } else if (prefix == "live") {
             mode = GovVarsFilter::LiveAttributes;
         } else {
             mode = GovVarsFilter::PrefixedAttributes;
-            const std::regex versionRegex("v[0-9].*");
+            const std::regex versionRegex("^v[0-9].*");
             if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
                 prefix = "v0/" + prefix;
             }
