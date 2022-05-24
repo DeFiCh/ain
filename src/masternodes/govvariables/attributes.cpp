@@ -678,8 +678,11 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, result);
             } else if (const auto splitValues = boost::get<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
-                for (const auto& [tokenId, multiplier] : *splitValues) {
-                    keyValue += KeyBuilder(tokenId, multiplier) + ',';
+                for (auto it{splitValues->begin()}; it != splitValues->end(); ++it) {
+                    if (it != splitValues->begin()) {
+                        keyValue += ',';
+                    }
+                    keyValue += KeyBuilder(it->first, it->second);
                 }
                 ret.pushKV(key, keyValue);
             } else if (const auto& descendantPair = boost::get<DescendantValue>(&attribute.second)) {

@@ -4141,7 +4141,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         token->symbol += newTokenSuffix;
         token->destructionHeight = pindex->nHeight;
         token->destructionTx = pindex->GetBlockHash();
-        token->flags &= ~static_cast<uint8_t>(CToken::TokenFlags::Default);
+        token->flags &= ~(static_cast<uint8_t>(CToken::TokenFlags::Default) | static_cast<uint8_t>(CToken::TokenFlags::LoanToken));
         token->flags |= static_cast<uint8_t>(CToken::TokenFlags::Finalized);
 
         res = view.SubMintedTokens(oldTokenId, token->minted);

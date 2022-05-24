@@ -375,7 +375,9 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb", "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-dbcrashratio", "-forcecompactdb", 
+        "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -1218,6 +1220,11 @@ bool AppInitParameterInteraction()
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
 
+    fMockNetwork = gArgs.IsArgSet("-mocknet");
+    if (fMockNetwork) {
+        sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
+        nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
+    }
     return true;
 }
 
