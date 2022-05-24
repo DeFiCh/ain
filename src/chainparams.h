@@ -15,6 +15,12 @@
 #include <memory>
 #include <vector>
 
+
+/** Used for mocking network with low difficulty for testing */
+extern bool fMockNetwork;
+extern std::string sMockFoundationPubKey;
+extern uint64_t nMockBlockTimeSecs;
+
 struct SeedSpec6 {
     uint8_t addr[16];
     uint16_t port;
