@@ -4074,7 +4074,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
             LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
-                  oldPoolId.v, newPoolId.v, newTokenId.v, pindex->nHeight, GetTimeMillis() - time);
+                  oldPoolId.v, newPoolId.v, pindex->nHeight, GetTimeMillis() - time);
         }
 
     } catch (const std::runtime_error& e) {
