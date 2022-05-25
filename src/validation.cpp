@@ -2570,8 +2570,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         for (const auto& tx : block.vtx) {
             for (size_t o = 0; o < tx->vout.size(); o++) {
                 if (view.HaveCoin(COutPoint(tx->GetHash(), o))) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): tried to overwrite transaction"),
-                                     REJECT_INVALID, "bad-txns-BIP30");
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): tried to overwrite transaction"), REJECT_INVALID, "bad-txns-BIP30");
                 }
             }
         }
@@ -2607,7 +2606,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
-
         nInputs += tx.vin.size();
 
         if (!tx.IsCoinBase())
@@ -2769,13 +2767,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
+    auto isSplitsBlock = splits.size() > 0 ? true : false;
+
     CreationTxs creationTxs;
+    auto counter_n = 0;
     for (const auto& [id, multiplier] : splits) {
+        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d)\n", id, multiplier, counter_n++, splits.size());
         uint256 tokenCreationTx{};
         std::vector<uint256> poolCreationTx;
         if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__),
-                                 REJECT_INVALID, "bad-cb-token-split");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__), REJECT_INVALID, "bad-cb-token-split");
         }
 
         std::vector<DCT_ID> poolsToMigrate;
@@ -2793,15 +2794,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return true;
         });
 
+        std::stringstream poolIdStr;
+        for (auto i=0; i < poolsToMigrate.size(); i++) {
+            if  (i != 0) poolIdStr << ", ";
+            poolIdStr << poolsToMigrate[i].ToString();
+        }
+
+        LogPrintf("Pools to migrate for token=%d: %d (%s)\n", id, poolsToMigrate.size(), poolIdStr.str());
+
         if (poolsToMigrate.size() != poolCreationTx.size()) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__),
-                                 REJECT_INVALID, "bad-cb-pool-split");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__), REJECT_INVALID, "bad-cb-pool-split");
         }
 
         std::vector<std::pair<DCT_ID, uint256>> poolPairs;
         poolPairs.reserve(poolsToMigrate.size());
-        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), poolCreationTx.begin(), std::back_inserter(poolPairs),
-                       [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
+        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), 
+            poolCreationTx.begin(), std::back_inserter(poolPairs),
+            [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
 
         creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
     }
@@ -3067,6 +3076,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             });
             view.Flush();
         }
+    }
+
+    if (isSplitsBlock) {
+        LogPrintf("Token split block validation time: %.2fms\n", MILLI * (GetTimeMicros() - nTime1));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3473,6 +3486,9 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return;
     }
 
+    auto time = GetTimeMillis();
+    LogPrintf("Future swap settlement in progress.. (height: %d)\n", pindex->nHeight);
+
     const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
     const auto discount{COIN - rewardPct};
     const auto premium{COIN + rewardPct};
@@ -3540,6 +3556,9 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
 
     auto txn = std::numeric_limits<uint32_t>::max();
 
+    auto dUsdToTokenSwapsCounter = 0;
+    auto tokenTodUsdSwapsCounter = 0;
+
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
         CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
@@ -3553,8 +3572,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         if (source->symbol == "DUSD") {
             const DCT_ID destId{futuresValues.destination};
             const auto destToken = view.GetLoanTokenByID(destId);
-            assert(destToken);
-
+            assert(destToken);            
             try {
                 const auto& premiumPrice = futuresPrices.at(destId).premium;
                 if (premiumPrice > 0) {
@@ -3564,8 +3582,9 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                     view.AddBalance(key.owner, destination);
                     burned.Add(futuresValues.source);
                     minted.Add(destination);
+                    dUsdToTokenSwapsCounter++;
                     LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
-                             key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+                        key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
@@ -3583,8 +3602,9 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 view.AddBalance(key.owner, destination);
                 burned.Add(futuresValues.source);
                 minted.Add(destination);
+                tokenTodUsdSwapsCounter++;
                 LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
-                         key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
+                    key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
             }
@@ -3601,6 +3621,8 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
 
     auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    auto failedContractsCounter = unpaidContracts.size();
 
     // Refund unpaid contracts
     for (const auto& [key, value] : unpaidContracts) {
@@ -3630,6 +3652,11 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     if (!unpaidContracts.empty()) {
         attributes->SetValue(liveKey, std::move(balances));
     }
+
+    LogPrintf("Future swap settlement completed: (%d DUSD->Token swaps," /* Continued */
+    " %d Token->DUSD swaps, %d refunds (height: %d, time: %d)\n",
+    dUsdToTokenSwapsCounter, tokenTodUsdSwapsCounter, failedContractsCounter,
+    pindex->nHeight, GetTimeMillis() - time);
 
     cache.SetVariable(*attributes);
 }
@@ -3689,6 +3716,9 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
         return;
     }
 
+    auto time = GetTimeMillis();
+    LogPrintf("Token attributes migration in progress.. (height: %d)\n", pindex->nHeight);
+
     std::map<DCT_ID, CLoanSetLoanToken> loanTokens;
     std::vector<CLoanSetCollateralTokenImplementation> collateralTokens;
 
@@ -3742,7 +3772,10 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
             }
         }
 
-        LogPrintf("Migrated %d loan tokens and %d collateral tokens (height: %d)\n", loanCount, collateralCount, pindex->nHeight);
+        LogPrintf("Token attributes migration complete: "
+                  "(%d loan tokens, %d collateral tokens, height: %d, time: %dms)\n",
+                  loanCount, collateralCount, pindex->nHeight, GetTimeMillis() - time);
+
     } catch(std::out_of_range&) {
         LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
     }
@@ -3804,6 +3837,10 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
                       const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
+    auto time = GetTimeMillis();
+    LogPrintf("Pool migration in progress.. (%d -> %d, height: %d)\n",
+              oldTokenId.v, newTokenId.v, pindex->nHeight);
+
     try {
         assert(creationTxs.count(oldTokenId.v));
         for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
@@ -3856,7 +3893,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
             }
 
-            LogPrintf("Old pool pair (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
+            LogPrintf("Old pool (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
                 oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v, oldPoolPair->reserveA, oldPoolPair->reserveB, oldPoolPair->totalLiquidity);
 
             CPoolPair newPoolPair{*oldPoolPair};
@@ -3892,7 +3929,6 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             });
 
             for (auto& [owner, amount] : balancesToMigrate) {
-
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
                     throw std::runtime_error("totalLiquidity less than minimum.");
                 }
@@ -4034,15 +4070,20 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
         }
+
+        LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
+                  oldTokenId.v, newTokenId.v, pindex->nHeight, GetTimeMillis() - time);
+
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
     }
-
     return Res::Ok();
 }
 
 static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId, const int height, const int multiplier) {
-
+    auto time = GetTimeMillis();
+    LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n",
+              oldTokenId.v, newTokenId.v, height);
     std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
     view.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
         for (const auto& [tokenId, amount] : balances.balances) {
@@ -4126,6 +4167,9 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
     }
 
+    LogPrintf("Vaults rebalance completed: (token %d -> %d, height: %d, time: %dms)\n",
+              oldTokenId.v, newTokenId.v, height, GetTimeMillis() - time);
+
     return Res::Ok();
 }
 
@@ -4147,9 +4191,11 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
     }
 
     for (const auto& [id, multiplier] : splits) {
-
+        auto time = GetTimeMillis();
+        LogPrintf("Token split in progress.. (id: %d, mul: %d)\n", id, multiplier);
+        
         if (!cache.AreTokensLocked({id})) {
-            LogPrintf("%s: Token split failed. Token %d not locked\n", __func__, id);
+            LogPrintf("Token split failed. No locks.\n");
             continue;
         }
 
@@ -4159,14 +4205,14 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         auto token = view.GetToken(oldTokenId);
         if (!token) {
-            LogPrintf("%s: Token split failed. Token %d not found\n", __func__, oldTokenId.v);
+            LogPrintf("Token split failed. Token %d not found\n", oldTokenId.v);
             continue;
         }
 
         std::string newTokenSuffix = "/v";
         auto res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
         }
 
@@ -4184,24 +4230,24 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         res = view.SubMintedTokens(oldTokenId, token->minted);
         if (!res) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Token split failed on SubMintedTokens %s\n", res.msg);
             continue;
         }
 
         res = view.UpdateToken(*token, false, true);
         if (!res) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
         auto resVal = view.CreateToken(newToken);
         if (!resVal) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, resVal.msg);
+            LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
         }
 
         const DCT_ID newTokenId{resVal.val->v};
-        LogPrintf("Token split %d (symbol: %s, old token id: %d, new token id: %d)\n", id, token->symbol, oldTokenId.v, newTokenId.v);
+        LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", token->symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
@@ -4236,12 +4282,13 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Pool splits failed %s\n", res.msg);
             continue;
         }
 
         CAccounts addAccounts;
         CAccounts subAccounts;
+
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
@@ -4253,11 +4300,13 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             return true;
         });
 
-        LogPrintf("Token split %d (symbol: %s, add: %d, sub: %d, balance: %d)\n",
-            id, token->symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        LogPrintf("Token split info: rebalance accounts (id: %d, symbol: %s, add: %d, "
+        "sub: %d, balance: %d)\n", id, token->symbol, addAccounts.size(),
+        subAccounts.size(), totalBalance);
+
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
             continue;
         }
 
@@ -4275,22 +4324,21 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                     throw std::runtime_error(res.msg);
                 }
             }
-
         } catch (const std::runtime_error& e) {
-            LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+            LogPrintf("Token split failed. %s\n", res.msg);
             continue;
         }
 
         if (view.GetLoanTokenByID(oldTokenId)) {
             res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
             if (!res) {
-                LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+                LogPrintf("Vault splits failed: %s\n", res.msg);
                 continue;
             }
         } else {
             auto res = attributes->Apply(view, pindex->nHeight);
             if (!res) {
-                LogPrintf("%s: Token split failed. %s\n", __func__, res.msg);
+                LogPrintf("Token split failed on Apply: %s\n", res.msg);
                 continue;
             }
         }
@@ -4319,9 +4367,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 attributes->SetValue(key, value);
             }
         }
-
         view.SetVariable(*attributes);
         view.Flush();
+        LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
 
