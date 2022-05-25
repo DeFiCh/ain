@@ -68,6 +68,7 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/thread.hpp>
+#include <boost/asio.hpp>
 
 #if defined(NDEBUG)
 # error "Defi cannot be compiled without assertions."
@@ -3916,27 +3917,43 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             }
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            view.ForEachBalance([&, oldPoolId = oldPoolId](CScript const & owner, CTokenAmount balance) {
+            uint64_t totalAccounts = 0;
+            view.ForEachBalance([&, oldPoolId = oldPoolId](CScript const& owner, CTokenAmount balance) {
                 if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
                     balancesToMigrate.emplace_back(owner, balance.nValue);
                 }
+                totalAccounts++;
                 return true;
             });
 
-            LogPrintf("Pool migration: Migrating %d balances.. \n", balancesToMigrate.size());
+            LogPrintf("Pool migration: Migrating %d/%d balances..\n", balancesToMigrate.size(), totalAccounts);
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
                 return a.second > b.second;
             });
 
+            auto rewardsTime = GetTimeMicros();
+            LogPrintf("Pool migration: concurrency: %d\n", std::thread::hardware_concurrency());
+            boost::asio::thread_pool pool(std::thread::hardware_concurrency());
+            std::mutex g_mutex;
+            for (auto& [owner, amount] : balancesToMigrate) {
+                boost::asio::post(pool, [&, owner=owner]() {
+                    CCustomCSView tempView(view);
+                    tempView.CalculateOwnerRewards(owner, pindex->nHeight); 
+                    {
+                        std::scoped_lock lock(g_mutex);
+                        tempView.Flush();
+                    }
+                });
+            }
+            pool.join();
+            LogPrintf("Pool migration: rewards time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
+
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
                     throw std::runtime_error("totalLiquidity less than minimum.");
                 }
-
-                view.CalculateOwnerRewards(owner, pindex->nHeight);
-
                 res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                 if (!res.ok) {
                     throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
