@@ -2203,6 +2203,69 @@ Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
     return mapBurnAmounts[from].AddBalances(amounts.balances);
 }
 
+void CChainState::ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight != chainparams.GetConsensus().EunosHeight) {
+        return;
+    }
+
+    // Move funds from old burn address to new one
+    CBalances burnAmounts;
+    cache.ForEachBalance([&burnAmounts](CScript const & owner, CTokenAmount balance) {
+        if (owner != Params().GetConsensus().retiredBurnAddress) {
+            return false;
+        }
+
+        burnAmounts.Add({balance.nTokenId, balance.nValue});
+
+        return true;
+    }, BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
+
+    AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
+
+    // Zero foundation balances
+    for (const auto& script : chainparams.GetConsensus().accountDestruction)
+    {
+        CBalances zeroAmounts;
+        cache.ForEachBalance([&zeroAmounts, script](CScript const & owner, CTokenAmount balance) {
+            if (owner != script) {
+                return false;
+            }
+
+            zeroAmounts.Add({balance.nTokenId, balance.nValue});
+
+            return true;
+        }, BalanceKey{script, DCT_ID{}});
+
+        cache.SubBalances(script, zeroAmounts);
+    }
+
+    // Add any non-Tx burns to index as phantom Txs
+    for (const auto& item : mapBurnAmounts)
+    {
+        for (const auto& subItem : item.second.balances)
+        {
+            // If amount cannot be deducted then burn skipped.
+            auto result = cache.SubBalance(item.first, {subItem.first, subItem.second});
+            if (result.ok)
+            {
+                cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
+
+                // Add transfer as additional TX in block
+                pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
+                                                    {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
+            }
+            else // Log burn failure
+            {
+                CTxDestination dest;
+                ExtractDestination(item.first, dest);
+                LogPrintf("Burn failed: %s Address: %s Token: %d Amount: %d\n", result.msg, EncodeDestination(dest), subItem.first.v, subItem.second);
+            }
+        }
+    }
+
+    mapBurnAmounts.clear();
+}
+
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
     if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
@@ -2921,92 +2984,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             cache.BayfrontFlagsCleanup();
         }
 
-        if (pindex->nHeight == chainparams.GetConsensus().EunosHeight)
-        {
-            // Move funds from old burn address to new one
-            CBalances burnAmounts;
-            cache.ForEachBalance([&burnAmounts](CScript const & owner, CTokenAmount balance) {
-                if (owner != Params().GetConsensus().retiredBurnAddress) {
-                    return false;
-                }
+        // burn DFI on Eunos height
+        ProcessEunosEvents(pindex, cache, chainparams);
 
-                burnAmounts.Add({balance.nTokenId, balance.nValue});
-
-                return true;
-            }, BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
-
-            AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
-
-            // Zero foundation balances
-            for (const auto& script : chainparams.GetConsensus().accountDestruction)
-            {
-                CBalances zeroAmounts;
-                cache.ForEachBalance([&zeroAmounts, script](CScript const & owner, CTokenAmount balance) {
-                    if (owner != script) {
-                        return false;
-                    }
-
-                    zeroAmounts.Add({balance.nTokenId, balance.nValue});
-
-                    return true;
-                }, BalanceKey{script, DCT_ID{}});
-
-                cache.SubBalances(script, zeroAmounts);
-            }
-        }
-
-        // Add any non-Tx burns to index as phantom Txs
-        for (const auto& item : mapBurnAmounts)
-        {
-            for (const auto& subItem : item.second.balances)
-            {
-                // If amount cannot be deducted then burn skipped.
-                auto result = cache.SubBalance(item.first, {subItem.first, subItem.second});
-                if (result.ok)
-                {
-                    cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
-
-                    // Add transfer as additional TX in block
-                     pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
-                                                        {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
-                }
-                else // Log burn failure
-                {
-                    CTxDestination dest;
-                    ExtractDestination(item.first, dest);
-                    LogPrintf("Burn failed: %s Address: %s Token: %d Amount: %d\n", result.msg, EncodeDestination(dest), subItem.first.v, subItem.second);
-                }
-            }
-        }
-
-        mapBurnAmounts.clear();
-
+        // set oracle prices
         ProcessOracleEvents(pindex, cache, chainparams);
+
+        // loan scheme, collateral ratio, liquidations
         ProcessLoanEvents(pindex, cache, chainparams);
 
         // Must be before set gov by height to clear futures in case there's a disabling of loan token in v3+
         ProcessFutures(pindex, cache, chainparams);
 
-        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
-            // Apply any pending GovVariable changes. Will come into effect on the next block.
-            auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
-            for (const auto& var : storedGovVars) {
-                if (var) {
-                    CCustomCSView govCache(cache);
-                    // Add to existing ATTRIBUTES instead of overwriting.
-                    if (var->GetName() == "ATTRIBUTES") {
-                        auto govVar = mnview.GetAttributes();
-                        govVar->time = pindex->GetBlockTime();
-                        if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
-                            govCache.Flush();
-                        }
-                    } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
-                        govCache.Flush();
-                    }
-                }
-            }
-            cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
-        }
+        // update governance variables
+        ProcessGovEvents(pindex, cache, chainparams);
 
         // Migrate loan and collateral tokens to Gov vars.
         ProcessTokenToGovVar(pindex, cache, chainparams);
@@ -3709,6 +3700,31 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     });
 }
 
+void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+
+    // Apply any pending GovVariable changes. Will come into effect on the next block.
+    auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
+    for (const auto& var : storedGovVars) {
+        if (var) {
+            CCustomCSView govCache(cache);
+            // Add to existing ATTRIBUTES instead of overwriting.
+            if (var->GetName() == "ATTRIBUTES") {
+                auto govVar = cache.GetAttributes();
+                govVar->time = pindex->GetBlockTime();
+                if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                    govCache.Flush();
+                }
+            } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                govCache.Flush();
+            }
+        }
+    }
+    cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
 
     // Migrate at +1 height so that GetLastHeight() in Gov var
@@ -3929,6 +3945,11 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
                 return a.second > b.second;
             });
+
+            // Special case. No liquidity providers in a previously used pool.
+            if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
+                balancesToMigrate.emplace_back(Params().GetConsensus().burnAddress, CAmount{CPoolPair::MINIMUM_LIQUIDITY});
+            }
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
