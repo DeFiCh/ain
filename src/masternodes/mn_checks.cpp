@@ -1514,9 +1514,17 @@ public:
             if (!loanToken) {
                 return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
             }
+
+            if (mnview.AreTokensLocked({obj.destination})) {
+                return Res::Err("Cannot create future swap for locked token");
+            }
         } else {
             if (obj.destination != 0) {
                 return Res::Err("Destination should not be set when source amount is a dToken");
+            }
+
+            if (mnview.AreTokensLocked({obj.source.nTokenId.v})) {
+                return Res::Err("Cannot create future swap for locked token");
             }
 
             CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};

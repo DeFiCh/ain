@@ -708,12 +708,13 @@ class TokenSplitTest(DefiTestFramework):
 
         # Create addresses for futures
         address_msft = self.nodes[0].getnewaddress("", "legacy")
+        address_locked = self.nodes[0].getnewaddress("", "legacy")
 
         # Fund addresses
-        self.nodes[0].minttokens([f'1@{self.idMSFT}', f'1@{self.idDUSD}'])
+        self.nodes[0].minttokens([f'2@{self.idMSFT}', f'2@{self.idDUSD}'])
         self.nodes[0].generate(1)
-        self.nodes[0].accounttoaccount(self.address, {address_msft: f'1@{self.symbolMSFT}'})
-        self.nodes[0].accounttoaccount(self.address, {address_msft: f'1@{self.symbolDUSD}'})
+        self.nodes[0].accounttoaccount(self.address, {address_msft: [f'1@{self.symbolMSFT}', f'1@{self.symbolDUSD}']})
+        self.nodes[0].accounttoaccount(self.address, {address_locked: [f'1@{self.symbolMSFT}', f'1@{self.symbolDUSD}']})
         self.nodes[0].generate(1)
 
         # Create user futures contracts
@@ -737,7 +738,14 @@ class TokenSplitTest(DefiTestFramework):
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idMSFT}/2'}})
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
+
+        # Test creating future swaps with locked tokens
+        assert_raises_rpc_error(-32600, 'Cannot create future swap for locked token', self.nodes[0].futureswap, address_locked, f'1@{self.symbolDUSD}', int(self.idMSFT))
+        assert_raises_rpc_error(-32600, 'Cannot create future swap for locked token', self.nodes[0].futureswap, address_locked, f'1@{self.symbolMSFT}')
+
+        # Move to split block
+        self.nodes[0].generate(1)
 
         # Check balance returned with multiplier applied
         result = self.nodes[0].getaccount(address_msft)
