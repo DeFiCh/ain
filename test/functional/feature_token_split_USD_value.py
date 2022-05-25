@@ -166,8 +166,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": f"0.05@{self.symbolT1}"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
-        self.nodes[0].generate(1)
-        self.nodes[0].generate(12)
+        self.nodes[0].generate(10)
 
     # Make the split and return split height for revert if needed
     def split(self, tokenId, keepLocked=False, oracleSplit=False, multiplier=2):
