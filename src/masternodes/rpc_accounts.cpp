@@ -2262,7 +2262,7 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
         listFutures.push_back(value);
 
         return true;
-    }, {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
+    });
 
     return listFutures;
 }
