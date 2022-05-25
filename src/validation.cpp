@@ -2770,9 +2770,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     auto isSplitsBlock = splits.size() > 0 ? true : false;
 
     CreationTxs creationTxs;
-    auto counter_n = 0;
+    auto counter_n = 1;
     for (const auto& [id, multiplier] : splits) {
-        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d)\n", id, multiplier, counter_n++, splits.size());
+        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n", 
+        id, multiplier, counter_n++, splits.size(), pindex->nHeight);
         uint256 tokenCreationTx{};
         std::vector<uint256> poolCreationTx;
         if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
@@ -2800,7 +2801,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             poolIdStr << poolsToMigrate[i].ToString();
         }
 
-        LogPrintf("Pools to migrate for token=%d: %d (%s)\n", id, poolsToMigrate.size(), poolIdStr.str());
+        LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
 
         if (poolsToMigrate.size() != poolCreationTx.size()) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__), REJECT_INVALID, "bad-cb-pool-split");
@@ -3838,9 +3839,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                       const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
     auto time = GetTimeMillis();
-    LogPrintf("Pool migration in progress.. (%d -> %d, height: %d)\n",
-              oldTokenId.v, newTokenId.v, pindex->nHeight);
-
+    LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
+            oldTokenId.v, newTokenId.v, pindex->nHeight);
+    
     try {
         assert(creationTxs.count(oldTokenId.v));
         for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
@@ -3893,8 +3894,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
             }
 
-            LogPrintf("Old pool (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
-                oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v, oldPoolPair->reserveA, oldPoolPair->reserveB, oldPoolPair->totalLiquidity);
+            LogPrintf("Pool migration: Old pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
+                oldPoolId.v, oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v, 
+                oldPoolPair->reserveA, oldPoolPair->reserveB, oldPoolPair->totalLiquidity);
 
             CPoolPair newPoolPair{*oldPoolPair};
             if (oldPoolPair->idTokenA == oldTokenId) {
@@ -3921,7 +3923,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 return true;
             });
 
-            LogPrintf("Migrating %d balances from old pool\n", balancesToMigrate.size());
+            LogPrintf("Pool migration: Migrating %d balances.. \n", balancesToMigrate.size());
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
@@ -4029,8 +4031,10 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
             }
 
-            LogPrintf("New pool pair (a: %d / b: %d), reserve (a: %d, b: %d), liquidity: %d\n",
-                newPoolPair.idTokenA.v, newPoolPair.idTokenB.v, newPoolPair.reserveA, newPoolPair.reserveB, newPoolPair.totalLiquidity);
+            LogPrintf("Pool migration: New pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
+                newPoolId.v,
+                newPoolPair.idTokenA.v, newPoolPair.idTokenB.v, 
+                newPoolPair.reserveA, newPoolPair.reserveB, newPoolPair.totalLiquidity);
 
             res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
             if (!res) {
@@ -4069,10 +4073,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
+            LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
+                  oldPoolId.v, newPoolId.v, newTokenId.v, pindex->nHeight, GetTimeMillis() - time);
         }
-
-        LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
-                  oldTokenId.v, newTokenId.v, pindex->nHeight, GetTimeMillis() - time);
 
     } catch (const std::runtime_error& e) {
         return Res::Err(e.what());
@@ -4192,7 +4195,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
     for (const auto& [id, multiplier] : splits) {
         auto time = GetTimeMillis();
-        LogPrintf("Token split in progress.. (id: %d, mul: %d)\n", id, multiplier);
+        LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
         
         if (!cache.AreTokensLocked({id})) {
             LogPrintf("Token split failed. No locks.\n");
@@ -4247,7 +4250,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         const DCT_ID newTokenId{resVal.val->v};
-        LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", token->symbol, oldTokenId.v, newTokenId.v);
+        LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
@@ -4300,9 +4303,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             return true;
         });
 
-        LogPrintf("Token split info: rebalance accounts "  /* Continued */
-        "(id: %d, symbol: %s, add: %d, sub: %d, balance: %d)\n", 
-        id, token->symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        LogPrintf("Token split info: Rebalance "  /* Continued */
+        "(id: %d, symbol: %s, add: %d, sub: %d, total: %d)\n", 
+        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
