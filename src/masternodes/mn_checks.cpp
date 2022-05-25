@@ -2311,7 +2311,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (IsTokensMigratedToGovVar())
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& tokenId = obj.idToken.v;
 
@@ -2413,7 +2413,7 @@ public:
         if (!tokenId)
             return std::move(tokenId);
 
-        if (IsTokensMigratedToGovVar())
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& id = tokenId.val->v;
 
@@ -2493,7 +2493,7 @@ public:
         if (!pair)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
-        auto loanToken = IsTokensMigratedToGovVar() ?
+        auto loanToken = (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) ?
                 mnview.GetLoanTokenByID(pair->first) : mnview.GetLoanToken(obj.tokenTx);
 
         if (!loanToken)
@@ -2518,7 +2518,7 @@ public:
         if (!res)
             return res;
 
-        if (IsTokensMigratedToGovVar())
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& id = pair->first.v;
 
