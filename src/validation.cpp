@@ -3914,17 +3914,21 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
 
+                if (owner != Params().GetConsensus().burnAddress) {
+                    view.CalculateOwnerRewards(owner, pindex->nHeight);
+
+                    res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
+                    if (!res.ok) {
+                        throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
+                    }
+                }
+
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
                     throw std::runtime_error("totalLiquidity less than minimum.");
                 }
 
-                view.CalculateOwnerRewards(owner, pindex->nHeight);
-
-                res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
-                if (!res.ok) {
-                    throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
-                }
-
+                // First deposit to the pool has MINIMUM_LIQUIDITY removed and does not
+                // belong to anyone. Give this to the last person leaving the pool.
                 if (oldPoolPair->totalLiquidity - amount == CPoolPair::MINIMUM_LIQUIDITY) {
                     amount += CPoolPair::MINIMUM_LIQUIDITY;
                 }
@@ -3951,7 +3955,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
                 };
 
-                if (amountA <= 0 || amountB <= 0) {
+                if (amountA <= 0 || amountB <= 0 || owner == Params().GetConsensus().burnAddress) {
                     refundBalances();
                     continue;
                 }
