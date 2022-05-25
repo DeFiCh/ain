@@ -3942,7 +3942,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 return true;
             });
 
-            LogPrintf("Pool migration: Migrating %d/%d balances..\n", balancesToMigrate.size(), totalAccounts);
+            const auto nWorkers = std::thread::hardware_concurrency();
+            LogPrintf("Pool migration: Migrating balances (count: %d, total: %d, concurrency: %d)..\n",
+                balancesToMigrate.size(), totalAccounts, nWorkers);
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
@@ -3950,9 +3952,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             });
 
             if (!balancesToMigrate.empty()) {
-                const auto nWorkers = std::thread::hardware_concurrency()
                 auto rewardsTime = GetTimeMicros();
-                LogPrintf("Pool migration: concurrency: %d\n", nWorkers);
                 boost::asio::thread_pool pool(nWorkers);
                 std::mutex flushSyncMutex;
                 for (auto& [owner, amount] : balancesToMigrate) {
