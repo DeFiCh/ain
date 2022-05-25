@@ -3947,7 +3947,8 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 balancesToMigrate.size(), totalAccounts, nWorkers);
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
-            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
+            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), 
+                [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
                 return a.second > b.second;
             });
 
