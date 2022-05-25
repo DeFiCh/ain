@@ -3949,22 +3949,25 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 return a.second > b.second;
             });
 
-            auto rewardsTime = GetTimeMicros();
-            LogPrintf("Pool migration: concurrency: %d\n", std::thread::hardware_concurrency());
-            boost::asio::thread_pool pool(std::thread::hardware_concurrency());
-            std::mutex g_mutex;
-            for (auto& [owner, amount] : balancesToMigrate) {
-                boost::asio::post(pool, [&, owner=owner]() {
-                    CCustomCSView tempView(view);
-                    tempView.CalculateOwnerRewards(owner, pindex->nHeight); 
-                    {
-                        std::scoped_lock lock(g_mutex);
-                        tempView.Flush();
-                    }
-                });
+            if (!balancesToMigrate.empty()) {
+                const auto nWorkers = std::thread::hardware_concurrency()
+                auto rewardsTime = GetTimeMicros();
+                LogPrintf("Pool migration: concurrency: %d\n", nWorkers);
+                boost::asio::thread_pool pool(nWorkers);
+                std::mutex flushSyncMutex;
+                for (auto& [owner, amount] : balancesToMigrate) {
+                    boost::asio::post(pool, [&, owner=owner]() {
+                        CCustomCSView tempView(view);
+                        tempView.CalculateOwnerRewards(owner, pindex->nHeight); 
+                        {
+                            std::scoped_lock lock(flushSyncMutex);
+                            tempView.Flush();
+                        }
+                    });
+                }
+                pool.join();
+                LogPrintf("Pool migration: rewards time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
             }
-            pool.join();
-            LogPrintf("Pool migration: rewards time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
 
             // Special case. No liquidity providers in a previously used pool.
             if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
