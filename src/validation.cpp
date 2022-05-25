@@ -3966,7 +3966,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     });
                 }
                 pool.join();
-                LogPrintf("Pool migration: rewards time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
+                LogPrintf("Pool migration: rewards recalc time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
             }
 
             // Special case. No liquidity providers in a previously used pool.
