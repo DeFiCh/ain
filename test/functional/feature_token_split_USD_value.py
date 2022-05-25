@@ -15,6 +15,7 @@
 from re import split
 from sys import breakpointhook
 from test_framework.test_framework import DefiTestFramework
+from test_framework.util import assert_equal
 
 from decimal import Decimal
 import time
@@ -100,6 +101,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             self.accounts.append(self.nodes[0].getnewaddress())
         totalDUSD = 10000000
         totalT1 = 10000000
+        self.accounts.sort()
         self.nodes[0].minttokens(str(totalDUSD)+"@DUSD")
         self.nodes[0].minttokens(str(totalT1)+"@T1")
         self.nodes[0].generate(1)
@@ -184,7 +186,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
         tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
 
-
         if not keepLocked:
             self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
             self.nodes[0].generate(1)
@@ -196,18 +197,33 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].removepoolliquidity(account, amountLP+"@T1-DUSD", [])
         self.nodes[0].generate(1)
 
+    def revert(self, block):
+        blockhash = self.nodes[0].getblockhash(block)
+        self.nodes[0].invalidateblock(blockhash)
+        self.nodes[0].clearmempool()
 
     def save_current_usd_value(self):
-        self.value_accounts_pre_split = []
+        values =[]
+        revertHeight = self.nodes[0].getblockcount()
         activePriceT1 = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
-        activePriceDUSD = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
+        activePriceDUSD = self.nodes[0].getfixedintervalprice(f"{self.symbolDUSD}/USD")["activePrice"]
         for account in self.accounts:
             amounts = {}
             self.remove_from_pool(account)
-            accountInfo = self.nodes[0].getaccount(account)
+            amounts["account"] = account
             amounts["DUSD"] = Decimal(self.getAmountFromAccount(account, "DUSD")) * Decimal(activePriceDUSD)
             amounts["T1"] = Decimal(self.getAmountFromAccount(account, "T1")) *Decimal(activePriceT1)
-            self.value_accounts_pre_split.append(amounts)
+            values.append(amounts)
+        self.revert(revertHeight)
+        return values
+
+    def compare_value_list(self, pre, post):
+        for index, amount in enumerate(pre):
+            print(f'Comparing values in valut {amount["account"]}')
+            if index != 0:
+                assert_equal(amount["DUSD"], post[index]["DUSD"])
+                assert_equal(amount["T1"], post[index]["T1"])
+
 
     def getTokenSymbolFromId(self, tokenId):
         token = self.nodes[0].gettoken(tokenId)
@@ -237,14 +253,12 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
-        initialStateBlock = self.nodes[0].getblockcount()
-        self.save_current_usd_value()
+        #initialStateBlock = self.nodes[0].getblockcount()
+        value_accounts_pre_split = self.save_current_usd_value()
         self.split(self.idT1, oracleSplit=True, multiplier=20)
-        # stop here to see activePrice = 0
-        activePriceT1 = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
-        print(activePriceT1)
-        breakpoint()
-
+        self.nodes[0].generate(12) # let active price update TODO FIX NEEDED!
+        value_accounts_post_split = self.save_current_usd_value()
+        self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
 
 if __name__ == '__main__':
     TokenSplitUSDValueTest().main()

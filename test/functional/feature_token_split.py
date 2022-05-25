@@ -487,7 +487,7 @@ class TokenSplitTest(DefiTestFramework):
         self.idT1 = self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=False)
         self.idT2 = self.check_amounts_on_split(self.idT2_DUSD, self.idT2, revert=False)
         self.idT3 = self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=False)
-        #self.idT2 = self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=False) # Failing test needs fix
+        self.idT2 = self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=False)
 
 #    def setup_test_vaults(self):
 #        # Create loan scheme
