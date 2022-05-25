@@ -3772,7 +3772,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
             }
         }
 
-        LogPrintf("Token attributes migration complete: "
+        LogPrintf("Token attributes migration complete: " /* Continued */
                   "(%d loan tokens, %d collateral tokens, height: %d, time: %dms)\n",
                   loanCount, collateralCount, pindex->nHeight, GetTimeMillis() - time);
 
@@ -4300,9 +4300,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             return true;
         });
 
-        LogPrintf("Token split info: rebalance accounts (id: %d, symbol: %s, add: %d, "
-        "sub: %d, balance: %d)\n", id, token->symbol, addAccounts.size(),
-        subAccounts.size(), totalBalance);
+        LogPrintf("Token split info: rebalance accounts "  /* Continued */
+        "(id: %d, symbol: %s, add: %d, sub: %d, balance: %d)\n", 
+        id, token->symbol, addAccounts.size(), subAccounts.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
