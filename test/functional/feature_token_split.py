@@ -378,8 +378,41 @@ class TokenSplitTest(DefiTestFramework):
 
     def token_split(self):
 
-        # Move to GW
-        self.nodes[0].generate(151 - self.nodes[0].getblockcount())
+        # Move to FCC
+        self.nodes[0].generate(149 - self.nodes[0].getblockcount())
+
+        # Mined in 150 height, still using old code
+        self.nodes[0].updateloantoken(self.idGOOGL, {
+            'name': 'AAAA',
+            'interest': 1
+        })
+
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result, {})
+
+        token = self.nodes[0].getloantoken(self.idGOOGL)
+        assert_equal(token['token']['1']['name'], 'AAAA')
+        assert_equal(token['interest'], Decimal(1))
+
+        # Mining height 151 - migration of token to gov var
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_enabled'], 'true')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_interest'], '1')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/fixed_interval_price_id'], f"{self.symbolGOOGL}/USD")
+
+        token = self.nodes[0].getloantoken(self.idGOOGL)
+        assert_equal(token['token']['1']['name'], 'AAAA')
+        assert_equal(token['interest'], Decimal(1))
+
+        # Mined in 152 height, using new code
+        self.nodes[0].updateloantoken(self.idGOOGL, {
+            'name': self.symbolGOOGL,
+            'interest': 0
+        })
 
         # Set extra Gov vars for token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/dfip2203':'true',
@@ -390,6 +423,15 @@ class TokenSplitTest(DefiTestFramework):
                                             f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}': '0.25',
                                             f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idDUSD}': '0.25'}})
         self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_enabled'], 'true')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_interest'], '0')
+        assert_equal(result[f'v0/token/{self.idGOOGL}/fixed_interval_price_id'], f"{self.symbolGOOGL}/USD")
+
+        token = self.nodes[0].getloantoken(self.idGOOGL)
+        assert_equal(token['token']['1']['name'], self.symbolGOOGL)
+        assert_equal(token['interest'], Decimal(0))
 
         # Make sure we cannot make a token with '/' in its symbol
         assert_raises_rpc_error(-32600, "token symbol should not contain '/'", self.nodes[0].createtoken, {
