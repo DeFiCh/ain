@@ -330,15 +330,10 @@ public:
             /* dTxRate  */ 0.1841462153145931
         };
 
-        if (fMockNetwork) {
-            consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
-            consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
-            // Add additional foundation members here for testing
-            if (!sMockFoundationPubKey.empty()) {
-                consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
-            }
-        }
+        UpdateActivationParametersFromArgs();
     }
+
+    void UpdateActivationParametersFromArgs();
 };
 
 /**
@@ -1007,6 +1002,29 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
         }
     }
 }
+
+void CMainParams::UpdateActivationParametersFromArgs() {
+    fMockNetwork = gArgs.IsArgSet("-mocknet");
+    if (fMockNetwork) {
+        LogPrintf("============================================\n");
+        LogPrintf("WARNING: MOCKNET ACTIVE. THIS IS NOT MAINNET\n");
+        LogPrintf("============================================\n");
+        sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
+        nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
+    }
+
+    if (fMockNetwork) {
+        consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
+        consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
+        LogPrintf("mocknet: block-time: %s secs\n", nMockBlockTimeSecs);
+        // Add additional foundation members here for testing
+        if (!sMockFoundationPubKey.empty()) {
+            consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
+            LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
+        }
+    }
+}
+
 
 static std::unique_ptr<const CChainParams> globalChainParams;
 
