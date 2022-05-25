@@ -62,6 +62,7 @@ namespace BCLog {
         LOAN          = (1 << 25),
         ACCOUNTCHANGE = (1 << 26),
         FUTURESWAP    = (1 << 27),
+        TOKEN_SPLITS  = (1 << 28),
         ALL           = ~(uint32_t)0,
     };
 
@@ -193,7 +194,7 @@ static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& cate
                 LogPrintf(args...);
                 it->second = current_time;
             }
-        }        
+        }
         else {
             // No entry yet -> log directly and save timestamp
             last_log_timestamps.insert(std::make_pair(message_key, current_time));
