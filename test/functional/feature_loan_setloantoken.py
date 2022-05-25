@@ -155,6 +155,9 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(110 - self.nodes[0].getblockcount())
 
+        # Move to FCC +1
+        self.nodes[0].generate(1)
+
         assert_raises_rpc_error(-32600, 'token symbol should be non-empty and starts with a letter', self.nodes[0].setloantoken, {
             'symbol': "",
             'name': "Google",
