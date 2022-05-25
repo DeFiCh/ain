@@ -30,6 +30,7 @@ class TokenSplitTest(DefiTestFramework):
         self.setup_test_vaults()
         self.vault_split()
         self.check_govvar_deletion()
+        self.check_future_swap_refund()
 
     def setup_test_tokens(self):
         self.nodes[0].generate(101)
@@ -40,6 +41,7 @@ class TokenSplitTest(DefiTestFramework):
         self.symbolTSLA = 'TSLA'
         self.symbolGOOGL = 'GOOGL'
         self.symbolNVDA = 'NVDA'
+        self.symbolMSFT = 'MSFT'
         self.symbolGD = 'GOOGL-DUSD'
 
         # Store address
@@ -52,6 +54,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "token": self.symbolGOOGL},
             {"currency": "USD", "token": self.symbolTSLA},
             {"currency": "USD", "token": self.symbolNVDA},
+            {"currency": "USD", "token": self.symbolMSFT},
         ]
 
         # Appoint oracle
@@ -66,6 +69,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": f"1@{self.symbolGOOGL}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolMSFT}"},
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
@@ -107,6 +111,15 @@ class TokenSplitTest(DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        self.nodes[0].setloantoken({
+            'symbol': self.symbolMSFT,
+            'name': self.symbolMSFT,
+            'fixedIntervalPriceId': f"{self.symbolMSFT}/USD",
+            'mintable': True,
+            'interest': 0
+        })
+        self.nodes[0].generate(1)
+
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
             'token': self.symbolDFI,
@@ -141,6 +154,7 @@ class TokenSplitTest(DefiTestFramework):
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
+        self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
 
     def setup_test_pools(self):
 
@@ -635,6 +649,57 @@ class TokenSplitTest(DefiTestFramework):
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+
+    def check_future_swap_refund(self):
+
+        # Set all futures attributes but set active to false
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2203/reward_pct':'0.05',
+            'v0/params/dfip2203/block_period':'2880'
+        }})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2203/active':'true'
+        }})
+        self.nodes[0].generate(1)
+
+        # Create addresses for futures
+        address_msft = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].minttokens([f'1@{self.idMSFT}', f'1@{self.idDUSD}'])
+        self.nodes[0].generate(1)
+        self.nodes[0].accounttoaccount(self.address, {address_msft: f'1@{self.symbolMSFT}'})
+        self.nodes[0].accounttoaccount(self.address, {address_msft: f'1@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Create user futures contracts
+        self.nodes[0].futureswap(address_msft, f'1@{self.symbolDUSD}', int(self.idMSFT))
+        self.nodes[0].generate(1)
+        self.nodes[0].futureswap(address_msft, f'1@{self.symbolMSFT}')
+        self.nodes[0].generate(1)
+
+        # Check pending swaps
+        result = self.nodes[0].listpendingfutureswaps()
+        assert_equal(result[0]['owner'], address_msft)
+        assert_equal(result[0]['source'], f'1.00000000@{self.symbolMSFT}')
+        assert_equal(result[0]['destination'], self.symbolDUSD)
+        assert_equal(result[1]['owner'], address_msft)
+        assert_equal(result[1]['source'], f'1.00000000@{self.symbolDUSD}')
+        assert_equal(result[1]['destination'], self.symbolMSFT)
+
+        # Check balance empty
+        result = self.nodes[0].getaccount(address_msft)
+        assert_equal(result, [])
+
+        # Token split
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idMSFT}/2'}})
+        self.nodes[0].generate(2)
+
+        # Check balance returned with multiplier applied
+        result = self.nodes[0].getaccount(address_msft)
+        assert_equal(result, [f'1.00000000@{self.symbolDUSD}', f'2.00000000@{self.symbolMSFT}'])
 
 if __name__ == '__main__':
     TokenSplitTest().main()

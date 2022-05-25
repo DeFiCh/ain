@@ -229,9 +229,12 @@ public:
     static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
+    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 
@@ -247,10 +250,6 @@ private:
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
-    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
-
-private:
-    std::set<uint32_t> tokenSplits{};
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
