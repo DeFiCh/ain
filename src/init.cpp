@@ -1219,12 +1219,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-
-    fMockNetwork = gArgs.IsArgSet("-mocknet");
-    if (fMockNetwork) {
-        sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
-        nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
-    }
+    
     return true;
 }
 
