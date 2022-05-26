@@ -1544,7 +1544,7 @@ public:
 
         // Can be removed after the hard fork, since it will be backward compatible
         // but have to keep it around for pre 2.8.0 nodes for now 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
             CalculateOwnerRewards(obj.owner);
         }
 
