@@ -19,17 +19,19 @@ class TokenSplitTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.fort_canning_crunch = 600
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=150', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.fort_canning_crunch}', '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
-        self.token_split()
         self.setup_test_pools()
+        self.token_split()
         self.pool_split()
         self.setup_test_vaults()
         self.vault_split()
         self.check_govvar_deletion()
+        self.migrate_auction_batches()
         self.check_future_swap_refund()
 
     def setup_test_tokens(self):
@@ -59,7 +61,7 @@ class TokenSplitTest(DefiTestFramework):
 
         # Appoint oracle
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
-        oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
+        self.oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
         self.nodes[0].generate(1)
 
         # Set Oracle prices
@@ -71,7 +73,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolMSFT}"},
         ]
-        self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
+        self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
         # Set loan tokens
@@ -155,6 +157,21 @@ class TokenSplitTest(DefiTestFramework):
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
         self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+
+        # Mint some loan tokens
+        self.nodes[0].minttokens([f'1000000@{self.symbolMSFT}', f'1000000@{self.symbolDUSD}'])
+        self.nodes[0].generate(1)
+
+        # Create funded addresses
+        self.funded_addresses = []
+        for _ in range(100):
+            amount = round(random.uniform(1, 1000), 8)
+            self.nodes[0].minttokens([f'{str(amount)}@{self.idTSLA}'])
+            self.nodes[0].generate(1)
+            address = self.nodes[0].getnewaddress()
+            self.nodes[0].accounttoaccount(self.address, {address: f'{str(amount)}@{self.idTSLA}'})
+            self.nodes[0].generate(1)
+            self.funded_addresses.append([address, Decimal(str(amount))])
 
     def setup_test_pools(self):
 
@@ -379,9 +396,9 @@ class TokenSplitTest(DefiTestFramework):
     def token_split(self):
 
         # Move to FCC
-        self.nodes[0].generate(149 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(self.fort_canning_crunch - 1 - self.nodes[0].getblockcount())
 
-        # Mined in 150 height, still using old code
+        # Mined in fork height, still using old code
         self.nodes[0].updateloantoken(self.idGOOGL, {
             'name': 'AAAA',
             'interest': 1
@@ -390,13 +407,16 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result, {})
+        assert_equal(result, {'v0/poolpairs/6/token_a_fee_pct': '0.01',
+                              'v0/poolpairs/6/token_b_fee_pct': '0.03',
+                              'v0/token/1/dex_in_fee_pct': '0.02',
+                              'v0/token/1/dex_out_fee_pct': '0.005'})
 
         token = self.nodes[0].getloantoken(self.idGOOGL)
         assert_equal(token['token']['1']['name'], 'AAAA')
         assert_equal(token['interest'], Decimal(1))
 
-        # Mining height 151 - migration of token to gov var
+        # Mining fork height - migration of token to gov var
         self.nodes[0].generate(1)
 
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
@@ -439,17 +459,6 @@ class TokenSplitTest(DefiTestFramework):
             "collateralAddress": self.address
         })
 
-        # Create funded addresses
-        funded_addresses = []
-        for _ in range(100):
-            amount = round(random.uniform(1, 1000), 8)
-            self.nodes[0].minttokens([f'{str(amount)}@{self.idTSLA}'])
-            self.nodes[0].generate(1)
-            address = self.nodes[0].getnewaddress()
-            self.nodes[0].accounttoaccount(self.address, {address: f'{str(amount)}@{self.idTSLA}'})
-            self.nodes[0].generate(1)
-            funded_addresses.append([address, Decimal(str(amount))])
-
         # Set expected minted amount
         minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]['minted'] * 2
 
@@ -478,7 +487,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
 
         # Check new balances
-        for [address, amount] in funded_addresses:
+        for [address, amount] in self.funded_addresses:
             account = self.nodes[0].getaccount(address)
             new_amount = Decimal(account[0].split('@')[0])
             assert_equal(new_amount, amount * 2)
@@ -489,7 +498,7 @@ class TokenSplitTest(DefiTestFramework):
 
         # Check new balances
         minted = Decimal('0')
-        for [address, amount] in funded_addresses:
+        for [address, amount] in self.funded_addresses:
             account = self.nodes[0].getaccount(address)
             amount_scaled = Decimal(truncate(str(amount * 2 / 3), 8))
             new_amount = Decimal(account[0].split('@')[0])
@@ -692,6 +701,10 @@ class TokenSplitTest(DefiTestFramework):
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
 
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
+        self.nodes[0].generate(1)
+
     def check_future_swap_refund(self):
 
         # Set all futures attributes but set active to false
@@ -711,8 +724,6 @@ class TokenSplitTest(DefiTestFramework):
         address_locked = self.nodes[0].getnewaddress("", "legacy")
 
         # Fund addresses
-        self.nodes[0].minttokens([f'2@{self.idMSFT}', f'2@{self.idDUSD}'])
-        self.nodes[0].generate(1)
         self.nodes[0].accounttoaccount(self.address, {address_msft: [f'1@{self.symbolMSFT}', f'1@{self.symbolDUSD}']})
         self.nodes[0].accounttoaccount(self.address, {address_locked: [f'1@{self.symbolMSFT}', f'1@{self.symbolDUSD}']})
         self.nodes[0].generate(1)
@@ -750,6 +761,79 @@ class TokenSplitTest(DefiTestFramework):
         # Check balance returned with multiplier applied
         result = self.nodes[0].getaccount(address_msft)
         assert_equal(result, [f'1.00000000@{self.symbolDUSD}', f'2.00000000@{self.symbolMSFT}'])
+
+        # Swap old for new values
+        self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idMSFT}':'false'}})
+        self.nodes[0].generate(1)
+
+    def migrate_auction_batches(self):
+
+        # Create vaults
+        vault1 = self.nodes[0].createvault(self.address, 'LOAN0001')
+        vault2 = self.nodes[0].createvault(self.address, 'LOAN0001')
+        self.nodes[0].generate(1)
+
+        # Fund vaults
+        self.nodes[0].deposittovault(vault1, self.address, '1@DFI')
+        self.nodes[0].deposittovault(vault2, self.address, '2@DFI')
+        self.nodes[0].generate(1)
+
+        # Take loans
+        self.nodes[0].takeloan({
+            'vaultId': vault1,
+            'amounts': "1@MSFT"})
+        self.nodes[0].takeloan({
+            'vaultId': vault2,
+            'amounts': "1@MSFT"})
+        self.nodes[0].takeloan({
+            'vaultId': vault2,
+            'amounts': "1@MSFT"})
+        self.nodes[0].generate(1)
+
+        # Set Oracle prices
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolDUSD}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolGOOGL}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
+            {"currency": "USD", "tokenAmount": f"2@{self.symbolMSFT}"},
+        ]
+        self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
+        self.nodes[0].generate(10)
+
+        # Check liquidation
+        result = self.nodes[0].getvault(vault1)
+        assert_equal(result['state'], 'inLiquidation')
+        result = self.nodes[0].getvault(vault2)
+        assert_equal(result['state'], 'inLiquidation')
+
+        # Create bids
+        self.nodes[0].placeauctionbid(vault1, 0, self.address, f"1.1@{self.symbolMSFT}")
+        self.nodes[0].generate(1)
+
+        # Token split
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idMSFT}/2'}})
+        self.nodes[0].generate(2)
+
+        result = self.nodes[0].listauctions()
+        if result[0]['batches'][0]['loan'] == f'4.00000070@{self.symbolMSFT}':
+            assert_equal(result[1]['batches'][0]['loan'], f'2.00000036@{self.symbolMSFT}')
+            assert_equal(result[1]['batches'][0]['highestBid']['amount'], f'2.20000000@{self.symbolMSFT}')
+        else:
+            assert_equal(result[0]['batches'][0]['loan'], f'2.00000036@{self.symbolMSFT}')
+            assert_equal(result[0]['batches'][0]['highestBid']['amount'], f'2.20000000@{self.symbolMSFT}')
+            assert_equal(result[1]['batches'][0]['loan'], f'4.00000070@{self.symbolMSFT}')
+
+        # Swap old for new values
+        self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idMSFT}':'false'}})
+        self.nodes[0].generate(1)
 
 if __name__ == '__main__':
     TokenSplitTest().main()

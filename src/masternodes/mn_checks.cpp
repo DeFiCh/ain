@@ -1099,6 +1099,11 @@ public:
         for (const auto& kv : obj.balances) {
             const DCT_ID& tokenId = kv.first;
 
+            if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+                mnview.GetLoanTokenByID(tokenId)) {
+                return Res::Err("Loan tokens cannot be minted");
+            }
+
             auto token = mnview.GetToken(tokenId);
             if (!token) {
                 return Res::Err("token %s does not exist!", tokenId.ToString());
@@ -3373,14 +3378,14 @@ public:
         if (!data)
             return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
 
-        auto batch = mnview.GetAuctionBatch(obj.vaultId, obj.index);
+        auto batch = mnview.GetAuctionBatch({obj.vaultId, obj.index});
         if (!batch)
             return Res::Err("No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
 
         if (obj.amount.nTokenId != batch->loanAmount.nTokenId)
             return Res::Err("Bid token does not match auction one");
 
-        auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index);
+        auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index});
         if (!bid) {
             auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
             if (amount > obj.amount.nValue)
@@ -3405,7 +3410,7 @@ public:
         //check balance
         CalculateOwnerRewards(obj.from);
         res = mnview.SubBalance(obj.from, obj.amount);
-        return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
+        return !res ? res : mnview.StoreAuctionBid({obj.vaultId, obj.index}, {obj.from, obj.amount});
     }
 
     Res operator()(const CCustomTxMessageNone&) const {
@@ -3660,7 +3665,7 @@ public:
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {
-        if (auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index))
+        if (auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index}))
             EraseHistory(bid->first);
 
         return EraseHistory(obj.from);

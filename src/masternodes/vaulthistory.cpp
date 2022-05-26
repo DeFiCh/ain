@@ -81,7 +81,7 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
     std::vector<CAuctionBatch> batches;
     if (auto data = mnview.GetAuction(vaultID, pindex.nHeight)) {
         for (uint32_t i{0}; i < data->batchCount; ++i) {
-            if (auto batch = mnview.GetAuctionBatch(vaultID, i)) {
+            if (auto batch = mnview.GetAuctionBatch({vaultID, i})) {
                 batches.push_back(*batch);
             }
         }
