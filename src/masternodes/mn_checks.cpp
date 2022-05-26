@@ -1542,8 +1542,12 @@ public:
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
-        CalculateOwnerRewards(obj.owner);
-        
+        // Can be removed after the hard fork, since it will be backward compatible
+        // but have to keep it around for pre 2.8.0 nodes for now 
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+            CalculateOwnerRewards(obj.owner);
+        }
+
         if (obj.withdraw) {
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
