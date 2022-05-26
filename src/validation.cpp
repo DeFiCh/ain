@@ -3954,37 +3954,21 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             if (!balancesToMigrate.empty()) {
                 auto rewardsTime = GetTimeMicros();
-                boost::asio::thread_pool pool(nWorkers);
-                std::mutex workersSyncMutex;
-                std::map<TBytes, Optional<TBytes>> changeSet;
+                // Verify if we need view flush before we start this process.
+                boost::asio::thread_pool pool(nWorkers-1 > 1 ? nWorkers-1 : 2);
+                boost::asio::thread_pool ioPool(1);
                 for (auto& [owner, amount] : balancesToMigrate) {
-                    boost::asio::post(pool, [&, owner=owner]() {
-                        CCustomCSView tempView(view);
-                        tempView.CalculateOwnerRewards(owner, pindex->nHeight);
-                        auto storage = tempView.GetStorage().GetRaw();
-                        {
-                            std::scoped_lock lock(workersSyncMutex);
-                            LogPrintf("Pool migration: local changeset (size: %d, owner: %s)\n", 
-                                storage.size(), owner.GetHex());
-
-                            auto hasConflict = false;
-                            for (auto& [k, v] : storage) {
-                                printf("\t\t%s: %s\n", Hash(k).ToString().c_str(), Hash(v.get()).ToString().c_str());
-                                if (changeSet.find(k) != changeSet.end()) {
-                                    hasConflict = true;
-                                    LogPrintf("Pool migration: changeset conflict: (owner: %s, key: %s, new: %s)\n",
-                                        owner.GetHex(), Hash(k).ToString(), Hash(v.get()).ToString());
-                                }
-                            }
-                            if (!hasConflict) {
-                                changeSet.insert(storage.begin(), storage.end());
-                            }
-                        }
+                    auto account = owner;
+                    boost::asio::post(pool, [&]() {
+                        auto tempView = std::make_unique<CCustomCSView>(view);
+                        tempView->CalculateOwnerRewards(account, pindex->nHeight);
+                        boost::asio::post(ioPool, [&, tempView=std::move(tempView)]() {
+                            tempView->Flush();
+                        });
                     });
                 }
                 pool.join();
-                view.Flush();
-                view.GetStorage().GetRaw() = changeSet;
+                ioPool.join();
                 view.Flush();
                 LogPrintf("Pool migration: rewards recalc time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
             }
