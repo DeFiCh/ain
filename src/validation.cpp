@@ -4254,6 +4254,13 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         auto view{cache};
 
+        // Refund affected future swaps
+        auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+        if (!res) {
+            LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
+            continue;
+        }
+
         const DCT_ID oldTokenId{id};
 
         auto token = view.GetToken(oldTokenId);
@@ -4263,7 +4270,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         std::string newTokenSuffix = "/v";
-        auto res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+        res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
