@@ -3958,38 +3958,25 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             if (!balancesToMigrate.empty()) {
                 auto rewardsTime = GetTimeMicros();
-                boost::asio::thread_pool pool(nWorkers);
-                std::mutex workersSyncMutex;
-                std::map<TBytes, Optional<TBytes>> changeSet;
+                auto minWorkers = nWorkers - 1 > 2 ? nWorkers - 1 : 3;
+                boost::asio::thread_pool pool(minWorkers);
+                boost::asio::thread_pool ioPool(1);
                 for (auto& [owner, amount] : balancesToMigrate) {
-                    boost::asio::post(pool, [&, owner=owner]() {
-                        CCustomCSView tempView(view);
-                        tempView.CalculateOwnerRewards(owner, pindex->nHeight);
-                        auto storage = tempView.GetStorage().GetRaw();
-                        {
-                            std::scoped_lock lock(workersSyncMutex);
-                            LogPrintf("Pool migration: local changeset (size: %d, owner: %s)\n", 
-                                storage.size(), owner.GetHex());
-
-                            auto hasConflict = false;
-                            for (auto& [k, v] : storage) {
-                                printf("\t\t%s: %s\n", Hash(k).ToString().c_str(), Hash(v.get()).ToString().c_str());
-                                if (changeSet.find(k) != changeSet.end()) {
-                                    hasConflict = true;
-                                    LogPrintf("Pool migration: changeset conflict: (owner: %s, key: %s, new: %s)\n",
-                                        owner.GetHex(), Hash(k).ToString(), Hash(v.get()).ToString());
-                                }
-                            }
-                            if (!hasConflict) {
-                                changeSet.insert(storage.begin(), storage.end());
-                            }
-                        }
+                    auto account = owner;
+                    // See https://github.com/DeFiCh/ain/pull/1291
+                    // https://github.com/DeFiCh/ain/pull/1291#issuecomment-1137638060
+                    // Technically not fully synchronized, but avoid races 
+                    // due to the segregated areas of operation.
+                    boost::asio::post(pool, [&]() {
+                        auto tempView = std::make_unique<CCustomCSView>(view);
+                        tempView->CalculateOwnerRewards(account, pindex->nHeight);
+                        boost::asio::post(ioPool, [&, tempView=std::move(tempView)]() {
+                            tempView->Flush();
+                        });
                     });
                 }
                 pool.join();
-                view.Flush();
-                view.GetStorage().GetRaw() = changeSet;
-                view.Flush();
+                ioPool.join();
                 LogPrintf("Pool migration: rewards recalc time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
             }
 
@@ -4362,7 +4349,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CAccounts addAccounts;
         CAccounts subAccounts;
 
-
+        auto scanCounter = 0;
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
@@ -4370,12 +4357,13 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
             }
+            scanCounter++;
             return true;
         });
 
-        LogPrintf("Token split info: Rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add: %d, sub: %d, total: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        LogPrintf("Token split info: rebalance "  /* Continued */
+        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, add: %d, scanned: %d)\n", 
+        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance, scanCounter);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
