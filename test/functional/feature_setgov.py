@@ -648,13 +648,15 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/ascendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/descendant': '1'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/epitaph': '1'}})
-        assert_raises_rpc_error(-5, "Two int values expected for split in id/mutliplier", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1200': '1/50,600'}})
+        assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1200': '1/50,600'}})
+        assert_raises_rpc_error(-5, "Two int values expected for split in id/mutliplier", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1200':'1/50,5/10'}})
         assert_raises_rpc_error(-5, "Mutliplier cannot be zero", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/0'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Token (127) does not exist", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '127/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Only DATs can be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '128/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Tokenised DFI cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '0/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Pool tokens cannot be split", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/1201': '1/50'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set at or below current height", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/oracles/splits/{self.nodes[0].getblockcount()}': '5/50'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set at or below current height", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/oracles/splits/{self.nodes[0].getblockcount() + 1}': '5/50'}})
         assert_raises_rpc_error(-32600, "No loan token with id (4)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/oracles/splits/4000':'4/2'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Price feed DUFF/USD does not belong to any oracle", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':'DUFF/USD'}})
         assert_raises_rpc_error(-5, "Empty token / currency", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/fixed_interval_price_id':' /USD'}})
@@ -691,7 +693,8 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/4/fixed_interval_price_id':'TSLA/USD', f'v0/token/4/loan_minting_enabled':'true', f'v0/token/4/loan_minting_interest':'1'}})
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50,5/5'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'4/50'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4001':'5/5'}})
         self.nodes[0].generate(1)
 
         # Check auto lock
@@ -707,11 +710,12 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listgovs()[8][1]['3928'], {'v0/locks/token/4': 'true'})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4000':'5/10'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/4001':'5/10'}})
         self.nodes[0].generate(1)
 
         attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50,5/10')
+        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50')
+        assert_equal(attriutes['v0/oracles/splits/4001'], '5/10')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

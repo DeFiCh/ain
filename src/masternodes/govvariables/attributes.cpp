@@ -248,30 +248,23 @@ static ResVal<CAttributeValue> VerifyBool(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
-    const auto values = KeyBreaker(str, ',');
-    if (values.empty()) {
-        return Res::Err(R"(No valid values supplied, "id/multiplier, ...")");
-    }
-
     OracleSplits splits;
-    for (const auto& item : values) {
-        const auto pairs = KeyBreaker(item);
-        if (pairs.size() != 2) {
-            return Res::Err("Two int values expected for split in id/mutliplier");
-        }
-        const auto resId = VerifyPositiveInt32(pairs[0]);
-        if (!resId) {
-            return resId;
-        }
-        const auto resMultiplier = VerifyInt32(pairs[1]);
-        if (!resMultiplier) {
-            return resMultiplier;
-        }
-        if (*resMultiplier == 0) {
-            return Res::Err("Mutliplier cannot be zero");
-        }
-        splits[*resId] = *resMultiplier;
+    const auto pairs = KeyBreaker(str);
+    if (pairs.size() != 2) {
+        return Res::Err("Two int values expected for split in id/mutliplier");
     }
+    const auto resId = VerifyPositiveInt32(pairs[0]);
+    if (!resId) {
+        return resId;
+    }
+    const auto resMultiplier = VerifyInt32(pairs[1]);
+    if (!resMultiplier) {
+        return resMultiplier;
+    }
+    if (*resMultiplier == 0) {
+        return Res::Err("Mutliplier cannot be zero");
+    }
+    splits[*resId] = *resMultiplier;
 
     return {splits, Res::Ok()};
 }
@@ -595,16 +588,14 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         if (!splitValue) {
                             return Res::Err("Failed to get Oracle split value");
                         }
-                        for (const auto& [id, multiplier] : *splitValue) {
-                            tokenSplits.insert(id);
-                        }
-                        try {
-                            auto attrMap = boost::get<OracleSplits>(&attributes.at(attribute));
-                            OracleSplits combined{*splitValue};
-                            combined.merge(*attrMap);
-                            attributes[attribute] = combined;
-                            return Res::Ok();
-                        } catch (std::out_of_range &) {}
+                        if (splitValue->size() != 1)
+                            return Res::Err("Invalid number of token splits, allowed only one per height!");
+
+                        const auto& [id, multiplier] = *(splitValue->begin());
+                        tokenSplits.insert(id);
+
+                        attributes[attribute] = *splitValue;
+                        return Res::Ok();
                     }
 
                     // apply DFI via old keys
@@ -630,8 +621,8 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     return Res::Ok();
 }
 
-// Keys to exclude when using the legacy filter mode, to keep things the 
-// same as pre 2.7.x versions, to reduce noise. Eventually, the APIs that 
+// Keys to exclude when using the legacy filter mode, to keep things the
+// same as pre 2.7.x versions, to reduce noise. Eventually, the APIs that
 // cause too much noise can be deprecated and this code removed.
 std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::LoanCollateralEnabled,
@@ -651,12 +642,12 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
         if (!attrV0) {
             continue;
         }
-        if (filter == GovVarsFilter::LiveAttributes && 
+        if (filter == GovVarsFilter::LiveAttributes &&
             attrV0->type != AttributeTypes::Live) {
                 continue;
         } else if (filter == GovVarsFilter::Version2Dot7) {
-            if (attrV0->type == AttributeTypes::Token && 
-            attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end()) 
+            if (attrV0->type == AttributeTypes::Token &&
+            attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end())
                 continue;
         }
         try {
@@ -1038,7 +1029,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return Res::Err("Auto lock. No loan token with id (%d)", split);
                 }
 
-                if (attrV0->key < height) {
+                if (attrV0->key <= height) {
                     return Res::Err("Cannot be set at or below current height");
                 }
 
