@@ -42,7 +42,7 @@ Res CGovView::SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& g
 
 std::set<std::shared_ptr<GovVariable>> CGovView::GetStoredVariables(const uint32_t height)
 {
-    // Popualte a set of Gov vars for specified height
+    // Populate a set of Gov vars for specified height
     std::set<std::shared_ptr<GovVariable>> govVars;
     auto it = LowerBound<ByHeightVars>(GovVarKey{height, {}});
     for (; it.Valid() && it.Key().height == height; it.Next()) {
@@ -50,6 +50,21 @@ std::set<std::shared_ptr<GovVariable>> CGovView::GetStoredVariables(const uint32
         if (var) {
             it.Value(*var);
             govVars.insert(var);
+        }
+    }
+    return govVars;
+}
+
+std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> CGovView::GetStoredVariablesRange(const uint32_t startHeight, const uint32_t endHeight)
+{
+    // Populate a set of Gov vars for specified height
+    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> govVars;
+    auto it = LowerBound<ByHeightVars>(GovVarKey{startHeight, {}});
+    for (; it.Valid() && it.Key().height >= startHeight && it.Key().height <= endHeight; it.Next()) {
+        auto var = GovVariable::Create(it.Key().name);
+        if (var) {
+            it.Value(*var);
+            govVars.emplace_back(it.Key().height, var);
         }
     }
     return govVars;

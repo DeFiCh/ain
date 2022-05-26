@@ -1020,6 +1020,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 if (auto it{value->find(split)}; it == value->end()) {
                     continue;
                 }
+
+                if (attrV0->key <= height) {
+                    return Res::Err("Cannot be set at or below current height");
+                }
+
                 CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, split};
                 if (GetValue(lockKey, false)) {
                     continue;
@@ -1027,10 +1032,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 
                 if (!mnview.GetLoanTokenByID(DCT_ID{split}).has_value()) {
                     return Res::Err("Auto lock. No loan token with id (%d)", split);
-                }
-
-                if (attrV0->key <= height) {
-                    return Res::Err("Cannot be set at or below current height");
                 }
 
                 CGovernanceHeightMessage lock;
