@@ -12,8 +12,6 @@
 # Merge with one side bigger in value max_limit
 """Test token split"""
 
-from re import split
-from sys import breakpointhook
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 
