@@ -1542,6 +1542,8 @@ public:
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
+        CalculateOwnerRewards(obj.owner);
+        
         if (obj.withdraw) {
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
