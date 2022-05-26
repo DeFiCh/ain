@@ -932,7 +932,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
                 if (const auto &currencyPair = boost::get<CTokenCurrencyPair>(&attribute.second)) {
                     // Already exists, skip.
-                    if (mnview.GetFixedIntervalPrice(*currencyPair)) {
+                    if (auto it = mnview.LowerBound<COracleView::FixedIntervalPriceKey>(CTokenCurrencyPair{currencyPair->first, currencyPair->second}); it.Valid()) {
                         continue;
                     } else if (!OraclePriceFeed(mnview, *currencyPair)) {
                         return Res::Err("Price feed %s/%s does not belong to any oracle", currencyPair->first,
