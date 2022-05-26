@@ -879,6 +879,9 @@ public:
         tokenCurrency = std::move(trimmed);
         return Res::Ok();
     }
+    bool IsTokensMigratedToGovVar() const {
+        return static_cast<int>(height) > consensus.FortCanningCrunchHeight + 1;
+    }
 };
 
 class CCustomTxApplyVisitor : public CCustomTxVisitor
@@ -1511,9 +1514,17 @@ public:
             if (!loanToken) {
                 return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
             }
+
+            if (mnview.AreTokensLocked({obj.destination})) {
+                return Res::Err("Cannot create future swap for locked token");
+            }
         } else {
             if (obj.destination != 0) {
                 return Res::Err("Destination should not be set when source amount is a dToken");
+            }
+
+            if (mnview.AreTokensLocked({obj.source.nTokenId.v})) {
+                return Res::Err("Cannot create future swap for locked token");
             }
 
             CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
@@ -1530,6 +1541,12 @@ public:
 
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
+
+        // Can be removed after the hard fork, since it will be backward compatible
+        // but have to keep it around for pre 2.8.0 nodes for now 
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
+            CalculateOwnerRewards(obj.owner);
+        }
 
         if (obj.withdraw) {
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
@@ -2308,7 +2325,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& tokenId = obj.idToken.v;
 
@@ -2410,7 +2427,7 @@ public:
         if (!tokenId)
             return std::move(tokenId);
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& id = tokenId.val->v;
 
@@ -2490,7 +2507,7 @@ public:
         if (!pair)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
-        auto loanToken = height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) ?
+        auto loanToken = (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) ?
                 mnview.GetLoanTokenByID(pair->first) : mnview.GetLoanToken(obj.tokenTx);
 
         if (!loanToken)
@@ -2515,7 +2532,7 @@ public:
         if (!res)
             return res;
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight))
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
         {
             const auto& id = pair->first.v;
 

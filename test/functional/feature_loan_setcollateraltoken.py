@@ -207,6 +207,14 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(150 - self.nodes[0].getblockcount())
 
+        # Check errors on FCC
+        assert_raises_rpc_error(-32600, "setCollateralToken factor must be lower or equal than 1.00000000", self.nodes[0].setcollateraltoken, {
+            'token': idDFI,
+            'factor': 1.01,
+            'fixedIntervalPriceId': "DFI/USD"})
+
+        self.nodes[0].generate(1)
+
         # Check errors
         assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setcollateraltoken, {
             'token': idDFI,
