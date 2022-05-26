@@ -3961,6 +3961,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 auto minWorkers = nWorkers - 1 > 2 ? nWorkers - 1 : 3;
                 boost::asio::thread_pool pool(minWorkers);
                 boost::asio::thread_pool ioPool(1);
+
                 for (auto& [owner, amount] : balancesToMigrate) {
                     auto account = owner;
                     // See https://github.com/DeFiCh/ain/pull/1291
@@ -3977,6 +3978,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 }
                 pool.join();
                 ioPool.join();
+
                 LogPrintf("Pool migration: rewards recalc time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
             }
 
@@ -4261,6 +4263,13 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         auto view{cache};
 
+        // Refund affected future swaps
+        auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+        if (!res) {
+            LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
+            continue;
+        }
+
         const DCT_ID oldTokenId{id};
 
         auto token = view.GetToken(oldTokenId);
@@ -4270,7 +4279,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         std::string newTokenSuffix = "/v";
-        auto res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+        res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
