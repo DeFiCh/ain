@@ -4275,9 +4275,20 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
-            vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
-            oldInterestPerBlock.ToString(), newInterestRatePerBlock.ToString());
+        if (LogAcceptCategory(BCLog::TOKEN_SPLIT)) {
+            auto s1 = GetInterestPerBlockHighPrecisionString(oldInterestPerBlock);
+            auto s2 = GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock);
+            if (s1 && s1) {
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
+                    vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
+                    *s1, *s2);
+            } else {
+                LogPrint(BCLog::TOKEN_SPLIT, "WARNING: TokenSplit GetInterestPerBlockHighPrecisionString failed\n");
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
+                    vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
+                    oldInterestPerBlock.ToString(), newInterestRatePerBlock.ToString());
+            }
+        }
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
     }
