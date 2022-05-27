@@ -3873,13 +3873,13 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
                       const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
-    auto time = GetTimeMillis();
     LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
             oldTokenId.v, newTokenId.v, pindex->nHeight);
 
     try {
         assert(creationTxs.count(oldTokenId.v));
         for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
+            auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
                 throw std::runtime_error(strprintf("Failed to get related pool token: %d", oldPoolId.v));
@@ -4167,7 +4167,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
             LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
-                  oldPoolId.v, newPoolId.v, pindex->nHeight, GetTimeMillis() - time);
+                  oldPoolId.v, newPoolId.v, pindex->nHeight, GetTimeMillis() - loopTime);
         }
 
     } catch (const std::runtime_error& e) {
