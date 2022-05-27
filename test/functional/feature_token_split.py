@@ -838,4 +838,3 @@ class TokenSplitTest(DefiTestFramework):
 
 if __name__ == '__main__':
     TokenSplitTest().main()
-
