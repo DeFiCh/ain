@@ -681,12 +681,12 @@ UniValue minttokens(const JSONRPCRequest& request) {
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            auto& tokenImpl = static_cast<CTokenImplementation const& >(*token);
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-            if (tokenImpl.IsDAT()) {
+            if (token->IsDAT()) {
                 needFoundersAuth = true;
+            } else {
+                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+                auths.insert(authCoin.out.scriptPubKey);
             }
-            auths.insert(authCoin.out.scriptPubKey);
         }
     }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
