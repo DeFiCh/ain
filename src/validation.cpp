@@ -2289,6 +2289,68 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
     }
 }
 
+void CChainState::ProcessRewardEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    // Hard coded LP_DAILY_DFI_REWARD change
+    if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
+    {
+        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
+        UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
+    }
+
+    // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
+    if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+    {
+        const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+        UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
+    }
+
+    // hardfork commissions update
+    const auto distributed = cache.UpdatePoolRewards(
+            [&](CScript const & owner, DCT_ID tokenID) {
+                cache.CalculateOwnerRewards(owner, pindex->nHeight);
+                return cache.GetBalance(owner, tokenID);
+            },
+            [&](CScript const & from, CScript const & to, CTokenAmount amount) {
+                if (!from.empty()) {
+                    auto res = cache.SubBalance(from, amount);
+                    if (!res) {
+                        LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
+                        return res;
+                    }
+                }
+                if (!to.empty()) {
+                    auto res = cache.AddBalance(to, amount);
+                    if (!res) {
+                        LogPrintf("Can't apply reward to %s: %s, %ld\n", to.GetHex(), res.msg, pindex->nHeight);
+                        return res;
+                    }
+                    cache.UpdateBalancesHeight(to, pindex->nHeight + 1);
+                }
+                return Res::Ok();
+            },
+            pindex->nHeight
+    );
+
+    auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed.first);
+    if (!res.ok) {
+        LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
+    } else {
+        if (distributed.first != 0)
+            LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::IncentiveFunding), (CBalances{{{{0}, -distributed.first}}}.ToString()));
+    }
+
+    if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
+        res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
+        if (!res.ok) {
+            LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, pindex->phashBlock->GetHex());
+        } else {
+            if (distributed.second != 0)
+                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::Loan), (CBalances{{{{0}, -distributed.second}}}.ToString()));
+        }
+    }
+}
+
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
 {
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
@@ -2837,7 +2899,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
 
-    auto isSplitsBlock = splits.size() > 0 ? true : false;
+    const auto isSplitsBlock = splits.size() > 0;
 
     CreationTxs creationTxs;
     auto counter_n = 1;
@@ -2924,64 +2986,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
         CCustomCSView cache(mnview);
 
-        // Hard coded LP_DAILY_DFI_REWARD change
-        if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
-        {
-            const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
-            UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
-        }
-
-        // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
-        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
-        {
-            const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
-            UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
-        }
-
-        // hardfork commissions update
-        const auto distributed = cache.UpdatePoolRewards(
-            [&](CScript const & owner, DCT_ID tokenID) {
-                cache.CalculateOwnerRewards(owner, pindex->nHeight);
-                return cache.GetBalance(owner, tokenID);
-            },
-            [&](CScript const & from, CScript const & to, CTokenAmount amount) {
-                if (!from.empty()) {
-                    auto res = cache.SubBalance(from, amount);
-                    if (!res) {
-                        LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
-                        return res;
-                    }
-                }
-                if (!to.empty()) {
-                    auto res = cache.AddBalance(to, amount);
-                    if (!res) {
-                        LogPrintf("Can't apply reward to %s: %s, %ld\n", to.GetHex(), res.msg, pindex->nHeight);
-                        return res;
-                    }
-                    cache.UpdateBalancesHeight(to, pindex->nHeight + 1);
-                }
-                return Res::Ok();
-            },
-            pindex->nHeight
-        );
-
-        auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed.first);
-        if (!res.ok) {
-            LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, block.GetHash().ToString());
-        } else {
-            if (distributed.first != 0)
-                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::IncentiveFunding), (CBalances{{{{0}, -distributed.first}}}.ToString()));
-        }
-
-        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
-            res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
-            if (!res.ok) {
-                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, pindex->nHeight, block.GetHash().ToString());
-            } else {
-                if (distributed.second != 0)
-                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: event=ProcessRewardEvents fund=%s change=%s\n", GetCommunityAccountName(CommunityAccountType::Loan), (CBalances{{{{0}, -distributed.second}}}.ToString()));
-            }
-        }
+        // calculate rewards to current block
+        ProcessRewardEvents(pindex, cache, chainparams);
 
         // close expired orders, refund all expired DFC HTLCs at this block height
         ProcessICXEvents(pindex, cache, chainparams);
@@ -3349,7 +3355,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
                     batch.loanInterest = MultiplyAmounts(interestPart, interest);
                 }
-                cache.StoreAuctionBatch(vaultId, i, batch);
+                cache.StoreAuctionBatch({vaultId, i}, batch);
             }
 
             // All done. Ready to save the overall auction.
@@ -3379,15 +3385,17 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         assert(vault);
 
         for (uint32_t i = 0; i < data.batchCount; i++) {
-            auto batch = view.GetAuctionBatch(vaultId, i);
+            auto batch = view.GetAuctionBatch({vaultId, i});
             assert(batch);
 
-            if (auto bid = view.GetAuctionBid(vaultId, i)) {
+            if (auto bid = view.GetAuctionBid({vaultId, i})) {
                 auto bidOwner = bid->first;
                 auto bidTokenAmount = bid->second;
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
-                assert(bidTokenAmount.nValue >= penaltyAmount);
+                if (bidTokenAmount.nValue < penaltyAmount) {
+                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount\n");
+                }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
@@ -3418,7 +3426,10 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
+                auto res = view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
+                if (!res) {
+                    LogPrintf("AuctionBid: SubMintedTokens failed: %s\n", res.msg);
+                }
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
@@ -4168,6 +4179,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n",
               oldTokenId.v, newTokenId.v, height);
+
     std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
     view.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
         for (const auto& [tokenId, amount] : balances.balances) {
@@ -4249,6 +4261,44 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
+    }
+
+    std::vector<std::pair<CVaultView::AuctionStoreKey, CAuctionBatch>> auctionBatches;
+    view.ForEachAuctionBatch([&](const CVaultView::AuctionStoreKey& key, const CAuctionBatch& value) {
+        if (value.loanAmount.nTokenId == oldTokenId) {
+            auctionBatches.emplace_back(key, value);
+        }
+        return true;
+    });
+
+    for (auto& [key, value] : auctionBatches) {
+        view.EraseAuctionBatch(key);
+        value.loanAmount.nTokenId = newTokenId;
+        value.loanAmount.nValue = CalculateNewAmount(multiplier, value.loanAmount.nValue);
+        value.loanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+
+        try {
+            const auto amount{value.collaterals.balances.at(oldTokenId)};
+            value.collaterals.balances.erase(oldTokenId);
+            value.collaterals.balances[newTokenId] = CalculateNewAmount(multiplier, amount);
+        } catch (const std::out_of_range&) {}
+
+        view.StoreAuctionBatch(key, value);
+    }
+
+    std::vector<std::pair<CVaultView::AuctionStoreKey, CVaultView::COwnerTokenAmount>> auctionBids;
+    view.ForEachAuctionBid([&](const CVaultView::AuctionStoreKey& key, const CVaultView::COwnerTokenAmount& value) {
+        if (value.second.nTokenId == oldTokenId) {
+            auctionBids.emplace_back(key, value);
+        }
+        return true;
+    });
+
+    for (auto& [key, value] : auctionBids) {
+        view.EraseAuctionBid(key);
+        value.second.nTokenId = newTokenId;
+        value.second.nValue = CalculateNewAmount(multiplier, value.second.nValue);
+        view.StoreAuctionBid(key, value);
     }
 
     LogPrintf("Vaults rebalance completed: (token %d -> %d, height: %d, time: %dms)\n",
@@ -4424,18 +4474,10 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        if (view.GetLoanTokenByID(oldTokenId)) {
-            res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
-            if (!res) {
-                LogPrintf("Vault splits failed: %s\n", res.msg);
-                continue;
-            }
-        } else {
-            auto res = attributes->Apply(view, pindex->nHeight);
-            if (!res) {
-                LogPrintf("Token split failed on Apply: %s\n", res.msg);
-                continue;
-            }
+        res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+        if (!res) {
+            LogPrintf("Token splits failed: %s\n", res.msg);
+            continue;
         }
 
         std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;

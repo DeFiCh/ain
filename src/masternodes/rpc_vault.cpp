@@ -80,11 +80,11 @@ namespace {
         UniValue batchArray{UniValue::VARR};
         for (uint32_t i = 0; i < batchCount; i++) {
             UniValue batchObj{UniValue::VOBJ};
-            auto batch = pcustomcsview->GetAuctionBatch(vaultId, i);
+            auto batch = pcustomcsview->GetAuctionBatch({vaultId, i});
             batchObj.pushKV("index", int(i));
             batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
             batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
-            if (auto bid = pcustomcsview->GetAuctionBid(vaultId, i)) {
+            if (auto bid = pcustomcsview->GetAuctionBid({vaultId, i})) {
                 UniValue bidObj{UniValue::VOBJ};
                 bidObj.pushKV("owner", ScriptToString(bid->first));
                 bidObj.pushKV("amount", tokenAmountString(bid->second));

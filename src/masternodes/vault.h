@@ -153,6 +153,9 @@ struct CAuctionBatch {
 class CVaultView : public virtual CStorageView
 {
 public:
+    using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
+    using AuctionStoreKey = std::pair<CVaultId, uint32_t>;
+
     Res StoreVault(const CVaultId&, const CVaultData&);
     Res EraseVault(const CVaultId&);
     boost::optional<CVaultData> GetVault(const CVaultId&) const;
@@ -167,15 +170,16 @@ public:
     Res StoreAuction(const CVaultId& vaultId, const CAuctionData& data);
     Res EraseAuction(const CVaultId& vaultId, uint32_t height);
     boost::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
-    Res StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch);
-    Res EraseAuctionBatch(const CVaultId& vaultId, uint32_t id);
-    boost::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
+    Res StoreAuctionBatch(const AuctionStoreKey& key, const CAuctionBatch& batch);
+    Res EraseAuctionBatch(const AuctionStoreKey& key);
+    boost::optional<CAuctionBatch> GetAuctionBatch(const AuctionStoreKey& vaultId);
     void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId = {});
+    void ForEachAuctionBatch(std::function<bool(const AuctionStoreKey&, const CAuctionBatch&)> callback);
 
-    using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
-    Res StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount);
-    Res EraseAuctionBid(const CVaultId& vaultId, uint32_t id);
-    boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
+    Res StoreAuctionBid(const AuctionStoreKey& key, COwnerTokenAmount amount);
+    Res EraseAuctionBid(const AuctionStoreKey& key);
+    boost::optional<COwnerTokenAmount> GetAuctionBid(const AuctionStoreKey& key);
+    void ForEachAuctionBid(std::function<bool(const AuctionStoreKey& key, const COwnerTokenAmount& amount)> callback);
 
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
     struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x21; } };
