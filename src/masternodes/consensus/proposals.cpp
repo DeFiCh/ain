@@ -30,9 +30,6 @@ Res CProposalsConsensus::operator()(const CCreatePropMessage& obj) const {
     if (!res)
         return res;
 
-    if (!HasFoundationAuth())
-        return Res::Err("tx not from foundation member");
-
     if (obj.nAmount >= MAX_MONEY)
         return Res::Err("proposal wants to gain all money");
 
