@@ -3387,7 +3387,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 if (bidTokenAmount.nValue < penaltyAmount) {
-                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount %s\n");
+                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount\n");
                 }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
