@@ -3394,7 +3394,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 if (bidTokenAmount.nValue < penaltyAmount) {
-                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount\n");
+                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n", 
+                        bidTokenAmount.nValue, penaltyAmount);
                 }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
@@ -3402,8 +3403,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, 
+                        chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
                 view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
@@ -3664,7 +3665,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     }
 
     LogPrintf("Future swap settlement completed: (%d DUSD->Token swaps," /* Continued */
-    " %d Token->DUSD swaps, %d refunds (height: %d, time: %d)\n",
+    " %d Token->DUSD swaps, %d refunds (height: %d, time: %dms)\n",
     dUsdToTokenSwapsCounter, tokenTodUsdSwapsCounter, failedContractsCounter,
     pindex->nHeight, GetTimeMillis() - time);
 
@@ -3872,13 +3873,13 @@ static inline T CalculateNewAmount(const int multiplier, const T amount) {
 static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& attributes, const DCT_ID oldTokenId, const DCT_ID newTokenId,
                       const CBlockIndex* pindex, const CreationTxs& creationTxs, const int32_t multiplier) {
 
-    auto time = GetTimeMillis();
     LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
             oldTokenId.v, newTokenId.v, pindex->nHeight);
 
     try {
         assert(creationTxs.count(oldTokenId.v));
         for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
+            auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
                 throw std::runtime_error(strprintf("Failed to get related pool token: %d", oldPoolId.v));
@@ -3890,7 +3891,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             newPoolToken.minted = 0;
 
             size_t suffixCount{1};
-            view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
+            view.ForEachPoolPair([&](DCT_ID const & poolId, const CPoolPair& pool){
                 const auto tokenA = view.GetToken(pool.idTokenA);
                 const auto tokenB = view.GetToken(pool.idTokenB);
                 assert(tokenA);
@@ -4166,7 +4167,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
             LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
-                  oldPoolId.v, newPoolId.v, pindex->nHeight, GetTimeMillis() - time);
+                  oldPoolId.v, newPoolId.v, pindex->nHeight, GetTimeMillis() - loopTime);
         }
 
     } catch (const std::runtime_error& e) {
@@ -4224,9 +4225,16 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     }
     view.SetVariable(attributes);
 
-    for (auto& [vaultId, amount] : loanTokenAmounts) {
-        amount = CalculateNewAmount(multiplier, amount);
-        res = view.AddLoanToken(vaultId, {newTokenId, amount});
+    for (const auto& [vaultId, amount] : loanTokenAmounts) {
+        auto newAmount = CalculateNewAmount(multiplier, amount);
+
+        auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
+        auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
+
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
+            vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
+        
+        res = view.AddLoanToken(vaultId, newTokenAmount);
         if (!res) {
             return res;
         }
@@ -4253,11 +4261,37 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         view.EraseInterestDirect(vaultId, oldTokenId);
-        rate.interestToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+        auto oldRateToHeight = rate.interestToHeight;
+        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+
+        rate.interestToHeight = newRateToHeight;
+
+        auto oldInterestPerBlock = rate.interestPerBlock;
+        auto newInterestRatePerBlock = base_uint<128>(0);
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
-            rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            newInterestRatePerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            rate.interestPerBlock = newInterestRatePerBlock;
+        }
+
+        if (LogAcceptCategory(BCLog::TOKEN_SPLIT)) {
+            auto s1 = GetInterestPerBlockHighPrecisionString(oldInterestPerBlock);
+            auto s2 = GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock);
+            std::string s1Str;
+            std::string s2Str;
+            if (s1 && s2) {
+                s1Str = *s1;
+                s2Str = *s2;
+            }
+            else {
+                s1Str = oldInterestPerBlock.ToString();
+                s2Str = newInterestRatePerBlock.ToString();
+                LogPrint(BCLog::TOKEN_SPLIT, "WARNING: TokenSplit GetInterestPerBlockHighPrecisionString failed\n");
+            }
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
+                vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
+                s1Str, s2Str);
         }
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
@@ -4275,14 +4309,31 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         view.EraseAuctionBatch(key);
 
         if (value.loanAmount.nTokenId == oldTokenId) {
-            value.loanAmount.nTokenId = newTokenId;
-            value.loanAmount.nValue = CalculateNewAmount(multiplier, value.loanAmount.nValue);
-            value.loanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+            auto oldLoanAmount = value.loanAmount;
+            auto oldInterest = value.loanInterest;
+
+            auto newLoanAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, value.loanAmount.nValue)};
+            value.loanAmount.nTokenId = newLoanAmount.nTokenId;
+            value.loanAmount.nValue = newLoanAmount.nValue;
+
+            auto newLoanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+            value.loanInterest = newLoanInterest;
+
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
+                key.first.ToString(), key.second, oldLoanAmount.ToString(), 
+                newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
 
         if (value.collaterals.balances.count(oldTokenId)) {
-            value.collaterals.balances[newTokenId] = CalculateNewAmount(multiplier, value.collaterals.balances[oldTokenId]);
-            value.collaterals.balances.erase(oldTokenId);
+            auto oldAmount = CTokenAmount { oldTokenId, value.collaterals.balances[oldTokenId] };
+            auto newAmount = CTokenAmount { newTokenId, CalculateNewAmount(multiplier, oldAmount.nValue) };
+
+            value.collaterals.balances[newAmount.nTokenId] = newAmount.nValue;
+            value.collaterals.balances.erase(oldAmount.nTokenId);
+
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s)\n",
+                key.first.ToString(), key.second, oldAmount.ToString(),
+                newAmount.ToString());
         }
 
         view.StoreAuctionBatch(key, value);
@@ -4298,9 +4349,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
     for (auto& [key, value] : auctionBids) {
         view.EraseAuctionBid(key);
-        value.second.nTokenId = newTokenId;
-        value.second.nValue = CalculateNewAmount(multiplier, value.second.nValue);
+
+        auto oldTokenAmount = value.second;
+        auto newTokenAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, oldTokenAmount.nValue)};
+
+        value.second.nTokenId = newTokenAmount.nTokenId;
+        value.second.nValue = newTokenAmount.nValue;
+
         view.StoreAuctionBid(key, value);
+
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
+            key.first.ToString(), key.second, oldTokenAmount.ToString(),
+            newTokenAmount.ToString());
     }
 
     LogPrintf("Vaults rebalance completed: (token %d -> %d, height: %d, time: %dms)\n",
@@ -4440,7 +4500,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s, v: %s => %s)\n",
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s: %s => %s)\n",
                     ScriptToString(owner), balance.ToString(),
                     newBalanceStr);
             }
