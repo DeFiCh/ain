@@ -4316,7 +4316,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             value.collaterals.balances[newAmount.nTokenId] = newAmount.nValue;
             value.collaterals.balances.erase(oldAmount.nTokenId);
 
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s, %d => %d)\n",
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s, %s => %s)\n",
                 key.first.ToString(), key.second, oldAmount.ToString(),
                 newAmount.ToString());
         }
@@ -4343,7 +4343,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         view.StoreAuctionBid(key, value);
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s, %d => %d)\n",
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
             key.first.ToString(), key.second, oldTokenAmount.ToString(),
             newTokenAmount.ToString());
     }
