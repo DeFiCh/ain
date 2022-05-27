@@ -4378,7 +4378,6 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CAccounts addAccounts;
         CAccounts subAccounts;
 
-        auto scanCounter = 0;
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
@@ -4389,13 +4388,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
             }
-            scanCounter++;
             return true;
         });
 
         LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, add: %d, scanned: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance, scanCounter);
+        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
+        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
