@@ -1706,9 +1706,32 @@ public:
         }
 
         // Validate GovVariables before storing
-        auto result = obj.govVar->Validate(mnview);
-        if (!result) {
-            return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
+        // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
+        if (height >= uint32_t(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+
+            auto govVar = mnview.GetAttributes();
+            if (!govVar) {
+                return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
+            }
+
+            auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
+            storedGovVars.emplace_back(obj.startHeight, obj.govVar);
+
+            Res res{};
+            CCustomCSView govCache(mnview);
+            for (const auto& [varHeight, var] : storedGovVars) {
+                if (var->GetName() == "ATTRIBUTES") {
+                    if (!(res = govVar->Import(var->Export())) ||
+                        !(res = govVar->Validate(govCache)) ||
+                        !(res = govVar->Apply(govCache, varHeight))) {
+                        return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
+                    }
+                }
+            }
+        } else {
+            auto result = obj.govVar->Validate(mnview);
+            if (!result)
+                return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
         }
 
         // Store pending Gov var change
