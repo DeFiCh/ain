@@ -3394,7 +3394,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 if (bidTokenAmount.nValue < penaltyAmount) {
-                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount\n");
+                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n", 
+                        bidTokenAmount.nValue, penaltyAmount);
                 }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
@@ -3402,8 +3403,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, 
+                        chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
                 view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
@@ -3664,7 +3665,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     }
 
     LogPrintf("Future swap settlement completed: (%d DUSD->Token swaps," /* Continued */
-    " %d Token->DUSD swaps, %d refunds (height: %d, time: %d)\n",
+    " %d Token->DUSD swaps, %d refunds (height: %d, time: %dms)\n",
     dUsdToTokenSwapsCounter, tokenTodUsdSwapsCounter, failedContractsCounter,
     pindex->nHeight, GetTimeMillis() - time);
 
@@ -4224,9 +4225,16 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     }
     view.SetVariable(attributes);
 
-    for (auto& [vaultId, amount] : loanTokenAmounts) {
-        amount = CalculateNewAmount(multiplier, amount);
-        res = view.AddLoanToken(vaultId, {newTokenId, amount});
+    for (const auto& [vaultId, amount] : loanTokenAmounts) {
+        auto newAmount = CalculateNewAmount(multiplier, amount);
+
+        auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
+        auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
+
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Loan (%s, %s => %s)\n", 
+            vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
+        
+        res = view.AddLoanToken(vaultId, newTokenAmount);
         if (!res) {
             return res;
         }
@@ -4253,12 +4261,23 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         view.EraseInterestDirect(vaultId, oldTokenId);
-        rate.interestToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+        auto oldRateToHeight = rate.interestToHeight;
+        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+
+        rate.interestToHeight = newRateToHeight;
+
+        auto oldInterestPerBlock = rate.interestPerBlock;
+        auto newInterestRatePerBlock = base_uint<128>(0);
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
-            rate.interestPerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            newInterestRatePerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            rate.interestPerBlock = newInterestRatePerBlock;
         }
+
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s, %s => %s, %s => %s)\n",
+            vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
+            oldInterestPerBlock.ToString(), newInterestRatePerBlock.ToString());
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
     }
