@@ -4265,7 +4265,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
     std::vector<std::pair<CVaultView::AuctionStoreKey, CAuctionBatch>> auctionBatches;
     view.ForEachAuctionBatch([&](const CVaultView::AuctionStoreKey& key, const CAuctionBatch& value) {
-        if (value.loanAmount.nTokenId == oldTokenId) {
+        if (value.loanAmount.nTokenId == oldTokenId || value.collaterals.balances.count(oldTokenId)) {
             auctionBatches.emplace_back(key, value);
         }
         return true;
@@ -4273,15 +4273,17 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
     for (auto& [key, value] : auctionBatches) {
         view.EraseAuctionBatch(key);
-        value.loanAmount.nTokenId = newTokenId;
-        value.loanAmount.nValue = CalculateNewAmount(multiplier, value.loanAmount.nValue);
-        value.loanInterest = CalculateNewAmount(multiplier, value.loanInterest);
 
-        try {
-            const auto amount{value.collaterals.balances.at(oldTokenId)};
+        if (value.loanAmount.nTokenId == oldTokenId) {
+            value.loanAmount.nTokenId = newTokenId;
+            value.loanAmount.nValue = CalculateNewAmount(multiplier, value.loanAmount.nValue);
+            value.loanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+        }
+
+        if (value.collaterals.balances.count(oldTokenId)) {
+            value.collaterals.balances[newTokenId] = CalculateNewAmount(multiplier, value.collaterals.balances[oldTokenId]);
             value.collaterals.balances.erase(oldTokenId);
-            value.collaterals.balances[newTokenId] = CalculateNewAmount(multiplier, amount);
-        } catch (const std::out_of_range&) {}
+        }
 
         view.StoreAuctionBatch(key, value);
     }
