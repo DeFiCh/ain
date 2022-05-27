@@ -3891,7 +3891,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             newPoolToken.minted = 0;
 
             size_t suffixCount{1};
-            view.ForEachPoolPair([&, oldTokenId = oldTokenId](DCT_ID const & poolId, const CPoolPair& pool){
+            view.ForEachPoolPair([&](DCT_ID const & poolId, const CPoolPair& pool){
                 const auto tokenA = view.GetToken(pool.idTokenA);
                 const auto tokenB = view.GetToken(pool.idTokenB);
                 assert(tokenA);
@@ -4334,9 +4334,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
     for (auto& [key, value] : auctionBids) {
         view.EraseAuctionBid(key);
-        value.second.nTokenId = newTokenId;
-        value.second.nValue = CalculateNewAmount(multiplier, value.second.nValue);
+
+        auto oldTokenAmount = value.second;
+        auto newTokenAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, oldTokenAmount.nValue)};
+
+        value.second.nTokenId = newTokenAmount.nTokenId;
+        value.second.nValue = newTokenAmount.nValue;
+
         view.StoreAuctionBid(key, value);
+
+        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s, %d => %d)\n",
+            key.first.ToString(), key.second, oldTokenAmount.ToString(),
+            newTokenAmount.ToString());
     }
 
     LogPrintf("Vaults rebalance completed: (token %d -> %d, height: %d, time: %dms)\n",
