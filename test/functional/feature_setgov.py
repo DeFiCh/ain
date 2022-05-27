@@ -683,10 +683,11 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'1'}})
 
 
-    # Set locks
+        # Set locks
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/locks/token/5':'true'}})
         self.nodes[0].generate(1)
 
+        # Check locks
         attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attriutes['v0/locks/token/5'], 'true')
 
@@ -711,18 +712,54 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listgovs()[8][1]['3928'], {'v0/locks/token/4': 'true'})
 
-        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/oracles/splits/4001':'5/10'}}, 1210)
+        # Set pending split
+        activation_height = self.nodes[0].getblockcount() + 5
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/oracles/splits/4001':'5/10'}}, activation_height)
         self.nodes[0].generate(1)
 
-        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50')
-        assert_equal(attriutes['v0/oracles/splits/4001'], '5/5')
+        # Check value unchanged
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/oracles/splits/4001'], '5/5')
 
-        self.nodes[0].generate(4)
+        # Move to pending height
+        self.nodes[0].generate(activation_height - self.nodes[0].getblockcount())
 
-        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/oracles/splits/4000'], '4/50')
-        assert_equal(attriutes['v0/oracles/splits/4001'], '5/10')
+        # Check change is applied
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/oracles/splits/4001'], '5/10')
+
+        # Set stored lock
+        activation_height = self.nodes[0].getblockcount() + 5
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/locks/token/4':'true'}}, activation_height)
+        self.nodes[0].generate(1)
+
+        # Make sure lock pending but not active
+        attributes = self.nodes[0].listgovs()[8]
+        assert('v0/locks/token/4' not in attributes[0]['ATTRIBUTES'])
+        assert_equal(attributes[1][str(activation_height)]['v0/locks/token/4'], 'true')
+
+        # Move to pending height
+        self.nodes[0].generate(activation_height - self.nodes[0].getblockcount())
+
+        # Check lock now present
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/locks/token/4'], 'true')
+
+        # Disable lock
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/locks/token/5':'false'}})
+        self.nodes[0].generate(1)
+
+        # Set split
+        activation_height = self.nodes[0].getblockcount() + 5
+        self.nodes[0].setgovheight({"ATTRIBUTES":{f'v0/oracles/splits/{activation_height + 10}':'5/10'}}, activation_height)
+        self.nodes[0].generate(1)
+
+        # Move to pending height
+        self.nodes[0].generate(activation_height - self.nodes[0].getblockcount())
+
+        # Check auto lock
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/locks/token/5'], 'true')
 
 if __name__ == '__main__':
     GovsetTest ().main ()
