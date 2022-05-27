@@ -62,6 +62,7 @@ namespace BCLog {
         LOAN          = (1 << 25),
         ACCOUNTCHANGE = (1 << 26),
         FUTURESWAP    = (1 << 27),
+        TOKEN_SPLIT  = (1 << 28),
         ALL           = ~(uint32_t)0,
     };
 
