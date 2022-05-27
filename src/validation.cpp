@@ -4280,7 +4280,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             auto s2 = GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock);
             std::string s1Str;
             std::string s2Str;
-            if (s1 && s1) {
+            if (s1 && s2) {
                 s1Str = *s1;
                 s2Str = *s2;
             }
