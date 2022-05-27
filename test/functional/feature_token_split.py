@@ -44,6 +44,7 @@ class TokenSplitTest(DefiTestFramework):
         self.symbolGOOGL = 'GOOGL'
         self.symbolNVDA = 'NVDA'
         self.symbolMSFT = 'MSFT'
+        self.symbolTWTR = 'TWTR'
         self.symbolGD = 'GOOGL-DUSD'
 
         # Store address
@@ -57,6 +58,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "token": self.symbolTSLA},
             {"currency": "USD", "token": self.symbolNVDA},
             {"currency": "USD", "token": self.symbolMSFT},
+            {"currency": "USD", "token": self.symbolTWTR},
         ]
 
         # Appoint oracle
@@ -72,6 +74,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolMSFT}"},
+            {"currency": "USD", "tokenAmount": f"2@{self.symbolTWTR}"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
@@ -122,6 +125,15 @@ class TokenSplitTest(DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        self.nodes[0].setloantoken({
+            'symbol': self.symbolTWTR,
+            'name': self.symbolTWTR,
+            'fixedIntervalPriceId': f"{self.symbolTWTR}/USD",
+            'mintable': True,
+            'interest': 0
+        })
+        self.nodes[0].generate(1)
+
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
             'token': self.symbolDFI,
@@ -151,15 +163,23 @@ class TokenSplitTest(DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        self.nodes[0].setcollateraltoken({
+            'token': self.symbolTWTR,
+            'factor': 1,
+            'fixedIntervalPriceId': f"{self.symbolTWTR}/USD"
+        })
+        self.nodes[0].generate(1)
+
         # Store token IDs
         self.idDUSD = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
         self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+        self.idTWTR = list(self.nodes[0].gettoken(self.symbolTWTR).keys())[0]
 
         # Mint some loan tokens
-        self.nodes[0].minttokens([f'1000000@{self.symbolMSFT}', f'1000000@{self.symbolDUSD}'])
+        self.nodes[0].minttokens([f'1000000@{self.symbolMSFT}', f'1000000@{self.symbolDUSD}', f'1000000@{self.symbolTWTR}'])
         self.nodes[0].generate(1)
 
         # Create funded addresses
@@ -403,32 +423,35 @@ class TokenSplitTest(DefiTestFramework):
             'name': 'AAAA',
             'interest': 1
         })
-
         self.nodes[0].generate(1)
 
-        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result, {'v0/poolpairs/6/token_a_fee_pct': '0.01',
-                              'v0/poolpairs/6/token_b_fee_pct': '0.03',
-                              'v0/token/1/dex_in_fee_pct': '0.02',
-                              'v0/token/1/dex_out_fee_pct': '0.005'})
-
+        # Check name change
         token = self.nodes[0].getloantoken(self.idGOOGL)
         assert_equal(token['token']['1']['name'], 'AAAA')
         assert_equal(token['interest'], Decimal(1))
 
+        # Gov vars should not have loan or collateral tokens in yet
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result, {f'v0/poolpairs/{self.idGD}/token_a_fee_pct': '0.01',
+                              f'v0/poolpairs/{self.idGD}/token_b_fee_pct': '0.03',
+                              f'v0/token/{self.idGOOGL}/dex_in_fee_pct': '0.02',
+                              f'v0/token/{self.idGOOGL}/dex_out_fee_pct': '0.005'})
+
         # Mining fork height - migration of token to gov var
         self.nodes[0].generate(1)
 
+        # Check Gov var present
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_enabled'], 'true')
         assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_interest'], '1')
         assert_equal(result[f'v0/token/{self.idGOOGL}/fixed_interval_price_id'], f"{self.symbolGOOGL}/USD")
 
+        # Make sure name updated
         token = self.nodes[0].getloantoken(self.idGOOGL)
         assert_equal(token['token']['1']['name'], 'AAAA')
         assert_equal(token['interest'], Decimal(1))
 
-        # Mined in 152 height, using new code
+        # Mined in past fork height, using new code
         self.nodes[0].updateloantoken(self.idGOOGL, {
             'name': self.symbolGOOGL,
             'interest': 0
@@ -449,6 +472,7 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result[f'v0/token/{self.idGOOGL}/loan_minting_interest'], '0')
         assert_equal(result[f'v0/token/{self.idGOOGL}/fixed_interval_price_id'], f"{self.symbolGOOGL}/USD")
 
+        # Check name changed back
         token = self.nodes[0].getloantoken(self.idGOOGL)
         assert_equal(token['token']['1']['name'], self.symbolGOOGL)
         assert_equal(token['interest'], Decimal(0))
@@ -775,11 +799,14 @@ class TokenSplitTest(DefiTestFramework):
         # Create vaults
         vault1 = self.nodes[0].createvault(self.address, 'LOAN0001')
         vault2 = self.nodes[0].createvault(self.address, 'LOAN0001')
+        vault3 = self.nodes[0].createvault(self.address, 'LOAN0001')
         self.nodes[0].generate(1)
 
         # Fund vaults
-        self.nodes[0].deposittovault(vault1, self.address, '1@DFI')
-        self.nodes[0].deposittovault(vault2, self.address, '2@DFI')
+        self.nodes[0].deposittovault(vault1, self.address, f'1@{self.symbolDFI}')
+        self.nodes[0].deposittovault(vault2, self.address, f'2@{self.symbolDFI}')
+        self.nodes[0].deposittovault(vault3, self.address, f'1@{self.symbolDUSD}')
+        self.nodes[0].deposittovault(vault3, self.address, f'0.5@{self.symbolTWTR}')
         self.nodes[0].generate(1)
 
         # Take loans
@@ -792,6 +819,9 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].takeloan({
             'vaultId': vault2,
             'amounts': "1@MSFT"})
+        self.nodes[0].takeloan({
+            'vaultId': vault3,
+            'amounts': "2@GOOGL"})
         self.nodes[0].generate(1)
 
         # Set Oracle prices
@@ -802,6 +832,7 @@ class TokenSplitTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
             {"currency": "USD", "tokenAmount": f"1@{self.symbolNVDA}"},
             {"currency": "USD", "tokenAmount": f"2@{self.symbolMSFT}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolTWTR}"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
@@ -811,29 +842,50 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result['state'], 'inLiquidation')
         result = self.nodes[0].getvault(vault2)
         assert_equal(result['state'], 'inLiquidation')
+        result = self.nodes[0].getvault(vault3)
+        assert_equal(result['state'], 'inLiquidation')
 
         # Create bids
         self.nodes[0].placeauctionbid(vault1, 0, self.address, f"1.1@{self.symbolMSFT}")
         self.nodes[0].generate(1)
 
+        # Set locks
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idMSFT}':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTWTR}':'true'}})
+        self.nodes[0].generate(1)
+
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idMSFT}/2'}})
-        self.nodes[0].generate(2)
-
-        result = self.nodes[0].listauctions()
-        if result[0]['batches'][0]['loan'] == f'4.00000070@{self.symbolMSFT}':
-            assert_equal(result[1]['batches'][0]['loan'], f'2.00000036@{self.symbolMSFT}')
-            assert_equal(result[1]['batches'][0]['highestBid']['amount'], f'2.20000000@{self.symbolMSFT}')
-        else:
-            assert_equal(result[0]['batches'][0]['loan'], f'2.00000036@{self.symbolMSFT}')
-            assert_equal(result[0]['batches'][0]['highestBid']['amount'], f'2.20000000@{self.symbolMSFT}')
-            assert_equal(result[1]['batches'][0]['loan'], f'4.00000070@{self.symbolMSFT}')
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 3)}':f'{self.idTWTR}/2'}})
+        self.nodes[0].generate(3)
 
         # Swap old for new values
         self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+        self.idTWTR = list(self.nodes[0].gettoken(self.symbolTWTR).keys())[0]
+
+        # Assign results to auctions
+        result = self.nodes[0].listauctions()
+        vault1_result, vault2_result, vault3_result = {}, {}, {}
+        for auctions in result:
+            if auctions['vaultId'] == vault1:
+                vault1_result = auctions
+            elif auctions['vaultId'] == vault2:
+                vault2_result = auctions
+            elif auctions['vaultId'] == vault3:
+                vault3_result = auctions
+
+        # Check loan, bid and collateral amounts have multiplied
+        assert_equal(vault1_result['batches'][0]['loan'], f'2.00000036@{self.symbolMSFT}')
+        assert_equal(vault1_result['batches'][0]['highestBid']['amount'], f'2.20000000@{self.symbolMSFT}')
+        assert_equal(vault1_result['batches'][0]['collaterals'], [f'1.00000000@{self.symbolDFI}'])
+        assert_equal(vault2_result['batches'][0]['loan'], f'4.00000070@{self.symbolMSFT}')
+        assert_equal(vault2_result['batches'][0]['collaterals'], [f'2.00000000@{self.symbolDFI}'])
+        assert_equal(vault3_result['batches'][0]['loan'], f'2.00000035@{self.symbolGOOGL}')
+        assert_equal(vault3_result['batches'][0]['collaterals'], [f'1.00000000@{self.symbolDUSD}', f'1.00000000@{self.symbolTWTR}'])
 
         # Unlock token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idMSFT}':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTWTR}':'false'}})
         self.nodes[0].generate(1)
 
 if __name__ == '__main__':
