@@ -248,7 +248,7 @@ static ResVal<CAttributeValue> VerifyBool(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
-    OracleSplits splits;
+    PairIntValue splits;
     const auto pairs = KeyBreaker(str);
     if (pairs.size() != 2) {
         return Res::Err("Two int values expected for split in id/mutliplier");
@@ -264,9 +264,8 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     if (*resMultiplier == 0) {
         return Res::Err("Mutliplier cannot be zero");
     }
-    splits[*resId] = *resMultiplier;
 
-    return {splits, Res::Ok()};
+    return {PairIntValue{*resId, *resMultiplier}, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
@@ -583,19 +582,6 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                               attrV0->key == TokenKeys::Descendant ||
                               attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
-                    } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-                        auto splitValue = boost::get<OracleSplits>(&value);
-                        if (!splitValue) {
-                            return Res::Err("Failed to get Oracle split value");
-                        }
-                        if (splitValue->size() != 1)
-                            return Res::Err("Invalid number of token splits, allowed only one per height!");
-
-                        const auto& [id, multiplier] = *(splitValue->begin());
-                        tokenSplits.insert(id);
-
-                        attributes[attribute] = *splitValue;
-                        return Res::Ok();
                     }
 
                     // apply DFI via old keys
@@ -697,16 +683,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
                 result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
                 ret.pushKV(key, result);
-            } else if (const auto splitValues = boost::get<OracleSplits>(&attribute.second)) {
-                std::string keyValue;
-                for (auto it{splitValues->begin()}; it != splitValues->end(); ++it) {
-                    if (it != splitValues->begin()) {
-                        keyValue += ',';
-                    }
-                    keyValue += KeyBuilder(it->first, it->second);
-                }
-                ret.pushKV(key, keyValue);
-            } else if (const auto& descendantPair = boost::get<DescendantValue>(&attribute.second)) {
+            } else if (const auto& descendantPair = boost::get<PairIntValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
             } else if (const auto& ascendantPair = boost::get<AscendantValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
@@ -811,27 +788,26 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     return Res::Err("Cannot be set before FortCanningCrunch");
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
-                    const auto splitMap = boost::get<OracleSplits>(&attribute.second);
+                    const auto splitMap = boost::get<PairIntValue>(&attribute.second);
                     if (!splitMap) {
                         return Res::Err("Unsupported value");
                     }
-                    for (const auto& [tokenId, multipler] : *splitMap) {
-                        if (tokenId == 0) {
-                            return Res::Err("Tokenised DFI cannot be split");
-                        }
-                        if (view.HasPoolPair(DCT_ID{tokenId})) {
-                            return Res::Err("Pool tokens cannot be split");
-                        }
-                        const auto token = view.GetToken(DCT_ID{tokenId});
-                        if (!token) {
-                            return Res::Err("Token (%d) does not exist", tokenId);
-                        }
-                        if (!token->IsDAT()) {
-                            return Res::Err("Only DATs can be split");
-                        }
-                        if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
-                            return Res::Err("No loan token with id (%d)", tokenId);
-                        }
+                    const auto& [tokenId, multipler] = *splitMap;
+                    if (tokenId == 0) {
+                        return Res::Err("Tokenised DFI cannot be split");
+                    }
+                    if (view.HasPoolPair(DCT_ID{tokenId})) {
+                        return Res::Err("Pool tokens cannot be split");
+                    }
+                    const auto token = view.GetToken(DCT_ID{tokenId});
+                    if (!token) {
+                        return Res::Err("Token (%d) does not exist", tokenId);
+                    }
+                    if (!token->IsDAT()) {
+                        return Res::Err("Only DATs can be split");
+                    }
+                    if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
+                        return Res::Err("No loan token with id (%d)", tokenId);
                     }
                 } else {
                     return Res::Err("Unsupported key");
@@ -1013,51 +989,46 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             }
         } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-            const auto value = boost::get<OracleSplits>(&attribute.second);
+            const auto value = boost::get<PairIntValue>(&attribute.second);
             if (!value) {
                 return Res::Err("Unsupported value");
             }
-            for (const auto split : tokenSplits) {
-                if (auto it{value->find(split)}; it == value->end()) {
-                    continue;
-                }
 
-                if (attrV0->key <= height) {
+            if (attrV0->key <= height) {
+                return Res::Err("Cannot be set at or below current height");
+            }
+
+            CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, attrV0->key};
+            if (GetValue(lockKey, false)) {
+                continue;
+            }
+
+            if (!mnview.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
+                return Res::Err("Auto lock. No loan token with id (%d)", attrV0->key);
+            }
+
+            const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+            if (height < startHeight) {
+                auto var = GovVariable::Create("ATTRIBUTES");
+                if (!var) {
+                    return Res::Err("Failed to create Gov var for lock");
+                }
+                auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                if (!govVar) {
+                    return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+                }
+                govVar->attributes[lockKey] = true;
+
+                CGovernanceHeightMessage lock;
+                lock.startHeight = startHeight;
+                lock.govVar = govVar;
+                const auto res = storeGovVars(lock, mnview);
+                if (!res) {
                     return Res::Err("Cannot be set at or below current height");
                 }
-
-                CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, split};
-                if (GetValue(lockKey, false)) {
-                    continue;
-                }
-
-                if (!mnview.GetLoanTokenByID(DCT_ID{split}).has_value()) {
-                    return Res::Err("Auto lock. No loan token with id (%d)", split);
-                }
-
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
-                if (height < startHeight) {
-                    auto var = GovVariable::Create("ATTRIBUTES");
-                    if (!var) {
-                        return Res::Err("Failed to create Gov var for lock");
-                    }
-                    auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    if (!govVar) {
-                        return Res::Err("Failed to cast Gov var to ATTRIBUTES");
-                    }
-                    govVar->attributes[lockKey] = true;
-
-                    CGovernanceHeightMessage lock;
-                    lock.startHeight = startHeight;
-                    lock.govVar = govVar;
-                    const auto res = storeGovVars(lock, mnview);
-                    if (!res) {
-                        return Res::Err("Cannot be set at or below current height");
-                    }
-                } else {
-                    // Less than a day's worth of blocks, apply instant lock
-                    SetValue(lockKey, true);
-                }
+            } else {
+                // Less than a day's worth of blocks, apply instant lock
+                SetValue(lockKey, true);
             }
         }
     }

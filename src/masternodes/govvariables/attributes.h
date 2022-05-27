@@ -129,11 +129,10 @@ struct CTokenPayback {
 
 ResVal<CScript> GetFutureSwapContractAddress();
 
-using OracleSplits = std::map<uint32_t, int32_t>;
-using DescendantValue = std::pair<uint32_t, int32_t>;
+using PairIntValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, PairIntValue, AscendantValue>;
 
 enum GovVarsFilter {
     All,
@@ -234,7 +233,6 @@ public:
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
-    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 

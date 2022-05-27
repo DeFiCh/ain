@@ -761,5 +761,13 @@ class GovsetTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/locks/token/5'], 'true')
 
+        # Overwrite token split
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{activation_height + 10}':'4/10'}})
+        self.nodes[0].generate(1)
+
+        # Check overwrite
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes[f'v0/oracles/splits/{activation_height + 10}'], '4/10')
+
 if __name__ == '__main__':
     GovsetTest ().main ()

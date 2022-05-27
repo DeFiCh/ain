@@ -225,9 +225,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         const auto attributes = mnview.GetAttributes();
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+            const auto splits = attributes->GetValue(splitKey, PairIntValue{});
 
-            for (const auto& [id, multiplier] : splits) {
+            const auto& [id, multiplier] = splits;
+            if (id && mutliplier) {
                 uint32_t entries{1};
                 mnview.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
                     if (pool.idTokenA.v == id || pool.idTokenB.v == id) {

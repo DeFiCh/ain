@@ -2897,56 +2897,53 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(attributes);
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+    const auto [id, multiplier] = attributes->GetValue(splitKey, PairIntValue{});
 
-    const auto isSplitsBlock = splits.size() > 0;
+    const auto isSplitsBlock = id && multiplier;
 
     CreationTxs creationTxs;
-    auto counter_n = 1;
-    for (const auto& [id, multiplier] : splits) {
-        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
-        id, multiplier, counter_n++, splits.size(), pindex->nHeight);
-        uint256 tokenCreationTx{};
-        std::vector<uint256> poolCreationTx;
-        if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__), REJECT_INVALID, "bad-cb-token-split");
-        }
-
-        std::vector<DCT_ID> poolsToMigrate;
-        accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
-            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                const auto tokenA = accountsView.GetToken(pool.idTokenA);
-                const auto tokenB = accountsView.GetToken(pool.idTokenB);
-                assert(tokenA);
-                assert(tokenB);
-                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                    poolsToMigrate.push_back(poolId);
-                }
-            }
-            return true;
-        });
-
-        std::stringstream poolIdStr;
-        for (auto i=0; i < poolsToMigrate.size(); i++) {
-            if  (i != 0) poolIdStr << ", ";
-            poolIdStr << poolsToMigrate[i].ToString();
-        }
-
-        LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
-
-        if (poolsToMigrate.size() != poolCreationTx.size()) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__), REJECT_INVALID, "bad-cb-pool-split");
-        }
-
-        std::vector<std::pair<DCT_ID, uint256>> poolPairs;
-        poolPairs.reserve(poolsToMigrate.size());
-        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(),
-            poolCreationTx.begin(), std::back_inserter(poolPairs),
-            [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
-
-        creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
+    LogPrintf("Preparing for token split (id=%d, mul=%d, height: %d)\n",
+              id, multiplier, pindex->nHeight);
+    uint256 tokenCreationTx{};
+    std::vector<uint256> poolCreationTx;
+    if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split token creation TX", __func__), REJECT_INVALID, "bad-cb-token-split");
     }
+
+    std::vector<DCT_ID> poolsToMigrate;
+    accountsView.ForEachPoolPair([&, id = id](DCT_ID const & poolId, const CPoolPair& pool){
+        if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+            const auto tokenA = accountsView.GetToken(pool.idTokenA);
+            const auto tokenB = accountsView.GetToken(pool.idTokenB);
+            assert(tokenA);
+            assert(tokenB);
+            if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                poolsToMigrate.push_back(poolId);
+            }
+        }
+        return true;
+    });
+
+    std::stringstream poolIdStr;
+    for (auto i=0; i < poolsToMigrate.size(); i++) {
+        if  (i != 0) poolIdStr << ", ";
+        poolIdStr << poolsToMigrate[i].ToString();
+    }
+
+    LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
+
+    if (poolsToMigrate.size() != poolCreationTx.size()) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: coinbase missing split pool creation TX", __func__), REJECT_INVALID, "bad-cb-pool-split");
+    }
+
+    std::vector<std::pair<DCT_ID, uint256>> poolPairs;
+    poolPairs.reserve(poolsToMigrate.size());
+    std::transform(poolsToMigrate.begin(), poolsToMigrate.end(),
+                   poolCreationTx.begin(), std::back_inserter(poolPairs),
+                   [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
+
+    creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
 
     if (fJustCheck)
         return accountsView.Flush(); // keeps compatibility
@@ -4379,197 +4376,186 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
     }
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+    const auto [id, multiplier] = attributes->GetValue(splitKey, PairIntValue {});
 
-    if (!splits.empty()) {
+    if (id && multiplier) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
     }
 
-    for (const auto& [id, multiplier] : splits) {
-        auto time = GetTimeMillis();
-        LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
+    auto time = GetTimeMillis();
+    LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
 
-        if (!cache.AreTokensLocked({id})) {
-            LogPrintf("Token split failed. No locks.\n");
-            continue;
-        }
-
-        auto view{cache};
-
-        // Refund affected future swaps
-        auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
-        if (!res) {
-            LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
-            continue;
-        }
-
-        const DCT_ID oldTokenId{id};
-
-        auto token = view.GetToken(oldTokenId);
-        if (!token) {
-            LogPrintf("Token split failed. Token %d not found\n", oldTokenId.v);
-            continue;
-        }
-
-        std::string newTokenSuffix = "/v";
-        res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
-        if (!res) {
-            LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
-            continue;
-        }
-
-        CTokenImplementation newToken{*token};
-        newToken.creationHeight = pindex->nHeight;
-        assert(creationTxs.count(id));
-        newToken.creationTx = creationTxs.at(id).first;
-        newToken.minted = 0;
-
-        token->symbol += newTokenSuffix;
-        token->destructionHeight = pindex->nHeight;
-        token->destructionTx = pindex->GetBlockHash();
-        token->flags &= ~(static_cast<uint8_t>(CToken::TokenFlags::Default) | static_cast<uint8_t>(CToken::TokenFlags::LoanToken));
-        token->flags |= static_cast<uint8_t>(CToken::TokenFlags::Finalized);
-
-        res = view.SubMintedTokens(oldTokenId, token->minted);
-        if (!res) {
-            LogPrintf("Token split failed on SubMintedTokens %s\n", res.msg);
-            continue;
-        }
-
-        res = view.UpdateToken(*token, false, true);
-        if (!res) {
-            LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
-            continue;
-        }
-
-        auto resVal = view.CreateToken(newToken);
-        if (!resVal) {
-            LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
-            continue;
-        }
-
-        const DCT_ID newTokenId{resVal.val->v};
-        LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
-
-        std::vector<CDataStructureV0> eraseKeys;
-        for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
-                if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                } else if (v0Key->typeId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                    attributes->SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                } else if (v0Key->keyId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                }
-            }
-        }
-
-        for (const auto& key : eraseKeys) {
-            attributes->EraseKey(key);
-        }
-
-        CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
-
-        CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
-
-        CAmount totalBalance{0};
-
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
-        if (!res) {
-            LogPrintf("Pool splits failed %s\n", res.msg);
-            continue;
-        }
-
-        CAccounts addAccounts;
-        CAccounts subAccounts;
-
-        view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
-            if (oldTokenId.v == balance.nTokenId.v) {
-                const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
-                addAccounts[owner].Add({newTokenId, newBalance});
-                subAccounts[owner].Add(balance);
-                totalBalance += newBalance;
-
-                auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s: %s => %s)\n",
-                    ScriptToString(owner), balance.ToString(),
-                    newBalanceStr);
-            }
-            return true;
-        });
-
-        LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
-
-        res = view.AddMintedTokens(newTokenId, totalBalance);
-        if (!res) {
-            LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
-            continue;
-        }
-
-        try {
-            for (const auto& [owner, balances] : addAccounts) {
-                res = view.AddBalances(owner, balances);
-                if (!res) {
-                    throw std::runtime_error(res.msg);
-                }
-            }
-
-            for (const auto& [owner, balances] : subAccounts) {
-                res = view.SubBalances(owner, balances);
-                if (!res) {
-                    throw std::runtime_error(res.msg);
-                }
-            }
-        } catch (const std::runtime_error& e) {
-            LogPrintf("Token split failed. %s\n", res.msg);
-            continue;
-        }
-
-        res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
-        if (!res) {
-            LogPrintf("Token splits failed: %s\n", res.msg);
-            continue;
-        }
-
-        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
-        for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
-                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = boost::get<OracleSplits>(&value)) {
-                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
-                        if (splitMapKey == oldTokenId.v) {
-                            auto copyMap{*splitMap};
-                            copyMap.erase(splitMapKey);
-                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (const auto& [key, value] : updateAttributesKeys) {
-            if (value.empty()) {
-                attributes->EraseKey(key);
-            } else {
-                attributes->SetValue(key, value);
-            }
-        }
-        view.SetVariable(*attributes);
-        view.Flush();
-        LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
+    if (!cache.AreTokensLocked({id})) {
+        LogPrintf("Token split failed. No locks.\n");
+        return;
     }
+
+    auto view{cache};
+
+    // Refund affected future swaps
+    auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+    if (!res) {
+        LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
+        return;
+    }
+
+    const DCT_ID oldTokenId{id};
+
+    auto token = view.GetToken(oldTokenId);
+    if (!token) {
+        LogPrintf("Token split failed. Token %d not found\n", oldTokenId.v);
+        return;
+    }
+
+    std::string newTokenSuffix = "/v";
+    res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+    if (!res) {
+        LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
+        return;
+    }
+
+    CTokenImplementation newToken{*token};
+    newToken.creationHeight = pindex->nHeight;
+    assert(creationTxs.count(id));
+    newToken.creationTx = creationTxs.at(id).first;
+    newToken.minted = 0;
+
+    token->symbol += newTokenSuffix;
+    token->destructionHeight = pindex->nHeight;
+    token->destructionTx = pindex->GetBlockHash();
+    token->flags &= ~(static_cast<uint8_t>(CToken::TokenFlags::Default) | static_cast<uint8_t>(CToken::TokenFlags::LoanToken));
+    token->flags |= static_cast<uint8_t>(CToken::TokenFlags::Finalized);
+
+    res = view.SubMintedTokens(oldTokenId, token->minted);
+    if (!res) {
+        LogPrintf("Token split failed on SubMintedTokens %s\n", res.msg);
+        return;
+    }
+
+    res = view.UpdateToken(*token, false, true);
+    if (!res) {
+        LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
+        return;
+    }
+
+    auto resVal = view.CreateToken(newToken);
+    if (!resVal) {
+        LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
+        return;
+    }
+
+    const DCT_ID newTokenId{resVal.val->v};
+    LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
+
+    std::vector<CDataStructureV0> eraseKeys;
+    for (const auto& [key, value] : attributes->GetAttributesMap()) {
+        if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+            if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
+                CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
+                attributes->SetValue(newKey, value);
+                eraseKeys.push_back(*v0Key);
+            } else if (v0Key->typeId == oldTokenId.v) {
+                CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
+                attributes->SetValue(newKey, value);
+                eraseKeys.push_back(*v0Key);
+            } else if (v0Key->keyId == oldTokenId.v) {
+                CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
+                attributes->SetValue(newKey, value);
+                eraseKeys.push_back(*v0Key);
+            }
+        }
+    }
+
+    for (const auto& key : eraseKeys) {
+        attributes->EraseKey(key);
+    }
+
+    CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
+    attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
+
+    CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
+    attributes->SetValue(descendantKey, PairIntValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+
+    CAmount totalBalance{0};
+
+    res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
+    if (!res) {
+        LogPrintf("Pool splits failed %s\n", res.msg);
+        return;
+    }
+
+    CAccounts addAccounts;
+    CAccounts subAccounts;
+
+    view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
+        if (oldTokenId.v == balance.nTokenId.v) {
+            const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
+            addAccounts[owner].Add({newTokenId, newBalance});
+            subAccounts[owner].Add(balance);
+            totalBalance += newBalance;
+
+            auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s: %s => %s)\n",
+                     ScriptToString(owner), balance.ToString(),
+                     newBalanceStr);
+        }
+        return true;
+    });
+
+    LogPrintf("Token split info: rebalance "  /* Continued */
+              "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n",
+              id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+
+    res = view.AddMintedTokens(newTokenId, totalBalance);
+    if (!res) {
+        LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
+        return;
+    }
+
+    try {
+        for (const auto& [owner, balances] : addAccounts) {
+            res = view.AddBalances(owner, balances);
+            if (!res) {
+                throw std::runtime_error(res.msg);
+            }
+        }
+
+        for (const auto& [owner, balances] : subAccounts) {
+            res = view.SubBalances(owner, balances);
+            if (!res) {
+                throw std::runtime_error(res.msg);
+            }
+        }
+    } catch (const std::runtime_error& e) {
+        LogPrintf("Token split failed. %s\n", res.msg);
+        return;
+    }
+
+    res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+    if (!res) {
+        LogPrintf("Token splits failed: %s\n", res.msg);
+        return;
+    }
+
+    std::vector<CDataStructureV0> updateAttributesKeys;
+    for (const auto& [key, value] : attributes->GetAttributesMap()) {
+        if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
+                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
+            if (const auto splitPair = boost::get<PairIntValue>(&value); splitPair) {
+                if (splitPair->first == oldTokenId.v) {
+                    updateAttributesKeys.emplace_back(*v0Key);
+                }
+            }
+        }
+    }
+
+    for (const auto& key : updateAttributesKeys) {
+        attributes->EraseKey(key);
+    }
+    view.SetVariable(*attributes);
+    view.Flush();
+    LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
 }
 
 bool CChainState::FlushStateToDisk(
