@@ -226,6 +226,13 @@ class TokenSplitUSDValueTest(DefiTestFramework):
                 almost_equal(amount["DUSD"], post[index]["DUSD"])
                 almost_equal(amount["T1"], post[index]["T1"])
 
+    def compare_vaults_list(self, pre, post):
+        for index, vault in enumerate(pre):
+            print(f'Comparing valuts {vault["vaultId"]}')
+            if index != 0:
+                almost_equal(vault["collateralValue"], post[index]["collateralValue"])
+                almost_equal(vault["loanValue"], post[index]["loanValue"])
+                almost_equal(vault["collateralRatio"], post[index]["collateralRatio"])
 
     def get_token_symbol_from_id(self, tokenId):
         token = self.nodes[0].gettoken(tokenId)
@@ -264,7 +271,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         else:
             self.idT1=new_idT1
 
-    def setup_vaults(self):
+    def setup_vaults(self, collateralSplit=False):
         self.nodes[0].createloanscheme(200, 0.01, 'LOAN_0')
 
         self.vaults = []
@@ -276,10 +283,13 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             vaultCount += 1
             self.vaults.append(vaultId)
             amountT1 = self.get_amount_from_account(account, "T1")
-            amountT1 = Decimal(amountT1)/Decimal(2)
+            amountT1 = Decimal(amountT1)/Decimal(4)
+            if collateralSplit:
+                amountT1 = Decimal(amountT1)/Decimal(2)
             amountDUSD = self.get_amount_from_account(account, "DUSD")
             amountDUSD = Decimal(amountDUSD)/Decimal(2)
-            self.nodes[0].deposittovault(vaultId, account, str(amountT1)+"@T1")
+            if collateralSplit:
+                self.nodes[0].deposittovault(vaultId, account, str(amountT1)+"@T1")
             self.nodes[0].deposittovault(vaultId, account, str(amountDUSD)+"@DUSD")
             self.nodes[0].generate(1)
             amountT1Loan = Decimal(amountT1)/Decimal(2)
@@ -291,13 +301,8 @@ class TokenSplitUSDValueTest(DefiTestFramework):
     def get_vaults_usd_values(self):
         vault_values = []
         for vault in self.vaults:
-            amounts = {}
             vaultInfo = self.nodes[0].getvault(vault)
-            amounts["loan"] = vaultInfo["loanValue"]
-            amounts["collateral"] = vaultInfo["collateralValue"]
-            amounts["interestValue"] = vaultInfo["interestValue"]
-            amounts["state"] = vaultInfo["state"]
-            vault_values.append(amounts)
+            vault_values.append(vaultInfo)
         return vault_values
 
 
@@ -305,15 +310,10 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         revertHeight = self.nodes[0].getblockcount()
         self.setup_vaults()
         vault_values_pre_split = self.get_vaults_usd_values()
-        print(vault_values_pre_split)
         new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
         self.nodes[0].generate(40)
         vault_values_post_split = self.get_vaults_usd_values()
-        activePriceT1 = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
-        print(activePriceT1)
-        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        print(result)
-        print(vault_values_post_split)
+        self.compare_vaults_list(vault_values_pre_split,vault_values_post_split)
 
         if revert:
             self.revert(revertHeight)
