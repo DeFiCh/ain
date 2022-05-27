@@ -4086,10 +4086,10 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     continue;
                 }
 
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: LP (%s: %s => %s)\n", 
-                    ScriptToString(owner), 
-                    CTokenAmount{oldPoolId, amount}.ToString(), 
-                    CTokenAmount{newPoolId, liquidity}.ToString());
+                auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
+                auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: LP (%s: %s => %s)\n",
+                    ScriptToString(owner), oldPoolLogStr, newPoolLogStr);
 
                 view.SetShare(newPoolId, owner, pindex->nHeight);
             }
@@ -4381,12 +4381,14 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s, v: %s => %s)\n", 
-                    ScriptToString(owner), balance.ToString(),
-                    CTokenAmount{newTokenId, newBalance}.ToString());
                 addAccounts[owner].Add({newTokenId, newBalance});
                 subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
+
+                auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s, v: %s => %s)\n",
+                    ScriptToString(owner), balance.ToString(),
+                    newBalanceStr);
             }
             return true;
         });
