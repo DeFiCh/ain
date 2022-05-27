@@ -103,6 +103,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         totalDUSD = 10000000
         totalT1 = 10000000
         self.accounts.sort()
+        self.nodes[0].utxostoaccount({self.account1: "10000000@0"})
         self.nodes[0].minttokens(str(totalDUSD)+"@DUSD")
         self.nodes[0].minttokens(str(totalT1)+"@T1")
         self.nodes[0].generate(1)
@@ -203,7 +204,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].invalidateblock(blockhash)
         self.nodes[0].clearmempool()
 
-    def save_current_usd_value(self):
+    def accounts_usd_values(self):
         values =[]
         revertHeight = self.nodes[0].getblockcount()
         activePriceT1 = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
@@ -225,6 +226,13 @@ class TokenSplitUSDValueTest(DefiTestFramework):
                 almost_equal(amount["DUSD"], post[index]["DUSD"])
                 almost_equal(amount["T1"], post[index]["T1"])
 
+    def compare_vaults_list(self, pre, post):
+        for index, vault in enumerate(pre):
+            print(f'Comparing valuts {vault["vaultId"]}')
+            if index != 0:
+                almost_equal(vault["collateralValue"], post[index]["collateralValue"])
+                almost_equal(vault["loanValue"], post[index]["loanValue"])
+                almost_equal(vault["collateralRatio"], post[index]["collateralRatio"])
 
     def get_token_symbol_from_id(self, tokenId):
         token = self.nodes[0].gettoken(tokenId)
@@ -251,16 +259,72 @@ class TokenSplitUSDValueTest(DefiTestFramework):
                 amountStr = amountSplit[0]
         return amountStr
 
+    def compare_usd_account_value_on_split(self, revert=False):
+        revertHeight = self.nodes[0].getblockcount()
+        value_accounts_pre_split = self.accounts_usd_values()
+        new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
+        value_accounts_post_split = self.accounts_usd_values()
+        # TODO fail
+        self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
+        if revert:
+            self.revert(revertHeight)
+        else:
+            self.idT1=new_idT1
+
+    def setup_vaults(self, collateralSplit=False):
+        self.nodes[0].createloanscheme(200, 0.01, 'LOAN_0')
+
+        self.vaults = []
+        vaultCount = 0
+        for account in self.accounts:
+            self.remove_from_pool(account)
+            vaultId= self.nodes[0].createvault(account)
+            self.nodes[0].generate(1)
+            vaultCount += 1
+            self.vaults.append(vaultId)
+            amountT1 = self.get_amount_from_account(account, "T1")
+            amountT1 = Decimal(amountT1)/Decimal(4)
+            if collateralSplit:
+                amountT1 = Decimal(amountT1)/Decimal(2)
+            amountDUSD = self.get_amount_from_account(account, "DUSD")
+            amountDUSD = Decimal(amountDUSD)/Decimal(2)
+            if collateralSplit:
+                self.nodes[0].deposittovault(vaultId, account, str(amountT1)+"@T1")
+            self.nodes[0].deposittovault(vaultId, account, str(amountDUSD)+"@DUSD")
+            self.nodes[0].generate(1)
+            amountT1Loan = Decimal(amountT1)/Decimal(2)
+            self.nodes[0].takeloan({
+                        'vaultId': vaultId,
+                        'amounts': str(amountT1Loan)+"@T1"})
+            self.nodes[0].generate(1)
+
+    def get_vaults_usd_values(self):
+        vault_values = []
+        for vault in self.vaults:
+            vaultInfo = self.nodes[0].getvault(vault)
+            vault_values.append(vaultInfo)
+        return vault_values
+
+
+    def compare_usd_vaults_values_on_split(self, revert=False):
+        revertHeight = self.nodes[0].getblockcount()
+        self.setup_vaults()
+        vault_values_pre_split = self.get_vaults_usd_values()
+        new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
+        self.nodes[0].generate(40)
+        vault_values_post_split = self.get_vaults_usd_values()
+        self.compare_vaults_list(vault_values_pre_split,vault_values_post_split)
+
+        if revert:
+            self.revert(revertHeight)
+        else:
+            self.idT1=new_idT1
 
     def run_test(self):
         self.setup()
         assert_equal(1,1) # Make linter happy for now
-        #initialStateBlock = self.nodes[0].getblockcount()
-        value_accounts_pre_split = self.save_current_usd_value()
-        self.split(self.idT1, oracleSplit=True, multiplier=20)
-        self.nodes[0].generate(12) # let active price update TODO FIX NEEDED!
-        value_accounts_post_split = self.save_current_usd_value()
-        self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
+        self.compare_usd_account_value_on_split(revert=True)
+        self.compare_usd_vaults_values_on_split()
 
 if __name__ == '__main__':
     TokenSplitUSDValueTest().main()
