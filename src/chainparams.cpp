@@ -20,8 +20,6 @@
 #include <boost/algorithm/string/case_conv.hpp>
 
 bool fMockNetwork = false;
-std::string sMockFoundationPubKey;
-uint64_t nMockBlockTimeSecs = 0;
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
@@ -945,8 +943,7 @@ boost::optional<int> UpdateHeightValidation(const std::string& argName, const st
     return {};
 }
 
-void CRegTestParams::UpdateActivationParametersFromArgs()
-{
+void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight);
@@ -972,7 +969,42 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
         consensus.pos.nTargetSpacing = 30; // seconds
         consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
     }
+}
 
+
+void CMainParams::UpdateActivationParametersFromArgs() {
+    fMockNetwork = gArgs.IsArgSet("-mocknet");
+    if (fMockNetwork) {
+        LogPrintf("============================================\n");
+        LogPrintf("WARNING: MOCKNET ACTIVE. THIS IS NOT MAINNET\n");
+        LogPrintf("============================================\n");
+        auto sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
+        auto nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
+        if (!gArgs.IsArgSet("-maxtipage")) {
+            gArgs.ForceSetArg("-maxtipage", "2207520000"); // 10 years
+        }
+
+        // End of args. Perform sane set below.
+        consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
+        consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
+        consensus.pos.allowMintingWithoutPeers = true;
+
+        SetupCommonArgActivationParams(consensus);
+
+        LogPrintf("mocknet: block-time: %s secs\n", consensus.pos.nTargetSpacing);
+
+        // Add additional foundation members here for testing
+        if (!sMockFoundationPubKey.empty()) {
+            consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
+            LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
+        }
+    }
+}
+
+
+void CRegTestParams::UpdateActivationParametersFromArgs()
+{
+    SetupCommonArgActivationParams(consensus);
     if (!gArgs.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {
@@ -1002,29 +1034,6 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
         }
     }
 }
-
-void CMainParams::UpdateActivationParametersFromArgs() {
-    fMockNetwork = gArgs.IsArgSet("-mocknet");
-    if (fMockNetwork) {
-        LogPrintf("============================================\n");
-        LogPrintf("WARNING: MOCKNET ACTIVE. THIS IS NOT MAINNET\n");
-        LogPrintf("============================================\n");
-        sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
-        nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
-    }
-
-    if (fMockNetwork) {
-        consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
-        consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
-        LogPrintf("mocknet: block-time: %s secs\n", nMockBlockTimeSecs);
-        // Add additional foundation members here for testing
-        if (!sMockFoundationPubKey.empty()) {
-            consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
-            LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
-        }
-    }
-}
-
 
 static std::unique_ptr<const CChainParams> globalChainParams;
 
