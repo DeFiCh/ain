@@ -1035,28 +1035,28 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return Res::Err("Auto lock. No loan token with id (%d)", split);
                 }
 
-                CGovernanceHeightMessage lock;
-                auto var = GovVariable::Create("ATTRIBUTES");
-                if (!var) {
-                    return Res::Err("Failed to create Gov var for lock");
-                }
-                auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                if (!govVar) {
-                    return Res::Err("Failed to cast Gov var to ATTRIBUTES");
-                }
-                govVar->attributes[lockKey] = true;
-                lock.govVar = govVar;
-
                 const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
-                if (height > startHeight) {
-                    lock.startHeight = height;
-                } else {
-                    lock.startHeight = startHeight;
-                }
+                if (height < startHeight) {
+                    auto var = GovVariable::Create("ATTRIBUTES");
+                    if (!var) {
+                        return Res::Err("Failed to create Gov var for lock");
+                    }
+                    auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                    if (!govVar) {
+                        return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+                    }
+                    govVar->attributes[lockKey] = true;
 
-                const auto res = storeGovVars(lock, mnview);
-                if (!res) {
-                    return Res::Err("Cannot be set at or below current height");
+                    CGovernanceHeightMessage lock;
+                    lock.startHeight = startHeight;
+                    lock.govVar = govVar;
+                    const auto res = storeGovVars(lock, mnview);
+                    if (!res) {
+                        return Res::Err("Cannot be set at or below current height");
+                    }
+                } else {
+                    // Less than a day's worth of blocks, apply instant lock
+                    SetValue(lockKey, true);
                 }
             }
         }
