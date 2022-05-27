@@ -4294,14 +4294,31 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         view.EraseAuctionBatch(key);
 
         if (value.loanAmount.nTokenId == oldTokenId) {
-            value.loanAmount.nTokenId = newTokenId;
-            value.loanAmount.nValue = CalculateNewAmount(multiplier, value.loanAmount.nValue);
-            value.loanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+            auto oldLoanAmount = value.loanAmount;
+            auto oldInterest = value.loanInterest;
+
+            auto newLoanAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, value.loanAmount.nValue)};
+            value.loanAmount.nTokenId = newLoanAmount.nTokenId;
+            value.loanAmount.nValue = newLoanAmount.nValue;
+
+            auto newLoanInterest = CalculateNewAmount(multiplier, value.loanInterest);
+            value.loanInterest = newLoanInterest;
+
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
+                key.first.ToString(), key.second, oldLoanAmount.ToString(), 
+                newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
 
         if (value.collaterals.balances.count(oldTokenId)) {
-            value.collaterals.balances[newTokenId] = CalculateNewAmount(multiplier, value.collaterals.balances[oldTokenId]);
-            value.collaterals.balances.erase(oldTokenId);
+            auto oldAmount = CTokenAmount { oldTokenId, value.collaterals.balances[oldTokenId] };
+            auto newAmount = CTokenAmount { newTokenId, CalculateNewAmount(multiplier, oldAmount.nValue) };
+
+            value.collaterals.balances[newAmount.nTokenId] = newAmount.nValue;
+            value.collaterals.balances.erase(oldAmount.nTokenId);
+
+            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s, %d => %d)\n",
+                key.first.ToString(), key.second, oldAmount.ToString(),
+                newAmount.ToString());
         }
 
         view.StoreAuctionBatch(key, value);
