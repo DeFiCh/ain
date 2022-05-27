@@ -44,6 +44,7 @@ public:
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
+    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> GetStoredVariablesRange(const uint32_t startHeight, const uint32_t endHeight);
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
