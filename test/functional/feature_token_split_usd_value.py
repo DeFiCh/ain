@@ -275,9 +275,9 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             self.nodes[0].generate(1)
             vaultCount += 1
             self.vaults.append(vaultId)
-            amountT1 = self.getAmountFromAccount(account, "T1")
+            amountT1 = self.get_amount_from_account(account, "T1")
             amountT1 = Decimal(amountT1)/Decimal(2)
-            amountDUSD = self.getAmountFromAccount(account, "DUSD")
+            amountDUSD = self.get_amount_from_account(account, "DUSD")
             amountDUSD = Decimal(amountDUSD)/Decimal(2)
             self.nodes[0].deposittovault(vaultId, account, str(amountT1)+"@T1")
             self.nodes[0].deposittovault(vaultId, account, str(amountDUSD)+"@DUSD")
