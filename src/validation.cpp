@@ -3948,7 +3948,9 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 return true;
             });
 
-            const auto nWorkers = std::thread::hardware_concurrency();
+            const auto workersMax = std::thread::hardware_concurrency() - 1;
+            auto nWorkers = workersMax > 2 ? workersMax: 3;
+
             LogPrintf("Pool migration: Migrating balances (count: %d, total: %d, concurrency: %d)..\n",
                 balancesToMigrate.size(), totalAccounts, nWorkers);
 
