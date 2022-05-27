@@ -2835,7 +2835,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CreationTxs creationTxs;
     auto counter_n = 1;
     for (const auto& [id, multiplier] : splits) {
-        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n", 
+        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
         id, multiplier, counter_n++, splits.size(), pindex->nHeight);
         uint256 tokenCreationTx{};
         std::vector<uint256> poolCreationTx;
@@ -2872,7 +2872,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         std::vector<std::pair<DCT_ID, uint256>> poolPairs;
         poolPairs.reserve(poolsToMigrate.size());
-        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(), 
+        std::transform(poolsToMigrate.begin(), poolsToMigrate.end(),
             poolCreationTx.begin(), std::back_inserter(poolPairs),
             [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
 
@@ -3564,7 +3564,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         if (source->symbol == "DUSD") {
             const DCT_ID destId{futuresValues.destination};
             const auto destToken = view.GetLoanTokenByID(destId);
-            assert(destToken);            
+            assert(destToken);
             try {
                 const auto& premiumPrice = futuresPrices.at(destId).premium;
                 if (premiumPrice > 0) {
@@ -3857,7 +3857,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
     auto time = GetTimeMillis();
     LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
             oldTokenId.v, newTokenId.v, pindex->nHeight);
-    
+
     try {
         assert(creationTxs.count(oldTokenId.v));
         for (const auto& [oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
@@ -3911,7 +3911,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
             }
 
             LogPrintf("Pool migration: Old pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
-                oldPoolId.v, oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v, 
+                oldPoolId.v, oldPoolPair->idTokenA.v, oldPoolPair->idTokenB.v,
                 oldPoolPair->reserveA, oldPoolPair->reserveB, oldPoolPair->totalLiquidity);
 
             CPoolPair newPoolPair{*oldPoolPair};
@@ -4059,7 +4059,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             LogPrintf("Pool migration: New pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
                 newPoolId.v,
-                newPoolPair.idTokenA.v, newPoolPair.idTokenB.v, 
+                newPoolPair.idTokenA.v, newPoolPair.idTokenB.v,
                 newPoolPair.reserveA, newPoolPair.reserveB, newPoolPair.totalLiquidity);
 
             res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
@@ -4222,7 +4222,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
     for (const auto& [id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
-        
+
         if (!cache.AreTokensLocked({id})) {
             LogPrintf("Token split failed. No locks.\n");
             continue;
@@ -4337,7 +4337,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         });
 
         LogPrintf("Token split info: Rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add: %d, sub: %d, total: %d)\n", 
+        "(id: %d, symbol: %s, add: %d, sub: %d, total: %d)\n",
         id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
