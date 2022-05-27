@@ -185,6 +185,8 @@ namespace {
     std::set<int> setDirtyFileInfo;
 } // anon namespace
 
+extern std::string ScriptToString(CScript const& script);
+
 CBlockIndex* LookupBlockIndex(const uint256& hash)
 {
     //std::cout << "!!!LookupBlockIndex : " << hash.ToString() << std::endl;
@@ -3958,28 +3960,41 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             if (!balancesToMigrate.empty()) {
                 auto rewardsTime = GetTimeMicros();
-                auto minWorkers = nWorkers - 1 > 2 ? nWorkers - 1 : 3;
-                boost::asio::thread_pool pool(minWorkers);
-                boost::asio::thread_pool ioPool(1);
+
+                boost::asio::thread_pool workerPool(nWorkers);
+                boost::asio::thread_pool mergeWorker(1);
+                std::atomic<uint64_t> tasksCompleted{0};
+                std::atomic<uint64_t> reportedTs{0};
 
                 for (auto& [owner, amount] : balancesToMigrate) {
-                    auto account = owner;
                     // See https://github.com/DeFiCh/ain/pull/1291
                     // https://github.com/DeFiCh/ain/pull/1291#issuecomment-1137638060
                     // Technically not fully synchronized, but avoid races 
                     // due to the segregated areas of operation.
-                    boost::asio::post(pool, [&]() {
+                    boost::asio::post(workerPool, [&, &account = owner]() {
                         auto tempView = std::make_unique<CCustomCSView>(view);
-                        tempView->CalculateOwnerRewards(account, pindex->nHeight);
-                        boost::asio::post(ioPool, [&, tempView=std::move(tempView)]() {
+                        tempView->CalculateOwnerRewards(account, pindex->nHeight);                        
+                        
+                        boost::asio::post(mergeWorker, [&, tempView = std::move(tempView)]() {
                             tempView->Flush();
+
+                        auto itemsCompleted = tasksCompleted.fetch_add(1);
+                        const auto logTimeIntervalMillis = 3 * 1000;
+                        if (GetTimeMillis() - reportedTs > logTimeIntervalMillis) {
+                            LogPrintf("Balance migration: %.2f%% completed (%d/%d)\n",
+                                (itemsCompleted * 1.f / balancesToMigrate.size()) * 100.0,
+                                itemsCompleted, balancesToMigrate.size());
+                            reportedTs.store(GetTimeMillis());
+                            }
                         });
                     });
                 }
-                pool.join();
-                ioPool.join();
+                workerPool.join();
+                mergeWorker.join();
 
-                LogPrintf("Pool migration: rewards recalc time: %.2fms\n", MILLI * (GetTimeMicros() - rewardsTime));
+                auto itemsCompleted = tasksCompleted.load();
+                LogPrintf("Balance migration: 100%% completed (%d/%d, time: %dms)\n", 
+                    itemsCompleted, itemsCompleted, MILLI * (GetTimeMicros() - rewardsTime));
             }
 
             // Special case. No liquidity providers in a previously used pool.
@@ -4070,6 +4085,11 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     refundBalances();
                     continue;
                 }
+
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: LP (%s: %s => %s)\n", 
+                    ScriptToString(owner), 
+                    CTokenAmount{oldPoolId, amount}.ToString(), 
+                    CTokenAmount{newPoolId, liquidity}.ToString());
 
                 view.SetShare(newPoolId, owner, pindex->nHeight);
             }
@@ -4362,6 +4382,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
+                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s, v: %s => %s)\n", 
+                    ScriptToString(owner), balance.ToString(),
+                    CTokenAmount{newTokenId, newBalance}.ToString());
                 addAccounts[owner].Add({newTokenId, newBalance});
                 subAccounts[owner].Add(balance);
                 totalBalance += newBalance;
