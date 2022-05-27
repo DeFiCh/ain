@@ -258,7 +258,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
         value_accounts_post_split = self.accounts_usd_values()
         # TODO fail
-        #self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
+        self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
         if revert:
             self.revert(revertHeight)
         else:
