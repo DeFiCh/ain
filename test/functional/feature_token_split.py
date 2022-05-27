@@ -680,14 +680,15 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{split_height}':f'{self.idTSLA}/2'}})
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/500000':f'{self.idTSLA}/2'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idTSLA}/2'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000000':f'{self.idNVDA}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/oracles/splits/1000001':f'{self.idNVDA}/2'}})
         self.nodes[0].generate(1)
 
         # Check splits
         result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert_equal(result[f'v0/oracles/splits/{split_height}'], f'{self.idTSLA}/2')
         assert_equal(result[f'v0/oracles/splits/500000'], f'{self.idTSLA}/2')
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2,{self.idNVDA}/2')
+        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idTSLA}/2')
+        assert_equal(result[f'v0/oracles/splits/1000001'], f'{self.idNVDA}/2')
 
         # Split
         self.nodes[0].generate(1)
@@ -696,7 +697,7 @@ class TokenSplitTest(DefiTestFramework):
         result = self.nodes[0].listgovs("attrs")[0][0]['ATTRIBUTES']
         assert(f'v0/oracles/splits/{split_height}' not in result)
         assert(f'v0/oracles/splits/500000' not in result)
-        assert_equal(result[f'v0/oracles/splits/1000000'], f'{self.idNVDA}/2')
+        assert_equal(result[f'v0/oracles/splits/1000001'], f'{self.idNVDA}/2')
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
