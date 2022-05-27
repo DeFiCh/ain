@@ -3386,7 +3386,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto bidTokenAmount = bid->second;
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
-                assert(bidTokenAmount.nValue >= penaltyAmount);
+                if (bidTokenAmount.nValue < penaltyAmount) {
+                    LogPrintf("WARNING: bidTokenAmount.nValue < penaltyAmount %s\n");
+                }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
                 // in result we have 5% penalty + interest via DEX to DFI and burn
                 auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
@@ -3417,7 +3419,10 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, amount);
                 }
 
-                view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
+                auto res = view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
+                if (!res) {
+                    LogPrintf("AuctionBid: SubMintedTokens failed: %s\n", res.msg);
+                }
 
                 if (paccountHistoryDB) {
                     AuctionHistoryKey key{data.liquidationHeight, bidOwner, vaultId, i};
