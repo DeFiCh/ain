@@ -1,13 +1,13 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /**
  * Utilities for converting data from/to strings.
  */
-#ifndef DEFI_UTIL_STRENCODINGS_H
-#define DEFI_UTIL_STRENCODINGS_H
+#ifndef BITCOIN_UTIL_STRENCODINGS_H
+#define BITCOIN_UTIL_STRENCODINGS_H
 
 #include <attributes.h>
 
@@ -271,4 +271,4 @@ static std::string KeyBuilder(const T& value, const Args& ... args){
     return KeyBuilder(value) + '/' + KeyBuilder(args...);
 }
 
-#endif // DEFI_UTIL_STRENCODINGS_H
+#endif // BITCOIN_UTIL_STRENCODINGS_H

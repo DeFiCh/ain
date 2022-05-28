@@ -1,9 +1,9 @@
 // Copyright (c) 2019 The Wagerr developers
 // Distributed under the MIT/X11 software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_FLUSHABLESTORAGE_H
-#define DEFI_FLUSHABLESTORAGE_H
+#ifndef BITCOIN_FLUSHABLESTORAGE_H
+#define BITCOIN_FLUSHABLESTORAGE_H
 
 #include <dbwrapper.h>
 #include <functional>
@@ -516,4 +516,4 @@ private:
     std::unique_ptr<CStorageKV> storage;
 };
 
-#endif // DEFI_FLUSHABLESTORAGE_H
+#endif // BITCOIN_FLUSHABLESTORAGE_H

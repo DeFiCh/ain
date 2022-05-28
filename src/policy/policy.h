@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_POLICY_POLICY_H
-#define DEFI_POLICY_POLICY_H
+#ifndef BITCOIN_POLICY_POLICY_H
+#define BITCOIN_POLICY_POLICY_H
 
 #include <consensus/consensus.h>
 #include <policy/feerate.h>
@@ -115,4 +115,4 @@ static inline int64_t GetVirtualTransactionInputSize(const CTxIn& tx)
     return GetVirtualTransactionInputSize(tx, 0, 0);
 }
 
-#endif // DEFI_POLICY_POLICY_H
+#endif // BITCOIN_POLICY_POLICY_H

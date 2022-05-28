@@ -1,9 +1,9 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CONSENSUS_TX_CHECK_H
-#define DEFI_CONSENSUS_TX_CHECK_H
+#ifndef BITCOIN_CONSENSUS_TX_CHECK_H
+#define BITCOIN_CONSENSUS_TX_CHECK_H
 
 /**
  * Context-independent transaction checking code that can be called outside the
@@ -33,4 +33,4 @@ bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & meta
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
 bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningCrunch = true);
 
-#endif // DEFI_CONSENSUS_TX_CHECK_H
+#endif // BITCOIN_CONSENSUS_TX_CHECK_H

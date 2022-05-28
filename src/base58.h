@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /**
  * Why base-58 instead of standard base-64 encoding?
@@ -11,8 +11,8 @@
  * - E-mail usually won't line-break if there's no punctuation to break at.
  * - Double-clicking selects the whole string as one word if it's all alphanumeric.
  */
-#ifndef DEFI_BASE58_H
-#define DEFI_BASE58_H
+#ifndef BITCOIN_BASE58_H
+#define BITCOIN_BASE58_H
 
 #include <attributes.h>
 
@@ -60,4 +60,4 @@ NODISCARD bool DecodeBase58Check(const char* psz, std::vector<unsigned char>& vc
  */
 NODISCARD bool DecodeBase58Check(const std::string& str, std::vector<unsigned char>& vchRet);
 
-#endif // DEFI_BASE58_H
+#endif // BITCOIN_BASE58_H

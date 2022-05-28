@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_SCRIPT_STANDARD_H
-#define DEFI_SCRIPT_STANDARD_H
+#ifndef BITCOIN_SCRIPT_STANDARD_H
+#define BITCOIN_SCRIPT_STANDARD_H
 
 #include <script/interpreter.h>
 #include <uint256.h>
@@ -212,4 +212,4 @@ CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std
  */
 CScript GetScriptForWitness(const CScript& redeemscript);
 
-#endif // DEFI_SCRIPT_STANDARD_H
+#endif // BITCOIN_SCRIPT_STANDARD_H

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Copyright (c) 2014-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 export LC_ALL=C
 INPUT=$(cat /dev/stdin)
@@ -9,7 +9,7 @@ VALID=false
 REVSIG=false
 IFS='
 '
-if [ "$DEFI_VERIFY_COMMITS_ALLOW_SHA1" = 1 ]; then
+if [ "$BITCOIN_VERIFY_COMMITS_ALLOW_SHA1" = 1 ]; then
 	GPG_RES="$(printf '%s\n' "$INPUT" | gpg --trust-model always "$@" 2>/dev/null)"
 else
 	# Note how we've disabled SHA1 with the --weak-digest option, disabling
@@ -43,12 +43,12 @@ for LINE in $GPG_RES; do
 		done < ./contrib/verify-commits/trusted-keys
 		;;
 	"[GNUPG:] REVKEYSIG "*)
-		[ "$DEFI_VERIFY_COMMITS_ALLOW_REVSIG" != 1 ] && exit 1
+		[ "$BITCOIN_VERIFY_COMMITS_ALLOW_REVSIG" != 1 ] && exit 1
 		REVSIG=true
 		GOODREVSIG="[GNUPG:] GOODSIG ${LINE#* * *}"
 		;;
 	"[GNUPG:] EXPKEYSIG "*)
-		[ "$DEFI_VERIFY_COMMITS_ALLOW_REVSIG" != 1 ] && exit 1
+		[ "$BITCOIN_VERIFY_COMMITS_ALLOW_REVSIG" != 1 ] && exit 1
 		REVSIG=true
 		GOODREVSIG="[GNUPG:] GOODSIG ${LINE#* * *}"
 		;;

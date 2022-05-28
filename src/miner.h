@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MINER_H
-#define DEFI_MINER_H
+#ifndef BITCOIN_MINER_H
+#define BITCOIN_MINER_H
 
 #include <optional.h>
 #include <primitives/block.h>
@@ -267,4 +267,4 @@ namespace pos {
     };
 }
 
-#endif // DEFI_MINER_H
+#endif // BITCOIN_MINER_H

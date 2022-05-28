@@ -1,6 +1,6 @@
 # Copyright (c) 2013-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 ACLOCAL_AMFLAGS = -I build-aux/m4
 SUBDIRS = src
@@ -11,16 +11,16 @@ endif
 
 export PYTHONPATH
 
-if BUILD_DEFI_LIBS
+if BUILD_BITCOIN_LIBS
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libdeficonsensus.pc
+pkgconfig_DATA = libbitcoinconsensus.pc
 endif
 
-DEFID_BIN=$(top_builddir)/src/$(DEFI_DAEMON_NAME)$(EXEEXT)
-DEFI_CLI_BIN=$(top_builddir)/src/$(DEFI_CLI_NAME)$(EXEEXT)
-DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
-DEFI_WALLET_BIN=$(top_builddir)/src/$(DEFI_WALLET_TOOL_NAME)$(EXEEXT)
-DEFI_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
+DEFID_BIN=$(top_builddir)/src/$(BITCOIN_DAEMON_NAME)$(EXEEXT)
+BITCOIN_CLI_BIN=$(top_builddir)/src/$(BITCOIN_CLI_NAME)$(EXEEXT)
+BITCOIN_TX_BIN=$(top_builddir)/src/$(BITCOIN_TX_NAME)$(EXEEXT)
+BITCOIN_WALLET_BIN=$(top_builddir)/src/$(BITCOIN_WALLET_TOOL_NAME)$(EXEEXT)
+BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
 support_examples_dir = $(pkgdatadir)/examples
 support_examples__DATA = $(top_srcdir)/share/examples/default.conf \
@@ -83,19 +83,19 @@ OSX_PACKAGING = $(OSX_DEPLOY_SCRIPT) $(OSX_FANCY_PLIST) \
   $(top_srcdir)/contrib/macdeploy/detached-sig-create.sh
 
 COVERAGE_INFO = baseline.info \
-  test_defi_filtered.info total_coverage.info \
+  test_bitcoin_filtered.info total_coverage.info \
   baseline_filtered.info functional_test.info functional_test_filtered.info \
-  test_defi_coverage.info test_defi.info
+  test_bitcoin_coverage.info test_defi.info
 
 dist-hook:
 	-$(GIT) archive --format=tar HEAD -- src/clientversion.cpp | $(AMTAR) -C $(top_distdir) -xf -
 
-$(DEFI_WIN_INSTALLER): all-recursive
+$(BITCOIN_WIN_INSTALLER): all-recursive
 	$(MKDIR_P) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFID_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_CLI_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_TX_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_WALLET_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_CLI_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_TX_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_WALLET_BIN) $(top_builddir)/release
 	@test -f $(MAKENSIS) && $(MAKENSIS) -V2 $(top_builddir)/share/setup.nsi || \
 	  echo error: could not build $@
 	@echo built $@
@@ -169,19 +169,19 @@ appbundle: $(OSX_APP_BUILT)
 deploy: $(OSX_DMG)
 endif
 if TARGET_WINDOWS
-deploy: $(DEFI_WIN_INSTALLER)
+deploy: $(BITCOIN_WIN_INSTALLER)
 endif
 
 $(DEFID_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-$(DEFI_CLI_BIN): FORCE
+$(BITCOIN_CLI_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-$(DEFI_TX_BIN): FORCE
+$(BITCOIN_TX_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-$(DEFI_WALLET_BIN): FORCE
+$(BITCOIN_WALLET_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
 if USE_LCOV
@@ -199,11 +199,11 @@ test_defi.info: baseline_filtered.info
 	$(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src -t test_defi -o $@
 	$(LCOV) -z $(LCOV_OPTS) -d $(abs_builddir)/src
 
-test_defi_filtered.info: test_defi.info
+test_bitcoin_filtered.info: test_defi.info
 	$(abs_builddir)/contrib/filter-lcov.py $(LCOV_FILTER_PATTERN) $< $@
 	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
 
-functional_test.info: test_defi_filtered.info
+functional_test.info: test_bitcoin_filtered.info
 	@TIMEOUT=15 test/functional/test_runner.py $(EXTENDED_FUNCTIONAL_TESTS)
 	$(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src --t functional-tests -o $@
 	$(LCOV) -z $(LCOV_OPTS) -d $(abs_builddir)/src
@@ -212,13 +212,13 @@ functional_test_filtered.info: functional_test.info
 	$(abs_builddir)/contrib/filter-lcov.py $(LCOV_FILTER_PATTERN) $< $@
 	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
 
-test_defi_coverage.info: baseline_filtered.info test_defi_filtered.info
-	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -o $@
+test_bitcoin_coverage.info: baseline_filtered.info test_bitcoin_filtered.info
+	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_bitcoin_filtered.info -o $@
 
-total_coverage.info: test_defi_filtered.info functional_test_filtered.info
-	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -a functional_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
+total_coverage.info: test_bitcoin_filtered.info functional_test_filtered.info
+	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_bitcoin_filtered.info -a functional_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
 
-test_defi.coverage/.dirstamp:  test_defi_coverage.info
+test_defi.coverage/.dirstamp:  test_bitcoin_coverage.info
 	$(GENHTML) -s $(LCOV_OPTS) $< -o $(@D)
 	@touch $@
 
@@ -292,7 +292,7 @@ EXTRA_DIST += \
     test/util/data/txcreatesignv2.hex \
     test/util/rpcauth-test.py
 
-CLEANFILES = $(OSX_DMG) $(DEFI_WIN_INSTALLER)
+CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 
 .INTERMEDIATE: $(COVERAGE_INFO)
 

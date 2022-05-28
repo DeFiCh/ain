@@ -1,9 +1,9 @@
 // Copyright (c) 2014-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CRYPTO_RIPEMD160_H
-#define DEFI_CRYPTO_RIPEMD160_H
+#ifndef BITCOIN_CRYPTO_RIPEMD160_H
+#define BITCOIN_CRYPTO_RIPEMD160_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -25,4 +25,4 @@ public:
     CRIPEMD160& Reset();
 };
 
-#endif // DEFI_CRYPTO_RIPEMD160_H
+#endif // BITCOIN_CRYPTO_RIPEMD160_H

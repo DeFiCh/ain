@@ -1,9 +1,9 @@
 // Copyright (c) 2012-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_VERSION_H
-#define DEFI_VERSION_H
+#ifndef BITCOIN_VERSION_H
+#define BITCOIN_VERSION_H
 
 /**
  * network protocol versioning
@@ -45,4 +45,4 @@ static const int INVALID_CB_NO_BAN_VERSION = 70015;
 //! Enable DFIP1 and DFIP2 and tokenization
 static const int AMK_VERSION = 70016;
 
-#endif // DEFI_VERSION_H
+#endif // BITCOIN_VERSION_H

@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_TXMEMPOOL_H
-#define DEFI_TXMEMPOOL_H
+#ifndef BITCOIN_TXMEMPOOL_H
+#define BITCOIN_TXMEMPOOL_H
 
 #include <atomic>
 #include <map>
@@ -859,4 +859,4 @@ struct DisconnectedBlockTransactions {
     }
 };
 
-#endif // DEFI_TXMEMPOOL_H
+#endif // BITCOIN_TXMEMPOOL_H

@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_LOGGING_H
-#define DEFI_LOGGING_H
+#ifndef BITCOIN_LOGGING_H
+#define BITCOIN_LOGGING_H
 
 #include <fs.h>
 #include <tinyformat.h>
@@ -203,4 +203,4 @@ static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& cate
     }
 }
 
-#endif // DEFI_LOGGING_H
+#endif // BITCOIN_LOGGING_H

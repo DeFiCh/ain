@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 """Test token's RPC.
 

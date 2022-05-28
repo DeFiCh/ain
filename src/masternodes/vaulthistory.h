@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_VAULTHISTORY_H
-#define DEFI_MASTERNODES_VAULTHISTORY_H
+#ifndef BITCOIN_MASTERNODES_VAULTHISTORY_H
+#define BITCOIN_MASTERNODES_VAULTHISTORY_H
 
 #include <amount.h>
 #include <flushablestorage.h>
@@ -190,4 +190,4 @@ extern std::unique_ptr<CVaultHistoryStorage> pvaultHistoryDB;
 
 static constexpr bool DEFAULT_VAULTINDEX = false;
 
-#endif //DEFI_MASTERNODES_VAULTHISTORY_H
+#endif //BITCOIN_MASTERNODES_VAULTHISTORY_H

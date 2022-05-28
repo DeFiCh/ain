@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CLIENTVERSION_H
-#define DEFI_CLIENTVERSION_H
+#ifndef BITCOIN_CLIENTVERSION_H
+#define BITCOIN_CLIENTVERSION_H
 
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
@@ -50,4 +50,4 @@ std::string FormatUserAgentString(const std::string& name, int nClientVersion, c
 
 #endif // WINDRES_PREPROC
 
-#endif // DEFI_CLIENTVERSION_H
+#endif // BITCOIN_CLIENTVERSION_H

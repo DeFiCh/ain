@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_AMOUNT_H
-#define DEFI_AMOUNT_H
+#ifndef BITCOIN_AMOUNT_H
+#define BITCOIN_AMOUNT_H
 
 #include <arith_uint256.h>
 #include <masternodes/res.h>
@@ -201,4 +201,4 @@ inline std::ostream& operator << (std::ostream &os, const CTokenAmount &ta)
 static const CAmount MAX_MONEY = 1200000000 * COIN; // (1.2B) - old 21000000 * 4
 inline bool MoneyRange(CAmount nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 
-#endif //  DEFI_AMOUNT_H
+#endif //  BITCOIN_AMOUNT_H

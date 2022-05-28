@@ -1,9 +1,9 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_INDEX_TXINDEX_H
-#define DEFI_INDEX_TXINDEX_H
+#ifndef BITCOIN_INDEX_TXINDEX_H
+#define BITCOIN_INDEX_TXINDEX_H
 
 #include <chain.h>
 #include <index/base.h>
@@ -51,4 +51,4 @@ public:
 /// The global transaction index, used in GetTransaction. May be null.
 extern std::unique_ptr<TxIndex> g_txindex;
 
-#endif // DEFI_INDEX_TXINDEX_H
+#endif // BITCOIN_INDEX_TXINDEX_H

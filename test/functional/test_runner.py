@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Run regression test suite.
 
 This module calls down into individual test cases via subprocess. It will
@@ -132,7 +132,7 @@ BASE_SCRIPTS = [
     'feature_futures.py',
     'interface_zmq.py',
     'feature_restore_utxo.py',
-    'interface_defi_cli.py',
+    'interface_bitcoin_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
     'tool_wallet.py',

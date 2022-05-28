@@ -1,13 +1,13 @@
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <string>
 #include <vector>
 #include <netaddress.h>
 
-#ifndef DEFI_NET_PERMISSIONS_H
-#define DEFI_NET_PERMISSIONS_H
+#ifndef BITCOIN_NET_PERMISSIONS_H
+#define BITCOIN_NET_PERMISSIONS_H
 enum NetPermissionFlags
 {
     PF_NONE = 0,
@@ -59,4 +59,4 @@ public:
     CSubNet m_subnet;
 };
 
-#endif // DEFI_NET_PERMISSIONS_H
+#endif // BITCOIN_NET_PERMISSIONS_H

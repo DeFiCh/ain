@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_NETBASE_H
-#define DEFI_NETBASE_H
+#ifndef BITCOIN_NETBASE_H
+#define BITCOIN_NETBASE_H
 
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
@@ -68,4 +68,4 @@ bool SetSocketNoDelay(const SOCKET& hSocket);
 struct timeval MillisToTimeval(int64_t nTimeout);
 void InterruptSocks5(bool interrupt);
 
-#endif // DEFI_NETBASE_H
+#endif // BITCOIN_NETBASE_H

@@ -1,6 +1,6 @@
 # Copyright (c) 2015-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 bin_PROGRAMS += bench/bench_defi
 BENCH_SRCDIR = bench
@@ -10,7 +10,7 @@ RAW_BENCH_FILES = \
   bench/data/block413567.raw
 GENERATED_BENCH_FILES = $(RAW_BENCH_FILES:.raw=.raw.h)
 
-bench_bench_defi_SOURCES = \
+bench_bench_bitcoin_SOURCES = \
   $(RAW_BENCH_FILES) \
   bench/bench_defi.cpp \
   bench/bench.cpp \
@@ -44,20 +44,20 @@ bench_bench_defi_SOURCES = \
   test/util.h \
   test/util.cpp
 
-nodist_bench_bench_defi_SOURCES = $(GENERATED_BENCH_FILES)
+nodist_bench_bench_bitcoin_SOURCES = $(GENERATED_BENCH_FILES)
 
-bench_bench_defi_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
-bench_bench_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-bench_bench_defi_LDADD = \
-  $(LIBDEFI_MN) \
-  $(LIBDEFI_SERVER) \
-  $(LIBDEFI_WALLET) \
-  $(LIBDEFI_SERVER) \
-  $(LIBDEFI_COMMON) \
-  $(LIBDEFI_UTIL) \
-  $(LIBDEFI_CONSENSUS) \
-  $(LIBDEFI_CRYPTO) \
-  $(LIBDEFI_SPV) \
+bench_bench_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
+bench_bench_bitcoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+bench_bench_bitcoin_LDADD = \
+  $(LIBITCOIN_MN) \
+  $(LIBITCOIN_SERVER) \
+  $(LIBITCOIN_WALLET) \
+  $(LIBITCOIN_SERVER) \
+  $(LIBITCOIN_COMMON) \
+  $(LIBITCOIN_UTIL) \
+  $(LIBITCOIN_CONSENSUS) \
+  $(LIBITCOIN_CRYPTO) \
+  $(LIBITCOIN_SPV) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
@@ -66,30 +66,30 @@ bench_bench_defi_LDADD = \
   $(EVENT_LIBS)
 
 if ENABLE_ZMQ
-bench_bench_defi_LDADD += $(LIBDEFI_ZMQ) $(ZMQ_LIBS)
+bench_bench_bitcoin_LDADD += $(LIBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
 if ENABLE_WALLET
-bench_bench_defi_SOURCES += bench/coin_selection.cpp
-bench_bench_defi_SOURCES += bench/wallet_balance.cpp
+bench_bench_bitcoin_SOURCES += bench/coin_selection.cpp
+bench_bench_bitcoin_SOURCES += bench/wallet_balance.cpp
 endif
 
-bench_bench_defi_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS)
-bench_bench_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+bench_bench_bitcoin_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS)
+bench_bench_bitcoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
-CLEAN_DEFI_BENCH = bench/*.gcda bench/*.gcno $(GENERATED_BENCH_FILES)
+CLEAN_BITCOIN_BENCH = bench/*.gcda bench/*.gcno $(GENERATED_BENCH_FILES)
 
-CLEANFILES += $(CLEAN_DEFI_BENCH)
+CLEANFILES += $(CLEAN_BITCOIN_BENCH)
 
 bench/data.cpp: bench/data/block413567.raw.h
 
-defi_bench: $(BENCH_BINARY)
+bitcoin_bench: $(BENCH_BINARY)
 
 bench: $(BENCH_BINARY) FORCE
 	$(BENCH_BINARY)
 
-defi_bench_clean : FORCE
-	rm -f $(CLEAN_DEFI_BENCH) $(bench_bench_defi_OBJECTS) $(BENCH_BINARY)
+bitcoin_bench_clean : FORCE
+	rm -f $(CLEAN_BITCOIN_BENCH) $(bench_bench_bitcoin_OBJECTS) $(BENCH_BINARY)
 
 %.raw.h: %.raw
 	@$(MKDIR_P) $(@D)

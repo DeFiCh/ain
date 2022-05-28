@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Base class for RPC testing."""
 
 import configparser
@@ -43,7 +43,7 @@ TEST_EXIT_PASSED = 0
 TEST_EXIT_FAILED = 1
 TEST_EXIT_SKIPPED = 77
 
-TMPDIR_PREFIX = "defi_func_test_"
+TMPDIR_PREFIX = "bitcoin_func_test_"
 
 
 class SkipTest(Exception):
@@ -434,7 +434,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 rpchost=rpchost,
                 timewait=self.rpc_timeout,
                 defid=binary[i],
-                defi_cli=self.options.deficli,
+                bitcoin_cli=self.options.deficli,
                 coverage_dir=self.options.coveragedir,
                 cwd=self.options.tmpdir,
                 extra_conf=extra_confs[i],
@@ -582,7 +582,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                     rpchost=None,
                     timewait=self.rpc_timeout,
                     defid=self.options.defid,
-                    defi_cli=self.options.deficli,
+                    bitcoin_cli=self.options.deficli,
                     coverage_dir=None,
                     cwd=self.options.tmpdir,
                 ))

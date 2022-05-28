@@ -1,14 +1,14 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_SCRIPT_DEFICONSENSUS_H
-#define DEFI_SCRIPT_DEFICONSENSUS_H
+#ifndef BITCOIN_SCRIPT_DEFICONSENSUS_H
+#define BITCOIN_SCRIPT_DEFICONSENSUS_H
 
 #include <stdint.h>
 
-#if defined(BUILD_DEFI_INTERNAL) && defined(HAVE_CONFIG_H)
+#if defined(BUILD_BITCOIN_INTERNAL) && defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
   #if defined(_WIN32)
     #if defined(DLL_EXPORT)
@@ -21,7 +21,7 @@
   #elif defined(HAVE_FUNC_ATTRIBUTE_VISIBILITY)
     #define EXPORT_SYMBOL __attribute__ ((visibility ("default")))
   #endif
-#elif defined(MSC_VER) && !defined(STATIC_LIBDEFICONSENSUS)
+#elif defined(MSC_VER) && !defined(STATIC_LIBBITCOINCONSENSUS)
   #define EXPORT_SYMBOL __declspec(dllimport)
 #endif
 
@@ -80,4 +80,4 @@ EXPORT_SYMBOL unsigned int deficonsensus_version();
 
 #undef EXPORT_SYMBOL
 
-#endif // DEFI_SCRIPT_DEFICONSENSUS_H
+#endif // BITCOIN_SCRIPT_DEFICONSENSUS_H

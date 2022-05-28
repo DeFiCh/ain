@@ -1,9 +1,9 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_WALLET_WALLETUTIL_H
-#define DEFI_WALLET_WALLETUTIL_H
+#ifndef BITCOIN_WALLET_WALLETUTIL_H
+#define BITCOIN_WALLET_WALLETUTIL_H
 
 #include <fs.h>
 
@@ -40,4 +40,4 @@ public:
     bool Exists() const;
 };
 
-#endif // DEFI_WALLET_WALLETUTIL_H
+#endif // BITCOIN_WALLET_WALLETUTIL_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_WALLET_COINCONTROL_H
-#define DEFI_WALLET_COINCONTROL_H
+#ifndef BITCOIN_WALLET_COINCONTROL_H
+#define BITCOIN_WALLET_COINCONTROL_H
 
 #include <policy/feerate.h>
 #include <policy/fees.h>
@@ -93,4 +93,4 @@ private:
     std::set<COutPoint> setSelected;
 };
 
-#endif // DEFI_WALLET_COINCONTROL_H
+#endif // BITCOIN_WALLET_COINCONTROL_H

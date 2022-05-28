@@ -1,9 +1,9 @@
 // Copyright (c) 2015-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_REVERSELOCK_H
-#define DEFI_REVERSELOCK_H
+#ifndef BITCOIN_REVERSELOCK_H
+#define BITCOIN_REVERSELOCK_H
 
 /**
  * An RAII-style reverse lock. Unlocks on construction and locks on destruction.
@@ -31,4 +31,4 @@ private:
     Lock templock;
 };
 
-#endif // DEFI_REVERSELOCK_H
+#endif // BITCOIN_REVERSELOCK_H

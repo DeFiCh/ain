@@ -1,9 +1,9 @@
 // Copyright (c) 2014-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CRYPTO_COMMON_H
-#define DEFI_CRYPTO_COMMON_H
+#ifndef BITCOIN_CRYPTO_COMMON_H
+#define BITCOIN_CRYPTO_COMMON_H
 
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
@@ -100,4 +100,4 @@ uint64_t static inline CountBits(uint64_t x)
     return ret;
 }
 
-#endif // DEFI_CRYPTO_COMMON_H
+#endif // BITCOIN_CRYPTO_COMMON_H

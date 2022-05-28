@@ -1,9 +1,9 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_WALLETINITINTERFACE_H
-#define DEFI_WALLETINITINTERFACE_H
+#ifndef BITCOIN_WALLETINITINTERFACE_H
+#define BITCOIN_WALLETINITINTERFACE_H
 
 #include <string>
 
@@ -27,4 +27,4 @@ public:
 
 extern const WalletInitInterface& g_wallet_init_interface;
 
-#endif // DEFI_WALLETINITINTERFACE_H
+#endif // BITCOIN_WALLETINITINTERFACE_H

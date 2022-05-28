@@ -15,10 +15,10 @@ AC_CONFIG_HEADERS([src/config/defi-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
-DEFI_DAEMON_NAME=defid
-DEFI_CLI_NAME=defi-cli
-DEFI_TX_NAME=defi-tx
-DEFI_WALLET_TOOL_NAME=defi-wallet
+BITCOIN_DAEMON_NAME=defid
+BITCOIN_CLI_NAME=defi-cli
+BITCOIN_TX_NAME=defi-tx
+BITCOIN_WALLET_TOOL_NAME=defi-wallet
 
 dnl Unless the user specified ARFLAGS, force it to be cr
 AC_ARG_VAR(ARFLAGS, [Flags for the archiver, defaults to <cr> if not set])
@@ -28,9 +28,9 @@ fi
 
 AC_CANONICAL_HOST
 
-AH_TOP([#ifndef DEFI_CONFIG_H])
-AH_TOP([#define DEFI_CONFIG_H])
-AH_BOTTOM([#endif //DEFI_CONFIG_H])
+AH_TOP([#ifndef BITCOIN_CONFIG_H])
+AH_TOP([#define BITCOIN_CONFIG_H])
+AH_BOTTOM([#endif //BITCOIN_CONFIG_H])
 
 dnl faketime breaks configure and is only needed for make. Disable it here.
 unset FAKETIME
@@ -444,32 +444,32 @@ CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS"
 AC_ARG_WITH([utils],
   [AS_HELP_STRING([--with-utils],
   [build defi-cli defi-tx defi-wallet (default=yes)])],
-  [build_defi_utils=$withval],
-  [build_defi_utils=yes])
+  [build_bitcoin_utils=$withval],
+  [build_bitcoin_utils=yes])
 
 AC_ARG_ENABLE([util-cli],
   [AS_HELP_STRING([--enable-util-cli],
   [build defi-cli])],
-  [build_defi_cli=$enableval],
-  [build_defi_cli=$build_defi_utils])
+  [build_bitcoin_cli=$enableval],
+  [build_bitcoin_cli=$build_bitcoin_utils])
 
 AC_ARG_ENABLE([util-tx],
   [AS_HELP_STRING([--enable-util-tx],
   [build defi-tx])],
-  [build_defi_tx=$enableval],
-  [build_defi_tx=$build_defi_utils])
+  [build_bitcoin_tx=$enableval],
+  [build_bitcoin_tx=$build_bitcoin_utils])
 
 AC_ARG_ENABLE([util-wallet],
   [AS_HELP_STRING([--enable-util-wallet],
   [build defi-wallet])],
-  [build_defi_wallet=$enableval],
-  [build_defi_wallet=$build_defi_utils])
+  [build_bitcoin_wallet=$enableval],
+  [build_bitcoin_wallet=$build_bitcoin_utils])
 
 AC_ARG_WITH([libs],
   [AS_HELP_STRING([--with-libs],
   [build libraries (default=yes)])],
-  [build_defi_libs=$withval],
-  [build_defi_libs=yes])
+  [build_bitcoin_libs=$withval],
+  [build_bitcoin_libs=yes])
 
 AC_ARG_WITH([daemon],
   [AS_HELP_STRING([--with-daemon],
@@ -1019,12 +1019,12 @@ AC_DEFINE([HAVE_SYSTEM], [HAVE_STD__SYSTEM || HAVE_WSYSTEM], [std::system or ::w
 dnl enable-fuzz should disable all other targets
 if test "x$enable_fuzz" = "xyes"; then
   AC_MSG_WARN(enable-fuzz will disable all other targets)
-  build_defi_utils=no
-  build_defi_cli=no
-  build_defi_tx=no
-  build_defi_wallet=no
+  build_bitcoin_utils=no
+  build_bitcoin_cli=no
+  build_bitcoin_tx=no
+  build_bitcoin_wallet=no
   build_defid=no
-  build_defi_libs=no
+  build_bitcoin_libs=no
   enable_wallet=no
   use_bench=no
   use_upnp=no
@@ -1033,7 +1033,7 @@ fi
 
 if test x$enable_wallet != xno; then
     dnl Check for libdb_cxx only if wallet enabled
-    DEFI_FIND_BDB48
+    BITCOIN_FIND_BDB48
 fi
 
 dnl Check for libminiupnpc (optional)
@@ -1065,7 +1065,7 @@ if test x$have_miniupnpc != xno; then
 fi
 fi
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_tests$use_bench = xnonononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_defid$use_tests$use_bench = xnonononononono; then
     use_boost=no
 else
     use_boost=yes
@@ -1079,7 +1079,7 @@ define(MINIMUM_REQUIRED_BOOST, 1.47.0)
 dnl Check for boost libs
 AX_BOOST_BASE([MINIMUM_REQUIRED_BOOST])
 if test x$want_boost = xno; then
-    AC_MSG_ERROR([[only libdeficonsensus can be built without boost]])
+    AC_MSG_ERROR([[only libbitcoinconsensus can be built without boost]])
 fi
 AX_BOOST_SYSTEM
 AX_BOOST_FILESYSTEM
@@ -1247,7 +1247,7 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
-      if test x$build_defi_cli$build_defid$use_tests != xnononono; then
+      if test x$build_bitcoin_cli$build_defid$use_tests != xnononono; then
         PKG_CHECK_MODULES([EVENT], [libevent],, [AC_MSG_ERROR(libevent not found.)])
         if test x$TARGET_OS != xwindows; then
           PKG_CHECK_MODULES([EVENT_PTHREADS], [libevent_pthreads],, [AC_MSG_ERROR(libevent_pthreads not found.)])
@@ -1266,7 +1266,7 @@ if test x$use_pkgconfig = xyes; then
     ]
   )
 else
-  if test x$build_defi_cli$build_defid$use_tests != xnononono; then
+  if test x$build_bitcoin_cli$build_defid$use_tests != xnononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
     AC_CHECK_LIB([event],[main],EVENT_LIBS=-levent,AC_MSG_ERROR(libevent missing))
     if test x$TARGET_OS != xwindows; then
@@ -1318,7 +1318,7 @@ dnl univalue check
 
 need_bundled_univalue=yes
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_tests$use_bench = xnonononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_defid$use_tests$use_bench = xnonononononono; then
   need_bundled_univalue=no
 else
 
@@ -1368,24 +1368,24 @@ AM_CONDITIONAL([BUILD_DEFID], [test x$build_defid = xyes])
 AC_MSG_RESULT($build_defid)
 
 AC_MSG_CHECKING([whether to build defi-cli])
-AM_CONDITIONAL([BUILD_DEFI_CLI], [test x$build_defi_cli = xyes])
-AC_MSG_RESULT($build_defi_cli)
+AM_CONDITIONAL([BUILD_BITCOIN_CLI], [test x$build_bitcoin_cli = xyes])
+AC_MSG_RESULT($build_bitcoin_cli)
 
 AC_MSG_CHECKING([whether to build defi-tx])
-AM_CONDITIONAL([BUILD_DEFI_TX], [test x$build_defi_tx = xyes])
-AC_MSG_RESULT($build_defi_tx)
+AM_CONDITIONAL([BUILD_BITCOIN_TX], [test x$build_bitcoin_tx = xyes])
+AC_MSG_RESULT($build_bitcoin_tx)
 
 AC_MSG_CHECKING([whether to build defi-wallet])
-AM_CONDITIONAL([BUILD_DEFI_WALLET], [test x$build_defi_wallet = xyes])
-AC_MSG_RESULT($build_defi_wallet)
+AM_CONDITIONAL([BUILD_BITCOIN_WALLET], [test x$build_bitcoin_wallet = xyes])
+AC_MSG_RESULT($build_bitcoin_wallet)
 
 AC_MSG_CHECKING([whether to build libraries])
-AM_CONDITIONAL([BUILD_DEFI_LIBS], [test x$build_defi_libs = xyes])
-if test x$build_defi_libs = xyes; then
+AM_CONDITIONAL([BUILD_BITCOIN_LIBS], [test x$build_bitcoin_libs = xyes])
+if test x$build_bitcoin_libs = xyes; then
   AC_DEFINE(HAVE_CONSENSUS_LIB, 1, [Define this symbol if the consensus lib has been built])
-  AC_CONFIG_FILES([libdeficonsensus.pc:libdeficonsensus.pc.in])
+  AC_CONFIG_FILES([libbitcoinconsensus.pc:libbitcoinconsensus.pc.in])
 fi
-AC_MSG_RESULT($build_defi_libs)
+AC_MSG_RESULT($build_bitcoin_libs)
 
 AC_LANG_POP
 
@@ -1464,7 +1464,7 @@ else
   AC_MSG_RESULT([no])
 fi
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_defid$use_bench$use_tests = xnononononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_bitcoin_libs$build_defid$use_bench$use_tests = xnononononononono; then
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --enable-bench or --enable-tests])
 fi
 
@@ -1505,10 +1505,10 @@ AC_SUBST(COPYRIGHT_YEAR, _COPYRIGHT_YEAR)
 AC_SUBST(COPYRIGHT_HOLDERS, "_COPYRIGHT_HOLDERS")
 AC_SUBST(COPYRIGHT_HOLDERS_SUBSTITUTION, "_COPYRIGHT_HOLDERS_SUBSTITUTION")
 AC_SUBST(COPYRIGHT_HOLDERS_FINAL, "_COPYRIGHT_HOLDERS_FINAL")
-AC_SUBST(DEFI_DAEMON_NAME)
-AC_SUBST(DEFI_CLI_NAME)
-AC_SUBST(DEFI_TX_NAME)
-AC_SUBST(DEFI_WALLET_TOOL_NAME)
+AC_SUBST(BITCOIN_DAEMON_NAME)
+AC_SUBST(BITCOIN_CLI_NAME)
+AC_SUBST(BITCOIN_TX_NAME)
+AC_SUBST(BITCOIN_WALLET_TOOL_NAME)
 
 AC_SUBST(RELDFLAGS)
 AC_SUBST(DEBUG_CPPFLAGS)

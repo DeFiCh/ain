@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_UNDO_H
-#define DEFI_UNDO_H
+#ifndef BITCOIN_UNDO_H
+#define BITCOIN_UNDO_H
 
 #include <coins.h>
 #include <compressor.h>
@@ -111,4 +111,4 @@ public:
     }
 };
 
-#endif // DEFI_UNDO_H
+#endif // BITCOIN_UNDO_H

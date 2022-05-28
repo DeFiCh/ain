@@ -1,9 +1,9 @@
 // Copyright (c) 2020 The DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_MASTERNODES_H
-#define DEFI_MASTERNODES_MASTERNODES_H
+#ifndef BITCOIN_MASTERNODES_MASTERNODES_H
+#define BITCOIN_MASTERNODES_MASTERNODES_H
 
 #include <amount.h>
 #include <flushablestorage.h>
@@ -458,4 +458,4 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
 
-#endif // DEFI_MASTERNODES_MASTERNODES_H
+#endif // BITCOIN_MASTERNODES_MASTERNODES_H

@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
 # Test for deterministic coverage across unit test runs.
 
@@ -35,7 +35,7 @@ NON_DETERMINISTIC_TESTS=(
     "wallet_tests/wallet_disableprivkeys"                     # validation.cpp: if (GetMainSignals().CallbacksPending() > 10)
 )
 
-TEST_DEFI_BINARY="src/test/test_defi"
+TEST_BITCOIN_BINARY="src/test/test_defi"
 
 print_usage() {
     echo "Usage: $0 [custom test filter (default: all but known non-deterministic tests)] [number of test runs (default: 2)]"
@@ -81,8 +81,8 @@ if ! command -v gcovr > /dev/null; then
     exit 1
 fi
 
-if [[ ! -e ${TEST_DEFI_BINARY} ]]; then
-    echo "Error: Executable ${TEST_DEFI_BINARY} not found. Run \"./configure --enable-lcov\" and compile."
+if [[ ! -e ${TEST_BITCOIN_BINARY} ]]; then
+    echo "Error: Executable ${TEST_BITCOIN_BINARY} not found. Run \"./configure --enable-lcov\" and compile."
     exit 1
 fi
 
@@ -109,7 +109,7 @@ while [[ ${TEST_RUN_ID} -lt ${N_TEST_RUNS} ]]; do
         exit 1
     fi
     TEST_OUTPUT_TEMPFILE=$(mktemp)
-    if ! BOOST_TEST_RUN_FILTERS="${BOOST_TEST_RUN_FILTERS}" ${TEST_DEFI_BINARY} > "${TEST_OUTPUT_TEMPFILE}" 2>&1; then
+    if ! BOOST_TEST_RUN_FILTERS="${BOOST_TEST_RUN_FILTERS}" ${TEST_BITCOIN_BINARY} > "${TEST_OUTPUT_TEMPFILE}" 2>&1; then
         cat "${TEST_OUTPUT_TEMPFILE}"
         rm "${TEST_OUTPUT_TEMPFILE}"
         exit 1

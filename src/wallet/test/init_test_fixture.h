@@ -1,9 +1,9 @@
 // Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_WALLET_TEST_INIT_TEST_FIXTURE_H
-#define DEFI_WALLET_TEST_INIT_TEST_FIXTURE_H
+#ifndef BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
+#define BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H
 
 #include <interfaces/chain.h>
 #include <test/setup_common.h>
@@ -21,4 +21,4 @@ struct InitWalletDirTestingSetup: public BasicTestingSetup {
     std::unique_ptr<interfaces::ChainClient> m_chain_client;
 };
 
-#endif // DEFI_WALLET_TEST_INIT_TEST_FIXTURE_H
+#endif // BITCOIN_WALLET_TEST_INIT_TEST_FIXTURE_H

@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_SPV_SPV_WRAPPER_H
-#define DEFI_SPV_SPV_WRAPPER_H
+#ifndef BITCOIN_SPV_SPV_WRAPPER_H
+#define BITCOIN_SPV_SPV_WRAPPER_H
 
 #include <dbwrapper.h>
 #include <pubkey.h>
@@ -296,4 +296,4 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
 TBytes CreateScriptForAddress(char const * address);
 
 }
-#endif // DEFI_SPV_SPV_WRAPPER_H
+#endif // BITCOIN_SPV_SPV_WRAPPER_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2017 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_OPTIONAL_H
-#define DEFI_OPTIONAL_H
+#ifndef BITCOIN_OPTIONAL_H
+#define BITCOIN_OPTIONAL_H
 
 #include <utility>
 
@@ -23,4 +23,4 @@ Optional<T> MakeOptional(bool condition, T&& value)
 //! Substitute for C++17 std::nullopt
 static auto& nullopt = boost::none;
 
-#endif // DEFI_OPTIONAL_H
+#endif // BITCOIN_OPTIONAL_H

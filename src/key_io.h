@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_KEY_IO_H
-#define DEFI_KEY_IO_H
+#ifndef BITCOIN_KEY_IO_H
+#define BITCOIN_KEY_IO_H
 
 #include <key.h>
 #include <pubkey.h>
@@ -30,4 +30,4 @@ bool IsValidDestinationString(const std::string& str, const CChainParams& params
 
 CKeyID getCKeyIDFromDestination(const CTxDestination& dest);
 
-#endif // DEFI_KEY_IO_H
+#endif // BITCOIN_KEY_IO_H

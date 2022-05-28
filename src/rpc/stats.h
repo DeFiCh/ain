@@ -1,5 +1,5 @@
-#ifndef DEFI_RPC_STATS_H
-#define DEFI_RPC_STATS_H
+#ifndef BITCOIN_RPC_STATS_H
+#define BITCOIN_RPC_STATS_H
 
 #include <map>
 #include <stdint.h>
@@ -72,4 +72,4 @@ public:
 
 extern CRPCStats statsRPC;
 
-#endif // DEFI_RPC_STATS_H
+#endif // BITCOIN_RPC_STATS_H

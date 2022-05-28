@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_RANDOM_H
-#define DEFI_RANDOM_H
+#ifndef BITCOIN_RANDOM_H
+#define BITCOIN_RANDOM_H
 
 #include <crypto/chacha20.h>
 #include <crypto/common.h>
@@ -239,4 +239,4 @@ bool Random_SanityCheck();
  */
 void RandomInit();
 
-#endif // DEFI_RANDOM_H
+#endif // BITCOIN_RANDOM_H

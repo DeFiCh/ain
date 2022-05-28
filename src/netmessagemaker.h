@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_NETMESSAGEMAKER_H
-#define DEFI_NETMESSAGEMAKER_H
+#ifndef BITCOIN_NETMESSAGEMAKER_H
+#define BITCOIN_NETMESSAGEMAKER_H
 
 #include <net.h>
 #include <serialize.h>
@@ -33,4 +33,4 @@ private:
     const int nVersion;
 };
 
-#endif // DEFI_NETMESSAGEMAKER_H
+#endif // BITCOIN_NETMESSAGEMAKER_H

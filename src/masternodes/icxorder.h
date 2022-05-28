@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_ICXORDER_H
-#define DEFI_MASTERNODES_ICXORDER_H
+#ifndef BITCOIN_MASTERNODES_ICXORDER_H
+#define BITCOIN_MASTERNODES_ICXORDER_H
 
 #include <tuple>
 
@@ -475,4 +475,4 @@ public:
     struct ICXVariables               { static constexpr uint8_t prefix() { return 0x0F; } };
 };
 
-#endif // DEFI_MASTERNODES_ICXORDER_H
+#endif // BITCOIN_MASTERNODES_ICXORDER_H

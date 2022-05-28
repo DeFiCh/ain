@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_LOAN_H
-#define DEFI_MASTERNODES_LOAN_H
+#ifndef BITCOIN_MASTERNODES_LOAN_H
+#define BITCOIN_MASTERNODES_LOAN_H
 
 #include <amount.h>
 #include <uint256.h>
@@ -389,4 +389,4 @@ public:
     struct LoanInterestV2ByVault            { static constexpr uint8_t prefix() { return 0x1B; } };
 };
 
-#endif // DEFI_MASTERNODES_LOAN_H
+#endif // BITCOIN_MASTERNODES_LOAN_H

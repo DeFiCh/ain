@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_MN_RPC_H
-#define DEFI_MASTERNODES_MN_RPC_H
+#ifndef BITCOIN_MASTERNODES_MN_RPC_H
+#define BITCOIN_MASTERNODES_MN_RPC_H
 
 #include <arith_uint256.h>
 #include <univalue.h>
@@ -63,4 +63,4 @@ CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std
 CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CAmount> GetFuturesBlock();
 
-#endif // DEFI_MASTERNODES_MN_RPC_H
+#endif // BITCOIN_MASTERNODES_MN_RPC_H

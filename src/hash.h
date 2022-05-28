@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_HASH_H
-#define DEFI_HASH_H
+#ifndef BITCOIN_HASH_H
+#define BITCOIN_HASH_H
 
 #include <crypto/common.h>
 #include <crypto/ripemd160.h>
@@ -218,4 +218,4 @@ unsigned int MurmurHash3(unsigned int nHashSeed, const uint8_t *vDataToHash, uin
 
 void BIP32Hash(const ChainCode &chainCode, unsigned int nChild, unsigned char header, const unsigned char data[32], unsigned char output[64]);
 
-#endif // DEFI_HASH_H
+#endif // BITCOIN_HASH_H

@@ -21,7 +21,7 @@ src/defi-cli
 src/defi-tx
 src/defi-wallet
 src/test/test_defi
-src/test/test_defi_fuzzy
+src/test/test_bitcoin_fuzzy
 
 # autoreconf
 Makefile.in
@@ -124,7 +124,7 @@ test/cache/*
 
 /doc/doxygen/
 
-libdeficonsensus.pc
+libbitcoinconsensus.pc
 contrib/devtools/split-debug.sh
 
 # Output from running db4 installation

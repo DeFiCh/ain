@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 ###   This script attempts to download the signature file SHA256SUMS.asc from
 ###   bitcoincore.org and bitcoin.org and compares them.
@@ -19,7 +19,7 @@ function clean_up {
    done
 }
 
-WORKINGDIR="/tmp/defi_verify_binaries"
+WORKINGDIR="/tmp/bitcoin_verify_binaries"
 TMPFILE="hashes.tmp"
 
 SIGNATUREFILENAME="SHA256SUMS.asc"

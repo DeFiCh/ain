@@ -1,9 +1,9 @@
 // Copyright (c) 2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_SCRIPT_DESCRIPTOR_H
-#define DEFI_SCRIPT_DESCRIPTOR_H
+#ifndef BITCOIN_SCRIPT_DESCRIPTOR_H
+#define BITCOIN_SCRIPT_DESCRIPTOR_H
 
 #include <script/script.h>
 #include <script/sign.h>
@@ -105,4 +105,4 @@ std::string GetDescriptorChecksum(const std::string& descriptor);
  */
 std::unique_ptr<Descriptor> InferDescriptor(const CScript& script, const SigningProvider& provider);
 
-#endif // DEFI_SCRIPT_DESCRIPTOR_H
+#endif // BITCOIN_SCRIPT_DESCRIPTOR_H

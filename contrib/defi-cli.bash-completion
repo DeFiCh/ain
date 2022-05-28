@@ -1,10 +1,10 @@
 # bash programmable completion for defi-cli(1)
 # Copyright (c) 2012-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 # call $defi-cli for RPC
-_defi_rpc() {
+_bitcoin_rpc() {
     # determine already specified args necessary for RPC
     local rpcargs=()
     for i in ${COMP_LINE}; do
@@ -14,23 +14,23 @@ _defi_rpc() {
                 ;;
         esac
     done
-    $defi_cli "${rpcargs[@]}" "$@"
+    $bitcoin_cli "${rpcargs[@]}" "$@"
 }
 
 # Add wallet accounts to COMPREPLY
-_defi_accounts() {
+_bitcoin_accounts() {
     local accounts
-    accounts=$(_defi_rpc listaccounts | awk -F '"' '{ print $2 }')
+    accounts=$(_bitcoin_rpc listaccounts | awk -F '"' '{ print $2 }')
     COMPREPLY=( "${COMPREPLY[@]}" $( compgen -W "$accounts" -- "$cur" ) )
 }
 
-_defi_cli() {
+_bitcoin_cli() {
     local cur prev words=() cword
-    local defi_cli
+    local bitcoin_cli
 
     # save and use original argument to invoke defi-cli for -help, help and RPC
     # as defi-cli might not be in $PATH
-    defi_cli="$1"
+    bitcoin_cli="$1"
 
     COMPREPLY=()
     _get_comp_words_by_ref -n = cur prev words cword
@@ -60,7 +60,7 @@ _defi_cli() {
     if ((cword > 3)); then
         case ${words[cword-3]} in
             addmultisigaddress)
-                _defi_accounts
+                _bitcoin_accounts
                 return 0
                 ;;
             getbalance|gettxout|importaddress|importpubkey|importprivkey|listreceivedbyaccount|listreceivedbyaddress|listsinceblock)
@@ -85,7 +85,7 @@ _defi_cli() {
                 return 0
                 ;;
             move|setaccount)
-                _defi_accounts
+                _bitcoin_accounts
                 return 0
                 ;;
         esac
@@ -101,7 +101,7 @@ _defi_cli() {
             return 0
             ;;
         getaccountaddress|getaddressesbyaccount|getbalance|getnewaddress|getreceivedbyaccount|listtransactions|move|sendfrom|sendmany)
-            _defi_accounts
+            _bitcoin_accounts
             return 0
             ;;
     esac
@@ -125,12 +125,12 @@ _defi_cli() {
 
             # only parse -help if senseful
             if [[ -z "$cur" || "$cur" =~ ^- ]]; then
-                helpopts=$($defi_cli -help 2>&1 | awk '$1 ~ /^-/ { sub(/=.*/, "="); print $1 }' )
+                helpopts=$($bitcoin_cli -help 2>&1 | awk '$1 ~ /^-/ { sub(/=.*/, "="); print $1 }' )
             fi
 
             # only parse help if senseful
             if [[ -z "$cur" || "$cur" =~ ^[a-z] ]]; then
-                commands=$(_defi_rpc help 2>/dev/null | awk '$1 ~ /^[a-z]/ { print $1; }')
+                commands=$(_bitcoin_rpc help 2>/dev/null | awk '$1 ~ /^[a-z]/ { print $1; }')
             fi
 
             COMPREPLY=( $( compgen -W "$helpopts $commands" -- "$cur" ) )
@@ -143,7 +143,7 @@ _defi_cli() {
             ;;
     esac
 } &&
-complete -F _defi_cli defi-cli
+complete -F _bitcoin_cli defi-cli
 
 # Local variables:
 # mode: shell-script

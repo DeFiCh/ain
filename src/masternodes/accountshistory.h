@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_ACCOUNTSHISTORY_H
-#define DEFI_MASTERNODES_ACCOUNTSHISTORY_H
+#ifndef BITCOIN_MASTERNODES_ACCOUNTSHISTORY_H
+#define BITCOIN_MASTERNODES_ACCOUNTSHISTORY_H
 
 #include <amount.h>
 #include <flushablestorage.h>
@@ -158,4 +158,4 @@ extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
 
-#endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H
+#endif //BITCOIN_MASTERNODES_ACCOUNTSHISTORY_H

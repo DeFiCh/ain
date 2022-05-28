@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_SUPPORT_CLEANSE_H
-#define DEFI_SUPPORT_CLEANSE_H
+#ifndef BITCOIN_SUPPORT_CLEANSE_H
+#define BITCOIN_SUPPORT_CLEANSE_H
 
 #include <stdlib.h>
 
@@ -12,4 +12,4 @@
  * operation will not be optimized out by the compiler. */
 void memory_cleanse(void *ptr, size_t len);
 
-#endif // DEFI_SUPPORT_CLEANSE_H
+#endif // BITCOIN_SUPPORT_CLEANSE_H

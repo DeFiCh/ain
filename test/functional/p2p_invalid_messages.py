@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2015-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test node responses to invalid network messages."""
 import asyncio
 import os
@@ -67,7 +67,7 @@ class InvalidMessagesTest(DefiTestFramework):
         assert len(msg_at_size.serialize()) == msg_limit
 
         increase_allowed = 0.7 # was 0.5
-        if [s for s in os.environ.get("DEFI_CONFIG", "").split(" ") if "--with-sanitizers" in s and "address" in s]:
+        if [s for s in os.environ.get("BITCOIN_CONFIG", "").split(" ") if "--with-sanitizers" in s and "address" in s]:
             # how much we should increase for that "sanitizers"?
             increase_allowed = 3.5
         with node.assert_memory_usage_stable(increase_allowed=increase_allowed):

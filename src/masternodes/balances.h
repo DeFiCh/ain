@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_BALANCES_H
-#define DEFI_MASTERNODES_BALANCES_H
+#ifndef BITCOIN_MASTERNODES_BALANCES_H
+#define BITCOIN_MASTERNODES_BALANCES_H
 
 #include <cstdint>
 #include <amount.h>
@@ -261,4 +261,4 @@ struct BalanceKey {
         READWRITE(WrapBigEndian(tokenID.v));
     }
 };
-#endif //DEFI_MASTERNODES_BALANCES_H
+#endif //BITCOIN_MASTERNODES_BALANCES_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_INTERFACES_CHAIN_H
-#define DEFI_INTERFACES_CHAIN_H
+#ifndef BITCOIN_INTERFACES_CHAIN_H
+#define BITCOIN_INTERFACES_CHAIN_H
 
 #include <optional.h>               // For Optional and nullopt
 #include <primitives/transaction.h> // For CTransactionRef
@@ -306,4 +306,4 @@ std::unique_ptr<ChainClient> MakeWalletClient(Chain& chain, std::vector<std::str
 
 } // namespace interfaces
 
-#endif // DEFI_INTERFACES_CHAIN_H
+#endif // BITCOIN_INTERFACES_CHAIN_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_FS_H
-#define DEFI_FS_H
+#ifndef BITCOIN_FS_H
+#define BITCOIN_FS_H
 
 #include <stdio.h>
 #include <string>
@@ -92,4 +92,4 @@ namespace fsbridge {
 #endif // WIN32 && __GLIBCXX__
 };
 
-#endif // DEFI_FS_H
+#endif // BITCOIN_FS_H

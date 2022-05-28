@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CHAINPARAMS_H
-#define DEFI_CHAINPARAMS_H
+#ifndef BITCOIN_CHAINPARAMS_H
+#define BITCOIN_CHAINPARAMS_H
 
 #include <chainparamsbase.h>
 #include <consensus/params.h>
@@ -145,4 +145,4 @@ const CChainParams &Params();
  */
 void SelectParams(const std::string& chain);
 
-#endif // DEFI_CHAINPARAMS_H
+#endif // BITCOIN_CHAINPARAMS_H

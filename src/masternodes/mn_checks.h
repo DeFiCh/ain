@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_MN_CHECKS_H
-#define DEFI_MASTERNODES_MN_CHECKS_H
+#ifndef BITCOIN_MASTERNODES_MN_CHECKS_H
+#define BITCOIN_MASTERNODES_MN_CHECKS_H
 
 #include <consensus/params.h>
 #include <masternodes/masternodes.h>
@@ -513,4 +513,4 @@ public:
     CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
-#endif // DEFI_MASTERNODES_MN_CHECKS_H
+#endif // BITCOIN_MASTERNODES_MN_CHECKS_H

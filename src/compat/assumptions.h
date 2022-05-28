@@ -1,12 +1,12 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 // Compile-time verification of assumptions we make.
 
-#ifndef DEFI_COMPAT_ASSUMPTIONS_H
-#define DEFI_COMPAT_ASSUMPTIONS_H
+#ifndef BITCOIN_COMPAT_ASSUMPTIONS_H
+#define BITCOIN_COMPAT_ASSUMPTIONS_H
 
 #include <limits>
 
@@ -62,4 +62,4 @@ static_assert(sizeof(size_t) == sizeof(void*), "Sizes of size_t and void* assume
 // * We are NOT assuming a specific value for std::locale("").name().
 // * We are NOT assuming a specific value for std::numeric_limits<char>::is_signed.
 
-#endif // DEFI_COMPAT_ASSUMPTIONS_H
+#endif // BITCOIN_COMPAT_ASSUMPTIONS_H

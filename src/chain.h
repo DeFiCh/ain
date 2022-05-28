@@ -1,10 +1,10 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CHAIN_H
-#define DEFI_CHAIN_H
+#ifndef BITCOIN_CHAIN_H
+#define BITCOIN_CHAIN_H
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -517,4 +517,4 @@ public:
     CBlockIndex* FindEarliestAtLeast(int64_t nTime, int height) const;
 };
 
-#endif // DEFI_CHAIN_H
+#endif // BITCOIN_CHAIN_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2016 Jeremy Rubin
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_CUCKOOCACHE_H
-#define DEFI_CUCKOOCACHE_H
+#ifndef BITCOIN_CUCKOOCACHE_H
+#define BITCOIN_CUCKOOCACHE_H
 
 #include <array>
 #include <algorithm>
@@ -478,4 +478,4 @@ public:
 };
 } // namespace CuckooCache
 
-#endif // DEFI_CUCKOOCACHE_H
+#endif // BITCOIN_CUCKOOCACHE_H

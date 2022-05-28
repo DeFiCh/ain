@@ -1,9 +1,9 @@
 // Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_UNDO_H
-#define DEFI_MASTERNODES_UNDO_H
+#ifndef BITCOIN_MASTERNODES_UNDO_H
+#define BITCOIN_MASTERNODES_UNDO_H
 
 
 #include <cstdint>
@@ -61,4 +61,4 @@ struct CUndo {
 };
 
 
-#endif //DEFI_MASTERNODES_UNDO_H
+#endif //BITCOIN_MASTERNODES_UNDO_H

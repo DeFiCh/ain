@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_VAULT_H
-#define DEFI_MASTERNODES_VAULT_H
+#ifndef BITCOIN_MASTERNODES_VAULT_H
+#define BITCOIN_MASTERNODES_VAULT_H
 
 #include <amount.h>
 #include <uint256.h>
@@ -189,4 +189,4 @@ public:
     struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x25; } };
 };
 
-#endif // DEFI_MASTERNODES_VAULT_H
+#endif // BITCOIN_MASTERNODES_VAULT_H

@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 export LC_ALL=C.UTF-8
 
@@ -12,4 +12,4 @@ export PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libicu-dev libpng-de
 export NO_DEPENDS=1
 export RUN_FUNCTIONAL_TESTS=false
 export GOAL="install"
-export DEFI_CONFIG="--enable-zmq --with-incompatible-bdb --with-gui=no"
+export BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --with-gui=no"

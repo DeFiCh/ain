@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_RES_H
-#define DEFI_MASTERNODES_RES_H
+#ifndef BITCOIN_MASTERNODES_RES_H
+#define BITCOIN_MASTERNODES_RES_H
 
 #include <string>
 #include <tinyformat.h>
@@ -93,4 +93,4 @@ struct ResVal : public Res
     }
 };
 
-#endif //DEFI_MASTERNODES_RES_H
+#endif //BITCOIN_MASTERNODES_RES_H

@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_PSBT_H
-#define DEFI_PSBT_H
+#ifndef BITCOIN_PSBT_H
+#define BITCOIN_PSBT_H
 
 #include <attributes.h>
 #include <node/transaction.h>
@@ -610,4 +610,4 @@ NODISCARD bool DecodeBase64PSBT(PartiallySignedTransaction& decoded_psbt, const 
 //! Decode a raw (binary blob) PSBT into a PartiallySignedTransaction
 NODISCARD bool DecodeRawPSBT(PartiallySignedTransaction& decoded_psbt, const std::string& raw_psbt, std::string& error);
 
-#endif // DEFI_PSBT_H
+#endif // BITCOIN_PSBT_H

@@ -1,5 +1,5 @@
-#ifndef DEFI_SERIALIZE_OPTIONAL_H
-#define DEFI_SERIALIZE_OPTIONAL_H
+#ifndef BITCOIN_SERIALIZE_OPTIONAL_H
+#define BITCOIN_SERIALIZE_OPTIONAL_H
 
 #include <serialize.h>
 #include <boost/optional.hpp>
@@ -28,4 +28,4 @@ inline void Unserialize(Stream& s, boost::optional<T>& a)
     }
 }
 
-#endif //DEFI_SERIALIZE_OPTIONAL_H
+#endif //BITCOIN_SERIALIZE_OPTIONAL_H
