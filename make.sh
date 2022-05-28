@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) DeFi Blockchain Developers
+# Copyright (c) Bitcoin Developers
 # Maker script
 
 # shellcheck disable=SC2155

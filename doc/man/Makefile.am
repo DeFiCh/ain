@@ -1,7 +1,7 @@
 dist_man1_MANS=
 
-if BUILD_DEFID
-  dist_man1_MANS+=defid.1
+if BUILD_BITCOIND
+  dist_man1_MANS+=bitcoind.1
 endif
 
 if BUILD_BITCOIN_CLI
@@ -9,11 +9,11 @@ if BUILD_BITCOIN_CLI
 endif
 
 if BUILD_BITCOIN_TX
-  dist_man1_MANS+=defi-tx.1
+  dist_man1_MANS+=bitcoin-tx.1
 endif
 
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
-  dist_man1_MANS+=defi-wallet.1
+  dist_man1_MANS+=bitcoin-wallet.1
 endif
 endif

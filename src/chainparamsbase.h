@@ -9,8 +9,8 @@
 #include <string>
 
 /**
- * CBaseChainParams defines the base parameters (shared between defi-cli and defid)
- * of a given instance of the DeFi Blockchain system.
+ * CBaseChainParams defines the base parameters (shared between defi-cli and bitcoind)
+ * of a given instance of the Bitcoin system.
  */
 class CBaseChainParams
 {

@@ -96,7 +96,7 @@ echo
 echo "db4 build complete."
 echo
 # shellcheck disable=SC2016
-echo 'When compiling defid, run `./configure` in the following way:'
+echo 'When compiling bitcoind, run `./configure` in the following way:'
 echo
 echo "  export BDB_PREFIX='${BDB_PREFIX}'"
 # shellcheck disable=SC2016

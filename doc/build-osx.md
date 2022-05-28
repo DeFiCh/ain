@@ -1,6 +1,6 @@
 # macOS Build Instructions and Notes
 
-> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+> NOTE: This section is a work in progress for Bitcoin, and may not be applicable at it's current state.
 
 The commands in this guide should be executed in a Terminal application.
 The built-in one is located in
@@ -84,7 +84,7 @@ In this case there is no dependency on Berkeley DB 4.8.
 Mining is also possible in disable-wallet mode using the `getblocktemplate` RPC call.
 
 ## Running
-Defi Core is now available at `./src/defid`
+Defi Core is now available at `./src/bitcoind`
 
 Before running, you may create an empty configuration file:
 ```shell
@@ -105,7 +105,7 @@ tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 
 ## Other commands:
 ```shell
-./src/defid -daemon      # Starts the defi daemon.
+./src/bitcoind -daemon      # Starts the defi daemon.
 ./src/defi-cli --help    # Outputs a list of command-line options.
 ./src/defi-cli help      # Outputs a list of RPC commands when the daemon is running.
 ```

@@ -1,7 +1,7 @@
 WINDOWS BUILD NOTES
 ====================
 
-> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+> NOTE: This section is a work in progress for Bitcoin, and may not be applicable at it's current state.
 
 Below are some notes on how to build Bitcoin Core for Windows.
 

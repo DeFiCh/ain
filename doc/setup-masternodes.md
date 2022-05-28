@@ -38,12 +38,12 @@ cp ./defichain-1.x.x/bin/* ~/.defi
 
 ### Step 3 - Setting up crontab to keep our node running in the background
 
-Now we may directly run our node by running `~/.defi/defid` , but this would not be very convenient, as we would have to keep the terminal session open the whole time, and run this command every time we restart our computer or SSH session. 
+Now we may directly run our node by running `~/.defi/bitcoind` , but this would not be very convenient, as we would have to keep the terminal session open the whole time, and run this command every time we restart our computer or SSH session. 
 
 Instead, we'll use crontab to keep the process running. Run `crontab -e`, and select an editor (I recommend Nano if you are unsure which to pick), afterwards paste:
 
 ```
-* * * * * pidof defid || ~/.defi/defid
+* * * * * pidof bitcoind || ~/.defi/bitcoind
 ```
 
 into the file and hit `Ctrl-X` then enter to save the file.

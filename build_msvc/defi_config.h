@@ -23,10 +23,10 @@
 #define COPYRIGHT_HOLDERS "The %s Developers"
 
 /* Copyright holder(s) */
-#define COPYRIGHT_HOLDERS_FINAL "The DeFi Blockchain Developers"
+#define COPYRIGHT_HOLDERS_FINAL "The Bitcoin Developers"
 
 /* Replacement for %s in copyright holders string */
-#define COPYRIGHT_HOLDERS_SUBSTITUTION "DeFi Blockchain"
+#define COPYRIGHT_HOLDERS_SUBSTITUTION "Bitcoin"
 
 /* Copyright year */
 #define COPYRIGHT_YEAR 2021
@@ -343,10 +343,10 @@
 #define PACKAGE_BUGREPORT "https://github.com/defich/ain/issues"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "DeFi Blockchain"
+#define PACKAGE_NAME "Bitcoin"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "DeFi Blockchain 1.2.0"
+#define PACKAGE_STRING "Bitcoin 1.2.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "defi"

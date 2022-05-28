@@ -1,7 +1,7 @@
 # It is not recommended to modify this file in-place, because it will
 # be overwritten during package upgrades. If you want to add further
 # options or overwrite existing ones then use
-# $ systemctl edit defid.service
+# $ systemctl edit bitcoind.service
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
@@ -10,12 +10,12 @@
 # config file.
 
 [Unit]
-Description=DeFi Blockchain Daemon
+Description=Bitcoin Daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/defid -daemon \
-                            -pid=/run/defid/defid.pid \
+ExecStart=/usr/bin/bitcoind -daemon \
+                            -pid=/run/bitcoind/bitcoind.pid \
                             -conf=/etc/defi/defi.conf \
                             -datadir=/var/lib/defi
 
@@ -27,7 +27,7 @@ ExecStartPre=/bin/chgrp defi /etc/defi
 ####################
 
 Type=forking
-PIDFile=/run/defid/defid.pid
+PIDFile=/run/bitcoind/bitcoind.pid
 Restart=on-failure
 
 # Directory creation and permissions
@@ -37,8 +37,8 @@ Restart=on-failure
 User=defi
 Group=defi
 
-# /run/defid
-RuntimeDirectory=defid
+# /run/bitcoind
+RuntimeDirectory=bitcoind
 RuntimeDirectoryMode=0710
 
 # /etc/defi

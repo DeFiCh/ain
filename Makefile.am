@@ -16,7 +16,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libbitcoinconsensus.pc
 endif
 
-DEFID_BIN=$(top_builddir)/src/$(BITCOIN_DAEMON_NAME)$(EXEEXT)
+BITCOIND_BIN=$(top_builddir)/src/$(BITCOIN_DAEMON_NAME)$(EXEEXT)
 BITCOIN_CLI_BIN=$(top_builddir)/src/$(BITCOIN_CLI_NAME)$(EXEEXT)
 BITCOIN_TX_BIN=$(top_builddir)/src/$(BITCOIN_TX_NAME)$(EXEEXT)
 BITCOIN_WALLET_BIN=$(top_builddir)/src/$(BITCOIN_WALLET_TOOL_NAME)$(EXEEXT)
@@ -31,16 +31,16 @@ support_rpcauth__DATA = $(top_srcdir)/share/rpcauth/rpcauth.py \
 		$(top_srcdir)/share/rpcauth/README.md
 
 support_service_dir = $(pkgdatadir)/service
-support_service__DATA = $(top_srcdir)/contrib/init/defid.conf \
-		$(top_srcdir)/contrib/init/defid.init \
-		$(top_srcdir)/contrib/init/defid.openrc \
-		$(top_srcdir)/contrib/init/defid.openrcconf \
-		$(top_srcdir)/contrib/init/defid.service
+support_service__DATA = $(top_srcdir)/contrib/init/bitcoind.conf \
+		$(top_srcdir)/contrib/init/bitcoind.init \
+		$(top_srcdir)/contrib/init/bitcoind.openrc \
+		$(top_srcdir)/contrib/init/bitcoind.openrcconf \
+		$(top_srcdir)/contrib/init/bitcoind.service
 
 support_bash_dir = $(datadir)/bash-completion/completions
 support_bash__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
-		$(top_srcdir)/contrib/defi-tx.bash-completion \
-		$(top_srcdir)/contrib/defid.bash-completion
+		$(top_srcdir)/contrib/bitcoin-tx.bash-completion \
+		$(top_srcdir)/contrib/bitcoind.bash-completion
 
 empty :=
 space := $(empty) $(empty)
@@ -59,8 +59,8 @@ OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
 
 DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
 DIST_CONTRIB = $(top_srcdir)/contrib/defi-cli.bash-completion \
-	       $(top_srcdir)/contrib/defi-tx.bash-completion \
-	       $(top_srcdir)/contrib/defid.bash-completion \
+	       $(top_srcdir)/contrib/bitcoin-tx.bash-completion \
+	       $(top_srcdir)/contrib/bitcoind.bash-completion \
 	       $(top_srcdir)/contrib/debian/copyright \
 	       $(top_srcdir)/contrib/init \
 	       $(top_srcdir)/contrib/install_db4.sh
@@ -92,7 +92,7 @@ dist-hook:
 
 $(BITCOIN_WIN_INSTALLER): all-recursive
 	$(MKDIR_P) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFID_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIND_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_CLI_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_TX_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_WALLET_BIN) $(top_builddir)/release
@@ -172,7 +172,7 @@ if TARGET_WINDOWS
 deploy: $(BITCOIN_WIN_INSTALLER)
 endif
 
-$(DEFID_BIN): FORCE
+$(BITCOIND_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
 $(BITCOIN_CLI_BIN): FORCE

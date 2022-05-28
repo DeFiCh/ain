@@ -1,6 +1,6 @@
 # Setup nodes
 
-> NOTE: This section is a work in progress for DeFi Blockchain.
+> NOTE: This section is a work in progress for Bitcoin.
 
 Setting up nodes are exactly similar to how to run a node from the command-line for Bitcoin. We'll update these instructions shortly, meanwhile please follow any bitcoin instructions, substituting the binaries name of bitcoin for defi, that's available under the `bin` dir.
 

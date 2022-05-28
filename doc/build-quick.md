@@ -1,8 +1,8 @@
 # Quick build notes
 
-> NOTE: This section is a work in progress for DeFi Blockchain.
+> NOTE: This section is a work in progress for Bitcoin.
 
-DeFi Blockchain is built with the same process as Bitcoin, but provides certain convenience steps to 
+Bitcoin is built with the same process as Bitcoin, but provides certain convenience steps to 
 build it easily with the `./make.sh` file in the root directory.
 
 ```

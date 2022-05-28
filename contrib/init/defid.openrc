@@ -3,40 +3,40 @@
 # backward compatibility for existing gentoo layout
 #
 if [ -d "/var/lib/defi/.defi" ]; then
-	DEFID_DEFAULT_DATADIR="/var/lib/defi/.defi"
+	BITCOIND_DEFAULT_DATADIR="/var/lib/defi/.defi"
 else
-	DEFID_DEFAULT_DATADIR="/var/lib/defi"
+	BITCOIND_DEFAULT_DATADIR="/var/lib/defi"
 fi
 
-DEFID_CONFIGFILE=${DEFID_CONFIGFILE:-/etc/defi/defi.conf}
-DEFID_PIDDIR=${DEFID_PIDDIR:-/var/run/defid}
-DEFID_PIDFILE=${DEFID_PIDFILE:-${DEFID_PIDDIR}/defid.pid}
-DEFID_DATADIR=${DEFID_DATADIR:-${DEFID_DEFAULT_DATADIR}}
-DEFID_USER=${DEFID_USER:-${BITCOIN_USER:-defi}}
-DEFID_GROUP=${DEFID_GROUP:-defi}
-DEFID_BIN=${DEFID_BIN:-/usr/bin/defid}
-DEFID_NICE=${DEFID_NICE:-${NICELEVEL:-0}}
-DEFID_OPTS="${DEFID_OPTS:-${BITCOIN_OPTS}}"
+BITCOIND_CONFIGFILE=${BITCOIND_CONFIGFILE:-/etc/defi/defi.conf}
+BITCOIND_PIDDIR=${BITCOIND_PIDDIR:-/var/run/bitcoind}
+BITCOIND_PIDFILE=${BITCOIND_PIDFILE:-${BITCOIND_PIDDIR}/bitcoind.pid}
+BITCOIND_DATADIR=${BITCOIND_DATADIR:-${BITCOIND_DEFAULT_DATADIR}}
+BITCOIND_USER=${BITCOIND_USER:-${BITCOIN_USER:-defi}}
+BITCOIND_GROUP=${BITCOIND_GROUP:-defi}
+BITCOIND_BIN=${BITCOIND_BIN:-/usr/bin/bitcoind}
+BITCOIND_NICE=${BITCOIND_NICE:-${NICELEVEL:-0}}
+BITCOIND_OPTS="${BITCOIND_OPTS:-${BITCOIN_OPTS}}"
 
-name="DeFi Blockchain Daemon"
-description="DeFi Blockchain P2P network daemon"
+name="Bitcoin Daemon"
+description="Bitcoin P2P network daemon"
 
-command="/usr/bin/defid"
-command_args="-pid=\"${DEFID_PIDFILE}\" \
-		-conf=\"${DEFID_CONFIGFILE}\" \
-		-datadir=\"${DEFID_DATADIR}\" \
+command="/usr/bin/bitcoind"
+command_args="-pid=\"${BITCOIND_PIDFILE}\" \
+		-conf=\"${BITCOIND_CONFIGFILE}\" \
+		-datadir=\"${BITCOIND_DATADIR}\" \
 		-daemon \
-		${DEFID_OPTS}"
+		${BITCOIND_OPTS}"
 
-required_files="${DEFID_CONFIGFILE}"
-start_stop_daemon_args="-u ${DEFID_USER} \
-			-N ${DEFID_NICE} -w 2000"
-pidfile="${DEFID_PIDFILE}"
+required_files="${BITCOIND_CONFIGFILE}"
+start_stop_daemon_args="-u ${BITCOIND_USER} \
+			-N ${BITCOIND_NICE} -w 2000"
+pidfile="${BITCOIND_PIDFILE}"
 
 # The retry schedule to use when stopping the daemon. Could be either
 # a timeout in seconds or multiple signal/timeout pairs (like
 # "SIGKILL/180 SIGTERM/300")
-retry="${DEFID_SIGTERM_TIMEOUT}"
+retry="${BITCOIND_SIGTERM_TIMEOUT}"
 
 depend() {
 	need localmount net
@@ -50,29 +50,29 @@ start_pre() {
 	checkpath \
 	-d \
 	--mode 0750 \
-	--owner "${DEFID_USER}:${DEFID_GROUP}" \
-	"${DEFID_DATADIR}"
+	--owner "${BITCOIND_USER}:${BITCOIND_GROUP}" \
+	"${BITCOIND_DATADIR}"
 
 	checkpath \
 	-d \
 	--mode 0755 \
-	--owner "${DEFID_USER}:${DEFID_GROUP}" \
-	"${DEFID_PIDDIR}"
+	--owner "${BITCOIND_USER}:${BITCOIND_GROUP}" \
+	"${BITCOIND_PIDDIR}"
 
 	checkpath -f \
-	-o ${DEFID_USER}:${DEFID_GROUP} \
+	-o ${BITCOIND_USER}:${BITCOIND_GROUP} \
 	-m 0660 \
-	${DEFID_CONFIGFILE}
+	${BITCOIND_CONFIGFILE}
 
 	checkconfig || return 1
 }
 
 checkconfig()
 {
-	if ! grep -qs '^rpcpassword=' "${DEFID_CONFIGFILE}" ; then
+	if ! grep -qs '^rpcpassword=' "${BITCOIND_CONFIGFILE}" ; then
 		eerror ""
-		eerror "ERROR: You must set a secure rpcpassword to run defid."
-		eerror "The setting must appear in ${DEFID_CONFIGFILE}"
+		eerror "ERROR: You must set a secure rpcpassword to run bitcoind."
+		eerror "The setting must appear in ${BITCOIND_CONFIGFILE}"
 		eerror ""
 		eerror "This password is security critical to securing wallets "
 		eerror "and must not be the same as the rpcuser setting."

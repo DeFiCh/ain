@@ -1,7 +1,7 @@
 UNIX BUILD NOTES
 ====================
 
-> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+> NOTE: This section is a work in progress for Bitcoin, and may not be applicable at it's current state.
 
 Some notes on how to build DeFi Core in Unix.
 
@@ -121,7 +121,7 @@ ZMQ dependencies (provides ZMQ API):
 
 Notes
 -----
-The release is built with GCC and then "strip defid" to strip the debug
+The release is built with GCC and then "strip bitcoind" to strip the debug
 symbols, which reduces the executable size by about 90%.
 
 

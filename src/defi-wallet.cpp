@@ -42,12 +42,12 @@ static bool WalletAppInit(int argc, char* argv[])
         return false;
     }
     if (argc < 2 || HelpRequested(gArgs)) {
-        std::string usage = strprintf("%s defi-wallet version", PACKAGE_NAME) + " " + FormatVersionAndSuffix() + "\n\n" +
-                                      "wallet-tool is an offline tool for creating and interacting with the DeFi Blockchain wallet files.\n" +
+        std::string usage = strprintf("%s bitcoin-wallet version", PACKAGE_NAME) + " " + FormatVersionAndSuffix() + "\n\n" +
+                                      "wallet-tool is an offline tool for creating and interacting with the Bitcoin wallet files.\n" +
                                       "By default wallet-tool will act on wallets in the default mainnet wallet directory in the datadir.\n" +
                                       "To change the target wallet, use the -datadir, -wallet and -testnet/-regtest arguments.\n\n" +
                                       "Usage:\n" +
-                                     "  defi-wallet [options] <command>\n\n" +
+                                     "  bitcoin-wallet [options] <command>\n\n" +
                                      gArgs.GetHelpMessage();
 
         tfm::format(std::cout, "%s", usage.c_str());
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
     }
 
     if (method.empty()) {
-        tfm::format(std::cerr, "No method provided. Run `defi-wallet -help` for valid methods.\n");
+        tfm::format(std::cerr, "No method provided. Run `bitcoin-wallet -help` for valid methods.\n");
         return EXIT_FAILURE;
     }
 

@@ -8,17 +8,17 @@ define(_CLIENT_VERSION_RC, 0)
 define(_CLIENT_VERSION_IS_RELEASE, true)
 define(_COPYRIGHT_YEAR, 2021)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
-define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[DeFi Blockchain]])
-AC_INIT([DeFi Blockchain],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/defich/ain/issues],[defi],[https://defichain.io/])
+define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Bitcoin]])
+AC_INIT([Bitcoin],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/defich/ain/issues],[defi],[https://defichain.io/])
 AC_CONFIG_SRCDIR([src/validation.cpp])
 AC_CONFIG_HEADERS([src/config/defi-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
-BITCOIN_DAEMON_NAME=defid
+BITCOIN_DAEMON_NAME=bitcoind
 BITCOIN_CLI_NAME=defi-cli
-BITCOIN_TX_NAME=defi-tx
-BITCOIN_WALLET_TOOL_NAME=defi-wallet
+BITCOIN_TX_NAME=bitcoin-tx
+BITCOIN_WALLET_TOOL_NAME=bitcoin-wallet
 
 dnl Unless the user specified ARFLAGS, force it to be cr
 AC_ARG_VAR(ARFLAGS, [Flags for the archiver, defaults to <cr> if not set])
@@ -443,7 +443,7 @@ CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS"
 
 AC_ARG_WITH([utils],
   [AS_HELP_STRING([--with-utils],
-  [build defi-cli defi-tx defi-wallet (default=yes)])],
+  [build defi-cli bitcoin-tx bitcoin-wallet (default=yes)])],
   [build_bitcoin_utils=$withval],
   [build_bitcoin_utils=yes])
 
@@ -455,13 +455,13 @@ AC_ARG_ENABLE([util-cli],
 
 AC_ARG_ENABLE([util-tx],
   [AS_HELP_STRING([--enable-util-tx],
-  [build defi-tx])],
+  [build bitcoin-tx])],
   [build_bitcoin_tx=$enableval],
   [build_bitcoin_tx=$build_bitcoin_utils])
 
 AC_ARG_ENABLE([util-wallet],
   [AS_HELP_STRING([--enable-util-wallet],
-  [build defi-wallet])],
+  [build bitcoin-wallet])],
   [build_bitcoin_wallet=$enableval],
   [build_bitcoin_wallet=$build_bitcoin_utils])
 
@@ -473,9 +473,9 @@ AC_ARG_WITH([libs],
 
 AC_ARG_WITH([daemon],
   [AS_HELP_STRING([--with-daemon],
-  [build defid daemon (default=yes)])],
-  [build_defid=$withval],
-  [build_defid=yes])
+  [build bitcoind daemon (default=yes)])],
+  [build_bitcoind=$withval],
+  [build_bitcoind=yes])
 
 use_pkgconfig=yes
 case $host in
@@ -1023,7 +1023,7 @@ if test "x$enable_fuzz" = "xyes"; then
   build_bitcoin_cli=no
   build_bitcoin_tx=no
   build_bitcoin_wallet=no
-  build_defid=no
+  build_bitcoind=no
   build_bitcoin_libs=no
   enable_wallet=no
   use_bench=no
@@ -1065,7 +1065,7 @@ if test x$have_miniupnpc != xno; then
 fi
 fi
 
-if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_defid$use_tests$use_bench = xnonononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_bitcoind$use_tests$use_bench = xnonononononono; then
     use_boost=no
 else
     use_boost=yes
@@ -1247,7 +1247,7 @@ if test x$use_pkgconfig = xyes; then
   m4_ifdef(
     [PKG_CHECK_MODULES],
     [
-      if test x$build_bitcoin_cli$build_defid$use_tests != xnononono; then
+      if test x$build_bitcoin_cli$build_bitcoind$use_tests != xnononono; then
         PKG_CHECK_MODULES([EVENT], [libevent],, [AC_MSG_ERROR(libevent not found.)])
         if test x$TARGET_OS != xwindows; then
           PKG_CHECK_MODULES([EVENT_PTHREADS], [libevent_pthreads],, [AC_MSG_ERROR(libevent_pthreads not found.)])
@@ -1266,7 +1266,7 @@ if test x$use_pkgconfig = xyes; then
     ]
   )
 else
-  if test x$build_bitcoin_cli$build_defid$use_tests != xnononono; then
+  if test x$build_bitcoin_cli$build_bitcoind$use_tests != xnononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
     AC_CHECK_LIB([event],[main],EVENT_LIBS=-levent,AC_MSG_ERROR(libevent missing))
     if test x$TARGET_OS != xwindows; then
@@ -1318,7 +1318,7 @@ dnl univalue check
 
 need_bundled_univalue=yes
 
-if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_defid$use_tests$use_bench = xnonononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_bitcoind$use_tests$use_bench = xnonononononono; then
   need_bundled_univalue=no
 else
 
@@ -1363,19 +1363,19 @@ AC_SUBST(UNIVALUE_CFLAGS)
 AC_SUBST(UNIVALUE_LIBS)
 
 
-AC_MSG_CHECKING([whether to build defid])
-AM_CONDITIONAL([BUILD_DEFID], [test x$build_defid = xyes])
-AC_MSG_RESULT($build_defid)
+AC_MSG_CHECKING([whether to build bitcoind])
+AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_bitcoind = xyes])
+AC_MSG_RESULT($build_bitcoind)
 
 AC_MSG_CHECKING([whether to build defi-cli])
 AM_CONDITIONAL([BUILD_BITCOIN_CLI], [test x$build_bitcoin_cli = xyes])
 AC_MSG_RESULT($build_bitcoin_cli)
 
-AC_MSG_CHECKING([whether to build defi-tx])
+AC_MSG_CHECKING([whether to build bitcoin-tx])
 AM_CONDITIONAL([BUILD_BITCOIN_TX], [test x$build_bitcoin_tx = xyes])
 AC_MSG_RESULT($build_bitcoin_tx)
 
-AC_MSG_CHECKING([whether to build defi-wallet])
+AC_MSG_CHECKING([whether to build bitcoin-wallet])
 AM_CONDITIONAL([BUILD_BITCOIN_WALLET], [test x$build_bitcoin_wallet = xyes])
 AC_MSG_RESULT($build_bitcoin_wallet)
 
@@ -1464,7 +1464,7 @@ else
   AC_MSG_RESULT([no])
 fi
 
-if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_bitcoin_libs$build_defid$use_bench$use_tests = xnononononononono; then
+if test x$build_bitcoin_wallet$build_bitcoin_cli$build_bitcoin_tx$build_bitcoin_libs$build_bitcoind$use_bench$use_tests = xnononononononono; then
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --enable-bench or --enable-tests])
 fi
 

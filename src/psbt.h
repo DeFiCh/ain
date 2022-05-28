@@ -396,7 +396,7 @@ struct PartiallySignedTransaction
     bool IsNull() const;
 
     /** Merge psbt into this. The two psbts must have the same underlying CTransaction (i.e. the
-      * same actual DeFi Blockchain transaction.) Returns true if the merge succeeded, false otherwise. */
+      * same actual Bitcoin transaction.) Returns true if the merge succeeded, false otherwise. */
     NODISCARD bool Merge(const PartiallySignedTransaction& psbt);
     bool IsSane() const;
     bool AddInput(const CTxIn& txin, PSBTInput& psbtin);

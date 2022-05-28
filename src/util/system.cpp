@@ -218,7 +218,7 @@ public:
         std::pair<bool,std::string> found_result(false, std::string());
 
         // We pass "true" to GetArgHelper in order to return the last
-        // argument value seen from the command line (so "defid -foo=bar
+        // argument value seen from the command line (so "bitcoind -foo=bar
         // -foo=baz" gives GetArg(am,"foo")=={true,"baz"}
         found_result = GetArgHelper(am.m_override_args, arg, true);
         if (found_result.first) {
@@ -381,7 +381,7 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
 
     for (int i = 1; i < argc; i++) {
         std::string key(argv[i]);
-        if (key == "-") break; //defi-tx using stdin
+        if (key == "-") break; //bitcoin-tx using stdin
         std::string val;
         size_t is_index = key.find('=');
         if (is_index != std::string::npos) {
@@ -692,7 +692,7 @@ fs::path GetDefaultDataDir()
     // Unix: ~/.defi
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "DeFi Blockchain";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Bitcoin";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -1202,8 +1202,8 @@ std::string CopyrightHolders(const std::string& strPrefix)
     std::string strCopyrightHolders = strPrefix + copyright_devs;
 
     // Make sure the Bitcoin Core copyright is not removed by accident
-    if (copyright_devs.find("DeFi Blockchain Developers") == std::string::npos) {
-        strCopyrightHolders += "\n" + strPrefix + "DeFi Blockchain Developers";
+    if (copyright_devs.find("Bitcoin Developers") == std::string::npos) {
+        strCopyrightHolders += "\n" + strPrefix + "Bitcoin Developers";
     }
     return strCopyrightHolders;
 }

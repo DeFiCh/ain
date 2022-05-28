@@ -110,7 +110,7 @@ static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 /**
  * The PID file facilities.
  */
-static const char* BITCOIN_PID_FILENAME = "defid.pid";
+static const char* BITCOIN_PID_FILENAME = "bitcoind.pid";
 
 static fs::path GetPidFile()
 {
@@ -789,7 +789,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
 }
 
 /** Sanity checks
- *  Ensure that the DeFi Blockchain is running in a usable environment with all
+ *  Ensure that the Bitcoin is running in a usable environment with all
  *  necessary library support.
  */
 static bool InitSanityCheck()
@@ -1225,7 +1225,7 @@ bool AppInitParameterInteraction()
 
 static bool LockDataDirectory(bool probeOnly)
 {
-    // Make sure only a single DeFi Blockchain process is using the data directory.
+    // Make sure only a single Bitcoin process is using the data directory.
     fs::path datadir = GetDataDir();
     if (!DirIsWritable(datadir)) {
         return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, datadir.string()));

@@ -1,15 +1,15 @@
-Building DeFi Blockchain with Visual Studio
+Building Bitcoin with Visual Studio
 ========================================
 
 Introduction
 ---------------------
-Solution and project files to build DeFi Blockchain applications (except Qt dependent ones) with Visual Studio 2017 can be found in the build_msvc directory.
+Solution and project files to build Bitcoin applications (except Qt dependent ones) with Visual Studio 2017 can be found in the build_msvc directory.
 
 Building with Visual Studio is an alternative to the Linux based [cross-compiler build](../doc/build-windows.md).
 
 Dependencies
 ---------------------
-A number of [open source libraries](../doc/dependencies.md) are required in order to be able to build the DeFi Blockchain.
+A number of [open source libraries](../doc/dependencies.md) are required in order to be able to build the Bitcoin.
 
 Options for installing the dependencies in a Visual Studio compatible manner are:
 
@@ -26,7 +26,7 @@ The external dependencies required for the Visual Studio build are (see [depende
 - ZeroMQ
 - RapidCheck
 
-Additional dependencies required from the [DeFi Blockchain](https://github.com/defich/ain) GitHub repository are:
+Additional dependencies required from the [Bitcoin](https://github.com/defich/ain) GitHub repository are:
 - libsecp256k1
 - LevelDB
 

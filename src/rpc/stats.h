@@ -50,7 +50,7 @@ struct RPCStats {
 };
 
 /**
- * DeFi Blockchain RPC Stats class.
+ * Bitcoin RPC Stats class.
  */
 class CRPCStats
 {

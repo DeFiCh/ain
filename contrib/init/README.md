@@ -1,11 +1,11 @@
 Sample configuration files for:
 ```
-SystemD: defid.service
-Upstart: defid.conf
-OpenRC:  defid.openrc
-         defid.openrcconf
-CentOS:  defid.init
-macOS:   org.defi.defid.plist
+SystemD: bitcoind.service
+Upstart: bitcoind.conf
+OpenRC:  bitcoind.openrc
+         bitcoind.openrcconf
+CentOS:  bitcoind.init
+macOS:   org.defi.bitcoind.plist
 ```
 have been made available to assist packagers in creating node packages here.
 

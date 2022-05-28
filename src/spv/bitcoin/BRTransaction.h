@@ -39,7 +39,7 @@ extern "C" {
 
 #define TX_VERSION           0x00000001
 #define TX_VERSION_V2        0x00000002
-#define TX_FEE_PER_KB        1000ULL     // standard tx fee per kb of tx size (defid 0.12 default min-relay fee-rate)
+#define TX_FEE_PER_KB        1000ULL     // standard tx fee per kb of tx size (bitcoind 0.12 default min-relay fee-rate)
 #define TX_OUTPUT_SIZE       34          // estimated size for a typical transaction output
 #define TX_INPUT_SIZE        148         // estimated size for a typical compact pubkey transaction input
 #define TX_HTLC_INPUT_NOSIG  42          // approx. size of input without signature
@@ -133,7 +133,7 @@ size_t BRTransactionHTLCSize(const BRTransaction *tx, const size_t sigSize);
 // virtual transaction size as defined by BIP141: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
 size_t BRTransactionVSize(const BRTransaction *tx);
 
-// minimum transaction fee needed for tx to relay across the bitcoin network (defid 0.12 default min-relay fee-rate)
+// minimum transaction fee needed for tx to relay across the bitcoin network (bitcoind 0.12 default min-relay fee-rate)
 uint64_t BRTransactionStandardFee(const BRTransaction *tx);
 
 // checks if all signatures exist, but does not verify them

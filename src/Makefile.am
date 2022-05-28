@@ -86,19 +86,19 @@ noinst_PROGRAMS =
 TESTS =
 BENCHMARKS =
 
-if BUILD_DEFID
-  bin_PROGRAMS += defid
+if BUILD_BITCOIND
+  bin_PROGRAMS += bitcoind
 endif
 
 if BUILD_BITCOIN_CLI
   bin_PROGRAMS += defi-cli
 endif
 if BUILD_BITCOIN_TX
-  bin_PROGRAMS += defi-tx
+  bin_PROGRAMS += bitcoin-tx
 endif
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
-  bin_PROGRAMS += defi-wallet
+  bin_PROGRAMS += bitcoin-wallet
 endif
 endif
 
@@ -350,7 +350,7 @@ nodist_libbitcoin_spv_a_SOURCES = $(LIBSECP256K1_GEN)
 BUILT_SOURCES = $(LIBSECP256K1_GEN)
 $(LIBSECP256K1_GEN): $(LIBSECP256K1)
 
-# server: shared between defid and defi-qt
+# server: shared between bitcoind and defi-qt
 # Contains code accessing mempool and chain state that is meant to be separated
 # from wallet and gui code (see node/README.md). Shared code should go in
 # libbitcoin_common or libbitcoin_util libraries, instead.
@@ -462,7 +462,7 @@ libbitcoin_zmq_a_SOURCES = \
 endif
 
 
-# wallet: shared between defid and defi-qt, but only linked
+# wallet: shared between bitcoind and defi-qt, but only linked
 # when wallet enabled
 libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -579,7 +579,7 @@ libbitcoin_consensus_a_SOURCES = \
   util/strencodings.h \
   version.h
 
-# common: shared between defid, and defi-qt and non-server tools
+# common: shared between bitcoind, and defi-qt and non-server tools
 libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
@@ -664,19 +664,19 @@ libbitcoin_cli_a_SOURCES = \
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# defid binary #
-defid_SOURCES = defid.cpp
-defid_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+# bitcoind binary #
+bitcoind_SOURCES = bitcoind.cpp
+bitcoind_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+bitcoind_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-defid_SOURCES += defid-res.rc
+bitcoind_SOURCES += bitcoind-res.rc
 endif
 
 # Libraries below may be listed more than once to resolve circular dependencies (see
 # https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking#circular-dependency)
-defid_LDADD = \
+bitcoind_LDADD = \
   $(LIBITCOIN_SERVER) \
   $(LIBITCOIN_WALLET) \
   $(LIBITCOIN_SERVER) \
@@ -691,7 +691,7 @@ defid_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # defi-cli binary #
 bitcoin_cli_SOURCES = defi-cli.cpp
@@ -712,14 +712,14 @@ bitcoin_cli_LDADD = \
 bitcoin_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
 #
 
-# defi-tx binary #
-bitcoin_tx_SOURCES = defi-tx.cpp
+# bitcoin-tx binary #
+bitcoin_tx_SOURCES = bitcoin-tx.cpp
 bitcoin_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 bitcoin_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bitcoin_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-bitcoin_tx_SOURCES += defi-tx-res.rc
+bitcoin_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
 bitcoin_tx_LDADD = \
@@ -733,14 +733,14 @@ bitcoin_tx_LDADD = \
 bitcoin_tx_LDADD += $(BOOST_LIBS)
 #
 
-# defi-wallet binary #
-bitcoin_wallet_SOURCES = defi-wallet.cpp
+# bitcoin-wallet binary #
+bitcoin_wallet_SOURCES = bitcoin-wallet.cpp
 bitcoin_wallet_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 bitcoin_wallet_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bitcoin_wallet_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-bitcoin_wallet_SOURCES += defi-wallet-res.rc
+bitcoin_wallet_SOURCES += bitcoin-wallet-res.rc
 endif
 
 bitcoin_wallet_LDADD = \

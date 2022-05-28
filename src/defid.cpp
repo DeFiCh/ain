@@ -85,7 +85,7 @@ static bool AppInit(int argc, char* argv[])
         }
         else
         {
-            strUsage += "\nUsage:  defid [options]                     Start " PACKAGE_NAME " Daemon\n";
+            strUsage += "\nUsage:  bitcoind [options]                     Start " PACKAGE_NAME " Daemon\n";
             strUsage += "\n" + gArgs.GetHelpMessage();
         }
 
@@ -111,11 +111,11 @@ static bool AppInit(int argc, char* argv[])
         // Error out when loose non-argument tokens are encountered on command line
         for (int i = 1; i < argc; i++) {
             if (!IsSwitchChar(argv[i][0])) {
-                return InitError(strprintf("Command line contains unexpected token '%s', see defid -h for a list of options.\n", argv[i]));
+                return InitError(strprintf("Command line contains unexpected token '%s', see bitcoind -h for a list of options.\n", argv[i]));
             }
         }
 
-        // -server defaults to true for defid but not for the GUI so do this here
+        // -server defaults to true for bitcoind but not for the GUI so do this here
         gArgs.SoftSetBoolArg("-server", true);
         // Set this early so that parameter interactions go to console
         InitLogging();
@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
 #endif
     SetupEnvironment();
 
-    // Connect defid signal handlers
+    // Connect bitcoind signal handlers
     noui_connect();
 
     return (AppInit(argc, argv) ? EXIT_SUCCESS : EXIT_FAILURE);

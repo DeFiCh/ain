@@ -6,7 +6,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoinconsensus", "libb
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testconsensus", "testconsensus\testconsensus.vcxproj", "{E78473E9-B850-456C-9120-276301E04C06}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "defid", "defid\defid.vcxproj", "{D4513DDF-6013-44DC-ADCC-12EAF6D1F038}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoind", "bitcoind\bitcoind.vcxproj", "{D4513DDF-6013-44DC-ADCC-12EAF6D1F038}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_util", "libbitcoin_util\libbitcoin_util.vcxproj", "{B53A5535-EE9D-4C6F-9A26-F79EE3BC3754}"
 EndProject
@@ -30,9 +30,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "defi-cli", "defi-cli\defi-c
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bench_defi", "bench_defi\bench_defi.vcxproj", "{1125654E-E1B2-4431-8B5C-62EA9A2FEECB}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "defi-tx", "defi-tx\defi-tx.vcxproj", "{D3022AF6-AD33-4CE3-B358-87CB6A1B29CF}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoin-tx", "bitcoin-tx\bitcoin-tx.vcxproj", "{D3022AF6-AD33-4CE3-B358-87CB6A1B29CF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "defi-wallet", "defi-wallet\defi-wallet.vcxproj", "{84DE8790-EDE3-4483-81AC-C32F15E861F4}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoin-wallet", "bitcoin-wallet\bitcoin-wallet.vcxproj", "{84DE8790-EDE3-4483-81AC-C32F15E861F4}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_wallet_tool", "libbitcoin_wallet_tool\libbitcoin_wallet_tool.vcxproj", "{F91AC55E-6F5E-4C58-9AC5-B40DB7DEEF93}"
 EndProject

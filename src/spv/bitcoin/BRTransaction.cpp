@@ -634,7 +634,7 @@ size_t BRTransactionVSize(const BRTransaction *tx)
     return (size*4 + witSize + 3)/4;
 }
 
-// minimum transaction fee needed for tx to relay across the bitcoin network (defid 0.12 default min-relay fee-rate)
+// minimum transaction fee needed for tx to relay across the bitcoin network (bitcoind 0.12 default min-relay fee-rate)
 uint64_t BRTransactionStandardFee(const BRTransaction *tx)
 {
     assert(tx != NULL);

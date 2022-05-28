@@ -1,7 +1,7 @@
 Description
 ------------
 
-This directory contains data-driven tests for various aspects of DeFi Blockchain.
+This directory contains data-driven tests for various aspects of Bitcoin.
 
 License
 --------
