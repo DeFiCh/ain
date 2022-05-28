@@ -349,7 +349,7 @@
 #define PACKAGE_STRING "Bitcoin 1.2.0"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "defi"
+#define PACKAGE_TARNAME "bitcoin"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL "https://defichain.io/"

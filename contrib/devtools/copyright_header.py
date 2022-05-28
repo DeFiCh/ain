@@ -16,7 +16,7 @@ import os
 
 EXCLUDE = [
     # auto generated:
-    'src/qt/defistrings.cpp',
+    'src/qt/bitcoinstrings.cpp',
     'src/chainparamsseeds.h',
     # other external copyrights:
     'src/tinyformat.h',

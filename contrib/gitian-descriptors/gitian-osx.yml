@@ -30,7 +30,7 @@ packages:
 - "fonts-tuffy"
 remotes:
 - "url": "https://github.com/bitcoin/bitcoin.git"
-  "dir": "defi"
+  "dir": "bitcoin"
 files:
 - "MacOSX10.11.sdk.tar.gz"
 script: |

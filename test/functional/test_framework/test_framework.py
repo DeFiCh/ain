@@ -147,7 +147,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config.read_file(open(self.options.configfile))
         self.config = config
         self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
+        self.options.deficli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),

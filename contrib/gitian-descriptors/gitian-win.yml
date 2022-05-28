@@ -25,7 +25,7 @@ packages:
 - "rename"
 remotes:
 - "url": "https://github.com/bitcoin/bitcoin.git"
-  "dir": "defi"
+  "dir": "bitcoin"
 files: []
 script: |
   set -e -o pipefail

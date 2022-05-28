@@ -13,8 +13,8 @@
 #BITCOIND_DATADIR="/var/lib/defi"
 
 # User and group to own bitcoind process
-#BITCOIND_USER="defi"
-#BITCOIND_GROUP="defi"
+#BITCOIND_USER="bitcoin"
+#BITCOIND_GROUP="bitcoin"
 
 # Path to bitcoind executable
 #BITCOIND_BIN="/usr/bin/bitcoind"
