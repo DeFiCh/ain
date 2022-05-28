@@ -6,9 +6,9 @@ WORKDIR /app
 
 COPY --from=dh-build /app/. ./
 
-RUN useradd --create-home defi && \
+RUN useradd --create-home bitcoin && \
     mkdir -p /data && \
-    chown defi:defi /data && \
+    chown defi:bitcoin /data && \
     ln -s /data /home/defi/.defi
 
 VOLUME ["/data"]

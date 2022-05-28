@@ -57,7 +57,7 @@ RUN make -j $(nproc)
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
-### Actual image that contains defi binaries
+### Actual image that contains bitcoin binaries
 FROM ubuntu:18.04
 ARG TARGET
 LABEL org.defichain.name="defichain"

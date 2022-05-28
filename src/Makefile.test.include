@@ -29,7 +29,7 @@ FUZZ_TARGETS = \
 if ENABLE_FUZZ
 noinst_PROGRAMS += $(FUZZ_TARGETS:=)
 else
-bin_PROGRAMS += test/test_defi
+bin_PROGRAMS += test/test_bitcoin
 endif
 
 TEST_SRCDIR = test
@@ -76,7 +76,7 @@ FUZZ_SUITE_LD_COMMON = \
  $(EVENT_LIBS) \
  $(EVENT_PTHREADS_LIBS)
 
-# test_defi binary #
+# test_bitcoin binary #
 BITCOIN_TESTS =\
   test/arith_uint256_tests.cpp \
   test/scriptnum10.h \
@@ -364,7 +364,7 @@ endif
 if TARGET_WINDOWS
 else
 if ENABLE_BENCH
-	@echo "Running bench/bench_defi -evals=1 -scaling=0..."
+	@echo "Running bench/bench_bitcoin -evals=1 -scaling=0..."
 	$(BENCH_BINARY) -evals=1 -scaling=0 > /dev/null
 endif
 endif

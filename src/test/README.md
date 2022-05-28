@@ -21,21 +21,21 @@ the `src/qt/test/test_main.cpp` file.
 
 ### Running individual tests
 
-test_defi has some built-in command-line arguments; for
+test_bitcoin has some built-in command-line arguments; for
 example, to run just the getarg_tests verbosely:
 
-    test_defi --log_level=all --run_test=getarg_tests
+    test_bitcoin --log_level=all --run_test=getarg_tests
 
 ... or to run just the doubledash test:
 
-    test_defi --run_test=getarg_tests/doubledash
+    test_bitcoin --run_test=getarg_tests/doubledash
 
-Run `test_defi --help` for the full list.
+Run `test_bitcoin --help` for the full list.
 
 ### Note on adding test cases
 
 The sources in this directory are unit test cases.  Boost includes a
-unit testing framework, and since defi already uses boost, it makes
+unit testing framework, and since bitcoin already uses boost, it makes
 sense to simply use this framework rather than require developers to
 configure some other framework (we want as few impediments to creating
 unit tests as possible).

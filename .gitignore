@@ -20,7 +20,7 @@ src/bitcoind
 src/bitcoin-cli
 src/bitcoin-tx
 src/bitcoin-wallet
-src/test/test_defi
+src/test/test_bitcoin
 src/test/test_bitcoin_fuzzy
 
 # autoreconf

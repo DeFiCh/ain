@@ -553,7 +553,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                {
                     {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address is the key, the value is amount in amount@token format. "
                                                                                  "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"}
                         },
                     },
@@ -698,10 +698,10 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address of sender"},
                     {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address is the key, the value is amount in amount@token format. "
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
                     },
@@ -790,11 +790,11 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                "The third optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address of sender"},
                     {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "The defi address is the key, the value is amount in amount@token format. "
+                                 "The bitcoin address is the key, the value is amount in amount@token format. "
                                  "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
                             },
                         },
@@ -1628,14 +1628,14 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                {
                     {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The source defi address is the key, the value is amount in amount@token format. "
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The source bitcoin address is the key, the value is amount in amount@token format. "
                                                                                      "If obj is empty (no address keys exists) then will try to auto-select accounts from wallet "
                                                                                      "with necessary balances to transfer."},
                         },
                     },
                     {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address is the key, the value is amount in amount@token format. "
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
                     },
@@ -1751,7 +1751,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                },
                RPCResult{
                        "{\n"
-                       "  \"address\" : \"address\",        (string) The defi burn address\n"
+                       "  \"address\" : \"address\",        (string) The bitcoin burn address\n"
                        "  \"amount\" : n.nnnnnnnn,        (string) The amount of DFI burnt\n"
                        "  \"tokens\" :  [\n"
                        "      { (array of burnt tokens)"

@@ -74,9 +74,9 @@ class DefiTestMetaClass(type):
 
 
 class DefiTestFramework(metaclass=DefiTestMetaClass):
-    """Base class for a defi test script.
+    """Base class for a bitcoin test script.
 
-    Individual defi test scripts should subclass this class and override the set_test_params() and run_test() methods.
+    Individual bitcoin test scripts should subclass this class and override the set_test_params() and run_test() methods.
 
     Individual tests can also override the following methods to customize the test setup:
 

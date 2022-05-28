@@ -273,13 +273,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                {
                        {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address(es) is the key(s), the value(s) is amount in amount@token format. "
                                                                                      "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
                                                                                      "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
                                                                                      "If \"from\" obj contain only one amount entry with address-key: \"*\" (star), it's means auto-selection accounts from wallet."},
                         },
                        },
-                       {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
+                       {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address for crediting tokens."},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -386,7 +386,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address which has tokens"},
+                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address which has tokens"},
                        {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Liquidity amount@Liquidity pool symbol"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                             "A json array of json objects",

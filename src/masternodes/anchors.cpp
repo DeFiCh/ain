@@ -235,7 +235,7 @@ CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus
 CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) const
 {
     AssertLockHeld(cs_main);
-    // KList is sorted by defi height + signHash (all except sign)
+    // KList is sorted by bitcoin height + signHash (all except sign)
     typedef Auths::index<Auth::ByKey>::type KList;
     KList const & list = auths.get<Auth::ByKey>();
 
@@ -329,7 +329,7 @@ void CAnchorAuthIndex::ForEachAnchorAuthByHeight(std::function<bool (const CAnch
 void CAnchorAuthIndex::PruneOlderThan(THeight height)
 {
     AssertLockHeld(cs_main);
-    // KList is sorted by defi height + signHash (all except sign)
+    // KList is sorted by bitcoin height + signHash (all except sign)
     typedef Auths::index<Auth::ByKey>::type KList;
     KList & list = auths.get<Auth::ByKey>();
 

@@ -54,7 +54,7 @@ from the root of the repository.
 
 2.  Build Bitcoin Core:
 
-    Configure and build the headless defi Core binaries.
+    Configure and build the headless bitcoin Core binaries.
 
     ```shell
     ./autogen.sh
@@ -105,7 +105,7 @@ tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 
 ## Other commands:
 ```shell
-./src/bitcoind -daemon      # Starts the defi daemon.
+./src/bitcoind -daemon      # Starts the bitcoin daemon.
 ./src/bitcoin-cli --help    # Outputs a list of command-line options.
 ./src/bitcoin-cli help      # Outputs a list of RPC commands when the daemon is running.
 ```

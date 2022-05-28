@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->anchor.height == 15);
     BOOST_CHECK(top->anchor.previousAnchor == uint256());
 
-    // add at the same btc height, with worse tx hash, but with higher defi height - should be choosen
+    // add at the same btc height, with worse tx hash, but with higher bitcoin height - should be choosen
     {
         CAnchorAuthMessage auth({uint256(), 30, uint256S("def30a"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->anchor.height == 30);
     BOOST_CHECK(top->anchor.previousAnchor == uint256());
 
-    // add at the same btc height, with same defi height, but with lower txhash - should be choosen
+    // add at the same btc height, with same bitcoin height, but with lower txhash - should be choosen
     {
         CAnchorAuthMessage auth({uint256(), 30, uint256S("def30b"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->anchor.height == 30);
     BOOST_CHECK(top->anchor.previousAnchor == uint256());
 
-    // add at the same btc height, with same defi height, but with higher (worse) txhash - should stay untouched
+    // add at the same btc height, with same bitcoin height, but with higher (worse) txhash - should stay untouched
     {
         CAnchorAuthMessage auth({uint256(), 30, uint256S("def30c"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));

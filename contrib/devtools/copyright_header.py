@@ -270,7 +270,7 @@ Usage:
     $ ./copyright_header.py report <base_directory> [verbose]
 
 Arguments:
-    <base_directory> - The base directory of a defi source code repository.
+    <base_directory> - The base directory of a bitcoin source code repository.
     [verbose] - Includes a list of every file of each subcategory in the report.
 """
 
@@ -423,7 +423,7 @@ Usage:
     $ ./copyright_header.py update <base_directory>
 
 Arguments:
-    <base_directory> - The base directory of a defi source code repository.
+    <base_directory> - The base directory of a bitcoin source code repository.
 """
 
 def print_file_action_message(filename, action):

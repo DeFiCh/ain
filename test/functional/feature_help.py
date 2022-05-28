@@ -2,7 +2,7 @@
 # Copyright (c) 2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Verify that starting defi with -h works as expected."""
+"""Verify that starting bitcoin with -h works as expected."""
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
@@ -35,14 +35,14 @@ class HelpTest(DefiTestFramework):
         return out, err
 
     def run_test(self):
-        self.log.info("Start defi with -h for help text")
+        self.log.info("Start bitcoin with -h for help text")
         self.nodes[0].start(extra_args=['-h'])
         # Node should exit immediately and output help to stdout.
         output, _ = self.get_node_output(ret_code_expected=0)
         assert b'Options' in output
         self.log.info("Help text received: {} (...)".format(output[0:60]))
 
-        self.log.info("Start defi with -version for version information")
+        self.log.info("Start bitcoin with -version for version information")
         self.nodes[0].start(extra_args=['-version'])
         # Node should exit immediately and output version to stdout.
         output, _ = self.get_node_output(ret_code_expected=0)

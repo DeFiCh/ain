@@ -1,6 +1,6 @@
 #include <iostream>
 
-// defi includes.
+// bitcoin includes.
 #include <..\src\script\deficonsensus.h>
 #include <..\src\primitives\transaction.h>
 #include <..\src\script\script.h>
