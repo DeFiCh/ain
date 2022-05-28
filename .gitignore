@@ -1,0 +1,147 @@
+.code
+.idea
+# Editors.
+*.sw*
+.vscode
+.clangd
+build
+
+*.tar.gz
+*.tmp
+.DS_Store
+
+# Build directory.
+build/
+out/
+*.exe
+*.pdb
+src/defi
+src/bitcoind
+src/bitcoin-cli
+src/bitcoin-tx
+src/bitcoin-wallet
+src/test/test_bitcoin
+src/test/test_bitcoin_fuzzy
+
+# autoreconf
+Makefile.in
+aclocal.m4
+autom4te.cache/
+build-aux/config.guess
+build-aux/config.sub
+build-aux/depcomp
+build-aux/install-sh
+build-aux/ltmain.sh
+build-aux/m4/libtool.m4
+build-aux/m4/lt~obsolete.m4
+build-aux/m4/ltoptions.m4
+build-aux/m4/ltsugar.m4
+build-aux/m4/ltversion.m4
+build-aux/missing
+build-aux/compile
+build-aux/test-driver
+config.log
+config.status
+configure
+libtool
+src/config/bitcoin-config.h
+src/config/bitcoin-config.h.in
+src/config/stamp-h1
+src/obj
+share/setup.nsi
+share/qt/Info.plist
+
+src/univalue/gen
+
+.deps
+.dirstamp
+.libs
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
+*.pyc
+*.o
+*.o-*
+*.a
+*.pb.cc
+*.pb.h
+*.dat
+
+*.log
+*.trs
+*.dmg
+
+*.json.h
+*.raw.h
+
+# Only ignore unexpected patches
+*.patch
+!depends/patches/**/*.patch
+!contrib/devtools/*.patch
+
+#libtool object files
+*.lo
+*.la
+
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+!depends/Makefile
+background.tiff*
+configure~
+
+# Qt Creator
+Makefile.am.user
+
+# Unit-tests
+Makefile.test
+
+# Resources cpp
+qrc_*.cpp
+
+# Mac specific
+.DS_Store
+build
+
+#lcov
+*.gcno
+*.gcda
+/*.info
+test_bitcoin.coverage/
+total.coverage/
+coverage_percent.txt
+
+#build tests
+linux-coverage-build
+linux-build
+win32-build
+test/config.ini
+test/cache/*
+
+!src/leveldb*/Makefile
+
+/doc/doxygen/
+
+libbitcoinconsensus.pc
+contrib/devtools/split-debug.sh
+
+# Output from running db4 installation
+db4/
+
+# clang-check
+*.plist
+
+osx_volname
+dist/
+*.background.tiff
+
+# spv
+!src/spv/Makefile
+
+# VSCode extension LocalHistory
+.history
+
+# compile_commands.json
+compile_commands.json
