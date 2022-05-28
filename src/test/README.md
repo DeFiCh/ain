@@ -5,7 +5,7 @@ and tests weren't explicitly disabled.
 
 After configuring, they can be run with `make check`.
 
-To run the bitcoind tests manually, launch `src/test/test_defi`. To recompile
+To run the bitcoind tests manually, launch `src/test/test_bitcoin`. To recompile
 after a test file was modified, run `make` and then run the test again. If you
 modify a non-test file, use `make -C src/test` to recompile only what's needed
 to run the bitcoind tests.
@@ -40,7 +40,7 @@ sense to simply use this framework rather than require developers to
 configure some other framework (we want as few impediments to creating
 unit tests as possible).
 
-The build system is setup to compile an executable called `test_defi`
+The build system is setup to compile an executable called `test_bitcoin`
 that runs all of the unit tests.  The main source file is called
 setup_common.cpp. To add a new unit test file to our test suite you need
 to add the file to `src/Makefile.test.include`. The pattern is to create

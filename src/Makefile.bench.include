@@ -4,7 +4,7 @@
 
 bin_PROGRAMS += bench/bench_bitcoin
 BENCH_SRCDIR = bench
-BENCH_BINARY = bench/bench_defi$(EXEEXT)
+BENCH_BINARY = bench/bench_bitcoin$(EXEEXT)
 
 RAW_BENCH_FILES = \
   bench/data/block413567.raw
@@ -12,7 +12,7 @@ GENERATED_BENCH_FILES = $(RAW_BENCH_FILES:.raw=.raw.h)
 
 bench_bench_bitcoin_SOURCES = \
   $(RAW_BENCH_FILES) \
-  bench/bench_defi.cpp \
+  bench/bench_bitcoin.cpp \
   bench/bench.cpp \
   bench/bench.h \
   bench/block_assemble.cpp \

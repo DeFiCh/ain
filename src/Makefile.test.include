@@ -33,7 +33,7 @@ bin_PROGRAMS += test/test_bitcoin
 endif
 
 TEST_SRCDIR = test
-TEST_BINARY=test/test_defi$(EXEEXT)
+TEST_BINARY=test/test_bitcoin$(EXEEXT)
 
 JSON_TEST_FILES = \
   test/data/script_tests.json \

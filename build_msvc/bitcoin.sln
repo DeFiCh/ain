@@ -22,13 +22,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_wallet", "libbit
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_zmq", "libbitcoin_zmq\libbitcoin_zmq.vcxproj", "{792D487F-F14C-49FC-A9DE-3FC150F31C3F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_defi", "test_defi\test_defi.vcxproj", "{A56B73DB-D46D-4882-8374-1FE3FFA08F07}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_bitcoin", "test_bitcoin\test_bitcoin.vcxproj", "{A56B73DB-D46D-4882-8374-1FE3FFA08F07}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_cli", "libbitcoin_cli\libbitcoin_cli.vcxproj", "{0667528C-D734-4009-ADF9-C0D6C4A5A5A6}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoin-cli", "bitcoin-cli\bitcoin-cli.vcxproj", "{0B2D7431-F876-4A58-87BF-F748338CD3BF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bench_defi", "bench_defi\bench_defi.vcxproj", "{1125654E-E1B2-4431-8B5C-62EA9A2FEECB}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bench_bitcoin", "bench_bitcoin\bench_bitcoin.vcxproj", "{1125654E-E1B2-4431-8B5C-62EA9A2FEECB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoin-tx", "bitcoin-tx\bitcoin-tx.vcxproj", "{D3022AF6-AD33-4CE3-B358-87CB6A1B29CF}"
 EndProject

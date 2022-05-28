@@ -109,7 +109,7 @@ build
 *.gcno
 *.gcda
 /*.info
-test_defi.coverage/
+test_bitcoin.coverage/
 total.coverage/
 coverage_percent.txt
 
