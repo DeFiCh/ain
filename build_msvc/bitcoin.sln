@@ -26,7 +26,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_defi", "test_defi\test
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbitcoin_cli", "libbitcoin_cli\libbitcoin_cli.vcxproj", "{0667528C-D734-4009-ADF9-C0D6C4A5A5A6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "defi-cli", "defi-cli\defi-cli.vcxproj", "{0B2D7431-F876-4A58-87BF-F748338CD3BF}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bitcoin-cli", "bitcoin-cli\bitcoin-cli.vcxproj", "{0B2D7431-F876-4A58-87BF-F748338CD3BF}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bench_defi", "bench_defi\bench_defi.vcxproj", "{1125654E-E1B2-4431-8B5C-62EA9A2FEECB}"
 EndProject

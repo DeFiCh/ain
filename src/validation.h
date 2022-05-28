@@ -7,7 +7,7 @@
 #define BITCOIN_VALIDATION_H
 
 #if defined(HAVE_CONFIG_H)
-#include <config/defi-config.h>
+#include <config/bitcoin-config.h>
 #endif
 
 #include <amount.h>

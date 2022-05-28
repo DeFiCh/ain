@@ -91,7 +91,7 @@ if BUILD_BITCOIND
 endif
 
 if BUILD_BITCOIN_CLI
-  bin_PROGRAMS += defi-cli
+  bin_PROGRAMS += bitcoin-cli
 endif
 if BUILD_BITCOIN_TX
   bin_PROGRAMS += bitcoin-tx
@@ -350,7 +350,7 @@ nodist_libbitcoin_spv_a_SOURCES = $(LIBSECP256K1_GEN)
 BUILT_SOURCES = $(LIBSECP256K1_GEN)
 $(LIBSECP256K1_GEN): $(LIBSECP256K1)
 
-# server: shared between bitcoind and defi-qt
+# server: shared between bitcoind and bitcoin-qt
 # Contains code accessing mempool and chain state that is meant to be separated
 # from wallet and gui code (see node/README.md). Shared code should go in
 # libbitcoin_common or libbitcoin_util libraries, instead.
@@ -462,7 +462,7 @@ libbitcoin_zmq_a_SOURCES = \
 endif
 
 
-# wallet: shared between bitcoind and defi-qt, but only linked
+# wallet: shared between bitcoind and bitcoin-qt, but only linked
 # when wallet enabled
 libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -579,7 +579,7 @@ libbitcoin_consensus_a_SOURCES = \
   util/strencodings.h \
   version.h
 
-# common: shared between bitcoind, and defi-qt and non-server tools
+# common: shared between bitcoind, and bitcoin-qt and non-server tools
 libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
@@ -654,7 +654,7 @@ libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp
 AM_LDFLAGS += $(COMPAT_LDFLAGS)
 endif
 
-# cli: shared between defi-cli and defi-qt
+# cli: shared between bitcoin-cli and bitcoin-qt
 libbitcoin_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_cli_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_cli_a_SOURCES = \
@@ -693,14 +693,14 @@ bitcoind_LDADD = \
 
 bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
-# defi-cli binary #
-bitcoin_cli_SOURCES = defi-cli.cpp
+# bitcoin-cli binary #
+bitcoin_cli_SOURCES = bitcoin-cli.cpp
 bitcoin_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
 bitcoin_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-bitcoin_cli_SOURCES += defi-cli-res.rc
+bitcoin_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
 bitcoin_cli_LDADD = \
@@ -803,12 +803,12 @@ CLEANFILES += obj/build.h
 EXTRA_DIST = $(CTAES_DIST)
 
 
-config/defi-config.h: config/stamp-h1
+config/bitcoin-config.h: config/stamp-h1
 	@$(MAKE) -C $(top_builddir) $(subdir)/$(@)
-config/stamp-h1: $(top_srcdir)/$(subdir)/config/defi-config.h.in $(top_builddir)/config.status
+config/stamp-h1: $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in $(top_builddir)/config.status
 	$(AM_V_at)$(MAKE) -C $(top_builddir) $(subdir)/$(@)
-$(top_srcdir)/$(subdir)/config/defi-config.h.in:  $(am__configure_deps)
-	$(AM_V_at)$(MAKE) -C $(top_srcdir) $(subdir)/config/defi-config.h.in
+$(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
+	$(AM_V_at)$(MAKE) -C $(top_srcdir) $(subdir)/config/bitcoin-config.h.in
 
 clean-local:
 	-$(MAKE) -C secp256k1 clean

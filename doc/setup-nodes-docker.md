@@ -45,14 +45,14 @@ Read more at: https://defichain.io
 
 ### Image details
 
-- This image contains the main distribution package as downloaded, with the main binaries - `bitcoind`, `defi-cli` and `bitcoin-tx`.
+- This image contains the main distribution package as downloaded, with the main binaries - `bitcoind`, `bitcoin-cli` and `bitcoin-tx`.
 - The package is at `/app`.
 - All the binaries from the package are also in the `PATH` for convenience.
 - Process run unprivileged inside the container as user `defi` and group `defi`
-- Data volume is at `/data`, (The default data dir `/home/defi/.defi` is symlinked to it). `/data` is used for convenience to change volumes with docker. (For instance `docker run -it -v "defi-data:/data" defi/defichain`) 
+- Data volume is at `/data`, (The default data dir `/home/defi/.defi` is symlinked to it). `/data` is used for convenience to change volumes with docker. (For instance `docker run -it -v "bitcoin-data:/data" defi/defichain`) 
 - Default conf, if found is picked up from `/data/defi.conf`
 - Use `docker logs` for default logging from stdout
-- For custom commands, just use `bitcoind`/`defi-cli` similar to how `bitcoind`/`bitcoin-cli` works.
+- For custom commands, just use `bitcoind`/`bitcoin-cli` similar to how `bitcoind`/`bitcoin-cli` works.
 
 #### Default ports
 
@@ -108,16 +108,16 @@ The second option is making a remote procedure call using a username and passwor
 Start by launching the Bitcoin daemon:
 
 ```sh
-❯ docker run --rm --name defi-node -it defi/defichain \
+❯ docker run --rm --name bitcoin-node -it defi/defichain \
   bitcoind \
   -printtoconsole \
   -regtest=1
 ```
 
-Then, inside the running `defi-node` container, locally execute the query to the daemon using `defi-cli`:
+Then, inside the running `bitcoin-node` container, locally execute the query to the daemon using `bitcoin-cli`:
 
 ```sh
-❯ docker exec defi-node defi-cli -regtest getmintinginfo
+❯ docker exec bitcoin-node bitcoin-cli -regtest getmintinginfo
 
 {
   "blocks": 0,
@@ -132,7 +132,7 @@ Then, inside the running `defi-node` container, locally execute the query to the
 }
 ```
 
-In the background, `defi-cli` read the information automatically from `/data/regtest/.cookie`. In production, the path would not contain the regtest part.
+In the background, `bitcoin-cli` read the information automatically from `/data/regtest/.cookie`. In production, the path would not contain the regtest part.
 
 #### Using rpcauth for remote authentication
 
@@ -156,7 +156,7 @@ Note that for each run, even if the username remains the same, the output will b
 Now that you have your credentials, you need to start the Bitcoin daemon with the `-rpcauth` option. Alternatively, you could append the line to a `defi.conf` file and mount it on the container.
 
 ```sh
-❯ docker run --rm --name defi-node -it defi/defichain \
+❯ docker run --rm --name bitcoin-node -it defi/defichain \
   bitcoind \
   -printtoconsole \
   -regtest=1 \
@@ -169,14 +169,14 @@ Two important notes:
 1. Some shells require escaping the rpcauth line (e.g. zsh), as shown above.
 2. It is now perfectly fine to pass the rpcauth line as a command line argument. Unlike `-rpcpassword`, the content is hashed so even if the arguments would be exposed, they would not allow the attacker to get the actual password.
 
-You can now connect via `defi-cli`. You will still have to define a username and password when connecting to the Bitcoin RPC server.
+You can now connect via `bitcoin-cli`. You will still have to define a username and password when connecting to the Bitcoin RPC server.
 
-To avoid any confusion about whether or not a remote call is being made, let's spin up another container to execute `defi-cli` and connect it via the Docker network using the password generated above:
+To avoid any confusion about whether or not a remote call is being made, let's spin up another container to execute `bitcoin-cli` and connect it via the Docker network using the password generated above:
 
 ```sh
-❯ docker run -it --link defi-node --rm defi/defichain \
-  defi-cli \
-  -rpcconnect=defi-node \
+❯ docker run -it --link bitcoin-node --rm defi/defichain \
+  bitcoin-cli \
+  -rpcconnect=bitcoin-node \
   -regtest \
   -rpcuser=foo\
   -stdinrpcpass \

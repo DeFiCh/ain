@@ -53,7 +53,7 @@ READELF_CMD = os.getenv('READELF', '/usr/bin/readelf')
 CPPFILT_CMD = os.getenv('CPPFILT', '/usr/bin/c++filt')
 # Allowed NEEDED libraries
 ALLOWED_LIBRARIES = {
-# bitcoind and defi-qt
+# bitcoind and bitcoin-qt
 'libgcc_s.so.1', # GCC base support
 'libc.so.6', # C library
 'libpthread.so.0', # threading
@@ -66,7 +66,7 @@ ALLOWED_LIBRARIES = {
 'ld-linux-aarch64.so.1', # 64-bit ARM dynamic linker
 'ld-linux-armhf.so.3', # 32-bit ARM dynamic linker
 'ld-linux-riscv64-lp64d.so.1', # 64-bit RISC-V dynamic linker
-# defi-qt only
+# bitcoin-qt only
 'libxcb.so.1', # part of X11
 'libfontconfig.so.1', # font support
 'libfreetype.so.6', # font parsing

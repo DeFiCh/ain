@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #if defined(HAVE_CONFIG_H)
-#include <config/defi-config.h>
+#include <config/bitcoin-config.h>
 #endif
 
 #include <chainparamsbase.h>
@@ -112,10 +112,10 @@ static int AppInitRPC(int argc, char* argv[])
         std::string strUsage = PACKAGE_NAME " RPC client version " + FormatVersionAndSuffix() + "\n";
         if (!gArgs.IsArgSet("-version")) {
             strUsage += "\n"
-                "Usage:  defi-cli [options] <command> [params]  Send command to " PACKAGE_NAME "\n"
-                "or:     defi-cli [options] -named <command> [name=value]...  Send command to " PACKAGE_NAME " (with named arguments)\n"
-                "or:     defi-cli [options] help                List commands\n"
-                "or:     defi-cli [options] help <command>      Get help for a command\n";
+                "Usage:  bitcoin-cli [options] <command> [params]  Send command to " PACKAGE_NAME "\n"
+                "or:     bitcoin-cli [options] -named <command> [name=value]...  Send command to " PACKAGE_NAME " (with named arguments)\n"
+                "or:     bitcoin-cli [options] help                List commands\n"
+                "or:     bitcoin-cli [options] help <command>      Get help for a command\n";
             strUsage += "\n" + gArgs.GetHelpMessage();
         }
 
@@ -466,7 +466,7 @@ static int CommandLineRPC(int argc, char *argv[])
                             strPrint += "error message:\n"+errMsg.get_str();
 
                         if (errCode.isNum() && errCode.get_int() == RPC_WALLET_NOT_SPECIFIED) {
-                            strPrint += "\nTry adding \"-rpcwallet=<filename>\" option to defi-cli command line.";
+                            strPrint += "\nTry adding \"-rpcwallet=<filename>\" option to bitcoin-cli command line.";
                         }
                     }
                 } else {

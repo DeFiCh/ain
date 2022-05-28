@@ -106,8 +106,8 @@ tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 ## Other commands:
 ```shell
 ./src/bitcoind -daemon      # Starts the defi daemon.
-./src/defi-cli --help    # Outputs a list of command-line options.
-./src/defi-cli help      # Outputs a list of RPC commands when the daemon is running.
+./src/bitcoin-cli --help    # Outputs a list of command-line options.
+./src/bitcoin-cli help      # Outputs a list of RPC commands when the daemon is running.
 ```
 
 ## Notes

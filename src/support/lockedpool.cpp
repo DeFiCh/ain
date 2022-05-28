@@ -6,7 +6,7 @@
 #include <support/cleanse.h>
 
 #if defined(HAVE_CONFIG_H)
-#include <config/defi-config.h>
+#include <config/bitcoin-config.h>
 #endif
 
 #ifdef WIN32

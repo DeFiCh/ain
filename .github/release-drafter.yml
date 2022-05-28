@@ -32,7 +32,7 @@ template: |
 
   ## How to run?
 
-  Download and untar the relevant version to your operating system, run `bin/bitcoind` or `bin/bitcoind.exe` to start a Bitcoin daemon. The client (CLI) can be found at `bin/defi-cli` or `bin/defi-cli.exe`.
+  Download and untar the relevant version to your operating system, run `bin/bitcoind` or `bin/bitcoind.exe` to start a Bitcoin daemon. The client (CLI) can be found at `bin/bitcoin-cli` or `bin/bitcoin-cli.exe`.
 
   ### DeFi App (GUI) users
 

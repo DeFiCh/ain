@@ -5,7 +5,7 @@ if BUILD_BITCOIND
 endif
 
 if BUILD_BITCOIN_CLI
-  dist_man1_MANS+=defi-cli.1
+  dist_man1_MANS+=bitcoin-cli.1
 endif
 
 if BUILD_BITCOIN_TX

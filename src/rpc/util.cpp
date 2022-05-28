@@ -121,7 +121,7 @@ std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey)
 
 std::string HelpExampleCli(const std::string& methodname, const std::string& args)
 {
-    return "> defi-cli " + methodname + " " + args + "\n";
+    return "> bitcoin-cli " + methodname + " " + args + "\n";
 }
 
 std::string HelpExampleRpc(const std::string& methodname, const std::string& args)

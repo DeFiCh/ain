@@ -53,7 +53,7 @@ into the file and hit `Ctrl-X` then enter to save the file.
 In order to run a masternode, you must own at least 20,000 DFI. Let's set up an address with sufficient funds to use as an owner. Masternodes currently only support legacy addresses, so create a masternode address using:
 
 ```
-~/.defi/defi-cli getnewaddress "<label>" legacy
+~/.defi/bitcoin-cli getnewaddress "<label>" legacy
 ```
 
 where "label" is any label you would like to give the address.
@@ -61,7 +61,7 @@ where "label" is any label you would like to give the address.
 Now in order to transfer the funds to this address, you may use: 
 
 ```
-~/.defi/defi-cli sendtoaddress address
+~/.defi/bitcoin-cli sendtoaddress address
 ```
 
 where address is the new owner address you have created.
@@ -71,7 +71,7 @@ where address is the new owner address you have created.
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-~/.defi/defi-cli createmasternode address
+~/.defi/bitcoin-cli createmasternode address
 ```
 
 where `address` for both operator and collateral address should be the new legacy address you created. Please note that it costs 10 DFI to run this command.
@@ -88,12 +88,12 @@ masternode_operator=OPERATOR_ADDRESS
 
 Because we have decided to run owner and operator on the same address, just substitute the same legacy address you created for `OPERATOR_ADDRESS`. There is no need to specify owner address in this case.
 
-Now the final step is to restart the node. Since we have crontab running, we just have to kill the process and crontab will start it again for us after one minute. We can do this final step by running `killall defi-init`. One minute later, we should have our masternode running and minting coins.
+Now the final step is to restart the node. Since we have crontab running, we just have to kill the process and crontab will start it again for us after one minute. We can do this final step by running `killall bitcoin-init`. One minute later, we should have our masternode running and minting coins.
 
 We can confirm the masternode is running by running:
 
 ```
-~/.defi/defi-cli listmasternodes
+~/.defi/bitcoin-cli listmasternodes
 ```
 
 look for your masternode address in the list of masternodes to confirm that you have successfully set everything up.
@@ -112,7 +112,7 @@ Perform steps 1-4 the same as the above section for operating your own masternod
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-~/.defi/defi-cli createmasternode OWNER_ADDRESS OPERATOR_ADDRESS
+~/.defi/bitcoin-cli createmasternode OWNER_ADDRESS OPERATOR_ADDRESS
 ``` 
 
 where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator. Please note that it costs 10 DFI to run this command.
@@ -122,7 +122,7 @@ There is nothing to do after this, you may simply ensure that your masternode op
 We can confirm the masternode is running by running: 
 
 ```
-~/.defi/defi-cli listmasternodes
+~/.defi/bitcoin-cli listmasternodes
 ```
 
 Look for your masternode address in the list of masternodes to confirm that you have successfully set everything up.
@@ -154,7 +154,7 @@ On the next run, the node will begin minting for all the specified masternodes. 
 If you decide to resign your masternode, you may run 
 
 ```
-~/.defi/defi-cli resignmasternode
+~/.defi/bitcoin-cli resignmasternode
 ```
 ## Masternode states
 Sending `createmasternode` (or 'resignmasternode') transaction doesn't mean that it acts immediately after submitting to the blockchain. There are special delays for each state.

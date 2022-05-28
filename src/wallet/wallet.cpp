@@ -3113,7 +3113,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
             // Create change script that will be used if we need change
             // TODO: pass in scriptChange instead of reservedest so
-            // change transaction isn't always pay-to-defi-address
+            // change transaction isn't always pay-to-bitcoin-address
             CScript scriptChange;
 
             // coin control: send change to custom address

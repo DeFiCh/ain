@@ -11,7 +11,7 @@
 #define BITCOIN_UTIL_SYSTEM_H
 
 #if defined(HAVE_CONFIG_H)
-#include <config/defi-config.h>
+#include <config/bitcoin-config.h>
 #endif
 
 #include <attributes.h>

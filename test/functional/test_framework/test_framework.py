@@ -127,7 +127,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
-                            help="use defi-cli instead of RPC for all commands")
+                            help="use bitcoin-cli instead of RPC for all commands")
         parser.add_argument("--perf", dest="perf", default=False, action="store_true",
                             help="profile running nodes with perf for the duration of the test")
         parser.add_argument("--valgrind", dest="valgrind", default=False, action="store_true",
@@ -147,7 +147,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         config.read_file(open(self.options.configfile))
         self.config = config
         self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' + config["environment"]["EXEEXT"])
+        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
@@ -658,12 +658,12 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             raise SkipTest("wallet has not been compiled.")
 
     def skip_if_no_cli(self):
-        """Skip the running test if defi-cli has not been compiled."""
+        """Skip the running test if bitcoin-cli has not been compiled."""
         if not self.is_cli_compiled():
-            raise SkipTest("defi-cli has not been compiled.")
+            raise SkipTest("bitcoin-cli has not been compiled.")
 
     def is_cli_compiled(self):
-        """Checks whether defi-cli was compiled."""
+        """Checks whether bitcoin-cli was compiled."""
         return self.config["components"].getboolean("ENABLE_CLI")
 
     def is_wallet_compiled(self):

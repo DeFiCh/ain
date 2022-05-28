@@ -503,8 +503,8 @@ clean() {
         configure \
         doc/man/Makefile.in \
         src/Makefile.in \
-        src/config/defi-config.h.in \
-        src/config/defi-config.h.in~
+        src/config/bitcoin-config.h.in \
+        src/config/bitcoin-config.h.in~
 }
 
 main "$@"

@@ -11,12 +11,12 @@ define(_COPYRIGHT_HOLDERS,[The %s developers])
 define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Bitcoin]])
 AC_INIT([Bitcoin],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/defich/ain/issues],[defi],[https://defichain.io/])
 AC_CONFIG_SRCDIR([src/validation.cpp])
-AC_CONFIG_HEADERS([src/config/defi-config.h])
+AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
 BITCOIN_DAEMON_NAME=bitcoind
-BITCOIN_CLI_NAME=defi-cli
+BITCOIN_CLI_NAME=bitcoin-cli
 BITCOIN_TX_NAME=bitcoin-tx
 BITCOIN_WALLET_TOOL_NAME=bitcoin-wallet
 
@@ -443,13 +443,13 @@ CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS"
 
 AC_ARG_WITH([utils],
   [AS_HELP_STRING([--with-utils],
-  [build defi-cli bitcoin-tx bitcoin-wallet (default=yes)])],
+  [build bitcoin-cli bitcoin-tx bitcoin-wallet (default=yes)])],
   [build_bitcoin_utils=$withval],
   [build_bitcoin_utils=yes])
 
 AC_ARG_ENABLE([util-cli],
   [AS_HELP_STRING([--enable-util-cli],
-  [build defi-cli])],
+  [build bitcoin-cli])],
   [build_bitcoin_cli=$enableval],
   [build_bitcoin_cli=$build_bitcoin_utils])
 
@@ -666,7 +666,7 @@ AC_C_BIGENDIAN
 dnl Check for pthread compile/link requirements
 AX_PTHREAD
 
-# The following macro will add the necessary defines to defi-config.h, but
+# The following macro will add the necessary defines to bitcoin-config.h, but
 # they also need to be passed down to any subprojects. Pull the results out of
 # the cache and add them to CPPFLAGS.
 AC_SYS_LARGEFILE
@@ -1367,7 +1367,7 @@ AC_MSG_CHECKING([whether to build bitcoind])
 AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_bitcoind = xyes])
 AC_MSG_RESULT($build_bitcoind)
 
-AC_MSG_CHECKING([whether to build defi-cli])
+AC_MSG_CHECKING([whether to build bitcoin-cli])
 AM_CONDITIONAL([BUILD_BITCOIN_CLI], [test x$build_bitcoin_cli = xyes])
 AC_MSG_RESULT($build_bitcoin_cli)
 
@@ -1554,7 +1554,7 @@ AC_CONFIG_FILES([contrib/devtools/split-debug.sh],[chmod +x contrib/devtools/spl
 AM_COND_IF([HAVE_DOXYGEN], [AC_CONFIG_FILES([doc/Doxyfile])])
 AC_CONFIG_LINKS([contrib/filter-lcov.py:contrib/filter-lcov.py])
 AC_CONFIG_LINKS([test/functional/test_runner.py:test/functional/test_runner.py])
-AC_CONFIG_LINKS([test/util/defi-util-test.py:test/util/defi-util-test.py])
+AC_CONFIG_LINKS([test/util/bitcoin-util-test.py:test/util/bitcoin-util-test.py])
 AC_CONFIG_LINKS([test/util/rpcauth-test.py:test/util/rpcauth-test.py])
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a

@@ -6,7 +6,7 @@ etc.
 This directory contains the following sets of tests:
 
 - [functional](/test/functional) which test the functionality of
-bitcoind and defi-qt by interacting with them through the RPC and P2P
+bitcoind and bitcoin-qt by interacting with them through the RPC and P2P
 interfaces.
 - [util](/test/util) which tests the defi utilities, currently only
 bitcoin-tx.
@@ -222,7 +222,7 @@ For ways to generate more granular profiles, see the README in
 
 ### Util tests
 
-Util tests can be run locally by running `test/util/defi-util-test.py`.
+Util tests can be run locally by running `test/util/bitcoin-util-test.py`.
 Use the `-v` option for verbose output.
 
 ### Lint tests

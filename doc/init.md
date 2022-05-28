@@ -62,7 +62,7 @@ Lock file:           `/var/lock/subsys/bitcoind` (CentOS)
 The PID directory (if applicable) and data directory should both be owned by the
 defi user and group. It is advised for security reasons to make the
 configuration file and data directory only readable by the defi user and
-group. Access to defi-cli and other bitcoind rpc clients can then be
+group. Access to bitcoin-cli and other bitcoind rpc clients can then be
 controlled by group membership.
 
 NOTE: When using the systemd .service file, the creation of the aforementioned

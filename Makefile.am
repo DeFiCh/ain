@@ -38,7 +38,7 @@ support_service__DATA = $(top_srcdir)/contrib/init/bitcoind.conf \
 		$(top_srcdir)/contrib/init/bitcoind.service
 
 support_bash_dir = $(datadir)/bash-completion/completions
-support_bash__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
+support_bash__DATA = $(top_srcdir)/contrib/bitcoin-cli.bash-completion \
 		$(top_srcdir)/contrib/bitcoin-tx.bash-completion \
 		$(top_srcdir)/contrib/bitcoind.bash-completion
 
@@ -58,7 +58,7 @@ OSX_PLIST=$(top_builddir)/share/qt/Info.plist #not installed
 OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
 
 DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
-DIST_CONTRIB = $(top_srcdir)/contrib/defi-cli.bash-completion \
+DIST_CONTRIB = $(top_srcdir)/contrib/bitcoin-cli.bash-completion \
 	       $(top_srcdir)/contrib/bitcoin-tx.bash-completion \
 	       $(top_srcdir)/contrib/bitcoind.bash-completion \
 	       $(top_srcdir)/contrib/debian/copyright \
@@ -239,8 +239,8 @@ EXTRA_DIST += \
     test/fuzz
 
 EXTRA_DIST += \
-    test/util/defi-util-test.py \
-    test/util/data/defi-util-test.json \
+    test/util/bitcoin-util-test.py \
+    test/util/data/bitcoin-util-test.json \
     test/util/data/blanktxv1.hex \
     test/util/data/blanktxv1.json \
     test/util/data/blanktxv2.hex \

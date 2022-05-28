@@ -28,11 +28,11 @@ END_FOLD
 
 BEGIN_FOLD distdir
 DOCKER_EXEC make distdir VERSION=$HOST
-DOCKER_EXEC cp -r ../share  "defi-$HOST/"
-DOCKER_EXEC cp -r ../contrib  "defi-$HOST/"
+DOCKER_EXEC cp -r ../share  "bitcoin-$HOST/"
+DOCKER_EXEC cp -r ../contrib  "bitcoin-$HOST/"
 END_FOLD
 
-cd "defi-$HOST" || (echo "could not enter distdir defi-$HOST"; exit 1)
+cd "bitcoin-$HOST" || (echo "could not enter distdir bitcoin-$HOST"; exit 1)
 
 BEGIN_FOLD configure
 DOCKER_EXEC ./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)

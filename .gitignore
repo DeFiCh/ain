@@ -17,7 +17,7 @@ out/
 *.pdb
 src/defi
 src/bitcoind
-src/defi-cli
+src/bitcoin-cli
 src/bitcoin-tx
 src/bitcoin-wallet
 src/test/test_defi
@@ -44,8 +44,8 @@ config.log
 config.status
 configure
 libtool
-src/config/defi-config.h
-src/config/defi-config.h.in
+src/config/bitcoin-config.h
+src/config/bitcoin-config.h.in
 src/config/stamp-h1
 src/obj
 share/setup.nsi
