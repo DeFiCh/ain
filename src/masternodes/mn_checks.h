@@ -25,8 +25,6 @@ class CVaultHistoryView;
 class CHistoryWriters;
 class CHistoryErasers;
 
-static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
-
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
 //    NotCustomTx  = 1,
@@ -394,6 +392,19 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransactio
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
 Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
+Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
+
+inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {
+    // Allow hard coded DUSD/USD
+    if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
+        return true;
+    }
+    bool found = false;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
+    });
+    return found;
+}
 
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'

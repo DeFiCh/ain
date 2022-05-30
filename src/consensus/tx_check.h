@@ -14,9 +14,10 @@
 
 #include <vector>
 
-/// moved here (!!) due to strange linker errors under mac/win builds
+extern const std::vector<unsigned char> DfTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
+extern const std::vector<unsigned char> DfTokenSplitMarker;
 
 class CScript;
 class CTransaction;
@@ -30,5 +31,6 @@ bool ParseScriptByMarker(CScript const & script,
                          bool& hasAdditionalOpcodes);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
+bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningCrunch = true);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

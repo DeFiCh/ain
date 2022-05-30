@@ -19,6 +19,8 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
+bool fMockNetwork = false;
+
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
     std::vector<CTransactionRef> mnTxs;
@@ -129,7 +131,9 @@ public:
         consensus.FortCanningMuseumHeight = 1430640;
         consensus.FortCanningParkHeight = 1503143;
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022. 
+        consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
+        consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -323,7 +327,11 @@ public:
             /* nTxCount */ 1091894,
             /* dTxRate  */ 0.1841462153145931
         };
+
+        UpdateActivationParametersFromArgs();
     }
+
+    void UpdateActivationParametersFromArgs();
 };
 
 /**
@@ -358,6 +366,8 @@ public:
         consensus.FortCanningParkHeight = 828800;
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
+        consensus.FortCanningCrunchHeight = 1011600;
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -547,6 +557,8 @@ public:
         consensus.FortCanningParkHeight = std::numeric_limits<int>::max();
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
+        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -728,6 +740,8 @@ public:
         consensus.FortCanningParkHeight = 10000000;
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
+        consensus.FortCanningCrunchHeight = 10000000;
+        consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -929,8 +943,7 @@ boost::optional<int> UpdateHeightValidation(const std::string& argName, const st
     return {};
 }
 
-void CRegTestParams::UpdateActivationParametersFromArgs()
-{
+void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight);
@@ -948,13 +961,50 @@ void CRegTestParams::UpdateActivationParametersFromArgs()
     UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
+    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
+    UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
         consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
     }
+}
 
+
+void CMainParams::UpdateActivationParametersFromArgs() {
+    fMockNetwork = gArgs.IsArgSet("-mocknet");
+    if (fMockNetwork) {
+        LogPrintf("============================================\n");
+        LogPrintf("WARNING: MOCKNET ACTIVE. THIS IS NOT MAINNET\n");
+        LogPrintf("============================================\n");
+        auto sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
+        auto nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
+        if (!gArgs.IsArgSet("-maxtipage")) {
+            gArgs.ForceSetArg("-maxtipage", "2207520000"); // 10 years
+        }
+
+        // End of args. Perform sane set below.
+        consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
+        consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
+        consensus.pos.allowMintingWithoutPeers = true;
+
+        SetupCommonArgActivationParams(consensus);
+
+        LogPrintf("mocknet: block-time: %s secs\n", consensus.pos.nTargetSpacing);
+
+        // Add additional foundation members here for testing
+        if (!sMockFoundationPubKey.empty()) {
+            consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
+            LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
+        }
+    }
+}
+
+
+void CRegTestParams::UpdateActivationParametersFromArgs()
+{
+    SetupCommonArgActivationParams(consensus);
     if (!gArgs.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : gArgs.GetArgs("-vbparams")) {

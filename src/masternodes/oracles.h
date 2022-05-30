@@ -16,6 +16,9 @@
 #include <string>
 #include <vector>
 
+class CTokenImplementation;
+class CLoanSetLoanTokenImplementation;
+
 using COracleId = uint256;
 using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
@@ -155,6 +158,10 @@ public:
 
     Res SetIntervalBlock(const uint32_t blockInterval);
     uint32_t GetIntervalBlock() const;
+
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
+    [[nodiscard]] virtual boost::optional<CTokenImplementation> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
+    [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const & id) const = 0;
 
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
     struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };

@@ -76,16 +76,6 @@ public:
     {
         return flags & (uint8_t)TokenFlags::LoanToken;
     }
-    inline Res IsValidSymbol() const
-    {
-        if (symbol.size() == 0 || IsDigit(symbol[0])) {
-            return Res::Err("token symbol should be non-empty and starts with a letter");
-        }
-        if (symbol.find('#') != std::string::npos) {
-            return Res::Err("token symbol should not contain '#'");
-        }
-        return Res::Ok();
-    }
     inline std::string CreateSymbolKey(DCT_ID const & id) const {
         return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
@@ -120,7 +110,15 @@ public:
         , creationHeight(-1)
         , destructionHeight(-1)
     {}
+    explicit CTokenImplementation(const CToken& token)
+            : CToken(token)
+            , minted(0)
+            , creationHeight(-1)
+            , destructionHeight(-1)
+    {}
     ~CTokenImplementation() override = default;
+
+    [[nodiscard]] inline Res IsValidSymbol() const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -146,14 +144,14 @@ public:
     boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    boost::optional<CTokensView::CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
+    [[nodiscard]] virtual boost::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
     Res RevertCreateToken(uint256 const & txid);
-    Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
+    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool tokenSplitUpdatea = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);
