@@ -44,7 +44,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
         orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
         if (!order.closeTx.IsNull()) orderObj.pushKV("closeTx", order.closeTx.GetHex());
     }
-    else if (order.creationHeight + order.expiry <= pcustomcsview->GetLastHeight())
+    else if (order.creationHeight + order.expiry <= static_cast<uint32_t>(pcustomcsview->GetLastHeight()))
     {
         orderObj.pushKV("expired", true);
     }

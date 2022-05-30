@@ -186,7 +186,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 boost::optional<CInterestRateV2> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight))
         return ReadBy<LoanInterestV2ByVault, CInterestRateV2>(std::make_pair(vaultId, id));
 
     if (auto rate = ReadBy<LoanInterestByVault, CInterestRate>(std::make_pair(vaultId, id)))
@@ -251,7 +251,7 @@ CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height)
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight))
         WriteBy<LoanInterestV2ByVault>(pair, rate);
     else
         WriteBy<LoanInterestByVault>(pair, ConvertInterestRateToV1(rate));
@@ -376,7 +376,7 @@ void DeleteInterest(CLoanView& view, const CVaultId& vaultId)
 
 Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
 {
-    if (height >= Params().GetConsensus().FortCanningHillHeight)
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight))
         ::DeleteInterest<LoanInterestV2ByVault>(*this, vaultId);
     else
         ::DeleteInterest<LoanInterestByVault>(*this, vaultId);

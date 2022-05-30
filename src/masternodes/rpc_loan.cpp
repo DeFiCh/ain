@@ -1417,7 +1417,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
 
     UniValue ret(UniValue::VARR);
-    uint32_t height = ::ChainActive().Height() + 1;
+    const auto height = ::ChainActive().Height() + 1;
 
     std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128>> > interest;
 
@@ -1453,7 +1453,6 @@ UniValue getinterest(const JSONRPCRequest& request) {
     for (auto it=interest.begin(); it != interest.end(); ++it)
     {
         auto tokenId = it->first;
-        auto interestRate = it->second;
         auto totalInterest = it->second.first;
         auto interestPerBlock = it->second.second;
 

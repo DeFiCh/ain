@@ -528,8 +528,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         return true;
     });
     auto it = totalBalances.balances.lower_bound(start);
-    for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
-        CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
+    for (size_t i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
+        auto bal = CTokenAmount{(*it).first, (*it).second};
         std::string tokenIdStr = bal.nTokenId.ToString();
         if (symbol_lookup) {
             auto token = mnview.GetToken(bal.nTokenId);
@@ -1191,10 +1191,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         count = limit;
         searchInWallet(pwallet, account, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || startBlock > index->nHeight || index->nHeight > maxBlockHeight;
+                uint32_t height = index->nHeight;
+                return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
             },
             [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                if (txn != std::numeric_limits<uint32_t>::max() && index->nHeight == maxBlockHeight && pwtx->nIndex > txn ) {
+                uint32_t height = index->nHeight;
+                uint32_t nIndex = pwtx->nIndex;
+                if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn ) {
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
@@ -1563,7 +1566,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     if (shouldSearchInWallet) {
         searchInWallet(pwallet, owner, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                return txs.count(pwtx->GetHash()) || index->nHeight > currentHeight;
+                return txs.count(pwtx->GetHash()) || static_cast<uint32_t>(index->nHeight) > currentHeight;
             },
             [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
                 ++count;
