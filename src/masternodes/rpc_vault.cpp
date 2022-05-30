@@ -109,7 +109,7 @@ namespace {
         return auctionObj;
     }
 
-    UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
+    UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault, const bool verbose = false) {
         UniValue result{UniValue::VOBJ};
         auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
@@ -123,7 +123,7 @@ namespace {
             return result;
         }
 
-        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0};
+        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0}, nextCollateralRatio{0};
 
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
@@ -181,6 +181,12 @@ namespace {
         result.pushKV("interestValue", interestValue);
         result.pushKV("informativeRatio", ratioValue);
         result.pushKV("collateralRatio", collateralRatio);
+        if (verbose) {
+            useNextPrice = true;
+            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
+            nextCollateralRatio = int(rate.val->ratio());
+            result.pushKV("nextCollateralRatio", nextCollateralRatio);
+        }
         return result;
     }
 }
@@ -513,7 +519,8 @@ UniValue getvault(const JSONRPCRequest& request) {
     RPCHelpMan{"getvault",
                "Returns information about vault.\n",
                 {
-                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+                    {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Verbose vault information (default = false)"},
                 },
                 RPCResult{
                     "\"json\"                  (string) vault data in json form\n"
@@ -525,7 +532,7 @@ UniValue getvault(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-
+    bool verbose = request.params[1].getBool();
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
@@ -535,7 +542,7 @@ UniValue getvault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found", vaultId.GetHex()));
     }
 
-    return VaultToJSON(vaultId, *vault);
+    return VaultToJSON(vaultId, *vault, verbose);
 }
 
 UniValue updatevault(const JSONRPCRequest& request) {

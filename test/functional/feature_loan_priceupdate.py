@@ -304,7 +304,34 @@ class PriceUpdateTest (DefiTestFramework):
         fixedPriceList = self.nodes[0].listfixedintervalprices(pagination)
         assert_equal(len(fixedPriceList), 2)
 
+        # Test verbose parameter in getvault to retrieve nextCollateralRatio
 
+        # Update price
+        oracle1_prices = [
+            {"currency": "USD", "tokenAmount": "70@TSLA"},
+            {"currency": "USD", "tokenAmount": "100@DFI"},
+            {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(6)
+
+        # Check nextPrice and active price are correct
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['isLive'], True)
+        assert_equal(fixedPrice['activePrice'], Decimal('57.50000000'))
+        assert_equal(fixedPrice['nextPrice'], Decimal('42.50000000'))
+
+        # Check vault nextCollateralRatio and collateralRatio
+        vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultBeforeUpdate["collateralRatio"], 2375)
+        assert_equal(vaultBeforeUpdate["nextCollateralRatio"], 3213)
+
+        # Let price update and check vault again
+        self.nodes[0].generate(6)
+
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
+        assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
 
 if __name__ == '__main__':
     PriceUpdateTest().main()
