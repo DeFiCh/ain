@@ -1085,8 +1085,9 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
-        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
+    if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
+        ClearCheckpoints(const_cast<CChainParams&>(chainparams));
+    }
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())
@@ -1360,7 +1361,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Warn about relative -datadir path.
     if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
-                  "current working directory '%s'. This is fragile, because if defi is started in the future "
+                  "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
                   "also be data loss if defi is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
