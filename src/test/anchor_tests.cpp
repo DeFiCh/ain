@@ -404,7 +404,7 @@ BOOST_AUTO_TEST_CASE(Test_AnchorFinalMsgCount)
     CAnchorConfirmDataPlus confirmPlus{confirm};
     CAnchorFinalizationMessagePlus finalMsg{confirmPlus};
 
-    for (int i{0}; i < 4 && i < signers.size(); ++i) {
+    for (size_t i{0}; i < 4 && i < signers.size(); ++i) {
         CAnchorConfirmMessage confirmMsg{confirmPlus};
         signers[i < 3 ? i : i - 1].SignCompact(confirmMsg.GetSignHash(), confirmMsg.signature);
         finalMsg.sigs.push_back(confirmMsg.signature);
@@ -428,7 +428,7 @@ BOOST_AUTO_TEST_CASE(Test_AnchorMsgCount)
     CAnchorData data{blockHash, 0, blockHash, CAnchorData::CTeam{}};
     CAnchor anchor{data};
 
-    for (int i{0}; i < 4 && i < signers.size(); ++i) {
+    for (size_t i{0}; i < 4 && i < signers.size(); ++i) {
         CAnchorAuthMessage authMsg{data};
         authMsg.SignWithKey(signers[i < 3 ? i : i - 1]);
         anchor.sigs.push_back(authMsg.GetSignature());

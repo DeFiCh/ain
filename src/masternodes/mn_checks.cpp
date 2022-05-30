@@ -1087,7 +1087,7 @@ public:
         updatedToken.creationTx = token.creationTx;
         updatedToken.destructionTx = token.destructionTx;
         updatedToken.destructionHeight = token.destructionHeight;
-        if (height >= consensus.FortCanningHeight) {
+        if (height >= static_cast<uint32_t>(consensus.FortCanningHeight)) {
             updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         }
 
@@ -1158,7 +1158,7 @@ public:
             return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
         }
 
-        const auto symbolLength = height >= consensus.FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+        const auto symbolLength = height >= static_cast<uint32_t>(consensus.FortCanningHeight) ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
         if (pairSymbol.empty()) {
             pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {
@@ -3886,7 +3886,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
     std::vector<unsigned char> metadata;
-    const auto metadataValidation = height >= consensus.FortCanningHeight;
+    const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
 
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
@@ -3928,7 +3928,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
             }
             res.code |= CustomTxErrCodes::Fatal;
         }
-        if (height >= consensus.DakotaHeight) {
+        if (height >= static_cast<uint32_t>(consensus.DakotaHeight)) {
             res.code |= CustomTxErrCodes::Fatal;
         }
         return res;
@@ -4216,7 +4216,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     Res poolResult = Res::Ok();
 
     // No composite swap allowed before Fort Canning
-    if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
+    if (height < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
@@ -4354,7 +4354,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     }
 
     // Reject if price paid post-swap above max price provided
-    if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
         if (swapAmountResult.nValue != 0) {
             const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
             if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {

@@ -3584,11 +3584,8 @@ DBErrors CWallet::ZapWalletTx(std::vector<CWalletTx>& vWtx)
 
 bool CWallet::SetAddressBookWithDB(WalletBatch& batch, const CTxDestination& address, const std::string& strName, const std::string& strPurpose)
 {
-    bool fUpdated = false;
     {
         LOCK(cs_wallet);
-        std::map<CTxDestination, CAddressBookData>::iterator mi = mapAddressBook.find(address);
-        fUpdated = mi != mapAddressBook.end();
         mapAddressBook[address].name = strName;
         if (!strPurpose.empty()) /* update purpose only if requested */
             mapAddressBook[address].purpose = strPurpose;

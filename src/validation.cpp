@@ -1860,7 +1860,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 return false;
             }
 
-            if (key.blockHeight != Params().GetConsensus().EunosHeight) {
+            if (key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().EunosHeight)) {
                 return false;
             }
 
@@ -2928,7 +2928,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         });
 
         std::stringstream poolIdStr;
-        for (auto i=0; i < poolsToMigrate.size(); i++) {
+        for (size_t i{0}; i < poolsToMigrate.size(); i++) {
             if  (i != 0) poolIdStr << ", ";
             poolIdStr << poolsToMigrate[i].ToString();
         }
@@ -3039,9 +3039,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mnview.IncrementMintedBy(*nodeId);
 
         // Store block staker height for use in coinage
-        if (pindex->nHeight >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
+        if (pindex->nHeight >= Params().GetConsensus().EunosPayaHeight) {
             mnview.SetSubNodesBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), ctxState.subNode, pindex->GetBlockTime());
-        } else if (pindex->nHeight >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight)) {
+        } else if (pindex->nHeight >= Params().GetConsensus().DakotaCrescentHeight) {
             mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
         }
     }
@@ -3055,7 +3055,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto time = GetTimeMillis();
         CCustomCSView pruned(mnview);
         mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
-            if (key.height >= it->first) { // don't erase checkpoint height
+            if (key.height >= static_cast<uint32_t>(it->first)) { // don't erase checkpoint height
                 return false;
             }
             if (!pruneStarted) {
@@ -3247,7 +3247,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     std::vector<CLoanSchemeMessage> loanUpdates;
     cache.ForEachDelayedLoanScheme([&pindex, &loanUpdates](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& loanScheme) {
-        if (key.second == pindex->nHeight) {
+        if (key.second == static_cast<uint64_t>(pindex->nHeight)) {
             loanUpdates.push_back(loanScheme);
         }
         return true;
@@ -3263,7 +3263,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     std::vector<std::string> loanDestruction;
     cache.ForEachDelayedDestroyScheme([&pindex, &loanDestruction](const std::string& key, const uint64_t& height) {
-        if (height == pindex->nHeight) {
+        if (height == static_cast<uint64_t>(pindex->nHeight)) {
             loanDestruction.push_back(key);
         }
         return true;
@@ -5249,7 +5249,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         //check spv and anchors are available and try it first
                         if (spv::pspv && panchors) {
                             auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
-                            if (fallbackAnchor && (fallbackAnchor->anchor.height > fallbackCheckpointBlockHeight)) {
+                            if (fallbackAnchor && (fallbackAnchor->anchor.height > static_cast<THeight>(fallbackCheckpointBlockHeight))) {
                                 blockIndex = LookupBlockIndex(fallbackAnchor->anchor.blockHash);
                             }
                         }
@@ -5969,7 +5969,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && nHeight != block.deprecatedHeight) {
+    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && static_cast<uint64_t>(nHeight) != block.deprecatedHeight) {
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "incorrect-height", "incorrect height set in block header");
     }
 
@@ -5991,7 +5991,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     // Check timestamp
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= static_cast<uint64_t>(consensusParams.EunosPayaHeight)) {
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= consensusParams.EunosPayaHeight) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }
@@ -5999,7 +5999,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
-    if (nHeight >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+    if (nHeight >= consensusParams.DakotaCrescentHeight) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
@@ -6345,14 +6345,14 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     // Calc how far back team changes, do not generate auths below that height.
     teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
 
-    uint64_t topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
+    int topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
     if (tip->nHeight <= topAnchorHeight) {
         return;
     }
 
     CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
-    uint64_t forkHeight = pindexFork && (pindexFork->nHeight >= (uint64_t)consensus.mn.anchoringFrequency) ? pindexFork->nHeight - (uint64_t)consensus.mn.anchoringFrequency : 0;
+    auto forkHeight = pindexFork && pindexFork->nHeight >= consensus.mn.anchoringFrequency ? pindexFork->nHeight - consensus.mn.anchoringFrequency : 0;
     // limit fork height - trim it by the top anchor, if any
     forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
