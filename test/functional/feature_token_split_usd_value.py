@@ -167,7 +167,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].generate(10)
 
     def split(self, tokenId, keepLocked=False, oracleSplit=False, multiplier=2):
-        tokenSymbol = self.get_token_symbol_from_id(tokenId)
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
         self.nodes[0].generate(1)
 
