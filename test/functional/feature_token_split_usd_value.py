@@ -4,16 +4,10 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-# TODO
-# Multiple pools with split stock OK
-# Both sides with split token
-# Two splits same height
-# MINIMUM_LIQUIDITY 1000sats
-# Merge with one side bigger in value max_limit
 """Test token split"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than_or_equal
 
 from decimal import Decimal
 import time
@@ -172,7 +166,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
-    # Make the split and return split height for revert if needed
     def split(self, tokenId, keepLocked=False, oracleSplit=False, multiplier=2):
         tokenSymbol = self.get_token_symbol_from_id(tokenId)
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
@@ -186,13 +179,12 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/{multiplier}'}})
         self.nodes[0].generate(2)
 
-        tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
+        self.idT1old = tokenId
+        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
 
         if not keepLocked:
-            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'false'}})
+            self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT1}':'false'}})
             self.nodes[0].generate(1)
-
-        return splitHeight
 
     def remove_from_pool(self, account):
         amountLP = self.get_amount_from_account(account, "T1-DUSD")
@@ -262,14 +254,13 @@ class TokenSplitUSDValueTest(DefiTestFramework):
     def compare_usd_account_value_on_split(self, revert=False):
         revertHeight = self.nodes[0].getblockcount()
         value_accounts_pre_split = self.accounts_usd_values()
-        new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
+        self.split(self.idT1, oracleSplit=True, multiplier=20)
         value_accounts_post_split = self.accounts_usd_values()
         # TODO fail
         self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
         if revert:
             self.revert(revertHeight)
-        else:
-            self.idT1=new_idT1
+            self.idT1=self.idT1old
 
     def setup_vaults(self, collateralSplit=False):
         self.nodes[0].createloanscheme(200, 0.01, 'LOAN_0')
@@ -305,26 +296,51 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             vault_values.append(vaultInfo)
         return vault_values
 
-
     def compare_usd_vaults_values_on_split(self, revert=False):
         revertHeight = self.nodes[0].getblockcount()
-        self.setup_vaults()
+        self.setup_vaults(collateralSplit=False)
         vault_values_pre_split = self.get_vaults_usd_values()
-        new_idT1 = self.split(self.idT1, oracleSplit=True, multiplier=20)
+        self.split(self.idT1, oracleSplit=True, multiplier=20)
         self.nodes[0].generate(40)
         vault_values_post_split = self.get_vaults_usd_values()
         self.compare_vaults_list(vault_values_pre_split,vault_values_post_split)
 
         if revert:
             self.revert(revertHeight)
-        else:
-            self.idT1=new_idT1
+            self.idT1=self.idT1old
+
+    def test_values_non_zero_with_token_locked(self):
+        self.setup_vaults()
+        self.split(self.idT1, keepLocked=True)
+        vaults_values = self.get_vaults_usd_values()
+        for vault in vaults_values:
+            assert_equal(vault["state"], "frozen")
+            assert_equal(vault["collateralValue"], -1)
+            assert_equal(vault["loanValue"], -1)
+            assert_equal(vault["interestValue"], -1)
+            assert_equal(vault["informativeRatio"], -1)
+            assert_equal(vault["collateralRatio"], -1)
+
+    def test_values_after_token_unlock(self):
+        # Unlock token
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT1}':'false'}})
+        self.nodes[0].generate(1)
+        vaults_values = self.get_vaults_usd_values()
+        for vault in vaults_values:
+            assert_equal(vault["state"], "active")
+            assert_greater_than_or_equal(vault["collateralValue"], 0)
+            assert_greater_than_or_equal(vault["loanValue"], 0)
+            assert_greater_than_or_equal(vault["interestValue"], 0)
+            assert_greater_than_or_equal(vault["informativeRatio"], 0)
+            assert_greater_than_or_equal(vault["collateralRatio"], 0)
 
     def run_test(self):
         self.setup()
         assert_equal(1,1) # Make linter happy for now
         self.compare_usd_account_value_on_split(revert=True)
-        self.compare_usd_vaults_values_on_split()
+        self.compare_usd_vaults_values_on_split(revert=True)
+        self.test_values_non_zero_with_token_locked()
+        self.test_values_after_token_unlock()
 
 if __name__ == '__main__':
     TokenSplitUSDValueTest().main()
