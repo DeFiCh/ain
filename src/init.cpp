@@ -1087,6 +1087,7 @@ bool AppInitParameterInteraction()
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
         LogPrintf("conf: checkpoints disabled.\n");
+        // Safe to const_cast, as we know it's always allocated, and is always in the global var.
         ClearCheckpoints(const_cast<CChainParams&>(chainparams));
     } else {
         LogPrintf("conf: checkpoints enabled.\n");
