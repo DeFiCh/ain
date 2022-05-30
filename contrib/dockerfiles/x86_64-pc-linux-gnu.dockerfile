@@ -52,7 +52,7 @@ COPY . .
 RUN ./autogen.sh
 
 # XREF: #make-configure
-RUN ./configure CC=clang-11 CXX=clang++-11 --prefix=`pwd`/depends/${TARGET}
+RUN ./configure CC=clang-11 CXX=clang++-11 --prefix=`pwd`/depends/${TARGET} ${MAKE_CONF_ARGS}
 
 ARG BUILD_VERSION=
 
