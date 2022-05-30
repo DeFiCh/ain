@@ -46,7 +46,7 @@ COPY . .
 RUN ./autogen.sh
 
 # XREF: #make-configure
-RUN ./configure --prefix=`pwd`/depends/${TARGET}
+RUN ./configure --prefix=`pwd`/depends/${TARGET} ${MAKE_CONF_ARGS}
 
 ARG BUILD_VERSION=
 
