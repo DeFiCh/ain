@@ -209,9 +209,13 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         revertHeight = self.nodes[0].getblockcount()
         activePriceT1 = self.nodes[0].getfixedintervalprice(f"{self.symbolT1}/USD")["activePrice"]
         activePriceDUSD = self.nodes[0].getfixedintervalprice(f"{self.symbolDUSD}/USD")["activePrice"]
-        for account in self.accounts:
+        for idx, account in enumerate(self.accounts):
             amounts = {}
             self.remove_from_pool(account)
+            if idx == len(self.accounts)/2:
+                accountInfo = self.nodes[0].getaccount(account)
+                print(f"NUM_ACCOUNTS: {len(self.accounts)}, INDEX: {idx}, ACCOUNT: {account}")
+                print(accountInfo)
             amounts["account"] = account
             amounts["DUSD"] = Decimal(self.get_amount_from_account(account, "DUSD")) * Decimal(activePriceDUSD)
             amounts["T1"] = Decimal(self.get_amount_from_account(account, "T1")) *Decimal(activePriceT1)
@@ -222,9 +226,12 @@ class TokenSplitUSDValueTest(DefiTestFramework):
     def compare_value_list(self, pre, post):
         for index, amount in enumerate(pre):
             print(f'Comparing values in valut {amount["account"]}')
-            if index != 0:
-                almost_equal(amount["DUSD"], post[index]["DUSD"])
-                almost_equal(amount["T1"], post[index]["T1"])
+            if index != 0: # skips first one as it has 1000sat penalty
+                if index == len(pre)/2:
+                    print (f'Amount DUSD pre split: {amount["DUSD"]} \nAmount DUSD post split: {post[index]["DUSD"]}'),
+                    print (f'Amount T1 pre split: {amount["T1"]} \nAmount T1 post split: {post[index]["T1"]}'),
+                assert_equal(amount["DUSD"], post[index]["DUSD"])
+                assert_equal(amount["T1"], post[index]["T1"])
 
     def compare_vaults_list(self, pre, post):
         for index, vault in enumerate(pre):
