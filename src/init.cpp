@@ -1086,7 +1086,10 @@ bool AppInitParameterInteraction()
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
+        LogPrintf("conf: checkpoints disabled.\n");
         ClearCheckpoints(const_cast<CChainParams&>(chainparams));
+    } else {
+        LogPrintf("conf: checkpoints enabled.\n");
     }
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
