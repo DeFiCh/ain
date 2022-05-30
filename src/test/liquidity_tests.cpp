@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
-                if (height >= Params().GetConsensus().BayfrontGardensHeight) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().BayfrontGardensHeight)) {
                     if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());

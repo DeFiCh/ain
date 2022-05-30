@@ -49,7 +49,7 @@ COPY . .
 RUN ./autogen.sh
 
 # XREF: #make-configure
-RUN CONFIG_SITE=`pwd`/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
+RUN CONFIG_SITE=`pwd`/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/ ${MAKE_CONF_ARGS}
 
 ARG BUILD_VERSION=
 

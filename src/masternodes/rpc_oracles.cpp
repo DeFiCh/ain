@@ -529,7 +529,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 }
 
 bool diffInHour(int64_t time1, int64_t time2) {
-    constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
+    constexpr const int64_t SECONDS_PER_HOUR = 3600u;
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
@@ -846,7 +846,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
         return true;
     });
 
-    static const auto minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
+    static const uint64_t minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
 
     if (numLiveOracles < minimumLiveOracles) {
         return Res::Err("no live oracles for specified request");
@@ -866,7 +866,7 @@ namespace {
     UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
         size_t limit = 100;
-        int start = 0;
+        uint32_t start = 0;
         bool including_start = true;
         if (!paginationObj.empty()){
             if (!paginationObj["limit"].isNull()) {

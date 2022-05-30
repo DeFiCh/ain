@@ -245,7 +245,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     auto nextCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
 
-    PoolSwapValue poolSwap;
+    PoolSwapValue poolSwap{};
     auto nextPoolSwap = UINT_MAX;
     auto poolSwapHeight = UINT_MAX;
     auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
