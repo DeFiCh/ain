@@ -1,4 +1,3 @@
-#include "masternodes/masternodes.h"
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
