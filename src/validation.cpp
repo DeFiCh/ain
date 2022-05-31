@@ -3876,7 +3876,7 @@ size_t RewardConsolidationWorkersCount() {
 }
 
 void ConsolidateRewards(CCustomCSView &view, int height, 
-        const std::vector<std::pair<CScript, CAmount>> &items, int numWorkers, bool skipOnShutdown) {
+        const std::vector<std::pair<CScript, CAmount>> &items, bool interruptOnShutdown, int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
     auto rewardsTime = GetTimeMicros();
     boost::asio::thread_pool workerPool(nWorkers);
@@ -3890,12 +3890,12 @@ void ConsolidateRewards(CCustomCSView &view, int height,
         // Technically not fully synchronized, but avoid races
         // due to the segregated areas of operation.
         boost::asio::post(workerPool, [&, &account = owner]() {
-            if (skipOnShutdown && ShutdownRequested()) return;
+            if (interruptOnShutdown && ShutdownRequested()) return;
             auto tempView = std::make_unique<CCustomCSView>(view);
             tempView->CalculateOwnerRewards(account, height);
 
             boost::asio::post(mergeWorker, [&, tempView = std::move(tempView)]() {
-                if (skipOnShutdown && ShutdownRequested()) return;
+                if (interruptOnShutdown && ShutdownRequested()) return;
                 tempView->Flush();
 
                 // This entire block is already serialized with single merge worker.
@@ -4022,7 +4022,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 return a.second > b.second;
             });
 
-            ConsolidateRewards(view, pindex->nHeight, balancesToMigrate, nWorkers);
+            ConsolidateRewards(view, pindex->nHeight, balancesToMigrate, false, nWorkers);
 
             // Special case. No liquidity providers in a previously used pool.
             if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
