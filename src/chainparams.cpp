@@ -1060,3 +1060,7 @@ void SelectParams(const std::string& network)
     SelectBaseParams(network);
     globalChainParams = CreateChainParams(network);
 }
+
+void ClearCheckpoints(CChainParams &params) {
+    params.checkpointData = {};
+}
