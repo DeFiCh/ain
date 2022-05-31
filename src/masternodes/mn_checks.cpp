@@ -1548,7 +1548,7 @@ public:
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
         // Can be removed after the hard fork, since it will be backward compatible
-        // but have to keep it around for pre 2.8.0 nodes for now 
+        // but have to keep it around for pre 2.8.0 nodes for now
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
             CalculateOwnerRewards(obj.owner);
         }
@@ -3684,6 +3684,16 @@ public:
     }
 
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        EraseHistory(obj.from);
+        EraseHistory(consensus.burnAddress);
+        return EraseHistory(vault->ownerAddress);
+    }
+
+    Res operator()(const CLoanPaybackLoanV2Message& obj) const {
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
             return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
