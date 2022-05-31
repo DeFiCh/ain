@@ -158,6 +158,7 @@ namespace {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
+            CAmount totalInterestsPerBlock{0};
             TAmounts interestsPerBlock{};
 
             for (const auto& loan : loanTokens->balances) {
