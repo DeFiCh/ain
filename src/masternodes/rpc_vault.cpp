@@ -129,6 +129,7 @@ namespace {
         if (!collaterals)
             collaterals = CBalances{};
 
+
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
@@ -139,6 +140,14 @@ namespace {
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
             collateralRatio = int(rate.val->ratio());
+        }
+
+        bool isVaultTokenLocked {false};
+        for (const auto& collateral : collaterals->balances) {
+            if(pcustomcsview->AreTokensLocked({collateral.first.v})){
+                isVaultTokenLocked = true;
+                break;
+            }
         }
 
         UniValue loanBalances{UniValue::VARR};
@@ -163,6 +172,9 @@ namespace {
                 }
                 totalBalances.insert({loan.first, value});
                 interestBalances.insert({loan.first, totalInterest});
+                if (pcustomcsview->AreTokensLocked({loan.first.v})){
+                    isVaultTokenLocked = true;
+                }
             }
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
@@ -176,6 +188,13 @@ namespace {
         result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
         result.pushKV("loanAmounts", loanBalances);
         result.pushKV("interestAmounts", interestAmounts);
+        if (isVaultTokenLocked){
+            collValue = -1;
+            loanValue = -1;
+            interestValue = -1;
+            ratioValue = -1;
+            collateralRatio = -1;
+        }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
         result.pushKV("interestValue", interestValue);
