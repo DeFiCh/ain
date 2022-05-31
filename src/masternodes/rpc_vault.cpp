@@ -221,8 +221,8 @@ namespace {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
-            result.pushKV("totalInterestPerBlockValue", totalInterestsPerBlockValue);
-            result.pushKV("interestPerBlock", interestsPerBlockBalances);
+            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
     }

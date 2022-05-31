@@ -325,7 +325,7 @@ class PriceUpdateTest (DefiTestFramework):
         vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
         assert_equal(vaultBeforeUpdate["collateralRatio"], 2375)
         assert_equal(vaultBeforeUpdate["nextCollateralRatio"], 3213)
-        interestPerBlockTSLA = vaultBeforeUpdate["interestPerBlock"][0].split('@')[0]
+        interestPerBlockTSLA = vaultBeforeUpdate["interestsPerBlock"][0].split('@')[0]
         amountInterestTSLA = vaultBeforeUpdate["interestAmounts"][0].split('@')[0]
         self.nodes[0].generate(1)
         vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
@@ -338,7 +338,7 @@ class PriceUpdateTest (DefiTestFramework):
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
         assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
         assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
-        interestPerBlockTSLA = vaultAfterUpdate["interestPerBlock"][0].split('@')[0]
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
         amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
         self.nodes[0].generate(1)
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
