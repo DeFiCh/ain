@@ -121,7 +121,7 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 10 * 60 * 60;
 /** Maximum age of our tip in seconds for us to be considered current for fee estimation */
 static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 10 * 60;
 
-static const bool DEFAULT_CHECKPOINTS_ENABLED = false;
+static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
 static const bool DEFAULT_TXINDEX = false;
 static const char* const DEFAULT_BLOCKFILTERINDEX = "0";
 static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
@@ -160,7 +160,6 @@ extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
-extern bool fCheckpointsEnabled;
 
 extern bool fStopOrInterrupt;
 extern std::string fInterruptBlockHash;
@@ -856,5 +855,9 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 }
 
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
+
+void ConsolidateRewards(CCustomCSView& view, int height, 
+    const std::vector<std::pair<CScript, CAmount>> &items, 
+    bool interruptOnShutdown, int numWorkers = 0);
 
 #endif // DEFI_VALIDATION_H

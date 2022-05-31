@@ -266,13 +266,21 @@ class TokenLockTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Cannot take loan while any of the asset's price in the vault is not live", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolTSLA}'})
         assert_raises_rpc_error(-32600, "Cannot take loan while any of the asset's price in the vault is not live", self.nodes[0].takeloan, {'vaultId': self.vault, 'amounts': f'1@{self.symbolGOOGL}'})
 
-        # Vault amounts should be zero while token locked
+        # Vault amounts should be -1 while token locked
         result = self.nodes[0].getvault(self.vault)
-        assert_equal(result['collateralValue'], 0)
-        assert_equal(result['loanValue'], 0)
-        assert_equal(result['interestValue'], Decimal('0.00000000'))
-        assert_equal(result['informativeRatio'], 0)
-        assert_equal(result['collateralRatio'], 0)
+        assert_equal(result['collateralValue'], -1)
+        assert_equal(result['loanValue'], -1)
+        assert_equal(result['interestValue'], -1)
+        assert_equal(result['informativeRatio'], -1)
+        assert_equal(result['collateralRatio'], -1)
+        result = self.nodes[0].getvault(self.vault, True)
+        assert_equal(result['collateralValue'], -1)
+        assert_equal(result['loanValue'], -1)
+        assert_equal(result['interestValue'], -1)
+        assert_equal(result['informativeRatio'], -1)
+        assert_equal(result['collateralRatio'], -1)
+        assert_equal(result['interestPerBlockValue'], -1)
+        assert_equal(result['interestsPerBlock'], [])
 
         # Deposit to vault should fail
         assert_raises_rpc_error(-32600, "Fixed interval price currently disabled due to locked token", self.nodes[0].deposittovault, self.vault, self.address, f'100000@{self.symbolDUSD}')

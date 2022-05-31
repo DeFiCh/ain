@@ -473,7 +473,7 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
             return true; // continue
         if ((minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) ||
             (maxConfs >= 0 && confs > maxConfs) ||
-            (startBtcHeight >= 0 && static_cast<THeight>(rec.btcHeight) < startBtcHeight))
+            (startBtcHeight >= 0 && rec.btcHeight < static_cast<THeight>(startBtcHeight)))
             return false; // break
 
         UniValue anchor(UniValue::VOBJ);
