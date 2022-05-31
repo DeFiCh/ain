@@ -187,7 +187,7 @@ namespace {
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
             interestAmounts = AmountsToJSON(interestBalances);
-            if(verbose) {
+            if (verbose) {
                 interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
                 totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
             }
