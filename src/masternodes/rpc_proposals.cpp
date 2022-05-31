@@ -519,6 +519,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop->title);
+    ret.pushKV("context", prop->context);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
 
