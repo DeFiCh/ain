@@ -1889,6 +1889,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
                 return true;
             });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
         }
         if (fullRewardConsolidation) {
             LogPrintf("Consolidate rewards for all addresses..\n");
