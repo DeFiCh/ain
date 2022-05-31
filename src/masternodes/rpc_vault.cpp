@@ -123,7 +123,7 @@ namespace {
             return result;
         }
 
-        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0}, nextCollateralRatio{0};
+        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0}, nextCollateralRatio{0}, totalInterestsPerBlockValue{0};
 
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
@@ -152,11 +152,14 @@ namespace {
 
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
+        UniValue interestsPerBlockBalances{UniValue::VARR};
 
         if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
+            CAmount totalInterestsPerBlock{0};
+            TAmounts interestsPerBlock{};
 
             for (const auto& loan : loanTokens->balances) {
                 auto token = pcustomcsview->GetLoanTokenByID(loan.first);
@@ -169,7 +172,13 @@ namespace {
                 if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
+                    if (verbose) {
+                        auto interestPerBlock = rate->interestPerBlock.GetLow64();
+                        interestsPerBlock.insert({loan.first, interestPerBlock});
+                        totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                    }
                 }
+
                 totalBalances.insert({loan.first, value});
                 interestBalances.insert({loan.first, totalInterest});
                 if (pcustomcsview->AreTokensLocked({loan.first.v})){
@@ -179,6 +188,10 @@ namespace {
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
             interestAmounts = AmountsToJSON(interestBalances);
+            if (verbose) {
+                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
+                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
+            }
         }
 
         result.pushKV("vaultId", vaultId.GetHex());
@@ -194,6 +207,7 @@ namespace {
             interestValue = -1;
             ratioValue = -1;
             collateralRatio = -1;
+            totalInterestsPerBlockValue = -1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -207,6 +221,8 @@ namespace {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
+            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
     }
