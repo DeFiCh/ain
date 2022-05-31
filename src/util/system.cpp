@@ -1058,8 +1058,11 @@ int RaiseFileDescriptorLimit(int nMinFD) {
             setrlimit(RLIMIT_NOFILE, &limitFD);
             getrlimit(RLIMIT_NOFILE, &limitFD);
         }
+        LogPrintf("conf: fd limit: req: %d, set %d, max: %d\n",
+            nMinFD, limitFD.rlim_cur, limitFD.rlim_max);
         return limitFD.rlim_cur;
     }
+    LogPrintf("conf: fd limit: %d, max: unknown\n", nMinFD);
     return nMinFD; // getrlimit failed, assume it's fine
 #endif
 }
