@@ -3875,6 +3875,13 @@ size_t RewardConsolidationWorkersCount() {
     return workersMax > 2 ? workersMax : 3;
 }
 
+// Note: Be careful with lambda captures and default args. GCC 11.2.0, appears the if the captures are
+// unused in the function directly, but inside the lambda, it completely disassociates them from the fn
+// possibly when the lambda is lifted up and with default args, ends up inling the default arg
+// completely. TODO: verify with smaller test case. 
+// But scenario: If `interruptOnShutdown` is set as default arg to false, it will never be set true
+// on the below as it's inlined by gcc 11.2.0 on Ubuntu 22.04 incorrectly. Behavior is correct
+// in lower versions of gcc or across clang. 
 void ConsolidateRewards(CCustomCSView &view, int height, 
         const std::vector<std::pair<CScript, CAmount>> &items, bool interruptOnShutdown, int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
