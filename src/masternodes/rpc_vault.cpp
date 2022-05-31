@@ -184,8 +184,10 @@ namespace {
         if (verbose) {
             useNextPrice = true;
             auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
-            nextCollateralRatio = int(rate.val->ratio());
-            result.pushKV("nextCollateralRatio", nextCollateralRatio);
+            if (rate) {
+                nextCollateralRatio = int(rate.val->ratio());
+                result.pushKV("nextCollateralRatio", nextCollateralRatio);
+            }
         }
         return result;
     }
