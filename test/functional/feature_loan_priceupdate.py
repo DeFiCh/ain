@@ -325,13 +325,26 @@ class PriceUpdateTest (DefiTestFramework):
         vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
         assert_equal(vaultBeforeUpdate["collateralRatio"], 2375)
         assert_equal(vaultBeforeUpdate["nextCollateralRatio"], 3213)
-
+        interestPerBlockTSLA = vaultBeforeUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultBeforeUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+        vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
+        realInteresAfterOneBlock = Decimal(vaultBeforeUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
         # Let price update and check vault again
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(5)
 
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
         assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
         assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
+        realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
 
 if __name__ == '__main__':
     PriceUpdateTest().main()
