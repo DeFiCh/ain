@@ -12,7 +12,6 @@
 #include <script/signingprovider.h>
 #include <script/standard.h>
 #include <serialize.h>
-#include <util/memory.h>
 #include <util/system.h>
 #include <util/time.h>
 #include <validation.h>
@@ -77,8 +76,8 @@ BOOST_FIXTURE_TEST_SUITE(denialofservice_tests, TestingSetup)
 // work.
 BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 {
-    auto connman = MakeUnique<CConnman>(0x1337, 0x1337);
-    auto peerLogic = MakeUnique<PeerLogicValidation>(connman.get(), nullptr, scheduler, false);
+    auto connman = std::make_unique<CConnman>(0x1337, 0x1337);
+    auto peerLogic = std::make_unique<PeerLogicValidation>(connman.get(), nullptr, scheduler, false);
 
     // Mock an outbound peer
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
@@ -208,9 +207,9 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 
 BOOST_AUTO_TEST_CASE(DoS_banning)
 {
-    auto banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
-    auto connman = MakeUnique<CConnman>(0x1337, 0x1337);
-    auto peerLogic = MakeUnique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
+    auto banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
+    auto connman = std::make_unique<CConnman>(0x1337, 0x1337);
+    auto peerLogic = std::make_unique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
 
     banman->ClearBanned();
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
@@ -263,9 +262,9 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
 
 BOOST_AUTO_TEST_CASE(DoS_banscore)
 {
-    auto banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
-    auto connman = MakeUnique<CConnman>(0x1337, 0x1337);
-    auto peerLogic = MakeUnique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
+    auto banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
+    auto connman = std::make_unique<CConnman>(0x1337, 0x1337);
+    auto peerLogic = std::make_unique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
 
     banman->ClearBanned();
     gArgs.ForceSetArg("-banscore", "111"); // because 11 is my favorite number
@@ -310,9 +309,9 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
 
 BOOST_AUTO_TEST_CASE(DoS_bantime)
 {
-    auto banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
-    auto connman = MakeUnique<CConnman>(0x1337, 0x1337);
-    auto peerLogic = MakeUnique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
+    auto banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
+    auto connman = std::make_unique<CConnman>(0x1337, 0x1337);
+    auto peerLogic = std::make_unique<PeerLogicValidation>(connman.get(), banman.get(), scheduler, false);
 
     banman->ClearBanned();
     int64_t nStartTime = GetTime();
