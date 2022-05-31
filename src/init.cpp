@@ -597,6 +597,7 @@ void SetupServerArgs()
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1085,8 +1086,14 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
-        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
+    if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
+        LogPrintf("conf: checkpoints disabled.\n");
+        // Safe to const_cast, as we know it's always allocated, and is always in the global var
+        // and it is not used anywhere yet.
+        ClearCheckpoints(const_cast<CChainParams&>(chainparams));
+    } else {
+        LogPrintf("conf: checkpoints enabled.\n");
+    }
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())
@@ -1360,7 +1367,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Warn about relative -datadir path.
     if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
-                  "current working directory '%s'. This is fragile, because if defi is started in the future "
+                  "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
                   "also be data loss if defi is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
@@ -1857,6 +1864,43 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Advertise witness capabilities.
         // The option to not set NODE_WITNESS is only used in the tests and should be removed.
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);
+    }
+
+    if (gArgs.IsArgSet("-consolidaterewards")) {
+        const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
+        auto fullRewardConsolidation = false;
+        for (const auto& tokenSymbolInput : tokenSymbolArgs) {
+            auto tokenSymbol = trim_ws(tokenSymbolInput);
+            if (tokenSymbol.empty()) {
+                fullRewardConsolidation = true;
+                continue;
+            }
+            LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
+            auto token = pcustomcsview->GetToken(tokenSymbol);
+            if (!token) {
+                InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
+                return false;
+            }
+
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
+                if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+        }
+        if (fullRewardConsolidation) {
+            LogPrintf("Consolidate rewards for all addresses..\n");
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&](CScript const& owner, CTokenAmount balance) {
+                if (balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+        }
     }
 
     // ********************************************************* Step 11: import blocks

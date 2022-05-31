@@ -9,6 +9,7 @@
 
 #include <memory>
 
+/*
 static const int64_t DEFAULT_BENCH_EVALUATIONS = 5;
 static const char* DEFAULT_BENCH_FILTER = ".*";
 static const char* DEFAULT_BENCH_SCALING = "1.0";
@@ -30,6 +31,7 @@ static void SetupBenchArgs()
     gArgs.AddArg("-plot-width=<x>", strprintf("Plot width in pixel (default: %u)", DEFAULT_PLOT_WIDTH), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-plot-height=<x>", strprintf("Plot height in pixel (default: %u)", DEFAULT_PLOT_HEIGHT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 }
+ */
 
 int main(int argc, char** argv)
 {

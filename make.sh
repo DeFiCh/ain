@@ -34,7 +34,13 @@ setup_vars() {
         default_compiler_flags="CC=clang-11 CXX=clang++-11"
     fi
 
-    MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
+        default_jobs=$(sysctl -n hw.logicalcpu)
+    else
+        default_jobs=$(nproc)
+    fi
+
+    MAKE_JOBS=${MAKE_JOBS:-"${default_jobs}"}
     MAKE_COMPILER=${MAKE_COMPILER:-"${default_compiler_flags}"}
     MAKE_CONF_ARGS="${MAKE_COMPILER} ${MAKE_CONF_ARGS:-}"
     MAKE_ARGS=${MAKE_ARGS:-}
@@ -289,7 +295,7 @@ docker_release_git() {
 }
 
 docker_build_deploy_git() {
-    git_version 
+    git_version
     docker_build "$@"
     docker_deploy "$@"
 }
