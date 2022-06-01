@@ -40,6 +40,7 @@
 #include <policy/settings.h>
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
+#include <rpc/stats.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <scheduler.h>
@@ -374,7 +375,9 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb",
+        "-dbcrashratio", "-forcecompactdb", 
+        "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -476,6 +479,8 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningparkheight", "Fort Canning Park fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanninghillheight", "Fort Canning Hill fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningroadheight", "Fort Canning Road fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningcrunchheight", "Fort Canning Crunch fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
@@ -591,6 +596,8 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -806,6 +813,8 @@ static bool InitSanityCheck()
 
 static bool AppInitServers()
 {
+    if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS))
+        statsRPC.setActive(false);
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
     if (!InitHTTPServer())
@@ -1077,8 +1086,14 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
-        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
+    if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
+        LogPrintf("conf: checkpoints disabled.\n");
+        // Safe to const_cast, as we know it's always allocated, and is always in the global var
+        // and it is not used anywhere yet.
+        ClearCheckpoints(const_cast<CChainParams&>(chainparams));
+    } else {
+        LogPrintf("conf: checkpoints enabled.\n");
+    }
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())
@@ -1211,7 +1226,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-
+    
     return true;
 }
 
@@ -1264,7 +1279,7 @@ bool AppInitLockDataDirectory()
 void SetupAnchorSPVDatabases(bool resync) {
     // Close and open database
     panchors.reset();
-    panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+    panchors = std::make_unique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
 
     // load anchors after spv due to spv (and spv height) not set before (no last height yet)
     if (gArgs.GetBoolArg("-spv", true)) {
@@ -1273,13 +1288,41 @@ void SetupAnchorSPVDatabases(bool resync) {
 
         // Open database based on network
         if (Params().NetworkIDString() == "regtest") {
-            spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+            spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
         } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
         } else {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
         }
     }
+}
+
+bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &heightStore) {
+    // Experimental: Block height or hash to invalidate on and stop sync
+    auto val = gArgs.GetArg(argName, "");
+    auto flagName = argName.substr(1);
+    if (val.empty())
+        return false;
+    if (val.size() == 64) {
+        hashStore = val;
+        LogPrintf("flag: %s hash: %s\n", flagName, hashStore);
+    } else {
+        std::stringstream ss(val);
+        ss >> heightStore;
+       if (heightStore) {
+            LogPrintf("flag: %s height: %d\n", flagName, heightStore);
+       } else {
+            LogPrintf("%s: invalid hash or height provided: %s\n", flagName, val);
+       }
+    }
+    return true;
+}
+
+void SetupInterrupts() {
+    auto isSet = false;
+    isSet = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight) || isSet;
+    isSet = SetupInterruptArg("-stop-block", fStopBlockHash, fStopBlockHeight) || isSet;
+    fStopOrInterrupt = isSet;
 }
 
 bool AppInitMain(InitInterfaces& interfaces)
@@ -1324,7 +1367,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Warn about relative -datadir path.
     if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
-                  "current working directory '%s'. This is fragile, because if defi is started in the future "
+                  "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
                   "also be data loss if defi is started while in a temporary directory.\n",
             gArgs.GetArg("-datadir", ""), fs::current_path().string());
@@ -1390,7 +1433,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // need to reindex later.
 
     assert(!g_banman);
-    g_banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
+    g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
     assert(!g_connman);
     g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
 
@@ -1497,6 +1540,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         nMaxOutboundLimit = gArgs.GetArg("-maxuploadtarget", DEFAULT_MAX_UPLOAD_TARGET)*1024*1024;
     }
 
+    // Setup interrupts
+    SetupInterrupts();
+
     // ********************************************************* Step 7: load block chain
 
     fReindex = gArgs.GetBoolArg("-reindex", false);
@@ -1549,7 +1595,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             try {
                 LOCK(cs_main);
                 // This statement makes ::ChainstateActive() usable.
-                g_chainstate = MakeUnique<CChainState>();
+                g_chainstate = std::make_unique<CChainState>();
                 UnloadBlockIndex();
 
                 // new CBlockTreeDB tries to delete the existing file, which
@@ -1614,9 +1660,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 });
 
                 pcustomcsDB.reset();
-                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
+                pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1630,16 +1676,16 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
-                    paccountHistoryDB = MakeUnique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 pburnHistoryDB.reset();
-                pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
-                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 // If necessary, upgrade from older database format.
@@ -1757,7 +1803,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, fReindex);
+        g_txindex = std::make_unique<TxIndex>(nTxIndexCache, false, fReindex);
         g_txindex->Start();
     }
 
@@ -1779,9 +1825,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         LOCK(cs_main);
 
         panchorauths.reset();
-        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
         SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
         // Check if DB version changed
@@ -1818,6 +1864,44 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Advertise witness capabilities.
         // The option to not set NODE_WITNESS is only used in the tests and should be removed.
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);
+    }
+
+    if (gArgs.IsArgSet("-consolidaterewards")) {
+        const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
+        auto fullRewardConsolidation = false;
+        for (const auto& tokenSymbolInput : tokenSymbolArgs) {
+            auto tokenSymbol = trim_ws(tokenSymbolInput);
+            if (tokenSymbol.empty()) {
+                fullRewardConsolidation = true;
+                continue;
+            }
+            LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
+            auto token = pcustomcsview->GetToken(tokenSymbol);
+            if (!token) {
+                InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
+                return false;
+            }
+
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
+                if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+        }
+        if (fullRewardConsolidation) {
+            LogPrintf("Consolidate rewards for all addresses..\n");
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&](CScript const& owner, CTokenAmount balance) {
+                if (balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+        }
     }
 
     // ********************************************************* Step 11: import blocks

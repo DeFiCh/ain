@@ -808,7 +808,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     depth = std::min(depth, currentHeight);
     auto startBlock = currentHeight - depth;
 
-    auto masternodeBlocks = [&](const uint256& masternodeID, uint32_t blockHeight) {
+    auto masternodeBlocks = [&](const uint256& masternodeID, int blockHeight) {
         if (masternodeID != mn_id) {
             return false;
         }

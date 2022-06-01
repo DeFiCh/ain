@@ -366,7 +366,7 @@ public:
     {
         uint256 masternodesID = testMasternodeKeys.begin()->first;
         CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
-        wallet = MakeUnique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
+        wallet = std::make_unique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
         bool firstRun;
         wallet->LoadWallet(firstRun);
         AddKey(*wallet, coinbaseKey);

@@ -878,7 +878,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
     }
 
     // Recreate deeper anchor depth
-    if (anchorCreationHeight >= Params().GetConsensus().FortCanningHeight) {
+    if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().FortCanningHeight)) {
         timeDepth += Params().GetConsensus().mn.anchoringAdditionalTimeDepth;
         while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
             --anchorHeight;

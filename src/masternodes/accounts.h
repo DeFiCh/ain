@@ -73,7 +73,8 @@ public:
     ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);
     boost::optional<uint32_t> GetMostRecentFuturesHeight();
-    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start = {});
+    void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
+            {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
 
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };

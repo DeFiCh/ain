@@ -245,7 +245,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     auto nextCustomRewards = begin;
     auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
 
-    PoolSwapValue poolSwap;
+    PoolSwapValue poolSwap{};
     auto nextPoolSwap = UINT_MAX;
     auto poolSwapHeight = UINT_MAX;
     auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
@@ -709,6 +709,10 @@ Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
     }
     WriteBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), uint32_t(feePct));
     return Res::Ok();
+}
+
+void CPoolPairView::EraseDexFeePct(DCT_ID poolId, DCT_ID tokenId) {
+    EraseBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId));
 }
 
 CAmount CPoolPairView::GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const {
