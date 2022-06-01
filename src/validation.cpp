@@ -2449,17 +2449,15 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
 
     // Stop is processed first. So, if a block has both stop and interrupt
     // stop will take priority.
-    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash)) {
-        StartShutdown();
-        return true;
-    }
-
-    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
+    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash) || checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
+        if (pIndex->nHeight == fStopBlockHeight) {
+            StartShutdown();
+        }
         state.Invalid(
-                    ValidationInvalidReason::CONSENSUS,
-                    error("ConnectBlock(): user interrupt"),
-                    REJECT_INVALID,
-                    "user-interrupt-request");
+            ValidationInvalidReason::CONSENSUS,
+            error("ConnectBlock(): user interrupt"),
+            REJECT_INVALID,
+            "user-interrupt-request");
         return true;
     }
 
