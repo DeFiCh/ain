@@ -140,11 +140,11 @@ public:
     static const unsigned char DB_TOKEN_LASTID; // = 'L';
 
     using CTokenImpl = CTokenImplementation;
-    boost::optional<CTokenImpl> GetToken(DCT_ID id) const;
-    boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> GetToken(std::string const & symbol) const;
+    std::optional<CTokenImpl> GetToken(DCT_ID id) const;
+    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> GetToken(std::string const & symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
-    boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
-    [[nodiscard]] virtual boost::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
+    std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
+    [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
@@ -167,7 +167,7 @@ private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
     DCT_ID DecrementLastDctId();
-    boost::optional<DCT_ID> ReadLastDctId() const;
+    std::optional<DCT_ID> ReadLastDctId() const;
 };
 
 #endif // DEFI_MASTERNODES_TOKENS_H

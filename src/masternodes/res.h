@@ -3,7 +3,6 @@
 
 #include <string>
 #include <tinyformat.h>
-#include <boost/optional.hpp>
 
 struct Res
 {
@@ -47,7 +46,7 @@ struct Res
 template <typename T>
 struct ResVal : public Res
 {
-    boost::optional<T> val{};
+    std::optional<T> val{};
 
     ResVal() = delete;
 

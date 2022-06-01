@@ -1730,8 +1730,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
     CKeyID minterKey;
-    boost::optional<uint256> nodeId;
-    boost::optional<CMasternode> node;
+    std::optional<uint256> nodeId;
 
     if (!fIsFakeNet) {
         minterKey = pindex->minterKey();
@@ -2556,8 +2555,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     CKeyID minterKey;
-    boost::optional<uint256> nodeId;
-    boost::optional<CMasternode> nodePtr;
+    std::optional<uint256> nodeId;
+    std::optional<CMasternode> nodePtr;
 
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {

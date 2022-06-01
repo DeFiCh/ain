@@ -169,7 +169,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
 
     auto locked_chain = chain.lock();
-    const auto txVersion = GetTransactionVersion(locked_chain->getHeight().get_value_or(-1));
+    const auto txVersion = GetTransactionVersion(locked_chain->getHeight().value_or(-1));
     CMutableTransaction rawTx(txVersion);
 
     if (!locktime.isNull()) {
