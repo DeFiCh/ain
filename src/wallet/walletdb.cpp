@@ -692,19 +692,19 @@ void MaybeBackupWallet() {
     }
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         auto env = pwallet->GetDBHandle().env;
-        fs::path backup1Path = env->Directory() / strprintf("auto.backup-1.%s.bak",pwallet->GetName());
-        fs::path backup2Path = env->Directory() / strprintf("auto.backup-2.%s.bak",pwallet->GetName());
-        if (fs::exists(backup1Path) && !fs::exists(backup2Path)) {
-            pwallet->BackupWallet(backup2Path.string());
-        }else if (fs::exists(backup1Path) && fs::exists(backup2Path)) {
-            fs::remove(backup1Path);
-            fs::rename(backup2Path, backup1Path);
-            pwallet->BackupWallet(backup2Path.string());
-        }else if (!fs::exists(backup1Path) && fs::exists(backup2Path)) {
-            fs::rename(backup2Path, backup1Path);
-            pwallet->BackupWallet(backup2Path.string());
+        fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1",pwallet->GetName());
+        fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2",pwallet->GetName());
+        if (fs::exists(prevBackup) && !fs::exists(currentBackup)) {
+            pwallet->BackupWallet(currentBackup.string());
+        }else if (fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            fs::remove(prevBackup);
+            fs::rename(currentBackup, prevBackup);
+            pwallet->BackupWallet(currentBackup.string());
+        }else if (!fs::exists(prevBackup) && fs::exists(currentBackup)) {
+            fs::rename(currentBackup, prevBackup);
+            pwallet->BackupWallet(currentBackup.string());
         }else {
-            pwallet->BackupWallet(backup1Path.string());
+            pwallet->BackupWallet(prevBackup.string());
         }
 
     }
