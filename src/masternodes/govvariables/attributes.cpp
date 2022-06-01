@@ -595,7 +595,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         const auto& [id, multiplier] = *(splitValue->begin());
                         tokenSplits.insert(id);
 
-                        attributes[attribute] = *splitValue;
+                        SetValue(attribute, *splitValue);
                         return Res::Ok();
                     }
 
