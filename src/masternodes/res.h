@@ -1,6 +1,7 @@
 #ifndef DEFI_MASTERNODES_RES_H
 #define DEFI_MASTERNODES_RES_H
 
+#include <optional>
 #include <string>
 #include <tinyformat.h>
 
