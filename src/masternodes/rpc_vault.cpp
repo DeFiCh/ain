@@ -1154,9 +1154,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
 
     // parse pagination
     size_t limit = 100;
-    AuctionHistoryKey start = {~0u};
-    start.index = ~0u;
-
+    AuctionHistoryKey start = {~0u, {}, {}, ~0u};
     {
         if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
