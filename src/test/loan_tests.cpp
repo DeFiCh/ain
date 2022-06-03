@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         else if (typeKind == 1) input = base_uint<128>(boost::get<std::string>(key));
         else BOOST_TEST_FAIL("unknown type");
 
-        auto res = GetInterestPerBlockHighPrecisionString(input);
+        auto res = TryGetInterestPerBlockHighPrecisionString(input);
         if (!res) BOOST_TEST_FAIL("negatives detected");
         BOOST_CHECK_EQUAL(*res, expectedResult);
     }
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
     // for (auto n = 0; n < 128; n++) {
     //     nums.push_back(i);
     //     std::cout << " { \"" << i.GetHex() << "\", \"";
-    //     std::cout << GetInterestPerBlockHighPrecisionString(i);
+    //     std::cout << TryGetInterestPerBlockHighPrecisionString(i);
     //     std::cout << "\" }," << std::endl;
     //     i = i >> 1;
     // }
