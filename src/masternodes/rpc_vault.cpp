@@ -524,15 +524,13 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!including_start)
         {
             including_start = true;
-            return (true);
-        }
-        if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
-            return false;
+            return true;
         }
         auto vaultState = GetVaultState(vaultId, data);
 
         if ((loanSchemeId.empty() || loanSchemeId == data.schemeId)
-        && (state == VaultState::Unknown || state == vaultState)) {
+        &&  (ownerAddress.empty() || ownerAddress == data.ownerAddress)
+        &&  (state == VaultState::Unknown || state == vaultState)) {
             UniValue vaultObj{UniValue::VOBJ};
             if(!verbose){
                 vaultObj.pushKV("vaultId", vaultId.GetHex());
@@ -1156,7 +1154,7 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
 
     // parse pagination
     size_t limit = 100;
-    AuctionHistoryKey start = {~0u};
+    AuctionHistoryKey start = {~0u, {}, {}, ~0u};
     {
         if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
@@ -1205,6 +1203,10 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         }
 
         if (isMine && !(IsMineCached(*pwallet, key.owner) & ISMINE_SPENDABLE)) {
+            return true;
+        }
+
+        if (start.index!=~0u && start.index != key.index){
             return true;
         }
 
