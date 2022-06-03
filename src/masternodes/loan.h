@@ -266,7 +266,9 @@ CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
 base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
-boost::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
+
+std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
+boost::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
 
