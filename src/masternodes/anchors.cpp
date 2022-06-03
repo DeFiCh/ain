@@ -914,7 +914,7 @@ uint256 CAnchorConfirmDataPlus::GetSignHash() const
     return Hash(ss.begin(), ss.end());
 }
 
-boost::optional<CAnchorConfirmMessage> CAnchorConfirmMessage::CreateSigned(const CAnchor& anchor, const THeight prevAnchorHeight,
+std::optional<CAnchorConfirmMessage> CAnchorConfirmMessage::CreateSigned(const CAnchor& anchor, const THeight prevAnchorHeight,
                                                                            const uint256 &btcTxHash, CKey const & key, const THeight btcTxHeight)
 {
     // Potential post-fork unrewarded anchor

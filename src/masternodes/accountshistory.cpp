@@ -19,7 +19,7 @@ Res CAccountsHistoryView::WriteAccountHistory(const AccountHistoryKey& key, cons
     return Res::Ok();
 }
 
-boost::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(AccountHistoryKey const & key) const
+std::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(AccountHistoryKey const & key) const
 {
     return ReadBy<ByAccountHistoryKey, AccountHistoryValue>(key);
 }

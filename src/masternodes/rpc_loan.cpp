@@ -427,8 +427,8 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[1].get_obj();
     UniValue const & txInputs = request.params[2];
 
-    boost::optional<CLoanSetLoanTokenImplementation> loanToken;
-    boost::optional<CTokenImplementation> token;
+    std::optional<CLoanSetLoanTokenImplementation> loanToken;
+    std::optional<CTokenImplementation> token;
 
     int targetHeight;
     {
