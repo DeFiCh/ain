@@ -998,10 +998,10 @@ void CMainParams::UpdateActivationParametersFromArgs() {
             consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
             LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
         }
-    }
 
-    // Do this at the end, to ensure simualte mainnet overrides are in place.
-    SetupCommonArgActivationParams(consensus);
+        // Do this at the end, to ensure simualte mainnet overrides are in place.
+        SetupCommonArgActivationParams(consensus);
+    }
 }
 
 
