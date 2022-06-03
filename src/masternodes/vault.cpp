@@ -35,7 +35,7 @@ Res CVaultView::EraseVault(const CVaultId& vaultId)
     return Res::Ok();
 }
 
-boost::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
+std::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
 {
     return ReadBy<VaultKey, CVaultData>(vaultId);
 }
@@ -94,7 +94,7 @@ Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-boost::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
+std::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
 {
     return ReadBy<CollateralKey, CBalances>(vaultId);
 }
@@ -127,7 +127,7 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
     return Res::Err("Auction for vault <%s> not found", vaultId.GetHex());
 }
 
-boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
+std::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
 {
     auto it = LowerBound<AuctionHeightKey>(CAuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
@@ -152,7 +152,7 @@ Res CVaultView::EraseAuctionBatch(const AuctionStoreKey& key)
     return Res::Ok();
 }
 
-boost::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const AuctionStoreKey& key)
+std::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const AuctionStoreKey& key)
 {
     return ReadBy<AuctionBatchKey, CAuctionBatch>(key);
 }
@@ -182,7 +182,7 @@ Res CVaultView::EraseAuctionBid(const AuctionStoreKey& key)
     return Res::Ok();
 }
 
-boost::optional<CVaultView::COwnerTokenAmount> CVaultView::GetAuctionBid(const AuctionStoreKey& key)
+std::optional<CVaultView::COwnerTokenAmount> CVaultView::GetAuctionBid(const AuctionStoreKey& key)
 {
     return ReadBy<AuctionBidKey, COwnerTokenAmount>(key);
 }

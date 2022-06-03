@@ -925,7 +925,7 @@ public:
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
-boost::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
+std::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
@@ -953,7 +953,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
     auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
     if (eunosHeight.has_value()){
-        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
+        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
     UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
