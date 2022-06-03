@@ -2448,17 +2448,15 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
 
     // Stop is processed first. So, if a block has both stop and interrupt
     // stop will take priority.
-    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash)) {
-        StartShutdown();
-        return true;
-    }
-
-    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
+    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash) || checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
+        if (pIndex->nHeight == fStopBlockHeight) {
+            StartShutdown();
+        }
         state.Invalid(
-                    ValidationInvalidReason::CONSENSUS,
-                    error("ConnectBlock(): user interrupt"),
-                    REJECT_INVALID,
-                    "user-interrupt-request");
+            ValidationInvalidReason::CONSENSUS,
+            error("ConnectBlock(): user interrupt"),
+            REJECT_INVALID,
+            "user-interrupt-request");
         return true;
     }
 
@@ -4295,22 +4293,12 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         }
 
         if (LogAcceptCategory(BCLog::TOKEN_SPLIT)) {
-            auto s1 = GetInterestPerBlockHighPrecisionString(oldInterestPerBlock);
-            auto s2 = GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock);
-            std::string s1Str;
-            std::string s2Str;
-            if (s1 && s2) {
-                s1Str = *s1;
-                s2Str = *s2;
-            }
-            else {
-                s1Str = oldInterestPerBlock.ToString();
-                s2Str = newInterestRatePerBlock.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "WARNING: TokenSplit GetInterestPerBlockHighPrecisionString failed\n");
-            }
             LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
-                vaultId.ToString(), oldRateToHeight.ToString(), newRateToHeight.ToString(),
-                s1Str, s2Str);
+                vaultId.ToString(),
+                GetInterestPerBlockHighPrecisionString(oldRateToHeight),
+                GetInterestPerBlockHighPrecisionString(newRateToHeight),
+                GetInterestPerBlockHighPrecisionString(oldInterestPerBlock),
+                GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock));
         }
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);
