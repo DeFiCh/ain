@@ -1462,13 +1462,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
-            auto realizedInterestStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
-            // Ideally would be better to have a universal graceful shutdown methodology to force the node to
-            // stop for these unexpected state errors that violate operating params but still not enough
-            // memory inconsistency to crash risking wallet and data corruption.
-            if (!realizedInterestStr)
-                throw JSONRPCError(RPC_MISC_ERROR, "Invalid GetInterestPerBlockHighPrecisionString.");
-            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, *realizedInterestStr));
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
         }
         ret.push_back(obj);
     }

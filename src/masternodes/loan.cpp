@@ -476,7 +476,7 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-boost::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
+boost::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
     struct HighPrecisionInterestValue {
         typedef boost::multiprecision::int128_t int128;
         typedef int64_t int64;
@@ -518,4 +518,13 @@ boost::optional<std::string> GetInterestPerBlockHighPrecisionString(const base_u
         }
     };
     return HighPrecisionInterestValue(value).GetInterestPerBlockString();
+}
+
+std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
+    auto res = TryGetInterestPerBlockHighPrecisionString(value);
+    if (!res) {
+        LogPrintf("WARNING: High precision interest string conversion failure. Falling back to hex.\n");
+        return value.ToString();
+    }
+    return *res;
 }
