@@ -283,7 +283,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    pwallet->BlockUntilSyncedToCurrentChain();
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // parse pagination
     size_t limit = 100;
@@ -350,7 +350,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         return limit != 0;
     }, start.owner);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
@@ -381,6 +381,8 @@ UniValue getaccount(const JSONRPCRequest& request) {
                        HelpExampleCli("getaccount", "owner_address")
                 },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // decode owner
     const auto reqOwner = DecodeScript(request.params[0].get_str());
@@ -439,7 +441,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
         limit--;
         return limit != 0;
     }, BalanceKey{reqOwner, start});
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue gettokenbalances(const JSONRPCRequest& request) {
@@ -472,7 +474,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
-    pwallet->BlockUntilSyncedToCurrentChain();
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // parse pagination
     size_t limit = 100;
@@ -540,7 +542,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         else
             ret.push_back(ValueFromAmount(bal.nValue).getValStr() + "@" + tokenIdStr);
     }
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue utxostoaccount(const JSONRPCRequest& request) {
@@ -987,6 +989,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
     bool noRewards = false;
@@ -1042,8 +1046,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             txn = (uint32_t) optionsObj["txn"].get_int64();
         }
     }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
         return true;
@@ -1216,7 +1218,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
     }
 
-    return slice;
+    return GetRPCResultCache().Set(request, slice);
 }
 
 UniValue getaccounthistory(const JSONRPCRequest& request) {
@@ -1244,6 +1246,8 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     auto owner = DecodeScript(request.params[0].getValStr());
     uint32_t blockHeight = request.params[1].get_int();
     uint32_t txn = request.params[2].get_int();
@@ -1256,7 +1260,7 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
         result = accounthistoryToJSON(AccountKey, *value);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {
@@ -1288,6 +1292,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
                        + HelpExampleRpc("listburnhistory", "")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
@@ -1336,8 +1342,6 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
     }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
         return true;
@@ -1411,7 +1415,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         }
     }
 
-    return slice;
+    return GetRPCResultCache().Set(request, slice);
 }
 
 UniValue accounthistorycount(const JSONRPCRequest& request) {
@@ -1440,13 +1444,15 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is need for account history");
+    }
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     std::string accounts = "mine";
     if (request.params.size() > 0) {
         accounts = request.params[0].getValStr();
-    }
-
-    if (!paccountHistoryDB) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is need for account history");
     }
 
     bool noRewards = false;
@@ -1475,8 +1481,6 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             }
         }
     }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
 
     CScript owner;
     bool isMine = false;
@@ -1575,7 +1579,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         );
     }
 
-    return count;
+    return GetRPCResultCache().Set(request, count);
 }
 
 UniValue listcommunitybalances(const JSONRPCRequest& request) {
@@ -1592,6 +1596,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
@@ -1619,7 +1624,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     }
     ret.pushKV("Burnt", ValueFromAmount(burnt));
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
@@ -1771,6 +1776,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     CAmount burntDFI{0};
     CAmount burntFee{0};
     CAmount auctionFee{0};
@@ -1890,7 +1897,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("emissionburn", ValueFromAmount(burnt));
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
@@ -2232,6 +2239,7 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     UniValue listFutures{UniValue::VARR};
 
     LOCK(cs_main);
@@ -2267,7 +2275,7 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
         return true;
     });
 
-    return listFutures;
+    return GetRPCResultCache().Set(request, listFutures);
 }
 
 UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
@@ -2291,6 +2299,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     UniValue listValues{UniValue::VARR};
 
     const auto owner = DecodeScript(request.params[0].get_str());
@@ -2333,7 +2342,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     UniValue obj{UniValue::VOBJ};
     obj.pushKV("owner", request.params[0].get_str());
     obj.pushKV("values", listValues);
-    return obj;
+    return GetRPCResultCache().Set(request, obj);
 }
 
 

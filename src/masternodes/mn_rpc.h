@@ -13,6 +13,7 @@
 
 #include <rpc/rawtransaction_util.h>
 #include <rpc/server.h>
+#include <rpc/resultcache.h>
 #include <rpc/util.h>
 
 //#ifdef ENABLE_WALLET

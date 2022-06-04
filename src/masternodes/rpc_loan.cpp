@@ -1,5 +1,4 @@
 #include <masternodes/mn_rpc.h>
-
 #include <masternodes/govvariables/attributes.h>
 
 extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
@@ -196,6 +195,8 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
@@ -216,7 +217,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         ret.pushKVs(setCollateralTokenToJSON(*pcustomcsview, *collToken));
     }
 
-    return (ret);
+    return GetRPCResultCache().Set(request, ret);
 }
 
 
@@ -232,6 +233,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                     HelpExampleCli("listcollateraltokens", "")
                 },
      }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
@@ -265,7 +267,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return true;
     }, CDataStructureV0{AttributeTypes::Token});
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue setloantoken(const JSONRPCRequest& request) {
@@ -511,6 +513,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
                     HelpExampleCli("listloantokens", "")
                 },
      }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     UniValue ret(UniValue::VARR);
 
@@ -543,7 +546,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
         return true;
     }, CDataStructureV0{AttributeTypes::Token});
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getloantoken(const JSONRPCRequest& request)
@@ -560,13 +563,13 @@ UniValue getloantoken(const JSONRPCRequest& request)
             HelpExampleCli("getloantoken", "DFI")},
     }
         .Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
 
-    UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
@@ -581,7 +584,9 @@ UniValue getloantoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
     }
 
-    return setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
+    auto res = setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
+    return GetRPCResultCache().Set(request, res);
+
 }
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
@@ -925,6 +930,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                        HelpExampleRpc("listloanschemes", "")
                },
     }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     auto cmp = [](const CLoanScheme& a, const CLoanScheme& b) {
         return a.ratio == b.ratio ? a.rate < b.rate : a.ratio < b.ratio;
@@ -958,7 +964,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
         ret.push_back(arr);
     }
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getloanscheme(const JSONRPCRequest& request) {
@@ -980,6 +986,8 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
                        HelpExampleRpc("getloanscheme", "LOAN0001")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     if(request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter id, argument must be non-null");
@@ -1006,7 +1014,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
         result.pushKV("default", false);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 UniValue takeloan(const JSONRPCRequest& request) {
@@ -1312,6 +1320,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     UniValue ret{UniValue::VOBJ};
 
     LOCK(cs_main);
@@ -1323,7 +1332,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
 
     pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
             collaterals = CBalances{};
@@ -1372,7 +1380,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     ret.pushKV("defaults", defaultsObj);
     ret.pushKV("totals", totalsObj);
 
-    return (ret);
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getinterest(const JSONRPCRequest& request) {
@@ -1397,6 +1405,8 @@ UniValue getinterest(const JSONRPCRequest& request) {
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
                 },
      }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValueType()}, false);
 
@@ -1466,7 +1476,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         }
         ret.push_back(obj);
     }
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 

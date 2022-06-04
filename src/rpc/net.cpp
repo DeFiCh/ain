@@ -546,8 +546,6 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
 
     UniValue nodeInfoObj(UniValue::VOBJ);
 
-    
-
     UniValue btcInfoObj(UniValue::VOBJ);
     btcInfoObj.pushKV("version", BR_PROTOCOL_VERSION);
     btcInfoObj.pushKV("min", BR_MIN_PROTO_VERSION);
