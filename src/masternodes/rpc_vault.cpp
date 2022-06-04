@@ -1,3 +1,4 @@
+#include "logging.h"
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
@@ -109,7 +110,7 @@ namespace {
         return auctionObj;
     }
 
-    UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault, const bool verbose = false) {
+    UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault, const bool verbose = false, const bool skipLockedCheck = false) {
         UniValue result{UniValue::VOBJ};
         auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
@@ -129,11 +130,10 @@ namespace {
         if (!collaterals)
             collaterals = CBalances{};
 
-
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
 
         if (rate) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
@@ -169,7 +169,7 @@ namespace {
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId, skipLockedCheck)) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                     if (verbose) {
@@ -201,7 +201,7 @@ namespace {
         result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
         result.pushKV("loanAmounts", loanBalances);
         result.pushKV("interestAmounts", interestAmounts);
-        if (isVaultTokenLocked){
+        if (isVaultTokenLocked && !skipLockedCheck){
             collValue = -1;
             loanValue = -1;
             interestValue = -1;
@@ -216,13 +216,16 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
+            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
             if (rate) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
-            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
-            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
+            // TODO fix to show correct interestPerBlock on skipLockedCheck = true
+            if (!skipLockedCheck) {
+                result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+                result.pushKV("interestsPerBlock", interestsPerBlockBalances);
+            }
         }
         return result;
     }
@@ -434,6 +437,10 @@ UniValue listvaults(const JSONRPCRequest& request) {
                             {
                                 "verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                 "Flag for verbose list (default = false), otherwise only ids, ownerAddress, loanSchemeIds and state are listed"
+                            },
+                            {
+                                "skipLockedCheck", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, return collateral and loan values even if token is locked"
                             }
                         },
                     },
@@ -477,6 +484,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
     std::string loanSchemeId;
     VaultState state{VaultState::Unknown};
     bool verbose{false};
+    bool skipPriceChecks{false};
     if (request.params.size() > 0) {
         UniValue optionsObj = request.params[0].get_obj();
         if (!optionsObj["ownerAddress"].isNull()) {
@@ -488,9 +496,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!optionsObj["state"].isNull()) {
             state = StringToVaultState(optionsObj["state"].getValStr());
         }
-        if (!optionsObj["verbose"].isNull()) {
-            verbose = optionsObj["verbose"].getBool();
-        }
+        verbose = optionsObj["verbose"].getBool();
+        skipPriceChecks = optionsObj["skipLockedCheck"].getBool();
     }
 
     // parse pagination
@@ -538,7 +545,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
                 vaultObj.pushKV("loanSchemeId", data.schemeId);
                 vaultObj.pushKV("state", VaultStateToString(vaultState));
             } else {
-                vaultObj = VaultToJSON(vaultId, data);
+                vaultObj = VaultToJSON(vaultId, data, verbose, skipPriceChecks);
             }
             valueArr.push_back(vaultObj);
             limit--;
