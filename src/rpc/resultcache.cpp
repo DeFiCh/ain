@@ -55,8 +55,8 @@ const UniValue& RPCResultCache::Set(const JSONRPCRequest &request, const UniValu
     return value;
 }
 
-// Note: We initialize all the globals in the init phase.
-// So, it's state. Otherwise, static init is undefined when multiple threads init them at the same time.
+// Note: We initialize all the globals in the init phase. So, it's safe. Otherwise,
+// static init is undefined behavior when multiple threads init them at the same time.
 RPCResultCache& GetRPCResultCache() {
     static RPCResultCache g_rpcResultCache;
     return g_rpcResultCache;
