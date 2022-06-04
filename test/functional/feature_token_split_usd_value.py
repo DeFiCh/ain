@@ -310,6 +310,18 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_equal(vault["interestValue"], -1)
             assert_equal(vault["informativeRatio"], -1)
             assert_equal(vault["collateralRatio"], -1)
+        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": False, "verbose": True})
+        for vault in vaults_values:
+            assert_equal(vault["state"], "frozen")
+            assert_equal(vault["collateralValue"], -1)
+            assert_equal(vault["loanValue"], -1)
+            assert_equal(vault["interestValue"], -1)
+            assert_equal(vault["informativeRatio"], -1)
+            assert_equal(vault["collateralRatio"], -1)
+        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
+        for vault in vaults_values:
+            assert_greater_than_or_equal(vault["collateralValue"], 0)
+            assert_greater_than_or_equal(vault["loanValue"], 0)
 
     def test_values_after_token_unlock(self):
         # Unlock token
