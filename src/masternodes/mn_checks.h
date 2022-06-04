@@ -100,8 +100,10 @@ enum class CustomTxType : uint8_t
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
     AuctionBid             = 'I',
+    // Marker TXs
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
+    TokenSplit             = 'z',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -159,6 +161,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AuctionBid:
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
+        case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
         case CustomTxType::None:
             return type;

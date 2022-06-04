@@ -4360,8 +4360,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = value.second;
         auto newTokenAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, oldTokenAmount.nValue)};
 
-        value.second.nTokenId = newTokenAmount.nTokenId;
-        value.second.nValue = newTokenAmount.nValue;
+        value.second = newTokenAmount;
 
         view.StoreAuctionBid(key, value);
 
