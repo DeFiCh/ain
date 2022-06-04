@@ -2,8 +2,8 @@
 // Created by pvl on 4/6/22.
 //
 
-#ifndef AIN_RESULTCACHE_H
-#define AIN_RESULTCACHE_H
+#ifndef DEFI_RPC_RESULTCACHE_H
+#define DEFI_RPC_RESULTCACHE_H
 
 #include <atomic>
 #include <string>
@@ -41,4 +41,4 @@ RPCResultCache& GetRPCResultCache();
 int GetLastValidatedHeight();
 void SetLastValidatedHeight(int height);
 
-#endif //AIN_RESULTCACHE_H
+#endif //DEFI_RPC_RESULTCACHE_H
