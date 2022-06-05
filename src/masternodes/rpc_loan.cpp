@@ -1368,7 +1368,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
             return false;
         if (attr.key == TokenKeys::LoanCollateralEnabled)
             totalCollateralTokens++;
-        else if (attr.key == TokenKeys::LoanCollateralEnabled)
+        else if (attr.key == TokenKeys::LoanMintingEnabled)
             totalLoanTokens++;
         return true;
     }, CDataStructureV0{AttributeTypes::Token});
