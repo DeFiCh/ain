@@ -608,6 +608,7 @@ class VaultTest (DefiTestFramework):
         assert_equal(len(list_vault), 4)
         self.nodes[0].closevault(self.vaults[3], self.owner_addresses[1])
         self.nodes[0].generate(1)
+        self.sync_blocks()
         list_vault = self.nodes[1].listvaults()
         assert_equal(len(list_vault), 3)
         try:
