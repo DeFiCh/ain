@@ -1365,8 +1365,8 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
             totalLoanTokens++;
             return true;
         });
-        // Now, let's go over attributes.If it's on attributes, the above calls would have done nothing.
-        // Can cover both in a single iteration.
+
+        // Now, let's go over attributes. If it's on attributes, the above calls would have done nothing.
         auto attributes = view.GetAttributes();
         if (!attributes) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
@@ -1414,12 +1414,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     workerPool.join();
     // We use relaxed ordering to increment. Thread joins should in theory, 
     // resolve have resulted in full barriers, but we ensure
-    // to throw in a acq/rel barrier anyway. seq cst is not needed. 
-    // x86 arch might appear to work without many of the above, but let's be
-    // extra cautious about RISC optimizers.
-    totalVaults = vaultsTotal.load(std::memory_order_acq_rel);
-    totalLoanValue = loansValTotal.load(std::memory_order_acq_rel);
-    totalCollateralValue = colsValTotal.load(std::memory_order_acq_rel);
+    // to throw in a full barrier anyway. x86 arch might appear to work without
+    // but let's be extra cautious about RISC optimizers.
+    totalVaults = vaultsTotal.load();
+    totalLoanValue = loansValTotal.load();
+    totalCollateralValue = colsValTotal.load();
 
     UniValue totalsObj{UniValue::VOBJ};
 
