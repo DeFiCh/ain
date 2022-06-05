@@ -1791,10 +1791,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     UniValue dfipaybacktokens{UniValue::VARR};
 
-    auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
-    {
-        const auto & value = valueLazy.get();
+    LOCK(cs_main);
 
+    auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+        const auto & value = valueLazy.get();
         // UTXO burn
         if (value.category == uint8_t(CustomTxType::None)) {
             for (auto const & diff : value.diff) {
@@ -1802,7 +1802,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
-
         // Fee burn
         if (value.category == uint8_t(CustomTxType::CreateMasternode)
         || value.category == uint8_t(CustomTxType::CreateToken)
@@ -1812,7 +1811,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
-
         // withdraw burn
         if (value.category == uint8_t(CustomTxType::PaybackLoan)
         || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
@@ -1821,7 +1819,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
-
         // auction burn
         if (value.category == uint8_t(CustomTxType::AuctionBid)) {
             for (auto const & diff : value.diff) {
@@ -1829,7 +1826,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
-
         // dex fee burn
         if (value.category == uint8_t(CustomTxType::PoolSwap)
         ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
@@ -1838,29 +1834,18 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
-
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
         }
-
         return true;
     };
 
-    AccountHistoryKey startKey{{}, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{{}, 
+        std::numeric_limits<uint32_t>::max(), 
+        std::numeric_limits<uint32_t>::max()};
+        
     pburnHistoryDB->ForEachAccountHistory(calcBurn, startKey);
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
-    result.pushKV("amount", ValueFromAmount(burntDFI));
-
-    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
-    result.pushKV("feeburn", ValueFromAmount(burntFee));
-    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
-    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
-
-    LOCK(cs_main);
 
     if (auto attributes = pcustomcsview->GetAttributes()) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
@@ -1881,12 +1866,6 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
     }
 
-    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
-    result.pushKV("dfipaybacktokens", dfipaybacktokens);
-
-    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
-    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
-
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
         if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
@@ -1894,6 +1873,23 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             burnt += pcustomcsview->GetCommunityBalance(kv.first);
         }
     }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
+    result.pushKV("amount", ValueFromAmount(burntDFI));
+
+    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("feeburn", ValueFromAmount(burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+
+    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", dfipaybacktokens);
+
+    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
+    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
+
     result.pushKV("emissionburn", ValueFromAmount(burnt));
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 

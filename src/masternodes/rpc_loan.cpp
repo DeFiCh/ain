@@ -1340,12 +1340,12 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto defaultScheme = view.GetDefaultLoanScheme();
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
 
-    // TODO: Later optimize this into a general worker pool, so we don't need to
-    // recreate these thread on each call. 
+    // TODO: Later optimize this into a general dynamic worker pool, so we don't
+    // need to recreate these threads on each call. 
     boost::asio::thread_pool workerPool{[]() {
         const size_t workersMax = GetNumCores() - 1;
         // More than 8 is likely not very fruitful for ~10k vaults.
-        return std::min(workersMax > 2 ? workersMax : 3, 8);
+        return std::min(workersMax > 2 ? workersMax : 3, static_cast<size_t>(8));
     }()};
 
     boost::asio::post(workerPool, [&] {
@@ -1412,8 +1412,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     });
 
     workerPool.join();
-    // We use relaxed ordering to increment. So ensure we throw in a full barrier. 
-    // x86 arch might appear to work even without, but need to cautious about RISC.
+    // We use relaxed ordering to increment. Thread joins should in theory, 
+    // resolve have resulted in full barriers, but we ensure
+    // to throw in a acq/rel barrier anyway. seq cst is not needed. 
+    // x86 arch might appear to work without many of the above, but let's be
+    // extra cautious about RISC optimizers.
     totalVaults = vaultsTotal.load(std::memory_order_acq_rel);
     totalLoanValue = loansValTotal.load(std::memory_order_acq_rel);
     totalCollateralValue = colsValTotal.load(std::memory_order_acq_rel);
