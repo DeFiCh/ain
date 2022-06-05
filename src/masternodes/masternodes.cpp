@@ -17,6 +17,7 @@
 #include <validation.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
+#include <rpc/resultcache.h>
 
 #include <algorithm>
 #include <functional>
@@ -591,6 +592,7 @@ int CLastHeightView::GetLastHeight() const
 
 void CLastHeightView::SetLastHeight(int height)
 {
+    SetLastValidatedHeight(height);
     Write(Height::prefix(), height);
 }
 
