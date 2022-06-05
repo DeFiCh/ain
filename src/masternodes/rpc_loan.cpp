@@ -2,7 +2,6 @@
 #include <masternodes/govvariables/attributes.h>
 
 extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
-extern UniValue listauctions(const JSONRPCRequest& request);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
 UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
@@ -1324,14 +1323,57 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     UniValue ret{UniValue::VOBJ};
 
     LOCK(cs_main);
+    auto view = *pcustomcsview;
 
     auto height = ::ChainActive().Height() + 1;
 
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
 
-    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0,
+             totalVaults = 0, totalAuctions = 0, totalLoanSchemes = 0,
+             totalCollateralTokens = 0, totalLoanTokens = 0;
+
+    auto fixedIntervalBlock = view.GetIntervalBlock();
+    auto priceDeviation = view.GetPriceDeviation();
+    auto defaultScheme = view.GetDefaultLoanScheme();
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
+
+    view.ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data) {
+        totalLoanSchemes++;
+        return true;
+    });
+
+    // First assume it's on the DB. For later, might be worth thinking if it's better to incorporate
+    // attributes right into the for each loop, so the interface remains consistent.
+    view.ForEachLoanCollateralToken([&](CollateralTokenKey const& key, uint256 const& collTokenTx) {
+        totalCollateralTokens++;
+        return true;
+    });
+
+    view.ForEachLoanToken([&](DCT_ID const& key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        totalLoanTokens++;
+        return true;
+    });
+
+    // Now, let's go over attributes.If it's on attributes, the above calls would have done nothing.
+    // Can cover both in a single iteration.
+    auto attributes = view.GetAttributes();
+    if (!attributes) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
+    }
+
+    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+        if (attr.type != AttributeTypes::Token)
+            return false;
+        if (attr.key == TokenKeys::LoanCollateralEnabled)
+            totalCollateralTokens++;
+        else if (attr.key == TokenKeys::LoanCollateralEnabled)
+            totalLoanTokens++;
+        return true;
+    }, CDataStructureV0{AttributeTypes::Token});
+
+    view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
             collaterals = CBalances{};
@@ -1345,36 +1387,29 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         return true;
     });
 
-    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+    view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
         totalAuctions += data.batchCount;
         return true;
     }, height);
 
     UniValue totalsObj{UniValue::VOBJ};
-    auto totalLoanSchemes = static_cast<int>(listloanschemes(request).size());
-    auto totalCollateralTokens = static_cast<int>(listcollateraltokens(request).size());
 
     totalsObj.pushKV("schemes", totalLoanSchemes);
     totalsObj.pushKV("collateralTokens", totalCollateralTokens);
     totalsObj.pushKV("collateralValue", ValueFromUint(totalCollateralValue));
-    auto totalLoanTokens = static_cast<int>(listloantokens(request).size());
     totalsObj.pushKV("loanTokens", totalLoanTokens);
     totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
     totalsObj.pushKV("openAuctions", totalAuctions);
-
     UniValue defaultsObj{UniValue::VOBJ};
-    auto defaultScheme = pcustomcsview->GetDefaultLoanScheme();
     if(!defaultScheme)
         defaultsObj.pushKV("scheme", "");
     else
         defaultsObj.pushKV("scheme", *defaultScheme);
-    defaultsObj.pushKV("maxPriceDeviationPct", ValueFromUint(pcustomcsview->GetPriceDeviation() * 100));
+    defaultsObj.pushKV("maxPriceDeviationPct", ValueFromUint(priceDeviation * 100));
     auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
     defaultsObj.pushKV("minOraclesPerPrice", minLiveOracles);
-    defaultsObj.pushKV("fixedIntervalBlocks", int(pcustomcsview->GetIntervalBlock()));
-
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    defaultsObj.pushKV("fixedIntervalBlocks", int(fixedIntervalBlock));
     ret.pushKV("currentPriceBlock", (int)priceBlocks.first);
     ret.pushKV("nextPriceBlock", (int)priceBlocks.second);
     ret.pushKV("defaults", defaultsObj);
