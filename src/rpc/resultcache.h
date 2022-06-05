@@ -25,6 +25,7 @@ public:
     void Init(RPCCacheMode mode);
     std::optional<UniValue> TryGet(const JSONRPCRequest &request);
     const UniValue& Set(const JSONRPCRequest &request, const UniValue &value);
+    bool InvalidateCaches();
 
 private:
     std::atomic_bool syncFlag{false};
@@ -33,7 +34,6 @@ private:
     std::map<std::string, UniValue> cacheMap{};
     int cacheHeight{0};
 
-    bool MayBeInvalidateCaches();
 };
 
 RPCResultCache& GetRPCResultCache();

@@ -4119,7 +4119,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
                 auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
                 auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: LP (%s: %s => %s)\n",
+                LogPrint(BCLog::TOKENSPLIT, "TokenSplit: LP (%s: %s => %s)\n",
                     ScriptToString(owner), oldPoolLogStr, newPoolLogStr);
 
                 view.SetShare(newPoolId, owner, pindex->nHeight);
@@ -4248,7 +4248,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
         auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
             vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
         
         res = view.AddLoanToken(vaultId, newTokenAmount);
@@ -4292,8 +4292,8 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
-        if (LogAcceptCategory(BCLog::TOKEN_SPLIT)) {
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
+        if (LogAcceptCategory(BCLog::TOKENSPLIT)) {
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
                 vaultId.ToString(),
                 GetInterestPerBlockHighPrecisionString(oldRateToHeight),
                 GetInterestPerBlockHighPrecisionString(newRateToHeight),
@@ -4326,7 +4326,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             auto newLoanInterest = CalculateNewAmount(multiplier, value.loanInterest);
             value.loanInterest = newLoanInterest;
 
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
                 key.first.ToString(), key.second, oldLoanAmount.ToString(), 
                 newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
@@ -4338,7 +4338,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             value.collaterals.balances[newAmount.nTokenId] = newAmount.nValue;
             value.collaterals.balances.erase(oldAmount.nTokenId);
 
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s)\n",
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s)\n",
                 key.first.ToString(), key.second, oldAmount.ToString(),
                 newAmount.ToString());
         }
@@ -4365,7 +4365,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         view.StoreAuctionBid(key, value);
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
             key.first.ToString(), key.second, oldTokenAmount.ToString(),
             newTokenAmount.ToString());
     }
@@ -4507,7 +4507,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s: %s => %s)\n",
+                LogPrint(BCLog::TOKENSPLIT, "TokenSplit: T (%s: %s => %s)\n",
                     ScriptToString(owner), balance.ToString(),
                     newBalanceStr);
             }

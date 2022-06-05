@@ -17,11 +17,12 @@ std::string GetKey(const JSONRPCRequest &request) {
     return ss.str();
 }
 
-// Note: Use only in already synchronized context for cacheMap.
-bool RPCResultCache::MayBeInvalidateCaches() {
+bool RPCResultCache::InvalidateCaches() {
+    CLockFreeGuard lock{syncFlag};
     auto height = GetLastValidatedHeight();
     if (cacheHeight != height) {
-        cacheMap.clear();
+        LogPrint(BCLog::RPCCACHE, "RPCCache: clear\n");
+        if (cacheMap.size()) cacheMap.clear();
         cacheHeight = height;
         return true;
     }
@@ -37,8 +38,10 @@ std::optional<UniValue> RPCResultCache::TryGet(const JSONRPCRequest &request) {
     UniValue val;
     {
         CLockFreeGuard lock{syncFlag};
-        if (MayBeInvalidateCaches()) return {};
         if (auto res = cacheMap.find(key); res != cacheMap.end()) {
+        if (LogAcceptCategory(BCLog::RPCCACHE)) {
+            LogPrint(BCLog::RPCCACHE, "RPCCache: hit: key: %d/%s, val: %s\n", cacheHeight, key, res->second.write());
+        }
             return res->second;
         }
     }
@@ -49,7 +52,9 @@ const UniValue& RPCResultCache::Set(const JSONRPCRequest &request, const UniValu
     auto key = GetKey(request);
     {
         CLockFreeGuard lock{syncFlag};
-        MayBeInvalidateCaches();
+        if (LogAcceptCategory(BCLog::RPCCACHE)) {
+            LogPrint(BCLog::RPCCACHE, "RPCCache: set: key: %d/%s, val: %s\n", cacheHeight, key, value.write());
+        }
         cacheMap[key] = value;
     }
     return value;
@@ -65,9 +70,12 @@ RPCResultCache& GetRPCResultCache() {
 static std::atomic<int> g_lastValidatedHeight{0};
 
 int GetLastValidatedHeight() {
-    return g_lastValidatedHeight.load(std::memory_order_acquire);
+    auto res = g_lastValidatedHeight.load(std::memory_order_acquire);
+    return res;
 }
 
 void SetLastValidatedHeight(int height) {
-    g_lastValidatedHeight.store(height, std::memory_order_release);
+    LogPrint(BCLog::RPCCACHE, "RPCCache: set height: %d\n", height);
+    g_lastValidatedHeight.store(height, std::memory_order_release); 
+    GetRPCResultCache().InvalidateCaches();
 }
