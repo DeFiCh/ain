@@ -1783,17 +1783,52 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount auctionFee{0};
     CAmount paybackFee{0};
     CAmount dfiPaybackFee{0};
+    CAmount burnt{0};
+
     CBalances burntTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
-
-    UniValue dfipaybacktokens{UniValue::VARR};
+    CBalances dfipaybacktokens;
 
     LOCK(cs_main);
 
-    auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+    auto height = ::ChainActive().Height();
+    auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
+    auto burnAddress = Params().GetConsensus().burnAddress;
+    auto view = *pcustomcsview;
+    auto &burnView = pburnHistoryDB;
+    auto attributes = view.GetAttributes();
+
+    if (attributes) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                dfiPaybackFee = balance.second;
+            } else {
+                dfipaybacktokens.Add({balance.first, balance.second});
+            }
+        }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        paybackfees = std::move(paybacks.tokensFee);
+        paybacktokens = std::move(paybacks.tokensPayback);
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+    }
+
+    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+        if (kv.first == CommunityAccountType::Unallocated || 
+            kv.first == CommunityAccountType::IncentiveFunding ||
+            (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
+            burnt += view.GetCommunityBalance(kv.first);
+        }
+    }
+
+    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, CLazySerialize<AccountHistoryValue> valueLazy) {
         const auto & value = valueLazy.get();
         // UTXO burn
         if (value.category == uint8_t(CustomTxType::None)) {
@@ -1845,37 +1880,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         std::numeric_limits<uint32_t>::max(), 
         std::numeric_limits<uint32_t>::max()};
         
-    pburnHistoryDB->ForEachAccountHistory(calcBurn, startKey);
-
-    if (auto attributes = pcustomcsview->GetAttributes()) {
-        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
-        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
-        for (const auto& balance : tokenBalances.balances) {
-            if (balance.first == DCT_ID{0}) {
-                dfiPaybackFee = balance.second;
-            } else {
-                dfipaybacktokens.push_back(tokenAmountString({balance.first, balance.second}));
-            }
-        }
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
-        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
-        paybackfees = std::move(paybacks.tokensFee);
-        paybacktokens = std::move(paybacks.tokensPayback);
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
-        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
-    }
-
-    CAmount burnt{0};
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
-        (::ChainActive().Height() >= Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan)) {
-            burnt += pcustomcsview->GetCommunityBalance(kv.first);
-        }
-    }
+    burnView->ForEachAccountHistory(calculateBurnAmounts, startKey);
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
+    result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
@@ -1885,7 +1893,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
-    result.pushKV("dfipaybacktokens", dfipaybacktokens);
+    result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
 
     result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
     result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
@@ -1893,8 +1901,10 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("emissionburn", ValueFromAmount(burnt));
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
 
-    return GetRPCResultCache().Set(request, result);
+    return GetRPCResultCache()
+        .Set(request, result);
 }
+
 
 UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
