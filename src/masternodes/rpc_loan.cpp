@@ -1,5 +1,6 @@
 #include <masternodes/mn_rpc.h>
 #include <masternodes/govvariables/attributes.h>
+#include <boost/asio.hpp>
 
 extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
@@ -1339,58 +1340,83 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto defaultScheme = view.GetDefaultLoanScheme();
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
 
-    view.ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data) {
-        totalLoanSchemes++;
-        return true;
-    });
+    // TODO: Later optimize this into a general worker pool, so we don't need to
+    // recreate these thread on each call. 
+    boost::asio::thread_pool workerPool{[]() {
+        const size_t workersMax = GetNumCores() - 1;
+        // More than 8 is likely not very fruitful for ~10k vaults.
+        return std::min(workersMax > 2 ? workersMax : 3, 8);
+    }()};
 
-    // First assume it's on the DB. For later, might be worth thinking if it's better to incorporate
-    // attributes right into the for each loop, so the interface remains consistent.
-    view.ForEachLoanCollateralToken([&](CollateralTokenKey const& key, uint256 const& collTokenTx) {
-        totalCollateralTokens++;
-        return true;
-    });
+    boost::asio::post(workerPool, [&] {
+        view.ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data) {
+            totalLoanSchemes++;
+            return true;
+        });
 
-    view.ForEachLoanToken([&](DCT_ID const& key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        totalLoanTokens++;
-        return true;
-    });
-
-    // Now, let's go over attributes.If it's on attributes, the above calls would have done nothing.
-    // Can cover both in a single iteration.
-    auto attributes = view.GetAttributes();
-    if (!attributes) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
-    }
-
-    attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
-        if (attr.type != AttributeTypes::Token)
-            return false;
-        if (attr.key == TokenKeys::LoanCollateralEnabled)
+        // First assume it's on the DB. For later, might be worth thinking if it's better to incorporate
+        // attributes right into the for each loop, so the interface remains consistent.
+        view.ForEachLoanCollateralToken([&](CollateralTokenKey const& key, uint256 const& collTokenTx) {
             totalCollateralTokens++;
-        else if (attr.key == TokenKeys::LoanMintingEnabled)
+            return true;
+        });
+
+        view.ForEachLoanToken([&](DCT_ID const& key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
             totalLoanTokens++;
-        return true;
-    }, CDataStructureV0{AttributeTypes::Token});
+            return true;
+        });
+        // Now, let's go over attributes.If it's on attributes, the above calls would have done nothing.
+        // Can cover both in a single iteration.
+        auto attributes = view.GetAttributes();
+        if (!attributes) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
+        }
+
+        attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+            if (attr.type != AttributeTypes::Token)
+                return false;
+            if (attr.key == TokenKeys::LoanCollateralEnabled)
+                totalCollateralTokens++;
+            else if (attr.key == TokenKeys::LoanMintingEnabled)
+                totalLoanTokens++;
+            return true;
+        }, CDataStructureV0{AttributeTypes::Token});
+
+        view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+            totalAuctions += data.batchCount;
+            return true;
+        }, height);
+    });
+
+    std::atomic<uint64_t> vaultsTotal{0};
+    std::atomic<uint64_t> colsValTotal{0};
+    std::atomic<uint64_t> loansValTotal{0};
 
     view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-        if (!collaterals)
-            collaterals = CBalances{};
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
-        if (rate)
-        {
-            totalCollateralValue += rate.val->totalCollaterals;
-            totalLoanValue += rate.val->totalLoans;
-        }
-        totalVaults++;
+        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal, 
+            &loansValTotal=loansValTotal, &vaultsTotal=vaultsTotal,
+            vaultId=vaultId, height=height, useNextPrice=useNextPrice, 
+            requireLivePrice=requireLivePrice] {
+            auto collaterals = view.GetVaultCollaterals(vaultId);
+            if (!collaterals)
+                collaterals = CBalances{};
+            auto rate = view.GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+            if (rate)
+            {
+                colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);
+                loansValTotal.fetch_add(rate.val->totalLoans, std::memory_order_relaxed);
+            }
+            vaultsTotal.fetch_add(1, std::memory_order_relaxed);
+        });
         return true;
     });
 
-    view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
-        totalAuctions += data.batchCount;
-        return true;
-    }, height);
+    workerPool.join();
+    // We use relaxed ordering to increment. So ensure we throw in a full barrier. 
+    // x86 arch might appear to work even without, but need to cautious about RISC.
+    totalVaults = vaultsTotal.load(std::memory_order_acq_rel);
+    totalLoanValue = loansValTotal.load(std::memory_order_acq_rel);
+    totalCollateralValue = colsValTotal.load(std::memory_order_acq_rel);
 
     UniValue totalsObj{UniValue::VOBJ};
 
