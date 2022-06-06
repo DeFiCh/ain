@@ -675,6 +675,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                        + HelpExampleRpc("getgov", "LP_DAILY_DFI_REWARD")
                },
     }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     LOCK(cs_main);
 
@@ -683,7 +684,7 @@ UniValue getgov(const JSONRPCRequest& request) {
     if (var) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
-        return ret;
+        return GetRPCResultCache().Set(request, ret);
     }
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
@@ -711,6 +712,8 @@ UniValue listgovs(const JSONRPCRequest& request) {
                        + HelpExampleRpc("listgovs", "token/15")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     GovVarsFilter mode{GovVarsFilter::All};
     std::string prefix;
@@ -787,7 +790,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
         result.push_back(innerResult);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 

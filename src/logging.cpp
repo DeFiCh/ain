@@ -156,7 +156,8 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::LOAN, "loan"},
     {BCLog::ACCOUNTCHANGE, "accountchange"},
     {BCLog::FUTURESWAP, "futureswap"},
-    {BCLog::TOKEN_SPLIT, "tokensplit"},
+    {BCLog::TOKENSPLIT, "tokensplit"},
+    {BCLog::RPCCACHE, "rpccache"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
