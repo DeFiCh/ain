@@ -479,6 +479,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     CScript ownerAddress = {};
     std::string loanSchemeId;
     VaultState state{VaultState::Unknown};
@@ -530,13 +532,15 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!including_start)
         {
             including_start = true;
-            return true;
+            return (true);
+        }
+        if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
+            return false;
         }
         auto vaultState = GetVaultState(vaultId, data);
 
         if ((loanSchemeId.empty() || loanSchemeId == data.schemeId)
-        &&  (ownerAddress.empty() || ownerAddress == data.ownerAddress)
-        &&  (state == VaultState::Unknown || state == vaultState)) {
+        && (state == VaultState::Unknown || state == vaultState)) {
             UniValue vaultObj{UniValue::VOBJ};
             if(!verbose){
                 vaultObj.pushKV("vaultId", vaultId.GetHex());
@@ -552,7 +556,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         return limit != 0;
     }, start, ownerAddress);
 
-    return valueArr;
+    return GetRPCResultCache().Set(request, valueArr);
 }
 
 UniValue getvault(const JSONRPCRequest& request) {
@@ -573,6 +577,8 @@ UniValue getvault(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = request.params[1].getBool();
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
@@ -583,7 +589,8 @@ UniValue getvault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found", vaultId.GetHex()));
     }
 
-    return VaultToJSON(vaultId, *vault, verbose);
+    auto res = VaultToJSON(vaultId, *vault, verbose);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue updatevault(const JSONRPCRequest& request) {
@@ -1052,6 +1059,8 @@ UniValue listauctions(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     // parse pagination
     CVaultId vaultId;
     size_t limit = 100;
@@ -1095,7 +1104,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
         return --limit != 0;
     }, height, vaultId);
 
-    return valueArr;
+    return GetRPCResultCache().Set(request, valueArr);
 }
 
 UniValue auctionhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
@@ -1156,11 +1165,11 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for auction history");
     }
 
-    pwallet->BlockUntilSyncedToCurrentChain();
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // parse pagination
     size_t limit = 100;
-    AuctionHistoryKey start = {~0u, {}, {}, ~0u};
+    AuctionHistoryKey start = {~0u};
     {
         if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
@@ -1212,16 +1221,12 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        if (start.index!=~0u && start.index != key.index){
-            return true;
-        }
-
         ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
 
         return --limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue vaultToJSON(const uint256& vaultID, const std::string& address, const uint64_t blockHeight, const std::string& type,
@@ -1335,6 +1340,8 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-vaultindex required for vault history");
     }
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     uint256 vaultID = ParseHashV(request.params[0], "vaultId");
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
@@ -1383,8 +1390,6 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
             limit = std::numeric_limits<uint32_t>::max();
         }
     }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
 
     std::function<bool(uint256 const &)> isMatchVault = [&vaultID](uint256 const & id) {
         return id == vaultID;
@@ -1565,7 +1570,7 @@ UniValue listvaulthistory(const JSONRPCRequest& request) {
         }
     }
 
-    return slice;
+    return GetRPCResultCache().Set(request, slice);
 }
 
 UniValue estimateloan(const JSONRPCRequest& request) {
@@ -1592,6 +1597,8 @@ UniValue estimateloan(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VNUM}, false);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
@@ -1661,7 +1668,8 @@ UniValue estimateloan(const JSONRPCRequest& request) {
         if (totalSplit != COIN)
             throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between loan tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
     }
-    return AmountsToJSON(loanBalances.balances);
+    auto res = AmountsToJSON(loanBalances.balances);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue estimatecollateral(const JSONRPCRequest& request) {
@@ -1690,6 +1698,7 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VNUM, UniValue::VOBJ}, false);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     const CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
     auto ratio = request.params[1].get_int();
@@ -1753,7 +1762,8 @@ UniValue estimatecollateral(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("total split between collateral tokens = %s vs expected %s", GetDecimaleString(totalSplit), GetDecimaleString(COIN)));
     }
 
-    return AmountsToJSON(collateralBalances.balances);
+    auto res = AmountsToJSON(collateralBalances.balances);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue estimatevault(const JSONRPCRequest& request) {
@@ -1782,6 +1792,8 @@ UniValue estimatevault(const JSONRPCRequest& request) {
                        HelpExampleRpc("estimatevault", R"(["1000.00000000@DFI"], ["0.65999990@GOOGL"])")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     CBalances collateralBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
     CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[1], "");
@@ -1820,7 +1832,7 @@ UniValue estimatevault(const JSONRPCRequest& request) {
     ret.pushKV("loanValue", ValueFromUint(result.totalLoans));
     ret.pushKV("informativeRatio", ValueFromAmount(result.precisionRatio()));
     ret.pushKV("collateralRatio", int(result.ratio()));
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 static const CRPCCommand commands[] =

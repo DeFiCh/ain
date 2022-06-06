@@ -100,6 +100,7 @@ enum class CustomTxType : uint8_t
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
     AuctionBid             = 'I',
+    // Marker TXs
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
 };
