@@ -444,6 +444,31 @@ UniValue getaccount(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue listaccountsbalances(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"listaccountsbalances",
+               "\nReturns all balances in accounts.\n",
+               {},
+               RPCResult{
+                       "{...}     (array) Json object with account balances\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listaccountsbalances", "")
+               },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    UniValue ret(UniValue::VOBJ);
+
+    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        ret.pushKV(ScriptToString(owner) + '-' + std::to_string(balance.nTokenId.v), balance.nValue);
+        return true;
+    }, {});
+
+    return ret;
+}
+
 UniValue gettokenbalances(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -2358,6 +2383,7 @@ static const CRPCCommand commands[] =
 //  -------------   ------------------------ ----------------------  ----------
     {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
+    {"accounts",    "listaccountsbalances",  &listaccountsbalances,  {}},
     {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
     {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
     {"accounts",    "sendutxosfrom",         &sendutxosfrom,         {"from", "to", "amount", "change"}},
