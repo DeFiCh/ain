@@ -31,7 +31,7 @@
  */
 
 static const bool DEFAULT_FLUSHWALLET = true;
-static const bool DEFAULT_BACKUPWALLET = true;
+static const int DEFAULT_WALLET_BACKUP_PERIOD = 10;
 
 struct CBlockLocator;
 class CKeyPool;
@@ -285,6 +285,6 @@ private:
 //! Compacts BDB state so that wallet.dat is self-contained (if there are changes)
 void MaybeCompactWalletDB();
 //! Backups Most recent wallets
-void MaybeBackupWallet();
+void AutoBackupWallet();
 
 #endif // DEFI_WALLET_WALLETDB_H

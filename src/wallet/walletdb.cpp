@@ -685,15 +685,12 @@ void MaybeCompactWalletDB()
     fOneThread = false;
 }
 
-void MaybeBackupWallet() {
-
-    if (!gArgs.GetBoolArg("-backupwallet", DEFAULT_FLUSHWALLET)) {
-        return;
-    }
+void AutoBackupWallet() {
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         auto env = pwallet->GetDBHandle().env;
-        fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1",pwallet->GetName());
-        fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2",pwallet->GetName());
+        std::string walletName = pwallet->GetName().empty() ? "default" :  pwallet->GetName();
+        fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1",walletName);
+        fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2",walletName);
         if (fs::exists(prevBackup) && !fs::exists(currentBackup)) {
             pwallet->BackupWallet(currentBackup.string());
         }else if (fs::exists(prevBackup) && fs::exists(currentBackup)) {
