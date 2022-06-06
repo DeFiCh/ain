@@ -146,7 +146,6 @@ class MultiWalletTest(DefiTestFramework):
         self.restart_node(0, extra_args)
 
         wallets = sorted(map(lambda w: w['name'], self.nodes[0].listwalletdir()['wallets']))
-        print(wallets)
         assert_equal(wallets, ['', os.path.join('sub', 'w5'), 'w', 'w1', 'w2', 'w3', 'w7', 'w7_symlink', 'w8', 'w8_copy'])
 
         wallets = [wallet(w) for w in wallet_names]
