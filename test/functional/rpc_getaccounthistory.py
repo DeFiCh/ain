@@ -53,7 +53,14 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Get node 0 results
-        results = self.nodes[0].listaccounthistory(collateral_a)
+        results = self.nodes[0].listaccounthistory(collateral_a, {"includeTokenId": True} )
+        # test token ids match token symbol
+        for result in results:
+            amounts_with_id = result["amounts_with_id"]
+            for index, amount in enumerate(result["amounts"]):
+                symbol = amount.split('@')[1]
+                id = list(self.nodes[0].gettoken(symbol).keys())[0]
+                assert_equal(amounts_with_id[index].split("@")[1], id)
 
         # An account history from listaccounthistory and gettaccounthistory must be matched
         expected = results[0]

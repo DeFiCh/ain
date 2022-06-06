@@ -3,8 +3,8 @@
 #include <masternodes/mn_rpc.h>
 #include <masternodes/vaulthistory.h>
 
-extern UniValue AmountsToJSON(TAmounts const & diffs);
-extern std::string tokenAmountString(CTokenAmount const& amount);
+extern UniValue AmountsToJSON(TAmounts const & diffs, bool include_token_id = false);
+extern std::string tokenAmountString(CTokenAmount const& amount, bool include_token_id = false);
 
 namespace {
 

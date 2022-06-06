@@ -13,7 +13,7 @@
 #include <core_io.h> /// ValueFromAmount
 #include <util/strencodings.h>
 
-extern UniValue AmountsToJSON(TAmounts const & diffs);
+extern UniValue AmountsToJSON(TAmounts const & diffs, bool include_token_id = false);
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
