@@ -195,7 +195,6 @@ DEFI_CORE_H = \
   node/psbt.h \
   node/transaction.h \
   noui.h \
-  optional.h \
   outputtype.h \
   policy/feerate.h \
   policy/fees.h \
@@ -216,8 +215,9 @@ DEFI_CORE_H = \
   rpc/register.h \
   rpc/request.h \
   rpc/server.h \
-  rpc/util.h \
   rpc/stats.h \
+  rpc/resultcache.h \
+  rpc/util.h \
   scheduler.h \
   script/descriptor.h \
   script/keyorigin.h \
@@ -428,6 +428,7 @@ libdefi_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  rpc/resultcache.cpp \
   script/sigcache.cpp \
   shutdown.cpp \
   spv/btctransaction.cpp \
@@ -604,6 +605,7 @@ libdefi_common_a_SOURCES = \
   rpc/rawtransaction_util.cpp \
   rpc/util.cpp \
   rpc/stats.cpp \
+  rpc/resultcache.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
   script/sign.cpp \

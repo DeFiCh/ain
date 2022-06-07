@@ -21,7 +21,7 @@ Res CUndosView::DelUndo(UndoKey const & key)
     return Res::Ok();
 }
 
-boost::optional<CUndo> CUndosView::GetUndo(UndoKey const & key) const
+std::optional<CUndo> CUndosView::GetUndo(UndoKey const & key) const
 {
     CUndo val;
     bool ok = ReadBy<ByUndoKey>(key, val);

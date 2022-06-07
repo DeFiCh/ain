@@ -183,7 +183,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
 }
 
-boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
     // if we are trying to sign a signed proof-of-stake block
     if (!pblock->sig.empty()) {
         throw std::logic_error{"Only non-complete PoS block templates are accepted"};
@@ -197,7 +197,7 @@ boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const 
     return {};
 }
 
-boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
+std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
     uint256 hashBlock = pblock->GetHash();
 
     // verify hash target and signature of coinstake tx

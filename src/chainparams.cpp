@@ -925,7 +925,7 @@ public:
 };
 
 /// Check for fork height based flag, validate and set the value to a target var
-boost::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
+std::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
@@ -953,7 +953,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
     auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
     if (eunosHeight.has_value()){
-        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
+        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
     UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
@@ -968,6 +968,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
         consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
+        LogPrintf("conf: simulatemainnet: true (Re-adjusted: blocktime=%ds, difficultytimespan=%ds)\n",
+            consensus.pos.nTargetSpacing, consensus.pos.nTargetTimespanV2);
     }
 }
 
@@ -979,7 +981,7 @@ void CMainParams::UpdateActivationParametersFromArgs() {
         LogPrintf("WARNING: MOCKNET ACTIVE. THIS IS NOT MAINNET\n");
         LogPrintf("============================================\n");
         auto sMockFoundationPubKey = gArgs.GetArg("-mocknet-key", "");
-        auto nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 10);
+        auto nMockBlockTimeSecs = gArgs.GetArg("-mocknet-blocktime", 30);
         if (!gArgs.IsArgSet("-maxtipage")) {
             gArgs.ForceSetArg("-maxtipage", "2207520000"); // 10 years
         }
@@ -989,8 +991,6 @@ void CMainParams::UpdateActivationParametersFromArgs() {
         consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
         consensus.pos.allowMintingWithoutPeers = true;
 
-        SetupCommonArgActivationParams(consensus);
-
         LogPrintf("mocknet: block-time: %s secs\n", consensus.pos.nTargetSpacing);
 
         // Add additional foundation members here for testing
@@ -998,6 +998,9 @@ void CMainParams::UpdateActivationParametersFromArgs() {
             consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination(sMockFoundationPubKey, *this)));
             LogPrintf("mocknet: key: %s\n", sMockFoundationPubKey);
         }
+
+        // Do this at the end, to ensure simualte mainnet overrides are in place.
+        SetupCommonArgActivationParams(consensus);
     }
 }
 
