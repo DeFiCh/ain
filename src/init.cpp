@@ -41,6 +41,7 @@
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
 #include <rpc/stats.h>
+#include <rpc/resultcache.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <scheduler.h>
@@ -597,6 +598,8 @@ void SetupServerArgs()
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -814,6 +817,18 @@ static bool AppInitServers()
 {
     if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS))
         statsRPC.setActive(false);
+
+    auto rpcCacheModeVal = gArgs.GetArg("-rpccache", 1);
+    auto rpcCacheMode = [=](){
+        switch (rpcCacheModeVal) {
+        case 1: return RPCResultCache::RPCCacheMode::All;
+        // For the moment, there is smart is dumb, just redirects to all.
+        // Future implementations could be smarter based on size / latency.
+        case 2: return RPCResultCache::RPCCacheMode::All;
+        default: return RPCResultCache::RPCCacheMode::None;
+    }}();
+    GetRPCResultCache().Init(rpcCacheMode);
+
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
     if (!InitHTTPServer())
@@ -1278,7 +1293,7 @@ bool AppInitLockDataDirectory()
 void SetupAnchorSPVDatabases(bool resync) {
     // Close and open database
     panchors.reset();
-    panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+    panchors = std::make_unique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
 
     // load anchors after spv due to spv (and spv height) not set before (no last height yet)
     if (gArgs.GetBoolArg("-spv", true)) {
@@ -1287,11 +1302,11 @@ void SetupAnchorSPVDatabases(bool resync) {
 
         // Open database based on network
         if (Params().NetworkIDString() == "regtest") {
-            spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+            spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
         } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
         } else {
-            spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
         }
     }
 }
@@ -1432,7 +1447,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     // need to reindex later.
 
     assert(!g_banman);
-    g_banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
+    g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", &uiInterface, gArgs.GetArg("-bantime", DEFAULT_MISBEHAVING_BANTIME));
     assert(!g_connman);
     g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
 
@@ -1594,7 +1609,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             try {
                 LOCK(cs_main);
                 // This statement makes ::ChainstateActive() usable.
-                g_chainstate = MakeUnique<CChainState>();
+                g_chainstate = std::make_unique<CChainState>();
                 UnloadBlockIndex();
 
                 // new CBlockTreeDB tries to delete the existing file, which
@@ -1659,9 +1674,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 });
 
                 pcustomcsDB.reset();
-                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
+                pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1675,16 +1690,16 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
-                    paccountHistoryDB = MakeUnique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 pburnHistoryDB.reset();
-                pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
-                    pvaultHistoryDB = MakeUnique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
+                    pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
                 // If necessary, upgrade from older database format.
@@ -1802,7 +1817,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, fReindex);
+        g_txindex = std::make_unique<TxIndex>(nTxIndexCache, false, fReindex);
         g_txindex->Start();
     }
 
@@ -1824,9 +1839,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         LOCK(cs_main);
 
         panchorauths.reset();
-        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
         SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
         // Check if DB version changed
@@ -1863,6 +1878,44 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Advertise witness capabilities.
         // The option to not set NODE_WITNESS is only used in the tests and should be removed.
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);
+    }
+
+    if (gArgs.IsArgSet("-consolidaterewards")) {
+        const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
+        auto fullRewardConsolidation = false;
+        for (const auto& tokenSymbolInput : tokenSymbolArgs) {
+            auto tokenSymbol = trim_ws(tokenSymbolInput);
+            if (tokenSymbol.empty()) {
+                fullRewardConsolidation = true;
+                continue;
+            }
+            LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
+            auto token = pcustomcsview->GetToken(tokenSymbol);
+            if (!token) {
+                InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
+                return false;
+            }
+
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
+                if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+        }
+        if (fullRewardConsolidation) {
+            LogPrintf("Consolidate rewards for all addresses..\n");
+            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            pcustomcsview->ForEachBalance([&](CScript const& owner, CTokenAmount balance) {
+                if (balance.nValue > 0) {
+                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                }
+                return true;
+            });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+        }
     }
 
     // ********************************************************* Step 11: import blocks

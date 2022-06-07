@@ -856,4 +856,8 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
+void ConsolidateRewards(CCustomCSView& view, int height, 
+    const std::vector<std::pair<CScript, CAmount>> &items, 
+    bool interruptOnShutdown, int numWorkers = 0);
+
 #endif // DEFI_VALIDATION_H

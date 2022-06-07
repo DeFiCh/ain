@@ -1305,7 +1305,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        CPoolPair& pool = pair.get();
+        CPoolPair& pool = pair.value();
 
         // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
         {
@@ -1548,7 +1548,7 @@ public:
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
         // Can be removed after the hard fork, since it will be backward compatible
-        // but have to keep it around for pre 2.8.0 nodes for now 
+        // but have to keep it around for pre 2.8.0 nodes for now
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
             CalculateOwnerRewards(obj.owner);
         }
@@ -2968,7 +2968,7 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
-                boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+                std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
                 if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
                     tokenDUSD = mnview.GetToken("DUSD");
                 }
@@ -3086,7 +3086,7 @@ public:
                 return res;
         }
 
-        boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
             tokenDUSD = mnview.GetToken("DUSD");
         }
@@ -3693,6 +3693,16 @@ public:
         return EraseHistory(vault->ownerAddress);
     }
 
+    Res operator()(const CLoanPaybackLoanV2Message& obj) const {
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        EraseHistory(obj.from);
+        EraseHistory(consensus.burnAddress);
+        return EraseHistory(vault->ownerAddress);
+    }
+
     Res operator()(const CAuctionBidMessage& obj) const {
         if (auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index}))
             EraseHistory(bid->first);
@@ -4226,7 +4236,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
@@ -4256,7 +4266,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         currentID = poolIDs[i];
 
         // Use single swap pool if already found
-        boost::optional<CPoolPair> pool;
+        std::optional<CPoolPair> pool;
         if (poolPair) {
             pool = poolPair->second;
         }

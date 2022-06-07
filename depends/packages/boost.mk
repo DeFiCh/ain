@@ -10,8 +10,8 @@ package=boost
 # 77: fc9f85fc030e233142908241af7a846e60630aa7388de9a5fafb1f3a26840854
 # 78: 8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc
 
-$(package)_version=1_75_0
-$(package)_sha256_hash=953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb
+$(package)_version=1_77_0
+$(package)_sha256_hash=fc9f85fc030e233142908241af7a846e60630aa7388de9a5fafb1f3a26840854
 
 $(package)_version_dot=$(subst _,.,$($(package)_version))
 $(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/$($(package)_version_dot)/source/

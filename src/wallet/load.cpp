@@ -148,7 +148,7 @@ public:
 
 std::unique_ptr<ChainClient> MakeWalletClient(Chain& chain, std::vector<std::string> wallet_filenames)
 {
-    return MakeUnique<WalletClientImpl>(chain, std::move(wallet_filenames));
+    return std::make_unique<WalletClientImpl>(chain, std::move(wallet_filenames));
 }
 
 } // namespace interfaces

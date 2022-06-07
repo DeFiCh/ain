@@ -603,7 +603,7 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
@@ -615,7 +615,8 @@ UniValue getoracledata(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_DATABASE_ERROR, oracleRes.msg);
     }
 
-    return OracleToJSON(oracleId, *oracleRes.val);
+    auto res = OracleToJSON(oracleId, *oracleRes.val);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue listoracles(const JSONRPCRequest &request) {
@@ -655,6 +656,8 @@ UniValue listoracles(const JSONRPCRequest &request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     // parse pagination
     COracleId start = {};
     bool including_start = true;
@@ -679,7 +682,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    UniValue value(UniValue::VARR);
+    UniValue res(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         if (!including_start)
@@ -687,12 +690,12 @@ UniValue listoracles(const JSONRPCRequest &request) {
             including_start = true;
             return (true);
         }
-        value.push_back(id.GetHex());
+        res.push_back(id.GetHex());
         limit--;
         return limit != 0;
     }, start);
 
-    return value;
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
@@ -738,8 +741,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
-    boost::optional<CTokenCurrencyPair> tokenPair;
+    std::optional<CTokenCurrencyPair> tokenPair;
 
     // parse pagination
     COracleId start = {};
@@ -810,7 +814,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         }
         return limit != 0;
     }, start);
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
@@ -945,6 +949,7 @@ UniValue getprice(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
@@ -954,7 +959,8 @@ UniValue getprice(const JSONRPCRequest &request) {
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
-    return ValueFromAmount(*result.val);
+    auto res = ValueFromAmount(*result.val);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue listprices(const JSONRPCRequest& request) {
@@ -1001,6 +1007,7 @@ UniValue listprices(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {}, false);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // parse pagination
     UniValue paginationObj(UniValue::VOBJ);
@@ -1011,7 +1018,8 @@ UniValue listprices(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
+    auto res = GetAllAggregatePrices(view, lastBlockTime, paginationObj);
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue getfixedintervalprice(const JSONRPCRequest& request) {
@@ -1037,6 +1045,8 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     auto fixedIntervalStr = request.params[0].getValStr();
     UniValue objPrice{UniValue::VOBJ};
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
@@ -1056,7 +1066,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
     objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
-    return objPrice;
+    return GetRPCResultCache().Set(request, objPrice);
 }
 
 UniValue listfixedintervalprices(const JSONRPCRequest& request) {
@@ -1087,6 +1097,8 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
                         HelpExampleCli("listfixedintervalprices", R"('{""}')")
                 },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     size_t limit = 100;
     CTokenCurrencyPair start{};
@@ -1121,7 +1133,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         limit--;
         return limit != 0;
     }, start);
-    return listPrice;
+    return GetRPCResultCache().Set(request, listPrice);
 }
 
 UniValue getfutureswapblock(const JSONRPCRequest& request) {
@@ -1136,6 +1148,7 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     LOCK(cs_main);
 
     const auto currentHeight = ::ChainActive().Height();
@@ -1145,7 +1158,8 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
         return 0;
     }
 
-    return currentHeight + (*block - (currentHeight % *block));
+    auto res = currentHeight + (*block - (currentHeight % *block));
+    return GetRPCResultCache().Set(request, res);
 }
 
 

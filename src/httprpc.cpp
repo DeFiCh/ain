@@ -10,7 +10,6 @@
 #include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <rpc/stats.h>
-#include <sync.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
 #include <util/system.h>
@@ -281,7 +280,7 @@ bool StartHTTPRPC()
     }
     struct event_base* eventBase = EventBase();
     assert(eventBase);
-    httpRPCTimerInterface = MakeUnique<HTTPRPCTimerInterface>(eventBase);
+    httpRPCTimerInterface = std::make_unique<HTTPRPCTimerInterface>(eventBase);
     RPCSetTimerInterface(httpRPCTimerInterface.get());
     if (statsRPC.isActive()) statsRPC.load();
     return true;
