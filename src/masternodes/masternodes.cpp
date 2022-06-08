@@ -490,30 +490,6 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256& nodeId, const u
     }
 }
 
-Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
-{
-    auto node = GetMasternode(nodeId);
-    if (node) {
-        EraseBy<ID>(nodeId);
-        EraseBy<Operator>(node->operatorAuthAddress);
-        EraseBy<Owner>(node->ownerAuthAddress);
-        return Res::Ok();
-    }
-    return Res::Err("No such masternode %s", nodeId.GetHex());
-}
-
-Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 & resignTx)
-{
-    auto node = GetMasternode(nodeId);
-    if (node && node->resignTx == resignTx) {
-        node->resignHeight = -1;
-        node->resignTx = {};
-        WriteBy<ID>(nodeId, *node);
-        return Res::Ok();
-    }
-    return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
-}
-
 uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const
 {
     auto timelock = ReadBy<Timelock, uint16_t>(nodeId);

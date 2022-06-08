@@ -839,6 +839,7 @@ class TokenSplitTest(DefiTestFramework):
         # Revert chain to before address funding
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(revert_block))
         self.nodes[0].clearmempool()
+        self.nodes[0].generate(1)
 
         # Move forward again without split
         self.nodes[0].generate(future_block - self.nodes[0].getblockcount())

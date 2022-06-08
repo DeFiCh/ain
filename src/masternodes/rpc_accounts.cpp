@@ -1096,14 +1096,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     auto count = limit;
     auto lastHeight = maxBlockHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
         }
 
         std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
-            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
+            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
         }
 
         bool accountRecord = true;
@@ -1122,8 +1122,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
             return true;
         }
-
-        const auto & value = valueLazy.get();
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
             return true;
@@ -1171,12 +1169,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         return count != 0 || isMine;
     };
 
-    AccountHistoryKey startKey{account, maxBlockHeight, txn};
-
     if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
         paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
-            if (startKey.blockHeight > key.blockHeight) {
+            if (maxBlockHeight > key.blockHeight) {
                 return false;
             }
             if (!isMatchOwner(key.owner)) {
@@ -1184,10 +1180,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
             CScopeAccountReverter(view, key.owner, value.diff);
             return true;
-        }, {account, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
+        }, account);
     }
 
-    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
 
     if (shouldSearchInWallet) {
         count = limit;
@@ -1375,7 +1371,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 
     auto count = limit;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool
     {
         if (!isMatchOwner(key.owner)) {
             return false;
@@ -1384,8 +1380,6 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         if (shouldSkipBlock(key.blockHeight)) {
             return true;
         }
-
-        const auto & value = valueLazy.get();
 
         if (txTypeSearch && value.category != uint8_t(txType)) {
             return true;
@@ -1403,8 +1397,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         return count != 0;
     };
 
-    AccountHistoryKey startKey{{}, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
-    pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, {}, maxBlockHeight);
 
     UniValue slice(UniValue::VARR);
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
@@ -1517,7 +1510,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     auto lastHeight = uint32_t(::ChainActive().Height());
     const auto currentHeight = lastHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
@@ -1525,8 +1518,6 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
             return true;
         }
-
-        const auto& value = valueLazy.get();
 
         std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
@@ -1564,8 +1555,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return true;
     };
 
-    AccountHistoryKey startAccountKey{owner, currentHeight, std::numeric_limits<uint32_t>::max()};
-    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
+    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
 
     if (shouldSearchInWallet) {
         searchInWallet(pwallet, owner, filter,
@@ -1828,8 +1818,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
     }
 
-    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, CLazySerialize<AccountHistoryValue> valueLazy) {
-        const auto & value = valueLazy.get();
+    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, AccountHistoryValue value) {
         // UTXO burn
         if (value.category == uint8_t(CustomTxType::None)) {
             for (auto const & diff : value.diff) {
@@ -1876,11 +1865,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         return true;
     };
 
-    AccountHistoryKey startKey{{}, 
-        std::numeric_limits<uint32_t>::max(), 
-        std::numeric_limits<uint32_t>::max()};
-        
-    burnView->ForEachAccountHistory(calculateBurnAmounts, startKey);
+    burnView->ForEachAccountHistory(calculateBurnAmounts);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
