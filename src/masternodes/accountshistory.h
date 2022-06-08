@@ -82,18 +82,20 @@ public:
 };
 
 class CHistoryWriters {
-    CAccountHistoryStorage* historyView;
-    CBurnHistoryStorage* burnView;
+    CAccountHistoryStorage* historyView{};
+    CBurnHistoryStorage* burnView{};
     std::map<CScript, TAmounts> diffs;
     std::map<CScript, TAmounts> burnDiffs;
     std::map<uint256, std::map<CScript,TAmounts>> vaultDiffs;
 
 public:
-    CVaultHistoryStorage* vaultView;
+    CVaultHistoryStorage* vaultView{};
     CLoanSchemeCreation globalLoanScheme;
     std::string schemeID;
 
     CHistoryWriters(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView);
+
+    CAccountHistoryStorage* GetAccountHistoryStore() { return historyView; };
 
     void AddBalance(const CScript& owner, const CTokenAmount amount, const uint256& vaultID);
     void AddFeeBurn(const CScript& owner, const CAmount amount);
@@ -127,7 +129,7 @@ class CAccountsHistoryWriter : public CCustomCSView
     const uint32_t txn;
     const uint256 txid;
     const uint8_t type;
-    CHistoryWriters* writers;
+    CHistoryWriters* writers{};
 
 public:
     uint256 vaultID;
@@ -135,7 +137,9 @@ public:
     CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CHistoryWriters* writers);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
+    bool Flush() override;
+
+    CAccountHistoryStorage* GetAccountHistoryStore() override;
 };
 
 class CAccountsHistoryEraser : public CCustomCSView
@@ -150,7 +154,7 @@ public:
     CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
+    bool Flush() override;
 };
 
 extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;

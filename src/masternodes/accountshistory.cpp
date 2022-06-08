@@ -75,6 +75,10 @@ bool CAccountsHistoryWriter::Flush()
     return CCustomCSView::Flush();
 }
 
+CAccountHistoryStorage* CAccountsHistoryWriter::GetAccountHistoryStore() {
+    return writers ? writers->GetAccountHistoryStore() : nullptr;
+};
+
 CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CHistoryErasers& erasers)
     : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), erasers(erasers)
 {
@@ -95,7 +99,7 @@ Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
 bool CAccountsHistoryEraser::Flush()
 {
     erasers.Flush(height, txn, vaultID);
-    return Res::Ok(); // makes sure no changes are applyed to underlaying view
+    return Res::Ok(); // makes sure no changes are applied to underlying view
 }
 
 CHistoryErasers::CHistoryErasers(CAccountHistoryStorage* historyView, CBurnHistoryStorage* burnView, CVaultHistoryStorage* vaultView)

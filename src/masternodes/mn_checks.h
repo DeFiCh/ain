@@ -102,6 +102,7 @@ enum class CustomTxType : uint8_t
     AuctionBid             = 'I',
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
+    TokenSplit             = 'P',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -159,6 +160,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AuctionBid:
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
+        case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
         case CustomTxType::None:
             return type;

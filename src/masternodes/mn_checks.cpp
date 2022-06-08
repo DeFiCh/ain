@@ -81,6 +81,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::FutureSwapExecution: return "FutureSwapExecution";
         case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
+        case CustomTxType::TokenSplit:          return "TokenSplit";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
     }
@@ -179,6 +180,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
+        case CustomTxType::TokenSplit:              return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }

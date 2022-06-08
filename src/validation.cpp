@@ -2189,11 +2189,16 @@ static int64_t nBlocksTotal = 0;
 
 // Holds position for burn TXs appended to block in burn history
 static std::vector<CTransactionRef>::size_type nPhantomBurnTx{0};
+static uint32_t nPhantomAccTx{};
 
 static std::map<CScript, CBalances> mapBurnAmounts;
 
 static uint32_t GetNextBurnPosition() {
     return nPhantomBurnTx++;
+}
+
+uint32_t GetNextAccPosition() {
+    return nPhantomAccTx--;
 }
 
 // Burn non-transaction amounts, that is burns that are not sent directly to the burn address
@@ -2480,6 +2485,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
+
+    // Reset phantom TX to end of block TX count
+    nPhantomAccTx = std::numeric_limits<uint32_t>::max();
 
     // Wipe burn map, we only want TXs added during ConnectBlock
     mapBurnAmounts.clear();
@@ -3562,15 +3570,13 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     std::set<CFuturesUserKey> deletionPending;
 
-    auto txn = std::numeric_limits<uint32_t>::max();
-
     auto dUsdToTokenSwapsCounter = 0;
     auto tokenTodUsdSwapsCounter = 0;
 
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
         CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
 
         deletionPending.insert(key);
 
@@ -3636,12 +3642,12 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     for (const auto& [key, value] : unpaidContracts) {
 
         CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
         subView.SubBalance(*contractAddressValue, value.source);
         subView.Flush();
 
         CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
         addView.AddBalance(key.owner, value.source);
         addView.Flush();
 
@@ -4403,6 +4409,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         auto view{cache};
+        view.SetAccountHistoryStore(paccountHistoryDB.get());
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4496,14 +4503,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        CAccounts addAccounts;
-        CAccounts subAccounts;
+        std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
-                addAccounts[owner].Add({newTokenId, newBalance});
-                subAccounts[owner].Add(balance);
+                balanceUpdates.emplace(owner, std::pair<CTokenAmount, CTokenAmount>{{newTokenId, newBalance}, balance});
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
@@ -4515,8 +4520,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         });
 
         LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        "(id: %d, symbol: %s, accounts: %d, val: %d)\n",
+        id, newToken.symbol, balanceUpdates.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
@@ -4525,18 +4530,26 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         try {
-            for (const auto& [owner, balances] : addAccounts) {
-                res = view.AddBalances(owner, balances);
-                if (!res) {
-                    throw std::runtime_error(res.msg);
-                }
-            }
 
-            for (const auto& [owner, balances] : subAccounts) {
-                res = view.SubBalances(owner, balances);
+            for (const auto& [owner, balances] : balanceUpdates) {
+
+                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                res = subView.SubBalance(owner, balances.second);
                 if (!res) {
                     throw std::runtime_error(res.msg);
                 }
+                subView.Flush();
+
+                CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
+                res = addView.AddBalance(owner, balances.first);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+                addView.Flush();
             }
         } catch (const std::runtime_error& e) {
             LogPrintf("Token split failed. %s\n", res.msg);

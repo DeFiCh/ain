@@ -534,11 +534,15 @@ class TokenSplitTest(DefiTestFramework):
         assert_equal(result[f'v0/token/{self.idGOOGL}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
         assert_equal(result[f'v0/token/{self.idTSLA}/loan_payback_fee_pct/{self.idTSLA}'], '0.25')
 
-        # Check new balances
+        # Check new balances and history
         for [address, amount] in self.funded_addresses:
             account = self.nodes[0].getaccount(address)
             new_amount = Decimal(account[0].split('@')[0])
             assert_equal(new_amount, amount * 2)
+            history = self.nodes[0].listaccounthistory(address, {'txtype': 'TokenSplit'})
+            #assert_equal(len(history), 2)
+            #assert_equal(history[0]['amounts'][0], f'{-amount:.8f}' + f'@{self.symbolTSLA}/v1')
+            #assert_equal(history[1]['amounts'][0], account[0])
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/-3'}})
@@ -756,7 +760,7 @@ class TokenSplitTest(DefiTestFramework):
 
     def check_future_swap_refund(self):
 
-        # Set all futures attributes but set active to false
+        # Set all futures attributes
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/params/dfip2203/reward_pct':'0.05',
             'v0/params/dfip2203/block_period':'2880'
@@ -771,6 +775,9 @@ class TokenSplitTest(DefiTestFramework):
         # Create addresses for futures
         address_msft = self.nodes[0].getnewaddress("", "legacy")
         address_locked = self.nodes[0].getnewaddress("", "legacy")
+
+        # Get block to revert to
+        revert_block = self.nodes[0].getblockcount()
 
         # Fund addresses
         self.nodes[0].accounttoaccount(self.address, {address_msft: [f'1@{self.symbolMSFT}', f'1@{self.symbolDUSD}']})
@@ -811,12 +818,35 @@ class TokenSplitTest(DefiTestFramework):
         result = self.nodes[0].getaccount(address_msft)
         assert_equal(result, [f'1.00000000@{self.symbolDUSD}', f'2.00000000@{self.symbolMSFT}'])
 
-        # Swap old for new values
-        self.idMSFT = list(self.nodes[0].gettoken(self.symbolMSFT).keys())[0]
+        # Check future swap and token split account history
+        result = self.nodes[0].listaccounthistory(address_msft, {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0})
+        assert_equal(result[0]['owner'], address_msft)
+        assert_equal(result[0]['type'], 'FutureSwapRefund')
+        assert_equal(result[0]['amounts'], [f'1.00000000@{self.symbolDUSD}'])
+        assert_equal(result[1]['owner'], address_msft)
+        assert_equal(result[1]['type'], 'FutureSwapRefund')
+        assert_equal(result[1]['amounts'], [f'1.00000000@{self.symbolMSFT}/v2'])
+        assert_equal(result[2]['owner'], address_msft)
+        assert_equal(result[2]['type'], 'TokenSplit')
+        assert_equal(result[2]['amounts'], [f'-1.00000000@{self.symbolMSFT}/v2'])
+        assert_equal(result[3]['owner'], address_msft)
+        assert_equal(result[3]['type'], 'TokenSplit')
+        assert_equal(result[3]['amounts'], [f'2.00000000@{self.symbolMSFT}'])
 
-        # Unlock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idMSFT}':'false'}})
-        self.nodes[0].generate(1)
+        # Get block to move forward to after revert
+        future_block = self.nodes[0].getblockcount()
+
+        # Revert chain to before address funding
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(revert_block))
+        self.nodes[0].clearmempool()
+
+        # Move forward again without split
+        self.nodes[0].generate(future_block - self.nodes[0].getblockcount())
+        assert_equal(self.nodes[0].getblockcount(), future_block)
+
+        # Account history should now be empty
+        result = self.nodes[0].listaccounthistory(address_msft, {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0})
+        assert_equal(result, [])
 
     def migrate_auction_batches(self):
 

@@ -29,6 +29,7 @@
 #include <set>
 #include <stdint.h>
 
+class CAccountHistoryStorage;
 class CBlockIndex;
 class CTransaction;
 
@@ -386,6 +387,7 @@ private:
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
+    CAccountHistoryStorage* accHistoryStore{};
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
@@ -445,6 +447,14 @@ public:
     // we construct it as it
     CFlushableStorageKV& GetStorage() {
         return static_cast<CFlushableStorageKV&>(DB());
+    }
+
+    virtual CAccountHistoryStorage* GetAccountHistoryStore() {
+        return accHistoryStore;
+    }
+
+    void SetAccountHistoryStore(CAccountHistoryStorage* store) {
+        accHistoryStore = store;
     }
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
