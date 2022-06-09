@@ -94,7 +94,7 @@ bool LockDirectory(const fs::path& directory, const std::string lockfile_name, b
     // Create empty lock file if it doesn't exist.
     FILE* file = fsbridge::fopen(pathLockFile, "a");
     if (file) fclose(file);
-    auto lock = MakeUnique<fsbridge::FileLock>(pathLockFile);
+    auto lock = std::make_unique<fsbridge::FileLock>(pathLockFile);
     if (!lock->TryLock()) {
         return error("Error while attempting to lock directory %s: %s", directory.string(), lock->GetReason());
     }
@@ -1058,8 +1058,11 @@ int RaiseFileDescriptorLimit(int nMinFD) {
             setrlimit(RLIMIT_NOFILE, &limitFD);
             getrlimit(RLIMIT_NOFILE, &limitFD);
         }
+        LogPrintf("conf: fd limit: req: %d, set %d, max: %d\n",
+            nMinFD, limitFD.rlim_cur, limitFD.rlim_max);
         return limitFD.rlim_cur;
     }
+    LogPrintf("conf: fd limit: %d, max: unknown\n", nMinFD);
     return nMinFD; // getrlimit failed, assume it's fine
 #endif
 }

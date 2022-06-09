@@ -1,4 +1,7 @@
 #include <masternodes/mn_rpc.h>
+
+#include <masternodes/govvariables/attributes.h>
+
 #include <index/txindex.h>
 
 UniValue createtoken(const JSONRPCRequest& request) {
@@ -319,7 +322,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
+UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -333,7 +336,15 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
-        tokenObj.pushKV("isLoanToken", token.IsLoanToken());
+        auto loanToken{token.IsLoanToken()};
+        if (!loanToken) {
+            if (auto attributes = view.GetAttributes()) {
+                CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+                CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+                loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            }
+        }
+        tokenObj.pushKV("isLoanToken", loanToken);
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("creationTx", token.creationTx.ToString());
@@ -379,6 +390,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -414,13 +427,13 @@ UniValue listtokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+        ret.pushKVs(tokenToJSON(*pcustomcsview, id, token, verbose));
 
         limit--;
         return limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue gettoken(const JSONRPCRequest& request) {
@@ -439,12 +452,15 @@ UniValue gettoken(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     LOCK(cs_main);
 
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(id, *token, true);
+        auto res = tokenToJSON(*pcustomcsview, id, *token, true);
+        return GetRPCResultCache().Set(request, res);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
@@ -670,12 +686,12 @@ UniValue minttokens(const JSONRPCRequest& request) {
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            auto& tokenImpl = static_cast<CTokenImplementation const& >(*token);
-            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-            if (tokenImpl.IsDAT()) {
+            if (token->IsDAT()) {
                 needFoundersAuth = true;
+            } else {
+                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+                auths.insert(authCoin.out.scriptPubKey);
             }
-            auths.insert(authCoin.out.scriptPubKey);
         }
     }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);

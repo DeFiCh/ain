@@ -15,6 +15,10 @@
 #include <memory>
 #include <vector>
 
+
+/** Used for mocking network with low difficulty for testing */
+extern bool fMockNetwork;
+
 struct SeedSpec6 {
     uint8_t addr[16];
     uint16_t port;
@@ -117,6 +121,8 @@ protected:
     std::vector<MasternodeKeys> vMasternodes;
     std::vector<CTransactionRef> CreateGenesisMasternodes();
     std::set<CKeyID> genesisTeam;
+
+    friend void ClearCheckpoints(CChainParams &params);
 };
 
 const auto SMART_CONTRACT_DFIP_2201 = "DFIP2201";

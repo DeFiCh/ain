@@ -25,8 +25,6 @@ class CVaultHistoryView;
 class CHistoryWriters;
 class CHistoryErasers;
 
-static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
-
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
 //    NotCustomTx  = 1,
@@ -102,6 +100,7 @@ enum class CustomTxType : uint8_t
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
     AuctionBid             = 'I',
+    // Marker TXs
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
 };
@@ -169,6 +168,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
 }
 
 std::string ToString(CustomTxType type);
+CustomTxType FromString(const std::string& str);
 
 // it's disabled after Dakota height
 inline bool NotAllowedToFail(CustomTxType txType, int height) {
@@ -393,6 +393,19 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransactio
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
 Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
+Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
+
+inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {
+    // Allow hard coded DUSD/USD
+    if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
+        return true;
+    }
+    bool found = false;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
+    });
+    return found;
+}
 
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
@@ -438,7 +451,7 @@ inline bool IsMintTokenTx(const CTransaction& tx)
     return GuessCustomTxType(tx, metadata) == CustomTxType::MintToken;
 }
 
-inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
+inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
 {
     std::vector<unsigned char> metadata;
     if (GuessCustomTxType(tx, metadata) == CustomTxType::AccountToUtxos) {
@@ -447,7 +460,7 @@ inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(con
     return {};
 }
 
-inline boost::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
+inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
 {
     const auto metadata = GetAccountToUtxosMetadata(tx);
     if (metadata) {

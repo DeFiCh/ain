@@ -35,7 +35,7 @@ Res CVaultView::EraseVault(const CVaultId& vaultId)
     return Res::Ok();
 }
 
-boost::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
+std::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
 {
     return ReadBy<VaultKey, CVaultData>(vaultId);
 }
@@ -94,7 +94,7 @@ Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-boost::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
+std::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
 {
     return ReadBy<CollateralKey, CBalances>(vaultId);
 }
@@ -117,8 +117,8 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
         if (it.Key().vaultId == vaultId) {
             CAuctionData data = it.Value();
             for (uint32_t i = 0; i < data.batchCount; i++) {
-                EraseAuctionBid(vaultId, i);
-                EraseAuctionBatch(vaultId, i);
+                EraseAuctionBid({vaultId, i});
+                EraseAuctionBatch({vaultId, i});
             }
             EraseBy<AuctionHeightKey>(it.Key());
             return Res::Ok();
@@ -127,7 +127,7 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
     return Res::Err("Auction for vault <%s> not found", vaultId.GetHex());
 }
 
-boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
+std::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
 {
     auto it = LowerBound<AuctionHeightKey>(CAuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
@@ -140,21 +140,26 @@ boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, ui
     return {};
 }
 
-Res CVaultView::StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch)
+Res CVaultView::StoreAuctionBatch(const AuctionStoreKey& key, const CAuctionBatch& batch)
 {
-    WriteBy<AuctionBatchKey>(std::make_pair(vaultId, id), batch);
+    WriteBy<AuctionBatchKey>(key, batch);
     return Res::Ok();
 }
 
-Res CVaultView::EraseAuctionBatch(const CVaultId& vaultId, uint32_t id)
+Res CVaultView::EraseAuctionBatch(const AuctionStoreKey& key)
 {
-    EraseBy<AuctionBatchKey>(std::make_pair(vaultId, id));
+    EraseBy<AuctionBatchKey>(key);
     return Res::Ok();
 }
 
-boost::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const CVaultId& vaultId, uint32_t id)
+std::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const AuctionStoreKey& key)
 {
-    return ReadBy<AuctionBatchKey, CAuctionBatch>(std::make_pair(vaultId, id));
+    return ReadBy<AuctionBatchKey, CAuctionBatch>(key);
+}
+
+void CVaultView::ForEachAuctionBatch(std::function<bool(const AuctionStoreKey&, const CAuctionBatch&)> callback)
+{
+    ForEach<AuctionBatchKey, AuctionStoreKey, CAuctionBatch>(callback);
 }
 
 void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId)
@@ -165,19 +170,24 @@ void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, const C
     }, CAuctionKey{vaultId, height});
 }
 
-Res CVaultView::StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount)
+Res CVaultView::StoreAuctionBid(const AuctionStoreKey& key, COwnerTokenAmount amount)
 {
-    WriteBy<AuctionBidKey>(std::make_pair(vaultId, id), amount);
+    WriteBy<AuctionBidKey>(key, amount);
     return Res::Ok();
 }
 
-Res CVaultView::EraseAuctionBid(const CVaultId& vaultId, uint32_t id)
+Res CVaultView::EraseAuctionBid(const AuctionStoreKey& key)
 {
-    EraseBy<AuctionBidKey>(std::make_pair(vaultId, id));
+    EraseBy<AuctionBidKey>(key);
     return Res::Ok();
 }
 
-boost::optional<CVaultView::COwnerTokenAmount> CVaultView::GetAuctionBid(const CVaultId& vaultId, uint32_t id)
+std::optional<CVaultView::COwnerTokenAmount> CVaultView::GetAuctionBid(const AuctionStoreKey& key)
 {
-    return ReadBy<AuctionBidKey, COwnerTokenAmount>(std::make_pair(vaultId, id));
+    return ReadBy<AuctionBidKey, COwnerTokenAmount>(key);
+}
+
+void CVaultView::ForEachAuctionBid(std::function<bool(const AuctionStoreKey& key, const COwnerTokenAmount& amount)> callback)
+{
+    ForEach<AuctionBidKey, AuctionStoreKey, COwnerTokenAmount>(callback);
 }

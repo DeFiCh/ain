@@ -44,10 +44,13 @@ public:
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
+    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> GetStoredVariablesRange(const uint32_t startHeight, const uint32_t endHeight);
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const;
+
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
 
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };

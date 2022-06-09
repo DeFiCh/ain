@@ -57,6 +57,6 @@ static void SetInternalName(std::string name) { }
 
 void util::ThreadRename(std::string&& name)
 {
-    SetThreadName(("defi-" + name).c_str());
+    SetThreadName(("defid-" + name).c_str());
     SetInternalName(std::move(name));
 }

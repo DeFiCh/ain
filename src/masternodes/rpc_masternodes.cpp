@@ -638,6 +638,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -680,13 +682,11 @@ UniValue listmasternodes(const JSONRPCRequest& request)
         return limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getmasternode(const JSONRPCRequest& request)
 {
-    auto pwallet = GetWallet(request);
-
     RPCHelpMan{"getmasternode",
                "\nReturns information about specified masternode.\n",
                {
@@ -701,13 +701,17 @@ UniValue getmasternode(const JSONRPCRequest& request)
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    auto pwallet = GetWallet(request);
+
     uint256 id = ParseHashV(request.params[0], "masternode id");
 
     LOCK(cs_main);
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
     auto node = pcustomcsview->GetMasternode(id);
     if (node) {
-        return mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
+        auto res = mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
+        return GetRPCResultCache().Set(request, res);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
 }
@@ -733,6 +737,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
                        + HelpExampleRpc("getmasternodeblocks", R"({"ownerAddress":"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT"})")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     UniValue identifier = request.params[0].get_obj();
     int idCount{0};
@@ -808,7 +814,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     depth = std::min(depth, currentHeight);
     auto startBlock = currentHeight - depth;
 
-    auto masternodeBlocks = [&](const uint256& masternodeID, uint32_t blockHeight) {
+    auto masternodeBlocks = [&](const uint256& masternodeID, int blockHeight) {
         if (masternodeID != mn_id) {
             return false;
         }
@@ -846,7 +852,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         }
     }
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getanchorteams(const JSONRPCRequest& request)
@@ -864,6 +870,8 @@ UniValue getanchorteams(const JSONRPCRequest& request)
                        + HelpExampleRpc("getanchorteams", "1005")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     int blockHeight;
 
@@ -910,7 +918,7 @@ UniValue getanchorteams(const JSONRPCRequest& request)
     result.pushKV("auth", authRes);
     result.pushKV("confirm", confirmRes);
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 
@@ -929,6 +937,7 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
                        + HelpExampleRpc("getactivemasternodecount", "20160")
                },
     }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     int blockSample{7 * 2880}; // One week
     if (!request.params[0].isNull()) {
@@ -946,7 +955,8 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
         }
     }
 
-    return static_cast<uint64_t>(masternodes.size());
+    auto res = static_cast<uint64_t>(masternodes.size());
+    return GetRPCResultCache().Set(request, res);
 }
 
 UniValue listanchors(const JSONRPCRequest& request)
@@ -963,6 +973,8 @@ UniValue listanchors(const JSONRPCRequest& request)
                        + HelpExampleRpc("listanchors", "")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     LOCK(cs_main);
     auto confirms = pcustomcsview->CAnchorConfirmsView::GetAnchorConfirmData();
@@ -988,7 +1000,7 @@ UniValue listanchors(const JSONRPCRequest& request)
         result.push_back(entry);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 static const CRPCCommand commands[] =

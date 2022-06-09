@@ -7,14 +7,15 @@
 
 #include <dbwrapper.h>
 #include <functional>
-#include <optional.h>
 #include <map>
 #include <memusage.h>
+
+#include <optional>
 
 #include <boost/thread.hpp>
 
 using TBytes = std::vector<unsigned char>;
-using MapKV = std::map<TBytes, Optional<TBytes>>;
+using MapKV = std::map<TBytes, std::optional<TBytes>>;
 
 template<typename T>
 static TBytes DbTypeToBytes(const T& value) {
@@ -166,7 +167,7 @@ public:
         return batch.SizeEstimate();
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
+        return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
     }
     void Compact(const TBytes& begin, const TBytes& end) {
         db.CompactRange(refTBytes(begin), refTBytes(end));
@@ -291,7 +292,7 @@ public:
         if (it == changed.end()) {
             return db.Read(key, value);
         } else if (it->second) {
-            value = it->second.get();
+            value = it->second.value();
             return true;
         } else {
             return false;
@@ -303,7 +304,7 @@ public:
                 if (!db.Erase(it.first)) {
                     return false;
                 }
-            } else if (!db.Write(it.first, it.second.get())) {
+            } else if (!db.Write(it.first, it.second.value())) {
                 return false;
             }
         }
@@ -317,7 +318,7 @@ public:
         return memusage::DynamicUsage(changed);
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return MakeUnique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
+        return std::make_unique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
     }
 
     MapKV& GetRaw() {
@@ -331,7 +332,7 @@ private:
 
 template<typename T>
 class CLazySerialize {
-    Optional<T> value;
+    std::optional<T> value;
     std::unique_ptr<CStorageKVIterator>& it;
 
 public:
@@ -427,8 +428,8 @@ public:
 // Creates an iterator to single level key value storage
 template<typename By, typename KeyType>
 CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& map) {
-    auto emptyParent = MakeUnique<CStorageKVEmptyIterator>();
-    auto flushableIterator = MakeUnique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
+    auto emptyParent = std::make_unique<CStorageKVEmptyIterator>();
+    auto flushableIterator = std::make_unique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
     CStorageIteratorWrapper<By, KeyType> it{std::move(flushableIterator)};
     it.Seek(key);
     return it;
@@ -482,10 +483,10 @@ public:
     }
     // second type of 'ReadBy' (may be 'GetBy'?)
     template<typename By, typename ResultType, typename KeyType>
-    boost::optional<ResultType> ReadBy(KeyType const & id) const {
-        ResultType result;
+    std::optional<ResultType> ReadBy(KeyType const & id) const {
+        ResultType result{};
         if (ReadBy<By>(id, result))
-            return {result};
+            return result;
         return {};
     }
     template<typename By, typename KeyType>

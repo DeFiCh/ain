@@ -2,11 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <regex>
 #include <masternodes/mn_rpc.h>
-
 #include <base58.h>
 #include <policy/settings.h>
-
 #include <masternodes/govvariables/attributes.h>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
@@ -274,7 +273,7 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
-boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
+std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
@@ -282,7 +281,7 @@ boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
+static std::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -348,7 +347,7 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
     return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
-static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
+static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
@@ -381,7 +380,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
         }
         auto authInput = GetAuthInputOnly(pwallet, destination);
         if (authInput) {
-            result.push_back(authInput.get());
+            result.push_back(authInput.value());
         }
         else {
             notFoundYet.insert(auth);
@@ -396,13 +395,13 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
             }
         } else {
-            auths.insert(anyFounder.get());
+            auths.insert(anyFounder.value());
             auto authInput = GetAnyFoundationAuthInput(pwallet);
             if (authInput) {
-                result.push_back(authInput.get());
+                result.push_back(authInput.value());
             }
             else {
-                notFoundYet.insert(anyFounder.get());
+                notFoundYet.insert(anyFounder.value());
             }
         }
     }
@@ -676,6 +675,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                        + HelpExampleRpc("getgov", "LP_DAILY_DFI_REWARD")
                },
     }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     LOCK(cs_main);
 
@@ -684,7 +684,7 @@ UniValue getgov(const JSONRPCRequest& request) {
     if (var) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
-        return ret;
+        return GetRPCResultCache().Set(request, ret);
     }
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
@@ -692,15 +692,56 @@ UniValue getgov(const JSONRPCRequest& request) {
 UniValue listgovs(const JSONRPCRequest& request) {
     RPCHelpMan{"listgovs",
                "\nReturns information about all governance variables including pending changes\n",
-               {},
+               {
+                   {"prefix", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "One of all, gov, attrs, live. Defaults to the all view. Any other string is treated as\n"
+                       "a prefix of attributes to filter with. `v0/` is assumed if not explicitly provided."},
+               },
                RPCResult{
                        "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("listgovs", "")
+                       + HelpExampleCli("listgovs", "gov")
+                       + HelpExampleCli("listgovs", "live")
+                       + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleCli("listgovs", "token/15")
                        + HelpExampleRpc("listgovs", "")
+                       + HelpExampleRpc("listgovs", "live")
+                       + HelpExampleCli("listgovs", "token/")
+                       + HelpExampleRpc("listgovs", "token/15")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    GovVarsFilter mode{GovVarsFilter::All};
+    std::string prefix;
+    if (request.params.size() > 0) {
+        prefix = request.params[0].getValStr();
+    }
+    if (!prefix.empty()) {
+        if (prefix == "all") {
+            mode = GovVarsFilter::All;
+        } else if (prefix == "gov") {
+            mode = GovVarsFilter::NoAttributes;
+        } else if (prefix == "attrs") {
+            mode = GovVarsFilter::AttributesOnly;
+        } else if (prefix == "v/2.7") {
+            // Undocumented. Make be removed or deprecated without notice. 
+            // Only here for unforeseen compatibility concern downstream
+            // for transitions.
+            mode = GovVarsFilter::Version2Dot7;
+        } else if (prefix == "live") {
+            mode = GovVarsFilter::LiveAttributes;
+        } else {
+            mode = GovVarsFilter::PrefixedAttributes;
+            const std::regex versionRegex("^v[0-9].*");
+            if (!std::regex_match(prefix.begin(), prefix.end(), versionRegex)) {
+                prefix = "v0/" + prefix;
+            }
+        }
+    }
 
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION", "ATTRIBUTES"};
@@ -716,8 +757,28 @@ UniValue listgovs(const JSONRPCRequest& request) {
         auto var = pcustomcsview->GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
-            ret.pushKV(var->GetName(),var->Export());
-            innerResult.push_back(ret);
+            UniValue val;
+            bool skip = false;
+            auto name = var->GetName();
+            if (name == "ATTRIBUTES") {
+                if (mode == GovVarsFilter::NoAttributes) {
+                    skip = true;
+                } else {
+                    auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                    val = a->ExportFiltered(mode, prefix);
+                }
+            } else {
+                if (mode == GovVarsFilter::LiveAttributes || 
+                    mode == GovVarsFilter::PrefixedAttributes ||
+                    mode == GovVarsFilter::AttributesOnly){
+                    continue;
+                }
+                val = var->Export();
+            }
+            if (!skip) {
+                ret.pushKV(name,val);
+                innerResult.push_back(ret);
+            }
         }
 
         // Get and add any pending changes
@@ -729,7 +790,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
         result.push_back(innerResult);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 
@@ -894,7 +955,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
-    {"blockchain",  "listgovs",              &listgovs,              {""}},
+    {"blockchain",  "listgovs",              &listgovs,              {"prefix"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
     {"blockchain",  "clearmempool",          &clearmempool,          {} },

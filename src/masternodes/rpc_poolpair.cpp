@@ -179,6 +179,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -223,7 +225,7 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
         return limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getpoolpair(const JSONRPCRequest& request) {
@@ -244,6 +246,8 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
@@ -256,7 +260,8 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
     if (token) {
         auto pool = pcustomcsview->GetPoolPair(id);
         if (pool) {
-            return poolToJSON(id, *pool, *token, verbose);
+            auto res = poolToJSON(id, *pool, *token, verbose);
+            return GetRPCResultCache().Set(request, res);
         }
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pool not found");
     }
@@ -1071,6 +1076,11 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Input amount should be positive");
 
             CPoolPair pp = poolPair->second;
+
+            if (mnview_dummy.AreTokensLocked({pp.idTokenA.v, pp.idTokenB.v})) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Pool currently disabled due to locked token");
+            }
+
             auto dexfeeInPct = mnview_dummy.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
@@ -1176,6 +1186,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
@@ -1241,7 +1253,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         return limit != 0;
     }, startKey);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 static const CRPCCommand commands[] =

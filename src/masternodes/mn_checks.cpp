@@ -87,6 +87,19 @@ std::string ToString(CustomTxType type) {
     return "None";
 }
 
+CustomTxType FromString(const std::string& str) {
+    static const auto customTxTypeMap = []() {
+     std::map<std::string, CustomTxType> generatedMap;
+     for (auto i = 0u; i < 256; i++) {
+          auto txType = static_cast<CustomTxType>(i);
+          generatedMap.emplace(ToString(txType), txType);
+     }
+     return generatedMap;
+    }();
+    auto type = customTxTypeMap.find(str);
+    return type == customTxTypeMap.end() ? CustomTxType::None : type->second;
+}
+
 static ResVal<CBalances> BurntTokens(CTransaction const & tx) {
     CBalances balances;
     for (const auto& out : tx.vout) {
@@ -232,6 +245,20 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostFortCanningRoadFork() const {
         if(static_cast<int>(height) < consensus.FortCanningRoadHeight) {
             return Res::Err("called before FortCanningRoad height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningCrunchFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningCrunchHeight) {
+            return Res::Err("called before FortCanningCrunch height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostGreatWorldFork() const {
+        if(static_cast<int>(height) < consensus.GreatWorldHeight) {
+            return Res::Err("called before GreatWorldHeight height");
         }
         return Res::Ok();
     }
@@ -852,38 +879,8 @@ public:
         tokenCurrency = std::move(trimmed);
         return Res::Ok();
     }
-
-    bool oraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
-        // Allow hard coded DUSD/USD
-        if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
-            return true;
-        }
-        bool found = false;
-        mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
-            return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
-        });
-        return found;
-    }
-
-    void storeGovVars(const CGovernanceHeightMessage& obj) const {
-
-        // Retrieve any stored GovVariables at startHeight
-        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
-
-        // Remove any pre-existing entry
-        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
-            if ((*it)->GetName() == obj.govVar->GetName()) {
-                it = storedGovVars.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        // Add GovVariable to set for storage
-        storedGovVars.insert(obj.govVar);
-
-        // Store GovVariable set by height
-        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+    bool IsTokensMigratedToGovVar() const {
+        return static_cast<int>(height) > consensus.FortCanningCrunchHeight + 1;
     }
 };
 
@@ -1035,16 +1032,14 @@ public:
         if (!pair) {
             return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
         }
-        const auto& token = pair->second;
+        auto token = pair->second;
 
         //check foundation auth
         auto res = HasFoundationAuth();
 
         if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
-            CToken newToken = static_cast<CToken>(token); // keeps old and triggers only DAT!
-            newToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-
-            return !res ? res : mnview.UpdateToken(token.creationTx, newToken, true);
+            token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+            return !res ? res : mnview.UpdateToken(token, true);
         }
         return res;
     }
@@ -1056,6 +1051,10 @@ public:
         }
         if (pair->first == DCT_ID{0}) {
             return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
+        }
+
+        if (mnview.AreTokensLocked({pair->first.v})) {
+            return Res::Err("Cannot update token during lock");
         }
 
         const auto& token = pair->second;
@@ -1084,18 +1083,26 @@ public:
             }
         }
 
-        auto updatedToken = obj.token;
-        if (height >= consensus.FortCanningHeight) {
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
+        if (height >= static_cast<uint32_t>(consensus.FortCanningHeight)) {
             updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         }
 
-        return mnview.UpdateToken(token.creationTx, updatedToken, false);
+        return mnview.UpdateToken(updatedToken);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
         // check auth and increase balance of token's owner
         for (const auto& kv : obj.balances) {
             const DCT_ID& tokenId = kv.first;
+
+            if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+                mnview.GetLoanTokenByID(tokenId)) {
+                return Res::Err("Loan tokens cannot be minted");
+            }
 
             auto token = mnview.GetToken(tokenId);
             if (!token) {
@@ -1130,6 +1137,10 @@ public:
             return Res::Err("wrong commission");
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningCrunchHeight) && obj.pairSymbol.find('/') != std::string::npos) {
+            return Res::Err("token symbol should not contain '/'");
+        }
+
         /// @todo ownerAddress validity checked only in rpc. is it enough?
         CPoolPair poolPair(obj.poolPair);
         auto pairSymbol = obj.pairSymbol;
@@ -1147,7 +1158,7 @@ public:
             return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
         }
 
-        const auto symbolLength = height >= consensus.FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+        const auto symbolLength = height >= static_cast<uint32_t>(consensus.FortCanningHeight) ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
         if (pairSymbol.empty()) {
             pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {
@@ -1165,7 +1176,7 @@ public:
         token.creationTx = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token, false);
+        auto tokenId = mnview.CreateToken(token);
         if (!tokenId) {
             return std::move(tokenId);
         }
@@ -1294,7 +1305,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        CPoolPair& pool = pair.get();
+        CPoolPair& pool = pair.value();
 
         // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
         {
@@ -1508,9 +1519,17 @@ public:
             if (!loanToken) {
                 return Res::Err("Could not get destination loan token %d. Set valid destination.", obj.destination);
             }
+
+            if (mnview.AreTokensLocked({obj.destination})) {
+                return Res::Err("Cannot create future swap for locked token");
+            }
         } else {
             if (obj.destination != 0) {
                 return Res::Err("Destination should not be set when source amount is a dToken");
+            }
+
+            if (mnview.AreTokensLocked({obj.source.nTokenId.v})) {
+                return Res::Err("Cannot create future swap for locked token");
             }
 
             CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
@@ -1527,6 +1546,12 @@ public:
 
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
+
+        // Can be removed after the hard fork, since it will be backward compatible
+        // but have to keep it around for pre 2.8.0 nodes for now
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
+            CalculateOwnerRewards(obj.owner);
+        }
 
         if (obj.withdraw) {
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
@@ -1584,7 +1609,7 @@ public:
             balances.Add(obj.source);
         }
 
-        attributes->attributes[liveKey] = balances;
+        attributes->SetValue(liveKey, balances);
 
         mnview.SetVariable(*attributes);
 
@@ -1619,50 +1644,49 @@ public:
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        for(const auto& var : obj.govs) {
-            auto res = var->Validate(mnview);
-            if (!res) {
-                return Res::Err("%s: %s", var->GetName(), res.msg);
-            }
+        for(const auto& gov : obj.govs) {
+            Res res{};
 
-            if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
-                // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
-                const auto diff = height % mnview.GetIntervalBlock();
-                if (diff != 0) {
-                    // Store as pending change
-                    storeGovVars({var, height + mnview.GetIntervalBlock() - diff});
-                    continue;
-                }
-            } else if (var->GetName() == "ATTRIBUTES") {
+            auto var = gov;
+
+            if (var->GetName() == "ATTRIBUTES") {
                 // Add to existing ATTRIBUTES instead of overwriting.
-                auto govVar = mnview.GetVariable(var->GetName());
-                res = govVar->Import(var->Export());
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                auto govVar = mnview.GetAttributes();
+
+                if (!govVar) {
+                    return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
                 }
+
+                govVar->time = time;
 
                 // Validate as complete set. Check for future conflicts between key pairs.
-                res = govVar->Validate(mnview);
+                if (!(res = govVar->Import(var->Export()))
+                    ||  !(res = govVar->Validate(mnview))
+                    ||  !(res = govVar->Apply(mnview, height)))
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+
+                var = govVar;
+            } else {
+                // After GW, some ATTRIBUTES changes require the context of its map to validate,
+                // moving this Validate() call to else statement from before this conditional.
+                res = var->Validate(mnview);
+                if (!res)
+                    return Res::Err("%s: %s", var->GetName(), res.msg);
+
+                if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
+                    // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
+                    const auto diff = height % mnview.GetIntervalBlock();
+                    if (diff != 0) {
+                        // Store as pending change
+                        storeGovVars({var, height + mnview.GetIntervalBlock() - diff}, mnview);
+                        continue;
+                    }
+                }
+
+                res = var->Apply(mnview, height);
                 if (!res) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
                 }
-
-                res = govVar->Apply(mnview, height);
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
-
-                res = mnview.SetVariable(*govVar);
-                if (!res) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
-
-                continue;
-            }
-
-            res = var->Apply(mnview, height);
-            if (!res) {
-                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
 
             res = mnview.SetVariable(*var);
@@ -1687,13 +1711,36 @@ public:
         }
 
         // Validate GovVariables before storing
-        auto result = obj.govVar->Validate(mnview);
-        if (!result) {
-            return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
+        // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
+        if (height >= uint32_t(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+
+            auto govVar = mnview.GetAttributes();
+            if (!govVar) {
+                return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
+            }
+
+            auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
+            storedGovVars.emplace_back(obj.startHeight, obj.govVar);
+
+            Res res{};
+            CCustomCSView govCache(mnview);
+            for (const auto& [varHeight, var] : storedGovVars) {
+                if (var->GetName() == "ATTRIBUTES") {
+                    if (!(res = govVar->Import(var->Export())) ||
+                        !(res = govVar->Validate(govCache)) ||
+                        !(res = govVar->Apply(govCache, varHeight))) {
+                        return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
+                    }
+                }
+            }
+        } else {
+            auto result = obj.govVar->Validate(mnview);
+            if (!result)
+                return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
         }
 
         // Store pending Gov var change
-        storeGovVars(obj);
+        storeGovVars(obj, mnview);
 
         return Res::Ok();
     }
@@ -2303,14 +2350,54 @@ public:
         if (!res)
             return res;
 
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member!");
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
+        {
+            const auto& tokenId = obj.idToken.v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
+            CDataStructureV0 collateralFactor{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralFactor};
+            CDataStructureV0 pairKey{AttributeTypes::Token, tokenId, TokenKeys::FixedIntervalPriceId};
+
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(collateralEnabled, true);
+            var->SetValue(collateralFactor, obj.factor);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         CLoanSetCollateralTokenImplementation collToken;
         static_cast<CLoanSetCollateralToken&>(collToken) = obj;
 
         collToken.creationTx = tx.GetHash();
         collToken.creationHeight = height;
-
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member!");
 
         auto token = mnview.GetToken(collToken.idToken);
         if (!token)
@@ -2322,7 +2409,7 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
+        if (!OraclePriceFeed(mnview, collToken.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
 
         CFixedIntervalPrice fixedIntervalPrice;
@@ -2349,45 +2436,86 @@ public:
         if (!res)
             return res;
 
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member!");
+
+        if (obj.interest < 0) {
+            return Res::Err("interest rate cannot be less than 0!");
+        }
+
+        CTokenImplementation token;
+        token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx = tx.GetHash();
+        token.creationHeight = height;
+        token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default) : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+        token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
+
+        auto tokenId = mnview.CreateToken(token);
+        if (!tokenId)
+            return std::move(tokenId);
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
+        {
+            const auto& id = tokenId.val->v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
+            CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
+
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(mintEnabled, obj.mintable);
+            var->SetValue(mintInterest, obj.interest);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         CLoanSetLoanTokenImplementation loanToken;
         static_cast<CLoanSetLoanToken&>(loanToken) = obj;
 
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
-        CFixedIntervalPrice fixedIntervalPrice;
-        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
-
-        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        auto nextPrice = GetAggregatePrice(mnview, obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second, time);
         if (!nextPrice)
             return Res::Err(nextPrice.msg);
 
+        if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
 
-        LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
-
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member!");
-
-        if (!oraclePriceFeed(loanToken.fixedIntervalPriceId))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
-
-        CTokenImplementation token;
-        token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
-        token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
-
-        token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.creationTx = tx.GetHash();
-        token.creationHeight = height;
-
-        auto tokenId = mnview.CreateToken(token, false);
-        if (!tokenId)
-            return std::move(tokenId);
 
         return mnview.SetLoanToken(loanToken, *(tokenId.val));
     }
@@ -2400,7 +2528,16 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        auto loanToken = mnview.GetLoanToken(obj.tokenTx);
+        if (obj.interest < 0)
+            return Res::Err("interest rate cannot be less than 0!");
+
+        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
+        if (!pair)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        auto loanToken = (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) ?
+                mnview.GetLoanTokenByID(pair->first) : mnview.GetLoanToken(obj.tokenTx);
+
         if (!loanToken)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
@@ -2410,29 +2547,65 @@ public:
         if (obj.interest != loanToken->interest)
             loanToken->interest = obj.interest;
 
-        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
-        if (!pair)
-            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
-
         if (obj.symbol != pair->second.symbol)
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
+        if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
+            pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+
+        res = mnview.UpdateToken(pair->second);
+        if (!res)
+            return res;
+
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
+        {
+            const auto& id = pair->first.v;
+
+            auto attributes = mnview.GetAttributes();
+            attributes->time = time;
+
+            CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
+            CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
+            CDataStructureV0 pairKey{AttributeTypes::Token, id, TokenKeys::FixedIntervalPriceId};
+
+            auto gv = GovVariable::Create("ATTRIBUTES");
+            if (!gv) {
+                return Res::Err("Failed to create ATTRIBUTES Governance variable");
+            }
+
+            auto var = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
+            if (!var) {
+                return Res::Err("Failed to convert ATTRIBUTES Governance variable");
+            }
+
+            var->SetValue(mintEnabled, obj.mintable);
+            var->SetValue(mintInterest, obj.interest);
+            var->SetValue(pairKey, obj.fixedIntervalPriceId);
+
+            res = attributes->Import(var->Export());
+            if (!res)
+                return res;
+
+            res = attributes->Validate(mnview);
+            if (!res)
+                return res;
+
+            res = attributes->Apply(mnview, height);
+            if (!res)
+                return res;
+
+            return mnview.SetVariable(*attributes);
+        }
+
         if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
-            if (!oraclePriceFeed(obj.fixedIntervalPriceId))
+            if (!OraclePriceFeed(mnview, obj.fixedIntervalPriceId))
                 return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
 
             loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
-
-        if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
-            pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
-
-        res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
-        if (!res)
-            return res;
 
         return mnview.UpdateLoanToken(*loanToken, pair->first);
     }
@@ -2607,7 +2780,7 @@ public:
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
             } else {
-                return Res::Err("There is not default loan scheme");
+                return Res::Err("There is no default loan scheme");
             }
         }
 
@@ -2733,6 +2906,14 @@ public:
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot deposit to vault under liquidation");
 
+        // If collateral token exist make sure it is enabled.
+        if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
+            CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
+            if (const auto attributes = mnview.GetAttributes(); !attributes->GetValue(collateralKey, false)) {
+                return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
+            }
+        }
+
         //check balance
         CalculateOwnerRewards(obj.from);
         res = mnview.SubBalance(obj.from, obj.amount);
@@ -2787,7 +2968,7 @@ public:
         {
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
-                boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+                std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
                 if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
                     tokenDUSD = mnview.GetToken("DUSD");
                 }
@@ -2905,7 +3086,7 @@ public:
                 return res;
         }
 
-        boost::optional<std::pair<DCT_ID, boost::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
             tokenDUSD = mnview.GetToken("DUSD");
         }
@@ -3175,7 +3356,7 @@ public:
 
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -3188,7 +3369,7 @@ public:
 
                         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                        attributes->attributes[liveKey] = balances;
+                        attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
@@ -3226,14 +3407,14 @@ public:
         if (!data)
             return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
 
-        auto batch = mnview.GetAuctionBatch(obj.vaultId, obj.index);
+        auto batch = mnview.GetAuctionBatch({obj.vaultId, obj.index});
         if (!batch)
             return Res::Err("No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
 
         if (obj.amount.nTokenId != batch->loanAmount.nTokenId)
             return Res::Err("Bid token does not match auction one");
 
-        auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index);
+        auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index});
         if (!bid) {
             auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
             if (amount > obj.amount.nValue)
@@ -3258,7 +3439,7 @@ public:
         //check balance
         CalculateOwnerRewards(obj.from);
         res = mnview.SubBalance(obj.from, obj.amount);
-        return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
+        return !res ? res : mnview.StoreAuctionBid({obj.vaultId, obj.index}, {obj.from, obj.amount});
     }
 
     Res operator()(const CCustomTxMessageNone&) const {
@@ -3512,8 +3693,18 @@ public:
         return EraseHistory(vault->ownerAddress);
     }
 
+    Res operator()(const CLoanPaybackLoanV2Message& obj) const {
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        EraseHistory(obj.from);
+        EraseHistory(consensus.burnAddress);
+        return EraseHistory(vault->ownerAddress);
+    }
+
     Res operator()(const CAuctionBidMessage& obj) const {
-        if (auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index))
+        if (auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index}))
             EraseHistory(bid->first);
 
         return EraseHistory(obj.from);
@@ -3705,7 +3896,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
     std::vector<unsigned char> metadata;
-    const auto metadataValidation = height >= consensus.FortCanningHeight;
+    const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
 
     auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
@@ -3747,7 +3938,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
             }
             res.code |= CustomTxErrCodes::Fatal;
         }
-        if (height >= consensus.DakotaHeight) {
+        if (height >= static_cast<uint32_t>(consensus.DakotaHeight)) {
             res.code |= CustomTxErrCodes::Fatal;
         }
         return res;
@@ -3824,6 +4015,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
     mnview.SetTeam(finMsg.nextTeam);
     if (height >= consensusParams.AMKHeight) {
+        LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {
@@ -3900,6 +4092,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
 
+    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
@@ -4033,7 +4226,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     Res poolResult = Res::Ok();
 
     // No composite swap allowed before Fort Canning
-    if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
+    if (height < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
@@ -4043,7 +4236,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
@@ -4073,7 +4266,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         currentID = poolIDs[i];
 
         // Use single swap pool if already found
-        boost::optional<CPoolPair> pool;
+        std::optional<CPoolPair> pool;
         if (poolPair) {
             pool = poolPair->second;
         }
@@ -4097,6 +4290,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
                 return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
             }
+        }
+
+        if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
+            return Res::Err("Pool currently disabled due to locked token");
         }
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
@@ -4167,7 +4364,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     }
 
     // Reject if price paid post-swap above max price provided
-    if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
         if (swapAmountResult.nValue != 0) {
             const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
             if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
@@ -4225,17 +4422,59 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
 {
     if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
-        for (const auto& collateral : collaterals->balances)
-            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height}))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
+        for (const auto& collateral : collaterals->balances) {
+            if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height})) {
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)) {
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
                         return false;
+                    }
+                } else {
+                    // No fixed interval prices available. Should not have happened.
+                    return false;
+                }
+            } else {
+                // Not a collateral token. Should not have happened.
+                return false;
+            }
+        }
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
-        for (const auto& loan : loans->balances)
-            if (auto loanToken = mnview.GetLoanTokenByID(loan.first))
-                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
+        for (const auto& loan : loans->balances) {
+            if (auto loanToken = mnview.GetLoanTokenByID(loan.first)) {
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
                         return false;
+                    }
+                } else {
+                    // No fixed interval prices available. Should not have happened.
+                    return false;
+                }
+            } else {
+                // Not a loan token. Should not have happened.
+                return false;
+            }
+        }
     return true;
+}
+
+
+Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
+
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
