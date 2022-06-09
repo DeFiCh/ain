@@ -310,6 +310,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                 including_start = false;
                 start = decodeBalanceKey(paginationObj["start"].get_str());
             }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
             if (!including_start) {
                 start.tokenID.v++;
             }
