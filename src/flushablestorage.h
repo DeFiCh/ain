@@ -517,4 +517,20 @@ private:
     std::unique_ptr<CStorageKV> storage;
 };
 
+template<typename KeyPrefix, typename KeyType, typename ValueType>
+size_t IterateKV(std::function<bool(KeyType, ValueType)> fn, KeyType start, std::unique_ptr<CStorageKVIterator> iter) {
+    if (!iter) return 0;
+    auto it = CStorageIteratorWrapper<KeyPrefix, KeyType>{std::move(iter)};
+    it.Seek(start);
+    auto i=0;
+    while (it.Valid()) {
+        i++;
+        auto key = it.Key();
+        ValueType val = it.Value();
+        if (!fn(key, val)) break;
+        it.Next();
+    }
+    return i;
+}
+
 #endif // DEFI_FLUSHABLESTORAGE_H
