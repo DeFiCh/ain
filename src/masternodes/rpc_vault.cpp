@@ -1214,7 +1214,9 @@ UniValue listauctionhistory(const JSONRPCRequest& request) {
         if (isMine && !(IsMineCached(*pwallet, key.owner) & ISMINE_SPENDABLE)) {
             return true;
         }
-
+        if (key.index < start.index){
+            return true;
+        }
         ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
 
         return --limit != 0;
