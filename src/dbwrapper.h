@@ -74,7 +74,11 @@ public:
     /**
      * @param[in] _parent   CDBWrapper that this batch is to be submitted to
      */
-    explicit CDBBatch(const CDBWrapper &_parent) : parent(_parent), ssKey(SER_DISK, CLIENT_VERSION), ssValue(SER_DISK, CLIENT_VERSION), size_estimate(0) { };
+    explicit CDBBatch(const CDBWrapper &_parent) :
+        parent(_parent),
+        ssKey(SER_DISK, CLIENT_VERSION),
+        ssValue(SER_DISK, CLIENT_VERSION),
+        size_estimate(0) { };
 
     void Clear()
     {
@@ -203,16 +207,27 @@ public:
 //    return true;
 //}
 
+struct CLevelDBOptions {
+private:
+    leveldb::Options options{};
+    leveldb::Env *env{};
+    size_t NextPowerOfTwo(size_t v);
+
+public:
+    CLevelDBOptions(size_t nCacheSize, bool fMemory);
+    ~CLevelDBOptions();
+    const leveldb::Options& Get() { return options; }
+};
 
 class CDBWrapper
 {
     friend const std::vector<unsigned char>& dbwrapper_private::GetObfuscateKey(const CDBWrapper &w);
 private:
-    //! custom environment this database is using (may be nullptr in case of default environment)
-    leveldb::Env* penv;
-
     //! database options used
-    leveldb::Options options;
+    std::shared_ptr<CLevelDBOptions> options;
+
+    //! the database itself
+    std::shared_ptr<leveldb::DB> pdb;
 
     //! options used when reading from the database
     leveldb::ReadOptions readoptions;
@@ -225,9 +240,6 @@ private:
 
     //! options used when sync writing to the database
     leveldb::WriteOptions syncoptions;
-
-    //! the database itself
-    leveldb::DB* pdb;
 
     //! the name of this database
     std::string m_name;
@@ -243,6 +255,10 @@ private:
 
     std::vector<unsigned char> CreateObfuscateKey() const;
 
+    // Note: This is private only. It shares the leveldb instance and options wrapper
+    // from the parent. It's only meant to be used in internal context to create snapshots.
+    CDBWrapper(const CDBWrapper&);
+
 public:
     /**
      * @param[in] path        Location in the filesystem where leveldb data will be stored.
@@ -255,8 +271,7 @@ public:
     CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory = false, bool fWipe = false, bool obfuscate = false);
     ~CDBWrapper();
 
-    CDBWrapper(const CDBWrapper&) = delete;
-    CDBWrapper& operator=(const CDBWrapper&) = delete;
+    CDBWrapper Snapshot();
 
     template <typename K, typename V>
     bool Read(const K& key, V& value) const
@@ -265,7 +280,7 @@ public:
         ssKey.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
         ssKey << key;
         leveldb::Slice slKey(ssKey.data(), ssKey.size());
-//        leveldb::Slice slKey(SliceKey(key));
+        // leveldb::Slice slKey(SliceKey(key));
 
         std::string strValue;
         leveldb::Status status = pdb->Get(readoptions, slKey, &strValue);
@@ -300,7 +315,7 @@ public:
         ssKey.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
         ssKey << key;
         leveldb::Slice slKey(ssKey.data(), ssKey.size());
-//        leveldb::Slice slKey(SliceKey(key));
+        // leveldb::Slice slKey(SliceKey(key));
 
         std::string strValue;
         leveldb::Status status = pdb->Get(readoptions, slKey, &strValue);

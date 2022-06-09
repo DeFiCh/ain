@@ -97,19 +97,18 @@ static void SetMaxOpenFiles(leveldb::Options *options) {
              options->max_open_files, default_open_files);
 }
 
-static leveldb::Options GetOptions(size_t nCacheSize)
-{
-    const auto ceil_power_of_two = [](size_t v) {
-        v--;
-        for (const size_t i: {1, 2, 4, 6, 16}) v |= v >> i;
-        v++;
-        return v;
-    };
-    
-    leveldb::Options options;
+
+size_t CLevelDBOptions::NextPowerOfTwo(size_t v) {
+    v--;
+    for (const size_t i: {1, 2, 4, 6, 16}) v |= v >> i;
+    v++;
+    return v;
+}
+
+CLevelDBOptions::CLevelDBOptions(size_t nCacheSize, bool fMemory) {
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
-    options.write_buffer_size = ceil_power_of_two(std::min(static_cast<size_t>(64)
-     << 20, nCacheSize / 4)); // Max of 64mb -more is not useful
+    // Max of 64mb. More doesn't usually help.
+    options.write_buffer_size = NextPowerOfTwo(std::min(static_cast<size_t>(64) << 20, nCacheSize / 4));
     options.filter_policy = leveldb::NewBloomFilterPolicy(16);
     options.compression = leveldb::kNoCompression;
     options.info_log = new CDefiLevelDBLogger();
@@ -118,33 +117,46 @@ static leveldb::Options GetOptions(size_t nCacheSize)
         // on corruption in later versions.
         options.paranoid_checks = true;
     }
+    options.create_if_missing = true;
+    if (fMemory) {
+        env = leveldb::NewMemEnv(leveldb::Env::Default());
+        options.env = env;
+    }
     SetMaxOpenFiles(&options);
-    return options;
+}
+
+CLevelDBOptions::~CLevelDBOptions() {
+    delete options.filter_policy;
+    options.filter_policy = nullptr;
+    delete options.info_log;
+    options.info_log = nullptr;
+    delete options.block_cache;
+    options.block_cache = nullptr;
+    if (env) { delete env; }
+    env = nullptr;
+    options.env = nullptr;
 }
 
 CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bool fWipe, bool obfuscate)
     : m_name{path.stem().string()}
 {
-    penv = nullptr;
     readoptions.verify_checksums = true;
     iteroptions.verify_checksums = true;
     iteroptions.fill_cache = false;
     syncoptions.sync = true;
-    options = GetOptions(nCacheSize);
-    options.create_if_missing = true;
-    if (fMemory) {
-        penv = leveldb::NewMemEnv(leveldb::Env::Default());
-        options.env = penv;
-    } else {
+    options = std::make_shared<CLevelDBOptions>(nCacheSize, fMemory);
+    if (!fMemory) {
         if (fWipe) {
             LogPrintf("Wiping LevelDB in %s\n", path.string());
-            leveldb::Status result = leveldb::DestroyDB(path.string(), options);
+            leveldb::Status result = leveldb::DestroyDB(path.string(), options->Get());
             dbwrapper_private::HandleError(result);
         }
         TryCreateDirectories(path);
         LogPrintf("Opening LevelDB in %s\n", path.string());
     }
-    leveldb::Status status = leveldb::DB::Open(options, path.string(), &pdb);
+    leveldb::DB* ptr;
+    leveldb::Status status = leveldb::DB::Open(options->Get(), path.string(), &ptr);
+    pdb.reset(ptr);
     dbwrapper_private::HandleError(status);
     LogPrintf("Opened LevelDB successfully\n");
 
@@ -174,18 +186,30 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     LogPrintf("Using obfuscation key for %s: %s\n", path.string(), HexStr(obfuscate_key));
 }
 
-CDBWrapper::~CDBWrapper()
-{
-    delete pdb;
-    pdb = nullptr;
-    delete options.filter_policy;
-    options.filter_policy = nullptr;
-    delete options.info_log;
-    options.info_log = nullptr;
-    delete options.block_cache;
-    options.block_cache = nullptr;
-    delete penv;
-    options.env = nullptr;
+CDBWrapper::CDBWrapper(const CDBWrapper&) = default;
+
+CDBWrapper::~CDBWrapper() {
+    if (readoptions.snapshot == iteroptions.snapshot) {
+        auto snap = readoptions.snapshot;
+        if (snap) {
+            pdb->ReleaseSnapshot(snap);
+        }
+    } else {
+        auto snaps = { readoptions.snapshot, iteroptions.snapshot };
+        for (auto s: snaps) {
+            if (s) { pdb->ReleaseSnapshot(s); }
+        }
+    }
+    readoptions.snapshot = nullptr;
+    iteroptions.snapshot = nullptr;
+}
+
+CDBWrapper CDBWrapper::Snapshot() {
+    auto copy = *this;
+    auto snap = this->pdb->GetSnapshot();
+    copy.readoptions.snapshot = snap;
+    copy.iteroptions.snapshot = snap;
+    return copy;
 }
 
 bool CDBWrapper::WriteBatch(CDBBatch& batch, bool fSync)
