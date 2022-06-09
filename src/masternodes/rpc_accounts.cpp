@@ -278,6 +278,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                                  "If true, then iterate including starting position. False by default"},
                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                  "Maximum number of orders to return, 100 by default"},
+                                {"tokenSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Return only accounts with specified tokenid"}
                         },
                        },
                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
@@ -304,6 +306,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     BalanceKey start = {};
+    std::string tokenSymbol = "";
     bool including_start = true;
     {
         if (request.params.size() > 0) {
@@ -320,6 +323,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             }
             if (!including_start) {
                 start.tokenID.v++;
+            }
+            if (!paginationObj["tokenSymbol"].isNull()) {
+                tokenSymbol = paginationObj["tokenSymbol"].getValStr();
             }
         }
         if (limit == 0) {
@@ -344,6 +350,14 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
+    DCT_ID tokenId{~0u};
+    if (tokenSymbol != ""){
+        auto token = mnview.GetToken(tokenSymbol);
+        if(!token){
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Token not found");
+        }
+        tokenId = token->first;
+    }
 
     mnview.ForEachAccount([&](CScript const & account) {
 
@@ -356,6 +370,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         // output the relavant balances only for account
         mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (account != owner) {
+                return false;
+            }
+            if (tokenId != DCT_ID{~0u} && balance.nTokenId != tokenId){
                 return false;
             }
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
