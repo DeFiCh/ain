@@ -540,9 +540,9 @@ class TokenSplitTest(DefiTestFramework):
             new_amount = Decimal(account[0].split('@')[0])
             assert_equal(new_amount, amount * 2)
             history = self.nodes[0].listaccounthistory(address, {'txtype': 'TokenSplit'})
-            #assert_equal(len(history), 2)
-            #assert_equal(history[0]['amounts'][0], f'{-amount:.8f}' + f'@{self.symbolTSLA}/v1')
-            #assert_equal(history[1]['amounts'][0], account[0])
+            assert_equal(len(history), 2)
+            assert_equal(history[0]['amounts'][0], f'{-amount:.8f}' + f'@{self.symbolTSLA}/v1')
+            assert_equal(history[1]['amounts'][0], account[0])
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/-3'}})
@@ -601,6 +601,16 @@ class TokenSplitTest(DefiTestFramework):
         # Swap old for new values
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
         self.idGD = list(self.nodes[0].gettoken(self.symbolGD).keys())[0]
+
+        # Check token split records in account history
+        balances = self.nodes[0].gettokenbalances({'start': int(self.idGD), 'including_start': True, 'limit': 1}, False, True)
+        result = self.nodes[0].listaccounthistory(self.address, {"maxBlockHeight":self.nodes[0].getblockcount(), 'txtype': 'TokenSplit', 'depth':0})
+        assert_equal(result[0]['owner'], self.address)
+        assert_equal(result[0]['type'], 'TokenSplit')
+        assert_equal(result[0]['amounts'], [f'-{self.poolGDTotal - Decimal("0.00001")}@{self.symbolGD}/v1'])
+        assert_equal(result[1]['owner'], self.address)
+        assert_equal(result[1]['type'], 'TokenSplit')
+        assert_equal(result[1]['amounts'], balances)
 
         # Token split
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idGOOGL}/-3'}})

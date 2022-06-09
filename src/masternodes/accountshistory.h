@@ -76,14 +76,13 @@ class CAccountHistoryStorage : public CAccountsHistoryView
                              , public CAuctionHistoryView
 {
 public:
-    CAccountHistoryStorage(CAccountHistoryStorage& accountHistory) : CStorageView(&accountHistory.DB()) {}
+    CAccountHistoryStorage(CAccountHistoryStorage& accountHistory) : CStorageView(new CFlushableStorageKV(accountHistory.DB())) {}
     CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
 class CBurnHistoryStorage : public CAccountsHistoryView
 {
 public:
-    CBurnHistoryStorage(CBurnHistoryStorage& burnHistory) : CStorageView(&burnHistory.DB()) {}
     CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 

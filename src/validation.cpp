@@ -4042,10 +4042,14 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (owner != Params().GetConsensus().burnAddress) {
-                    res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
+                    CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                    res = subView.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                     if (!res.ok) {
                         throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
                     }
+                    subView.Flush();
                 }
 
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
@@ -4075,9 +4079,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     totalBalance += amountB;
                 }
 
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
                 auto refundBalances = [&, owner = owner]() {
-                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
-                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    addView.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.Flush();
                 };
 
                 if (amountA <= 0 || amountB <= 0 || owner == Params().GetConsensus().burnAddress) {
@@ -4118,11 +4126,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     continue;
                 }
 
-                res = view.AddBalance(owner, {newPoolId, liquidity});
+                res = addView.AddBalance(owner, {newPoolId, liquidity});
                 if (!res) {
+                    addView.Discard();
                     refundBalances();
                     continue;
                 }
+                addView.Flush();
 
                 auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
                 auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
@@ -4410,7 +4420,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         auto view{cache};
-        view.SetAccountHistoryStore(paccountHistoryDB.get());
+        auto historyCache{*paccountHistoryDB};
+        view.SetAccountHistoryStore(&historyCache);
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4534,7 +4545,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
             for (const auto& [owner, balances] : balanceUpdates) {
 
-                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CHistoryWriters subWriters{&historyCache, nullptr, nullptr};
                 CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
 
                 res = subView.SubBalance(owner, balances.second);
@@ -4543,7 +4554,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 }
                 subView.Flush();
 
-                CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CHistoryWriters addWriters{&historyCache, nullptr, nullptr};
                 CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
 
                 res = addView.AddBalance(owner, balances.first);
@@ -4589,6 +4600,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
         view.SetVariable(*attributes);
         view.Flush();
+        historyCache.Flush();
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
