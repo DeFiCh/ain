@@ -3,9 +3,11 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/vaulthistory.h>
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
@@ -703,6 +705,26 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 /*
  *  CCustomCSView
  */
+CCustomCSView::CCustomCSView()
+{
+    CheckPrefixes();
+}
+
+CCustomCSView::~CCustomCSView() = default;
+
+CCustomCSView::CCustomCSView(CStorageKV & st)
+    : CStorageView(new CFlushableStorageKV(st))
+{
+    CheckPrefixes();
+}
+
+// cache-upon-a-cache (not a copy!) constructor
+CCustomCSView::CCustomCSView(CCustomCSView & other)
+    : CStorageView(new CFlushableStorageKV(other.DB()))
+{
+    CheckPrefixes();
+}
+
 int CCustomCSView::GetDbVersion() const
 {
     int version;
@@ -1173,4 +1195,26 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
+}
+
+CAccountHistoryStorage* CCustomCSView::GetAccountHistoryStore() {
+    return accHistoryStore.get();
+}
+
+CVaultHistoryStorage* CCustomCSView::GetVaultHistoryStore() {
+    return vauHistoryStore.get();
+}
+
+void CCustomCSView::SetAccountHistoryStore() {
+    if (paccountHistoryDB) {
+        accHistoryStore.reset();
+        accHistoryStore = std::make_unique<CAccountHistoryStorage>(*paccountHistoryDB);
+    }
+}
+
+void CCustomCSView::SetVaultHistoryStore() {
+    if (pvaultHistoryDB) {
+        vauHistoryStore.reset();
+        vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
+    }
 }

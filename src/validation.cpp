@@ -4272,6 +4272,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         if (!res) {
             return res;
         }
+
+        if (view.GetVaultHistoryStore()) {
+            if (const auto vault = view.GetVault(vaultId)) {
+                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(subKey, subValue);
+
+                VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(addKey, addValue);
+            }
+        }
     }
 
     const auto loanToken = view.GetLoanTokenByID(newTokenId);
@@ -4420,8 +4432,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         auto view{cache};
-        auto historyCache{*paccountHistoryDB};
-        view.SetAccountHistoryStore(&historyCache);
+        view.SetAccountHistoryStore();
+        view.SetVaultHistoryStore();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4545,7 +4557,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
             for (const auto& [owner, balances] : balanceUpdates) {
 
-                CHistoryWriters subWriters{&historyCache, nullptr, nullptr};
+                CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
                 CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
 
                 res = subView.SubBalance(owner, balances.second);
@@ -4554,7 +4566,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 }
                 subView.Flush();
 
-                CHistoryWriters addWriters{&historyCache, nullptr, nullptr};
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
                 CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
 
                 res = addView.AddBalance(owner, balances.first);
@@ -4600,7 +4612,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
         view.SetVariable(*attributes);
         view.Flush();
-        historyCache.Flush();
+        if (auto accountHistory = view.GetAccountHistoryStore()) {
+            accountHistory->Flush();
+        }
+        if (auto vaultHistory = view.GetVaultHistoryStore()) {
+            vaultHistory->Flush();
+        }
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }

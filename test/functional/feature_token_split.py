@@ -21,7 +21,7 @@ class TokenSplitTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.fort_canning_crunch = 600
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.fort_canning_crunch}', '-subsidytest=1']]
+            ['-vaultindex=1', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.fort_canning_crunch}', '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
@@ -295,25 +295,34 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].utxostoaccount({self.address: f'30000@{self.symbolDFI}'})
         self.nodes[0].generate(1)
 
-        for _ in range(100):
+        for vault in range(100):
             # Create vault
             vault_id = self.nodes[0].createvault(self.address, '')
             self.nodes[0].generate(1)
+
+            # Store single vault to check later
+            if vault == 0:
+                self.vault_id = vault_id
+                self.vault_loan = 0
 
             # Take 1 to 3 loans
             for _ in range(1, 4):
                 # Deposit random collateral
                 collateral = round(random.uniform(1, 100), 8)
                 loan = truncate(str(collateral / 3), 8)
-                self.nodes[0].deposittovault(vault_id, self.address, f'{str(collateral)}@{self.symbolDFI}')
+                self.nodes[0].deposittovault(vault_id, self.address, f'{collateral}@{self.symbolDFI}')
                 self.nodes[0].generate(1)
 
                 # Take loan
                 self.nodes[0].takeloan({
                     'vaultId': vault_id,
-                    'amounts': f"{str(loan)}@{self.symbolNVDA}"
+                    'amounts': f"{loan}@{self.symbolNVDA}"
                 })
                 self.nodes[0].generate(1)
+
+                # Store loan amounts
+                if vault == 0:
+                    self.vault_loan += Decimal(loan)
 
     def check_token_split(self, token_id, token_symbol, token_suffix, multiplier, minted, loan, collateral):
 
@@ -722,6 +731,15 @@ class TokenSplitTest(DefiTestFramework):
 
         # Multiplier 2
         self.execute_vault_split(self.idNVDA, self.symbolNVDA, 2, '/v1')
+
+        # Check split history
+        result = self.nodes[0].listvaulthistory(self.vault_id, {'maxBlockHeight': self.nodes[0].getblockcount(), 'depth':1})
+        assert_equal(result[0]['address'], self.address)
+        assert_equal(result[0]['type'], 'TokenSplit')
+        assert_equal(result[0]['amounts'], [f'-{self.vault_loan}@{self.symbolNVDA}/v1'])
+        assert_equal(result[1]['address'], self.address)
+        assert_equal(result[1]['type'], 'TokenSplit')
+        assert_equal(result[1]['amounts'], [f'{self.vault_loan * 2}@{self.symbolNVDA}'])
 
         # Swap old for new values
         self.idNVDA = list(self.nodes[0].gettoken(self.symbolNVDA).keys())[0]
