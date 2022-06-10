@@ -576,7 +576,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
         auto res = ProcessVariable(
             pair.first, pair.second.get_str(),
             [this](const CAttributeType& attribute, const CAttributeValue& value) {
-                if (auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
                             (attrV0->type == AttributeTypes::Token &&
                              (attrV0->key == TokenKeys::Ascendant ||
@@ -584,7 +584,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                               attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-                        auto splitValue = std::get_if<OracleSplits>(&value);
+                        const auto splitValue = std::get_if<OracleSplits>(&value);
                         if (!splitValue) {
                             return Res::Err("Failed to get Oracle split value");
                         }
@@ -638,7 +638,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
-        auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             continue;
         }
@@ -677,9 +677,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 }
             }
 
-            if (auto bool_val = std::get_if<bool>(&attribute.second)) {
+            if (const auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
-            } else if (auto amount = std::get_if<CAmount>(&attribute.second)) {
+            } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
@@ -690,9 +690,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                     ret.pushKV(key, decimalStr);
                 }
-            } else if (auto balances = std::get_if<CBalances>(&attribute.second)) {
+            } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
-            } else if (auto paybacks = std::get_if<CTokenPayback>(&attribute.second)) {
+            } else if (const auto paybacks = std::get_if<CTokenPayback>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
                 result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
@@ -710,7 +710,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
             } else if (const auto& ascendantPair = std::get_if<AscendantValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
-            } else if (auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
+            } else if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                 ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             }
         } catch (const std::out_of_range&) {
@@ -730,7 +730,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         return Res::Err("Cannot be set before FortCanningHill");
 
     for (const auto& attribute : attributes) {
-        auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             return Res::Err("Unsupported version");
         }
@@ -891,7 +891,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
-        auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             continue;
         }
@@ -904,8 +904,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
                                         pool->idTokenA : pool->idTokenB;
 
-            auto valuePct = std::get<CAmount>(attribute.second);
-            if (auto res = mnview.SetDexFeePct(poolId, tokenId, valuePct); !res) {
+            const auto valuePct = std::get_if<CAmount>(&attribute.second);
+            if (!valuePct) {
+                return Res::Err("Unexpected type");
+            }
+            if (auto res = mnview.SetDexFeePct(poolId, tokenId, *valuePct); !res) {
                 return res;
             }
         } else if (attrV0->type == AttributeTypes::Token) {
@@ -915,8 +918,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 if (attrV0->key == TokenKeys::DexOutFeePct) {
                     std::swap(tokenA, tokenB);
                 }
-                auto valuePct = std::get<CAmount>(attribute.second);
-                if (auto res = mnview.SetDexFeePct(tokenA, tokenB, valuePct); !res) {
+                const auto valuePct = std::get_if<CAmount>(&attribute.second);
+                if (!valuePct) {
+                    return Res::Err("Unexpected type");
+                }
+                if (auto res = mnview.SetDexFeePct(tokenA, tokenB, *valuePct); !res) {
                     return res;
                 }
             }
@@ -958,8 +964,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto value = std::get<bool>(attribute.second);
-                if (value) {
+                const auto value = std::get_if<bool>(&attribute.second);
+                if (!value) {
+                    return Res::Err("Unexpected type");
+                }
+
+                if (*value) {
                     continue;
                 }
 
@@ -989,8 +999,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto value = std::get<bool>(attribute.second);
-                if (value) {
+                const auto value = std::get_if<bool>(&attribute.second);
+                if (!value) {
+                    return Res::Err("Unexpected type");
+                }
+
+                if (*value) {
                     continue;
                 }
 
