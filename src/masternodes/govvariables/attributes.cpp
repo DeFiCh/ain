@@ -234,7 +234,7 @@ static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     if (!resVal) {
         return resVal;
     }
-    if (boost::get<CAmount>(*resVal.val) > COIN) {
+    if (std::get<CAmount>(*resVal.val) > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
     return resVal;
@@ -576,7 +576,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
         auto res = ProcessVariable(
             pair.first, pair.second.get_str(),
             [this](const CAttributeType& attribute, const CAttributeValue& value) {
-                if (auto attrV0 = boost::get<const CDataStructureV0>(&attribute)) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
                             (attrV0->type == AttributeTypes::Token &&
                              (attrV0->key == TokenKeys::Ascendant ||
@@ -584,7 +584,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                               attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-                        auto splitValue = boost::get<OracleSplits>(&value);
+                        const auto splitValue = std::get_if<OracleSplits>(&value);
                         if (!splitValue) {
                             return Res::Err("Failed to get Oracle split value");
                         }
@@ -638,7 +638,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
-        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             continue;
         }
@@ -677,9 +677,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 }
             }
 
-            if (auto bool_val = boost::get<const bool>(&attribute.second)) {
+            if (const auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
-            } else if (auto amount = boost::get<const CAmount>(&attribute.second)) {
+            } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->typeId == DFIP2203 && attrV0->key == DFIPKeys::BlockPeriod) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
@@ -690,14 +690,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                     ret.pushKV(key, decimalStr);
                 }
-            } else if (auto balances = boost::get<const CBalances>(&attribute.second)) {
+            } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
-            } else if (auto paybacks = boost::get<const CTokenPayback>(&attribute.second)) {
+            } else if (const auto paybacks = std::get_if<CTokenPayback>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
                 result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
                 ret.pushKV(key, result);
-            } else if (const auto splitValues = boost::get<OracleSplits>(&attribute.second)) {
+            } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
                 for (auto it{splitValues->begin()}; it != splitValues->end(); ++it) {
                     if (it != splitValues->begin()) {
@@ -706,11 +706,11 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     keyValue += KeyBuilder(it->first, it->second);
                 }
                 ret.pushKV(key, keyValue);
-            } else if (const auto& descendantPair = boost::get<DescendantValue>(&attribute.second)) {
+            } else if (const auto& descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
-            } else if (const auto& ascendantPair = boost::get<AscendantValue>(&attribute.second)) {
+            } else if (const auto& ascendantPair = std::get_if<AscendantValue>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
-            } else if (auto currencyPair = boost::get<CTokenCurrencyPair>(&attribute.second)) {
+            } else if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                 ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             }
         } catch (const std::out_of_range&) {
@@ -730,7 +730,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         return Res::Err("Cannot be set before FortCanningHill");
 
     for (const auto& attribute : attributes) {
-        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             return Res::Err("Unsupported version");
         }
@@ -811,7 +811,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     return Res::Err("Cannot be set before FortCanningCrunch");
                 }
                 if (attrV0->typeId == OracleIDs::Splits) {
-                    const auto splitMap = boost::get<OracleSplits>(&attribute.second);
+                    const auto splitMap = std::get_if<OracleSplits>(&attribute.second);
                     if (!splitMap) {
                         return Res::Err("Unsupported value");
                     }
@@ -839,7 +839,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Poolpairs:
-                if (!boost::get<const CAmount>(&attribute.second)) {
+                if (!std::get_if<CAmount>(&attribute.second)) {
                     return Res::Err("Unsupported value");
                 }
                 switch (attrV0->key) {
@@ -891,7 +891,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     for (const auto& attribute : attributes) {
-        auto attrV0 = boost::get<const CDataStructureV0>(&attribute.first);
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
         if (!attrV0) {
             continue;
         }
@@ -904,8 +904,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
                                         pool->idTokenA : pool->idTokenB;
 
-            auto valuePct = boost::get<const CAmount>(attribute.second);
-            if (auto res = mnview.SetDexFeePct(poolId, tokenId, valuePct); !res) {
+            const auto valuePct = std::get_if<CAmount>(&attribute.second);
+            if (!valuePct) {
+                return Res::Err("Unexpected type");
+            }
+            if (auto res = mnview.SetDexFeePct(poolId, tokenId, *valuePct); !res) {
                 return res;
             }
         } else if (attrV0->type == AttributeTypes::Token) {
@@ -915,13 +918,16 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 if (attrV0->key == TokenKeys::DexOutFeePct) {
                     std::swap(tokenA, tokenB);
                 }
-                auto valuePct = boost::get<CAmount>(attribute.second);
-                if (auto res = mnview.SetDexFeePct(tokenA, tokenB, valuePct); !res) {
+                const auto valuePct = std::get_if<CAmount>(&attribute.second);
+                if (!valuePct) {
+                    return Res::Err("Unexpected type");
+                }
+                if (auto res = mnview.SetDexFeePct(tokenA, tokenB, *valuePct); !res) {
                     return res;
                 }
             }
             if (attrV0->key == TokenKeys::FixedIntervalPriceId) {
-                if (const auto &currencyPair = boost::get<CTokenCurrencyPair>(&attribute.second)) {
+                if (const auto &currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                     // Already exists, skip.
                     if (auto it = mnview.LowerBound<COracleView::FixedIntervalPriceKey>(*currencyPair);
                         it.Valid() && it.Key() == *currencyPair) {
@@ -958,8 +964,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto value = boost::get<bool>(attribute.second);
-                if (value) {
+                const auto value = std::get_if<bool>(&attribute.second);
+                if (!value) {
+                    return Res::Err("Unexpected type");
+                }
+
+                if (*value) {
                     continue;
                 }
 
@@ -989,8 +999,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto value = boost::get<bool>(attribute.second);
-                if (value) {
+                const auto value = std::get_if<bool>(&attribute.second);
+                if (!value) {
+                    return Res::Err("Unexpected type");
+                }
+
+                if (*value) {
                     continue;
                 }
 
@@ -1013,7 +1027,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             }
         } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-            const auto value = boost::get<OracleSplits>(&attribute.second);
+            const auto value = std::get_if<OracleSplits>(&attribute.second);
             if (!value) {
                 return Res::Err("Unsupported value");
             }

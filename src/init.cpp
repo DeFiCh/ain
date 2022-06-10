@@ -2087,8 +2087,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&destination)) :
-                         destination.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
+            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
+                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
 
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
