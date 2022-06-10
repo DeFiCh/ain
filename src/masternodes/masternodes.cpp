@@ -228,8 +228,8 @@ std::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
     auto const operators = gArgs.GetArgs("-masternode_operator");
     for(auto const & key : operators) {
         CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) :
-                                   dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID();
+        CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) :
+                                   dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -245,8 +245,8 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for(auto const & key : operators) {
         CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) :
-                                   dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID();
+        CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) :
+                                   dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -260,7 +260,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 std::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOwner() const
 {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) : (dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID());
+    CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : (dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID());
     if (!authAddress.IsNull()) {
         auto nodeId = GetMasternodeIdByOwner(authAddress);
         if (nodeId)
