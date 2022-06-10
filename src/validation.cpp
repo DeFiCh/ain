@@ -4180,7 +4180,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             std::vector<CDataStructureV0> eraseKeys;
             for (const auto& [key, value] : attributes.GetAttributesMap()) {
-                if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
+                if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
                     attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
@@ -4389,8 +4389,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = value.second;
         auto newTokenAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, oldTokenAmount.nValue)};
 
-        value.second.nTokenId = newTokenAmount.nTokenId;
-        value.second.nValue = newTokenAmount.nValue;
+        value.second = newTokenAmount;
 
         view.StoreAuctionBid(key, value);
 
@@ -4492,7 +4491,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
                 if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
                     attributes->SetValue(newKey, value);
@@ -4588,9 +4587,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
                 v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = boost::get<OracleSplits>(&value)) {
+                if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
                     for (auto [splitMapKey, splitMapValue] : *splitMap) {
                         if (splitMapKey == oldTokenId.v) {
                             auto copyMap{*splitMap};

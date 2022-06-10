@@ -570,38 +570,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].closevault(vaultId4, address)
         self.nodes[0].generate(1)
 
-        # Test for takeloan to another address
-        self.sync_blocks()
-        owner_node1 = self.nodes[1].getnewaddress()
-        self.nodes[1].generate(1)
-        owner_node0 = self.nodes[0].getnewaddress()
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        # Try takeloan with no auth
-        try:
-            self.nodes[1].takeloan({
-                        'vaultId': vaultId3,
-                        'amounts': "20@" + symboldUSD})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Incorrect authorization for" in errorString)
-
-        # takeloan but transfer dTokens to not owned address
-        account_owner_node1 = self.nodes[1].getaccount(owner_node1)
-        assert_equal(account_owner_node1, [])
-
-        self.nodes[0].takeloan({
-                    'vaultId': vaultId3,
-                    'to': owner_node1,
-                    'amounts': "20@" + symboldUSD})
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        account_owner_node1 = self.nodes[1].getaccount(owner_node1)
-        assert_equal(account_owner_node1, ['20.00000000@DUSD'])
-        account_owner_node0 = self.nodes[1].getaccount(owner_node0)
-        assert_equal(account_owner_node0, [])
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
