@@ -584,7 +584,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
-        CCustomCSView mnview(pool.accountsView());
+        auto mnview = pool.accountsView().CreateFlushableLayer();
 
         LockPoints lp;
         CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
@@ -2724,7 +2724,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nSigOpsCost = 0;
     // it's used for account changes by the block
     // to calculate their merkle root in isolation
-    CCustomCSView accountsView(mnview);
+    auto accountsView = mnview.CreateFlushableLayer();
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
 
@@ -2981,7 +2981,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     { // old data pruning and other (some processing made for the whole block)
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
-        CCustomCSView cache(mnview);
+        auto cache = mnview.CreateFlushableLayer();
 
         // calculate rewards to current block
         ProcessRewardEvents(pindex, cache, chainparams);
@@ -3050,7 +3050,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         --it;
         bool pruneStarted = false;
         auto time = GetTimeMillis();
-        CCustomCSView pruned(mnview);
+        auto pruned = mnview.CreateFlushableLayer();
         mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
             if (key.height >= static_cast<uint32_t>(it->first)) { // don't erase checkpoint height
                 return false;
@@ -3071,7 +3071,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         // we can safety delete old interest keys
         if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
-            CCustomCSView view(mnview);
+            auto view = mnview.CreateFlushableLayer();
             mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
                 view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
                 return true;
@@ -3272,7 +3272,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     }
 
     if (!loanDestruction.empty()) {
-        CCustomCSView viewCache(cache);
+        auto viewCache = cache.CreateFlushableLayer();
         auto defaultLoanScheme = cache.GetDefaultLoanScheme();
         cache.ForEachVault([&](const CVaultId& vaultId, CVaultData vault) {
             if (!cache.GetLoanScheme(vault.schemeId)) {
@@ -3725,7 +3725,7 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
     for (const auto& var : storedGovVars) {
         if (var) {
-            CCustomCSView govCache(cache);
+            auto govCache = cache.CreateFlushableLayer();
             // Add to existing ATTRIBUTES instead of overwriting.
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
@@ -3791,7 +3791,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
             ++collateralCount;
         }
 
-        CCustomCSView govCache(cache);
+        auto govCache = cache.CreateFlushableLayer();
         if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
             govCache.Flush();
 
@@ -3895,10 +3895,10 @@ void ConsolidateRewards(CCustomCSView &view, int height,
         // due to the segregated areas of operation.
         boost::asio::post(workerPool, [&, &account = owner]() {
             if (interruptOnShutdown && ShutdownRequested()) return;
-            auto tempView = std::make_unique<CCustomCSView>(view);
+            auto tempView = std::make_unique<CCustomCSView>(view.CreateFlushableLayer());
             tempView->CalculateOwnerRewards(account, height);
 
-            boost::asio::post(mergeWorker, [&, tempView = std::move(tempView)]() {
+            boost::asio::post(mergeWorker, [&, tempView=std::move(tempView)]() {
                 if (interruptOnShutdown && ShutdownRequested()) return;
                 tempView->Flush();
 
@@ -4401,7 +4401,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        auto view{cache};
+        auto view = cache.CreateFlushableLayer();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4822,7 +4822,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
         if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
@@ -4988,7 +4988,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         std::vector<uint256> rewardedAnchors;
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
@@ -6533,7 +6533,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
     std::vector<uint256> dummyRewardedAnchors;
-    CCustomCSView mnview(*pcustomcsview.get());
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
@@ -6931,7 +6931,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CCustomCSView mnview(*pcustomcsview.get());
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -7053,7 +7053,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     LOCK(cs_main);
 
     CCoinsViewCache cache(view);
-    CCustomCSView mncache(*mnview);
+    auto mncache = mnview->CreateFlushableLayer();
 
     std::vector<uint256> hashHeads = view->GetHeadBlocks();
     if (hashHeads.empty()) return true; // We're already in a consistent state.

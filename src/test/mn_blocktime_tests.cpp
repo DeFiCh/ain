@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     mn.ownerAuthAddress = minter;
     uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
 
-    CCustomCSView mnview(*pcustomcsview.get());
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     mnview.CreateMasternode(mnId, mn, 0);
 
     // Add time records
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     BOOST_CHECK_EQUAL(*timeMax, 3000);
 
     // Delete entry
-    CCustomCSView mnviewTwo(*pcustomcsview.get());
+    auto mnviewTwo = pcustomcsview->CreateFlushableLayer();
     mnviewTwo.EraseMasternodeLastBlockTime(mnId, 300);
     mnviewTwo.Flush();
 
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time_multi)
     mn.ownerAuthAddress = minter;
     uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
 
-    CCustomCSView mnview(*pcustomcsview.get());
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     mnview.CreateMasternode(mnId, mn, 0);
 
     // Add time records
@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time_multi)
     BOOST_CHECK_EQUAL(timeMax[3], 3000);
 
     // Delete entry
-    CCustomCSView mnviewTwo(*pcustomcsview.get());
+    auto mnviewTwo = pcustomcsview->CreateFlushableLayer();
     mnviewTwo.EraseSubNodesLastBlockTime(mnId, 300);
     mnviewTwo.Flush();
 

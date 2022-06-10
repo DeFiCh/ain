@@ -73,7 +73,7 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
         COracle oracle;
         static_cast<CAppointOracleMessage&>(oracle) = msg;
 
-        CCustomCSView mnview(*pcustomcsview);
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         auto res = mnview.AppointOracle(oracleId1, oracle);
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 
@@ -96,7 +96,7 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
         COracle oracle1;
         static_cast<CAppointOracleMessage&>(oracle1) = msg;
 
-        CCustomCSView mnview(*pcustomcsview);
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         auto res = mnview.AppointOracle(oracleId1, oracle1);
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 
@@ -131,7 +131,7 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
         COracle oracle2;
         static_cast<CAppointOracleMessage&>(oracle2) = msg2;
 
-        CCustomCSView mnview(*pcustomcsview);
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         auto res = mnview.AppointOracle(oracleId1, oracle1);
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 

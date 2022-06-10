@@ -211,7 +211,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }

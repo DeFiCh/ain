@@ -387,25 +387,33 @@ private:
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
 public:
-    // Increase version when underlaying tables are changed
+    // Increase version when underlying tables are changed
     static constexpr const int DbVersion = 1;
 
-    CCustomCSView()
-    {
+    CCustomCSView() {
         CheckPrefixes();
     }
 
-    CCustomCSView(CStorageKV & st)
-        : CStorageView(new CFlushableStorageKV(st))
-    {
+    CCustomCSView(CCustomCSView& other) = delete;
+    CCustomCSView(CCustomCSView&& other) = default;
+
+    CCustomCSView(CStorageKV* st): CStorageView(st) {
         CheckPrefixes();
     }
 
-    // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB()))
-    {
-        CheckPrefixes();
+    CCustomCSView CreateFlushableLayer() {
+        return {new CFlushableStorageKV(this->DB())};
+    }
+
+    CCustomCSView Snapshot() {
+        auto &db = this->DB();
+        auto *levelDbStorage = dynamic_cast<CStorageLevelDB*>(&db);
+        if (levelDbStorage) {
+            LogPrintf("DEBUG:: Creating snapped view\n");
+            auto snappedStore = levelDbStorage->Snapshot();
+            return CCustomCSView { new CFlushableStorageKV(snappedStore)};
+        }
+        throw std::runtime_error("not a leveldb storage");
     }
 
     // cause depends on current mns:

@@ -257,7 +257,7 @@ private:
 
     // Note: This is private only. It shares the leveldb instance and options wrapper
     // from the parent. It's only meant to be used in internal context to create snapshots.
-    CDBWrapper(const CDBWrapper&);
+    CDBWrapper(const CDBWrapper&) = default;
 
 public:
     /**
@@ -269,6 +269,7 @@ public:
      *                        with a zero'd byte array.
      */
     CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory = false, bool fWipe = false, bool obfuscate = false);
+    CDBWrapper(CDBWrapper&&) = default;
     ~CDBWrapper();
 
     CDBWrapper Snapshot();

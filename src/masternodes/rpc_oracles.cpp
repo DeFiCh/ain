@@ -608,7 +608,8 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+    // don't write into actual DB
+    auto mnview = pcustomcsview->CreateFlushableLayer();
 
     auto oracleRes = mnview.GetOracleData(oracleId);
     if (!oracleRes.ok) {
@@ -683,7 +684,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
     LOCK(cs_main);
 
     UniValue res(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         if (!including_start)
         {
@@ -772,7 +773,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     }
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
 
     UniValue result(UniValue::VARR);
@@ -954,7 +955,7 @@ UniValue getprice(const JSONRPCRequest &request) {
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
@@ -1016,7 +1017,7 @@ UniValue listprices(const JSONRPCRequest& request) {
     }
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     auto res = GetAllAggregatePrices(view, lastBlockTime, paginationObj);
     return GetRPCResultCache().Set(request, res);

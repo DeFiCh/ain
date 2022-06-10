@@ -24,24 +24,24 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
     coinbaseTx.vin[0].scriptSig = CScript() << height << OP_0;
 
     {   // check on pre-AMK height:
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height-1, 0, consensus);
         BOOST_CHECK(res.ok);
     }
     {   // try to generate wrong tokens
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout[0].nTokenId.v = 1;
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-wrong-tokens");
     }
     {   // do not pay foundation reward at all
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height, 0, consensus);
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly less than expected
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // pay proper foundation reward, but not subtract consensus share
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-amount");
     }
     {   // at least, all is ok
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -97,12 +97,12 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     coinbaseTx.vin[0].scriptSig = CScript() << height << OP_0;
 
     {   // do not pay foundation reward at all
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height, 0, consensus);
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly less than expected
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly more than expected
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-amount");
     }
     {   // Try and pay staker too much
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode) + 1;
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-amount");
     }
     {   // Test everything is okay
-        CCustomCSView mnview(*pcustomcsview.get());
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);

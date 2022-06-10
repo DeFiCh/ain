@@ -496,7 +496,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
     auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
-        CCustomCSView mnview(*pcustomcsview);
+        auto mnview = pcustomcsview->CreateFlushableLayer();
         boost::apply_visitor(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
     }
     return res;

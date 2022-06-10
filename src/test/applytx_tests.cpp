@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
 // redundant due to 'neg_token_amounts'
 BOOST_AUTO_TEST_CASE(neg_token_balances)
 {
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
 
     CScript const owner = CScript(1);
     DCT_ID const DFI{0};
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     amkCheated.AMKHeight = 0;
 
 
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
     CScript owner = CScript(424242);

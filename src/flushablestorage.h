@@ -103,8 +103,10 @@ inline RawTBytes<T> refTBytes(T& val) {
 // LevelDB glue layer Iterator
 class CStorageLevelDBIterator : public CStorageKVIterator {
 public:
-    explicit CStorageLevelDBIterator(std::unique_ptr<CDBIterator>&& it) : it{std::move(it)} { }
     CStorageLevelDBIterator(const CStorageLevelDBIterator&) = delete;
+    CStorageLevelDBIterator(CStorageLevelDBIterator&&) = default;
+    explicit CStorageLevelDBIterator(std::unique_ptr<CDBIterator>&& it) : it{std::move(it)} { }
+
     ~CStorageLevelDBIterator() override = default;
 
     void Seek(const TBytes& key) override {
@@ -136,9 +138,12 @@ private:
 // LevelDB glue layer storage
 class CStorageLevelDB : public CStorageKV {
 public:
+    CStorageLevelDB() = delete;
+    CStorageLevelDB(CStorageLevelDB&&) = default;
+    ~CStorageLevelDB() override = default;
+
     explicit CStorageLevelDB(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false)
         : db{dbName, cacheSize, fMemory, fWipe}, batch(db) {}
-    ~CStorageLevelDB() override = default;
 
     bool Exists(const TBytes& key) const override {
         return db.Exists(refTBytes(key));
@@ -198,11 +203,13 @@ private:
 // Flushable Key-Value Storage Iterator
 class CFlushableStorageKVIterator : public CStorageKVIterator {
 public:
+    CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
+    CFlushableStorageKVIterator(CFlushableStorageKVIterator&&) = default;
+    ~CFlushableStorageKVIterator() override = default;
+
     explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt, MapKV& map) : map(map), pIt(std::move(pIt)) {
         itState = Invalid;
     }
-    CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
-    ~CFlushableStorageKVIterator() override = default;
 
     void Seek(const TBytes& key) override {
         pIt->Seek(key);
@@ -280,9 +287,11 @@ private:
 // Flushable Key-Value Storage
 class CFlushableStorageKV : public CStorageKV {
 public:
-    explicit CFlushableStorageKV(CStorageKV& db_) : db(db_) {}
     CFlushableStorageKV(const CFlushableStorageKV&) = delete;
+    CFlushableStorageKV(CFlushableStorageKV&&) = default;
     ~CFlushableStorageKV() override = default;
+
+    explicit CFlushableStorageKV(CStorageKV& db_) : db(db_) {}
 
     bool Exists(const TBytes& key) const override {
         auto it = changed.find(key);
@@ -450,8 +459,10 @@ CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& ma
 class CStorageView {
 public:
     CStorageView() = default;
-    CStorageView(CStorageKV * st) : storage(st) {}
+    CStorageView(CStorageView&&) = default;
     virtual ~CStorageView() = default;
+
+    CStorageView(CStorageKV * st) : storage(st) {}
 
     template<typename KeyType>
     bool Exists(const KeyType& key) const {

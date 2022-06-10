@@ -16,7 +16,7 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
     CAccounts walletAccounts;
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
@@ -433,7 +433,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
-        CCustomCSView view(*pcustomcsview);
+        auto view = pcustomcsview->CreateFlushableLayer();
         res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, ::ChainActive().Tip()->nTime);
     }
     if (!res) {

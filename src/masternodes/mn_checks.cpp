@@ -826,7 +826,7 @@ public:
 
     // we need proxy view to prevent add/sub balance record
     void CalculateOwnerRewards(const CScript& owner) const {
-        CCustomCSView view(mnview);
+        auto view = mnview.CreateFlushableLayer();
         view.CalculateOwnerRewards(owner, height);
         view.Flush();
     }
@@ -1723,7 +1723,7 @@ public:
             storedGovVars.emplace_back(obj.startHeight, obj.govVar);
 
             Res res{};
-            CCustomCSView govCache(mnview);
+            auto govCache = mnview.CreateFlushableLayer();
             for (const auto& [varHeight, var] : storedGovVars) {
                 if (var->GetName() == "ATTRIBUTES") {
                     if (!(res = govVar->Import(var->Export())) ||
@@ -4124,7 +4124,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
     for (const auto& path : poolPaths) {
 
         // Test on copy of view
-        CCustomCSView dummy(view);
+        auto dummy = view.CreateFlushableLayer();
 
         // Execute pool path
         auto res = ExecuteSwap(dummy, path, testOnly);
@@ -4251,7 +4251,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     }
 
     if (!testOnly) {
-        CCustomCSView mnview(view);
+        auto mnview = view.CreateFlushableLayer();
         mnview.CalculateOwnerRewards(obj.from, height);
         mnview.CalculateOwnerRewards(obj.to, height);
         mnview.Flush();
@@ -4323,7 +4323,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
                 return res;
             }
 
-            CCustomCSView intermediateView(view);
+            auto intermediateView = view.CreateFlushableLayer();
             // hide interemidiate swaps
             auto& subView = i == 0 ? view : intermediateView;
             res = subView.SubBalance(obj.from, swapAmount);

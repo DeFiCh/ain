@@ -102,7 +102,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
 }
 
 static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
-    CCustomCSView mnview(view);
+    auto mnview = view.CreateFlushableLayer();
     static const uint32_t eunosHeight = Params().GetConsensus().EunosHeight;
     view.ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = view.GetShare(poolId, owner);
@@ -326,7 +326,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
@@ -423,7 +423,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     }
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
@@ -517,7 +517,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CBalances totalBalances;
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
@@ -1080,7 +1080,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
@@ -1361,7 +1361,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
@@ -1509,7 +1509,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    auto view = pcustomcsview->CreateFlushableLayer();
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
     CScript lastOwner;
@@ -1797,7 +1797,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     auto height = ::ChainActive().Height();
     auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
-    auto view = *pcustomcsview;
+    auto view = pcustomcsview->CreateFlushableLayer();
     auto &burnView = pburnHistoryDB;
     auto attributes = view.GetAttributes();
 

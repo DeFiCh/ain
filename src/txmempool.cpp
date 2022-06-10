@@ -552,15 +552,13 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
     }
 }
 
-CTxMemPool::~CTxMemPool()
-{
-}
+CTxMemPool::~CTxMemPool() {}
 
 CCustomCSView& CTxMemPool::accountsView()
 {
     if (!acview) {
         assert(pcustomcsview);
-        acview = std::make_unique<CCustomCSView>(*pcustomcsview);
+        acview = std::make_unique<CCustomCSView>(pcustomcsview->CreateFlushableLayer());
     }
     return *acview;
 }
@@ -1098,7 +1096,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
 
     CAmount txfee = 0;
     accountsView().Discard();
-    CCustomCSView viewDuplicate(accountsView());
+    auto viewDuplicate = accountsView().CreateFlushableLayer();
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;

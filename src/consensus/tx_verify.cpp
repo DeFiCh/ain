@@ -220,7 +220,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (NotAllowedToFail(txType, nSpendHeight)) {
-        CCustomCSView discardCache(const_cast<CCustomCSView&>(*mnview));
+        auto discardCache = const_cast<CCustomCSView&>(*mnview).CreateFlushableLayer();
         auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);

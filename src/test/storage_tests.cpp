@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(undo)
 
     auto snapStart = TakeSnapshot(base_raw);
 
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
     BOOST_CHECK(mnview.Write("testkey1", "value1")); // modify
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
@@ -337,7 +337,7 @@ BOOST_AUTO_TEST_CASE(ForEachTest)
 BOOST_AUTO_TEST_CASE(LowerBoundTest)
 {
     {
-        CCustomCSView view(*pcustomcsview);
+        auto view = pcustomcsview->CreateFlushableLayer();
         view.WriteBy<TestForward>(TestForward{0}, 1);
         view.WriteBy<TestForward>(TestForward{1}, 2);
         view.WriteBy<TestForward>(TestForward{255}, 3);
@@ -366,7 +366,7 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         }
         BOOST_CHECK(test == 0);
 
-        CCustomCSView view2(view);
+        auto view2 = view.CreateFlushableLayer();
         view2.WriteBy<TestForward>(TestForward{1}, 11);
         view2.WriteBy<TestForward>(TestForward{256}, 9);
         view2.EraseBy<TestForward>(TestForward{255});
@@ -389,7 +389,7 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         it.Prev();
         BOOST_CHECK(!it.Valid());
 
-        CCustomCSView view3(view2);
+        auto view3 = view2.CreateFlushableLayer();
         view3.EraseBy<TestForward>(TestForward{1});
 
         it = view3.LowerBound<TestForward>(TestForward{256});
@@ -413,7 +413,7 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
     }
 
     {
-        CCustomCSView view(*pcustomcsview);
+        auto view = pcustomcsview->CreateFlushableLayer();
         view.WriteBy<TestBackward>(TestBackward{0}, 1);
         view.WriteBy<TestBackward>(TestBackward{1}, 2);
         view.WriteBy<TestBackward>(TestBackward{255}, 3);
@@ -429,7 +429,7 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         }
         BOOST_CHECK(test == 5);
 
-        CCustomCSView view2(view);
+        auto view2 = view.CreateFlushableLayer();
         view2.WriteBy<TestBackward>(TestBackward{256}, 5);
 
         test = 5;

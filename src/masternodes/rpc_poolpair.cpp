@@ -1060,7 +1060,8 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     Res res = Res::Ok();
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
+        // create dummy cache for test state writing
+        auto mnview_dummy = pcustomcsview->CreateFlushableLayer();
 
         int targetHeight = ::ChainActive().Height() + 1;
 

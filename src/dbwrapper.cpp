@@ -186,8 +186,6 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     LogPrintf("Using obfuscation key for %s: %s\n", path.string(), HexStr(obfuscate_key));
 }
 
-CDBWrapper::CDBWrapper(const CDBWrapper&) = default;
-
 CDBWrapper::~CDBWrapper() {
     if (readoptions.snapshot == iteroptions.snapshot) {
         auto snap = readoptions.snapshot;

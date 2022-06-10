@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     auto FAIL_onMint = [](CAmount) { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
     auto FAIL_onSwap = [](const CTokenAmount &, const CTokenAmount &) { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
 
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
 
     DCT_ID idA, idB, idPool;
     std::tie(idA, idB, idPool) = CreatePoolNTokens(mnview, "AAA", "BBB");
@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
     const int PoolCount = 10; // less than DCT_ID_START!
     const int ProvidersCount = 10000;
 
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
 
     // create pools
     for (int i = 0; i < PoolCount; ++i) {
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
     });
 
     {
-        CCustomCSView cache(mnview);
+        auto cache = mnview.CreateFlushableLayer();
 
         // set pool rewards rates
         const DCT_ID RWD50 = DCT_ID{1};
@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
 
 BOOST_AUTO_TEST_CASE(owner_rewards)
 {
-    CCustomCSView mnview(*pcustomcsview);
+    auto mnview = pcustomcsview->CreateFlushableLayer();
 
     constexpr const int PoolCount = 10;
     CScript shareAddress[PoolCount];
