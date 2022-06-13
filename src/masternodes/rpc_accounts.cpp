@@ -373,7 +373,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                 return false;
             }
             if (tokenId != DCT_ID{~0u} && balance.nTokenId != tokenId){
-                return false;
+                return true;
             }
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
             return --limit != 0;
