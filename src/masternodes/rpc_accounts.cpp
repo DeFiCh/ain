@@ -350,14 +350,26 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
-    DCT_ID tokenId{~0u};
-    if (tokenSymbol != ""){
+
+    bool skipCalc{};
+    auto startToken{DCT_ID{}};
+    if (!tokenSymbol.empty()){
         auto token = mnview.GetToken(tokenSymbol);
         if(!token){
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Token not found");
         }
-        tokenId = token->first;
+        start.tokenID = token->first;
+        startToken = token->first;
+
+        mnview.ForEachPoolId([&](const DCT_ID& poolId) {
+            if (start.tokenID == poolId) {
+                skipCalc = true;
+                return false;
+            }
+            return true;
+        });
     }
+
 
     mnview.ForEachAccount([&](CScript const & account) {
 
@@ -365,21 +377,27 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             return true;
         }
 
-        mnview.CalculateOwnerRewards(account, targetHeight);
+        if (!skipCalc) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+        }
 
-        // output the relavant balances only for account
+        // output the relevant balances only for account
         mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (account != owner) {
                 return false;
             }
-            if (tokenId != DCT_ID{~0u} && balance.nTokenId != tokenId){
-                return true;
-            }
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+
+            if (!tokenSymbol.empty()) {
+                --limit;
+                return false;
+            }
+
             return --limit != 0;
         }, {account, start.tokenID});
 
-        start.tokenID = DCT_ID{}; // reset to start id
+        start.tokenID = startToken;
+
         return limit != 0;
     }, start.owner);
 
