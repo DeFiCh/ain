@@ -777,6 +777,8 @@ private:
     static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
 
     static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams);
+
+    static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
