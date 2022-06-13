@@ -6,10 +6,9 @@
 """Test getaccounthistory RPC."""
 
 from test_framework.test_framework import DefiTestFramework
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_equal
 
-from test_framework.util import (
-    assert_equal
-)
 
 class TokensRPCGetAccountHistory(DefiTestFramework):
     def set_test_params(self):
@@ -53,14 +52,28 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Get node 0 results
-        results = self.nodes[0].listaccounthistory(collateral_a, {"includeTokenId": True} )
+        # test amount@id format
+        results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "id"} )
         # test token ids match token symbol
         for result in results:
-            amounts_with_id = result["amounts_with_id"]
-            for index, amount in enumerate(result["amounts"]):
+            for amount in result["amounts"]:
                 symbol = amount.split('@')[1]
-                id = list(self.nodes[0].gettoken(symbol).keys())[0]
-                assert_equal(amounts_with_id[index].split("@")[1], id)
+                assert(symbol.isnumeric())
+
+        # test amount@symbol format
+        results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "symbol"} )
+        # test token ids match token symbol
+        for result in results:
+            for amount in result["amounts"]:
+                symbol = amount.split('@')[1]
+                assert(symbol.isnumeric() == False)
+
+        # test amount@symbol format
+        try:
+            results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "combined"} )
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("amountFormat must be one of the following: \"id\", \"symbol\"" in errorString)
 
         # An account history from listaccounthistory and gettaccounthistory must be matched
         expected = results[0]
