@@ -430,7 +430,7 @@ UniValue getproposal(const JSONRPCRequest& request)
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
 
-    CImmutableCSView view(*pcustomcsview);
+    CCustomCSView view(*pcustomcsview);
 
     auto prop = view.GetProp(propId);
     if (!prop) {

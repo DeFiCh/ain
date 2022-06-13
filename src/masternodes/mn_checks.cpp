@@ -191,21 +191,6 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     return CCustomTxMessageNone{};
 }
 
-template <typename... T>
-constexpr bool FalseType = false;
-
-template <typename T>
-constexpr bool IsOneOf()
-{
-    return false;
-}
-
-template <typename T, typename T1, typename... Args>
-constexpr bool IsOneOf()
-{
-    return std::is_same_v<T, T1> || IsOneOf<T, Args...>();
-}
-
 extern std::string ScriptToString(CScript const& script);
 
 class CCustomMetadataParseVisitor
@@ -213,27 +198,6 @@ class CCustomMetadataParseVisitor
     uint32_t height;
     const Consensus::Params& consensus;
     const std::vector<unsigned char>& metadata;
-
-    Res IsHardforkEnabled(int startHeight) const
-    {
-        const std::unordered_map<int, std::string> hardforks = {
-            {consensus.AMKHeight, "called before AMK height"},
-            {consensus.BayfrontHeight, "called before Bayfront height"},
-            {consensus.BayfrontGardensHeight, "called before Bayfront Gardens height"},
-            {consensus.EunosHeight, "called before Eunos height"},
-            {consensus.EunosPayaHeight, "called before EunosPaya height"},
-            {consensus.FortCanningHeight, "called before FortCanning height"},
-            {consensus.FortCanningHillHeight, "called before FortCanningHill height"},
-            {consensus.FortCanningRoadHeight, "called before FortCanningRoad height"},
-            {consensus.GreatWorldHeight, "called before GreatWorld height"},
-        };
-        if (startHeight && int(height) < startHeight) {
-            auto it = hardforks.find(startHeight);
-            assert(it != hardforks.end());
-            return Res::Err(it->second);
-        }
-        return Res::Ok();
-    }
 
     Res isPostAMKFork() const {
         if(static_cast<int>(height) < consensus.AMKHeight) {
@@ -321,113 +285,335 @@ public:
                                 const std::vector<unsigned char>& metadata)
         : height(height), consensus(consensus), metadata(metadata) {}
 
-    template<typename T>
-    Res EnabledAfter() const {
-        if constexpr (IsOneOf<T, CSetForcedRewardAddressMessage,
-                                 CRemForcedRewardAddressMessage,
-                                 CUpdateMasterNodeMessage>())
-            return Res::Err("tx is disabled for Fort Canning");
-        else
-        if constexpr (IsOneOf<T, CCreateTokenMessage,
-                                 CUpdateTokenPreAMKMessage,
-                                 CUtxosToAccountMessage,
-                                 CAccountToUtxosMessage,
-                                 CAccountToAccountMessage,
-                                 CMintTokensMessage>())
-            return IsHardforkEnabled(consensus.AMKHeight);
-        else
-        if constexpr (IsOneOf<T, CUpdateTokenMessage,
-                                 CPoolSwapMessage,
-                                 CLiquidityMessage,
-                                 CRemoveLiquidityMessage,
-                                 CCreatePoolPairMessage,
-                                 CUpdatePoolPairMessage,
-                                 CGovernanceMessage>())
-            return IsHardforkEnabled(consensus.BayfrontHeight);
-        else
-        if constexpr (IsOneOf<T, CAppointOracleMessage,
-                                 CRemoveOracleAppointMessage,
-                                 CUpdateOracleAppointMessage,
-                                 CSetOracleDataMessage,
-                                 CICXCreateOrderMessage,
-                                 CICXMakeOfferMessage,
-                                 CICXSubmitDFCHTLCMessage,
-                                 CICXSubmitEXTHTLCMessage,
-                                 CICXClaimDFCHTLCMessage,
-                                 CICXCloseOrderMessage,
-                                 CICXCloseOfferMessage>())
-            return IsHardforkEnabled(consensus.EunosHeight);
-        else
-        if constexpr (IsOneOf<T, CPoolSwapMessageV2,
-                                 CLoanSetCollateralTokenMessage,
-                                 CLoanSetLoanTokenMessage,
-                                 CLoanUpdateLoanTokenMessage,
-                                 CLoanSchemeMessage,
-                                 CDefaultLoanSchemeMessage,
-                                 CDestroyLoanSchemeMessage,
-                                 CVaultMessage,
-                                 CCloseVaultMessage,
-                                 CUpdateVaultMessage,
-                                 CDepositToVaultMessage,
-                                 CWithdrawFromVaultMessage,
-                                 CLoanTakeLoanMessage,
-                                 CLoanPaybackLoanMessage,
-                                 CAuctionBidMessage,
-                                 CGovernanceHeightMessage>())
-            return IsHardforkEnabled(consensus.FortCanningHeight);
-        else
-        if constexpr (IsOneOf<T, CAnyAccountsToAccountsMessage>())
-            return IsHardforkEnabled(consensus.BayfrontGardensHeight);
-        else
-        if constexpr (IsOneOf<T, CSmartContractMessage>())
-            return IsHardforkEnabled(consensus.FortCanningHillHeight);
-        else
-        if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
-                                 CFutureSwapMessage>())
-            return IsHardforkEnabled(consensus.FortCanningRoadHeight);
-        else
-        if constexpr (IsOneOf<T, CCreatePropMessage,
-                                 CPropVoteMessage>())
-            return IsHardforkEnabled(consensus.GreatWorldHeight);
-        else
-        if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
-                                 CResignMasterNodeMessage>())
-            return Res::Ok();
-        else
-            static_assert(FalseType<T>, "Unhandled type");
+    Res operator()(CCreateMasterNodeMessage& obj) const {
+        return serialize(obj);
     }
 
-    template <typename T>
-    Res DisabledAfter() const
-    {
-        if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
-            return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
-        else if constexpr (IsOneOf<T, CLoanSetCollateralTokenMessage,
-                               CLoanSetLoanTokenMessage,
-                               CLoanUpdateLoanTokenMessage>())
-            return IsHardforkEnabled(consensus.GreatWorldHeight) ? Res::Err("called after GreatWorld height") : Res::Ok();
-
-        return Res::Ok();
+    Res operator()(CResignMasterNodeMessage& obj) const {
+        if (metadata.size() != sizeof(obj)) {
+            return Res::Err("metadata must contain 32 bytes");
+        }
+        return serialize(obj);
     }
 
-    template <typename T>
-    Res operator()(T& obj) const
-    {
-        auto res = EnabledAfter<T>();
-        if (!res)
+    Res operator()(CSetForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
 
-            return res;
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
 
-        res = DisabledAfter<T>();
-        if (!res)
+    Res operator()(CRemForcedRewardAddressMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("reward address change is disabled for Fort Canning");
+
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateMasterNodeMessage& obj) const {
+        // Temporarily disabled for 2.2
+        return Res::Err("updatemasternode is disabled for Fort Canning");
+
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCreateTokenMessage& obj) const {
+        auto res = isPostAMKFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateTokenPreAMKMessage& obj) const {
+        auto res = isPostAMKFork();
+        if (!res) {
             return res;
+        }
+        if(isPostBayfrontFork()) {
+            return Res::Err("called post Bayfront height");
+        }
+        return serialize(obj);
+    }
+
+    Res operator()(CUpdateTokenMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CMintTokensMessage& obj) const {
+        auto res = isPostAMKFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPoolSwapMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLiquidityMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CRemoveLiquidityMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUtxosToAccountMessage& obj) const {
+        auto res = isPostAMKFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CAccountToUtxosMessage& obj) const {
+        auto res = isPostAMKFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CAccountToAccountMessage& obj) const {
+        auto res = isPostAMKFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CAnyAccountsToAccountsMessage& obj) const {
+        auto res = isPostBayfrontGardensFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CSmartContractMessage& obj) const {
+        auto res = isPostFortCanningHillFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CFutureSwapMessage& obj) const {
+        auto res = isPostFortCanningRoadFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCreatePoolPairMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        if (!res) {
+            return res;
+        }
 
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-        ss >> obj;
-        if (!ss.empty())
-            return Res::Err("deserialization failed: excess %d bytes", ss.size());
+        ss >> obj.poolPair;
+        ss >> obj.pairSymbol;
 
+        // Read custom pool rewards
+        if (static_cast<int>(height) >= consensus.ClarkeQuayHeight && !ss.empty()) {
+            ss >> obj.rewards;
+        }
+        if (!ss.empty()) {
+            return Res::Err("deserialization failed: excess %d bytes", ss.size());
+        }
         return Res::Ok();
+    }
+
+    Res operator()(CUpdatePoolPairMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        if (!res) {
+            return res;
+        }
+
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        // serialize poolId as raw integer
+        ss >> obj.poolId.v;
+        ss >> obj.status;
+        ss >> obj.commission;
+        ss >> obj.ownerAddress;
+
+        // Read custom pool rewards
+        if (static_cast<int>(height) >= consensus.ClarkeQuayHeight && !ss.empty()) {
+            ss >> obj.rewards;
+        }
+
+        if (!ss.empty()) {
+            return Res::Err("deserialization failed: excess %d bytes", ss.size());
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(CGovernanceMessage& obj) const {
+        auto res = isPostBayfrontFork();
+        if (!res) {
+            return res;
+        }
+        std::string name;
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        while(!ss.empty()) {
+            ss >> name;
+            auto var = GovVariable::Create(name);
+            if (!var) {
+                return Res::Err("'%s': variable is not registered", name);
+            }
+            ss >> *var;
+            obj.govs.insert(std::move(var));
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(CGovernanceHeightMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        if (!res) {
+            return res;
+        }
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        std::string name;
+        ss >> name;
+        obj.govVar = GovVariable::Create(name);
+        if (!obj.govVar) {
+            return Res::Err("'%s': variable is not registered", name);
+        }
+        ss >> *obj.govVar;
+        ss >> obj.startHeight;
+        return Res::Ok();
+    }
+
+    Res operator()(CAppointOracleMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CRemoveOracleAppointMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateOracleAppointMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CSetOracleDataMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXCreateOrderMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXMakeOfferMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXSubmitDFCHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXSubmitEXTHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXClaimDFCHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXCloseOrderMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXCloseOfferMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPoolSwapMessageV2& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSetCollateralTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSetLoanTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDefaultLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDestroyLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCloseVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDepositToVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CWithdrawFromVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanTakeLoanMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanPaybackLoanMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanPaybackLoanV2Message& obj) const {
+        auto res = isPostFortCanningRoadFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CAuctionBidMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCreatePropMessage& obj) const {
+        auto res = isPostGreatWorldFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPropVoteMessage& obj) const {
+        auto res = isPostGreatWorldFork();
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCustomTxMessageNone&) const {

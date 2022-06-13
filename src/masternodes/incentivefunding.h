@@ -27,6 +27,7 @@ inline char const * GetCommunityAccountName(CommunityAccountType t)
         case CommunityAccountType::Loan:             return "Loan";
         case CommunityAccountType::Options:          return "Options";
         case CommunityAccountType::Unallocated:      return "Burnt";
+        case CommunityAccountType::CommunityDevFunds: return "CommunityDevelopmentFunds";
         default:
             return "Unknown";
     }
