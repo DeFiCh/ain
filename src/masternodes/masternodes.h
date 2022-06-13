@@ -297,6 +297,21 @@ public:
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
 
+class CSettingsView : public virtual CStorageView
+{
+
+public:
+    const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
+    const std::string DEX_STATS_ENABLED = "DexStatsEnabled";
+
+    void SetDexStatsLastHeight(int32_t height);
+    std::optional<int32_t> GetDexStatsLastHeight();
+    void SetDexStatsEnabled(bool enabled);
+    std::optional<bool> GetDexStatsEnabled();
+
+    struct KVSettings { static constexpr uint8_t prefix() { return '0'; } };
+};
+
 class CCollateralLoans { // in USD
 
     double calcRatio(uint64_t maxRatio) const;
@@ -351,6 +366,7 @@ class CCustomCSView
         , public CICXOrderView
         , public CLoanView
         , public CVaultView
+        , public CSettingsView
 {
     void CheckPrefixes()
     {
@@ -379,7 +395,8 @@ class CCustomCSView
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
-            CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
+            CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
+            CSettingsView           ::  KVSettings
         >();
     }
 private:

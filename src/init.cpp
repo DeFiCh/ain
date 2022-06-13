@@ -377,7 +377,7 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb", 
+        "-dbcrashratio", "-forcecompactdb",
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
         "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
@@ -485,6 +485,7 @@ void SetupServerArgs()
     gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1241,7 +1242,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-    
+
     return true;
 }
 
@@ -1678,24 +1679,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+
                 if (!fReset && !fReindexChainState) {
-                    if (!pcustomcsDB->IsEmpty()) {
-                        if (pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
-                            strLoadError = _("Account database is unsuitable").translated;
-                            break;
-                        }
-                        // force reindex iif there is at least one pool swap
-                        PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
-                        auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
-                        auto shouldReindex = it.Valid();
-                        if (auto attributes = pcustomcsview->GetAttributes()) {
-                            CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
-                            shouldReindex &= !attributes->CheckKey(dexKey);
-                        }
-                        if (shouldReindex) {
-                            strLoadError = _("Live dex needs reindex").translated;
-                            break;
-                        }
+                    if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
+                        strLoadError = _("Account database is unsuitable").translated;
+                        break;
                     }
                 }
 
@@ -1743,6 +1731,24 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(::ChainActive().Tip() != nullptr);
+                }
+
+                auto dexStats = gArgs.GetBoolArg("-dexstats", DEFAULT_DEXSTATS);
+                pcustomcsview->SetDexStatsEnabled(dexStats);
+
+                if (!fReset && !fReindexChainState && !pcustomcsDB->IsEmpty() && dexStats) {
+                    // force reindex if there is no dex data at the tip
+                    PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
+                    auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
+                    auto shouldReindex = it.Valid();
+                    auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
+                    if (lastHeight.has_value())
+                        shouldReindex &= !(*lastHeight == ::ChainActive().Tip()->nHeight);
+
+                    if (shouldReindex) {
+                        strLoadError = _("Live dex needs reindex").translated;
+                        break;
+                    }
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());

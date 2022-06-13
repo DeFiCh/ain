@@ -4402,7 +4402,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
-    if (!testOnly) {
+    if (!testOnly && view.GetDexStatsEnabled().value_or(false)) {
         attributes->SetValue(dexKey, std::move(dexBalances));
         view.SetVariable(*attributes);
     }
