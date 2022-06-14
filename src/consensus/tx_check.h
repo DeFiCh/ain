@@ -12,6 +12,7 @@
  * belongs in tx_verify.h/cpp instead.
  */
 
+#include <cstdint>
 #include <vector>
 
 extern const std::vector<unsigned char> DfTxMarker;
@@ -19,18 +20,26 @@ extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
 extern const std::vector<unsigned char> DfTokenSplitMarker;
 
+struct CExpirationAndVersion;
 class CScript;
 class CTransaction;
 class CValidationState;
+
+enum HasForks : uint8_t {
+    None = 0,
+    FortCanning = 1 << 0,
+    GreatWorld = 1 << 1,
+};
 
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs=true);
 
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& hasAdditionalOpcodes);
+                         uint8_t& hasAdditionalOpcodes,
+                         CExpirationAndVersion* customTxParams = nullptr);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning = false);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks = HasForks::None);
 bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanningCrunch = true);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

@@ -347,6 +347,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -436,6 +437,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -826,6 +828,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -956,6 +959,7 @@ UniValue compositeswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, chainHeight(*pwallet->chain().lock()));
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
