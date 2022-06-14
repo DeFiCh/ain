@@ -2,7 +2,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
-std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Id) {
+std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
     const auto amountString = ValueFromAmount(amount.nValue).getValStr();
 
@@ -24,7 +24,7 @@ std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = 
     return amountString + "@" + tokenStr;
 }
 
-UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Id) {
+UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VARR);
 
     for (auto const & diff : diffs) {
@@ -33,7 +33,7 @@ UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountForma
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts,AmountFormat format = AmountFormat::Id) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts,AmountFormat format = AmountFormat::Symbol) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -62,7 +62,7 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     return obj;
 }
 
-UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value, AmountFormat format = AmountFormat::Id) {
+UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", ScriptToString(key.owner));
@@ -96,7 +96,7 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx, AmountFormat format = AmountFormat::Id) {
+UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
@@ -452,7 +452,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
         if (indexed_amounts)
             ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
         else
-            ret.push_back(tokenAmountString(balance, AmountFormat::Symbol)); // Maintain default behaviour returning symbol
+            ret.push_back(tokenAmountString(balance));
 
         limit--;
         return limit != 0;
@@ -1017,7 +1017,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
     uint32_t txn = std::numeric_limits<uint32_t>::max();
-    AmountFormat format = AmountFormat::Id;
+    AmountFormat format = AmountFormat::Symbol;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
