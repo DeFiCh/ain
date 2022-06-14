@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <core_io.h>
+
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
@@ -1066,4 +1068,37 @@ void SelectParams(const std::string& network)
 
 void ClearCheckpoints(CChainParams &params) {
     params.checkpointData = {};
+}
+
+Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
+    std::ifstream file(fileName);
+    if (!file.good()) {
+        return Res::Err("File \"%s\" does not exist.", fileName);
+    }
+
+    ClearCheckpoints(params);
+
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string hashStr, heightStr;
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", line);
+        }
+
+        uint256 hash;
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
+
+        int height;
+        try {
+            height = std::stoi(heightStr);
+        } catch (...) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
+
+        params.checkpointData.mapCheckpoints[height] = hash;
+    }
+    return Res::Ok();
 }
