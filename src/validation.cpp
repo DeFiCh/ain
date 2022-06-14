@@ -2730,10 +2730,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    // Set height for live dex data
-    if (mnview.GetDexStatsEnabled().value_or(false))
-        mnview.SetDexStatsLastHeight(pindex->nHeight);
-
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -3018,6 +3014,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Loan splits
         ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
+
+        // Set height for live dex data
+        if (cache.GetDexStatsEnabled().value_or(false))
+            cache.SetDexStatsLastHeight(pindex->nHeight);
 
         // construct undo
         auto& flushable = cache.GetStorage();
