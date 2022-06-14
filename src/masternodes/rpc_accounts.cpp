@@ -452,7 +452,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
         if (indexed_amounts)
             ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
         else
-            ret.push_back(tokenAmountString(balance));
+            ret.push_back(tokenAmountString(balance, AmountFormat::Symbol)); // Maintain default behaviour returning symbol
 
         limit--;
         return limit != 0;
