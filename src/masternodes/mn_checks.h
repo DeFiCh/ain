@@ -11,7 +11,7 @@
 #include <vector>
 #include <cstring>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 class CBlock;
 class CTransaction;
@@ -328,7 +328,7 @@ struct CGovernanceHeightMessage {
 
 struct CCustomTxMessageNone {};
 
-typedef boost::variant<
+using CCustomTxMessage = std::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
@@ -379,7 +379,7 @@ typedef boost::variant<
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
     CAuctionBidMessage
-> CCustomTxMessage;
+>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);

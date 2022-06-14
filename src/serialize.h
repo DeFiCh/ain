@@ -24,7 +24,7 @@
 #include <prevector.h>
 #include <span.h>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 static const unsigned int MAX_DESER_SIZE = 0x08000000;    // 128M (for submit 64M block via rpc!), old value 32M (0x02000000)
 
@@ -621,8 +621,8 @@ template<typename Stream, typename T> void Unserialize(Stream& os, std::unique_p
 /**
  * variant
  */
-template<typename Stream, typename T, typename ...Args> void Serialize(Stream& os, const boost::variant<T, Args...>& var);
-template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, boost::variant<T, Args...>& var);
+template<typename Stream, typename T, typename ...Args> void Serialize(Stream& os, const std::variant<T, Args...>& var);
+template<typename Stream, typename T, typename ...Args> void Unserialize(Stream& os, std::variant<T, Args...>& var);
 
 /**
  * If none of the specialized versions above matched, default to calling member function.
@@ -955,11 +955,11 @@ void UnserializeVariant(Stream& s, V& variant, int target, int index)
 }
 
 template<typename Stream, typename T, typename ...Args>
-void Unserialize(Stream& s, boost::variant<T, Args...>& var)
+void Unserialize(Stream& s, std::variant<T, Args...>& var)
 {
     int index;
     Unserialize(s, index);
-    using Variant = boost::variant<T, Args...>;
+    using Variant = std::variant<T, Args...>;
     UnserializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
 }
 
@@ -972,18 +972,18 @@ template<typename Stream, typename V, typename T, typename ...Args>
 void SerializeVariant(Stream& s, const V& variant, int target, int index)
 {
     if (index == target) {
-        Serialize(s, boost::get<const T>(variant));
+        Serialize(s, std::get<T>(variant));
     } else {
         SerializeVariant<Stream, V, Args...>(s, variant, target, index + 1);
     }
 }
 
 template<typename Stream, typename T, typename ...Args>
-void Serialize(Stream& s, const boost::variant<T, Args...>& var)
+void Serialize(Stream& s, const std::variant<T, Args...>& var)
 {
-    int index = var.which();
+    int index = var.index();
     Serialize(s, index);
-    using Variant = boost::variant<T, Args...>;
+    using Variant = std::variant<T, Args...>;
     SerializeVariant<Stream, Variant, T, Args...>(s, var, index, 0);
 }
 
