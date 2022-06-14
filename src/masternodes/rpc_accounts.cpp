@@ -278,8 +278,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                                  "If true, then iterate including starting position. False by default"},
                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                  "Maximum number of orders to return, 100 by default"},
-                                {"tokenSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                "Return only accounts with specified tokenid"}
+                                {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Return accounts with specified token symbol or id."}
                         },
                        },
                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
@@ -303,11 +303,20 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
-    // parse pagination
+
+    LOCK(cs_main);
+
+    CCustomCSView mnview(*pcustomcsview);
+    auto targetHeight = ::ChainActive().Height() + 1;
     size_t limit = 100;
     BalanceKey start = {};
-    std::string tokenSymbol = "";
+    std::string tokenSymbol;
     bool including_start = true;
+    bool skipCalc{};
+    auto startToken{DCT_ID{}};
+    std::optional<CTokensView::CTokenImpl> token;
+
+    // parse pagination
     {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
@@ -321,11 +330,23 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!including_start) {
-                start.tokenID.v++;
-            }
             if (!paginationObj["tokenSymbol"].isNull()) {
-                tokenSymbol = paginationObj["tokenSymbol"].getValStr();
+                token = mnview.GetTokenGuessId(paginationObj["tokenSymbol"].getValStr(), startToken);
+                if(!token){
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Token not found");
+                }
+                start.tokenID = startToken;
+
+                mnview.ForEachPoolId([&](const DCT_ID& poolId) {
+                    if (start.tokenID == poolId) {
+                        skipCalc = true;
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            if (!including_start) {
+                start.tokenID.v = std::numeric_limits<uint32_t>::max();
             }
         }
         if (limit == 0) {
@@ -347,30 +368,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = ::ChainActive().Height() + 1;
-
-    bool skipCalc{};
-    auto startToken{DCT_ID{}};
-    if (!tokenSymbol.empty()){
-        auto token = mnview.GetToken(tokenSymbol);
-        if(!token){
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Token not found");
-        }
-        start.tokenID = token->first;
-        startToken = token->first;
-
-        mnview.ForEachPoolId([&](const DCT_ID& poolId) {
-            if (start.tokenID == poolId) {
-                skipCalc = true;
-                return false;
-            }
-            return true;
-        });
-    }
-
-
     mnview.ForEachAccount([&](CScript const & account) {
 
         if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
@@ -388,7 +385,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             }
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
 
-            if (!tokenSymbol.empty()) {
+            if (token) {
                 --limit;
                 return false;
             }
@@ -396,7 +393,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             return --limit != 0;
         }, {account, start.tokenID});
 
-        start.tokenID = startToken;
+        if (start.tokenID.v == std::numeric_limits<uint32_t>::max()) {
+            start.tokenID = startToken;
+        }
 
         return limit != 0;
     }, start.owner);
