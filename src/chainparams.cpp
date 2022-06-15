@@ -1091,10 +1091,8 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
             return Res::Err("Invalid hash: %s", hashStr);
         }
 
-        int height;
-        try {
-            height = std::stoi(heightStr);
-        } catch (...) {
+        int32_t height;
+        if (!ParseInt32(heightStr, &height)) {
             return Res::Err("Invalid height: %s", heightStr);
         }
 
