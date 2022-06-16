@@ -985,7 +985,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                  {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Order in block, unlimited by default"},
                                  {"amountFormat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Return amounts with the following: (default)'id' -> <amount>@id; 'symbol' -> <amount>@symbol"},
+                                  "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
 
                             },
                         },
