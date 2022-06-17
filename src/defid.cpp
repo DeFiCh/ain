@@ -47,7 +47,7 @@ static void WaitForShutdown()
 {
     while (!ShutdownRequested())
     {
-        MilliSleep(200);
+        UninterruptibleSleep(std::chrono::milliseconds{200});
     }
     Interrupt();
 }
