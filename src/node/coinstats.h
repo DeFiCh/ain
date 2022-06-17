@@ -10,6 +10,7 @@
 #include <uint256.h>
 
 #include <cstdint>
+#include <functional>
 
 class CCoinsView;
 
@@ -28,6 +29,6 @@ struct CCoinsStats
 };
 
 //! Calculate statistics about the unspent transaction output set
-bool GetUTXOStats(CCoinsView* view, CCoinsStats& stats);
+bool GetUTXOStats(CCoinsView* view, CCoinsStats& stats, const std::function<void()>& interruption_point = {});
 
 #endif // DEFI_NODE_COINSTATS_H
