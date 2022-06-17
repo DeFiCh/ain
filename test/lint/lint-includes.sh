@@ -51,7 +51,6 @@ fi
 EXPECTED_BOOST_INCLUDES=(
     boost/algorithm/string.hpp
     boost/algorithm/string/classification.hpp
-    boost/algorithm/string/join.hpp
     boost/algorithm/string/replace.hpp
     boost/algorithm/string/split.hpp
     boost/asio.hpp
@@ -71,7 +70,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/multi_index/tag.hpp
     boost/preprocessor/cat.hpp
     boost/preprocessor/stringize.hpp
-    boost/range/adaptor/transformed.hpp
     boost/signals2/connection.hpp
     boost/signals2/last_value.hpp
     boost/signals2/signal.hpp
