@@ -1073,7 +1073,7 @@ void ClearCheckpoints(CChainParams &params) {
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
     if (!file.good()) {
-        return Res::Err("File \"%s\" does not exist.", fileName);
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
     }
 
     ClearCheckpoints(params);
