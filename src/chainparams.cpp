@@ -1080,12 +1080,14 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
     std::string line;
     while (std::getline(file, line)) {
-        if (line.empty() || line.rfind('#', 0) == 0) continue;
+        auto trimmed = trim_ws(line);
+        if (trimmed.rfind('#', 0) == 0 || trimmed.find_first_not_of(" \n\r\t") == std::string::npos)
+            continue;
 
-        std::istringstream iss(line);
+        std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
         if (!(iss >> heightStr >> hashStr)) {
-            return Res::Err("Error parsing line %s", line);
+            return Res::Err("Error parsing line %s", trimmed);
         }
 
         uint256 hash;
