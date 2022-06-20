@@ -177,11 +177,18 @@ bool GetLogCategory(BCLog::LogFlags& flag, const std::string& str)
     return false;
 }
 
+std::vector<CLogCategoryDesc> GetSortedCategories()
+{
+    std::vector<CLogCategoryDesc> categories(LogCategories, LogCategories + std::size(LogCategories));
+    std::sort(categories.begin(), categories.end(), [](auto a, auto b) { return a.category < b.category; });
+    return categories;
+}
+
 std::string ListLogCategories()
 {
     std::string ret;
     int outcount = 0;
-    for (const CLogCategoryDesc& category_desc : LogCategories) {
+    for (const CLogCategoryDesc& category_desc : GetSortedCategories()) {
         // Omit the special cases.
         if (category_desc.flag != BCLog::NONE && category_desc.flag != BCLog::ALL) {
             if (outcount != 0) ret += ", ";
@@ -195,7 +202,7 @@ std::string ListLogCategories()
 std::vector<CLogCategoryActive> ListActiveLogCategories()
 {
     std::vector<CLogCategoryActive> ret;
-    for (const CLogCategoryDesc& category_desc : LogCategories) {
+    for (const CLogCategoryDesc& category_desc : GetSortedCategories()) {
         // Omit the special cases.
         if (category_desc.flag != BCLog::NONE && category_desc.flag != BCLog::ALL) {
             CLogCategoryActive catActive;
