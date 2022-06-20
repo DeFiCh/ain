@@ -803,14 +803,14 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
             // Check pending anchors
             if (!panchors->GetPendingByBtcTx(anchor.previousAnchor, pending))
             {
-                return error("%s: Previous anchor %s specified, but does not exist.",
+                return error(BCLog::ANCHORING, "%s: Previous anchor %s specified, but does not exist.",
                              __func__, anchor.previousAnchor.ToString());
             }
         }
         else if ((prev && anchor.height <= prev->anchor.height) || // Check height in accepted anchor
                  (!pending.txHash.IsNull() && anchor.height <= pending.anchor.height)) // Check height in pending anchor
         {
-            return error("%s: Anchor blockHeight should be higher than previousAnchor height! %d > %d",
+            return error(BCLog::ANCHORING, "%s: Anchor blockHeight should be higher than previousAnchor height! %d > %d",
                          __func__, anchor.height, prev->anchor.height);
         }
     }
@@ -820,17 +820,17 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
         // Set to max to be used to avoid deleting pending anchor.
         anchorCreationHeight = std::numeric_limits<uint64_t>::max();
 
-        return error("%s: Active chain does not yet contain block height %d!", __func__, anchor.height);
+        return error(BCLog::ANCHORING, "%s: Active chain does not yet contain block height %d!", __func__, anchor.height);
     }
 
     if (anchorIndex->GetBlockHash() != anchor.blockHash) {
-        return error("%s: Anchor and blockchain mismatch at height %d. Expected %s found %s",
+        return error(BCLog::ANCHORING, "%s: Anchor and blockchain mismatch at height %d. Expected %s found %s",
                      __func__, anchor.height, anchorIndex->GetBlockHash().ToString(), anchor.blockHash.ToString());
     }
 
     // Should already be checked before adding to pending, double check here.
     if (anchor.nextTeam.empty() || anchor.nextTeam.size() != 1) {
-        return error("%s: nextTeam empty or incorrect size. %d elements in team.", __func__, anchor.nextTeam.size());
+        return error(BCLog::ANCHORING, "%s: nextTeam empty or incorrect size. %d elements in team.", __func__, anchor.nextTeam.size());
     }
 
     // Team entry
@@ -840,12 +840,12 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
 
     // Check this is post-fork anchor auth
     if (!GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix)) {
-        return error("%s: Post-fork anchor marker missing or incorrect.", __func__);
+        return error(BCLog::ANCHORING, "%s: Post-fork anchor marker missing or incorrect.", __func__);
     }
 
     // Only anchor by specified frequency
     if (anchorCreationHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
-        return error("%s: Anchor height does not meet frequency rule. Height %ld, frequency %d",
+        return error(BCLog::ANCHORING, "%s: Anchor height does not meet frequency rule. Height %ld, frequency %d",
                      __func__, anchorCreationHeight, Params().GetConsensus().mn.anchoringFrequency);
     }
 
@@ -864,7 +864,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
     size_t prefixLength{CKeyID().size() - (spv::BtcAnchorMarker.size() * sizeof(uint8_t)) - sizeof(uint64_t)};
     std::vector<unsigned char> hashPrefix{anchorCreationBlock->GetBlockHash().begin(), anchorCreationBlock->GetBlockHash().begin() + prefixLength};
     if (hashPrefix != *prefix) {
-        return error("%s: Anchor prefix and active chain do not match. anchor %s active %s height %ld",
+        return error(BCLog::ANCHORING, "%s: Anchor prefix and active chain do not match. anchor %s active %s height %ld",
                      __func__, HexStr(*prefix), HexStr(hashPrefix), anchorCreationHeight);
     }
 
@@ -892,7 +892,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
 
     // Check heights match
     if (static_cast<int>(anchor.height) != anchorHeight) {
-        return error("%s: Anchor height mismatch. Anchor height %d calculated height %d", __func__, anchor.height, anchorHeight);
+        return error(BCLog::ANCHORING, "%s: Anchor height mismatch. Anchor height %d calculated height %d", __func__, anchor.height, anchorHeight);
     }
 
     anchorBlock = *::ChainActive()[anchorHeight];

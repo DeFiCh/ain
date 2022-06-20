@@ -49,6 +49,13 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
+template<typename... Args>
+bool error(const BCLog::LogFlags& category, const char* fmt, const Args&... args)
+{
+    LogPrint(category, "ERROR: %s\n", tfm::format(fmt, args...));
+    return false;
+}
+
 void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
 bool FileCommit(FILE *file);
 bool TruncateFile(FILE *file, unsigned int length);
