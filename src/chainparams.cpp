@@ -1080,6 +1080,8 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
     std::string line;
     while (std::getline(file, line)) {
+        if (line.empty() || line.rfind('#', 0) == 0) continue;
+
         std::istringstream iss(line);
         std::string hashStr, heightStr;
         if (!(iss >> heightStr >> hashStr)) {
