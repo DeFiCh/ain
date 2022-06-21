@@ -387,7 +387,7 @@ Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAm
     return onReclaim(resAmountA, resAmountB);
 }
 
-Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &, const CTokenAmount &)> onTransfer, int height) {
+Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, const std::pair<std::string, std::string>& asymmetricFee, std::function<Res (const CTokenAmount &, const CTokenAmount &)> onTransfer, int height) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
@@ -422,7 +422,7 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     }
 
     CTokenAmount dexfeeInAmount{in.nTokenId, 0};
-    if (dexfeeInPct > 0) {
+    if (dexfeeInPct > 0 && poolInFee(forward, asymmetricFee)) {
         if (dexfeeInPct > COIN) {
             return Res::Err("Dex fee input percentage over 100%%");
         }

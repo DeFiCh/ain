@@ -71,6 +71,8 @@ enum TokenKeys : uint8_t  {
 enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
+    TokenAFeeDir = 'c',
+    TokenBFeeDir = 'd',
 };
 
 struct CDataStructureV0 {
@@ -133,7 +135,7 @@ using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, std::string>;
 
 enum GovVarsFilter {
     All,

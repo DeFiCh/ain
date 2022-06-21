@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanninggardensheight=1250', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanninggardensheight=1250', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -760,6 +760,52 @@ class GovsetTest (DefiTestFramework):
         # Check auto lock
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/locks/token/5'], 'true')
+
+        # Try and set Gov vars before fork
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_a_fee_direction': 'both'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_b_fee_direction': 'both'}})
+
+        # Move to fork
+        self.nodes[0].generate(1250 - self.nodes[0].getblockcount())
+
+        # Test invalid calls
+        assert_raises_rpc_error(-5, "Fee direction value must be both, in or out", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_a_fee_direction': 'invalid'}})
+
+        # Set fee direction Gov vars
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/poolpairs/3/token_a_fee_direction': 'both',
+            'v0/poolpairs/3/token_b_fee_direction': 'both',
+        }})
+        self.nodes[0].generate(1)
+
+        # Check attributes
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'both')
+        assert_equal(result['v0/poolpairs/3/token_b_fee_direction'], "both")
+
+        # Set fee direction Gov vars
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/poolpairs/3/token_a_fee_direction': 'in',
+            'v0/poolpairs/3/token_b_fee_direction': 'in',
+        }})
+        self.nodes[0].generate(1)
+
+        # Check attributes
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'in')
+        assert_equal(result['v0/poolpairs/3/token_b_fee_direction'], "in")
+
+        # Set fee direction Gov vars
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/poolpairs/3/token_a_fee_direction': 'out',
+            'v0/poolpairs/3/token_b_fee_direction': 'out',
+        }})
+        self.nodes[0].generate(1)
+
+        # Check attributes
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'out')
+        assert_equal(result['v0/poolpairs/3/token_b_fee_direction'], "out")
 
 if __name__ == '__main__':
     GovsetTest ().main ()
