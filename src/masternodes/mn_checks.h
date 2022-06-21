@@ -392,7 +392,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& t
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
-Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 
 inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {

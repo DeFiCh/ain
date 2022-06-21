@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanninggardensheight=1250', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanninggardensheight=1250', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -639,7 +639,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
 
-        # Move to GW fork
+        # Move to FCC fork
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
 
         # Check errors
@@ -760,6 +760,20 @@ class GovsetTest (DefiTestFramework):
         # Check auto lock
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/locks/token/5'], 'true')
+
+        # Move to FCG fork
+        self.nodes[0].generate(1250 - self.nodes[0].getblockcount())
+
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206/direct_interest_dusd_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206/direct_loan_dusd_burn':'not_a_bool'}})
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206/direct_interest_dusd_burn':'true', 'v0/params/dfip2206/direct_loan_dusd_burn':'true'}})
+        self.nodes[0].generate(1)
+
+        # Verify FCR results
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/params/dfip2206/direct_interest_dusd_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206/direct_loan_dusd_burn'], 'true')
 
 if __name__ == '__main__':
     GovsetTest ().main ()
