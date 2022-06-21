@@ -1,4 +1,5 @@
 #include <chainparams.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/poolpairs.h>
 #include <validation.h>
@@ -7,7 +8,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-std::pair<std::string, std::string> asymmetricFee{"both", "both"};
+std::pair<CFeeDir, CFeeDir> asymmetricFee{CFeeDir{FeeDirValues::Both}, CFeeDir{FeeDirValues::Both}};
 
 inline uint256 NextTx()
 {

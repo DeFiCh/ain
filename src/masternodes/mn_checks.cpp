@@ -4303,8 +4303,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, std::string{"both"});
-        const auto dirB = attributes->GetValue(dirBKey, std::string{"both"});
+        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
 
         // Perform swap

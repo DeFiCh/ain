@@ -286,14 +286,15 @@ static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
     return {CTokenCurrencyPair{token, currency}, Res::Ok()};
 }
 
-static std::set<std::string> dirSet{"in", "out", "both"};
+static std::set<std::string> dirSet{"both", "in", "out"};
 
 static ResVal<CAttributeValue> VerifyFeeDirection(const std::string& str) {
     auto lowerStr = ToLower(str);
-    if (!dirSet.count(lowerStr)) {
+    const auto it = dirSet.find(lowerStr);
+    if (it == dirSet.end()) {
         return Res::Err("Fee direction value must be both, in or out");
     }
-    return {lowerStr, Res::Ok()};
+    return {CFeeDir{static_cast<uint8_t>(std::distance(dirSet.begin(), it))}, Res::Ok()};
 }
 
 static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
@@ -728,8 +729,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
             } else if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                 ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
-            } else if (const auto str = std::get_if<std::string>(&attribute.second)) {
-                ret.pushKV(key, *str);
+            } else if (const auto result = std::get_if<CFeeDir>(&attribute.second)) {
+                if (result->feeDir == FeeDirValues::Both) {
+                    ret.pushKV(key, "both");
+                } else if (result->feeDir == FeeDirValues::In) {
+                    ret.pushKV(key, "in");
+                } else if (result->feeDir == FeeDirValues::Out) {
+                    ret.pushKV(key, "out");
+                }
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched

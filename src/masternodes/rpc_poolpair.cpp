@@ -16,29 +16,28 @@ UniValue poolToJSON(const CCustomCSView view, DCT_ID const& id, CPoolPair const&
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, std::string{"both"});
-        const auto dirB = attributes->GetValue(dirBKey, std::string{"both"});
+        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
 
         if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
-            if (dirA == "in" || dirA == "both") {
+            if (dirA.feeDir == FeeDirValues::In || dirA.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
             }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
-
-            if (dirB == "out" || dirB == "both") {
+            if (dirB.feeDir == FeeDirValues::Out || dirB.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
             }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenB)) {
-            if (dirB == "in" || dirB == "both") {
+            if (dirB.feeDir == FeeDirValues::In || dirB.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
             }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenA)) {
-            if (dirA == "out" || dirA == "both") {
+            if (dirA.feeDir == FeeDirValues::Out || dirA.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
             }
         }
@@ -1108,8 +1107,8 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
             CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, poolPair->first.v, PoolKeys::TokenAFeeDir};
             CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, poolPair->first.v, PoolKeys::TokenBFeeDir};
-            const auto dirA = attributes->GetValue(dirAKey, std::string{"both"});
-            const auto dirB = attributes->GetValue(dirBKey, std::string{"both"});
+            const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+            const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
             const auto asymmetricFee = std::make_pair(dirA, dirB);
 
             res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, asymmetricFee, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
