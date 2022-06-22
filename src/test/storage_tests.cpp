@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE(undo)
     auto undo = CUndo::Construct(base_raw, flushable.GetRaw());
     BOOST_CHECK(undo.before.size() == 2);
     BOOST_CHECK(undo.before.at(ToBytes("testkey1")) == ToBytes("value0"));
-    BOOST_CHECK(undo.before.at(ToBytes("testkey2")).is_initialized() == false);
+    BOOST_CHECK(undo.before.at(ToBytes("testkey2")).has_value() == false);
 
     // flush changes
     mnview.Flush();

@@ -71,6 +71,8 @@ enum TokenKeys : uint8_t  {
 enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
+    TokenAFeeDir = 'c',
+    TokenBFeeDir = 'd',
 };
 
 struct CDataStructureV0 {
@@ -127,13 +129,30 @@ struct CTokenPayback {
     }
 };
 
+struct CFeeDir {
+    uint8_t feeDir;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(feeDir);
+    }
+};
+
 ResVal<CScript> GetFutureSwapContractAddress();
+
+enum FeeDirValues : uint8_t {
+    Both,
+    In,
+    Out
+};
 
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
+using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir>;
 
 enum GovVarsFilter {
     All,
@@ -164,14 +183,27 @@ public:
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
     template<typename T>
-    [[nodiscard]] T GetValue(const CAttributeType& key, T value) const {
+    static void GetIf(std::optional<T>& opt, const CAttributeValue& var) {
+        if (auto value = std::get_if<T>(&var)) {
+            opt = *value;
+        }
+    }
+
+    template<typename T>
+    static void GetIf(T& val, const CAttributeValue& var) {
+        if (auto value = std::get_if<T>(&var)) {
+            val = *value;
+        }
+    }
+
+    template<typename K, typename T>
+    [[nodiscard]] T GetValue(const K& key, T value) const {
+        static_assert(std::is_convertible_v<K, CAttributeType>);
         auto it = attributes.find(key);
         if (it != attributes.end()) {
-            if (auto val = boost::get<const T>(&it->second)) {
-                value = std::move(*val);
-            }
+            GetIf(value, it->second);
         }
-        return std::move(value);
+        return value;
     }
 
     template<typename K, typename T>
@@ -200,7 +232,7 @@ public:
         static_assert(std::is_convertible_v<K, CAttributeType>);
         static_assert(std::is_invocable_r_v<bool, C, K, CAttributeValue>);
         for (auto it = attributes.lower_bound(key); it != attributes.end(); ++it) {
-            if (auto attrV0 = boost::get<K>(&it->first)) {
+            if (auto attrV0 = std::get_if<K>(&it->first)) {
                 if (!std::invoke(callback, *attrV0, it->second)) {
                     break;
                 }

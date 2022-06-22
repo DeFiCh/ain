@@ -60,7 +60,7 @@ class CAccountsHistoryView : public virtual CStorageView
 {
 public:
     Res WriteAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    boost::optional<AccountHistoryValue> ReadAccountHistory(AccountHistoryKey const & key) const;
+    std::optional<AccountHistoryValue> ReadAccountHistory(AccountHistoryKey const & key) const;
     Res EraseAccountHistory(AccountHistoryKey const & key);
     void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 

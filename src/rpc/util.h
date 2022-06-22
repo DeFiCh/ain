@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 class FillableSigningProvider;
 class CPubKey;
@@ -120,7 +120,7 @@ struct RPCArg {
          */
         OMITTED,
     };
-    using Fallback = boost::variant<Optional, /* default value for optional args */ std::string>;
+    using Fallback = std::variant<Optional, /* default value for optional args */ std::string>;
     const std::string m_name; //!< The name of the arg (can be empty for inner args)
     const Type m_type;
     const std::vector<RPCArg> m_inner; //!< Only used for arrays or dicts

@@ -1730,8 +1730,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
     CKeyID minterKey;
-    boost::optional<uint256> nodeId;
-    boost::optional<CMasternode> node;
+    std::optional<uint256> nodeId;
 
     if (!fIsFakeNet) {
         minterKey = pindex->minterKey();
@@ -2554,8 +2553,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     CKeyID minterKey;
-    boost::optional<uint256> nodeId;
-    boost::optional<CMasternode> nodePtr;
+    std::optional<uint256> nodeId;
+    std::optional<CMasternode> nodePtr;
 
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
@@ -4120,7 +4119,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
                 auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
                 auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: LP (%s: %s => %s)\n",
+                LogPrint(BCLog::TOKENSPLIT, "TokenSplit: LP (%s: %s => %s)\n",
                     ScriptToString(owner), oldPoolLogStr, newPoolLogStr);
 
                 view.SetShare(newPoolId, owner, pindex->nHeight);
@@ -4164,7 +4163,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             std::vector<CDataStructureV0> eraseKeys;
             for (const auto& [key, value] : attributes.GetAttributesMap()) {
-                if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
+                if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
                     attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
@@ -4249,7 +4248,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
         auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
             vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
         
         res = view.AddLoanToken(vaultId, newTokenAmount);
@@ -4293,8 +4292,8 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
-        if (LogAcceptCategory(BCLog::TOKEN_SPLIT)) {
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
+        if (LogAcceptCategory(BCLog::TOKENSPLIT)) {
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
                 vaultId.ToString(),
                 GetInterestPerBlockHighPrecisionString(oldRateToHeight),
                 GetInterestPerBlockHighPrecisionString(newRateToHeight),
@@ -4327,7 +4326,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             auto newLoanInterest = CalculateNewAmount(multiplier, value.loanInterest);
             value.loanInterest = newLoanInterest;
 
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
                 key.first.ToString(), key.second, oldLoanAmount.ToString(), 
                 newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
@@ -4339,7 +4338,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             value.collaterals.balances[newAmount.nTokenId] = newAmount.nValue;
             value.collaterals.balances.erase(oldAmount.nTokenId);
 
-            LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s)\n",
+            LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionC (%s,%d: %s => %s)\n",
                 key.first.ToString(), key.second, oldAmount.ToString(),
                 newAmount.ToString());
         }
@@ -4361,12 +4360,11 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = value.second;
         auto newTokenAmount = CTokenAmount{newTokenId, CalculateNewAmount(multiplier, oldTokenAmount.nValue)};
 
-        value.second.nTokenId = newTokenAmount.nTokenId;
-        value.second.nValue = newTokenAmount.nValue;
+        value.second = newTokenAmount;
 
         view.StoreAuctionBid(key, value);
 
-        LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Bid (%s,%d: %s => %s)\n",
             key.first.ToString(), key.second, oldTokenAmount.ToString(),
             newTokenAmount.ToString());
     }
@@ -4462,7 +4460,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         std::vector<CDataStructureV0> eraseKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
                 if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
                     attributes->SetValue(newKey, value);
@@ -4508,7 +4506,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
-                LogPrint(BCLog::TOKEN_SPLIT, "TokenSplit: T (%s: %s => %s)\n",
+                LogPrint(BCLog::TOKENSPLIT, "TokenSplit: T (%s: %s => %s)\n",
                     ScriptToString(owner), balance.ToString(),
                     newBalanceStr);
             }
@@ -4552,9 +4550,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
         for (const auto& [key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = boost::get<const CDataStructureV0>(&key);
+            if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
                 v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = boost::get<OracleSplits>(&value)) {
+                if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
                     for (auto [splitMapKey, splitMapValue] : *splitMap) {
                         if (splitMapKey == oldTokenId.v) {
                             auto copyMap{*splitMap};

@@ -268,7 +268,7 @@ base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t he
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 
 std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
-boost::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
+std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
 
@@ -328,14 +328,14 @@ public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
-    boost::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
+    std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const & txid) const;
     Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
     Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl& collToken);
     void ForEachLoanCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
-    boost::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
+    std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const & key);
 
-    boost::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
-    [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const = 0;
+    std::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const & txid) const;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const & id) const = 0;
     Res SetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res UpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
     Res EraseLoanToken(const DCT_ID& id);
@@ -348,16 +348,16 @@ public:
     Res EraseLoanScheme(const std::string& loanSchemeID);
     void EraseDelayedLoanScheme(const std::string& loanSchemeID, uint64_t height);
     void EraseDelayedDestroyScheme(const std::string& loanSchemeID);
-    boost::optional<std::string> GetDefaultLoanScheme();
-    boost::optional<CLoanSchemeData> GetLoanScheme(const std::string& loanSchemeID);
-    boost::optional<uint64_t> GetDestroyLoanScheme(const std::string& loanSchemeID);
+    std::optional<std::string> GetDefaultLoanScheme();
+    std::optional<CLoanSchemeData> GetLoanScheme(const std::string& loanSchemeID);
+    std::optional<uint64_t> GetDestroyLoanScheme(const std::string& loanSchemeID);
     void ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback);
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     Res DeleteInterest(const CVaultId& vaultId, uint32_t height);
     void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id);
-    boost::optional<CInterestRateV2> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
+    std::optional<CInterestRateV2> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
     void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
@@ -368,14 +368,14 @@ public:
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
-    boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
+    std::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanTokenAmount(std::function<bool (const CVaultId&,  const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
-    [[nodiscard]] virtual boost::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
-    [[nodiscard]] virtual boost::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };

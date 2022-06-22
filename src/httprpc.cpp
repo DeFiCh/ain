@@ -10,7 +10,6 @@
 #include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <rpc/stats.h>
-#include <sync.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
 #include <util/system.h>

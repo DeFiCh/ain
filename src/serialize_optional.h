@@ -2,10 +2,11 @@
 #define DEFI_SERIALIZE_OPTIONAL_H
 
 #include <serialize.h>
-#include <boost/optional.hpp>
+
+#include <optional>
 
 template<typename Stream, typename T>
-inline void Serialize(Stream& s, boost::optional<T> const & a)
+inline void Serialize(Stream& s, std::optional<T> const & a)
 {
     ::ser_writedata8(s, a ? 1 : 0);
     if (a) {
@@ -14,7 +15,7 @@ inline void Serialize(Stream& s, boost::optional<T> const & a)
 }
 
 template<typename Stream, typename T>
-inline void Unserialize(Stream& s, boost::optional<T>& a)
+inline void Unserialize(Stream& s, std::optional<T>& a)
 {
     const auto exist = ::ser_readdata8(s);
     if (exist == 1) {

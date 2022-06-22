@@ -78,7 +78,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
-    if (collateralDest.which() == 0) {
+    if (collateralDest.index() == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
     }
 
@@ -390,6 +390,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -431,7 +433,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
         return limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue gettoken(const JSONRPCRequest& request) {
@@ -450,12 +452,15 @@ UniValue gettoken(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     LOCK(cs_main);
 
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        return tokenToJSON(*pcustomcsview, id, *token, true);
+        auto res = tokenToJSON(*pcustomcsview, id, *token, true);
+        return GetRPCResultCache().Set(request, res);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }

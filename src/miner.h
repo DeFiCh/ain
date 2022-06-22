@@ -6,7 +6,6 @@
 #ifndef DEFI_MINER_H
 #define DEFI_MINER_H
 
-#include <optional.h>
 #include <primitives/block.h>
 #include <key.h>
 #include <timedata.h>
@@ -14,6 +13,7 @@
 #include <validation.h>
 
 #include <memory>
+#include <optional>
 #include <stdint.h>
 
 #include <boost/multi_index_container.hpp>
@@ -176,8 +176,8 @@ public:
     /** Construct a new block template with coinbase to scriptPubKeyIn */
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0);
 
-    static Optional<int64_t> m_last_block_num_txs;
-    static Optional<int64_t> m_last_block_weight;
+    inline static std::optional<int64_t> m_last_block_num_txs{};
+    inline static std::optional<int64_t> m_last_block_weight{};
 
 private:
     // utility functions

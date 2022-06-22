@@ -5,19 +5,13 @@
 #include <base58.h>
 #include <bech32.h>
 #include <chainparams.h>
-#include <script/script.h>
 #include <util/strencodings.h>
-
-#include <boost/variant/apply_visitor.hpp>
-#include <boost/variant/static_visitor.hpp>
 
 #include <assert.h>
 #include <string.h>
-#include <algorithm>
 
-namespace
-{
-class DestinationEncoder : public boost::static_visitor<std::string>
+namespace {
+class DestinationEncoder
 {
 private:
     const CChainParams& m_params;
@@ -209,7 +203,7 @@ std::string EncodeExtKey(const CExtKey& key)
 
 std::string EncodeDestination(const CTxDestination& dest)
 {
-    return boost::apply_visitor(DestinationEncoder(Params()), dest);
+    return std::visit(DestinationEncoder(Params()), dest);
 }
 
 CTxDestination DecodeDestination(const std::string& str)
@@ -228,9 +222,9 @@ bool IsValidDestinationString(const std::string& str)
 }
 
 CKeyID getCKeyIDFromDestination(const CTxDestination& dest) {
-  switch (dest.which()) {
-    case PKHashType       : return CKeyID(*boost::get<PKHash>(&dest));
-    case WitV0KeyHashType : return CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
-    default               : return CKeyID();
+  switch (dest.index()) {
+    case PKHashType       : return CKeyID(std::get<PKHash>(dest));
+    case WitV0KeyHashType : return CKeyID(std::get<WitnessV0KeyHash>(dest));
+    default               : return {};
   }
 }

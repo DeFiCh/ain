@@ -1,9 +1,8 @@
 #include <masternodes/mn_rpc.h>
-
 #include <masternodes/govvariables/attributes.h>
+#include <boost/asio.hpp>
 
 extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
-extern UniValue listauctions(const JSONRPCRequest& request);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
 UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
@@ -196,6 +195,8 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
@@ -216,7 +217,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         ret.pushKVs(setCollateralTokenToJSON(*pcustomcsview, *collToken));
     }
 
-    return (ret);
+    return GetRPCResultCache().Set(request, ret);
 }
 
 
@@ -232,6 +233,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                     HelpExampleCli("listcollateraltokens", "")
                 },
      }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
@@ -265,7 +267,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         return true;
     }, CDataStructureV0{AttributeTypes::Token});
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue setloantoken(const JSONRPCRequest& request) {
@@ -427,8 +429,8 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[1].get_obj();
     UniValue const & txInputs = request.params[2];
 
-    boost::optional<CLoanSetLoanTokenImplementation> loanToken;
-    boost::optional<CTokenImplementation> token;
+    std::optional<CLoanSetLoanTokenImplementation> loanToken;
+    std::optional<CTokenImplementation> token;
 
     int targetHeight;
     {
@@ -511,6 +513,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
                     HelpExampleCli("listloantokens", "")
                 },
      }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     UniValue ret(UniValue::VARR);
 
@@ -543,7 +546,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
         return true;
     }, CDataStructureV0{AttributeTypes::Token});
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getloantoken(const JSONRPCRequest& request)
@@ -560,13 +563,13 @@ UniValue getloantoken(const JSONRPCRequest& request)
             HelpExampleCli("getloantoken", "DFI")},
     }
         .Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
             "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
 
-    UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
@@ -581,7 +584,9 @@ UniValue getloantoken(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
     }
 
-    return setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
+    auto res = setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
+    return GetRPCResultCache().Set(request, res);
+
 }
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
@@ -925,6 +930,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                        HelpExampleRpc("listloanschemes", "")
                },
     }.Check(request);
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     auto cmp = [](const CLoanScheme& a, const CLoanScheme& b) {
         return a.ratio == b.ratio ? a.rate < b.rate : a.ratio < b.ratio;
@@ -958,7 +964,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
         ret.push_back(arr);
     }
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getloanscheme(const JSONRPCRequest& request) {
@@ -980,6 +986,8 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
                        HelpExampleRpc("getloanscheme", "LOAN0001")
                },
     }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     if(request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter id, argument must be non-null");
@@ -1006,7 +1014,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
         result.pushKV("default", false);
     }
 
-    return result;
+    return GetRPCResultCache().Set(request, result);
 }
 
 UniValue takeloan(const JSONRPCRequest& request) {
@@ -1312,67 +1320,130 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     UniValue ret{UniValue::VOBJ};
 
     LOCK(cs_main);
+    auto view = *pcustomcsview;
 
     auto height = ::ChainActive().Height() + 1;
 
     bool useNextPrice = false, requireLivePrice = true;
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0;
 
-    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
-        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-        if (!collaterals)
-            collaterals = CBalances{};
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
-        if (rate)
-        {
-            totalCollateralValue += rate.val->totalCollaterals;
-            totalLoanValue += rate.val->totalLoans;
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0,
+             totalVaults = 0, totalAuctions = 0, totalLoanSchemes = 0,
+             totalCollateralTokens = 0, totalLoanTokens = 0;
+
+    auto fixedIntervalBlock = view.GetIntervalBlock();
+    auto priceDeviation = view.GetPriceDeviation();
+    auto defaultScheme = view.GetDefaultLoanScheme();
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
+
+    // TODO: Later optimize this into a general dynamic worker pool, so we don't
+    // need to recreate these threads on each call. 
+    boost::asio::thread_pool workerPool{[]() {
+        const size_t workersMax = GetNumCores() - 1;
+        // More than 8 is likely not very fruitful for ~10k vaults.
+        return std::min(workersMax > 2 ? workersMax : 3, static_cast<size_t>(8));
+    }()};
+
+    boost::asio::post(workerPool, [&] {
+        view.ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data) {
+            totalLoanSchemes++;
+            return true;
+        });
+
+        // First assume it's on the DB. For later, might be worth thinking if it's better to incorporate
+        // attributes right into the for each loop, so the interface remains consistent.
+        view.ForEachLoanCollateralToken([&](CollateralTokenKey const& key, uint256 const& collTokenTx) {
+            totalCollateralTokens++;
+            return true;
+        });
+
+        view.ForEachLoanToken([&](DCT_ID const& key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+            totalLoanTokens++;
+            return true;
+        });
+
+        // Now, let's go over attributes. If it's on attributes, the above calls would have done nothing.
+        auto attributes = view.GetAttributes();
+        if (!attributes) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
         }
-        totalVaults++;
+
+        attributes->ForEach([&](const CDataStructureV0& attr, const CAttributeValue&) {
+            if (attr.type != AttributeTypes::Token)
+                return false;
+            if (attr.key == TokenKeys::LoanCollateralEnabled)
+                totalCollateralTokens++;
+            else if (attr.key == TokenKeys::LoanMintingEnabled)
+                totalLoanTokens++;
+            return true;
+        }, CDataStructureV0{AttributeTypes::Token});
+
+        view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+            totalAuctions += data.batchCount;
+            return true;
+        }, height);
+    });
+
+    std::atomic<uint64_t> vaultsTotal{0};
+    std::atomic<uint64_t> colsValTotal{0};
+    std::atomic<uint64_t> loansValTotal{0};
+
+    view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
+        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal, 
+            &loansValTotal=loansValTotal, &vaultsTotal=vaultsTotal,
+            vaultId=vaultId, height=height, useNextPrice=useNextPrice, 
+            requireLivePrice=requireLivePrice] {
+            auto collaterals = view.GetVaultCollaterals(vaultId);
+            if (!collaterals)
+                collaterals = CBalances{};
+            auto rate = view.GetLoanCollaterals(vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
+            if (rate)
+            {
+                colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);
+                loansValTotal.fetch_add(rate.val->totalLoans, std::memory_order_relaxed);
+            }
+            vaultsTotal.fetch_add(1, std::memory_order_relaxed);
+        });
         return true;
     });
 
-    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
-        totalAuctions += data.batchCount;
-        return true;
-    }, height);
+    workerPool.join();
+    // We use relaxed ordering to increment. Thread joins should in theory, 
+    // resolve have resulted in full barriers, but we ensure
+    // to throw in a full barrier anyway. x86 arch might appear to work without
+    // but let's be extra cautious about RISC optimizers.
+    totalVaults = vaultsTotal.load();
+    totalLoanValue = loansValTotal.load();
+    totalCollateralValue = colsValTotal.load();
 
     UniValue totalsObj{UniValue::VOBJ};
-    auto totalLoanSchemes = static_cast<int>(listloanschemes(request).size());
-    auto totalCollateralTokens = static_cast<int>(listcollateraltokens(request).size());
 
     totalsObj.pushKV("schemes", totalLoanSchemes);
     totalsObj.pushKV("collateralTokens", totalCollateralTokens);
     totalsObj.pushKV("collateralValue", ValueFromUint(totalCollateralValue));
-    auto totalLoanTokens = static_cast<int>(listloantokens(request).size());
     totalsObj.pushKV("loanTokens", totalLoanTokens);
     totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
     totalsObj.pushKV("openAuctions", totalAuctions);
-
     UniValue defaultsObj{UniValue::VOBJ};
-    auto defaultScheme = pcustomcsview->GetDefaultLoanScheme();
     if(!defaultScheme)
         defaultsObj.pushKV("scheme", "");
     else
         defaultsObj.pushKV("scheme", *defaultScheme);
-    defaultsObj.pushKV("maxPriceDeviationPct", ValueFromUint(pcustomcsview->GetPriceDeviation() * 100));
+    defaultsObj.pushKV("maxPriceDeviationPct", ValueFromUint(priceDeviation * 100));
     auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
     defaultsObj.pushKV("minOraclesPerPrice", minLiveOracles);
-    defaultsObj.pushKV("fixedIntervalBlocks", int(pcustomcsview->GetIntervalBlock()));
-
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    defaultsObj.pushKV("fixedIntervalBlocks", int(fixedIntervalBlock));
     ret.pushKV("currentPriceBlock", (int)priceBlocks.first);
     ret.pushKV("nextPriceBlock", (int)priceBlocks.second);
     ret.pushKV("defaults", defaultsObj);
     ret.pushKV("totals", totalsObj);
 
-    return (ret);
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getinterest(const JSONRPCRequest& request) {
@@ -1397,6 +1468,8 @@ UniValue getinterest(const JSONRPCRequest& request) {
                     HelpExampleCli("getinterest", "LOAN0001 TSLA")
                 },
      }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValueType()}, false);
 
@@ -1466,7 +1539,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         }
         ret.push_back(obj);
     }
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 

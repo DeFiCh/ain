@@ -17,6 +17,7 @@
 #include <validation.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
+#include <rpc/resultcache.h>
 
 #include <algorithm>
 #include <functional>
@@ -186,17 +187,17 @@ bool operator!=(CMasternode const & a, CMasternode const & b)
 /*
  *  CMasternodesView
  */
-boost::optional<CMasternode> CMasternodesView::GetMasternode(const uint256 & id) const
+std::optional<CMasternode> CMasternodesView::GetMasternode(const uint256 & id) const
 {
     return ReadBy<ID, CMasternode>(id);
 }
 
-boost::optional<uint256> CMasternodesView::GetMasternodeIdByOperator(const CKeyID & id) const
+std::optional<uint256> CMasternodesView::GetMasternodeIdByOperator(const CKeyID & id) const
 {
     return ReadBy<Operator, uint256>(id);
 }
 
-boost::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID & id) const
+std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID & id) const
 {
     return ReadBy<Owner, uint256>(id);
 }
@@ -222,13 +223,13 @@ void CMasternodesView::DecrementMintedBy(const uint256& nodeId)
     WriteBy<ID>(nodeId, *node);
 }
 
-boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
+std::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
 {
     auto const operators = gArgs.GetArgs("-masternode_operator");
     for(auto const & key : operators) {
         CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) :
-                                   dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID();
+        CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) :
+                                   dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -244,8 +245,8 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for(auto const & key : operators) {
         CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) :
-                                   dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID();
+        CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) :
+                                   dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -256,10 +257,10 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     return operatorPairs;
 }
 
-boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOwner() const
+std::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOwner() const
 {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    CKeyID const authAddress = dest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&dest)) : (dest.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID());
+    CKeyID const authAddress = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : (dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID());
     if (!authAddress.IsNull()) {
         auto nodeId = GetMasternodeIdByOwner(authAddress);
         if (nodeId)
@@ -407,7 +408,7 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
     WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
-boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
+std::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
@@ -549,7 +550,7 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
 std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock)
 {
     // Get last block time for non-subnode staking
-    boost::optional<int64_t> stakerBlockTime = GetMasternodeLastBlockTime(keyID, blockHeight);
+    std::optional<int64_t> stakerBlockTime = GetMasternodeLastBlockTime(keyID, blockHeight);
 
     // Get times for sub nodes, defaults to {0, 0, 0, 0} for MNs created before EunosPayaHeight
     std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(keyID, blockHeight);
@@ -591,6 +592,7 @@ int CLastHeightView::GetLastHeight() const
 
 void CLastHeightView::SetLastHeight(int height)
 {
+    SetLastValidatedHeight(height);
     Write(Height::prefix(), height);
 }
 
@@ -654,14 +656,14 @@ void CTeamView::SetAnchorTeams(const CTeam& authTeam, const CTeam& confirmTeam, 
     }
 }
 
-boost::optional<CTeamView::CTeam> CTeamView::GetAuthTeam(int height) const
+std::optional<CTeamView::CTeam> CTeamView::GetAuthTeam(int height) const
 {
     height -= height % Params().GetConsensus().mn.anchoringTeamChange;
 
     return ReadBy<AuthTeam, CTeam>(height);
 }
 
-boost::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const
+std::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const
 {
     height -= height % Params().GetConsensus().mn.anchoringTeamChange;
 
@@ -671,7 +673,7 @@ boost::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const
 /*
  *  CAnchorRewardsView
  */
-boost::optional<CAnchorRewardsView::RewardTxHash> CAnchorRewardsView::GetRewardForAnchor(const CAnchorRewardsView::AnchorTxHash & btcTxHash) const
+std::optional<CAnchorRewardsView::RewardTxHash> CAnchorRewardsView::GetRewardForAnchor(const CAnchorRewardsView::AnchorTxHash & btcTxHash) const
 {
     return ReadBy<BtcTx, RewardTxHash>(btcTxHash);
 }
@@ -1078,7 +1080,7 @@ bool CCustomCSView::AreTokensLocked(const std::set<uint32_t>& tokenIds) const
     return false;
 }
 
-boost::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
+std::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
 {
     std::string const key = trim_ws(str);
 
@@ -1106,7 +1108,7 @@ boost::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const st
     return {};
 }
 
-boost::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(DCT_ID const & id) const
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(DCT_ID const & id) const
 {
     auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
     if (loanToken) {
@@ -1147,7 +1149,7 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
     return operatorDetails;
 }
 
-boost::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
     if (const auto token = GetToken(id)) {
         if (const auto attributes = GetAttributes()) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
@@ -1172,7 +1174,7 @@ boost::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFro
     return {};
 }
 
-boost::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(const DCT_ID& id) const {
     if (const auto attributes = GetAttributes()) {
         CLoanSetCollateralTokenImplementation collToken;
 

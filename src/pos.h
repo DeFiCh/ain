@@ -6,8 +6,6 @@
 #include <memory>
 #include <key.h>
 
-#include <boost/optional.hpp>
-
 class CBlock;
 
 class CBlockIndex;
@@ -46,9 +44,9 @@ namespace pos {
 
     unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust = false);
 
-    boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
+    std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
 
-    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams);
+    std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams);
 }
 
 #endif // DEFI_POS_H

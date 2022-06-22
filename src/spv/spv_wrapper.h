@@ -18,9 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
@@ -82,8 +79,8 @@ using namespace boost::multi_index;
 class CSpvWrapper
 {
 private:
-    boost::shared_ptr<CDBWrapper> db;
-    boost::scoped_ptr<CDBBatch> batch;
+    std::shared_ptr<CDBWrapper> db;
+    std::unique_ptr<CDBBatch> batch;
 
     BRPeerManager *manager = nullptr;
     std::string spv_internal_logfilename;
@@ -202,7 +199,7 @@ private:
     template <typename Key, typename Value>
     bool IterateTable(char prefix, std::function<void(Key const &, Value &)> callback)
     {
-        boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+        std::unique_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
         pcursor->Seek(prefix);
 
         while (pcursor->Valid())
@@ -230,7 +227,7 @@ private:
     template <typename Key>
     bool DeleteTable(char prefix)
     {
-        boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+        std::unique_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
         pcursor->Seek(prefix);
 
         while (pcursor->Valid())

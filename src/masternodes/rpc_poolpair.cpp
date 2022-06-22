@@ -1,6 +1,8 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
+#include <masternodes/govvariables/attributes.h>
+
+UniValue poolToJSON(const CCustomCSView view, DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
@@ -9,20 +11,37 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
+        const auto attributes = view.GetAttributes();
+        assert(attributes);
+
+        CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenAFeeDir};
+        CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenBFeeDir};
+        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+
         if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
-            poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
+            if (dirA.feeDir == FeeDirValues::In || dirA.feeDir == FeeDirValues::Both) {
+                poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
+            }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
-            poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
+            if (dirB.feeDir == FeeDirValues::Out || dirB.feeDir == FeeDirValues::Both) {
+                poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
+            }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenB)) {
-            poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
+            if (dirB.feeDir == FeeDirValues::In || dirB.feeDir == FeeDirValues::Both) {
+                poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
+            }
         }
         if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenA)) {
-            poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
+            if (dirA.feeDir == FeeDirValues::Out || dirA.feeDir == FeeDirValues::Both) {
+                poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
+            }
         }
+
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
         poolObj.pushKV("commission", ValueFromAmount(pool.commission));
@@ -179,6 +198,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -216,14 +237,14 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            ret.pushKVs(poolToJSON(*pcustomcsview, id, pool, *token, verbose));
             limit--;
         }
 
         return limit != 0;
     }, start);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 UniValue getpoolpair(const JSONRPCRequest& request) {
@@ -244,6 +265,8 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
@@ -256,7 +279,8 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
     if (token) {
         auto pool = pcustomcsview->GetPoolPair(id);
         if (pool) {
-            return poolToJSON(id, *pool, *token, verbose);
+            auto res = poolToJSON(*pcustomcsview, id, *pool, *token, verbose);
+            return GetRPCResultCache().Set(request, res);
         }
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pool not found");
     }
@@ -1078,7 +1102,16 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
             auto dexfeeInPct = mnview_dummy.GetDexFeeInPct(poolPair->first, poolSwapMsg.idTokenFrom);
 
-            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
+            const auto attributes = mnview_dummy.GetAttributes();
+            assert(attributes);
+
+            CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, poolPair->first.v, PoolKeys::TokenAFeeDir};
+            CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, poolPair->first.v, PoolKeys::TokenBFeeDir};
+            const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+            const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+            const auto asymmetricFee = std::make_pair(dirA, dirB);
+
+            res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, dexfeeInPct, poolSwapMsg.maxPrice, asymmetricFee, [&] (const CTokenAmount &, const CTokenAmount &tokenAmount) {
                 auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
                 if (!resPP) {
                     return resPP;
@@ -1181,6 +1214,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
@@ -1246,7 +1281,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         return limit != 0;
     }, startKey);
 
-    return ret;
+    return GetRPCResultCache().Set(request, ret);
 }
 
 static const CRPCCommand commands[] =

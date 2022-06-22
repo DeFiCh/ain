@@ -16,6 +16,8 @@
 #include <uint256.h>
 #include <masternodes/balances.h>
 
+struct CFeeDir;
+
 struct ByPairKey {
     DCT_ID idTokenA;
     DCT_ID idTokenB;
@@ -127,7 +129,7 @@ public:
     Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection = false);
     Res RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim);
 
-    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
+    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, const std::pair<CFeeDir, CFeeDir>& asymmetricFee, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, int height);
@@ -211,8 +213,8 @@ public:
     Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const & pool);
     Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress, CBalances const & rewards);
 
-    boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
+    std::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
+    std::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolId(std::function<bool(DCT_ID const &)> callback, DCT_ID const & start = DCT_ID{0});
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CPoolPair)> callback, DCT_ID const & start = DCT_ID{0});
@@ -221,7 +223,7 @@ public:
     Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height);
     Res DelShare(DCT_ID const & poolId, CScript const & provider);
 
-    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
+    std::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 
@@ -281,5 +283,8 @@ struct CRemoveLiquidityMessage {
         READWRITE(amount);
     }
 };
+
+bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir>& asymmetricFee);
+bool poolOutFee(const bool forward, const std::pair<CFeeDir, CFeeDir>& asymmetricFee);
 
 #endif // DEFI_MASTERNODES_POOLPAIRS_H
