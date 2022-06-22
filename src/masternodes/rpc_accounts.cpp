@@ -984,7 +984,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Maximum number of records to return, 100 by default"},
                                  {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Order in block, unlimited by default"},
-                                 {"amountFormat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 {"format", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                   "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
 
                             },
@@ -1030,7 +1030,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
                 {"txn", UniValueType(UniValue::VNUM)},
-                {"amountFormat", UniValueType(UniValue::VSTR)}
+                {"format", UniValueType(UniValue::VSTR)}
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1067,8 +1067,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             txn = (uint32_t) optionsObj["txn"].get_int64();
         }
 
-        if (!optionsObj["amountFormat"].isNull()) {
-            const auto formatStr = optionsObj["amountFormat"].getValStr();
+        if (!optionsObj["format"].isNull()) {
+            const auto formatStr = optionsObj["format"].getValStr();
             if (formatStr == "symbol"){
                 format = AmountFormat::Symbol;
             }
@@ -1076,7 +1076,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 format = AmountFormat::Id;
             }
             else {
-                throw JSONRPCError(RPC_INVALID_REQUEST, "amountFormat must be one of the following: \"id\", \"symbol\"");
+                throw JSONRPCError(RPC_INVALID_REQUEST, "format must be one of the following: \"id\", \"symbol\"");
             }
         }
     }

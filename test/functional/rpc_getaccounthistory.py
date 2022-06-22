@@ -53,7 +53,7 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
 
         # Get node 0 results
         # test amount@id format
-        results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "id"} )
+        results = self.nodes[0].listaccounthistory(collateral_a, {"format": "id"} )
         # test token ids match token symbol
         for result in results:
             for amount in result["amounts"]:
@@ -61,7 +61,7 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
                 assert(symbol.isnumeric())
 
         # test amount@symbol format
-        results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "symbol"} )
+        results = self.nodes[0].listaccounthistory(collateral_a, {"format": "symbol"} )
         # test token ids match token symbol
         for result in results:
             for amount in result["amounts"]:
@@ -70,10 +70,10 @@ class TokensRPCGetAccountHistory(DefiTestFramework):
 
         # test amount@symbol format
         try:
-            results = self.nodes[0].listaccounthistory(collateral_a, {"amountFormat": "combined"} )
+            results = self.nodes[0].listaccounthistory(collateral_a, {"format": "combined"} )
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("amountFormat must be one of the following: \"id\", \"symbol\"" in errorString)
+        assert("format must be one of the following: \"id\", \"symbol\"" in errorString)
 
         # An account history from listaccounthistory and gettaccounthistory must be matched
         expected = results[0]
