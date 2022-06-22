@@ -132,8 +132,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         },
         {
             AttributeTypes::Poolpairs, {
-                {"token_a_fee_pct",     PoolKeys::TokenAFeePCT},
-                {"token_b_fee_pct",     PoolKeys::TokenBFeePCT},
+                {"token_a_fee_pct",      PoolKeys::TokenAFeePCT},
+                {"token_a_fee_direction",PoolKeys::TokenAFeeDir},
+                {"token_b_fee_pct",      PoolKeys::TokenBFeePCT},
+                {"token_b_fee_direction",PoolKeys::TokenBFeeDir},
             }
         },
         {
@@ -173,7 +175,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         {
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
+                {PoolKeys::TokenAFeeDir,      "token_a_fee_direction"},
                 {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
+                {PoolKeys::TokenBFeeDir,      "token_b_fee_direction"},
             }
         },
         {
@@ -282,6 +286,17 @@ static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
     return {CTokenCurrencyPair{token, currency}, Res::Ok()};
 }
 
+static std::set<std::string> dirSet{"both", "in", "out"};
+
+static ResVal<CAttributeValue> VerifyFeeDirection(const std::string& str) {
+    auto lowerStr = ToLower(str);
+    const auto it = dirSet.find(lowerStr);
+    if (it == dirSet.end()) {
+        return Res::Err("Fee direction value must be both, in or out");
+    }
+    return {CFeeDir{static_cast<uint8_t>(std::distance(dirSet.begin(), it))}, Res::Ok()};
+}
+
 static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
@@ -316,7 +331,9 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      VerifyPct},
+                {PoolKeys::TokenAFeeDir,      VerifyFeeDirection},
                 {PoolKeys::TokenBFeePCT,      VerifyPct},
+                {PoolKeys::TokenBFeeDir,      VerifyFeeDirection},
             }
         },
         {
@@ -712,6 +729,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
             } else if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                 ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
+            } else if (const auto result = std::get_if<CFeeDir>(&attribute.second)) {
+                if (result->feeDir == FeeDirValues::Both) {
+                    ret.pushKV(key, "both");
+                } else if (result->feeDir == FeeDirValues::In) {
+                    ret.pushKV(key, "in");
+                } else if (result->feeDir == FeeDirValues::Out) {
+                    ret.pushKV(key, "out");
+                }
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -839,12 +864,18 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Poolpairs:
-                if (!std::get_if<CAmount>(&attribute.second)) {
-                    return Res::Err("Unsupported value");
-                }
                 switch (attrV0->key) {
                     case PoolKeys::TokenAFeePCT:
                     case PoolKeys::TokenBFeePCT:
+                        if (!view.GetPoolPair({attrV0->typeId})) {
+                            return Res::Err("No such pool (%d)", attrV0->typeId);
+                        }
+                    break;
+                    case PoolKeys::TokenAFeeDir:
+                    case PoolKeys::TokenBFeeDir:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGardensHeight) {
+                            return Res::Err("Cannot be set before FortCanningGardensHeight");
+                        }
                         if (!view.GetPoolPair({attrV0->typeId})) {
                             return Res::Err("No such pool (%d)", attrV0->typeId);
                         }
@@ -896,20 +927,23 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             continue;
         }
         if (attrV0->type == AttributeTypes::Poolpairs) {
-            auto poolId = DCT_ID{attrV0->typeId};
-            auto pool = mnview.GetPoolPair(poolId);
-            if (!pool) {
-                return Res::Err("No such pool (%d)", poolId.v);
-            }
-            auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
-                                        pool->idTokenA : pool->idTokenB;
+            if (attrV0->key == PoolKeys::TokenAFeePCT ||
+                attrV0->key == PoolKeys::TokenBFeePCT) {
+                auto poolId = DCT_ID{attrV0->typeId};
+                auto pool = mnview.GetPoolPair(poolId);
+                if (!pool) {
+                    return Res::Err("No such pool (%d)", poolId.v);
+                }
+                auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                               pool->idTokenA : pool->idTokenB;
 
-            const auto valuePct = std::get_if<CAmount>(&attribute.second);
-            if (!valuePct) {
-                return Res::Err("Unexpected type");
-            }
-            if (auto res = mnview.SetDexFeePct(poolId, tokenId, *valuePct); !res) {
-                return res;
+                const auto valuePct = std::get_if<CAmount>(&attribute.second);
+                if (!valuePct) {
+                    return Res::Err("Unexpected type");
+                }
+                if (auto res = mnview.SetDexFeePct(poolId, tokenId, *valuePct); !res) {
+                    return res;
+                }
             }
         } else if (attrV0->type == AttributeTypes::Token) {
             if (attrV0->key == TokenKeys::DexInFeePct

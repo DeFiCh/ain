@@ -1333,6 +1333,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanninghill", consensusParams.FortCanningHillHeight);
     BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
     BuriedForkDescPushBack(softforks, "fortcanningcrunch", consensusParams.FortCanningCrunchHeight);
+    BuriedForkDescPushBack(softforks, "fortcanninggardens", consensusParams.FortCanningGardensHeight);
     BuriedForkDescPushBack(softforks, "greatworld", consensusParams.GreatWorldHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
