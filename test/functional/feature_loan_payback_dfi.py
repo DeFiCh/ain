@@ -374,10 +374,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.nodes[0].addpoolliquidity(
             {account0: ["1@" + symbolTSLA, "10@" + symboldUSD]}, account0)
         self.nodes[0].addpoolliquidity(
-            {account0: ["1@" + symbolBTC, "10@" + symboldUSD]}, account0)
+            {account0: ["100@" + symbolBTC, "1000@" + symboldUSD]}, account0)
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206/direct_interest_dusd_burn':'true', 'v0/token/'+idTSLA+'/loan_payback/'+idBTC: 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206/direct_interest_dusd_burn':'true', 'v0/token/'+idTSLA+'/loan_payback/'+idBTC: 'true', 'v0/token/'+idTSLA+'/loan_payback/'+iddUSD: 'true'}})
         self.nodes[0].generate(1)
 
         burnAddress = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -408,6 +408,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         balanceDUSDBefore = balanceDUSDAfter
         balanceDFIBefore = balanceDFIAfter
+        burn_before = burn_after
 
         self.nodes[0].paybackloan({
             'vaultId': vaultId2,
@@ -421,13 +422,19 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        assert_equal(burn_after[0], f'431.96962411@{symbolDFI}')
+        assert_equal(burn_after[1], burn_before[1])
+
         [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
         assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('0'))
-        assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0.49035246'))
+        assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0.95477661'))
 
         balanceDUSDBefore = balanceDUSDAfter
         balanceDFIBefore = balanceDFIAfter
+        burn_before = burn_after
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206/direct_loan_dusd_burn':'true'}})
         self.nodes[0].generate(1)
@@ -444,13 +451,19 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        assert_equal(burn_after[0], burn_before[0])
+        assert_equal(burn_after[1], f'9.69017531@{symboldUSD}')
+
         [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
-        assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('1.66722129'))
+        assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('9.68801108'))
         assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0'))
 
         balanceDUSDBefore = balanceDUSDAfter
         balanceDFIBefore = balanceDFIAfter
+        burn_before = burn_after
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + idTSLA + '/payback_dfi':'true'}})
         self.nodes[0].generate(1)
@@ -467,10 +480,70 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        assert_equal(burn_after[0], f'432.96962411@{symbolDFI}')
+        assert_equal(burn_after[1], burn_before[1])
+
         [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
         assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('0'))
         assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('1.00000000'))
+
+        balanceDUSDBefore = balanceDUSDAfter
+        balanceDFIBefore = balanceDFIAfter
+        burn_before = burn_after
+
+        self.nodes[0].takeloan({
+            'vaultId': vaultId2,
+            'amounts': "100@DUSD"
+        })
+        self.nodes[0].generate(10)
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId2,
+            'from': account0,
+            'amounts': ["10@DUSD"]
+        })
+        self.nodes[0].generate(1)
+
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        assert_equal(burn_after[0], burn_before[0])
+        assert_equal(burn_after[1], f'9.69131687@{symboldUSD}')
+
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
+
+        assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('0.00114156'))
+        assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0'))
+
+        balanceDUSDBefore = balanceDUSDAfter
+        balanceDFIBefore = balanceDFIAfter
+        burn_before = burn_after
+
+        self.nodes[0].paybackloan({
+            'vaultId': vaultId2,
+            'from': account0,
+            'loans': [
+                {
+                    'dToken': idTSLA,
+                    'amounts': "10@DUSD"
+                },
+            ]
+        })
+        self.nodes[0].generate(1)
+
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        assert_equal(burn_after[0], burn_before[0])
+        assert_equal(burn_after[1], f'19.69131687@{symboldUSD}')
+
+        [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
+        [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
+
+        assert_equal(Decimal(balanceDUSDAfter) - Decimal(balanceDUSDBefore), Decimal('10'))
+        assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0'))
 
 if __name__ == '__main__':
     PaybackDFILoanTest().main()
