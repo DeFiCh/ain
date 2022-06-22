@@ -38,6 +38,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/anchors -> validation -> masternodes/anchors"
     "masternodes/govvariables/attributes -> masternodes/gv -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/masternodes -> masternodes/govvariables/attributes"
+    "masternodes/govvariables/attributes -> masternodes/masternodes -> masternodes/poolpairs -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/masternodes -> validation -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/mn_rpc -> masternodes/govvariables/attributes"

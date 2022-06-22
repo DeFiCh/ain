@@ -16,6 +16,8 @@
 #include <uint256.h>
 #include <masternodes/balances.h>
 
+struct CFeeDir;
+
 struct ByPairKey {
     DCT_ID idTokenA;
     DCT_ID idTokenB;
@@ -127,7 +129,7 @@ public:
     Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection = false);
     Res RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim);
 
-    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
+    Res Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxPrice, const std::pair<CFeeDir, CFeeDir>& asymmetricFee, std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, int height);
@@ -281,5 +283,8 @@ struct CRemoveLiquidityMessage {
         READWRITE(amount);
     }
 };
+
+bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir>& asymmetricFee);
+bool poolOutFee(const bool forward, const std::pair<CFeeDir, CFeeDir>& asymmetricFee);
 
 #endif // DEFI_MASTERNODES_POOLPAIRS_H

@@ -123,6 +123,7 @@ protected:
     std::set<CKeyID> genesisTeam;
 
     friend void ClearCheckpoints(CChainParams &params);
+    friend Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName);
 };
 
 const auto SMART_CONTRACT_DFIP_2201 = "DFIP2201";
