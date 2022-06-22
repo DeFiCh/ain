@@ -2409,28 +2409,28 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
 
 static const CRPCCommand commands[] =
 {
-//  category        name                     actor (function)        params
-//  -------------   ------------------------ ----------------------  ----------
-    {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
-    {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
-    {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
-    {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
-    {"accounts",    "sendutxosfrom",         &sendutxosfrom,         {"from", "to", "amount", "change"}},
-    {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
-    {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
-    {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
-    {"accounts",    "getaccounthistory",     &getaccounthistory,     {"owner", "blockHeight", "txn"}},
-    {"accounts",    "listburnhistory",       &listburnhistory,       {"options"}},
-    {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
-    {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
-    {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
-    {"accounts",    "getburninfo",           &getburninfo,           {}},
-    {"accounts",    "executesmartcontract",  &executesmartcontract,  {"name", "amount", "inputs"}},
-    {"accounts",    "futureswap",            &futureswap,            {"address", "amount", "destination", "inputs"}},
-    {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
-    {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
-    {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
-    {"hidden",    "logaccountbalances",        &logaccountbalances,        {"logfile", "rpcresult"}},
+//  category       name                     actor (function)        params
+//  -------------  ------------------------ ----------------------  ----------
+    {"accounts",   "listaccounts",             &listaccounts,              {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
+    {"accounts",   "getaccount",               &getaccount,                {"owner", "pagination", "indexed_amounts"}},
+    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup"}},
+    {"accounts",   "utxostoaccount",           &utxostoaccount,            {"amounts", "inputs"}},
+    {"accounts",   "sendutxosfrom",            &sendutxosfrom,             {"from", "to", "amount", "change"}},
+    {"accounts",   "accounttoaccount",         &accounttoaccount,          {"from", "to", "inputs"}},
+    {"accounts",   "accounttoutxos",           &accounttoutxos,            {"from", "to", "inputs"}},
+    {"accounts",   "listaccounthistory",       &listaccounthistory,        {"owner", "options"}},
+    {"accounts",   "getaccounthistory",        &getaccounthistory,         {"owner", "blockHeight", "txn"}},
+    {"accounts",   "listburnhistory",          &listburnhistory,           {"options"}},
+    {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
+    {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
+    {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
+    {"accounts",   "getburninfo",              &getburninfo,               {}},
+    {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
+    {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},
+    {"accounts",   "withdrawfutureswap",       &withdrawfutureswap,        {"address", "amount", "destination", "inputs"}},
+    {"accounts",   "listpendingfutureswaps",   &listpendingfutureswaps,    {}},
+    {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
+    {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
