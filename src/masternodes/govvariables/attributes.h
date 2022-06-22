@@ -72,6 +72,8 @@ enum TokenKeys : uint8_t  {
 enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
+    TokenAFeeDir = 'c',
+    TokenBFeeDir = 'd',
 };
 
 struct CDataStructureV0 {
@@ -128,10 +130,20 @@ struct CTokenPayback {
     }
 };
 
+struct CFeeDir {
+    uint8_t feeDir;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(feeDir);
+    }
+};
+
 ResVal<CScript> GetFutureSwapContractAddress();
 
 struct CDexTokenInfo {
-
     struct CTokenInfo {
         uint64_t swaps;
         uint64_t feeburn;
@@ -159,12 +171,18 @@ struct CDexTokenInfo {
     }
 };
 
+enum FeeDirValues : uint8_t {
+    Both,
+    In,
+    Out
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
 
 enum GovVarsFilter {
     All,

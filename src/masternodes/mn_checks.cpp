@@ -4304,8 +4304,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             return Res::Err("Pool currently disabled due to locked token");
         }
 
+        CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
+        CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
+        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto asymmetricFee = std::make_pair(dirA, dirB);
+      
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
-
         auto& balances = dexBalances[currentID];
         auto forward = swapAmount.nTokenId == pool->idTokenA;
 
@@ -4319,14 +4324,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         const auto initBlockCommission = blockCommission;
 
         // Perform swap
-        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
+        poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, asymmetricFee, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
             CTokenAmount dexfeeOutAmount{tokenAmount.nTokenId, 0};
 
             auto dexfeeOutPct = view.GetDexFeeOutPct(currentID, tokenAmount.nTokenId);
-            if (dexfeeOutPct > 0) {
+            if (dexfeeOutPct > 0 && poolOutFee(swapAmount.nTokenId == pool->idTokenA, asymmetricFee)) {
                 dexfeeOutAmount.nValue = MultiplyAmounts(tokenAmount.nValue, dexfeeOutPct);
                 swapAmountResult.nValue -= dexfeeOutAmount.nValue;
             }
