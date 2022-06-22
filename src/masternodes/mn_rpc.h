@@ -36,13 +36,13 @@ typedef enum {
 } AccountSelectionMode;
 
 enum class AmountFormat : uint8_t {
+        Unknown,
         // amount@0
-        Id = (1 << 0),
+        Id,
         // amount@DFI
-        Symbol = (2 << 1),
+        Symbol,
         // amount@0#DFI
-        Combined = (3 << 2),
-        Unknown = 0
+        Combined,
 };
 
 class CWalletCoinsUnlocker {
