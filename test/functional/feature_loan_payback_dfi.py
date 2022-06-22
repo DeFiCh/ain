@@ -385,6 +385,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         [balanceDFIBefore, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
         assert_equal(len(self.nodes[0].getaccount(burnAddress)), 1)
 
+        burn_before = self.nodes[0].getburninfo()['paybackburn']
+
         self.nodes[0].paybackloan({
             'vaultId': vaultId2,
             'from': account0,
@@ -392,9 +394,16 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        burn_after = self.nodes[0].getburninfo()['paybackburn']
+
+        dusd_amount = '0.00216423'
+
+        assert_equal(burn_before[0], burn_after[0])
+        assert_equal(burn_after[1], f'{dusd_amount}@{symboldUSD}')
+
         [balanceDFIAfter, _] = self.nodes[0].getaccount(burnAddress)[0].split('@')
         [balanceDUSDAfter, _] = self.nodes[0].getaccount(burnAddress)[1].split('@')
-        assert_equal(Decimal(balanceDUSDAfter), Decimal('0.00216423'))
+        assert_equal(Decimal(balanceDUSDAfter), Decimal(dusd_amount))
         assert_equal(Decimal(balanceDFIAfter) - Decimal(balanceDFIBefore), Decimal('0'))
 
         balanceDUSDBefore = balanceDUSDAfter
