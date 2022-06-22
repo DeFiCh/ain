@@ -174,7 +174,7 @@ static void searchInWallet(CWallet const * pwallet,
             if (!IsValidDestination(sent.destination)) {
                 continue;
             }
-            if (IsValidDestination(destination) && destination != sent.destination) {
+            if (IsValidDestination(destination) && account != GetScriptForDestination(sent.destination)) {
                 continue;
             }
             sent.amount = -sent.amount;
@@ -187,7 +187,7 @@ static void searchInWallet(CWallet const * pwallet,
             if (!IsValidDestination(recv.destination)) {
                 continue;
             }
-            if (IsValidDestination(destination) && destination != recv.destination) {
+            if (IsValidDestination(destination) && account != GetScriptForDestination(recv.destination)) {
                 continue;
             }
             if (!txEntry(recv, index, pwtx)) {
