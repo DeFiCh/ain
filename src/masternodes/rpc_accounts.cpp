@@ -2352,26 +2352,59 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
 }
 
 UniValue logaccountbalances(const JSONRPCRequest& request) {
-    RPCHelpMan{"logaccountbalances",
-               "\nLogs all account balances in accounts for debugging.\n",
-               {},
-               RPCResult{
-                       "{}     No RPC output. This will log account balances to the log. "
-                       "This is for debugging purposes only.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("logaccountbalances", "")
-               },
+    RPCHelpMan{
+        "logaccountbalances",
+        "\nLogs all account balances in accounts for debugging.\n",
+        {
+            {"logfile", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                "Log file (default = false), if set to true, prints to the log file, otherwise no log output"},
+            {"rpcresult", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                "RPC Result (default = true), if set to true, returns an RPC result, otherwise no RPC output"},
+        },
+        RPCResult{
+            "{...} (array) Json object with account balances if rpcresult is enabled."
+            "This is for debugging purposes only.\n"},
+        RPCExamples{
+            HelpExampleCli("logaccountbalances", "true true")},
     }.Check(request);
 
+    auto &p = request.params;
+    auto outToLog = false;
+    auto outToRpc = true;
+
+    if (p.size() > 0) { outToLog = p[0].get_bool(); }
+    if (p.size() > 1) { outToRpc = p[1].get_bool(); }
+
+    std::map<std::string, std::vector<CTokenAmount>> accounts; 
     auto iter = pcustomcsDB->NewIterator();
-    auto n = IterateKV<CAccountsView::ByBalanceKey, BalanceKey, CAmount>([](BalanceKey key, CAmount val) {
-        LogPrintf("AccountBalance: (%s: %d@%d)\n", ScriptToString(key.owner), val, key.tokenID.v);
+    auto n = IterateKV<CAccountsView::ByBalanceKey, BalanceKey, CAmount>([&](BalanceKey key, CAmount val) {
+        auto owner = ScriptToString(key.owner);
+        if (outToLog)
+            LogPrintf("AccountBalance: (%s: %d@%d)\n", owner, val, key.tokenID.v);
+        if (outToRpc)
+            accounts[owner].push_back(CTokenAmount{{key.tokenID.v}, val});
         return true;
     }, BalanceKey{}, std::move(iter));
-    LogPrintf("IndexStats: (balances: %d)\n", n);
 
-    return {};
+    if (outToLog)
+        LogPrintf("IndexStats: (balances: %d)\n", n);
+
+    if (!outToRpc)
+        return {};
+
+    UniValue result{UniValue::VOBJ};
+    UniValue accountsJson{UniValue::VOBJ};
+    for (auto &[key, v]: accounts) {
+        UniValue b{UniValue::VARR};
+        for (auto &item: v) {
+            b.push_back(item.ToString());
+        }
+        accountsJson.pushKV(key, b);
+    }
+
+    result.pushKV("accounts", accountsJson);
+    result.pushKV("count", n);
+    return result;
 }
 
 static const CRPCCommand commands[] =
@@ -2397,7 +2430,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
     {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
-    {"tokens",      "logaccountbalances",        &logaccountbalances,        {}},
+    {"accounts",    "logaccountbalances",        &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
