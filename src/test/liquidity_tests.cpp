@@ -1,4 +1,5 @@
 #include <chainparams.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/poolpairs.h>
 #include <validation.h>
@@ -7,6 +8,7 @@
 
 #include <boost/test/unit_test.hpp>
 
+std::pair<CFeeDir, CFeeDir> asymmetricFee{CFeeDir{FeeDirValues::Both}, CFeeDir{FeeDirValues::Both}};
 
 inline uint256 NextTx()
 {
@@ -135,11 +137,11 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK(!res.ok && res.msg == "amounts too low, zero liquidity");
 
         // we can't swap forward even 1 satoshi
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 1}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 1}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
 
         // and backward too
-        res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
+        res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
 
         // thats all, we can't place anything here until removing. trading disabled due to reserveB < SLOPE_SWAP_RATE
@@ -171,7 +173,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             return Res::Ok();
         });
         auto dexfeeInPct = 5 * COIN / 100;
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             auto trade = MultiplyAmounts(1000000, pool.commission);
             auto amount = 1000000 - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
@@ -191,7 +193,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             return Res::Ok();
         });
         auto dexfeeInPct = 1 * COIN / 100;
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             auto trade = MultiplyAmounts(2*COIN, pool.commission);
             auto amount = 2*COIN - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
@@ -211,7 +213,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
             return Res::Ok();
         });
         auto dexfeeInPct = 12 * COIN / 100;
-        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+        res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, dexfeeInPct, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             auto trade = MultiplyAmounts(2*COIN, pool.commission);
             auto amount = 2*COIN - trade;
             BOOST_CHECK_EQUAL(df.nValue, MultiplyAmounts(amount, dexfeeInPct));
@@ -229,7 +231,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(df.nValue, 0);
             BOOST_CHECK_EQUAL(ta.nValue, 49748743718); // pre-optimization: 49773755285
             return Res::Ok();
@@ -245,7 +247,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
-        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
+        res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, 0, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, asymmetricFee, [&] (CTokenAmount const &df, CTokenAmount const &ta) -> Res{
             BOOST_CHECK_EQUAL(df.nValue, 0);
             BOOST_CHECK_EQUAL(ta.nValue, 98902086); // pre-optimization: 99000000
             return Res::Ok();
