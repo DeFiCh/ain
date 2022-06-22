@@ -2430,7 +2430,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "withdrawfutureswap",    &withdrawfutureswap,    {"address", "amount", "destination", "inputs"}},
     {"accounts",    "listpendingfutureswaps",    &listpendingfutureswaps,    {}},
     {"accounts",    "getpendingfutureswaps",     &getpendingfutureswaps,     {"address"}},
-    {"accounts",    "logaccountbalances",        &logaccountbalances,        {"logfile", "rpcresult"}},
+    {"hidden",    "logaccountbalances",        &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 
 void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
