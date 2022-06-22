@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <core_io.h>
+
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
@@ -33,15 +35,15 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         txNew.vin[0].scriptSig = CScript(); // << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
 
         CTxDestination operatorDest = DecodeDestination(addrs.operatorAddress, *this);
-        assert(operatorDest.which() == PKHashType || operatorDest.which() == WitV0KeyHashType);
+        assert(operatorDest.index() == PKHashType || operatorDest.index() == WitV0KeyHashType);
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
-        assert(ownerDest.which() == PKHashType || ownerDest.which() == WitV0KeyHashType);
+        assert(ownerDest.index() == PKHashType || ownerDest.index() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        CKeyID operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest)) ;
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-                 << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+                 << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
         CScript scriptMeta;
         scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -133,6 +135,7 @@ public:
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
+        consensus.FortCanningGardensHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -367,6 +370,7 @@ public:
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
         consensus.FortCanningCrunchHeight = 1011600;
+        consensus.FortCanningGardensHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -558,6 +562,7 @@ public:
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
         consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningGardensHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -741,6 +746,7 @@ public:
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
         consensus.FortCanningCrunchHeight = 10000000;
+        consensus.FortCanningGardensHeight = 10000000;
         consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -962,6 +968,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
     UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
+    UpdateHeightValidation("Fort Canning Gardens", "-fortcanninggardensheight", consensus.FortCanningGardensHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
@@ -1066,4 +1073,39 @@ void SelectParams(const std::string& network)
 
 void ClearCheckpoints(CChainParams &params) {
     params.checkpointData = {};
+}
+
+Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
+    std::ifstream file(fileName);
+    if (!file.good()) {
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
+    }
+
+    ClearCheckpoints(params);
+
+    std::string line;
+    while (std::getline(file, line)) {
+        auto trimmed = trim_ws(line);
+        if (trimmed.rfind('#', 0) == 0 || trimmed.find_first_not_of(" \n\r\t") == std::string::npos)
+            continue;
+
+        std::istringstream iss(trimmed);
+        std::string hashStr, heightStr;
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", trimmed);
+        }
+
+        uint256 hash;
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
+
+        int32_t height;
+        if (!ParseInt32(heightStr, &height)) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
+
+        params.checkpointData.mapCheckpoints[height] = hash;
+    }
+    return Res::Ok();
 }
