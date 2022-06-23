@@ -6,8 +6,8 @@
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/masternodes.h> /// CCustomCSView
-#include <masternodes/mn_checks.h> /// GetAggregatePrice
-#include <masternodes/mn_checks.h> /// CustomTxType
+#include <masternodes/mn_checks.h> /// GetAggregatePrice / CustomTxType
+#include <validation.h> /// GetNextAccPosition
 
 #include <amount.h> /// GetDecimaleString
 #include <core_io.h> /// ValueFromAmount
@@ -77,6 +77,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
         {"dfip2201",    ParamIDs::DFIP2201},
         {"dfip2203",    ParamIDs::DFIP2203},
+        {"dfip2206a",    ParamIDs::DFIP2206A},
     };
     return params;
 }
@@ -92,6 +93,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
+        {ParamIDs::DFIP2206A,    "dfip2206a"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
     };
@@ -140,11 +142,13 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         },
         {
             AttributeTypes::Param, {
-                {"active",              DFIPKeys::Active},
-                {"minswap",             DFIPKeys::MinSwap},
-                {"premium",             DFIPKeys::Premium},
-                {"reward_pct",          DFIPKeys::RewardPct},
-                {"block_period",        DFIPKeys::BlockPeriod},
+                {"active",                      DFIPKeys::Active},
+                {"minswap",                     DFIPKeys::MinSwap},
+                {"premium",                     DFIPKeys::Premium},
+                {"reward_pct",                  DFIPKeys::RewardPct},
+                {"block_period",                DFIPKeys::BlockPeriod},
+                {"direct_interest_dusd_burn",   DFIPKeys::DirectInterestDUSDBurn},
+                {"direct_loan_dusd_burn",       DFIPKeys::DirectLoanDUSDBurn},
             }
         },
     };
@@ -182,11 +186,13 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,       "active"},
-                {DFIPKeys::Premium,      "premium"},
-                {DFIPKeys::MinSwap,      "minswap"},
-                {DFIPKeys::RewardPct,    "reward_pct"},
-                {DFIPKeys::BlockPeriod,  "block_period"},
+                {DFIPKeys::Active,                  "active"},
+                {DFIPKeys::Premium,                 "premium"},
+                {DFIPKeys::MinSwap,                 "minswap"},
+                {DFIPKeys::RewardPct,               "reward_pct"},
+                {DFIPKeys::BlockPeriod,             "block_period"},
+                {DFIPKeys::DirectInterestDUSDBurn,  "direct_interest_dusd_burn"},
+                {DFIPKeys::DirectLoanDUSDBurn,      "direct_loan_dusd_burn"},
             }
         },
         {
@@ -338,11 +344,13 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,       VerifyBool},
-                {DFIPKeys::Premium,      VerifyPct},
-                {DFIPKeys::MinSwap,      VerifyFloat},
-                {DFIPKeys::RewardPct,    VerifyPct},
-                {DFIPKeys::BlockPeriod,  VerifyInt64},
+                {DFIPKeys::Active,                  VerifyBool},
+                {DFIPKeys::Premium,                 VerifyPct},
+                {DFIPKeys::MinSwap,                 VerifyFloat},
+                {DFIPKeys::RewardPct,               VerifyPct},
+                {DFIPKeys::BlockPeriod,             VerifyInt64},
+                {DFIPKeys::DirectInterestDUSDBurn,  VerifyBool},
+                {DFIPKeys::DirectLoanDUSDBurn,      VerifyBool},
             }
         },
         {
@@ -418,7 +426,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     if (type == AttributeTypes::Param) {
         auto id = allowedParamIDs().find(keys[2]);
         if (id == allowedParamIDs().end()) {
-            return ::ShowError("params", allowedParamIDs());
+            return ::ShowError("param", allowedParamIDs());
         }
         typeId = id->second;
     } else if (type == AttributeTypes::Locks) {
@@ -469,20 +477,25 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
 
         if (type == AttributeTypes::Param) {
             if (typeId == ParamIDs::DFIP2201) {
-                if (typeKey == DFIPKeys::RewardPct ||
-                    typeKey == DFIPKeys::BlockPeriod) {
+                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::Premium  &&
+                    typeKey != DFIPKeys::MinSwap ) {
                     return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::DFIP2203) {
-                if (typeKey == DFIPKeys::Premium ||
-                    typeKey == DFIPKeys::MinSwap) {
+                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::RewardPct &&
+                    typeKey != DFIPKeys::BlockPeriod) {
                     return Res::Err("Unsupported type for DFIP2203 {%d}", typeKey);
                 }
 
                 if (typeKey == DFIPKeys::BlockPeriod) {
                     futureBlockUpdated = true;
                 }
-            } else {
+            } else if (typeId == ParamIDs::DFIP2206A) {
+                if (typeKey != DFIPKeys::DirectInterestDUSDBurn &&
+                    typeKey != DFIPKeys::DirectLoanDUSDBurn) {
+                    return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
+                }
+            }  else {
                 return Res::Err("Unsupported Param ID");
             }
         }
@@ -548,22 +561,25 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
-    auto txn = std::numeric_limits<uint32_t>::max();
+    CAccountHistoryStorage* historyStore{mnview.GetAccountHistoryStore()};
+    const auto currentHeight = mnview.GetLastHeight() + 1;
 
     for (const auto& [key, value] : userFuturesValues) {
 
         mnview.EraseFuturesUserValues(key);
 
-        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CHistoryWriters subWriters{historyStore, nullptr, nullptr};
+        CAccountsHistoryWriter subView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+
         auto res = subView.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }
         subView.Flush();
 
-        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CHistoryWriters addWriters{historyStore, nullptr, nullptr};
+        CAccountsHistoryWriter addView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+
         res = addView.AddBalance(key.owner, value.source);
         if (!res) {
             return res;
@@ -886,10 +902,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2203) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
+                if (attrV0->typeId == ParamIDs::DFIP2206A) {
+                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningGardensHeight)
+                        return Res::Err("Cannot be set before FortCanningGarden");
+                } else if (attrV0->typeId == ParamIDs::DFIP2203) {
+                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight)
                         return Res::Err("Cannot be set before FortCanningRoad");
-                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
