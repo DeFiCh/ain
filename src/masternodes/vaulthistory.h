@@ -183,6 +183,7 @@ public:
 class CVaultHistoryStorage : public CVaultHistoryView
 {
 public:
+    CVaultHistoryStorage(CVaultHistoryStorage& vaultHistory) : CStorageView(new CFlushableStorageKV(vaultHistory.DB())) {}
     CVaultHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
