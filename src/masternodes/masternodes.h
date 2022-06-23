@@ -29,8 +29,10 @@
 #include <set>
 #include <stdint.h>
 
+class CAccountHistoryStorage;
 class CBlockIndex;
 class CTransaction;
+class CVaultHistoryStorage;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay(int height);
@@ -197,8 +199,6 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-    Res UnCreateMasternode(uint256 const & nodeId);
-    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
     Res RemForcedRewardAddress(uint256 const & nodeId, int height);
     Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
@@ -386,27 +386,19 @@ private:
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
+    std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
+    std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 
-    CCustomCSView()
-    {
-        CheckPrefixes();
-    }
-
-    CCustomCSView(CStorageKV & st)
-        : CStorageView(new CFlushableStorageKV(st))
-    {
-        CheckPrefixes();
-    }
+    CCustomCSView();
+    explicit CCustomCSView(CStorageKV & st);
 
     // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB()))
-    {
-        CheckPrefixes();
-    }
+    CCustomCSView(CCustomCSView & other);
+
+    ~CCustomCSView();
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
@@ -446,6 +438,11 @@ public:
     CFlushableStorageKV& GetStorage() {
         return static_cast<CFlushableStorageKV&>(DB());
     }
+
+    virtual CAccountHistoryStorage* GetAccountHistoryStore();
+    CVaultHistoryStorage* GetVaultHistoryStore();
+    void SetAccountHistoryStore();
+    void SetVaultHistoryStore();
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

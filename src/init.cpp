@@ -394,7 +394,8 @@ void SetupServerArgs()
     std::vector<std::string> hidden_args = {
         "-dbcrashratio", "-forcecompactdb",
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
-        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
+        "-checkpoints-file",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -1120,6 +1121,14 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
+
+    auto checkpoints_file = gArgs.GetArg("-checkpoints-file", "");
+    if (!checkpoints_file.empty()) {
+        auto res = UpdateCheckpointsFromFile(const_cast<CChainParams&>(chainparams), checkpoints_file);
+        if (!res)
+            return InitError(strprintf(_("Error in checkpoints file : %s").translated, res.msg));
+    }
+
     if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
         LogPrintf("conf: checkpoints disabled.\n");
         // Safe to const_cast, as we know it's always allocated, and is always in the global var
@@ -1711,10 +1720,12 @@ bool AppInitMain(InitInterfaces& interfaces)
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
                     paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB->CreateMultiIndexIfNeeded();
                 }
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB->CreateMultiIndexIfNeeded();
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
