@@ -1811,7 +1811,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
 
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated || 
+        if (kv.first == CommunityAccountType::Unallocated ||
             kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
             burnt += view.GetCommunityBalance(kv.first);
@@ -2360,7 +2360,7 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     if (p.size() > 0) { outToLog = p[0].get_bool(); }
     if (p.size() > 1) { outToRpc = p[1].get_bool(); }
 
-    std::map<std::string, std::vector<CTokenAmount>> accounts; 
+    std::map<std::string, std::vector<CTokenAmount>> accounts;
     auto iter = pcustomcsDB->NewIterator();
     auto n = IterateKV<CAccountsView::ByBalanceKey, BalanceKey, CAmount>([&](BalanceKey key, CAmount val) {
         auto owner = ScriptToString(key.owner);
@@ -2388,7 +2388,7 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     }
 
     result.pushKV("accounts", accountsJson);
-    result.pushKV("count", n);
+    result.pushKV("count", static_cast<uint64_t>(n));
     return result;
 }
 
