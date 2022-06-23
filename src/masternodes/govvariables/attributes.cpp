@@ -6,8 +6,8 @@
 
 #include <masternodes/accountshistory.h> /// CAccountsHistoryWriter
 #include <masternodes/masternodes.h> /// CCustomCSView
-#include <masternodes/mn_checks.h> /// GetAggregatePrice
-#include <masternodes/mn_checks.h> /// CustomTxType
+#include <masternodes/mn_checks.h> /// GetAggregatePrice / CustomTxType
+#include <validation.h> /// GetNextAccPosition
 
 #include <amount.h> /// GetDecimaleString
 #include <core_io.h> /// ValueFromAmount
@@ -548,22 +548,25 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
     auto balances = GetValue(liveKey, CBalances{});
 
-    auto txn = std::numeric_limits<uint32_t>::max();
+    CAccountHistoryStorage* historyStore{mnview.GetAccountHistoryStore()};
+    const auto currentHeight = mnview.GetLastHeight() + 1;
 
     for (const auto& [key, value] : userFuturesValues) {
 
         mnview.EraseFuturesUserValues(key);
 
-        CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CHistoryWriters subWriters{historyStore, nullptr, nullptr};
+        CAccountsHistoryWriter subView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+
         auto res = subView.SubBalance(*contractAddressValue, value.source);
         if (!res) {
             return res;
         }
         subView.Flush();
 
-        CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(mnview, height, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CHistoryWriters addWriters{historyStore, nullptr, nullptr};
+        CAccountsHistoryWriter addView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+
         res = addView.AddBalance(key.owner, value.source);
         if (!res) {
             return res;

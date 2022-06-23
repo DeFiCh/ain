@@ -1715,9 +1715,13 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
+    pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
+    if (paccountHistoryDB) {
+        paccountHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
+    }
+
     if (pindex->nHeight >= Params().GetConsensus().FortCanningHeight) {
         // erase auction fee history
-        pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
         if (paccountHistoryDB) {
             paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
         }
@@ -1832,11 +1836,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // process transactions revert for masternodes
         mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        CHistoryErasers erasers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, erasers);
-        if (!res) {
-            LogPrintf("%s\n", res.msg);
-        }
     }
 
     // one time downgrade to revert CInterestRateV2 structure
@@ -1853,7 +1852,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // Make sure to initialize lastTxOut, otherwise it never finds the block and
         // ends up looping through uninitialized garbage value.
         uint32_t lastTxOut = 0;
-        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
+        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
         {
             if (key.owner != Params().GetConsensus().burnAddress) {
                 return false;
@@ -1869,7 +1868,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         };
 
         AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
-        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory,
+                                              Params().GetConsensus().burnAddress,
+                                              Params().GetConsensus().EunosHeight);
 
         for (uint32_t i = block.vtx.size(); i <= lastTxOut; ++i) {
             pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
@@ -2189,11 +2190,16 @@ static int64_t nBlocksTotal = 0;
 
 // Holds position for burn TXs appended to block in burn history
 static std::vector<CTransactionRef>::size_type nPhantomBurnTx{0};
+static uint32_t nPhantomAccTx{};
 
 static std::map<CScript, CBalances> mapBurnAmounts;
 
 static uint32_t GetNextBurnPosition() {
     return nPhantomBurnTx++;
+}
+
+uint32_t GetNextAccPosition() {
+    return nPhantomAccTx--;
 }
 
 // Burn non-transaction amounts, that is burns that are not sent directly to the burn address
@@ -2480,6 +2486,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
+
+    // Reset phantom TX to end of block TX count
+    nPhantomAccTx = std::numeric_limits<uint32_t>::max();
 
     // Wipe burn map, we only want TXs added during ConnectBlock
     mapBurnAmounts.clear();
@@ -3562,15 +3571,13 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     std::set<CFuturesUserKey> deletionPending;
 
-    auto txn = std::numeric_limits<uint32_t>::max();
-
     auto dUsdToTokenSwapsCounter = 0;
     auto tokenTodUsdSwapsCounter = 0;
 
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
         CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
 
         deletionPending.insert(key);
 
@@ -3636,12 +3643,12 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     for (const auto& [key, value] : unpaidContracts) {
 
         CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
         subView.SubBalance(*contractAddressValue, value.source);
         subView.Flush();
 
         CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
         addView.AddBalance(key.owner, value.source);
         addView.Flush();
 
@@ -4035,10 +4042,14 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (owner != Params().GetConsensus().burnAddress) {
-                    res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
+                    CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                    res = subView.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                     if (!res.ok) {
                         throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
                     }
+                    subView.Flush();
                 }
 
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
@@ -4068,9 +4079,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     totalBalance += amountB;
                 }
 
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
                 auto refundBalances = [&, owner = owner]() {
-                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
-                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    addView.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.Flush();
                 };
 
                 if (amountA <= 0 || amountB <= 0 || owner == Params().GetConsensus().burnAddress) {
@@ -4111,11 +4126,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     continue;
                 }
 
-                res = view.AddBalance(owner, {newPoolId, liquidity});
+                res = addView.AddBalance(owner, {newPoolId, liquidity});
                 if (!res) {
+                    addView.Discard();
                     refundBalances();
                     continue;
                 }
+                addView.Flush();
 
                 auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
                 auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
@@ -4254,6 +4271,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         res = view.AddLoanToken(vaultId, newTokenAmount);
         if (!res) {
             return res;
+        }
+
+        if (view.GetVaultHistoryStore()) {
+            if (const auto vault = view.GetVault(vaultId)) {
+                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(subKey, subValue);
+
+                VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(addKey, addValue);
+            }
         }
     }
 
@@ -4402,6 +4431,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         auto view{cache};
+        view.SetAccountHistoryStore();
+        view.SetVaultHistoryStore();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4495,14 +4526,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        CAccounts addAccounts;
-        CAccounts subAccounts;
+        std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
-                addAccounts[owner].Add({newTokenId, newBalance});
-                subAccounts[owner].Add(balance);
+                balanceUpdates.emplace(owner, std::pair<CTokenAmount, CTokenAmount>{{newTokenId, newBalance}, balance});
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
@@ -4514,8 +4543,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         });
 
         LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        "(id: %d, symbol: %s, accounts: %d, val: %d)\n",
+        id, newToken.symbol, balanceUpdates.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
@@ -4524,18 +4553,26 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         try {
-            for (const auto& [owner, balances] : addAccounts) {
-                res = view.AddBalances(owner, balances);
-                if (!res) {
-                    throw std::runtime_error(res.msg);
-                }
-            }
 
-            for (const auto& [owner, balances] : subAccounts) {
-                res = view.SubBalances(owner, balances);
+            for (const auto& [owner, balances] : balanceUpdates) {
+
+                CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                res = subView.SubBalance(owner, balances.second);
                 if (!res) {
                     throw std::runtime_error(res.msg);
                 }
+                subView.Flush();
+
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
+                res = addView.AddBalance(owner, balances.first);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+                addView.Flush();
             }
         } catch (const std::runtime_error& e) {
             LogPrintf("Token split failed. %s\n", res.msg);
@@ -4574,6 +4611,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
         view.SetVariable(*attributes);
         view.Flush();
+        if (auto accountHistory = view.GetAccountHistoryStore()) {
+            accountHistory->Flush();
+        }
+        if (auto vaultHistory = view.GetVaultHistoryStore()) {
+            vaultHistory->Flush();
+        }
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
