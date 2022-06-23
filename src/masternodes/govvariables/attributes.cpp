@@ -77,7 +77,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
         {"dfip2201",    ParamIDs::DFIP2201},
         {"dfip2203",    ParamIDs::DFIP2203},
-        {"dfip2206",    ParamIDs::DFIP2206},
+        {"dfip2206a",    ParamIDs::DFIP2206A},
     };
     return params;
 }
@@ -93,7 +93,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
-        {ParamIDs::DFIP2206,    "dfip2206"},
+        {ParamIDs::DFIP2206A,    "dfip2206a"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
     };
@@ -473,10 +473,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (typeKey == DFIPKeys::BlockPeriod) {
                     futureBlockUpdated = true;
                 }
-            } else if (typeId == ParamIDs::DFIP2206) {
+            } else if (typeId == ParamIDs::DFIP2206A) {
                 if (typeKey != DFIPKeys::DirectInterestDUSDBurn &&
                     typeKey != DFIPKeys::DirectLoanDUSDBurn) {
-                    return Res::Err("Unsupported type for DFIP2206 {%d}", typeKey);
+                    return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
             }  else {
                 return Res::Err("Unsupported Param ID");
@@ -868,7 +868,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2206) {
+                if (attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningGardensHeight)
                         return Res::Err("Cannot be set before FortCanningGarden");
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {

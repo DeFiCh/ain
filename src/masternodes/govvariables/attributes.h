@@ -28,7 +28,7 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
-    DFIP2206  = 'f',
+    DFIP2206A = 'f',
 };
 
 enum OracleIDs : uint8_t  {
