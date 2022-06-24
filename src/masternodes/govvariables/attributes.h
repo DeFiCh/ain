@@ -53,8 +53,8 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DirectInterestDUSDBurn  = 'g',
-    DirectLoanDUSDBurn      = 'h',
+    DUSDInterestBurn  = 'g',
+    DUSDLoanBurn      = 'h',
     StartBlock              = 'i',
 };
 

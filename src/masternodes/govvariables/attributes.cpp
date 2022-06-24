@@ -149,8 +149,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"premium",                     DFIPKeys::Premium},
                 {"reward_pct",                  DFIPKeys::RewardPct},
                 {"block_period",                DFIPKeys::BlockPeriod},
-                {"direct_interest_dusd_burn",   DFIPKeys::DirectInterestDUSDBurn},
-                {"direct_loan_dusd_burn",       DFIPKeys::DirectLoanDUSDBurn},
+                {"dusd_interest_burn",          DFIPKeys::DUSDInterestBurn},
+                {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
             }
         },
@@ -194,8 +194,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MinSwap,                 "minswap"},
                 {DFIPKeys::RewardPct,               "reward_pct"},
                 {DFIPKeys::BlockPeriod,             "block_period"},
-                {DFIPKeys::DirectInterestDUSDBurn,  "direct_interest_dusd_burn"},
-                {DFIPKeys::DirectLoanDUSDBurn,      "direct_loan_dusd_burn"},
+                {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
+                {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
             }
         },
@@ -356,8 +356,8 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MinSwap,                 VerifyFloat},
                 {DFIPKeys::RewardPct,               VerifyPct},
                 {DFIPKeys::BlockPeriod,             VerifyInt64},
-                {DFIPKeys::DirectInterestDUSDBurn,  VerifyBool},
-                {DFIPKeys::DirectLoanDUSDBurn,      VerifyBool},
+                {DFIPKeys::DUSDInterestBurn,  VerifyBool},
+                {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
             }
         },
@@ -505,8 +505,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     }
                 }
             } else if (typeId == ParamIDs::DFIP2206A) {
-                if (typeKey != DFIPKeys::DirectInterestDUSDBurn &&
-                    typeKey != DFIPKeys::DirectLoanDUSDBurn) {
+                if (typeKey != DFIPKeys::DUSDInterestBurn &&
+                    typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
             }  else {

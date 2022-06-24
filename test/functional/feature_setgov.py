@@ -784,16 +784,16 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/premium': '0.025'}})
         assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/minswap': '0.025'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
-        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'not_a_bool'}})
-        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_loan_dusd_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'not_a_bool'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'true', 'v0/params/dfip2206a/direct_loan_dusd_burn':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/params/dfip2206a/dusd_loan_burn':'true'}})
         self.nodes[0].generate(1)
 
         # Verify FCR results
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result['v0/params/dfip2206a/direct_interest_dusd_burn'], 'true')
-        assert_equal(result['v0/params/dfip2206a/direct_loan_dusd_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206a/dusd_interest_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206a/dusd_loan_burn'], 'true')
 
         # Set fee direction Gov vars
         self.nodes[0].setgov({"ATTRIBUTES":{
