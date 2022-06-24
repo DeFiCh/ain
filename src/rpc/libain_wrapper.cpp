@@ -67,7 +67,7 @@ void setScriptPubKey(const CScript& scriptPubKey, bool fIncludeHex, PubKey* resu
         return;
     }
 
-    result->req_sigs = nRequired;
+    result->req_sigs = static_cast<int32_t>(nRequired);
     result->field_type = GetTxnOutputType(type);
 
     for (const CTxDestination& addr : addresses) {
@@ -87,13 +87,13 @@ void setTransaction(const CTransaction& tx, const uint256& hashBlock, bool inclu
 
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
-        Vin vin;
+        auto vin = MakeVin();
 
         if (tx.IsCoinBase())
             vin.coinbase = HexStr(txin.scriptSig.begin(), txin.scriptSig.end());
         else {
             vin.txid = txin.prevout.hash.GetHex();
-            vin.vout = (uint32_t)txin.prevout.n;
+            vin.vout = txin.prevout.n;
             vin.script_sig.field_asm = ScriptToAsmStr(txin.scriptSig, true);
             vin.script_sig.hex = HexStr(txin.scriptSig.begin(), txin.scriptSig.end());
             if (!tx.vin[i].scriptWitness.IsNull()) {
@@ -108,10 +108,10 @@ void setTransaction(const CTransaction& tx, const uint256& hashBlock, bool inclu
 
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
-        Vout vout;
+        auto vout = MakeVout();
 
         vout.value = FromAmount(txout.nValue);
-        vout.n = (uint64_t)i;
+        vout.n = static_cast<uint64_t>(i);
 
         setScriptPubKey(txout.scriptPubKey, true, &vout.script_pub_key);
         // Start to print tokenId start from version TOKENS_MIN_VERSION
@@ -139,8 +139,8 @@ void setBlock(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* bl
     result->confirmations = (int64_t)::ComputeNextBlockAndDepth(tip, blockindex, pnext);
     result->strippedsize = (uint64_t)::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     result->size = (uint64_t)::GetSerializeSize(block, PROTOCOL_VERSION);
-    result->weight = (uint64_t)::GetBlockWeight(block);
-    result->height = (uint64_t)blockindex->nHeight;
+    result->weight = static_cast<uint64_t>(::GetBlockWeight(block));
+    result->height = static_cast<uint64_t>(blockindex->nHeight);
 
     CKeyID minter;
     block.ExtractMinterKey(minter);
@@ -155,13 +155,13 @@ void setBlock(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* bl
     }
     result->minted_blocks = blockindex->mintedBlocks;
     result->stake_modifier = blockindex->stakeModifier.ToString();
-    result->version = (uint64_t)block.nVersion;
+    result->version = static_cast<uint64_t>(block.nVersion);
     result->version_hex = strprintf("%08x", block.nVersion);
     result->merkleroot = block.hashMerkleRoot.GetHex();
 
     if (blockindex->nHeight >= Params().GetConsensus().AMKHeight) {
         CAmount blockReward = GetBlockSubsidy(blockindex->nHeight, Params().GetConsensus());
-        NonUtxo nonutxo;
+        auto nonutxo = MakeNonUtxo();
 
         if (blockindex->nHeight >= Params().GetConsensus().EunosHeight) {
             CAmount burnt{0};
@@ -187,12 +187,12 @@ void setBlock(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* bl
         result->nonutxo.push_back(nonutxo);
     }
 
-    result->time = (uint64_t)block.GetBlockTime();
-    result->mediantime = (uint64_t)blockindex->GetMedianTimePast();
+    result->time = static_cast<uint64_t>(block.GetBlockTime());
+    result->mediantime = static_cast<uint64_t>(blockindex->GetMedianTimePast());
     result->bits = strprintf("%08x", block.nBits);
     result->difficulty = GetDifficulty(blockindex);
     result->chainwork = blockindex->nChainWork.GetHex();
-    result->n_tx = (uint64_t)blockindex->nTx;
+    result->n_tx = static_cast<uint64_t>(blockindex->nTx);
 
     if (blockindex->pprev)
         result->previous_block_hash = blockindex->pprev->GetBlockHash().GetHex();
@@ -200,7 +200,7 @@ void setBlock(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* bl
         result->next_block_hash = pnext->GetBlockHash().GetHex();
 
     for (const auto& tx : block.vtx) {
-        Transaction txn;
+        auto txn = MakeTransaction();
         if (txDetails) {
             setTransaction(*tx, uint256(), true, GetRPCSerializationFlags(), &txn.raw);
         } else {
