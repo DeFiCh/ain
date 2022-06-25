@@ -3316,7 +3316,7 @@ public:
                     if (subInterest)
                     {
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
-                        res = SwapToDFIOverUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
+                        res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
                     }
                 }
                 else
@@ -3375,7 +3375,10 @@ public:
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
-                        res = SwapToDFIOverUSD(mnview, paybackTokenId, subInToken, obj.from, consensus.burnAddress, height);
+                        CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DirectLoanDUSDBurn};
+                        auto directLoanBurn = attributes->GetValue(directBurnKey, false);
+
+                        res = SwapToDFIorDUSD(mnview, paybackTokenId, subInToken, obj.from, consensus.burnAddress, height, !directLoanBurn);
                     }
                 }
 
@@ -4078,7 +4081,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     return poolResult;
 }
 
-Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
+Res  SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap)
 {
     CPoolSwapMessage obj;
 
@@ -4099,9 +4102,28 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
 
+    const auto attributes = mnview.GetAttributes();
+    if (!attributes) {
+        return Res::Err("Attributes unavailable");
+    }
+    CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DirectInterestDUSDBurn};
+
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {
-        return poolSwap.ExecuteSwap(mnview, {});
+        if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false))
+        {
+            // direct burn dUSD
+            CTokenAmount dUSD{dUsdToken->first, amount};
+
+            auto res = mnview.SubBalance(from, dUSD);
+            if (!res)
+                return res;
+
+            return mnview.AddBalance(to, dUSD);
+        }
+        else
+            // swap dUSD -> DFI and burn DFI
+            return poolSwap.ExecuteSwap(mnview, {});
     }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
@@ -4112,10 +4134,16 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!poolTokendUSD)
         return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
 
-    // swap tokenID -> USD -> DFI
-    auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
+    if (to == Params().GetConsensus().burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false))
+    {
+        obj.idTokenTo = dUsdToken->first;
 
-    return res;
+        // swap tokenID -> dUSD and burn dUSD
+        return poolSwap.ExecuteSwap(mnview, {});
+    }
+    else
+        // swap tokenID -> dUSD -> DFI and burn DFI
+        return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
 }
 
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
