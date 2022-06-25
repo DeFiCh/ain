@@ -1771,13 +1771,13 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burntDFI{0};
     CAmount burntFee{0};
     CAmount auctionFee{0};
-    CAmount paybackFee{0};
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
 
     CBalances burntTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
+    CBalances paybackFee;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
     CBalances dfipaybacktokens;
@@ -1838,8 +1838,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         // withdraw burn
         if (value.category == uint8_t(CustomTxType::PaybackLoan)
         || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
-            for (auto const & diff : value.diff) {
-                paybackFee += diff.second;
+            for (const auto& [id, amount] : value.diff) {
+                paybackFee.Add({id, amount});
             }
             return true;
         }
@@ -1874,7 +1874,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
     result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));
     result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
 
     result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));

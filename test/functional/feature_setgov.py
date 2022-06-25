@@ -639,7 +639,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_enabled':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before FortCanningCrunch", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_minting_interest':'5.00000000'}})
 
-        # Move to GW fork
+        # Move to FCC fork
         self.nodes[0].generate(1200 - self.nodes[0].getblockcount())
 
         # Check errors
@@ -770,6 +770,16 @@ class GovsetTest (DefiTestFramework):
 
         # Test invalid calls
         assert_raises_rpc_error(-5, "Fee direction value must be both, in or out", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_a_fee_direction': 'invalid'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_loan_dusd_burn':'not_a_bool'}})
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'true', 'v0/params/dfip2206a/direct_loan_dusd_burn':'true'}})
+        self.nodes[0].generate(1)
+
+        # Verify FCR results
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/params/dfip2206a/direct_interest_dusd_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206a/direct_loan_dusd_burn'], 'true')
 
         # Set fee direction Gov vars
         self.nodes[0].setgov({"ATTRIBUTES":{

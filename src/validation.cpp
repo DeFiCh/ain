@@ -3413,7 +3413,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
+                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
                         chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
@@ -3431,7 +3431,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
 
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
                     auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
