@@ -135,7 +135,7 @@ public:
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
-        consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -372,7 +372,7 @@ public:
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
         consensus.FortCanningCrunchHeight = 1011600;
-        consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningSpringHeight = 1071000;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
