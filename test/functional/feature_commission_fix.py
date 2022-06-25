@@ -15,9 +15,9 @@ class CommissionFixTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.great_world = 200
+        self.fortcanninggardens = 200
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', f'-greatworldheight={self.great_world}', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', f'-fortcanninggardensheight={self.fortcanninggardens}', '-subsidytest=1']]
 
     def run_test(self):
         # Set up test tokens
@@ -211,7 +211,7 @@ class CommissionFixTest(DefiTestFramework):
         assert_equal(result[f'{self.idGD}']['reserveA'], Decimal('0'))
 
         # Move to fork
-        self.nodes[0].generate(self.great_world - self.nodes[0].getblockcount())
+        self.nodes[0].generate(self.fortcanninggardens - self.nodes[0].getblockcount())
 
         # Add pool liquidity
         self.nodes[0].addpoolliquidity({
