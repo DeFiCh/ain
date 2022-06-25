@@ -574,8 +574,8 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/block_period':'-1'}})
         assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/dfip2203':'not_a_bool'}})
         assert_raises_rpc_error(-32600, "No such loan token", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/4/dfip2203':'true'}})
-        assert_raises_rpc_error(-5, "Unsupported type for DFIP2203", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/premium': '0.025'}})
-        assert_raises_rpc_error(-5, "Unsupported type for DFIP2203", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/minswap': '0.025'}})
+        assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/premium': '0.025'}})
+        assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/minswap': '0.025'}})
 
         # Test setting FCR ATTRBIUTES
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/reward_pct':'0.05','v0/params/dfip2203/block_period':'20160','v0/token/5/dfip2203':'true'}})
@@ -688,8 +688,8 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check locks
-        attriutes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attriutes['v0/locks/token/5'], 'true')
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/locks/token/5'], 'true')
 
         # Set loan token for 4
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/4/fixed_interval_price_id':'TSLA/USD', f'v0/token/4/loan_minting_enabled':'true', f'v0/token/4/loan_minting_interest':'1'}})
@@ -764,22 +764,36 @@ class GovsetTest (DefiTestFramework):
         # Try and set Gov vars before fork
         assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_a_fee_direction': 'both'}})
         assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_b_fee_direction': 'both'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/active':'true'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/reward_pct':'0.05'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/block_period':'2880'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before FortCanningGardensHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/start_block':'0'}})
 
         # Move to fork
         self.nodes[0].generate(1250 - self.nodes[0].getblockcount())
 
         # Test invalid calls
         assert_raises_rpc_error(-5, "Fee direction value must be both, in or out", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/poolpairs/3/token_a_fee_direction': 'invalid'}})
-        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'not_a_bool'}})
-        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/direct_loan_dusd_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/active':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/reward_pct':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/reward_pct':'-1'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/reward_pct':'2'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/block_period':'not_a_number'}})
+        assert_raises_rpc_error(-5, "Value must be a positive integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/block_period':'-1'}})
+        assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/premium': '0.025'}})
+        assert_raises_rpc_error(-5, "Unsupported type for this DFIP", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/minswap': '0.025'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'not_a_bool'}})
+        assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'not_a_bool'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'true', 'v0/params/dfip2206a/direct_loan_dusd_burn':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/params/dfip2206a/dusd_loan_burn':'true'}})
         self.nodes[0].generate(1)
 
         # Verify FCR results
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(result['v0/params/dfip2206a/direct_interest_dusd_burn'], 'true')
-        assert_equal(result['v0/params/dfip2206a/direct_loan_dusd_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206a/dusd_interest_burn'], 'true')
+        assert_equal(result['v0/params/dfip2206a/dusd_loan_burn'], 'true')
 
         # Set fee direction Gov vars
         self.nodes[0].setgov({"ATTRIBUTES":{
@@ -816,6 +830,41 @@ class GovsetTest (DefiTestFramework):
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'out')
         assert_equal(result['v0/poolpairs/3/token_b_fee_direction'], "out")
+
+        # Test setting ATTRBIUTES
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206f/reward_pct':'0.05','v0/params/dfip2206f/block_period':'20160'}})
+        self.nodes[0].generate(1)
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206f/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Verify results
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/params/dfip2206f/active'], 'true')
+        assert_equal(result['v0/params/dfip2206f/reward_pct'], '0.05')
+        assert_equal(result['v0/params/dfip2206f/block_period'], '20160')
+
+        # Check error now DFIP2206F active
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2206F is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206f/start_block':'0'}})
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2203/active':'false',
+            'v0/params/dfip2206f/active':'false'
+        }})
+        self.nodes[0].generate(1)
+
+        # Set start block height
+        start_block = self.nodes[0].getblockcount() + 100
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2203/start_block':f'{start_block}',
+            'v0/params/dfip2206f/start_block':f'{start_block}'
+        }})
+        self.nodes[0].generate(1)
+
+        # Check start block set as expected
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
+        assert_equal(attributes['v0/params/dfip2206f/start_block'], f'{start_block}')
 
 if __name__ == '__main__':
     GovsetTest ().main ()

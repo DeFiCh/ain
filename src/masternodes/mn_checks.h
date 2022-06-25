@@ -65,7 +65,7 @@ enum class CustomTxType : uint8_t
     AccountToAccount      = 'B',
     AnyAccountsToAccounts = 'a',
     SmartContract         = 'K',
-    DFIP2203              = 'Q',
+    FutureSwap            = 'Q',
     //set governance variable
     SetGovVariable        = 'G',
     SetGovVariableHeight  = 'j',
@@ -129,7 +129,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SmartContract:
-        case CustomTxType::DFIP2203:
+        case CustomTxType::FutureSwap:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:

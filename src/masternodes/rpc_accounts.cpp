@@ -1815,6 +1815,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
     CBalances dfipaybacktokens;
+    CBalances dfiToDUSDTokens;
 
     LOCK(cs_main);
 
@@ -1842,6 +1843,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
         liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
         dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
+        dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
 
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
@@ -1919,6 +1923,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     result.pushKV("emissionburn", ValueFromAmount(burnt));
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
+    result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
     return GetRPCResultCache()
         .Set(request, result);
@@ -2125,7 +2130,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap)
              << msg;
 
     CScript scriptMeta;
@@ -2216,7 +2221,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::DFIP2203)
+    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap)
              << msg;
 
     CScript scriptMeta;
@@ -2426,6 +2431,90 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue listpendingdusdswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpendingdusdswaps",
+               "Get all pending DFI-to_DUSD swaps.\n",
+               {},
+               RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "[{\n"
+                       "    owner :       \"address\"\n"
+                       "    amount :      n.nnnnnnnn\n"
+                       "}...]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listpendingdusdswaps", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    UniValue listFutures{UniValue::VARR};
+
+    LOCK(cs_main);
+
+    pcustomcsview->ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
+        CTxDestination dest;
+        ExtractDestination(key.owner, dest);
+        if (!IsValidDestination(dest)) {
+            return true;
+        }
+
+        UniValue value{UniValue::VOBJ};
+        value.pushKV("owner", EncodeDestination(dest));
+        value.pushKV("amount", ValueFromAmount(amount));
+
+        listFutures.push_back(value);
+
+        return true;
+    });
+
+    return GetRPCResultCache().Set(request, listFutures);
+}
+
+UniValue getpendingdusdswaps(const JSONRPCRequest& request) {
+    RPCHelpMan{"getpendingdusdswaps",
+               "Get specific pending DFI-to-DUSD swap.\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
+               },
+               RPCResult{
+                       "{\n"
+                       "    owner :       \"address\"\n"
+                       "    amount :      n.nnnnnnnn\n"
+                       "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getpendingfutureswaps", "address")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    UniValue listValues{UniValue::VARR};
+
+    const auto owner = DecodeScript(request.params[0].get_str());
+
+    LOCK(cs_main);
+
+    CAmount total{};
+    pcustomcsview->ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount) {
+
+        if (key.owner == owner) {
+            total += amount;
+        }
+
+        return true;
+    }, {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
+
+    UniValue obj{UniValue::VOBJ};
+    if (total) {
+        obj.pushKV("owner", request.params[0].get_str());
+        obj.pushKV("amount", ValueFromAmount(total));
+    }
+
+    return GetRPCResultCache().Set(request, obj);
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category       name                     actor (function)        params
@@ -2449,6 +2538,8 @@ static const CRPCCommand commands[] =
     {"accounts",   "withdrawfutureswap",       &withdrawfutureswap,        {"address", "amount", "destination", "inputs"}},
     {"accounts",   "listpendingfutureswaps",   &listpendingfutureswaps,    {}},
     {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
+    {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
+    {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
     {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 

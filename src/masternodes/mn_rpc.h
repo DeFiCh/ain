@@ -59,6 +59,11 @@ public:
     void AddLockedCoin(const COutPoint& coin);
 };
 
+struct FutureSwapHeightInfo {
+    CAmount startBlock;
+    CAmount blockPeriod;
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
 int chainHeight(interfaces::Chain::Lock& locked_chain);
@@ -72,6 +77,6 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock();
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H
