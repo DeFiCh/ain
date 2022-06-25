@@ -2,22 +2,38 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
-std::string tokenAmountString(CTokenAmount const& amount) {
+std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
-    const auto valueString = ValueFromAmount(amount.nValue).getValStr();
-    return valueString + "@" + token->CreateSymbolKey(amount.nTokenId);
+    const auto amountString = ValueFromAmount(amount.nValue).getValStr();
+
+    std::string tokenStr = {};
+    switch (format) {
+        case AmountFormat::Id:
+            tokenStr = amount.nTokenId.ToString();
+            break;
+        case AmountFormat::Symbol:
+            tokenStr = token->CreateSymbolKey(amount.nTokenId);
+            break;
+        case AmountFormat::Combined:
+            tokenStr = amount.nTokenId.ToString() + "#" + token->CreateSymbolKey(amount.nTokenId);
+            break;
+        case AmountFormat::Unknown:
+            tokenStr = "unknown";
+            break;
+    }
+    return amountString + "@" + tokenStr;
 }
 
-UniValue AmountsToJSON(TAmounts const & diffs) {
+UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VARR);
 
     for (auto const & diff : diffs) {
-        obj.push_back(tokenAmountString({diff.first, diff.second}));
+        obj.push_back(tokenAmountString({diff.first, diff.second}, format));
     }
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts,AmountFormat format = AmountFormat::Symbol) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -40,13 +56,13 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
         obj.pushKV("amount", amountObj);
     }
     else {
-        obj.pushKV("amount", tokenAmountString(amount));
+        obj.pushKV("amount", tokenAmountString(amount, format));
     }
 
     return obj;
 }
 
-UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value) {
+UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", ScriptToString(key.owner));
@@ -58,11 +74,11 @@ UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue
     obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
     obj.pushKV("txn", (uint64_t) key.txn);
     obj.pushKV("txid", value.txid.ToString());
-    obj.pushKV("amounts", AmountsToJSON(value.diff));
+    obj.pushKV("amounts", AmountsToJSON(value.diff, format));
     return obj;
 }
 
-UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, RewardType type, CTokenAmount amount) {
+UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, RewardType type, CTokenAmount amount, AmountFormat format = AmountFormat::Id) {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("owner", ScriptToString(owner));
     obj.pushKV("blockHeight", (uint64_t) height);
@@ -76,11 +92,11 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
     }
     obj.pushKV("poolID", poolId.ToString());
     TAmounts amounts({{amount.nTokenId,amount.nValue}});
-    obj.pushKV("amounts", AmountsToJSON(amounts));
+    obj.pushKV("amounts", AmountsToJSON(amounts, format));
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
@@ -97,7 +113,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     obj.pushKV("txn", (uint64_t) pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
     TAmounts amounts({{DCT_ID{0},entry.amount}});
-    obj.pushKV("amounts", AmountsToJSON(amounts));
+    obj.pushKV("amounts", AmountsToJSON(amounts, format));
     return obj;
 }
 
@@ -968,6 +984,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Maximum number of records to return, 100 by default"},
                                  {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Order in block, unlimited by default"},
+                                 {"format", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                  "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
+
                             },
                         },
                },
@@ -998,6 +1017,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     uint32_t limit = 100;
     auto txType = CustomTxType::None;
     uint32_t txn = std::numeric_limits<uint32_t>::max();
+    AmountFormat format = AmountFormat::Symbol;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -1010,6 +1030,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"limit", UniValueType(UniValue::VNUM)},
                 {"txn", UniValueType(UniValue::VNUM)},
+                {"format", UniValueType(UniValue::VSTR)}
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -1044,6 +1065,19 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (!optionsObj["txn"].isNull()) {
             txn = (uint32_t) optionsObj["txn"].get_int64();
+        }
+
+        if (!optionsObj["format"].isNull()) {
+            const auto formatStr = optionsObj["format"].getValStr();
+            if (formatStr == "symbol"){
+                format = AmountFormat::Symbol;
+            }
+            else if (formatStr == "id") {
+                format = AmountFormat::Id;
+            }
+            else {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "format must be one of the following: \"id\", \"symbol\"");
+            }
         }
     }
 
@@ -1145,7 +1179,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
             auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
-            array.push_back(accounthistoryToJSON(key, value));
+            array.push_back(accounthistoryToJSON(key, value, format));
             if (shouldSearchInWallet) {
                 txs.insert(value.txid);
             }
@@ -1157,7 +1191,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
                         auto& array = ret.emplace(height, UniValue::VARR).first->second;
-                        array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount));
+                        array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
                         count ? --count : 0;
                     }
                 }
@@ -1199,7 +1233,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(entry, index, pwtx));
+                array.push_back(outputEntryToJSON(entry, index, pwtx, format));
                 return --count != 0;
             }
         );
@@ -1811,7 +1845,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
 
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated || 
+        if (kv.first == CommunityAccountType::Unallocated ||
             kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
             burnt += view.GetCommunityBalance(kv.first);
@@ -1866,7 +1900,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     };
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
-
+  
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));

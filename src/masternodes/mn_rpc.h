@@ -35,6 +35,16 @@ typedef enum {
     SelectionPie,
 } AccountSelectionMode;
 
+enum class AmountFormat : uint8_t {
+        Unknown,
+        // amount@0
+        Id,
+        // amount@DFI
+        Symbol,
+        // amount@0#DFI
+        Combined,
+};
+
 class CWalletCoinsUnlocker {
     std::shared_ptr<CWallet> pwallet;
     std::vector<COutPoint> coins;
