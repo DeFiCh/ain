@@ -890,8 +890,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     break;
                     case PoolKeys::TokenAFeeDir:
                     case PoolKeys::TokenBFeeDir:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGardensHeight) {
-                            return Res::Err("Cannot be set before FortCanningGardensHeight");
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
+                            return Res::Err("Cannot be set before FortCanningSpringHeight");
                         }
                         if (!view.GetPoolPair({attrV0->typeId})) {
                             return Res::Err("No such pool (%d)", attrV0->typeId);
@@ -904,8 +904,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Param:
                 if (attrV0->typeId == ParamIDs::DFIP2206A) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningGardensHeight)
-                        return Res::Err("Cannot be set before FortCanningGarden");
+                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight)
+                        return Res::Err("Cannot be set before FortCanningSpring");
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight)
                         return Res::Err("Cannot be set before FortCanningRoad");
