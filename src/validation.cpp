@@ -3685,7 +3685,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
 
 void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
 {
-    if (pindex->nHeight < chainparams.GetConsensus().FortCanningGardensHeight) {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningSpringHeight) {
         return;
     }
 
