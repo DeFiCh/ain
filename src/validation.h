@@ -43,17 +43,22 @@ class CBlockIndex;
 class CBlockTreeDB;
 class CBlockUndo;
 class CChainParams;
+class CFutureSwapView;
+class CFutureSwapView;
 class CInv;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
 class CTxMemPool;
+class CUndosView;
 class CValidationState;
 struct ChainTxData;
 
 struct DisconnectedBlockTransactions;
 struct PrecomputedTransactionData;
 struct LockPoints;
+
+using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
@@ -423,7 +428,7 @@ public:
 };
 
 /** Replay blocks that aren't fully applied to the database. */
-bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* cache);
+bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* cache, CFutureSwapView* futureSwapView, CUndosView* undosView);
 
 CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -711,9 +716,9 @@ public:
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
-    bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndosView& undosView, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
+    bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CFutureSwapView& futureSwapView, CUndosView& undosView,
+                      const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Apply the effects of a block disconnection on the UTXO set.
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions* disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, ::mempool.cs);
@@ -723,7 +728,7 @@ public:
     bool InvalidateBlock(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindex) LOCKS_EXCLUDED(cs_main);
     void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* cache);
+    bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* cache, CFutureSwapView* futureSwapView, CUndosView* undosView);
     bool RewindBlockIndex(const CChainParams& params) LOCKS_EXCLUDED(cs_main);
     bool LoadGenesisBlock(const CChainParams& chainparams);
 
@@ -767,11 +772,17 @@ private:
 
     static void ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 
-    static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+    static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams);
 
-    static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
+    static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, CFutureSwapView& futureSwapView, const CChainParams &chainparams);
 
-    static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+    static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, const CChainParams& chainparams);
+
+    static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, CFutureSwapView& futureSwapView, CreationTxs& creationTxs, const CChainParams& chainparams);
+ 
+    static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+
+    static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, CCoinsViewCache& view, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.

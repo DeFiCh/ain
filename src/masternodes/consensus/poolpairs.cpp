@@ -50,7 +50,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage& obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto tokenId = mnview.CreateToken(token, false);
+    auto tokenId = mnview.CreateToken(token);
     Require(tokenId);
 
     rewards = obj.rewards;

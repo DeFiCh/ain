@@ -30,13 +30,12 @@ using CCustomTxMessage = std::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
-    CSetForcedRewardAddressMessage,
-    CRemForcedRewardAddressMessage,
     CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
     CMintTokensMessage,
+    CBurnTokensMessage,
     CCreatePoolPairMessage,
     CUpdatePoolPairMessage,
     CPoolSwapMessage,
@@ -50,6 +49,7 @@ using CCustomTxMessage = std::variant<
     CSmartContractMessage,
     CFutureSwapMessage,
     CGovernanceMessage,
+    CGovernanceUnsetMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,
@@ -76,15 +76,17 @@ using CCustomTxMessage = std::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType);
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time = 0, uint32_t txn = 0) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t* customTxExpiration = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+Res CustomTxVisit(CCustomCSView& mnview, CFutureSwapView &futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time = 0, uint32_t txn = 0) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);

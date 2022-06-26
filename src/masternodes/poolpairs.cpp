@@ -690,6 +690,11 @@ Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
     return Res::Ok();
 }
 
+Res CPoolPairView::EraseDexFeePct(DCT_ID poolId, DCT_ID tokenId) {
+    EraseBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId));
+    return Res::Ok();
+}
+
 CAmount CPoolPairView::GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const {
     uint32_t feePct;
     return ReadBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), feePct)

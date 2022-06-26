@@ -163,6 +163,12 @@ Res COracleView::SetPriceDeviation(const uint32_t deviation)
     return Res::Ok();
 }
 
+Res COracleView::ErasePriceDeviation()
+{
+    Erase(PriceDeviation::prefix());
+    return Res::Ok();
+}
+
 CAmount COracleView::GetPriceDeviation() const
 {
     uint32_t deviation;
@@ -177,6 +183,12 @@ CAmount COracleView::GetPriceDeviation() const
 Res COracleView::SetIntervalBlock(const uint32_t blockInterval)
 {
     Write(FixedIntervalBlockKey::prefix(), blockInterval);
+    return Res::Ok();
+}
+
+Res COracleView::EraseIntervalBlock()
+{
+    Erase(FixedIntervalBlockKey::prefix());
     return Res::Ok();
 }
 

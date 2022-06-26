@@ -9,6 +9,7 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
@@ -21,9 +22,10 @@
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp)
+                                 bool _spendsCoinbase, int64_t _sigOpsCost,
+                                 LockPoints lp, uint32_t customTxExpiration)
     : tx(_tx), nFee(_nFee), nTxWeight(GetTransactionWeight(*tx)), nUsageSize(RecursiveDynamicUsage(tx)), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
+    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), customTxExpiration(customTxExpiration)
 {
     nCountWithDescendants = 1;
     nSizeWithDescendants = GetTxSize();
@@ -985,6 +987,23 @@ int CTxMemPool::Expire(int64_t time) {
     return stage.size();
 }
 
+uint32_t CTxMemPool::ExpireByHeight(const uint32_t blockHeight) {
+    AssertLockHeld(cs);
+    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    setEntries toremove;
+    for (; it != mapTx.get<entry_time>().end(); ++it) {
+        if (blockHeight >= it->GetCustomTxExpiration()) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+    }
+    setEntries stage;
+    for (txiter removeit : toremove) {
+        CalculateDescendants(removeit, stage);
+    }
+    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
+    return stage.size();
+}
+
 void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, bool validFeeEstimate)
 {
     setEntries setAncestors;
@@ -1114,6 +1133,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     CAmount txfee = 0;
     acview->Discard();
     CCustomCSView viewDuplicate(*acview);
+    CFutureSwapView futureSwapView(*pfutureSwapView);
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
@@ -1128,7 +1148,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height);
+        auto res = ApplyCustomTx(viewDuplicate, futureSwapView, coinsCache, tx, Params().GetConsensus(), height);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

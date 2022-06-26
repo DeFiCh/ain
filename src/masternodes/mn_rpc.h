@@ -54,6 +54,7 @@ public:
     CImmutableCSView(CImmutableCSView&&) = delete;
     CImmutableCSView(const CImmutableCSView&) = delete;
     CImmutableCSView(CCustomCSView& o) : CStorageView(o), CCustomCSView(o) {}
+    CImmutableCSView(CFutureSwapView& p) : CStorageView(p), CCustomCSView{} {}
     CImmutableCSView(CImmutableCSView& o) : CStorageView(o), CCustomCSView(o) {}
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const final;
@@ -63,8 +64,14 @@ private:
     bool Flush(bool = false) final { return false; }
 };
 
+struct FutureSwapHeightInfo {
+    CAmount startBlock;
+    CAmount blockPeriod;
+};
+
 // common functions
 bool IsSkippedTx(const uint256& hash);
+int chainHeight(interfaces::Chain::Lock& locked_chain);
 CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
 CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
@@ -75,6 +82,8 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view);
+std::optional<CScript> AmIFounder(CWallet* const pwallet);
+void AddVersionAndExpiration(CScript& metadata, const uint32_t height, const MetadataVersion version = MetadataVersion::One);
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

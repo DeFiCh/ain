@@ -8,10 +8,10 @@
 #include <masternodes/gv.h>
 #include <masternodes/masternodes.h>
 
-Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) const {
+Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
 
     // Retrieve any stored GovVariables at startHeight
-    auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
 
     // Remove any pre-existing entry
     for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
@@ -25,7 +25,7 @@ Res CGovernanceConsensus::storeGovVars(const CGovernanceHeightMessage& obj) cons
     storedGovVars.insert(obj.govVar);
 
     // Store GovVariable set by height
-    return mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
@@ -49,6 +49,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
             // Validate as complete set. Check for future conflicts between key pairs.
             Require(govVar->Import(var->Export()), errHandler);
             Require(govVar->Validate(mnview), errHandler);
+            Require(govVar->Apply(mnview, futureSwapView, height), errHandler);
 
             var = govVar;
         } else {
@@ -61,14 +62,35 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage& obj) const {
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
-                    storeGovVars({name, var, height + mnview.GetIntervalBlock() - diff});
+                    storeGovVars({name, var, height + mnview.GetIntervalBlock() - diff}, mnview);
                     continue;
                 }
             }
+
+            Require(var->Apply(mnview, height), errHandler);
         }
 
-        Require(var->Apply(mnview, height), errHandler);
         Require(mnview.SetVariable(*var), errHandler);
+    }
+    return Res::Ok();
+}
+
+Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage& obj) const {
+    //check foundation auth
+    if (!HasFoundationAuth())
+        return Res::Err("tx not from foundation member");
+
+    for(const auto& gov : obj.govs) {
+        auto var = mnview.GetVariable(gov.first);
+        if (!var)
+            return Res::Err("'%s': variable does not registered", gov.first);
+
+        auto res = var->Erase(mnview, height, gov.second);
+        if (!res)
+            return Res::Err("%s: %s", var->GetName(), res.msg);
+
+        if (!(res = mnview.SetVariable(*var)))
+            return Res::Err("%s: %s", var->GetName(), res.msg);
     }
     return Res::Ok();
 }
@@ -85,8 +107,33 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage& obj) const 
     };
 
     // Validate GovVariables before storing
-    Require(obj.govVar->Validate(mnview), errHandler);
+    // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
+    if (height >= uint32_t(consensus.GreatWorldHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+
+        auto govVar = mnview.GetAttributes();
+        if (!govVar) {
+            return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
+        }
+
+        auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
+        storedGovVars.emplace_back(obj.startHeight, obj.govVar);
+
+        Res res{};
+        CCustomCSView govCache(mnview);
+        CFutureSwapView futureSwapCache(futureSwapView);
+        for (const auto& [varHeight, var] : storedGovVars) {
+            if (var->GetName() == "ATTRIBUTES") {
+                if (!(res = govVar->Import(var->Export())) ||
+                    !(res = govVar->Validate(govCache)) ||
+                    !(res = govVar->Apply(govCache, futureSwapCache, varHeight))) {
+                    return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
+                }
+            }
+        }
+    } else {
+        Require(obj.govVar->Validate(mnview), errHandler);
+    }
 
     // Store pending Gov var change
-    return storeGovVars(obj);
+    return storeGovVars(obj, mnview);
 }

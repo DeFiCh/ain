@@ -77,12 +77,6 @@ public:
     {
         return flags & (uint8_t)TokenFlags::DeprecatedLoanToken;
     }
-    inline Res IsValidSymbol() const
-    {
-        Require(!symbol.empty() && !IsDigit(symbol[0]), "token symbol should be non-empty and starts with a letter");
-        Require(symbol.find('#') == std::string::npos, "token symbol should not contain '#'");
-        return Res::Ok();
-    }
     inline std::string CreateSymbolKey(DCT_ID const & id) const {
         return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
@@ -143,6 +137,27 @@ struct CMintTokensMessage : public CBalances {
     }
 };
 
+struct CBurnTokensMessage {
+    enum BurnType : uint8_t
+    {
+        TokenBurn = 0
+    };
+
+    CBalances amounts;
+    CScript from;
+    uint8_t burnType;
+    std::variant<CScript> context;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(amounts);
+        READWRITE(from);
+        READWRITE(burnType);
+        READWRITE(context);
+    }
+};
+
 class CTokenImplementation : public CToken
 {
 public:
@@ -159,7 +174,15 @@ public:
         , creationHeight(-1)
         , destructionHeight(-1)
     {}
+    explicit CTokenImplementation(const CToken& token)
+            : CToken(token)
+            , minted(0)
+            , creationHeight(-1)
+            , destructionHeight(-1)
+    {}
     ~CTokenImplementation() override = default;
+
+    [[nodiscard]] inline Res IsValidSymbol() const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -190,8 +213,8 @@ public:
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
-    Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
+    Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool skipNameValidation = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const & id, CAmount const & amount);

@@ -8,7 +8,7 @@ UniValue mnToJSON(CImmutableCSView& view, uint256 const & nodeId, CMasternode co
     UniValue ret(UniValue::VOBJ);
     auto currentHeight = view.GetLastHeight();
     if (!verbose) {
-        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
+        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
     }
     else {
         UniValue obj(UniValue::VOBJ);
@@ -30,8 +30,8 @@ UniValue mnToJSON(CImmutableCSView& view, uint256 const & nodeId, CMasternode co
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
-        obj.pushKV("banTx", node.banTx.GetHex());
-        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
+        obj.pushKV("collateralTx", node.collateralTx.GetHex());
+        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
         obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
@@ -48,7 +48,7 @@ UniValue mnToJSON(CImmutableCSView& view, uint256 const & nodeId, CMasternode co
         uint16_t timelock = view.GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
-        if (node.IsActive(currentHeight)) {
+        if (node.IsActive(currentHeight, view)) {
             // Get block times with next block as height
             const auto subNodesBlockTime = view.GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
 
@@ -193,212 +193,6 @@ UniValue createmasternode(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue setforcedrewardaddress(const JSONRPCRequest& request)
-{
-    // Temporarily disabled for 2.2
-    throw JSONRPCError(RPC_INVALID_REQUEST,
-                           "reward address change is disabled for Fort Canning");
-
-    auto pwallet = GetWallet(request);
-
-    RPCHelpMan{"setforcedrewardaddress",
-               "\nCreates (and submits to local node and network) a set forced reward address transaction with given masternode id and reward address\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                   {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
-                   {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Masternode`s new reward address (any P2PKH or P2WKH address)"},
-                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
-                       {
-                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                               {
-                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                               },
-                           },
-                       },
-                   },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                   HelpExampleCli("setforcedrewardaddress", "mn_id rewardAddress '[{\"txid\":\"id\",\"vout\":0}]'")
-                   + HelpExampleRpc("setforcedrewardaddress", "mn_id rewardAddress '[{\"txid\":\"id\",\"vout\":0}]'")
-               },
-    }.Check(request);
-
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot update Masternode while still in Initial Block Download");
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
-
-    // decode and verify
-    std::string const nodeIdStr = request.params[0].getValStr();
-    uint256 const nodeId = uint256S(nodeIdStr);
-    CTxDestination ownerDest;
-    int targetHeight;
-    {
-        CImmutableCSView view(*pcustomcsview);
-
-        auto nodePtr = view.GetMasternode(nodeId);
-        if (!nodePtr) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
-        }
-        ownerDest = nodePtr->ownerType == PKHashType ?
-            CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-            CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
-
-        targetHeight = view.GetLastHeight() + 1;
-    }
-
-    if (!::IsMine(*pwallet, ownerDest)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode ownerAddress (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
-    }
-
-    std::string rewardAddress = request.params[1].getValStr();
-    CTxDestination rewardDest = DecodeDestination(rewardAddress);
-    if (rewardDest.index() != PKHashType && rewardDest.index() != WitV0KeyHashType) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
-    }
-
-    CKeyID const rewardAuthKey = rewardDest.index() == PKHashType ?
-        CKeyID(std::get<PKHash>(rewardDest)) :
-        CKeyID(std::get<WitnessV0KeyHash>(rewardDest)
-    );
-
-    const auto txVersion = GetTransactionVersion(targetHeight);
-    CMutableTransaction rawTx(txVersion);
-
-    CTransactionRef optAuthTx;
-    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
-
-    // Return change to owner address
-    CCoinControl coinControl;
-    if (IsValidDestination(ownerDest)) {
-        coinControl.destChange = ownerDest;
-    }
-
-    CSetForcedRewardAddressMessage msg{nodeId, static_cast<char>(rewardDest.index()), rewardAuthKey};
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::SetForcedRewardAddress)
-             << msg;
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
-
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-    // check execution
-    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-}
-
-UniValue remforcedrewardaddress(const JSONRPCRequest& request)
-{
-    // Temporarily disabled for 2.2
-    throw JSONRPCError(RPC_INVALID_REQUEST,
-                           "reward address change is disabled for Fort Canning");
-
-    auto pwallet = GetWallet(request);
-
-    RPCHelpMan{"remforcedrewardaddress",
-               "\nCreates (and submits to local node and network) a remove forced reward address transaction with given masternode id\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                   {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
-                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
-                       {
-                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                               {
-                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                               },
-                           },
-                       },
-                   },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                   HelpExampleCli("remforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
-                   + HelpExampleRpc("remforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
-               },
-    }.Check(request);
-
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot update Masternode while still in Initial Block Download");
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
-
-    // decode and verify
-    std::string const nodeIdStr = request.params[0].getValStr();
-    uint256 const nodeId = uint256S(nodeIdStr);
-    CTxDestination ownerDest;
-    int targetHeight;
-    {
-        CImmutableCSView view(*pcustomcsview);
-
-        auto nodePtr = view.GetMasternode(nodeId);
-        if (!nodePtr) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
-        }
-        ownerDest = nodePtr->ownerType == PKHashType ?
-            CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-            CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
-
-        targetHeight = view.GetLastHeight() + 1;
-    }
-
-    if (!::IsMine(*pwallet, ownerDest)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode ownerAddress (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
-    }
-
-    const auto txVersion = GetTransactionVersion(targetHeight);
-    CMutableTransaction rawTx(txVersion);
-
-    CTransactionRef optAuthTx;
-    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1]);
-
-    // Return change to owner address
-    CCoinControl coinControl;
-    if (IsValidDestination(ownerDest)) {
-        coinControl.destChange = ownerDest;
-    }
-
-    CRemForcedRewardAddressMessage msg{nodeId};
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::RemForcedRewardAddress)
-             << msg;
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
-
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-    // check execution
-    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-}
-
 UniValue resignmasternode(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
@@ -441,7 +235,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     std::string const nodeIdStr = request.params[0].getValStr();
     uint256 const nodeId = uint256S(nodeIdStr);
-    CTxDestination ownerDest;
+    CTxDestination ownerDest, collateralDest;
     int targetHeight;
     {
         CImmutableCSView view(*pcustomcsview);
@@ -454,7 +248,14 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        targetHeight = view.GetLastHeight() + 1;
+        if (!nodePtr->collateralTx.IsNull()) {
+            const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
+            if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode collateral not available");
+            }
+        }
+
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -462,6 +263,9 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{GetScriptForDestination(ownerDest)};
+    if (collateralDest.index() != 0) {
+        auths.insert(GetScriptForDestination(collateralDest));
+    }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1]);
 
     // Return change to owner address
@@ -489,10 +293,6 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue updatemasternode(const JSONRPCRequest& request)
 {
-    // Temporarily disabled for 2.2
-    throw JSONRPCError(RPC_INVALID_REQUEST,
-                           "updatemasternode is disabled for Fort Canning");
-
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatemasternode",
@@ -501,7 +301,13 @@ UniValue updatemasternode(const JSONRPCRequest& request)
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                    {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
-                   {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The new masternode operator auth address (P2PKH only, unique)"},
+                   {"values", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                       {
+                           {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode owner address, requires masternode collateral fee (P2PKH or P2WPKH)"},
+                           {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode operator address (P2PKH or P2WPKH)"},
+                           {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Masternode`s new reward address, empty \"\" to remove old reward address."},
+                       },
+                   },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                        {
                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -528,13 +334,10 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
-    if (request.params[0].isNull() || request.params[1].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 2 must be non-null");
-    }
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VOBJ, UniValue::VARR }, true);
 
     std::string const nodeIdStr = request.params[0].getValStr();
-    uint256 const nodeId = uint256S(nodeIdStr);
+    const uint256 nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest;
 
     int targetHeight;
@@ -550,19 +353,40 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         targetHeight = view.GetLastHeight() + 1;
     }
 
-    std::string operatorAddress = request.params[1].getValStr();
-    CTxDestination operatorDest = DecodeDestination(operatorAddress);
+    CTxDestination newOwnerDest, operatorDest, rewardDest;
 
-    // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
-    if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
+    UniValue metaObj = request.params[1].get_obj();
+    if (!metaObj["ownerAddress"].isNull()) {
+        newOwnerDest = DecodeDestination(metaObj["ownerAddress"].getValStr());
+        if (newOwnerDest.index() != PKHashType && newOwnerDest.index() != WitV0KeyHashType) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "ownerAddress (" + metaObj["ownerAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
+        }
+    }
+
+    if (!metaObj["operatorAddress"].isNull()) {
+        operatorDest = DecodeDestination(metaObj["operatorAddress"].getValStr());
+        if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + metaObj["operatorAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
+        }
+    }
+
+    std::string rewardAddress;
+    if (!metaObj["rewardAddress"].isNull()) {
+        rewardAddress = metaObj["rewardAddress"].getValStr();
+        if (!rewardAddress.empty()) {
+            rewardDest = DecodeDestination(rewardAddress);
+            if (rewardDest.index() != PKHashType && rewardDest.index() != WitV0KeyHashType) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+            }
+        }
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
+    const CScript ownerScript = !metaObj["ownerAddress"].isNull() ? GetScriptForDestination(newOwnerDest) : GetScriptForDestination(ownerDest);
+    std::set<CScript> auths{ownerScript};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
 
     // Return change to owner address
@@ -571,17 +395,44 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    CKeyID const operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+    CUpdateMasterNodeMessage msg{nodeId};
+
+    if (!metaObj["ownerAddress"].isNull()) {
+        msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress), std::pair<char, std::vector<unsigned char>>());
+    }
+
+    if (!metaObj["operatorAddress"].isNull()) {
+        const CKeyID keyID = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
+        msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress), std::make_pair(static_cast<char>(operatorDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
+    }
+
+    if (!metaObj["rewardAddress"].isNull()) {
+        if (rewardAddress.empty()) {
+            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress), std::pair<char, std::vector<unsigned char>>());
+        } else {
+            const CKeyID keyID = rewardDest.index() == PKHashType ? CKeyID(std::get<PKHash>(rewardDest)) : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
+            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress), std::make_pair(static_cast<char>(rewardDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
+        }
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateMasternode)
-             << nodeId
-             << static_cast<char>(operatorDest.index()) << operatorAuthKey;
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    // Add new owner collateral
+    if (!metaObj["ownerAddress"].isNull()) {
+        if (const auto node = pcustomcsview->GetMasternode(nodeId)) {
+            rawTx.vin.emplace_back(node->collateralTx.IsNull() ? nodeId : node->collateralTx, 1);
+            rawTx.vout.emplace_back(GetMnCollateralAmount(targetHeight), ownerScript);
+        } else {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("masternode %s does not exists", nodeIdStr));
+        }
+    }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
@@ -980,15 +831,13 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
-    //{"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
+    {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "values", "inputs"}},
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
-    //{"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
-    //{"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

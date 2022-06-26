@@ -15,6 +15,7 @@ struct CBalances;
 class CCoinsViewCache;
 class CCollateralLoans;
 class CCustomCSView;
+class CFutureSwapView;
 struct CLoanSchemeData;
 class CScript;
 class CTokenImplementation;
@@ -31,18 +32,20 @@ protected:
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
+    CFutureSwapView& futureSwapView;
     const CTransaction& tx;
     const CCoinsViewCache& coins;
     const Consensus::Params& consensus;
 
 public:
-    CCustomTxVisitor(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
+    CCustomTxVisitor(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn);
 
 protected:
     Res CheckCustomTx() const;
     Res HasFoundationAuth() const;
     Res CheckTokenCreationTx() const;
     Res CheckMasternodeCreationTx() const;
+    Res CheckProposalTx(uint8_t type) const;
     ResVal<CBalances> BurntTokens() const;
     Res HasAuth(const CScript& auth) const;
     CAmount CalculateTakerFee(CAmount amount) const;

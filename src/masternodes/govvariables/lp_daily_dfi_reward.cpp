@@ -8,16 +8,24 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
+bool LP_DAILY_DFI_REWARD::IsEmpty() const
+{
+    return !dailyReward.has_value();
+}
 
 Res LP_DAILY_DFI_REWARD::Import(const UniValue & val)
 {
-    dailyReward = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    dailyReward = amount;
     return Res::Ok();
 }
 
 UniValue LP_DAILY_DFI_REWARD::Export() const
 {
-    return ValueFromAmount(dailyReward);
+    return ValueFromAmount(dailyReward.value_or(0));
 }
 
 Res LP_DAILY_DFI_REWARD::Validate(const CCustomCSView & view) const
@@ -30,5 +38,11 @@ Res LP_DAILY_DFI_REWARD::Validate(const CCustomCSView & view) const
 
 Res LP_DAILY_DFI_REWARD::Apply(CCustomCSView & mnview, uint32_t height)
 {
-    return mnview.SetDailyReward(height, dailyReward);
+    return mnview.SetDailyReward(height, dailyReward.value_or(0));
+}
+
+Res LP_DAILY_DFI_REWARD::Erase(CCustomCSView & mnview, uint32_t height, std::vector<std::string> const &)
+{
+    dailyReward.reset();
+    return mnview.SetDailyReward(height, 0);
 }

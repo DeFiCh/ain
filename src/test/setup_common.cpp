@@ -114,6 +114,12 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         auto pcustomcsDB = std::make_shared<CStorageKV>(CStorageLevelDB{GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true});
         pcustomcsview = std::make_unique<CCustomCSView>(pcustomcsDB);
 
+        auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nMinDbCache << 20, true, true));
+        pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
+
+        auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nMinDbCache << 20, true, true));
+        pundosView = std::make_unique<CUndosView>(pundosDB);
+
         panchorauths.reset();
         panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
@@ -206,7 +212,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         tip = ::ChainActive().Tip();
 
         auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(tip->nHeight))
+        if (!nodePtr || !nodePtr->IsActive(tip->nHeight, *pcustomcsview))
             throw std::runtime_error(std::string(__func__) + ": nodePtr does not exist");
 
         mintedBlocks = nodePtr->mintedBlocks;

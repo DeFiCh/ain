@@ -1129,11 +1129,12 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
     const auto currentHeight = view.GetLastHeight();
 
     const auto block = GetFuturesBlock(view);
-    if (!block) {
+    if (!block || block->blockPeriod == 0) {
         return 0;
     }
 
-    return currentHeight + (*block - (currentHeight % *block));
+    return currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
+           currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
 }
 
 static const CRPCCommand commands[] =

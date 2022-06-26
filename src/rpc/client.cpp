@@ -176,8 +176,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "stop", 0, "wait" },
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
-    { "setforcedrewardaddress", 2, "inputs" },
-    { "remforcedrewardaddress", 1, "inputs" },
+    { "updatemasternode", 1, "values" },
     { "updatemasternode", 2, "inputs" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
@@ -191,6 +190,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtokens", 1, "verbose" },
     { "minttokens", 0, "amounts" },
     { "minttokens", 1, "inputs"},
+    { "burntokens", 0, "metadata" },
+    { "burntokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
     { "sendutxosfrom", 2, "amount" },
@@ -311,11 +312,15 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
+    { "unsetgov", 0, "variables" },
+    { "unsetgov", 1, "inputs" },
+
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
+    { "setcustomtxexpiration", 0, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },
@@ -343,6 +348,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "decodecustomtx", 1, "iswitness" },
 
     { "setmockcheckpoint", 0, "height" },
+
+    { "creategovcfp", 0, "data" },
+    { "creategovcfp", 1, "inputs" },
+    { "creategovvoc", 2, "inputs" },
+    { "votegov", 3, "inputs" },
 };
 // clang-format on
 

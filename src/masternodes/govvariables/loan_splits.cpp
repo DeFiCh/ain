@@ -8,15 +8,21 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
+bool LP_LOAN_TOKEN_SPLITS::IsEmpty() const
+{
+    return splits.empty();
+}
 
 Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val)
 {
     Require(val.isObject(), "object of {poolId: rate,... } expected");
 
     for (const std::string& key : val.getKeys()) {
-        auto id = DCT_ID::FromString(key);
+        const auto id = DCT_ID::FromString(key);
         Require(id);
-        splits.emplace(*id, AmountFromValue(val[key]));
+        CAmount amount;
+        Require(AmountFromValue(val[key], amount), "Invalid amount");
+        splits.emplace(*id.val, amount);
     }
     return Res::Ok();
 }
@@ -61,5 +67,21 @@ Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height)
         return true;
     });
 
+    return Res::Ok();
+}
+
+Res LP_LOAN_TOKEN_SPLITS::Erase(CCustomCSView & mnview, uint32_t height, std::vector<std::string> const & keys)
+{
+    for (const auto& key : keys) {
+        auto res = DCT_ID::FromString(key);
+        if (!res)
+            return std::move(res);
+
+        auto id = *res.val;
+        if (!splits.erase(id))
+            return Res::Err("id {%d} does not exists", id.v);
+
+        mnview.SetRewardLoanPct(id, height, 0);
+    }
     return Res::Ok();
 }

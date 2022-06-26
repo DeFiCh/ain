@@ -104,6 +104,19 @@ class PoolPairTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Error, there is already a poolpair with same tokens, but different poolId" in errorString)
 
+        try:
+            self.nodes[0].createpoolpair({
+            "tokenA": "PT",
+            "tokenB": "GOLD#128",
+            "comission": 0.001,
+            "status": True,
+            "ownerAddress": collateral0,
+            "pairSymbol": "000000000"
+        }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("pairSymbol is larger than" in errorString)
+
         # Creating another one
         trPP = self.nodes[0].createpoolpair({
             "tokenA": "DFI",

@@ -5,6 +5,8 @@
 #include <masternodes/tokens.h>
 
 #include <amount.h>
+#include <chainparams.h> // Params()
+#include <core_io.h>
 #include <primitives/transaction.h>
 
 #include <univalue.h>
@@ -105,10 +107,10 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool skipNameValidation)
 {
-    auto pair = GetTokenByCreationTx(tokenTx);
-    Require(pair, "token with creationTx %s does not exist!", tokenTx.ToString());
+    auto pair = GetTokenByCreationTx(newToken.creationTx);
+    Require(pair, "token with creationTx %s does not exist!", newToken.creationTx.ToString());
 
     DCT_ID id = pair->first;
     CTokenImpl & oldToken = pair->second;
@@ -121,7 +123,9 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, boo
     oldToken.name = newToken.name;
 
     // check new symbol correctness
-    Require(newToken.IsValidSymbol());
+    if (!skipNameValidation) {
+        Require(newToken.IsValidSymbol());
+    }
 
     // deal with DB symbol indexes before touching symbols/DATs:
     if (oldToken.symbol != newToken.symbol || oldToken.IsDAT() != newToken.IsDAT()) { // in both cases it leads to index changes
@@ -149,13 +153,22 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, boo
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
+    if (oldToken.destructionHeight != newToken.destructionHeight) {
+        oldToken.destructionHeight = newToken.destructionHeight;
+    }
+
+    if (oldToken.destructionTx != newToken.destructionTx) {
+        oldToken.destructionTx = newToken.destructionTx;
+    }
+
     WriteBy<ID>(id, oldToken);
+
     return Res::Ok();
 }
 
 /*
  * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
- * Call this EXECTLY at the 'bayfrontHeight-1' block
+ * Call this EXACTLY at the 'bayfrontHeight-1' block
  */
 Res CTokensView::BayfrontFlagsCleanup()
 {
@@ -225,4 +238,14 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const
         return {lastDctId};
 
     return {};
+}
+
+inline Res CTokenImplementation::IsValidSymbol() const
+{
+    Require(!symbol.empty() && !IsDigit(symbol[0]), "token symbol should be non-empty and starts with a letter");
+    Require(symbol.find('#') == std::string::npos, "token symbol should not contain '#'");
+    if (creationHeight >= Params().GetConsensus().GreatWorldHeight) {
+        Require(symbol.find('/') == std::string::npos, "token symbol should not contain '/'");
+    }
+    return Res::Ok();
 }

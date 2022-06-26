@@ -4,12 +4,15 @@
 
 #include <consensus/tx_check.h>
 
+#include <clientversion.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
 
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
+const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
+const std::vector<unsigned char> DfTokenSplitMarker = {'D', 'f', 'T', 'S'};
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
@@ -49,7 +52,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy) || IsTokenSplitTx(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -67,7 +70,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& hasAdditionalOpcodes)
+                         uint8_t& hasAdditionalOpcodes,
+                         CExpirationAndVersion* customTxParams)
 {
     opcodetype opcode;
     auto pc = script.begin();
@@ -82,35 +86,61 @@ bool ParseScriptByMarker(CScript const & script,
     }
 
     // Check that no more opcodes are found in the script
-    if (script.GetOp(pc, opcode)) {
-        hasAdditionalOpcodes = true;
+    std::vector<unsigned char> expirationAndVersion;
+    if (script.GetOp(pc, opcode, expirationAndVersion)) {
+        hasAdditionalOpcodes |= HasForks::FortCanning;
+        if (expirationAndVersion.size() == sizeof(uint32_t) + sizeof(uint8_t)) {
+            if (customTxParams) {
+                VectorReader stream(SER_DISK, CLIENT_VERSION, expirationAndVersion, 0);
+                stream >> *customTxParams;
+            }
+        } else {
+            hasAdditionalOpcodes |= HasForks::GreatWorld;
+        }
+        if (pc != script.end()) {
+            hasAdditionalOpcodes |= HasForks::GreatWorld;
+        }
     }
 
     metadata.erase(metadata.begin(), metadata.begin() + marker.size());
     return true;
 }
 
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning)
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
-    bool hasAdditionalOpcodes{false};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
-    if (fortCanning && hasAdditionalOpcodes) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
+}
+
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, uint8_t hasForks)
+{
+    if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
+    if (hasForks & HasForks::FortCanning && !(hasForks & HasForks::GreatWorld) && hasAdditionalOpcodes & HasForks::FortCanning) {
+        return false;
+    } else if (hasForks & HasForks::GreatWorld && hasAdditionalOpcodes & HasForks::GreatWorld) {
         return false;
     }
     return result;
 }
 
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool fortCanning)
+bool IsTokenSplitTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool greatWorld)
 {
-    if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
+    if (!greatWorld) {
         return false;
     }
-    bool hasAdditionalOpcodes{false};
-    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
-    if (fortCanning && hasAdditionalOpcodes) {
+    if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    const auto result = ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTokenSplitMarker, metadata, hasAdditionalOpcodes);
+    if (hasAdditionalOpcodes) {
         return false;
     }
     return result;

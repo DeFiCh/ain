@@ -17,9 +17,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122']] # Will not find historical TXs
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189'], # Wallet TXs
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189', '-txindex=1'], # Transaction index
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189']] # Will not find historical TXs
 
     def check_result(self, result):
         # Get block hash and height
@@ -417,44 +417,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "DestroyLoanScheme")
         assert_equal(result['results']['id'], "LOANMAX")
 
-        # Test setting a forced address
-        #reward_address = self.nodes[0].getnewaddress('', 'legacy')
-        #forced_address_txid = self.nodes[0].setforcedrewardaddress(mn_txid, reward_address)
-        #self.nodes[0].generate(1)
-        #self.sync_blocks(self.nodes[0:2])
-
-        # Get custom TX
-        #result = self.nodes[1].getcustomtx(forced_address_txid)
-        #self.check_result(result)
-        #assert_equal(result['type'], "SetForcedRewardAddress")
-        #assert_equal(result['results']['mc_id'], mn_txid)
-        #assert_equal(result['results']['rewardAddress'], reward_address)
-
-        # Test removing a forced address
-        #reward_address = self.nodes[0].getnewaddress('', 'legacy')
-        #forced_address_txid = self.nodes[0].remforcedrewardaddress(mn_txid)
-        #self.nodes[0].generate(1)
-        #self.sync_blocks(self.nodes[0:2])
-
-        # Get custom TX
-        #result = self.nodes[1].getcustomtx(forced_address_txid)
-        #self.check_result(result)
-        #assert_equal(result['type'], "RemForcedRewardAddress")
-        #assert_equal(result['results']['mc_id'], mn_txid)
-
-        # Test updating a masternode
-        #new_operator_address = self.nodes[0].getnewaddress('', 'legacy')
-        #update_mn_txid = self.nodes[0].updatemasternode(mn_txid, new_operator_address)
-        #self.nodes[0].generate(1)
-        #self.sync_blocks(self.nodes[0:2])
-
-        # Get custom TX
-        #result = self.nodes[1].getcustomtx(update_mn_txid)
-        #self.check_result(result)
-        #assert_equal(result['type'], "UpdateMasternode")
-        #assert_equal(result['results']['id'], mn_txid)
-        #assert_equal(result['results']['masternodeoperator'], new_operator_address)
-
         # Test appoint oracle
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
         appoint_oracle_tx = self.nodes[0].appointoracle(oracle_address, [{"currency": "GBP", "token": "TSLA"}], 1)
@@ -828,6 +790,21 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(attributes['v0/params/dfip2201/active'], 'true')
         assert_equal(attributes['v0/params/dfip2201/premium'], '0.025')
         assert_equal(attributes['v0/params/dfip2201/minswap'], '0.001')
+
+        # Test updating a masternode
+        new_operator_address = self.nodes[0].getnewaddress('', 'legacy')
+        reward_address = self.nodes[0].getnewaddress('', 'legacy')
+        update_mn_txid = self.nodes[0].updatemasternode(mn_txid, {'operatorAddress':new_operator_address,'rewardAddress':reward_address})
+        self.nodes[0].generate(1)
+        self.sync_blocks(self.nodes[0:2])
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(update_mn_txid)
+        self.check_result(result)
+        assert_equal(result['type'], "UpdateMasternode")
+        assert_equal(result['results']['id'], mn_txid)
+        assert_equal(result['results']['operatorAddress'], new_operator_address)
+        assert_equal(result['results']['rewardAddress'], reward_address)
 
 if __name__ == '__main__':
     TokensRPCGetCustomTX().main ()

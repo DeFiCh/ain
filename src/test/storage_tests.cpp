@@ -87,13 +87,17 @@ BOOST_AUTO_TEST_CASE(flushableType)
 BOOST_AUTO_TEST_CASE(undo)
 {
     CCustomCSView view(*pcustomcsview);
+    CUndosView undoView(*pundosView);
     auto& base_raw = view.GetStorage();
+    auto& undo_raw = undoView.GetStorage();
+    auto undoStart = TakeSnapshot(undo_raw);
+
     // place some "old" record
     view.Write("testkey1", "value0");
 
     auto snapStart = TakeSnapshot(base_raw);
 
-    CCustomCSView mnview(view);
+    auto mnview(view);
     BOOST_CHECK(mnview.Write("testkey1", "value1")); // modify
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
@@ -113,17 +117,21 @@ BOOST_AUTO_TEST_CASE(undo)
     BOOST_CHECK(snap1.at(ToBytes("testkey2")) == ToBytes("value2"));
 
     // write undo
-    view.SetUndo(UndoKey{1, uint256S("0x1")}, undo);
+    auto snap_undo1 = TakeSnapshot(base_raw);
+    undoView.SetUndo({{1, uint256S("0x1")}, UndoSource::CustomView}, undo);
+
+    auto snap_undo = TakeSnapshot(undo_raw);
+    BOOST_CHECK_EQUAL(snap_undo.size() - undoStart.size(), 1); // undo
 
     auto snap2 = TakeSnapshot(base_raw);
-    BOOST_CHECK(snap2.size() - snap1.size() == 1); // undo
-    BOOST_CHECK(snap2.size() - snapStart.size() == 2); // onew new record + undo
-
-    view.OnUndoTx(uint256S("0x1"), 2); // fail
+    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x1"), 2); // fail
+    mnview.Flush();
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    view.OnUndoTx(uint256S("0x2"), 1); // fail
+    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x2"), 1); // fail
+    mnview.Flush();
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    view.OnUndoTx(uint256S("0x1"), 1); // success
+    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x1"), 1); // success
+    mnview.Flush();
     BOOST_CHECK(snapStart == TakeSnapshot(base_raw));
 }
 
@@ -191,7 +199,7 @@ BOOST_AUTO_TEST_CASE(tokens)
     CTokenImplementation token1;
     token1.symbol = "DCT1";
     token1.creationTx = uint256S("0x1111");
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(view.CreateToken(token1));
     BOOST_REQUIRE(GetTokensCount(view) == 2);
     {   // search by id
         auto token = view.GetToken(DCT_ID{128});
@@ -213,11 +221,11 @@ BOOST_AUTO_TEST_CASE(tokens)
     }
 
     // another token creation
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate symbol & tx
+    BOOST_REQUIRE(view.CreateToken(token1) == false); /// duplicate symbol & tx
     token1.symbol = "DCT2";
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok == false); /// duplicate tx
+    BOOST_REQUIRE(view.CreateToken(token1) == false); /// duplicate tx
     token1.creationTx = uint256S("0x2222");
-    BOOST_REQUIRE(view.CreateToken(token1, false).ok);
+    BOOST_REQUIRE(view.CreateToken(token1));
     BOOST_REQUIRE(GetTokensCount(view) == 3);
     {   // search by id
         auto token = view.GetToken(DCT_ID{129});
@@ -491,7 +499,7 @@ BOOST_AUTO_TEST_CASE(SnapshotTest)
             ++count;
             return true;
         });
-        BOOST_CHECK_EQUAL(count, 2);
+        BOOST_CHECK_EQUAL(count, 2u);
 
         count = 0;
         view2.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
@@ -501,7 +509,7 @@ BOOST_AUTO_TEST_CASE(SnapshotTest)
             ++count;
             return true;
         });
-        BOOST_CHECK_EQUAL(count, 4);
+        BOOST_CHECK_EQUAL(count, 4u);
     }
 }
 
@@ -522,7 +530,7 @@ BOOST_AUTO_TEST_CASE(ViewFlush)
         // view contains view2 changes, pcustomcsview keeps changes in the batch
         view.ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
             BOOST_REQUIRE(count < 1);
-            BOOST_CHECK_EQUAL(key.n, count + 2);
+            BOOST_CHECK_EQUAL((int)key.n, count + 2);
             BOOST_CHECK_EQUAL(value, count + 3);
             ++count;
             return true;
@@ -539,7 +547,7 @@ BOOST_AUTO_TEST_CASE(ViewFlush)
         // pcustomcsview does not contains view2 changes
         pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
             BOOST_REQUIRE(count < 2);
-            BOOST_CHECK_EQUAL(key.n, count);
+            BOOST_CHECK_EQUAL((int)key.n, count);
             ++count;
             BOOST_CHECK_EQUAL(value, count);
             return true;
@@ -566,7 +574,7 @@ BOOST_AUTO_TEST_CASE(SnapshotParallel)
             int count = 0;
             pcustomcsview->ForEach<TestForward, TestForward, int>([&](TestForward key, int value) {
                 BOOST_REQUIRE(count < 9);
-                BOOST_CHECK_EQUAL(key.n, count);
+                BOOST_CHECK_EQUAL((int)key.n, count);
                 ++count;
                 BOOST_CHECK_EQUAL(value, count);
                 return true;

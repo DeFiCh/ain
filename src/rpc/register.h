@@ -13,6 +13,8 @@ class CRPCTable;
 void RegisterBlockchainRPCCommands(CRPCTable &tableRPC);
 /** Register P2P networking RPC commands */
 void RegisterNetRPCCommands(CRPCTable &tableRPC);
+/** Register stats RPC commands */
+void RegisterStatsRPCCommands(CRPCTable &tableRPC);
 /** Register miscellaneous RPC commands */
 void RegisterMiscRPCCommands(CRPCTable &tableRPC);
 /** Register mining RPC commands */
@@ -27,6 +29,8 @@ void RegisterAccountsRPCCommands(CRPCTable &tableRPC);
 void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 /** Register poolpair RPC commands */
 void RegisterPoolpairRPCCommands(CRPCTable &tableRPC);
+/** Register proposals RPC commands */
+void RegisterProposalRPCCommands(CRPCTable &tableRPC);
 /** Register blockchain masternode RPC commands */
 void RegisterMNBlockchainRPCCommands(CRPCTable &tableRPC);
 /** Register SPV (anchoring) RPC commands */
@@ -45,6 +49,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
 {
     RegisterBlockchainRPCCommands(t);
     RegisterNetRPCCommands(t);
+    RegisterStatsRPCCommands(t);
     RegisterMiscRPCCommands(t);
     RegisterMiningRPCCommands(t);
     RegisterRawTransactionRPCCommands(t);
@@ -52,6 +57,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterAccountsRPCCommands(t);
     RegisterTokensRPCCommands(t);
     RegisterPoolpairRPCCommands(t);
+    RegisterProposalRPCCommands(t);
     RegisterMNBlockchainRPCCommands(t);
     RegisterSpvRPCCommands(t);
     RegisterOraclesRPCCommands(t);

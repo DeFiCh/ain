@@ -202,7 +202,6 @@ inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CA
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
-// precisoin COIN ^3
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
 {
     auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
@@ -270,7 +269,6 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     Require(height >= rate.height, "Cannot store height in the past");
 
     if (rate.height) {
-        LogPrint(BCLog::LOAN,"%s():\n", __func__);
         rate.interestToHeight = TotalInterestCalculation(rate, height);
     }
 
@@ -311,7 +309,6 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
 
     auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
 
-    LogPrint(BCLog::LOAN,"%s():\n", __func__);
     auto interestToHeight = TotalInterestCalculation(rate, height);
     rate.interestToHeight = interestToHeight < interestDecreasedHP ? 0
                           : interestToHeight - interestDecreasedHP;
@@ -375,6 +372,11 @@ Res CLoanView::DeleteInterest(const CVaultId& vaultId, uint32_t height)
     return Res::Ok();
 }
 
+void CLoanView::EraseInterestDirect(const CVaultId& vaultId, DCT_ID id)
+{
+    EraseBy<LoanInterestV2ByVault>(std::make_pair(vaultId, id));
+}
+
 void CLoanView::RevertInterestRateToV1()
 {
     std::vector<std::pair<CVaultId, DCT_ID>> pairs;
@@ -436,9 +438,21 @@ std::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
     return ReadBy<LoanTokenAmount, CBalances>(vaultId);
 }
 
+void CLoanView::ForEachLoanTokenAmount(std::function<bool (const CVaultId&, const CBalances&)> callback)
+{
+    ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
+}
+
+
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
 {
     Write(LoanLiquidationPenalty::prefix(), penalty);
+    return Res::Ok();
+}
+
+Res CLoanView::EraseLoanLiquidationPenalty()
+{
+    Erase(LoanLiquidationPenalty::prefix());
     return Res::Ok();
 }
 

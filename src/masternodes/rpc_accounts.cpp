@@ -1748,6 +1748,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount paybackFee{0};
     CAmount dfiPaybackFee{0};
     CBalances burntTokens;
+    CBalances consortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybacktokens;
@@ -1768,7 +1769,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         // Fee burn
         if (value.category == uint8_t(CustomTxType::CreateMasternode)
         || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
+        || value.category == uint8_t(CustomTxType::Vault)
+        || value.category == uint8_t(CustomTxType::CreateCfp)
+        || value.category == uint8_t(CustomTxType::CreateVoc)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
             }
@@ -1801,6 +1804,15 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             return true;
         }
 
+        // token burn with burnToken tx
+        if (value.category == uint8_t(CustomTxType::BurnToken))
+        {
+            for (auto const & diff : value.diff) {
+                consortiumTokens.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
@@ -1818,6 +1830,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
     result.pushKV("auctionburn", ValueFromAmount(auctionFee));
     result.pushKV("paybackburn", ValueFromAmount(paybackFee));
@@ -2229,9 +2242,10 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
     }.Check(request);
 
     UniValue listFutures{UniValue::VARR};
+    CImmutableCSView futureSwapView(*pfutureSwapView);
     CImmutableCSView view(*pcustomcsview);
 
-    view.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+    futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
         CTxDestination dest;
         ExtractDestination(key.owner, dest);
         if (!IsValidDestination(dest))
@@ -2257,7 +2271,7 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
         listFutures.push_back(value);
 
         return true;
-    }, {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
+    });
 
     return listFutures;
 }
@@ -2286,33 +2300,46 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     const auto owner = DecodeScript(request.params[0].get_str());
 
     UniValue listValues{UniValue::VARR};
+    CImmutableCSView futureSwapView(*pfutureSwapView);
     CImmutableCSView view(*pcustomcsview);
 
-    view.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futureValue) {
-
-        if (key.owner == owner) {
-            UniValue value{UniValue::VOBJ};
-
-            const auto source = view.GetToken(futureValue.source.nTokenId);
-            if (!source)
-                return true;
-
-            value.pushKV("source", tokenAmountString(futureValue.source));
-
-            if (source->symbol == "DUSD") {
-                const auto destination = view.GetLoanTokenByID({futureValue.destination});
-                if (!destination)
-                    return true;
-
-                value.pushKV("destination", destination->symbol);
-            } else
-                value.pushKV("destination", "DUSD");
-
-            listValues.push_back(value);
+    std::vector<CFuturesUserKey> ownerEntries;
+    futureSwapView.ForEachFuturesCScript([&](const CFuturesCScriptKey& key, const std::string&){
+        if (key.owner != owner) {
+            return false;
         }
 
+        ownerEntries.push_back({key.height, key.owner, key.txn});
+
         return true;
-    }, {static_cast<uint32_t>(view.GetLastHeight()), owner, std::numeric_limits<uint32_t>::max()});
+    }, CFuturesCScriptKey{owner, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
+
+    for (const auto& entry : ownerEntries) {
+        const auto resVal = futureSwapView.GetFuturesUserValues(entry);
+        if (!resVal)
+            continue;
+
+        const auto& futureValue = *resVal;
+        UniValue value{UniValue::VOBJ};
+
+        const auto source = view.GetToken(futureValue.source.nTokenId);
+        if (!source)
+            continue;
+
+        value.pushKV("source", tokenAmountString(futureValue.source));
+
+        if (source->symbol == "DUSD") {
+            const auto destination = view.GetLoanTokenByID({futureValue.destination});
+            if (!destination)
+                continue;
+
+            value.pushKV("destination", destination->symbol);
+        } else {
+            value.pushKV("destination", "DUSD");
+        }
+
+        listValues.push_back(value);
+    }
 
     UniValue obj{UniValue::VOBJ};
     obj.pushKV("owner", ScriptToString(owner));

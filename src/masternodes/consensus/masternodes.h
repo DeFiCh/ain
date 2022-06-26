@@ -9,8 +9,6 @@
 
 struct CCreateMasterNodeMessage;
 struct CResignMasterNodeMessage;
-struct CSetForcedRewardAddressMessage;
-struct CRemForcedRewardAddressMessage;
 struct CUpdateMasterNodeMessage;
 
 class CMasternodesConsensus : public CCustomTxVisitor {
@@ -18,8 +16,6 @@ public:
     using CCustomTxVisitor::CCustomTxVisitor;
     Res operator()(const CCreateMasterNodeMessage& obj) const;
     Res operator()(const CResignMasterNodeMessage& obj) const;
-    Res operator()(const CSetForcedRewardAddressMessage& obj) const;
-    Res operator()(const CRemForcedRewardAddressMessage& obj) const;
     Res operator()(const CUpdateMasterNodeMessage& obj) const;
 };
 

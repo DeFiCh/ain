@@ -26,14 +26,13 @@ enum struct CustomTxType : uint8_t
     CreateMasternode        = 'C',
     ResignMasternode        = 'R',
     UpdateMasternode        = 'm',
-    SetForcedRewardAddress  = 'F',
-    RemForcedRewardAddress  = 'f',
 
     // tokens
     CreateToken             = 'T',
     MintToken               = 'M',
     UpdateToken             = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny          = 'n', // new type of token's update with any flags/fields possible
+    BurnToken               = 'W',
 
     // poolpairs
     CreatePoolPair          = 'p',
@@ -55,6 +54,7 @@ enum struct CustomTxType : uint8_t
 
     // governance
     SetGovVariable          = 'G',
+    UnsetGovVariable        = 'Z',
     SetGovVariableHeight    = 'j',
 
     // Auto auth
@@ -90,12 +90,22 @@ enum struct CustomTxType : uint8_t
     TakeLoan                = 'X',
     PaybackLoan             = 'H',
     PaybackLoanV2           = 'k',
-    AuctionBid              = 'I'
+    AuctionBid              = 'I',
+
+    // On-Chain-Gov
+    CreateCfp               = 'P',
+    Vote                    = 'O',
+    CreateVoc               = 'E',
 };
 
-extern const std::vector<unsigned char> DfTxMarker;
+enum class MetadataVersion : uint8_t {
+    None = 0,
+    One = 1,
+    Two = 2,
+};
 
-CustomTxType GuessCustomTxType(const CTransaction& tx, std::vector<unsigned char>& metadata, bool metadataValidation = false);
+CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
+                                      uint32_t height = 0, CExpirationAndVersion* customTxParams = nullptr);
 CAmount GetNonMintedValueOut(const CTransaction& tx, DCT_ID tokenID);
 TAmounts GetNonMintedValuesOut(const CTransaction& tx);
 bool NotAllowedToFail(CustomTxType txType, int height);

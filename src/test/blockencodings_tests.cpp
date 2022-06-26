@@ -40,6 +40,7 @@ static CBlock BuildBlockTestCase() {
     uint256 masternodeID = testMasternodeKeys.begin()->first;
     uint32_t mintedBlocks(0);
     int64_t creationHeight;
+    int64_t blockHeight;
     CKey minterKey;
     std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
     if (pos == testMasternodeKeys.end())
@@ -52,13 +53,14 @@ static CBlock BuildBlockTestCase() {
         tip = ::ChainActive().Tip();
 
         auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(tip->nHeight))
+        if (!nodePtr || !nodePtr->IsActive(tip->nHeight, *pcustomcsview))
             return {};
 
         mintedBlocks = nodePtr->mintedBlocks;
         creationHeight = int64_t(nodePtr->creationHeight);
     }
 
+    blockHeight = tip->nHeight + 1;
     block.deprecatedHeight = tip->nHeight + 1;
     block.mintedBlocks = mintedBlocks + 1;
     block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
@@ -80,7 +82,7 @@ static CBlock BuildBlockTestCase() {
     block.nTime = 0;
     CheckContextState ctxState;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.deprecatedHeight, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, blockHeight, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);

@@ -25,6 +25,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -38,6 +39,7 @@
 #include <policy/settings.h>
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
+#include <rpc/stats.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <scheduler.h>
@@ -399,6 +401,7 @@ void SetupServerArgs()
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-customtxexpiration=<n>", strprintf("Number of blocks ahead of tip locally created transaction will expire (default: %u)", DEFAULT_CUSTOM_TX_EXPIRATION), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-minimumchainwork=<hex>", strprintf("Minimum work assumed to exist on a valid chain in hex (default: %s, testnet: %s)", defaultChainParams->GetConsensus().nMinimumChainWork.GetHex(), testnetChainParams->GetConsensus().nMinimumChainWork.GetHex()), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS); // omit for devnet
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -589,6 +592,7 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowcors=<host>", "Allow CORS requests from the given host origin. Include scheme and port (eg: -rpcallowcors=http://127.0.0.1:5000)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1279,6 +1283,64 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+void MigrateDBs()
+{
+    auto it = pundosView->LowerBound<CUndosView::ByMultiUndoKey>(UndoSourceKey{});
+    if (it.Valid()) {
+        return;
+    }
+
+    LogPrintf("Migrating future swap and undo entries, might take a while...\n");
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    std::vector<std::pair<UndoKey, CUndo>> undos;
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        undos.emplace_back(key, undo);
+        pundosView->SetUndo({{key.height, key.txid}, UndoSource::CustomView}, undo);
+        return true;
+    });
+
+    for (const auto& [key, undo] : undos) {
+        pcustomcsview->DelUndo(key);
+    }
+
+    if (!undos.empty()) {
+        pcustomcsview->Flush();
+        pcustomcsview->CompactBy<CUndosBaseView::ByUndoKey>(undos.begin()->first, undos.rbegin()->first);
+        pcustomcsview->Flush(true);
+    }
+
+    // Migrate FutureSwaps
+    std::multimap<uint32_t, std::pair<CFuturesUserKey, CFuturesUserValue>> keyMap;
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& swap){
+        keyMap.emplace(key.height, std::make_pair(key, swap));
+        return true;
+    });
+
+    if (!keyMap.empty()) {
+        auto futureView(*pfutureSwapView);
+
+        for (auto heightIt = keyMap.begin(); heightIt != keyMap.end();) {
+            auto [start, end] = keyMap.equal_range(heightIt->first);
+            for (auto valueIt{start}; valueIt != end; ++valueIt) {
+                pcustomcsview->EraseFuturesUserValues(valueIt->second.first);
+                futureView.StoreFuturesUserValues(valueIt->second.first, valueIt->second.second);
+            }
+            static const auto txIdAllOne = uint256S(std::string(64, '1'));
+            pundosView->AddUndo(UndoSource::FutureView, *pfutureSwapView, futureView, txIdAllOne, heightIt->first);
+            futureView.Flush();
+            heightIt = end;
+        }
+
+        pundosView->Flush();
+        pfutureSwapView->Flush();
+    }
+
+    LogPrintf("Migrating future swap and undo data finished.\n");
+    LogPrint(BCLog::BENCH, "    - Migrating future swap and undo data takes: %dms\n", GetTimeMillis() - time);
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1636,6 +1698,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
+                // Set custom Tx expiration
+                pcustomcsview->SetGlobalCustomTxExpiration(gArgs.GetArg("-customtxexpiration", DEFAULT_CUSTOM_TX_EXPIRATION));
+
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
@@ -1653,6 +1718,19 @@ bool AppInitMain(InitInterfaces& interfaces)
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomMinCacheSize, false, fReset || fReindexChainState);
                 }
 
+                // Create Future Swap DB
+                auto pfutureSwapDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "futureswap", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pfutureSwapView.reset();
+                pfutureSwapView = std::make_unique<CFutureSwapView>(pfutureSwapDB);
+
+                // Create Future Swap DB
+                auto pundosDB = std::make_shared<CStorageKV>(CStorageLevelDB(GetDataDir() / "undos", nCustomMinCacheSize, false, fReset || fReindexChainState));
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1661,7 +1739,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pfutureSwapView.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }
@@ -2074,6 +2152,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             threadStaker(stakersParams, chainparams);
         });
     }
+
+    if (!gArgs.GetBoolArg("-rpcstats", DEFAULT_RPC_STATS)) statsRPC.setActive(false);
 
     return true;
 }

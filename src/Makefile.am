@@ -163,12 +163,14 @@ DEFI_CORE_H = \
   masternodes/consensus/masternodes.h \
   masternodes/consensus/oracles.h \
   masternodes/consensus/poolpairs.h \
+  masternodes/consensus/proposals.h \
   masternodes/consensus/smartcontracts.h \
   masternodes/consensus/tokens.h \
   masternodes/consensus/txvisitor.h \
   masternodes/consensus/vaults.h \
   masternodes/customtx.h \
   masternodes/factory.h \
+  masternodes/futureswap.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
@@ -188,6 +190,7 @@ DEFI_CORE_H = \
   masternodes/res.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
+  masternodes/proposals.h \
   masternodes/tokens.h \
   masternodes/undo.h \
   masternodes/undos.h \
@@ -228,6 +231,7 @@ DEFI_CORE_H = \
   rpc/request.h \
   rpc/server.h \
   rpc/util.h \
+  rpc/stats.h \
   scheduler.h \
   script/descriptor.h \
   script/keyorigin.h \
@@ -394,10 +398,12 @@ libdefi_server_a_SOURCES = \
   masternodes/consensus/masternodes.cpp \
   masternodes/consensus/oracles.cpp \
   masternodes/consensus/poolpairs.cpp \
+  masternodes/consensus/proposals.cpp \
   masternodes/consensus/smartcontracts.cpp \
   masternodes/consensus/tokens.cpp \
   masternodes/consensus/txvisitor.cpp \
   masternodes/consensus/vaults.cpp \
+  masternodes/futureswap.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
@@ -422,9 +428,11 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_loan.cpp \
   masternodes/rpc_oracles.cpp \
   masternodes/rpc_poolpair.cpp \
+  masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_vault.cpp \
   masternodes/poolpairs.cpp \
+  masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/tokens.cpp \
   masternodes/undos.cpp \
@@ -626,6 +634,7 @@ libdefi_common_a_SOURCES = \
   psbt.cpp \
   rpc/rawtransaction_util.cpp \
   rpc/util.cpp \
+  rpc/stats.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
   script/sign.cpp \

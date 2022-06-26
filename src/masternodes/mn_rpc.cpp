@@ -424,17 +424,19 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
 
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
     std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
-    auto txMessage = customTypeToMessage(txType);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
         CImmutableCSView view(*pcustomcsview);
+        auto futureSwapView(*pfutureSwapView);
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, height);
         auto time = ::ChainActive().Tip()->nTime;
-        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage, time);
+        res = CustomTxVisit(view, futureSwapView, coins, tx, height, Params().GetConsensus(), txMessage, time);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -452,7 +454,7 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(CImmutableCSView& view)
 {
     const auto attributes = view.GetAttributes();
     if (!attributes) {
@@ -471,7 +473,9 @@ std::optional<CAmount> GetFuturesBlock(CImmutableCSView& view)
         return {};
     }
 
-    return attributes->GetValue(blockKey, CAmount{});
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+
+    return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
@@ -530,6 +534,96 @@ UniValue setgov(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetGovVariable)
              << varStream;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue const & txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue unsetgov(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"unsetgov",
+               "\nUnset special 'governance' variables:: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               {
+                    {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
+                        {
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Variable's name is the key."},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("unsetgov", "'{\"LP_SPLITS\": [\"2\",\"3\"]'")
+                       + HelpExampleRpc("unsetgov", "'{\"ICX_TAKERFEE_PER_BTC\"}'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    std::map<std::string, std::vector<std::string>> govs;
+    if (request.params.size() > 0 && request.params[0].isObject()) {
+        for (const std::string& name : request.params[0].getKeys()) {
+            auto gv = GovVariable::Create(name);
+            if (!gv) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+            }
+            auto& keys = govs[name];
+            const auto& value = request.params[0][name];
+            if (value.isArray()) {
+                for (const auto& key : value.getValues()) {
+                    keys.push_back(key.get_str());
+                }
+            }
+        }
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UnsetGovVariable)
+             << govs;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -880,18 +974,58 @@ static UniValue clearmempool(const JSONRPCRequest& request)
     return removed;
 }
 
+UniValue setcustomtxexpiration(const JSONRPCRequest& request) {
+    RPCHelpMan{"setcustomtxexpiration",
+               "\nSet the expiration in blocks of locally created transactions. This expiration is to be\n"
+               "added to the current block height at the point of transaction creation. Once the chain reaches the\n"
+               "combined height if the transaction has not been added to a block it will be removed from the mempool\n"
+               "and can no longer be added to a block\n",
+               {
+                       {"blockCount", RPCArg::Type::NUM, RPCArg::Optional::NO, ""}
+               },
+               RPCResults{},
+               RPCExamples{
+                       HelpExampleCli("setcustomtxexpiration", "10")
+                       + HelpExampleRpc("setcustomtxexpiration", "10")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VNUM}, false);
+
+    LOCK(cs_main);
+
+    pcustomcsview->SetGlobalCustomTxExpiration(request.params[0].get_int());
+
+    return {};
+}
+
+void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const MetadataVersion version)
+{
+    if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+        return;
+    }
+
+    CExpirationAndVersion customTxParams{height + pcustomcsview->GetGlobalCustomTxExpiration(), static_cast<uint8_t>(version)};
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << customTxParams;
+
+    metaData << ToByteVector(stream);
+}
 
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
 //  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
+    {"blockchain",  "unsetgov",              &unsetgov,              {"variables", "inputs"}},
     {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
     {"blockchain",  "clearmempool",          &clearmempool,          {} },
+    {"blockchain",  "setcustomtxexpiration", &setcustomtxexpiration, {"blockHeight"}},
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {

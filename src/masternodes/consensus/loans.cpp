@@ -77,9 +77,10 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage& obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto tokenId = mnview.CreateToken(token, false);
+    auto tokenId = mnview.CreateToken(token);
     Require(tokenId);
-    return mnview.SetLoanToken(loanToken, *tokenId);
+
+    return mnview.SetLoanToken(loanToken, *(tokenId.val));
 }
 
 Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
@@ -112,7 +113,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage& obj) const {
     if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
-    Require(mnview.UpdateToken(pair->second.creationTx, pair->second, false));
+    Require(mnview.UpdateToken(pair->second));
     return mnview.UpdateLoanToken(*loanToken, pair->first);
 }
 
@@ -268,7 +269,6 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage& obj) const {
         Require(mnview.AddBalance(address, CTokenAmount{kv.first, kv.second}));
     }
 
-    LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
     return CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals);
 }

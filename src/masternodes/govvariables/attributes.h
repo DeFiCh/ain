@@ -12,16 +12,20 @@
 
 #include <variant>
 
+class CFutureSwapView;
+
 enum VersionTypes : uint8_t {
     v0 = 0,
 };
 
 enum AttributeTypes : uint8_t {
-    Live      = 'l',
-    Param     = 'a',
-    Token     = 't',
-    Poolpairs = 'p',
-    Locks     = 'L',
+    Live       = 'l',
+    Oracles    = 'o',
+    Param      = 'a',
+    Token      = 't',
+    Poolpairs  = 'p',
+    Locks      = 'L',
+    Consortium = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -31,13 +35,19 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
 };
 
+enum OracleIDs : uint8_t  {
+    Splits    = 'a',
+};
+
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens    = 'b',
-    DFIP2203Current  = 'c',
-    DFIP2203Burned   = 'd',
-    DFIP2203Minted   = 'e',
-    DexTokens        = 'f',
+    PaybackDFITokens        = 'a',
+    PaybackTokens           = 'b',
+    DFIP2203Current         = 'c',
+    DFIP2203Burned          = 'd',
+    DFIP2203Minted          = 'e',
+    DexTokens               = 'f',
+    ConsortiumMinted        = 'g',
+    ConsortiumMembersMinted = 'h',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -46,6 +56,7 @@ enum DFIPKeys : uint8_t  {
     MinSwap      = 'c',
     RewardPct    = 'd',
     BlockPeriod  = 'e',
+    StartBlock   = 'f',
 };
 
 enum TokenKeys : uint8_t  {
@@ -61,6 +72,14 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor  = 'j',
     LoanMintingEnabled    = 'k',
     LoanMintingInterest   = 'l',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
+};
+
+enum ConsortiumKeys : uint8_t  {
+    Members               = 'a',
+    MintLimit             = 'b',
 };
 
 enum PoolKeys : uint8_t {
@@ -141,17 +160,69 @@ struct CDexTokenInfo {
     }
 };
 
+struct CConsortiumMember
+{
+    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
+    enum Status : uint8_t
+    {
+        Active = 0,
+        Disabled = 0x01,
+    };
+
+    std::string name;
+    CScript ownerAddress;
+    std::string backingId;
+    CAmount mintLimit;
+    uint8_t status;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(ownerAddress);
+        READWRITE(backingId);
+        READWRITE(mintLimit);
+        READWRITE(status);
+    }
+};
+
+struct CConsortiumMinted
+{
+    CAmount minted;
+    CAmount burnt;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(burnt);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumMinted>>;
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
+
 using CAttributeType = std::variant<CDataStructureV0>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CDexBalances, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
+                                        CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
 {
 public:
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView &mnview, const uint32_t height) override;
+    Res Apply(CCustomCSView& mnview, uint32_t height) override { return Res::Err("Calling the wrong Apply"); };
+    Res Apply(CCustomCSView& mnview, CFutureSwapView& futureSwapView, uint32_t height);
+    Res Erase(CCustomCSView& mnview, uint32_t height, std::vector<std::string> const &) override;
 
     std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
@@ -190,10 +261,13 @@ public:
     }
 
     template<typename K>
-    void EraseKey(const K& key) {
+    bool EraseKey(const K& key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
-        changed.insert(key);
-        attributes.erase(key);
+        if (attributes.erase(key)) {
+            changed.insert(key);
+            return true;
+        }
+        return false;
     }
 
     template<typename K>
@@ -224,29 +298,33 @@ public:
     }
 
     uint32_t time{0};
+    std::map<CAttributeType, CAttributeValue> attributes;
+
     // For formatting in export
     static const std::map<uint8_t, std::string>& displayVersions();
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
+    static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 private:
     friend class CGovView;
     bool futureBlockUpdated{};
+    std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
-    std::map<CAttributeType, CAttributeValue> attributes;
 
     // Defined allowed arguments
     static const std::map<std::string, uint8_t>& allowedVersions();
     static const std::map<std::string, uint8_t>& allowedTypes();
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
+    static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
+    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
                         const std::function<Res(const CAttributeType&, const CAttributeValue&)>& applyVariable);
-    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+    Res RefundFuturesContracts(CCustomCSView &mnview, CFutureSwapView& futureSwapView, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 };
 
 ResVal<CScript> GetFutureSwapContractAddress();

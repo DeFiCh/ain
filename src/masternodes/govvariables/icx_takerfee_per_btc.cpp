@@ -7,15 +7,24 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
+bool ICX_TAKERFEE_PER_BTC::IsEmpty() const
+{
+    return !takerFeePerBTC.has_value();
+}
+
 Res ICX_TAKERFEE_PER_BTC::Import(const UniValue & val)
 {
-    takerFeePerBTC = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    takerFeePerBTC = amount;
     return Res::Ok();
 }
 
 UniValue ICX_TAKERFEE_PER_BTC::Export() const
 {
-    return ValueFromAmount(takerFeePerBTC);
+    return ValueFromAmount(takerFeePerBTC.value_or(0));
 }
 
 Res ICX_TAKERFEE_PER_BTC::Validate(const CCustomCSView &mnview) const
@@ -27,5 +36,11 @@ Res ICX_TAKERFEE_PER_BTC::Validate(const CCustomCSView &mnview) const
 
 Res ICX_TAKERFEE_PER_BTC::Apply(CCustomCSView & mnview, uint32_t)
 {
-    return mnview.ICXSetTakerFeePerBTC(takerFeePerBTC);
+    return mnview.ICXSetTakerFeePerBTC(takerFeePerBTC.value_or(0));
+}
+
+Res ICX_TAKERFEE_PER_BTC::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const &)
+{
+    takerFeePerBTC.reset();
+    return mnview.ICXEraseTakerFeePerBTC();
 }

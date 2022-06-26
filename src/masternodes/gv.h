@@ -10,6 +10,7 @@
 #include <masternodes/res.h>
 #include <univalue/include/univalue.h>
 
+#include <optional>
 #include <unordered_map>
 
 class ATTRIBUTES;
@@ -25,17 +26,38 @@ public:
 
     virtual std::string GetName() const = 0;
 
+    virtual bool IsEmpty() const = 0;
     virtual Res Import(UniValue const &) = 0;
     virtual UniValue Export() const = 0;
     /// @todo it looks like Validate+Apply may be redundant. refactor for one?
     virtual Res Validate(CCustomCSView const &) const = 0;
     virtual Res Apply(CCustomCSView &, uint32_t) = 0;
+    virtual Res Erase(CCustomCSView &, uint32_t, std::vector<std::string> const &) = 0;
 
     virtual void Serialize(CVectorWriter& s) const = 0;
     virtual void Unserialize(VectorReader& s) = 0;
 
     virtual void Serialize(CDataStream& s) const = 0;
     virtual void Unserialize(CDataStream& s) = 0;
+};
+
+template<typename T>
+class GvOptional : public std::optional<T>
+{
+public:
+    using std::optional<T>::optional;
+    using std::optional<T>::operator bool;
+
+    template<typename Stream>
+    inline void Serialize(Stream& s) const {
+        assert(this->has_value());
+        ::Serialize(s, this->value());
+    }
+
+    template<typename Stream>
+    inline void Unserialize(Stream& s) {
+        ::Unserialize(s, *this ? this->value() : this->emplace());
+    }
 };
 
 struct CGovernanceMessage {
@@ -74,6 +96,16 @@ struct CGovernanceHeightMessage {
     }
 };
 
+struct CGovernanceUnsetMessage {
+    std::map<std::string, std::vector<std::string>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(govs);
+    }
+};
+
 class CGovView : public virtual CStorageView
 {
 public:
@@ -83,6 +115,7 @@ public:
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
+    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> GetStoredVariablesRange(const uint32_t startHeight, const uint32_t endHeight);
     void EraseStoredVariables(const uint32_t height);
 
     virtual std::shared_ptr<ATTRIBUTES> GetAttributes() const;

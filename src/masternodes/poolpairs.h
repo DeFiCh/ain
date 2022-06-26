@@ -255,6 +255,7 @@ public:
     bool HasPoolPair(DCT_ID const & poolId) const;
 
     Res SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct);
+    Res EraseDexFeePct(DCT_ID poolId, DCT_ID tokenId);
     CAmount GetDexFeeInPct(DCT_ID poolId, DCT_ID tokenId) const;
     CAmount GetDexFeeOutPct(DCT_ID poolId, DCT_ID tokenId) const;
 

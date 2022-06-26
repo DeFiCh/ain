@@ -11,6 +11,7 @@
 #include <masternodes/consensus/masternodes.h>
 #include <masternodes/consensus/oracles.h>
 #include <masternodes/consensus/poolpairs.h>
+#include <masternodes/consensus/proposals.h>
 #include <masternodes/consensus/smartcontracts.h>
 #include <masternodes/consensus/tokens.h>
 #include <masternodes/consensus/vaults.h>
@@ -30,18 +31,17 @@
 
 #include <algorithm>
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType) {
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version) {
     switch (txType)
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-        case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
-        case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
         case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
         case CustomTxType::MintToken:               return CMintTokensMessage{};
+        case CustomTxType::BurnToken:               return CBurnTokensMessage{};
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
@@ -55,6 +55,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
         case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
@@ -83,6 +84,9 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
+        case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
@@ -138,11 +142,6 @@ public:
 
     template<typename T>
     Res EnabledAfter() const {
-        if constexpr (IsOneOf<T, CSetForcedRewardAddressMessage,
-                                 CRemForcedRewardAddressMessage,
-                                 CUpdateMasterNodeMessage>())
-            return Res::Err("tx is disabled for Fort Canning");
-        else
         if constexpr (IsOneOf<T, CCreateTokenMessage,
                                  CUpdateTokenPreAMKMessage,
                                  CUtxosToAccountMessage,
@@ -197,9 +196,18 @@ public:
         if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
         else
+        if constexpr (IsOneOf<T, CGovernanceUnsetMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight);
+        else
         if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message,
                                  CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
+        else
+        if constexpr (IsOneOf<T, CBurnTokensMessage,
+                                 CCreatePropMessage,
+                                 CPropVoteMessage,
+                                 CUpdateMasterNodeMessage>())
+            return IsHardforkEnabled(consensus.GreatWorldHeight);
         else
         if constexpr (IsOneOf<T, CCreateMasterNodeMessage,
                                  CResignMasterNodeMessage>())
@@ -243,6 +251,7 @@ class CCustomTxApplyVisitor
     uint64_t time;
     uint32_t height;
     CCustomCSView& mnview;
+    CFutureSwapView& futureSwapView;
     const CTransaction& tx;
     const CCoinsViewCache& coins;
     const Consensus::Params& consensus;
@@ -253,7 +262,7 @@ class CCustomTxApplyVisitor
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>)
-            return T1{mnview, coins, tx, consensus, height, time, txn}(obj);
+            return T1{mnview, futureSwapView, coins, tx, consensus, height, time, txn}(obj);
         else
         if constexpr (sizeof...(Args) != 0)
             return ConsensusHandler<T, Args...>(obj);
@@ -266,11 +275,12 @@ public:
                           uint32_t height,
                           const CCoinsViewCache& coins,
                           CCustomCSView& mnview,
+                          CFutureSwapView& futureSwapView,
                           const Consensus::Params& consensus,
                           uint64_t time,
                           uint32_t txn)
 
-        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+        : txn(txn), time(time), height(height), mnview(mnview), futureSwapView(futureSwapView), tx(tx), coins(coins), consensus(consensus) {}
 
 
     template<typename T>
@@ -285,7 +295,8 @@ public:
                                    CPoolPairsConsensus,
                                    CSmartContractsConsensus,
                                    CTokensConsensus,
-                                   CVaultsConsensus
+                                   CVaultsConsensus,
+                                   CProposalsConsensus
                                 >(obj);
     }
 
@@ -353,12 +364,12 @@ bool IsDisabledTx(uint32_t height, const CTransaction& tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
+Res CustomTxVisit(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
     try {
-        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn), txMessage);
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, futureSwapView, consensus, time, txn), txMessage);
     } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -408,15 +419,15 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, const CCustomTxMessage& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, CFutureSwapView& futureSwapView, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = static_cast<int>(height) >= consensus.FortCanningHeight;
-
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxParams);
     if (txType == CustomTxType::None) {
         return res;
     }
@@ -424,17 +435,48 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     if (metadataValidation) {
         Require(txType != CustomTxType::Reject, CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
+    if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+        if (customTxParams.expiration == 0) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction expiration set");
+        }
+        if (customTxParams.version > static_cast<uint8_t>(MetadataVersion::Two)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
+        }
+        if (height > customTxParams.expiration) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Transaction has expired");
+        }
+        if (customTxExpiration) {
+            *customTxExpiration = customTxParams.expiration;
+        }
+    }
 
-    auto txMessage = customTypeToMessage(txType);
+    auto futureCopy(futureSwapView);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
+
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (writers) {
            PopulateVaultHistoryData(writers, txMessage, txType, height, txn, tx.GetHash());
         }
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
+        res = CustomTxVisit(view, futureCopy, coins, tx, height, consensus, txMessage, time, txn);
+
+        if (canSpend && txType == CustomTxType::UpdateMasternode) {
+            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+            for (const auto& item : obj.updates) {
+                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+        if (txType == CustomTxType::CreateToken
+        || txType == CustomTxType::CreateMasternode
+        || txType == CustomTxType::CreateCfp
+        || txType == CustomTxType::CreateVoc) {
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }
@@ -463,8 +505,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    mnview.AddUndo(view, tx.GetHash(), height);
     view.Flush();
+    futureCopy.Flush();
     return res;
 }
 
@@ -506,6 +548,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
     Require(tx.vout[1].scriptPubKey == GetScriptForDestination(destination), "anchor pay destination is incorrect");
 
+    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::AnchorReward), (CBalances{{{{0}, -mnview.GetCommunityBalance(CommunityAccountType::AnchorReward)}}}.ToString()));
     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 

@@ -970,7 +970,7 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
     }
 
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
-    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height)) {
+    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height, *pcustomcsview)) {
         LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
         return false;
     }
@@ -1117,7 +1117,7 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
             continue;
         }
 
-        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
+        if (node->IsActive(height, *pcustomcsview) && team.find(mnId.first) != team.end()) {
             CKey masternodeKey;
             for (auto const & wallet : GetWallets()) {
                 if (wallet->GetKey(mnId.first, masternodeKey)) {

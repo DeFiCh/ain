@@ -355,6 +355,13 @@ Res CICXOrderView::ICXSetTakerFeePerBTC(CAmount amount)
     return Res::Ok();
 }
 
+Res CICXOrderView::ICXEraseTakerFeePerBTC()
+{
+    EraseBy<ICXVariables>('A');
+
+    return Res::Ok();
+}
+
 CAmount CICXOrderView::ICXGetTakerFeePerBTC()
 {
     CAmount takerFeePerBTC = CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC;

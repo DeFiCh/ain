@@ -71,6 +71,11 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
     CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
     Require(attributes->CheckKey(blockKey) && attributes->CheckKey(rewardKey), "DFIP2203 not currently active");
 
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+    if (const auto startBlock = attributes->GetValue(startKey, CAmount{}); height < startBlock) {
+        return Res::Err("DFIP2203 not active until block %d", startBlock);
+    }
+
     Require(obj.source.nValue > 0, "Source amount must be more than zero");
 
     const auto source = mnview.GetLoanTokenByID(obj.source.nTokenId);
@@ -98,7 +103,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
     if (obj.withdraw) {
         std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
-        mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+        futureSwapView.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
             if (key.owner == obj.owner &&
                 futuresValues.source.nTokenId == obj.source.nTokenId &&
                 futuresValues.destination == obj.destination) {
@@ -113,20 +118,27 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage& obj) const {
 
         for (const auto& [key, value] : userFuturesValues) {
             totalFutures.Add(value.source.nValue);
-            mnview.EraseFuturesUserValues(key);
+            futureSwapView.EraseFuturesUserValues(key);
         }
 
         Require(totalFutures.Sub(obj.source.nValue));
 
-        if (totalFutures.nValue > 0)
-            Require(mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination}));
+        if (totalFutures.nValue > 0) {
+            Require(futureSwapView.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination}));
+        }
 
         Require(TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, *contractAddressValue, obj.owner));
         Require(balances.Sub(obj.source));
 
     } else {
+        // some txs might be rejected due to not enough owner amount
+        if (static_cast<int>(height) >= consensus.GreatWorldHeight)
+            CalculateOwnerRewards(obj.owner);
+
         Require(TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue));
-        Require(mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination}));
+
+        Require(futureSwapView.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination}));
+
         balances.Add(obj.source);
     }
 

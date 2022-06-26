@@ -17,6 +17,7 @@
 #include <masternodes/tokens.h>
 
 CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
+                                   CFutureSwapView& futureSwapView,
                                    const CCoinsViewCache& coins,
                                    const CTransaction& tx,
                                    const Consensus::Params& consensus,
@@ -24,7 +25,7 @@ CCustomTxVisitor::CCustomTxVisitor(CCustomCSView& mnview,
                                    uint64_t time,
                                    uint32_t txn)
 
-        : txn(txn), time(time), height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+        : txn(txn), time(time), height(height), mnview(mnview), futureSwapView(futureSwapView), tx(tx), coins(coins), consensus(consensus) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript& auth) const {
     for (const auto& input : tx.vin) {
@@ -95,6 +96,14 @@ Res CCustomTxVisitor::CheckCustomTx() const {
     return Res::Ok();
 }
 
+Res CCustomTxVisitor::CheckProposalTx(uint8_t type) const {
+    auto propType = static_cast<CPropType>(type);
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, propType) || tx.vout[0].nTokenId != DCT_ID{0})
+        return Res::Err("malformed tx vouts (wrong creation fee)");
+
+    return Res::Ok();
+}
+
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, CScript const & from, CScript const & to) const {
     assert(!from.empty() || !to.empty());
 
@@ -145,9 +154,15 @@ ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplement
     auto mintable = token.IsMintable() && (!isMainNet || !mnview.GetLoanTokenByID(id));
     Require(mintable, "token %s is not mintable!", id.ToString());
 
-    if (!HasAuth(auth.out.scriptPubKey)) {
+    // may be different logic with LPS, so, dedicated check:
+    if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id)))
+        return Res::Err("token %s is not mintable!", id.ToString());
+
+    if (!HasAuth(auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
         Require(token.IsDAT(), "tx must have at least one input from token owner");
-        Require(HasFoundationAuth());
+        if (!HasFoundationAuth()) // Is a DAT, check founders auth
+            if (height < static_cast<uint32_t>(consensus.GreatWorldHeight))
+                return Res::Err("token is DAT and tx not from foundation member");
     }
 
     return {auth.out.scriptPubKey, Res::Ok()};

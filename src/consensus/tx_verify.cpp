@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <chainparams.h>
+#include <masternodes/futureswap.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
@@ -169,6 +170,20 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
+    // check for tokens values
+    uint256 canSpend;
+    std::vector<unsigned char> dummy;
+    const auto txType = GuessCustomTxType(tx, dummy);
+
+    if (NotAllowedToFail(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().GreatWorldHeight && txType == CustomTxType::UpdateMasternode)) {
+        CCustomCSView discardCache(mnview);
+        CFutureSwapView futureSwapView(*pfutureSwapView);
+        auto res = ApplyCustomTx(discardCache, futureSwapView, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend);
+        if (!res.ok && (res.code & CustomTxErrCodes::Fatal) && txType != CustomTxType::UpdateMasternode) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
+        }
+    }
+
     TAmounts nValuesIn;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
@@ -187,8 +202,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
         /// @todo tokens: later match the range with TotalSupply
-
-        if (prevout.n == 1 && !mnview.CanSpend(prevout.hash, nSpendHeight)) {
+        if (canSpend != prevout.hash && prevout.n == 1 && !mnview.CanSpend(prevout.hash, nSpendHeight)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }
@@ -213,18 +227,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     // after fee calc it is guaranteed that both values[0] exists (even if zero)
     if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
-    }
-
-    // check for tokens values
-    std::vector<unsigned char> dummy;
-    const auto txType = GuessCustomTxType(tx, dummy);
-
-    if (NotAllowedToFail(txType, nSpendHeight)) {
-        CCustomCSView discardCache(mnview);
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight);
-        if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
-        }
     }
 
     for (auto const & kv : non_minted_values_out) {

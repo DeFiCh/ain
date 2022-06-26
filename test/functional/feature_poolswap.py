@@ -482,7 +482,8 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(amountB - dexoutfee, swapped)
         assert_equal(self.nodes[0].listaccounthistory(accountGN0, {'token':symbolGOLD})[0]['amounts'], ['-200.00000000@'+symbolGOLD])
 
-        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'].sort(), ['%.8f'%(dexinfee)+symbolGOLD, '%.8f'%(dexoutfee)+symbolSILVER].sort())
+        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'][0], '%.8f'%(dexinfee) + '@' + symbolGOLD)
+        assert_equal(self.nodes[0].getburninfo()['dexfeetokens'][1], '%.8f'%(dexoutfee) + '@' + symbolSILVER)
 
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(idGS)], dexinfee)
@@ -564,6 +565,50 @@ class PoolPairTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(idBL)], round(dexinfee, 8))
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(idBL)], Decimal(str(round(dexoutfee, 8))))
+
+        # Set token A fee to 0
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/poolpairs/%s/token_a_fee_pct'%(idGS): '0'}})
+        self.nodes[0].generate(1)
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/poolpairs/%s/token_a_fee_pct'%(idGS)], '0')
+        assert_equal(attributes['v0/poolpairs/%s/token_b_fee_pct'%(idGS)], '0.01')
+
+        result = self.nodes[0].getpoolpair(idGS)
+        assert('dexFeePctTokenA' not in result[idGS])
+        assert_equal(result[idGS]['dexFeePctTokenB'], Decimal('0.01'))
+
+        swap_from = 100
+        destination = self.nodes[0].getnewaddress("", "legacy")
+
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": swap_from,
+            "to": destination,
+            "tokenTo": symbolSILVER,
+        })
+        commission = round((swap_from * 0.01), 8)
+        amountA = swap_from - commission
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        reserveA = pool['reserveA']
+        reserveB = pool['reserveB']
+        previous_dex_a = attributes['v0/live/economy/dex/%s/fee_burn_a'%(idGS)]
+        previous_dex_b = attributes['v0/live/economy/dex/%s/fee_burn_b'%(idGS)]
+
+        self.nodes[0].generate(1)
+
+        pool = self.nodes[0].getpoolpair("GS")[idGS]
+        assert_equal(pool['reserveA'] - reserveA, amountA)
+        swapped = self.nodes[0].getaccount(destination, {}, True)[idSilver]
+        amountB = reserveB - pool['reserveB']
+        dex_fee_out = round(amountB * Decimal(0.01), 8)
+        assert_equal(amountB - dex_fee_out, swapped)
+        assert_equal(self.nodes[0].listaccounthistory(accountGN0, {'token':symbolGOLD})[0]['amounts'], ['-100.00000000@'+symbolGOLD])
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(idGS)], previous_dex_a)
+        assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(idGS)], previous_dex_b + Decimal(str(dex_fee_out)))
 
         # REVERTING:
         #========================

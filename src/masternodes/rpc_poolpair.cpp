@@ -343,6 +343,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, view.GetLastHeight());
 
     int targetHeight = view.GetLastHeight() + 1;
 
@@ -432,6 +433,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    AddVersionAndExpiration(scriptMeta, pcustomcsview->GetLastHeight());
 
     int targetHeight = pcustomcsview->GetLastHeight() + 1;
 
@@ -569,6 +571,11 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
 
         targetHeight = view.GetLastHeight() + 1;
+    }
+
+    const auto symbolLength = targetHeight >= Params().GetConsensus().FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+    if(pairSymbol.length() > symbolLength){
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
     }
 
     CCreatePoolPairMessage poolPairMsg{};
@@ -829,6 +836,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, pcustomcsview->GetLastHeight());
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -959,6 +967,7 @@ UniValue compositeswap(const JSONRPCRequest& request) {
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
+    AddVersionAndExpiration(scriptMeta, view.GetLastHeight());
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);

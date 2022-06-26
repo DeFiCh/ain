@@ -8,16 +8,24 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
+bool LOAN_LIQUIDATION_PENALTY::IsEmpty() const
+{
+    return !penalty.has_value();
+}
 
 Res LOAN_LIQUIDATION_PENALTY::Import(const UniValue & val)
 {
-    penalty = AmountFromValue(val);
+    CAmount amount;
+    if (!AmountFromValue(val, amount)) {
+        return Res::Err("Invalid amount");
+    }
+    penalty = amount;
     return Res::Ok();
 }
 
 UniValue LOAN_LIQUIDATION_PENALTY::Export() const
 {
-    return ValueFromAmount(penalty);
+    return ValueFromAmount(penalty.value_or(0));
 }
 
 Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView & view) const
@@ -31,5 +39,11 @@ Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView & view) const
 
 Res LOAN_LIQUIDATION_PENALTY::Apply(CCustomCSView & mnview, uint32_t height)
 {
-    return mnview.SetLoanLiquidationPenalty(penalty);
+    return mnview.SetLoanLiquidationPenalty(penalty.value_or(0));
+}
+
+Res LOAN_LIQUIDATION_PENALTY::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const &)
+{
+    penalty.reset();
+    return mnview.EraseLoanLiquidationPenalty();
 }

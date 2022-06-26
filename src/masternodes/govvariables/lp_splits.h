@@ -11,10 +11,12 @@
 class LP_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_SPLITS>
 {
 public:
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
+    Res Erase(CCustomCSView &mnview, uint32_t height, std::vector<std::string> const &) override;
 
     std::string GetName() const override { return TypeName(); }
     static constexpr char const * TypeName() { return "LP_SPLITS"; }

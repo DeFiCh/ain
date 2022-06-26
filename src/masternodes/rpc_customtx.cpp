@@ -83,24 +83,21 @@ public:
         rpcInfo.pushKV("id", obj.GetHex());
     }
 
-    void operator()(const CSetForcedRewardAddressMessage& obj) const {
-        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
-        rpcInfo.pushKV("rewardAddress", EncodeDestination(
-                obj.rewardAddressType == 1 ?
-                    CTxDestination(PKHash(obj.rewardAddress)) :
-                    CTxDestination(WitnessV0KeyHash(obj.rewardAddress)))
-        );
-    }
-
-    void operator()(const CRemForcedRewardAddressMessage& obj) const {
-        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
-    }
-
     void operator()(const CUpdateMasterNodeMessage& obj) const {
         rpcInfo.pushKV("id", obj.mnId.GetHex());
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
-                                                CTxDestination(PKHash(obj.operatorAuthAddress)) :
-                                                CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
+        for (const auto& item : obj.updates) {
+            if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+                rpcInfo.pushKV("operatorAddress", EncodeDestination(item.second.first == PKHashType ?
+                                                                    CTxDestination(PKHash(item.second.second)) :
+                                                                    CTxDestination(WitnessV0KeyHash(item.second.second))));
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                rpcInfo.pushKV("rewardAddress", EncodeDestination(item.second.first == PKHashType ?
+                                                                  CTxDestination(PKHash(item.second.second)) :
+                                                                  CTxDestination(WitnessV0KeyHash(item.second.second))));
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                rpcInfo.pushKV("rewardAddress", "");
+            }
+        }
     }
 
     void operator()(const CCreateTokenMessage& obj) const {
@@ -118,6 +115,24 @@ public:
 
     void operator()(const CMintTokensMessage& obj) const {
         rpcInfo.pushKVs(tokenBalances(obj));
+    }
+
+    void operator()(const CBurnTokensMessage& obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        std::string type;
+        switch (obj.burnType)
+        {
+            case CBurnTokensMessage::BurnType::TokenBurn:
+                type = "TokenBurn";
+                break;
+            default:
+                type = "TokenBurn";
+        }
+        rpcInfo.pushKV("type", type);
+
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
     }
 
     void operator()(const CLiquidityMessage& obj) const {
@@ -239,6 +254,16 @@ public:
         for (const auto& gov : obj.govs) {
             auto& var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
+        }
+    }
+
+    void operator()(const CGovernanceUnsetMessage& obj) const {
+        for (const auto& gov : obj.govs) {
+            UniValue keys(UniValue::VARR);
+            for (const auto& key : gov.second)
+                keys.push_back(key);
+
+            rpcInfo.pushKV(gov.first, keys);
         }
     }
 
@@ -454,17 +479,46 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
+    void operator()(const CCreatePropMessage& obj) const {
+        auto propId = tx.GetHash();
+        rpcInfo.pushKV("proposalId", propId.GetHex());
+        auto type = static_cast<CPropType>(obj.type);
+        rpcInfo.pushKV("type", CPropTypeToString(type));
+        rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
+        rpcInfo.pushKV("cycles", int(obj.nCycles));
+        auto finalHeight = height;
+        if (auto prop = mnview.GetProp(propId)) {
+            finalHeight = prop->finalHeight;
+        } else {
+            auto votingPeriod = mnview.GetVotingPeriod();
+            for (uint8_t i = 1; i <= obj.nCycles; ++i) {
+                finalHeight += (finalHeight % votingPeriod) + votingPeriod;
+            }
+        }
+        rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
+        rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+    }
+
+    void operator()(const CPropVoteMessage& obj) const {
+        rpcInfo.pushKV("proposalId", obj.propId.GetHex());
+        rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
+        auto vote = static_cast<CPropVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CPropVoteToString(vote));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };
 
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniValue& results) {
     std::vector<unsigned char> metadata;
-    txType = GuessCustomTxType(tx, metadata);
+    CExpirationAndVersion customTxParams;
+    txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
     if (txType == CustomTxType::None) {
         return Res::Ok();
     }
-    auto txMessage = customTypeToMessage(txType);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         CImmutableCSView mnview(*pcustomcsview);
