@@ -20,7 +20,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50',
-             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanninggardensheight=200', '-debug=loan', '-txindex=1']
+             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanningspringheight=200', '-debug=loan', '-txindex=1']
         ]
 
     def run_test(self):
@@ -377,7 +377,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             {account0: ["100@" + symbolBTC, "1000@" + symboldUSD]}, account0)
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/direct_interest_dusd_burn':'true', 'v0/token/'+idTSLA+'/loan_payback/'+idBTC: 'true', 'v0/token/'+idTSLA+'/loan_payback/'+iddUSD: 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/token/'+idTSLA+'/loan_payback/'+idBTC: 'true', 'v0/token/'+idTSLA+'/loan_payback/'+iddUSD: 'true'}})
         self.nodes[0].generate(1)
 
         burnAddress = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -436,7 +436,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         balanceDFIBefore = balanceDFIAfter
         burn_before = burn_after
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/direct_loan_dusd_burn':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].paybackloan({

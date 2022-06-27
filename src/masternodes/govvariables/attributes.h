@@ -29,6 +29,7 @@ enum ParamIDs : uint8_t  {
     TokenID   = 'c',
     Economy   = 'e',
     DFIP2206A = 'f',
+    DFIP2206F = 'g',
 };
 
 enum OracleIDs : uint8_t  {
@@ -42,6 +43,9 @@ enum EconomyKeys : uint8_t {
     DFIP2203Burned   = 'd',
     DFIP2203Minted   = 'e',
     DexTokens        = 'f',
+    DFIP2206FCurrent  = 'f',
+    DFIP2206FBurned   = 'g',
+    DFIP2206FMinted   = 'h',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -50,8 +54,9 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DirectInterestDUSDBurn  = 'g',
-    DirectLoanDUSDBurn      = 'h',
+    DUSDInterestBurn  = 'g',
+    DUSDLoanBurn      = 'h',
+    StartBlock              = 'i',
 };
 
 enum TokenKeys : uint8_t  {
@@ -144,7 +149,7 @@ struct CFeeDir {
     }
 };
 
-ResVal<CScript> GetFutureSwapContractAddress();
+ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract);
 
 struct CDexTokenInfo {
     struct CTokenInfo {
@@ -299,7 +304,8 @@ public:
 
 private:
     friend class CGovView;
-    bool futureBlockUpdated{};
+    bool futureUpdated{};
+    bool futureDUSDUpdated{};
     std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
@@ -316,6 +322,7 @@ private:
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+    Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

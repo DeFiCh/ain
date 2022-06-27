@@ -18,7 +18,7 @@ class FuturesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=150', '-subsidytest=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=150', '-fortcanningroadheight=150', '-fortcanningspringheight=500', '-subsidytest=1']]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -56,11 +56,24 @@ class FuturesTest(DefiTestFramework):
         # Test list future swap history
         self.rpc_history()
 
+        # Test start block
+        self.start_block()
+
+        # Test DFI-to-DUSD swap
+        self.dfi_to_dusd()
+
+        # Test DUSD withdrawals
+        self.check_withdrawals_dusd()
+
+        # Test refunding of unpaid DFI-to-DUSD contract
+        self.unpaid_contract_dusd()
+
     def setup_test(self):
 
         # Store addresses
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.contract_address = 'bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpsqgljc'
+        self.contract_address_dusd = 'bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz7nafu8'
 
         # Store interval
         self.futures_interval = 25
@@ -79,17 +92,18 @@ class FuturesTest(DefiTestFramework):
 
         # Setup oracle
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds = [
+        self.price_feeds = [
             {"currency": "USD", "token": self.symbolDFI},
             {"currency": "USD", "token": self.symbolTSLA},
             {"currency": "USD", "token": self.symbolGOOGL},
             {"currency": "USD", "token": self.symbolTWTR},
             {"currency": "USD", "token": self.symbolMSFT}
         ]
-        self.oracle_id = self.nodes[0].appointoracle(oracle_address, price_feeds, 10)
+        self.oracle_id = self.nodes[0].appointoracle(oracle_address, self.price_feeds, 10)
         self.nodes[0].generate(1)
 
         # Create Oracle prices
+        self.price_dfi = 1
         self.price_tsla = 870
         self.price_googl = 2600
         self.price_twtr = 37
@@ -115,13 +129,14 @@ class FuturesTest(DefiTestFramework):
         })
 
         # Feed oracle
-        oracle_prices = [
+        self.oracle_prices = [
+            {"currency": "USD", "tokenAmount": f'{self.price_dfi}@{self.symbolDFI}'},
             {"currency": "USD", "tokenAmount": f'{self.price_tsla}@{self.symbolTSLA}'},
             {"currency": "USD", "tokenAmount": f'{self.price_googl}@{self.symbolGOOGL}'},
             {"currency": "USD", "tokenAmount": f'{self.price_twtr}@{self.symbolTWTR}'},
             {"currency": "USD", "tokenAmount": f'{self.price_msft}@{self.symbolMSFT}'},
         ]
-        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), oracle_prices)
+        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), self.oracle_prices)
         self.nodes[0].generate(10)
 
         # Set up non-loan token for failure test
@@ -175,6 +190,7 @@ class FuturesTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Set token ids
+        self.idDFI  = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
         self.idDUSD  = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
         self.idTSLA  = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
@@ -197,6 +213,10 @@ class FuturesTest(DefiTestFramework):
 
         # Create addresses for futures
         address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Set DFI/DUSD fixed price interval
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDFI}/fixed_interval_price_id':f'{self.symbolDFI}/USD'}})
+        self.nodes[0].generate(1)
 
         # Try futureswap before feature is active
         assert_raises_rpc_error(-32600, "DFIP2203 not currently active", self.nodes[0].futureswap, address, f'1@{self.symbolTWTR}')
@@ -256,7 +276,7 @@ class FuturesTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, f'Could not get source loan token {self.idBTC}', self.nodes[0].futureswap, self.address, f'1@{self.symbolBTC}')
         assert_raises_rpc_error(-32600, f'DFIP2203 currently disabled for token {self.idDUSD}', self.nodes[0].futureswap, self.address, f'1@{self.symbolDUSD}', int(self.idDUSD))
         assert_raises_rpc_error(-32600, f'Could not get destination loan token {self.idBTC}. Set valid destination.', self.nodes[0].futureswap, self.address, f'1@{self.symbolDUSD}', int(self.idBTC))
-        assert_raises_rpc_error(-32600, 'Destination should not be set when source amount is a dToken', self.nodes[0].futureswap, self.address, f'1@{self.symbolTSLA}', int(self.idBTC))
+        assert_raises_rpc_error(-32600, 'Destination should not be set when source amount is dToken or DFI', self.nodes[0].futureswap, self.address, f'1@{self.symbolTSLA}', int(self.idBTC))
         assert_raises_rpc_error(-32600, 'amount 0.00000000 is less than 1.00000000', self.nodes[0].futureswap, address_twtr, f'1@{self.symbolTSLA}')
 
         # Create user futures contracts
@@ -1023,6 +1043,337 @@ class FuturesTest(DefiTestFramework):
         assert_equal(result[0]['owner'], self.list_history[0]['swaps'][0]['address'])
         assert_equal(result[0]['amounts'], [self.list_history[0]['swaps'][0]['destination']])
 
+    def start_block(self):
+
+        # Restore Oracle
+        oracle_address = self.nodes[0].getnewaddress("", "legacy")
+        self.oracle_id = self.nodes[0].appointoracle(oracle_address, self.price_feeds, 10)
+        self.nodes[0].generate(1)
+        self.nodes[0].setoracledata(self.oracle_id, int(time.time()), self.oracle_prices)
+        self.nodes[0].generate(10)
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(self.address, {address: f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}'})
+        self.nodes[0].generate(1)
+
+        # Move to fork block
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+
+        # Test setting start block while DFIP2203 still active
+        assert_raises_rpc_error(-32600, 'Cannot set block period while DFIP2203 is active', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':f'{self.nodes[0].getblockcount() + 1}'}})
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'false'}})
+        self.nodes[0].generate(1)
+
+        # Set start block height
+        self.start_block = self.nodes[0].getblockcount() + 10
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/start_block':f'{self.start_block}'}})
+        self.nodes[0].generate(1)
+
+        # Enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2203/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Test cannot create a future swap until active
+        assert_raises_rpc_error(-32600, f'DFIP2203 not active until block {self.start_block}', self.nodes[0].futureswap, address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+
+        # Check next future swap block reported correctly via RPC
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - ((self.nodes[0].getblockcount() - self.start_block) % self.futures_interval)) + self.futures_interval
+        assert_equal(next_futures_block, self.nodes[0].getfutureswapblock())
+
+        # Move to futures start height
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Create user futures contract
+        self.nodes[0].futureswap(address, f'{self.prices[0]["premiumPrice"]}@{self.symbolDUSD}', int(self.idTSLA))
+        self.nodes[0].generate(1)
+
+        # Move to one before next future swap block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval - ((self.nodes[0].getblockcount() - self.start_block) % self.futures_interval))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount() - 1)
+
+        # Check calculation is correct for second swap height after setting start block
+        assert_equal(next_futures_block, self.nodes[0].getfutureswapblock())
+
+        # Check account still empty
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [])
+
+        # Move to future swap block
+        self.nodes[0].generate(1)
+
+        # Check that futures have been executed
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [f'1.00000000@{self.symbolTSLA}'])
+
+    def dfi_to_dusd(self):
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].utxostoaccount({address: f'10@{self.symbolDFI}'})
+        self.nodes[0].generate(1)
+
+        # Test swap before DFIP2206F defined
+        assert_raises_rpc_error(-32600, f'DFIP2206F not currently active', self.nodes[0].futureswap, address, f'1@{self.symbolDFI}')
+
+        # Define DFI-to-DUSD swap period and start block
+        self.futures_interval_dusd = 10
+        self.start_block_dusd = self.nodes[0].getblockcount() + 10
+
+        # Set DFI-to-DUSD Gov vars
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2206f/reward_pct': '0.01',
+            'v0/params/dfip2206f/block_period': str(self.futures_interval_dusd),
+            'v0/params/dfip2206f/start_block': f'{self.start_block_dusd}'
+        }})
+        self.nodes[0].generate(1)
+
+        # Enable DFIP2206F
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206f/active':'true'}})
+        self.nodes[0].generate(1)
+
+        # Test cannot create a future swap until active
+        assert_raises_rpc_error(-32600, f'DFIP2206F not active until block {self.start_block_dusd}', self.nodes[0].futureswap, address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+
+        # Check next future swap block reported correctly via RPC
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd)) + self.futures_interval_dusd
+        assert_equal(next_futures_block, self.nodes[0].getdusdswapblock())
+
+        # Move to futures start height
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check error when DUSD destination not set or incorrect
+        assert_raises_rpc_error(-32600, f'Incorrect destination defined for DFI swap, DUSD destination expected id: {self.idDUSD}', self.nodes[0].futureswap, address, f'1@{self.symbolDFI}')
+        assert_raises_rpc_error(-32600, f'Incorrect destination defined for DFI swap, DUSD destination expected id: {self.idDUSD}', self.nodes[0].futureswap, address, f'1@{self.symbolDFI}', f'{self.symbolGOOGL}')
+
+        # Test swap of DFI to DUSD
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Check list pending swaps
+        result = self.nodes[0].listpendingdusdswaps()
+        assert_equal(len(result), 1)
+        assert_equal(result[0]['owner'], address)
+        assert_equal(result[0]['amount'], Decimal('1.00000000'))
+
+        # Check get pending swaps
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result['owner'], address)
+        assert_equal(result['amount'], Decimal('1.00000000'))
+
+        # Move to swap height
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check swap in history
+        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':1, 'txtype':'q'})
+        assert_equal(result[0]['owner'], address)
+        assert_equal(result[0]['type'], 'FutureSwapExecution')
+        assert_equal(result[0]['amounts'], [f'0.99000000@{self.symbolDUSD}'])
+
+        # Check result
+        result = self.nodes[0].getaccount(address)[1]
+        assert_equal(result, f'0.99000000@{self.symbolDUSD}')
+
+        # Check get/list calls now empty
+        list = self.nodes[0].listpendingdusdswaps()
+        get = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(list, [])
+        assert_equal(get, {})
+
+        # Test swap when DFIP2203 disabled
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/params/dfip2203/active': 'false',
+        }})
+        self.nodes[0].generate(1)
+
+        # Test swap of DFI to DUSD
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Move to swap height
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check result
+        result = self.nodes[0].getaccount(address)[1]
+        assert_equal(result, f'{Decimal("0.99000000") * 2}@{self.symbolDUSD}')
+
+        # Check contract address
+        result = self.nodes[0].getaccount(self.contract_address_dusd)
+        assert_equal(result, [f'2.00000000@{self.symbolDFI}'])
+
+        # Check live attrs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip2206f_current'], [f'2.00000000@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_burned'], [f'2.00000000@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_minted'], [f'{Decimal("0.99000000") * 2}@{self.symbolDUSD}'])
+
+        # Check burn info
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2206f'], [f'2.00000000@{self.symbolDFI}'])
+
+    def check_withdrawals_dusd(self):
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].utxostoaccount({address: f'10@{self.symbolDFI}'})
+        self.nodes[0].generate(1)
+
+        # Test swap of DFI to DUSD
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Check withdrawal failures
+        assert_raises_rpc_error(-32600, 'amount 2.00000000 is less than 2.00000001', self.nodes[0].withdrawfutureswap, address, f'2.00000001@{self.symbolDFI}', self.symbolDUSD)
+
+        # Withdraw both contracts
+        self.nodes[0].withdrawfutureswap(address, f'2.00000000@{self.symbolDFI}', self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        # Check user pending swap is empty
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result, {})
+
+        # Try and withdraw smallest amount now contract empty
+        assert_raises_rpc_error(-32600, 'amount 0.00000000 is less than 0.00000001', self.nodes[0].withdrawfutureswap, address, f'0.00000001@{self.symbolDFI}', self.symbolDUSD)
+
+        # Create new future swap
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Withdraw frm GOOGL everything but one Sat
+        self.nodes[0].withdrawfutureswap(address, f'0.99999999@{self.symbolDFI}', self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        # Check user pending swap
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result['owner'], address)
+        assert_equal(result['amount'], Decimal('0.00000001'))
+
+        # Move to swap height
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check result, should just be DFI
+        result = self.nodes[0].getaccount(address)
+        assert_equal(len(result), 1)
+
+        # Create two more test swaps
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Withdraw one contract plus 1 Sat of the second one
+        self.nodes[0].withdrawfutureswap(address, f'1.00000001@{self.symbolDFI}', self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        # Check user pending swap
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result['owner'], address)
+        assert_equal(result['amount'], Decimal('0.99999999'))
+
+        # Withdraw one Sat
+        self.nodes[0].withdrawfutureswap(address, f'0.00000001@{self.symbolDFI}', self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        # Check user pending swap
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result['owner'], address)
+        assert_equal(result['amount'], Decimal('0.99999998'))
+
+        # Withdraw all but 2 Sats
+        self.nodes[0].withdrawfutureswap(address, f'0.99999996@{self.symbolDFI}', self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        # Check user pending swap
+        result = self.nodes[0].getpendingdusdswaps(address)
+        assert_equal(result['owner'], address)
+        assert_equal(result['amount'], Decimal('0.00000002'))
+
+        # Move to swap height
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check result.
+        result = self.nodes[0].getaccount(address)[1]
+        assert_equal(result, f'0.00000001@{self.symbolDUSD}')
+
+        # Check contract address
+        result = self.nodes[0].getaccount(self.contract_address_dusd)
+        assert_equal(result, [f'2.00000003@{self.symbolDFI}'])
+
+        # Check live attrs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip2206f_current'], [f'2.00000003@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_burned'], [f'2.00000003@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_minted'], [f'{Decimal("0.99000000") * 2 + Decimal("0.00000001")}@{self.symbolDUSD}'])
+
+        # Check burn info
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2206f'], [f'2.00000003@{self.symbolDFI}'])
+
+    def unpaid_contract_dusd(self):
+
+        # Create addresses for futures
+        address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund address
+        self.nodes[0].utxostoaccount({address: f'1@{self.symbolDFI}'})
+        self.nodes[0].generate(1)
+
+        # Create user futures contract
+        self.nodes[0].futureswap(address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
+        self.nodes[0].generate(1)
+
+        # Remove Oracle
+        self.nodes[0].removeoracle(self.oracle_id)
+        self.nodes[0].generate(1)
+
+        # Check balance empty
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [])
+
+        # Move to next futures block
+        next_futures_block = self.nodes[0].getblockcount() + (self.futures_interval_dusd - ((self.nodes[0].getblockcount() - self.start_block_dusd) % self.futures_interval_dusd))
+        self.nodes[0].generate(next_futures_block - self.nodes[0].getblockcount())
+
+        # Check user has been refunded
+        result = self.nodes[0].getaccount(address)
+        assert_equal(result, [f'1.00000000@{self.symbolDFI}'])
+
+        # Check refund in history
+        result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':1, 'txtype':'w'})
+        result.sort(key = sort_history, reverse = True)
+        assert_equal(result[0]['owner'], self.contract_address_dusd)
+        assert_equal(result[0]['type'], 'FutureSwapRefund')
+        assert_equal(result[0]['amounts'], [f'-1.00000000@{self.symbolDFI}'])
+        assert_equal(result[1]['owner'], address)
+        assert_equal(result[1]['type'], 'FutureSwapRefund')
+        assert_equal(result[1]['amounts'], [f'1.00000000@{self.symbolDFI}'])
+
+        # Check contract address
+        result = self.nodes[0].getaccount(self.contract_address_dusd)
+        assert_equal(result, [f'2.00000003@{self.symbolDFI}'])
+
+        # Check live attrs
+        result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
+        assert_equal(result['v0/live/economy/dfip2206f_current'], [f'2.00000003@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_burned'], [f'2.00000003@{self.symbolDFI}'])
+        assert_equal(result['v0/live/economy/dfip2206f_minted'], [f'{Decimal("0.99000000") * 2 + Decimal("0.00000001")}@{self.symbolDUSD}'])
+
+        # Check burn info
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['dfip2206f'], [f'2.00000003@{self.symbolDFI}'])
 
 if __name__ == '__main__':
     FuturesTest().main()
