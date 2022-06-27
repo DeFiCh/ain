@@ -703,6 +703,29 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 }
 
 /*
+ *  CSettingsView
+ */
+
+void CSettingsView::SetDexStatsLastHeight(const int32_t height)
+{
+    WriteBy<KVSettings>(DEX_STATS_LAST_HEIGHT, height);
+}
+
+std::optional<int32_t> CSettingsView::GetDexStatsLastHeight()
+{
+    return ReadBy<KVSettings, int32_t>(DEX_STATS_LAST_HEIGHT);
+}
+
+void CSettingsView::SetDexStatsEnabled(const bool enabled)
+{
+    WriteBy<KVSettings>(DEX_STATS_ENABLED, enabled);
+}
+
+std::optional<bool> CSettingsView::GetDexStatsEnabled()
+{
+    return ReadBy<KVSettings, bool>(DEX_STATS_ENABLED);
+}
+/*
  *  CCustomCSView
  */
 CCustomCSView::CCustomCSView()
@@ -1049,14 +1072,34 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
 }
 
 uint256 CCustomCSView::MerkleRoot() {
-    auto& rawMap = GetStorage().GetRaw();
+    auto rawMap = GetStorage().GetRaw();
     if (rawMap.empty()) {
         return {};
     }
+    auto isAttributes = [](const TBytes& key) {
+        MapKV map = {std::make_pair(key, TBytes{})};
+        // Attributes should not be part of merkle root
+        static const std::string attributes("ATTRIBUTES");
+        auto it = NewKVIterator<CGovView::ByName>(attributes, map);
+        return it.Valid() && it.Key() == attributes;
+    };
+
+    auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, rawMap);
+    for (; it.Valid(); it.Next()) {
+        CUndo value = it.Value();
+        auto& map = value.before;
+        for (auto it = map.begin(); it != map.end();) {
+            isAttributes(it->first) ? map.erase(it++) : ++it;
+        }
+        auto key = std::make_pair(CUndosView::ByUndoKey::prefix(), static_cast<const UndoKey&>(it.Key()));
+        rawMap[DbTypeToBytes(key)] = DbTypeToBytes(value);
+    }
+
     std::vector<uint256> hashes;
-    for (const auto& it : rawMap) {
-        auto value = it.second ? *it.second : TBytes{};
-        hashes.push_back(Hash2(it.first, value));
+    for (const auto& [key, value] : rawMap) {
+        if (!isAttributes(key)) {
+            hashes.push_back(Hash2(key, value ? *value : TBytes{}));
+        }
     }
     return ComputeMerkleRoot(std::move(hashes));
 }

@@ -28,7 +28,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
     "consensus/tx_verify -> masternodes/mn_checks -> txmempool -> consensus/tx_verify"
     "index/txindex -> validation -> index/txindex"
-    "init -> miner -> masternodes/govvariables/attributes -> masternodes/mn_rpc -> wallet/rpcwallet -> init"
+    "init -> masternodes/govvariables/attributes -> masternodes/mn_rpc -> wallet/rpcwallet -> init"
     "masternodes/accountshistory -> masternodes/masternodes -> masternodes/accountshistory"
     "masternodes/accountshistory -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/accountshistory"
     "masternodes/accountshistory -> masternodes/masternodes -> validation -> masternodes/accountshistory"

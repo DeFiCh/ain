@@ -27,6 +27,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -505,6 +506,7 @@ void SetupServerArgs()
     gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1706,6 +1708,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1759,6 +1762,24 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(::ChainActive().Tip() != nullptr);
+                }
+
+                auto dexStats = gArgs.GetBoolArg("-dexstats", DEFAULT_DEXSTATS);
+                pcustomcsview->SetDexStatsEnabled(dexStats);
+
+                if (!fReset && !fReindexChainState && !pcustomcsDB->IsEmpty() && dexStats) {
+                    // force reindex if there is no dex data at the tip
+                    PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
+                    auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
+                    auto shouldReindex = it.Valid();
+                    auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
+                    if (lastHeight.has_value())
+                        shouldReindex &= !(*lastHeight == ::ChainActive().Tip()->nHeight);
+
+                    if (shouldReindex) {
+                        strLoadError = _("Live dex needs reindex").translated;
+                        break;
+                    }
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());

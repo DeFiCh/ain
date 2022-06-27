@@ -3989,6 +3989,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         mnview.Flush();
     }
 
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
+    auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
+
     // Set amount to be swapped in pool
     CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
 
@@ -4028,16 +4034,24 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             return Res::Err("Pool currently disabled due to locked token");
         }
 
-        auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
-
-        const auto attributes = view.GetAttributes();
-        assert(attributes);
-
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
         const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
         const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
+      
+        auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
+        auto& balances = dexBalances[currentID];
+        auto forward = swapAmount.nTokenId == pool->idTokenA;
+
+        auto& totalTokenA = forward ? balances.totalTokenA : balances.totalTokenB;
+        auto& totalTokenB = forward ? balances.totalTokenB : balances.totalTokenA;
+
+        const auto& reserveAmount = forward ? pool->reserveA : pool->reserveB;
+        const auto& blockCommission = forward ? pool->blockCommissionA : pool->blockCommissionB;
+
+        const auto initReserveAmount = reserveAmount;
+        const auto initBlockCommission = blockCommission;
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, dexfeeInPct, poolPrice, asymmetricFee, [&] (const CTokenAmount& dexfeeInAmount, const CTokenAmount& tokenAmount) {
@@ -4086,6 +4100,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
                 if (!res) {
                     return res;
                 }
+                totalTokenA.feeburn += dexfeeInAmount.nValue;
             }
 
             // burn the dex out amount
@@ -4094,6 +4109,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
                 if (!res) {
                     return res;
                 }
+                totalTokenB.feeburn += dexfeeOutAmount.nValue;
+            }
+
+            totalTokenA.swaps += (reserveAmount - initReserveAmount);
+            totalTokenA.commissions += (blockCommission - initBlockCommission);
+
+            if (lastSwap && obj.to == Params().GetConsensus().burnAddress) {
+                totalTokenB.feeburn += swapAmountResult.nValue;
             }
 
            return res;
@@ -4114,6 +4137,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
+    if (!testOnly && view.GetDexStatsEnabled().value_or(false)) {
+        attributes->SetValue(dexKey, std::move(dexBalances));
+        view.SetVariable(*attributes);
+    }
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
 

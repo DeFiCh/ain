@@ -3024,6 +3024,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // Loan splits
         ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
 
+        // Set height for live dex data
+        if (cache.GetDexStatsEnabled().value_or(false))
+            cache.SetDexStatsLastHeight(pindex->nHeight);
+
         // DFI-to-DUSD swaps
         ProcessFuturesDUSD(pindex, cache, chainparams);
 
