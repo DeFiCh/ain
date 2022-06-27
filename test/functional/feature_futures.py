@@ -243,6 +243,7 @@ class FuturesTest(DefiTestFramework):
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result['v0/params/dfip2203/active'], 'true')
         assert_equal(result['v0/params/dfip2203/reward_pct'], '0.05')
+        assert_equal(result['v0/params/dfip2203/fee_pct'], '0.05')
         assert_equal(result['v0/params/dfip2203/block_period'], str(self.futures_interval))
 
         # Disable DUSD
@@ -1129,7 +1130,7 @@ class FuturesTest(DefiTestFramework):
         # Set DFI-to-DUSD Gov vars
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/params/dfip2206f/reward_pct': '0.01',
-            'v0/params/dfip2206f/block_period': str(self.futures_interval_dusd),
+            'v0/params/dfip2206f/block_period': f'{self.futures_interval_dusd}',
             'v0/params/dfip2206f/start_block': f'{self.start_block_dusd}'
         }})
         self.nodes[0].generate(1)
@@ -1137,6 +1138,14 @@ class FuturesTest(DefiTestFramework):
         # Enable DFIP2206F
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206f/active':'true'}})
         self.nodes[0].generate(1)
+
+        # Verify Gov vars
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/params/dfip2206f/active'], 'true')
+        assert_equal(result['v0/params/dfip2206f/reward_pct'], '0.01')
+        assert_equal(result['v0/params/dfip2206f/fee_pct'], '0.01')
+        assert_equal(result['v0/params/dfip2206f/block_period'], f'{self.futures_interval_dusd}')
+        assert_equal(result['v0/params/dfip2206f/start_block'], f'{self.start_block_dusd}')
 
         # Test cannot create a future swap until active
         assert_raises_rpc_error(-32600, f'DFIP2206F not active until block {self.start_block_dusd}', self.nodes[0].futureswap, address, f'1@{self.symbolDFI}', f'{self.symbolDUSD}')
