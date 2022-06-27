@@ -3990,9 +3990,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
     }
 
     auto attributes = view.GetAttributes();
-    if (!attributes) {
-        attributes = std::make_shared<ATTRIBUTES>();
-    }
+    assert(attributes);
 
     CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
     auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
