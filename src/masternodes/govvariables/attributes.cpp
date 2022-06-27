@@ -79,6 +79,8 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         {"dfip2201",    ParamIDs::DFIP2201},
         {"dfip2203",    ParamIDs::DFIP2203},
         {"dfip2206a",   ParamIDs::DFIP2206A},
+        // Note: DFIP2206F is currently in beta testing 
+        // for testnet. May not be enabled on mainnet until testing is complete. 
         {"dfip2206f",   ParamIDs::DFIP2206F},
     };
     return params;
@@ -96,6 +98,8 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
         {ParamIDs::DFIP2206A,   "dfip2206a"},
+        // Note: DFIP2206F is currently in beta testing 
+        // for testnet. May not be enabled on mainnet until testing is complete. 
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
@@ -478,6 +482,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return Res::Err("Unsupported type {%d}", type);
         }
 
+        // Alias of reward_pct in Export.
+        if (keys[3] == "fee_pct") {
+            return Res::Ok();
+        }
+
         itype = ikey->second.find(keys[3]);
         if (itype == ikey->second.end()) {
             return ::ShowError("key", ikey->second);
@@ -793,6 +802,15 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                         decimalStr.pop_back();
                     }
                     ret.pushKV(key, decimalStr);
+
+                    // Create fee_pct alias of reward_pct.
+                    if (v0Key == "reward_pct") {
+                        const auto newKey = KeyBuilder(displayVersions().at(VersionTypes::v0),
+                                                 displayTypes().at(attrV0->type),
+                                                 id,
+                                                 "fee_pct");
+                        ret.pushKV(newKey, decimalStr);
+                    }
                 }
             } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
