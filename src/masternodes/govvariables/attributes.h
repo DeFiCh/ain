@@ -37,15 +37,15 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens    = 'b',
-    DFIP2203Current  = 'c',
-    DFIP2203Burned   = 'd',
-    DFIP2203Minted   = 'e',
-    DexTokens        = 'f',
+    PaybackDFITokens  = 'a',
+    PaybackTokens     = 'b',
+    DFIP2203Current   = 'c',
+    DFIP2203Burned    = 'd',
+    DFIP2203Minted    = 'e',
     DFIP2206FCurrent  = 'f',
     DFIP2206FBurned   = 'g',
     DFIP2206FMinted   = 'h',
+    DexTokens         = 'i',
 };
 
 enum DFIPKeys : uint8_t  {
