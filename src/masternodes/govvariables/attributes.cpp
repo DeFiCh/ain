@@ -478,6 +478,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return Res::Err("Unsupported type {%d}", type);
         }
 
+        // Alias of reward_pct in Export.
+        if (keys[3] == "fee_pct") {
+            return Res::Ok();
+        }
+
         itype = ikey->second.find(keys[3]);
         if (itype == ikey->second.end()) {
             return ::ShowError("key", ikey->second);
@@ -793,6 +798,15 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                         decimalStr.pop_back();
                     }
                     ret.pushKV(key, decimalStr);
+
+                    // Create fee_pct alias of reward_pct.
+                    if (v0Key == "reward_pct") {
+                        const auto newKey = KeyBuilder(displayVersions().at(VersionTypes::v0),
+                                                 displayTypes().at(attrV0->type),
+                                                 id,
+                                                 "fee_pct");
+                        ret.pushKV(newKey, decimalStr);
+                    }
                 }
             } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
                 ret.pushKV(key, AmountsToJSON(balances->balances));
