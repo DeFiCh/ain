@@ -662,7 +662,7 @@ Res ATTRIBUTES::RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height)
         }
     }
 
-    attributes[liveKey] = balances;
+    SetValue(liveKey, std::move(balances));
 
     return Res::Ok();
 }
