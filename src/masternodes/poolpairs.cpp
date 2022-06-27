@@ -229,7 +229,7 @@ auto InitPoolVars(CPoolPairView & view, PoolHeightKey poolKey, uint32_t end) {
     auto it = view.LowerBound<By>(poolKey);
 
     auto height = poolKey.height;
-    static const uint32_t startHeight = Params().GetConsensus().FortCanningGardensHeight;
+    static const uint32_t startHeight = Params().GetConsensus().FortCanningSpringHeight;
     poolKey.height = std::max(height, startHeight);
 
     while (!MatchPoolId(it, poolId) && poolKey.height < end) {
