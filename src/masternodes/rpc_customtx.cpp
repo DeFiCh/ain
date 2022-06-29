@@ -57,6 +57,14 @@ class CCustomTxRpcVisitor
         rpcInfo.pushKV("availablePairs", availablePairs);
     }
 
+    UniValue tokenBalances(const CBalances& balances) const {
+        UniValue info(UniValue::VOBJ);
+        for (const auto& kv : balances.balances) {
+            info.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
+        }
+        return info;
+    }
+
 public:
     CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CCustomCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
@@ -108,14 +116,25 @@ public:
     }
 
     void operator()(const CMintTokensMessage& obj) const {
-        for (auto const & kv : obj.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
+        rpcInfo.pushKVs(tokenBalances(obj));
+    }
+
+    void operator()(const CBurnTokensMessage& obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        std::string type;
+        switch (obj.burnType)
+        {
+            case CBurnTokensMessage::BurnType::TokenBurn:
+                type = "TokenBurn";
+                break;
+            default:
+                type = "TokenBurn";
         }
+        rpcInfo.pushKV("type", type);
+
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
     }
 
     void operator()(const CLiquidityMessage& obj) const {

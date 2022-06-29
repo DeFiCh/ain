@@ -21,6 +21,7 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
+    Consortium = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -37,15 +38,17 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
+    PaybackDFITokens        = 'a',
+    PaybackTokens           = 'b',
+    DFIP2203Current         = 'c',
+    DFIP2203Burned          = 'd',
+    DFIP2203Minted          = 'e',
+    DFIP2206FCurrent        = 'f',
+    DFIP2206FBurned         = 'g',
+    DFIP2206FMinted         = 'h',
+    DexTokens               = 'i',
+    ConsortiumMinted        = 'j',
+    ConsortiumMembersMinted = 'k',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -75,6 +78,11 @@ enum TokenKeys : uint8_t  {
     Ascendant             = 'm',
     Descendant            = 'n',
     Epitaph               = 'o',
+};
+
+enum ConsortiumKeys : uint8_t  {
+    Members               = 'a',
+    MintLimit             = 'b',
 };
 
 enum PoolKeys : uint8_t {
@@ -185,12 +193,57 @@ enum FeeDirValues : uint8_t {
     Out
 };
 
+struct CConsortiumMember
+{
+    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
+    enum Status : uint8_t
+    {
+        Active = 0,
+        Disabled = 0x01,
+    };
+
+    std::string name;
+    CScript ownerAddress;
+    std::string backingId;
+    CAmount mintLimit;
+    uint8_t status;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(ownerAddress);
+        READWRITE(backingId);
+        READWRITE(mintLimit);
+        READWRITE(status);
+    }
+};
+
+struct CConsortiumMinted
+{
+    CAmount minted;
+    CAmount burnt;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(burnt);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumMinted>>;
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
+                         CFeeDir, CDexBalances, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 enum GovVarsFilter {
     All,

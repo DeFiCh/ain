@@ -46,6 +46,7 @@ enum class CustomTxType : uint8_t
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
+    BurnToken             = 'W',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
@@ -116,6 +117,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
+        case CustomTxType::BurnToken:
         case CustomTxType::UpdateToken:
         case CustomTxType::UpdateTokenAny:
         case CustomTxType::CreatePoolPair:
@@ -305,6 +307,28 @@ struct CMintTokensMessage : public CBalances {
     }
 };
 
+struct CBurnTokensMessage {
+    enum BurnType : uint8_t
+    {
+        TokenBurn = 0,
+    };
+
+    CBalances amounts;
+    CScript from;
+    uint8_t burnType;
+    std::variant<CScript> context;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(amounts);
+        READWRITE(from);
+        READWRITE(burnType);
+        READWRITE(context);
+    }
+};
+
+
 struct CCreatePoolPairMessage {
     CPoolPairMessage poolPair;
     std::string pairSymbol;
@@ -341,6 +365,7 @@ using CCustomTxMessage = std::variant<
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
     CMintTokensMessage,
+    CBurnTokensMessage,
     CCreatePoolPairMessage,
     CUpdatePoolPairMessage,
     CPoolSwapMessage,
