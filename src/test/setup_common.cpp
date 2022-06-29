@@ -113,7 +113,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         pcustomcsDB.reset();
         pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
-        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB);
+
+        pundosDB.reset();
+        pundosDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "undos", nMinDbCache << 20, true, true);
+        pundosView = std::make_unique<CUndosView>(*pundosDB);
 
         panchorauths.reset();
         panchorauths = std::make_unique<CAnchorAuthIndex>();
