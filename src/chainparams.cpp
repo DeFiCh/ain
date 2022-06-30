@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <core_io.h>
+
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
@@ -133,6 +135,7 @@ public:
         consensus.FortCanningHillHeight = 1604999; // Feb 7, 2022.
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
+        consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -250,6 +253,7 @@ public:
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
@@ -313,7 +317,9 @@ public:
                 {597925, uint256S("0ff2aa3749300e3d0b5bc8d48f9d699bc42e222fe718dc011b33913127087c6d")},
                 {600000, uint256S("79ddf4537e40cb59335a0551e5edc7bd396e6949aa2864c3200ca66f9c455405")},
                 {650000, uint256S("f18d64dd75c53590e833d3068132a65644963d5c5aebb4c73d42cbde8dc28d68")},
+                {700000, uint256S("0d0f779d7f43cc3fd9f01e71e136f7e9319d73791f8839720ab495327075e272")},
                 {757420, uint256S("8d4918be2b2df30175f9e611d9ceb494215b93f2267075ace3f031e784cbccbe")},
+                {800000, uint256S("8d9ade23a54f16a0a5a6ce5d14788f93bfd7e703be8a3a07a85c935b47511f95")},
                 {850000, uint256S("2d7d58ae18a74f73b9836a8fffd3f65ce409536e654a6c644ce735215238a004")},
                 {875000, uint256S("44d3b3ba8e920cef86b7ec096ab0a2e608d9fedc14a59611a76a5e40aa53145e")},
                 {895741, uint256S("61bc1d73c720990dde43a3fec1f703a222ec5c265e6d491efd60eeec1bdb6dc3")},
@@ -367,6 +373,7 @@ public:
         consensus.FortCanningHillHeight = 828900;
         consensus.FortCanningRoadHeight = 893700;
         consensus.FortCanningCrunchHeight = 1011600;
+        consensus.FortCanningSpringHeight = 1086000;
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -474,6 +481,7 @@ public:
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
@@ -558,6 +566,7 @@ public:
         consensus.FortCanningHillHeight = std::numeric_limits<int>::max();
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
         consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
         consensus.GreatWorldHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -659,6 +668,7 @@ public:
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
@@ -741,6 +751,7 @@ public:
         consensus.FortCanningHillHeight = 10000000;
         consensus.FortCanningRoadHeight = 10000000;
         consensus.FortCanningCrunchHeight = 10000000;
+        consensus.FortCanningSpringHeight = 10000000;
         consensus.GreatWorldHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -850,6 +861,7 @@ public:
         consensus.smartContracts.clear();
         consensus.smartContracts[SMART_CONTRACT_DFIP_2201] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})));
         consensus.smartContracts[SMART_CONTRACT_DFIP_2203] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1})));
+        consensus.smartContracts[SMART_CONTRACT_DFIP2206F] = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(std::vector<unsigned char>{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2})));
 
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
@@ -962,6 +974,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
     UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
+    UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
     UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
@@ -1066,4 +1079,39 @@ void SelectParams(const std::string& network)
 
 void ClearCheckpoints(CChainParams &params) {
     params.checkpointData = {};
+}
+
+Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
+    std::ifstream file(fileName);
+    if (!file.good()) {
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
+    }
+
+    ClearCheckpoints(params);
+
+    std::string line;
+    while (std::getline(file, line)) {
+        auto trimmed = trim_ws(line);
+        if (trimmed.rfind('#', 0) == 0 || trimmed.find_first_not_of(" \n\r\t") == std::string::npos)
+            continue;
+
+        std::istringstream iss(trimmed);
+        std::string hashStr, heightStr;
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", trimmed);
+        }
+
+        uint256 hash;
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
+
+        int32_t height;
+        if (!ParseInt32(heightStr, &height)) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
+
+        params.checkpointData.mapCheckpoints[height] = hash;
+    }
+    return Res::Ok();
 }

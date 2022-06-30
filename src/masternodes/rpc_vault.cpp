@@ -3,8 +3,8 @@
 #include <masternodes/mn_rpc.h>
 #include <masternodes/vaulthistory.h>
 
-extern UniValue AmountsToJSON(TAmounts const & diffs);
-extern std::string tokenAmountString(CTokenAmount const& amount);
+extern UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol);
+extern std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol);
 
 namespace {
 
@@ -573,8 +573,11 @@ UniValue getvault(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
-    bool verbose = request.params[1].getBool();
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
+    bool verbose{false};
+    if (request.params.size() > 1) {
+        verbose = request.params[1].get_bool();
+    }
 
     LOCK(cs_main);
 
@@ -1836,7 +1839,7 @@ static const CRPCCommand commands[] =
     {"vault",        "createvault",               &createvault,           {"ownerAddress", "schemeId", "inputs"}},
     {"vault",        "closevault",                &closevault,            {"id", "returnAddress", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
-    {"vault",        "getvault",                  &getvault,              {"id"}},
+    {"vault",        "getvault",                  &getvault,              {"id", "verbose"}},
     {"vault",        "listvaulthistory",          &listvaulthistory,      {"id", "options"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
