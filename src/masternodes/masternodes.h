@@ -399,7 +399,7 @@ class CCustomCSView
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
             CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }

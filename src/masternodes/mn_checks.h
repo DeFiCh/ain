@@ -87,10 +87,6 @@ enum class CustomTxType : uint8_t
     MintToken             = 'M',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
-    // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
     //poolpair
     CreatePoolPair        = 'p',
     UpdatePoolPair        = 'u',
@@ -144,7 +140,7 @@ enum class CustomTxType : uint8_t
     FutureSwapRefund       = 'w',
     TokenSplit             = 'P',
     // On-Chain-Gov
-    CreateCfp              = 'P',
+    CreateCfp              = 'z',
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
 };
