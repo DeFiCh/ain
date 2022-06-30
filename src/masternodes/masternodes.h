@@ -30,8 +30,10 @@
 #include <set>
 #include <stdint.h>
 
+class CAccountHistoryStorage;
 class CBlockIndex;
 class CTransaction;
+class CVaultHistoryStorage;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay(int height);
@@ -199,8 +201,6 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-    Res UnCreateMasternode(uint256 const & nodeId);
-    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
     Res RemForcedRewardAddress(uint256 const & nodeId, int height);
     Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
@@ -299,6 +299,21 @@ public:
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
 
+class CSettingsView : public virtual CStorageView
+{
+
+public:
+    const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
+    const std::string DEX_STATS_ENABLED = "DexStatsEnabled";
+
+    void SetDexStatsLastHeight(int32_t height);
+    std::optional<int32_t> GetDexStatsLastHeight();
+    void SetDexStatsEnabled(bool enabled);
+    std::optional<bool> GetDexStatsEnabled();
+
+    struct KVSettings { static constexpr uint8_t prefix() { return '0'; } };
+};
+
 class CCollateralLoans { // in USD
 
     double calcRatio(uint64_t maxRatio) const;
@@ -353,6 +368,7 @@ class CCustomCSView
         , public CICXOrderView
         , public CLoanView
         , public CVaultView
+        , public CSettingsView
         , public CPropsView
 {
     void CheckPrefixes()
@@ -383,6 +399,7 @@ class CCustomCSView
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
+            CSettingsView           ::  KVSettings
             CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
@@ -390,27 +407,19 @@ private:
     Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
     Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
+    std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
+    std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 
-    CCustomCSView()
-    {
-        CheckPrefixes();
-    }
-
-    CCustomCSView(CStorageKV & st)
-        : CStorageView(new CFlushableStorageKV(st))
-    {
-        CheckPrefixes();
-    }
+    CCustomCSView();
+    explicit CCustomCSView(CStorageKV & st);
 
     // cache-upon-a-cache (not a copy!) constructor
-    CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB()))
-    {
-        CheckPrefixes();
-    }
+    CCustomCSView(CCustomCSView & other);
+
+    ~CCustomCSView();
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(int height, uint256 const & stakeModifier);
@@ -450,6 +459,11 @@ public:
     CFlushableStorageKV& GetStorage() {
         return static_cast<CFlushableStorageKV&>(DB());
     }
+
+    virtual CAccountHistoryStorage* GetAccountHistoryStore();
+    CVaultHistoryStorage* GetVaultHistoryStore();
+    void SetAccountHistoryStore();
+    void SetVaultHistoryStore();
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
