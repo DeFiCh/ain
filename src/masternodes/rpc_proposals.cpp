@@ -13,7 +13,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     auto status = static_cast<CPropStatusType>(prop.status);
     ret.pushKV("status", CPropStatusToString(status));
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
-    ret.pushKV("cyclesPaid", int(prop.cycle));
+    ret.pushKV("nextCycle", int(prop.cycle));
     ret.pushKV("totalCycles", int(prop.nCycles));
     ret.pushKV("finalizeAfter", int64_t(prop.finalHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
@@ -92,9 +92,6 @@ UniValue createcfp(const JSONRPCRequest& request)
 
     if (!data["cycles"].isNull()) {
         cycles = data["cycles"].get_int();
-        if (cycles > int(MAX_CYCLES) || cycles < 1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<cycles> should be between 1 and %d", int(MAX_CYCLES)));
-        }
     }
 
     if (!data["amount"].isNull()) {
@@ -135,7 +132,7 @@ UniValue createcfp(const JSONRPCRequest& request)
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{pm.address};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
     CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));

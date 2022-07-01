@@ -3920,12 +3920,10 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         return;
     }
 
-    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
-        auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
-        if (balance.nValue > 0) {
-            cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
-            cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
-        }
+    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    if (balance.nValue > 0) {
+        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
     }
 
     std::set<uint256> activeMasternodes;
@@ -3962,17 +3960,17 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }
 
-        uint32_t majorityThreshold;
+        uint32_t majorityThreshold{};
         switch(prop.type) {
-        case CPropType::CommunityFundProposal:
-            majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
-            break;
-        case CPropType::BlockRewardReallocation:
-            majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
-            break;
-        case CPropType::VoteOfConfidence:
-            majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
-            break;
+            case CPropType::CommunityFundProposal:
+                majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+                break;
+            case CPropType::BlockRewardReallocation:
+                majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+                break;
+            case CPropType::VoteOfConfidence:
+                majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+                break;
         }
 
         if (lround(voteYes * 10000.f / voters) <= majorityThreshold) {

@@ -75,12 +75,15 @@ struct CPropVoteMessage {
 };
 
 struct CPropObject : public CCreatePropMessage {
+    CPropObject() = default;
+    explicit CPropObject(const CCreatePropMessage& other) : CCreatePropMessage(other) {}
+
+    uint32_t creationHeight{};
+    uint32_t finalHeight{};
+
     // memory only
-    uint8_t cycle;
-    uint32_t creationHeight;
-    uint32_t finalHeight;
-    // memory only
-    CPropStatusType status;
+    CPropStatusType status{};
+    uint8_t cycle{};
 
     ADD_SERIALIZE_METHODS;
 

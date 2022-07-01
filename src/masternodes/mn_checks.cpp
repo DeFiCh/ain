@@ -688,7 +688,7 @@ Res CCustomTxVisitor::CheckProposalTx(uint8_t type) const
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
-    }
+}
 
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const
 {
@@ -3523,38 +3523,38 @@ public:
     Res operator()(const CCreatePropMessage& obj) const
     {
         switch (obj.type) {
-        case CPropType::CommunityFundProposal:
-            if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-                return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
-            break;
+            case CPropType::CommunityFundProposal:
+                if (!HasAuth(obj.address))
+                    return Res::Err("tx must have at least one input from proposal account");
 
-        case CPropType::VoteOfConfidence:
-            if (obj.nAmount != 0)
-                return Res::Err("proposal amount in vote of confidence");
+                if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
+                    return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+                break;
 
-            if (obj.nCycles != VOC_CYCLES)
-                return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
-            break;
+            case CPropType::VoteOfConfidence:
+                if (obj.nAmount != 0)
+                    return Res::Err("proposal amount in vote of confidence");
 
-        default:
-            return Res::Err("unsupported proposal type");
+                if (!obj.address.empty())
+                    return Res::Err("vote of confidence address should be empty");
+
+                if (obj.nCycles != VOC_CYCLES)
+                    return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
+                break;
+
+            default:
+                return Res::Err("unsupported proposal type");
         }
 
         auto res = CheckProposalTx(obj.type);
         if (!res)
             return res;
 
-        if (!HasFoundationAuth())
-            return Res::Err("tx not from foundation member");
-
         if (obj.nAmount >= MAX_MONEY)
             return Res::Err("proposal wants to gain all money");
 
         if (obj.title.size() > 128)
             return Res::Err("proposal title cannot be more than 128 bytes");
-
-        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
         return mnview.CreateProp(tx.GetHash(), height, obj);
     }

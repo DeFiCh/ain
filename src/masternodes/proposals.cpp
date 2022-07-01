@@ -37,8 +37,7 @@ std::string CPropVoteToString(const CPropVoteType vote)
 
 Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg)
 {
-    CPropObject prop;
-    static_cast<CCreatePropMessage&>(prop) = msg;
+    CPropObject prop{msg};
     prop.creationHeight = height;
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, uint8_t(1));
@@ -46,8 +45,8 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     auto votingPeriod = GetVotingPeriod();
     for (uint8_t i = 1; i <= prop.nCycles; ++i) {
         height += (height % votingPeriod) + votingPeriod;
-        auto key = std::make_pair(height, propId);
-        WriteBy<ByCycle>(key, i);
+        auto keyPair = std::make_pair(height, propId);
+        WriteBy<ByCycle>(keyPair, i);
     }
     prop.finalHeight = height;
     WriteBy<ByType>(propId, prop);

@@ -19,155 +19,206 @@ class ChainGornmentTest(DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1', '-txindex=1'],
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
         ]
 
     def run_test(self):
-        node0 = self.nodes[0]
-        node1 = self.nodes[1]
-        node2 = self.nodes[2]
-        node3 = self.nodes[3]
-        address0 = node0.get_genesis_keys().ownerAuthAddress
-        address1 = node1.get_genesis_keys().ownerAuthAddress
-        address2 = node2.get_genesis_keys().ownerAuthAddress
-        address3 = node3.get_genesis_keys().ownerAuthAddress
 
-        masternodes = node0.listmasternodes()
-        for node in masternodes:
-            address = masternodes[node]['ownerAuthAddress']
-            if address == address0:
-                mn1 = node
-            elif address == address1:
-                mn2 = node
-            elif address == address2:
-                mn3 = node
-            elif address == address3:
-                mn4 = node
+        # Get MN addresses
+        address1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
+        address2 = self.nodes[2].get_genesis_keys().ownerAuthAddress
+        address3 = self.nodes[3].get_genesis_keys().ownerAuthAddress
 
-        node0.generate(100)
-        node1.generate(1)
-        self.sync_all()
+        # Get MN IDs
+        mn0 = self.nodes[0].getmininginfo()['masternodes'][0]['id']
+        mn1 = self.nodes[1].getmininginfo()['masternodes'][0]['id']
+        mn2 = self.nodes[2].getmininginfo()['masternodes'][0]['id']
+        mn3 = self.nodes[3].getmininginfo()['masternodes'][0]['id']
 
-        assert_equal(node0.getblockcount(), 101) # great world
+        # Generate chain
+        self.nodes[0].generate(100)
 
-        # Get addresses
-        address = node0.getnewaddress()
-        assert_equal(node0.getburninfo()['feeburn'], 0)
+        # Check foundation output in coinbase TX
+        result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        raw_tx = self.nodes[0].getrawtransaction(result['tx'][0], 1)
+        assert_equal(len(raw_tx['vout']), 3)
+        assert_equal(raw_tx['vout'][0]['value'], Decimal('134.99983200'))
+        assert_equal(raw_tx['vout'][1]['value'], Decimal('19.88746400'))
+        assert_equal(raw_tx['vout'][2]['value'], Decimal('0'))
+
+        # Move to fork block
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # great world
+        assert_equal(self.nodes[0].getblockcount(), 101)
+
+        # Check community dev fund present
+        result = self.nodes[0].listcommunitybalances()
+        assert_equal(result['CommunityDevelopmentFunds'], Decimal('19.88746400'))
+        result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        assert_equal(result['nonutxo'][0]['CommunityDevelopmentFunds'], Decimal('19.88746400'))
+
+        # Check foundation output no longer in coinbase TX
+        raw_tx = self.nodes[0].getrawtransaction(result['tx'][0], 1)
+        assert_equal(len(raw_tx['vout']), 2)
+        assert_equal(raw_tx['vout'][0]['value'], Decimal('134.99983200'))
+        assert_equal(raw_tx['vout'][1]['value'], Decimal('0'))
+
+        # Create address for CFP
+        address = self.nodes[0].getnewaddress()
+
+        # Check errors
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].createcfp, {"title": "test", "amount": 100, "cycles": 4, "payoutAddress": address})
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].createcfp, {"title": "test", "amount": 100, "cycles": 0, "payoutAddress": address})
+
+        # Check burn empty
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], 0)
+
+        # Create CFP
         title = "Create test community fund request proposal"
-        tx = node0.createcfp({"title":title, "amount":100, "cycles":2, "payoutAddress":address})
+        tx = self.nodes[0].createcfp({"title": title, "amount": 100, "cycles": 2, "payoutAddress": address})
 
-        node0.sendtoaddress(address1, Decimal("1.0"))
-        node0.sendtoaddress(address2, Decimal("1.0"))
-        node0.sendtoaddress(address3, Decimal("1.0"))
+        # Fund addresses
+        self.nodes[0].sendtoaddress(address1, Decimal("1.0"))
+        self.nodes[0].sendtoaddress(address2, Decimal("1.0"))
+        self.nodes[0].sendtoaddress(address3, Decimal("1.0"))
+
         # Generate a block
-        node0.generate(1)
-        self.sync_all()
-        node2.generate(1)
-        self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+        self.nodes[2].generate(1)
+        self.sync_blocks()
 
-        assert_equal(node0.getburninfo()['feeburn'], Decimal('1.00000000'))
+        # Check fee burn
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('1.00000000'))
+
         # cannot vote by non owning masternode
-        assert_raises_rpc_error(-5, "Incorrect authorization", node0.vote, tx, mn2, "yes")
+        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].vote, tx, mn1, "yes")
 
-        node0.vote(tx, mn1, "yes")
-        node0.generate(1)
-        node1.vote(tx, mn2, "no")
-        node1.generate(1)
-        node2.vote(tx, mn3, "yes")
-        node2.generate(1)
-        self.sync_all()
+        # Vote on proposal
+        self.nodes[0].vote(tx, mn0, "yes")
+        self.nodes[0].generate(1)
+        self.nodes[1].vote(tx, mn1, "no")
+        self.nodes[1].generate(1)
+        self.nodes[2].vote(tx, mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks()
 
-        assert_raises_rpc_error(None, "does not mine at least one block", node3.vote, tx, mn4, "neutral")
+        # Try and vote with non-staked MN
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].vote, tx, mn3, "neutral")
 
+        # Calculate cycle
         cycle1 = 102 + (102 % 70) + 70
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
-        results = node0.listproposals()
-        assert_equal(len(results), 1)
-        result = results[0]
-        assert_equal(result["proposalId"], tx)
-        assert_equal(result["title"], title)
-        assert_equal(result["type"], "CommunityFundProposal")
-        assert_equal(result["status"], "Voting")
-        assert_equal(result["amount"], Decimal("100"))
-        assert_equal(result["cyclesPaid"], 1)
-        assert_equal(result["totalCycles"], 2)
-        assert_equal(result["payoutAddress"], address)
-        assert_equal(result["finalizeAfter"], finalHeight)
+        # Check proposal and votes
+        result = self.nodes[0].listproposals()
+        assert_equal(len(result), 1)
+        assert_equal(result[0]["proposalId"], tx)
+        assert_equal(result[0]["title"], title)
+        assert_equal(result[0]["type"], "CommunityFundProposal")
+        assert_equal(result[0]["status"], "Voting")
+        assert_equal(result[0]["amount"], Decimal("100"))
+        assert_equal(result[0]["nextCycle"], 1)
+        assert_equal(result[0]["totalCycles"], 2)
+        assert_equal(result[0]["payoutAddress"], address)
+        assert_equal(result[0]["finalizeAfter"], finalHeight)
 
-        results = node1.listvotes(tx, mn1)
+        # Check individual MN votes
+        results = self.nodes[1].listvotes(tx, mn0)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = node1.listvotes(tx, mn2)
+        results = self.nodes[1].listvotes(tx, mn1)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = node1.listvotes(tx, mn3)
+        results = self.nodes[1].listvotes(tx, mn2)
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        result = node1.listvotes(tx, "all")
+        # Check total votes
+        result = self.nodes[1].listvotes(tx, "all")
         assert_equal(len(result), 3)
 
-        node0.generate(cycle1 - node0.getblockcount() - 1)
-        self.sync_all()
-        bal = node0.listcommunitybalances()['CommunityDevelopmentFunds']
-        assert_equal(node1.getaccount(address), [])
-        node0.generate(1)
-        self.sync_all()
-        # CommunityDevelopmentFunds is charged by proposal
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464") - Decimal(100))
-        # payout address
-        assert_equal(node1.getaccount(address), ['100.00000000@DFI'])
-        results = node0.listproposals()
-        result = results[0]
-        assert_equal(result["status"], "Voting")
-        assert_equal(result["cyclesPaid"], 2)
+        # Move to just before cycle payout
+        self.nodes[0].generate(cycle1 - self.nodes[0].getblockcount() - 1)
+        self.sync_blocks()
+        bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
+        assert_equal(self.nodes[1].getaccount(address), [])
 
-        node0.generate(finalHeight - node0.getblockcount() - 1)
-        self.sync_all()
-        bal = node0.listcommunitybalances()['CommunityDevelopmentFunds']
-        node0.generate(1)
-        self.sync_all()
+        # Move to cycle payout
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # CommunityDevelopmentFunds is charged by proposal
+        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464") - Decimal(100))
+
+        # payout address
+        assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
+        result = self.nodes[0].listproposals()[0]
+        assert_equal(result["status"], "Voting")
+        assert_equal(result["nextCycle"], 2)
+
+        # Move to just before final height
+        self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
+        bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
+
+        # Move to final height
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         # payout address isn't changed
-        assert_equal(node1.getaccount(address), ['100.00000000@DFI'])
+        assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
+
         # proposal fails, CommunityDevelopmentFunds does not charged
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.55772984"))
-        results = node0.listproposals()
-        result = results[0]
+        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.55772984"))
+
         # not votes on 2nd cycle makes proposal to rejected
+        result = self.nodes[0].listproposals()[0]
         assert_equal(result["status"], "Rejected")
 
-        assert_equal(node0.listproposals("all", "voting"), [])
-        assert_equal(node0.listproposals("all", "completed"), [])
+        # No proposals pending
+        assert_equal(self.nodes[0].listproposals("all", "voting"), [])
+        assert_equal(self.nodes[0].listproposals("all", "completed"), [])
 
         # Test Vote of Confidence
-        assert_equal(node0.getburninfo()['feeburn'], Decimal('1.00000000'))
         title = "Create vote of confidence"
-        tx = node0.createvoc(title)
-        self.sync_mempools()
-        node3.generate(1)
-        self.sync_all()
-        assert_equal(node0.getburninfo()['feeburn'], Decimal('6.00000000'))
+        tx = self.nodes[0].createvoc(title)
+        raw_tx = self.nodes[0].getrawtransaction(tx)
+        self.nodes[3].sendrawtransaction(raw_tx)
+        self.nodes[3].generate(1)
+        self.sync_blocks()
 
-        node0.vote(tx, mn1, "yes")
-        node0.generate(1)
-        node1.vote(tx, mn2, "no")
-        node1.generate(1)
-        node2.vote(tx, mn3, "yes")
-        node2.generate(1)
-        node3.vote(tx, mn4, "yes")
-        node3.generate(1)
-        self.sync_all()
+        # Check burn fee increment
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('6.00000000'))
 
-        result = node0.getproposal(tx)
+        # Cast votes
+        self.nodes[0].vote(tx, mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[1].vote(tx, mn1, "no")
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        self.nodes[2].vote(tx, mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
+        self.nodes[3].vote(tx, mn3, "yes")
+        self.nodes[3].generate(1)
+        self.sync_blocks()
+
+        # Check results
+        result = self.nodes[0].getproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
         assert_equal(result["type"], "VoteOfConfidence")
