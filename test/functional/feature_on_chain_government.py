@@ -40,6 +40,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Generate chain
         self.nodes[0].generate(100)
+        self.sync_blocks()
 
         # Check foundation output in coinbase TX
         result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
