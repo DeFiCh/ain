@@ -119,7 +119,7 @@ build_conf() {
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
     # Patching emitted C++ files
-    echo "#include <rpc/libain_wrapper.hpp>" > "$(pwd)/src/rpc/libain.cpp"
+    echo "#include <grpc/blockchain.h>\n#include <grpc/mining.h>" > "$(pwd)/src/rpc/libain.cpp"
     cat "$(pwd)/depends/${target}/libain.cpp" >> "$(pwd)/src/rpc/libain.cpp"
 
     ./autogen.sh

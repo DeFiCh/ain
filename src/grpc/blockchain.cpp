@@ -1,21 +1,7 @@
-#include <consensus/validation.h>
-#include <core_io.h>
-#include <libain.hpp>
-#include <masternodes/masternodes.h>
-#include <rpc/blockchain.h>
-#include <rpc/libain_wrapper.hpp>
-#include <rpc/util.h>
-#include <sync.h>
-#include <validation.h>
+#include "grpc/blockchain.h"
 
 int GetRPCSerializationFlags() {
     return 0; // FIXME: Pass RPCSerializationFlags() as option from Rust
-}
-
-double FromAmount(CAmount amount) {
-    bool sign = amount < 0;
-    auto n_abs = (sign ? -amount : amount);
-    return n_abs / (double)COIN;
 }
 
 void SetRewardFromAmount(CommunityAccountType t, CAmount amount, NonUtxo* nonutxo)

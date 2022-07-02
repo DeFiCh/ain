@@ -665,8 +665,14 @@ libdefi_cli_a_SOURCES = \
 nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
+grpc_SOURCES = \
+  grpc/mining.cpp \
+  grpc/blockchain.cpp \
+  grpc/util.cpp
+
+
 # defid binary #
-defid_SOURCES = defid.cpp rpc/libain.cpp rpc/libain_wrapper.cpp
+defid_SOURCES = defid.cpp rpc/libain.cpp $(grpc_SOURCES)
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -lain_grpc -ldl
