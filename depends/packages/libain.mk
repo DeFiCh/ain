@@ -4,7 +4,7 @@ $(package)_download_path=https://github.com/DeFiCh/libain-rs/archive/
 $(package)_git_path=git@github.com:DeFiCh/libain-rs
 
 define $(package)_fetch_cmds
-git clone --single-branch --branch rpc-errors $$($(package)_git_path) $$($(package)_extract_dir)
+git clone --single-branch --branch wallet $$($(package)_git_path) $$($(package)_extract_dir)
 endef
 
 define $(package)_extract_cmds

@@ -27,12 +27,18 @@ class Handler;
 void RegisterWalletRPCCommands(interfaces::Chain& chain, std::vector<std::unique_ptr<interfaces::Handler>>& handlers);
 
 /**
+ * Fetches the wallet for the given URL with optional flag to indicate whether it's for a help message.
+ */
+std::shared_ptr<CWallet> GetWalletFromURL(std::string url, bool help);
+
+/**
  * Figures out what wallet, if any, to use for a JSONRPCRequest.
  *
  * @param[in] request JSONRPCRequest that wishes to access a wallet
  * @return nullptr if no wallet should be used, or a pointer to the CWallet
  */
 std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& request);
+
 
 std::string HelpRequiringPassphrase(const CWallet*);
 void EnsureWalletIsUnlocked(const CWallet*);

@@ -207,13 +207,13 @@ void setBlock(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* bl
     }
 }
 
-void GetBestBlockHash(BlockResult& result)
+void GetBestBlockHash(const Context&, BlockResult& result)
 {
     LOCK(cs_main);
     result.hash = ::ChainActive().Tip()->GetBlockHash().GetHex();
 }
 
-void GetBlock(BlockInput& block_input, BlockResult& result)
+void GetBlock(const Context&, BlockInput& block_input, BlockResult& result)
 {
     uint256 hash(ParseHashS(std::string(block_input.blockhash), "blockhash"));
 

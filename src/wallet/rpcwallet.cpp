@@ -81,27 +81,30 @@ bool HaveKey(const CWallet& wallet, const CKey& key)
     return wallet.HaveKey(key.GetPubKey().GetID()) || wallet.HaveKey(key2.GetPubKey().GetID());
 }
 
-bool GetWalletNameFromJSONRPCRequest(const JSONRPCRequest& request, std::string& wallet_name)
-{
-    if (request.URI.substr(0, WALLET_ENDPOINT_BASE.size()) == WALLET_ENDPOINT_BASE) {
+bool GetWalletNameFromURL(std::string url, std::string& wallet_name) {
+    if (url.substr(0, WALLET_ENDPOINT_BASE.size()) == WALLET_ENDPOINT_BASE) {
         // wallet endpoint was used
-        wallet_name = urlDecode(request.URI.substr(WALLET_ENDPOINT_BASE.size()));
+        wallet_name = urlDecode(url.substr(WALLET_ENDPOINT_BASE.size()));
         return true;
     }
     return false;
 }
 
-std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& request)
-{
+std::shared_ptr<CWallet> GetWalletFromURL(std::string url, bool help) {
     std::string wallet_name;
-    if (GetWalletNameFromJSONRPCRequest(request, wallet_name)) {
+    if (GetWalletNameFromURL(url, wallet_name)) {
         std::shared_ptr<CWallet> pwallet = GetWallet(wallet_name);
         if (!pwallet) throw JSONRPCError(RPC_WALLET_NOT_FOUND, "Requested wallet does not exist or is not loaded");
         return pwallet;
     }
 
     std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-    return wallets.size() == 1 || (request.fHelp && wallets.size() > 0) ? wallets[0] : nullptr;
+    return wallets.size() == 1 || (help && wallets.size() > 0) ? wallets[0] : nullptr;
+}
+
+std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& request)
+{
+    return GetWalletFromURL(request.URI, request.fHelp);
 }
 
 std::string HelpRequiringPassphrase(const CWallet* pwallet)
@@ -2799,7 +2802,7 @@ static UniValue unloadwallet(const JSONRPCRequest& request)
             }.Check(request);
 
     std::string wallet_name;
-    if (GetWalletNameFromJSONRPCRequest(request, wallet_name)) {
+    if (GetWalletNameFromURL(request.URI, wallet_name)) {
         if (!request.params[0].isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot unload the requested wallet");
         }
