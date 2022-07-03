@@ -1,4 +1,19 @@
-#include "grpc/mining.h"
+#include <grpc/mining.h>
+#include <grpc/util.h>
+
+#include <rpc/blockchain.h>
+#include <rpc/protocol.h>
+#include <rpc/request.h>
+#include <rpc/util.h>
+
+#include <policy/fees.h>
+#include <util/fees.h>
+
+#include <pos.h>
+#include <pos_kernel.h>
+#include <miner.h>
+#include <masternodes/masternodes.h>
+#include <warnings.h>
 
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,

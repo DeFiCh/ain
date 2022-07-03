@@ -1,4 +1,15 @@
-#include "grpc/blockchain.h"
+#include <grpc/blockchain.h>
+#include <grpc/util.h>
+
+#include <rpc/blockchain.h>
+#include <rpc/util.h>
+
+#include <consensus/validation.h>
+#include <core_io.h>
+#include <libain.hpp>
+#include <masternodes/masternodes.h>
+#include <sync.h>
+#include <validation.h>
 
 int GetRPCSerializationFlags() {
     return 0; // FIXME: Pass RPCSerializationFlags() as option from Rust
