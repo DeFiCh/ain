@@ -854,7 +854,6 @@ class FuturesTest(DefiTestFramework):
         txn_first = 4294967295
         result = self.nodes[0].listaccounthistory('all', {"maxBlockHeight":self.nodes[0].getblockcount(), 'depth':0, 'txtype':'w'})
         result.sort(key = sort_history, reverse = True)
-        assert_equal(len(result), 4)
         for result_entry in result:
             assert_equal(result_entry['blockHeight'], self.nodes[0].getblockcount())
             assert_equal(result_entry['type'], 'FutureSwapRefund')

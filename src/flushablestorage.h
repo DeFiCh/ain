@@ -506,7 +506,7 @@ public:
         }
     }
 
-    virtual bool Flush() { return DB().Flush(); }
+    bool Flush() { return DB().Flush(); }
     void Discard() { DB().Discard(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 

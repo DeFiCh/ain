@@ -3,11 +3,9 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/vaulthistory.h>
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
@@ -492,6 +490,30 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256& nodeId, const u
     }
 }
 
+Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
+{
+    auto node = GetMasternode(nodeId);
+    if (node) {
+        EraseBy<ID>(nodeId);
+        EraseBy<Operator>(node->operatorAuthAddress);
+        EraseBy<Owner>(node->ownerAuthAddress);
+        return Res::Ok();
+    }
+    return Res::Err("No such masternode %s", nodeId.GetHex());
+}
+
+Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 & resignTx)
+{
+    auto node = GetMasternode(nodeId);
+    if (node && node->resignTx == resignTx) {
+        node->resignHeight = -1;
+        node->resignTx = {};
+        WriteBy<ID>(nodeId, *node);
+        return Res::Ok();
+    }
+    return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
+}
+
 uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const
 {
     auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
@@ -728,26 +750,6 @@ std::optional<bool> CSettingsView::GetDexStatsEnabled()
 /*
  *  CCustomCSView
  */
-CCustomCSView::CCustomCSView()
-{
-    CheckPrefixes();
-}
-
-CCustomCSView::~CCustomCSView() = default;
-
-CCustomCSView::CCustomCSView(CStorageKV & st)
-    : CStorageView(new CFlushableStorageKV(st))
-{
-    CheckPrefixes();
-}
-
-// cache-upon-a-cache (not a copy!) constructor
-CCustomCSView::CCustomCSView(CCustomCSView & other)
-    : CStorageView(new CFlushableStorageKV(other.DB()))
-{
-    CheckPrefixes();
-}
-
 int CCustomCSView::GetDbVersion() const
 {
     int version;
@@ -1234,26 +1236,4 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
-}
-
-CAccountHistoryStorage* CCustomCSView::GetAccountHistoryStore() {
-    return accHistoryStore.get();
-}
-
-CVaultHistoryStorage* CCustomCSView::GetVaultHistoryStore() {
-    return vauHistoryStore.get();
-}
-
-void CCustomCSView::SetAccountHistoryStore() {
-    if (paccountHistoryDB) {
-        accHistoryStore.reset();
-        accHistoryStore = std::make_unique<CAccountHistoryStorage>(*paccountHistoryDB);
-    }
-}
-
-void CCustomCSView::SetVaultHistoryStore() {
-    if (pvaultHistoryDB) {
-        vauHistoryStore.reset();
-        vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
-    }
 }

@@ -214,25 +214,14 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(len(result), 1)
         assert_equal(result[0]['type'], 'CreateToken')
 
-        # Get current block
-        current_block = self.nodes[0].getblockcount()
-
-        # Revert all TXs
+        # Revert all TXs and check that burn history is empty
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(101))
-        self.nodes[0].clearmempool()
-
-        # Move the chain forward to the previous height
-        self.nodes[0].generate(current_block - self.nodes[0].getblockcount())
-
-        # Check that burn history is empty
         result = self.nodes[0].listburnhistory()
         assert_equal(len(result), 0)
 
-        # Check burn info reset
         result = self.nodes[0].getburninfo()
-        assert_equal(result['amount'], Decimal('0'))
-        assert_equal(result['feeburn'], Decimal('0'))
-        assert_equal(result['tokens'], [])
+        assert_equal(result['amount'], Decimal('0.0'))
+        assert_equal(len(result['tokens']), 0)
 
 if __name__ == '__main__':
     BurnAddressTest().main()
