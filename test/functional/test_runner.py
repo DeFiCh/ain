@@ -124,6 +124,7 @@ BASE_SCRIPTS = [
     'feature_bitcoin_htlc.py',
     'feature_asymmetric_fee.py',
     'feature_token_split.py',
+    'feature_poolswap_mainnet.py',
     'feature_token_split_mechanism.py',
     'feature_token_split_usd_value.py',
     'feature_communitybalance_reorg.py',

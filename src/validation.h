@@ -129,6 +129,9 @@ static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
 static const bool DEFAULT_PERSIST_MEMPOOL = false;
 /** Default for using fee filter */
 static const bool DEFAULT_FEEFILTER = true;
+/** Default for using live dex in attributes */
+static const bool DEFAULT_DEXSTATS = false;
+
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
@@ -858,8 +861,8 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
-void ConsolidateRewards(CCustomCSView& view, int height, 
-    const std::vector<std::pair<CScript, CAmount>> &items, 
+void ConsolidateRewards(CCustomCSView& view, int height,
+    const std::vector<std::pair<CScript, CAmount>> &items,
     bool interruptOnShutdown, int numWorkers = 0);
 
 #endif // DEFI_VALIDATION_H

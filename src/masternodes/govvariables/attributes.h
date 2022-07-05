@@ -37,14 +37,15 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens    = 'b',
-    DFIP2203Current  = 'c',
-    DFIP2203Burned   = 'd',
-    DFIP2203Minted   = 'e',
+    PaybackDFITokens  = 'a',
+    PaybackTokens     = 'b',
+    DFIP2203Current   = 'c',
+    DFIP2203Burned    = 'd',
+    DFIP2203Minted    = 'e',
     DFIP2206FCurrent  = 'f',
     DFIP2206FBurned   = 'g',
     DFIP2206FMinted   = 'h',
+    DexTokens         = 'i',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -150,17 +151,46 @@ struct CFeeDir {
 
 ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract);
 
+struct CDexTokenInfo {
+    struct CTokenInfo {
+        uint64_t swaps;
+        uint64_t feeburn;
+        uint64_t commissions;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action) {
+            READWRITE(swaps);
+            READWRITE(feeburn);
+            READWRITE(commissions);
+        }
+    };
+
+    CTokenInfo totalTokenA;
+    CTokenInfo totalTokenB;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(totalTokenA);
+        READWRITE(totalTokenB);
+    }
+};
+
 enum FeeDirValues : uint8_t {
     Both,
     In,
     Out
 };
 
+using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
 
 enum GovVarsFilter {
     All,
@@ -246,6 +276,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(attributes);
     }
+
 
     uint32_t time{0};
 
