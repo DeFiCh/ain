@@ -9,8 +9,9 @@
 #include <script/interpreter.h>
 #include <uint256.h>
 
+#include <boost/variant.hpp>
+
 #include <stdint.h>
-#include <variant>
 
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
@@ -135,7 +136,7 @@ struct WitnessUnknown
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
  *  A CTxDestination is the internal data type encoded in a DFI address
  */
-using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown>;
+typedef boost::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown> CTxDestination;
 
 enum TxDestType {
     NoDestType,

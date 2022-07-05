@@ -28,8 +28,6 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
-    DFIP2206A = 'f',
-    DFIP2206F = 'g',
 };
 
 enum OracleIDs : uint8_t  {
@@ -37,26 +35,19 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
+    PaybackDFITokens = 'a',
+    PaybackTokens    = 'b',
+    DFIP2203Current  = 'c',
+    DFIP2203Burned   = 'd',
+    DFIP2203Minted   = 'e',
 };
 
 enum DFIPKeys : uint8_t  {
-    Active                  = 'a',
-    Premium                 = 'b',
-    MinSwap                 = 'c',
-    RewardPct               = 'd',
-    BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
-    StartBlock              = 'i',
+    Active       = 'a',
+    Premium      = 'b',
+    MinSwap      = 'c',
+    RewardPct    = 'd',
+    BlockPeriod  = 'e',
 };
 
 enum TokenKeys : uint8_t  {
@@ -80,8 +71,6 @@ enum TokenKeys : uint8_t  {
 enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
-    TokenAFeeDir = 'c',
-    TokenBFeeDir = 'd',
 };
 
 struct CDataStructureV0 {
@@ -138,59 +127,13 @@ struct CTokenPayback {
     }
 };
 
-struct CFeeDir {
-    uint8_t feeDir;
+ResVal<CScript> GetFutureSwapContractAddress();
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(feeDir);
-    }
-};
-
-ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract);
-
-struct CDexTokenInfo {
-    struct CTokenInfo {
-        uint64_t swaps;
-        uint64_t feeburn;
-        uint64_t commissions;
-
-        ADD_SERIALIZE_METHODS;
-
-        template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream& s, Operation ser_action) {
-            READWRITE(swaps);
-            READWRITE(feeburn);
-            READWRITE(commissions);
-        }
-    };
-
-    CTokenInfo totalTokenA;
-    CTokenInfo totalTokenB;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(totalTokenA);
-        READWRITE(totalTokenB);
-    }
-};
-
-enum FeeDirValues : uint8_t {
-    Both,
-    In,
-    Out
-};
-
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeType = boost::variant<CDataStructureV0, CDataStructureV1>;
+using CAttributeValue = boost::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue>;
 
 enum GovVarsFilter {
     All,
@@ -213,7 +156,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
-
+    
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
@@ -221,27 +164,14 @@ public:
     static GovVariable * Create() { return new ATTRIBUTES(); }
 
     template<typename T>
-    static void GetIf(std::optional<T>& opt, const CAttributeValue& var) {
-        if (auto value = std::get_if<T>(&var)) {
-            opt = *value;
-        }
-    }
-
-    template<typename T>
-    static void GetIf(T& val, const CAttributeValue& var) {
-        if (auto value = std::get_if<T>(&var)) {
-            val = *value;
-        }
-    }
-
-    template<typename K, typename T>
-    [[nodiscard]] T GetValue(const K& key, T value) const {
-        static_assert(std::is_convertible_v<K, CAttributeType>);
+    [[nodiscard]] T GetValue(const CAttributeType& key, T value) const {
         auto it = attributes.find(key);
         if (it != attributes.end()) {
-            GetIf(value, it->second);
+            if (auto val = boost::get<const T>(&it->second)) {
+                value = std::move(*val);
+            }
         }
-        return value;
+        return std::move(value);
     }
 
     template<typename K, typename T>
@@ -270,7 +200,7 @@ public:
         static_assert(std::is_convertible_v<K, CAttributeType>);
         static_assert(std::is_invocable_r_v<bool, C, K, CAttributeValue>);
         for (auto it = attributes.lower_bound(key); it != attributes.end(); ++it) {
-            if (auto attrV0 = std::get_if<K>(&it->first)) {
+            if (auto attrV0 = boost::get<K>(&it->first)) {
                 if (!std::invoke(callback, *attrV0, it->second)) {
                     break;
                 }
@@ -290,7 +220,6 @@ public:
         READWRITE(attributes);
     }
 
-
     uint32_t time{0};
 
     // For formatting in export
@@ -304,8 +233,7 @@ public:
 
 private:
     friend class CGovView;
-    bool futureUpdated{};
-    bool futureDUSDUpdated{};
+    bool futureBlockUpdated{};
     std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
@@ -322,7 +250,6 @@ private:
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
-    Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

@@ -370,7 +370,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], ['0.00186822@' + symbolDFI])
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186822'))
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
 
         try:
@@ -408,7 +408,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmounts'], [])
         assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
-        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], ['0.00443685@' + symbolDFI])
+        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443685'))
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:

@@ -8,9 +8,12 @@
 #include <rpc/request.h>
 #include <univalue.h>
 
+#include <boost/variant/apply_visitor.hpp>
+#include <boost/variant/static_visitor.hpp>
+
 extern std::string ScriptToString(CScript const& script);
 
-class CCustomTxRpcVisitor
+class CCustomTxRpcVisitor : public boost::static_visitor<void>
 {
     uint32_t height;
     UniValue& rpcInfo;
@@ -494,7 +497,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniVa
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
-        std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
+        boost::apply_visitor(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
     }
     return res;
 }

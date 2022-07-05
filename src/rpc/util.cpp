@@ -198,7 +198,7 @@ CTxDestination AddAndGetMultisigDestination(const int required, const std::vecto
     return dest;
 }
 
-class DescribeAddressVisitor
+class DescribeAddressVisitor : public boost::static_visitor<UniValue>
 {
 public:
     explicit DescribeAddressVisitor() {}
@@ -256,7 +256,7 @@ public:
 
 UniValue DescribeAddress(const CTxDestination& dest)
 {
-    return std::visit(DescribeAddressVisitor(), dest);
+    return boost::apply_visitor(DescribeAddressVisitor(), dest);
 }
 
 unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target)
@@ -527,10 +527,10 @@ std::string RPCHelpMan::ToString() const
 
 bool RPCArg::IsOptional() const
 {
-    if (m_fallback.index() == PKHashType) {
+    if (m_fallback.which() == PKHashType) {
         return true;
     } else {
-        return RPCArg::Optional::NO != std::get<RPCArg::Optional>(m_fallback);
+        return RPCArg::Optional::NO != boost::get<RPCArg::Optional>(m_fallback);
     }
 }
 
@@ -576,10 +576,10 @@ std::string RPCArg::ToDescriptionString() const
             // no default case, so the compiler can warn about missing cases
         }
     }
-    if (m_fallback.index() == PKHashType) {
-        ret += ", optional, default=" + std::get<std::string>(m_fallback);
+    if (m_fallback.which() == PKHashType) {
+        ret += ", optional, default=" + boost::get<std::string>(m_fallback);
     } else {
-        switch (std::get<RPCArg::Optional>(m_fallback)) {
+        switch (boost::get<RPCArg::Optional>(m_fallback)) {
         case RPCArg::Optional::OMITTED: {
             // nothing to do. Element is treated as if not present and has no default value
             break;

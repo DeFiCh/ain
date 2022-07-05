@@ -566,15 +566,3 @@ std::string Capitalize(std::string str)
     str[0] = ToUpper(str.front());
     return str;
 }
-
-std::string trim_ws(std::string const & str)
-{
-    std::string const ws = " \n\r\t";
-    size_t first = str.find_first_not_of(ws);
-    if (std::string::npos == first)
-    {
-        return str;
-    }
-    size_t last = str.find_last_not_of(ws);
-    return str.substr(first, (last - first + 1));
-}

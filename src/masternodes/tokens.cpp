@@ -8,13 +8,24 @@
 #include <chainparams.h> // Params()
 #include <core_io.h>
 #include <primitives/transaction.h>
-#include <util/strencodings.h>
 
 #include <univalue.h>
 
 const DCT_ID CTokensView::DCT_ID_START = DCT_ID{128};
 
 extern const std::string CURRENCY_UNIT;
+
+std::string trim_ws(std::string const & str)
+{
+    std::string const ws = " \n\r\t";
+    size_t first = str.find_first_not_of(ws);
+    if (std::string::npos == first)
+    {
+        return str;
+    }
+    size_t last = str.find_last_not_of(ws);
+    return str.substr(first, (last - first + 1));
+}
 
 std::optional<CTokensView::CTokenImpl> CTokensView::GetToken(DCT_ID id) const
 {
@@ -103,6 +114,25 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
     WriteBy<Symbol>(symbolKey, id);
     WriteBy<CreationTx>(token.creationTx, id);
     return {id, Res::Ok()};
+}
+
+Res CTokensView::RevertCreateToken(const uint256 & txid)
+{
+    auto pair = GetTokenByCreationTx(txid);
+    if (!pair) {
+        return Res::Err("Token creation revert error: token with creation tx %s does not exist!\n", txid.ToString());
+    }
+    DCT_ID id = pair->first;
+    auto lastId = ReadLastDctId();
+    if (!lastId || (*lastId) != id) {
+        return Res::Err("Token creation revert error: revert sequence broken! (txid = %s, id = %s, LastDctId = %s)\n", txid.ToString(), id.ToString(), (lastId ? lastId->ToString() : DCT_ID{0}.ToString()));
+    }
+    auto const & token = pair->second;
+    EraseBy<ID>(id);
+    EraseBy<Symbol>(token.symbol);
+    EraseBy<CreationTx>(token.creationTx);
+    DecrementLastDctId();
+    return Res::Ok();
 }
 
 Res CTokensView::UpdateToken(const CTokenImpl& newToken, bool isPreBayfront, const bool tokenSplitUpdate)
@@ -240,6 +270,19 @@ DCT_ID CTokensView::IncrementLastDctId()
     }
     assert (Write(LastDctId::prefix(), result));
     return result;
+}
+
+DCT_ID CTokensView::DecrementLastDctId()
+{
+    auto lastDctId = ReadLastDctId();
+    if (lastDctId && *lastDctId >= DCT_ID_START) {
+        --(lastDctId->v);
+    } else {
+        LogPrintf("Critical fault: trying to decrement nonexistent DCT_ID or it is lower than DCT_ID_START\n");
+        assert (false);
+    }
+    assert (Write(LastDctId::prefix(), *lastDctId)); // it is ok if (DCT_ID_START - 1) will be written
+    return *lastDctId;
 }
 
 std::optional<DCT_ID> CTokensView::ReadLastDctId() const

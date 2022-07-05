@@ -35,16 +35,6 @@ typedef enum {
     SelectionPie,
 } AccountSelectionMode;
 
-enum class AmountFormat : uint8_t {
-        Unknown,
-        // amount@0
-        Id,
-        // amount@DFI
-        Symbol,
-        // amount@0#DFI
-        Combined,
-};
-
 class CWalletCoinsUnlocker {
     std::shared_ptr<CWallet> pwallet;
     std::vector<COutPoint> coins;
@@ -57,11 +47,6 @@ public:
     CWallet& operator*();
     operator CWallet*();
     void AddLockedCoin(const COutPoint& coin);
-};
-
-struct FutureSwapHeightInfo {
-    CAmount startBlock;
-    CAmount blockPeriod;
 };
 
 // common functions
@@ -77,6 +62,6 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
+std::optional<CAmount> GetFuturesBlock();
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

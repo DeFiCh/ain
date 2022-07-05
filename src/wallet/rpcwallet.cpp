@@ -40,7 +40,6 @@
 #include <univalue.h>
 
 #include <functional>
-
 #include <masternodes/mn_checks.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
@@ -566,7 +565,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const PKHash *pkhash = std::get_if<PKHash>(&dest);
+    const PKHash *pkhash = boost::get<PKHash>(&dest);
     if (!pkhash) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
@@ -2616,10 +2615,10 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         for (const auto& entry : wallet->mapAddressBook) {
             if (entry.second.purpose == "spv") {
                 uint160 userHash;
-                if (entry.first.index() == PKHashType) {
-                    userHash = std::get<PKHash>(entry.first);
-                } else if (entry.first.index() == WitV0KeyHashType) {
-                    userHash = std::get<WitnessV0KeyHash>(entry.first);
+                if (entry.first.which() == PKHashType) {
+                    userHash = *boost::get<PKHash>(&entry.first);
+                } else if (entry.first.which() == WitV0KeyHashType) {
+                    userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
                 } else {
                     continue;
                 }
@@ -3001,7 +3000,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
 
             if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = CScriptID(std::get<ScriptHash>(address));
+                const CScriptID& hash = CScriptID(boost::get<ScriptHash>(address));
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
@@ -3011,7 +3010,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                         bool extracted = ExtractDestination(redeemScript, witness_destination);
                         assert(extracted);
                         // Also return the witness script
-                        const WitnessV0ScriptHash& whash = std::get<WitnessV0ScriptHash>(witness_destination);
+                        const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(witness_destination);
                         CScriptID id;
                         CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
                         CScript witnessScript;
@@ -3021,7 +3020,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
                     }
                 }
             } else if (scriptPubKey.IsPayToWitnessScriptHash()) {
-                const WitnessV0ScriptHash& whash = std::get<WitnessV0ScriptHash>(address);
+                const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(address);
                 CScriptID id;
                 CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
                 CScript witnessScript;
@@ -3602,7 +3601,7 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
     return response;
 }
 
-class DescribeWalletAddressVisitor
+class DescribeWalletAddressVisitor : public boost::static_visitor<UniValue>
 {
 public:
     CWallet * const pwallet;
@@ -3621,7 +3620,7 @@ public:
             UniValue subobj(UniValue::VOBJ);
             UniValue detail = DescribeAddress(embedded);
             subobj.pushKVs(detail);
-            UniValue wallet_detail = std::visit(*this, embedded);
+            UniValue wallet_detail = boost::apply_visitor(*this, embedded);
             subobj.pushKVs(wallet_detail);
             subobj.pushKV("address", EncodeDestination(embedded));
             subobj.pushKV("scriptPubKey", HexStr(subscript.begin(), subscript.end()));
@@ -3699,7 +3698,7 @@ static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& de
     UniValue ret(UniValue::VOBJ);
     UniValue detail = DescribeAddress(dest);
     ret.pushKVs(detail);
-    ret.pushKVs(std::visit(DescribeWalletAddressVisitor(pwallet), dest));
+    ret.pushKVs(boost::apply_visitor(DescribeWalletAddressVisitor(pwallet), dest));
     return ret;
 }
 

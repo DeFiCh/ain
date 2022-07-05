@@ -96,7 +96,6 @@ struct Params {
     int FortCanningHillHeight;
     int FortCanningRoadHeight;
     int FortCanningCrunchHeight;
-    int FortCanningSpringHeight;
     int GreatWorldHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */

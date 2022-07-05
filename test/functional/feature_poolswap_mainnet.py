@@ -15,12 +15,11 @@ from decimal import Decimal
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
-        self.FCH_HEIGHT = 170
-        self.FCR_HEIGHT = 200
+        self.FC_HEIGHT = 170
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FCH_HEIGHT), '-fortcanningroadheight='+str(self.FCR_HEIGHT),'-simulatemainnet', '-jellyfish_regtest=1']
+                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FC_HEIGHT), '-simulatemainnet', '-jellyfish_regtest=1']
             ]
 
     def create_tokens(self):
@@ -120,7 +119,7 @@ class PoolPairTest (DefiTestFramework):
 
 
     def setup(self):
-        self.nodes[0].generate(self.FCH_HEIGHT)
+        self.nodes[0].generate(self.FC_HEIGHT)
         self.create_tokens()
         self.mint_tokens(100000000)
         self.create_pool_pairs()
@@ -175,24 +174,18 @@ class PoolPairTest (DefiTestFramework):
             "tokenTo": self.symbol_key_SILVER,
         },[])
         self.nodes[0].generate(1)
-
         from_account = self.nodes[0].getaccount(from_address)
-        assert_equal(from_account[1], '44999999.99999999@GOLD#128')
-
         to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999999@GOLD#128')
         assert_equal(to_account, [])
 
-        poolpair_info = self.nodes[0].getpoolpair("GS")
-        assert_equal(poolpair_info['1']['reserveA'], Decimal('5000000.00000001'))
-        assert_equal(poolpair_info['1']['reserveB'], Decimal('500000.00000000'))
-
-    def test_50_simple_swaps_1Satoshi(self):
+    def test_200_simple_swaps_1Satoshi(self):
         from_address = self.account_gs
         from_account = self.nodes[0].getaccount(from_address)
         to_address = self.nodes[0].getnewaddress("")
         assert_equal(from_account[1], '44999999.99999999@GOLD#128')
 
-        for _ in range(50):
+        for _ in range(200):
             self.nodes[0].poolswap({
                 "from": self.account_gs,
                 "tokenFrom": self.symbol_key_GOLD,
@@ -201,22 +194,16 @@ class PoolPairTest (DefiTestFramework):
                 "tokenTo": self.symbol_key_SILVER,
             },[])
         self.nodes[0].generate(1)
-
         from_account = self.nodes[0].getaccount(from_address)
-        assert_equal(from_account[1], '44999999.99999949@GOLD#128')
-
         to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999799@GOLD#128')
         assert_equal(to_account, [])
-
-        poolpair_info = self.nodes[0].getpoolpair("GS")
-        assert_equal(poolpair_info['1']['reserveA'], Decimal('5000000.00000051'))
-        assert_equal(poolpair_info['1']['reserveB'], Decimal('500000.00000000'))
 
     def test_compositeswap_1Satoshi(self):
         from_address = self.account_gs
         from_account = self.nodes[0].getaccount(from_address)
         to_address = self.nodes[0].getnewaddress("")
-        assert_equal(from_account[1], '44999999.99999949@GOLD#128')
+        assert_equal(from_account[1], '44999999.99999799@GOLD#128')
 
         testPoolSwapRes =  self.nodes[0].testpoolswap({
             "from": from_address,
@@ -236,29 +223,18 @@ class PoolPairTest (DefiTestFramework):
             "tokenTo": self.symbol_key_DOGE,
         },[])
         self.nodes[0].generate(1)
-
         from_account = self.nodes[0].getaccount(from_address)
-        assert_equal(from_account[1], '44999999.99999948@GOLD#128')
-
         to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999798@GOLD#128')
         assert_equal(to_account, [])
 
-        poolpair_info_GS = self.nodes[0].getpoolpair("GS")
-        assert_equal(poolpair_info_GS['1']['reserveA'], Decimal('5000000.00000052'))
-        assert_equal(poolpair_info_GS['1']['reserveB'], Decimal('500000.00000000'))
-
-        # Second pool nmo changes as 1 sat is lost in comissions in first swap
-        poolpair_info_SD = self.nodes[0].getpoolpair("DS")
-        assert_equal(poolpair_info_SD['2']['reserveA'], Decimal('1000000.00000000'))
-        assert_equal(poolpair_info_SD['2']['reserveB'], Decimal('100000.00000000'))
-
-    def test_50_compositeswaps_1Satoshi(self):
+    def test_200_compositeswaps_1Satoshi(self):
         from_address = self.account_gs
         from_account = self.nodes[0].getaccount(from_address)
         to_address = self.nodes[0].getnewaddress("")
-        assert_equal(from_account[1], '44999999.99999948@GOLD#128')
+        assert_equal(from_account[1], '44999999.99999798@GOLD#128')
 
-        for _ in range(50):
+        for _ in range(200):
             testPoolSwapRes = self.nodes[0].testpoolswap({
                 "from": from_address,
                 "tokenFrom": self.symbol_key_GOLD,
@@ -268,7 +244,6 @@ class PoolPairTest (DefiTestFramework):
             }, "auto", True)
             assert_equal(testPoolSwapRes["amount"], '0.00000000@130')
             assert_equal(len(testPoolSwapRes["pools"]), 2)
-
             self.nodes[0].compositeswap({
                 "from": self.account_gs,
                 "tokenFrom": self.symbol_key_GOLD,
@@ -276,75 +251,20 @@ class PoolPairTest (DefiTestFramework):
                 "to": to_address,
                 "tokenTo": self.symbol_key_DOGE,
             },[])
-
         self.nodes[0].generate(1)
-
         from_account = self.nodes[0].getaccount(from_address)
-        assert_equal(from_account[1], '44999999.99999898@GOLD#128')
-
         to_account = self.nodes[0].getaccount(to_address)
+        assert_equal(from_account[1], '44999999.99999598@GOLD#128')
         assert_equal(to_account, [])
-
-        poolpair_info_GS = self.nodes[0].getpoolpair("GS")
-        assert_equal(poolpair_info_GS['1']['reserveA'], Decimal('5000000.00000102'))
-        assert_equal(poolpair_info_GS['1']['reserveB'], Decimal('500000.00000000'))
-
-        # Second pool nmo changes as 1 sat is lost in comissions in first swap
-        poolpair_info_SD = self.nodes[0].getpoolpair("DS")
-        assert_equal(poolpair_info_SD['2']['reserveA'], Decimal('1000000.00000000'))
-        assert_equal(poolpair_info_SD['2']['reserveB'], Decimal('100000.00000000'))
-
-    def goto(self, height):
-        current_block = self.nodes[0].getblockcount()
-        self.nodes[0].generate((height - current_block) + 1)
-
-    def test_swap_full_amount_of_one_side_of_pool(self):
-        from_address = self.account_gs
-        from_account = self.nodes[0].getaccount(from_address)
-        to_address = self.nodes[0].getnewaddress("")
-        assert_equal(from_account[1], '44999999.99999898@GOLD#128')
-
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
-            "from": from_address,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": Decimal('5000000.00000102'),
-            "to": to_address,
-            "tokenTo": self.symbol_key_SILVER,
-        }, "auto", True)
-        assert_equal(testPoolSwapRes["amount"], '248743.71859296@129')
-        assert_equal(len(testPoolSwapRes["pools"]), 1)
-
-        self.nodes[0].compositeswap({
-            "from": self.account_gs,
-            "tokenFrom": self.symbol_key_GOLD,
-            "amountFrom": Decimal('5000000.00000102'),
-            "to": to_address,
-            "tokenTo": self.symbol_key_SILVER,
-        },[])
-        self.nodes[0].generate(1)
-
-        from_account = self.nodes[0].getaccount(from_address)
-        assert_equal(from_account[1], '40049999.99999765@GOLD#128')
-
-        to_account = self.nodes[0].getaccount(to_address)
-        assert_equal(to_account, ['248743.71859296@SILVER#129'])
-
-        poolpair_info_GS = self.nodes[0].getpoolpair("GS")
-        assert_equal(poolpair_info_GS['1']['reserveA'], Decimal('9950000.00000203'))
-        assert_equal(poolpair_info_GS['1']['reserveB'], Decimal('251256.28140704'))
 
     def run_test(self):
         self.setup()
 
         self.test_swap_with_wrong_amounts()
         self.test_simple_swap_1Satoshi()
-        self.test_50_simple_swaps_1Satoshi()
+        self.test_200_simple_swaps_1Satoshi()
         self.test_compositeswap_1Satoshi()
-        self.test_50_compositeswaps_1Satoshi()
-
-        self.goto(self.FCR_HEIGHT) # Move to FCR
-
-        self.test_swap_full_amount_of_one_side_of_pool()
+        self.test_200_compositeswaps_1Satoshi()
 
 if __name__ == '__main__':
     PoolPairTest ().main ()

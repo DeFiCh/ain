@@ -113,6 +113,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.generate_and_fill_accounts()
 
     def add_total_account_to_liquidity_pool(self):
+        print(f'Adding liquidity with {len(self.accounts)} accounts...')
         size = 1000000
         for account in self.accounts:
             totalAmount = Decimal(self.get_amount_from_account(account, self.symbolDUSD))
@@ -127,6 +128,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             self.nodes[0].addpoolliquidity({account: [str(finalAmount)+"@T1", str(finalAmount)+"@DUSD"]}, account)
             self.nodes[0].generate(1)
             totalAmount -= finalAmount
+            print(f'account {account} finished')
 
     def setup_pools(self):
         self.nodes[0].createpoolpair({
@@ -210,12 +212,14 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
     def compare_value_list(self, pre, post):
         for index, amount in enumerate(pre):
+            print(f'Comparing values in valut {amount["account"]}')
             if index != 0:
                 almost_equal(amount["DUSD"], post[index]["DUSD"])
                 almost_equal(amount["T1"], post[index]["T1"])
 
     def compare_vaults_list(self, pre, post):
         for index, vault in enumerate(pre):
+            print(f'Comparing valuts {vault["vaultId"]}')
             if index != 0:
                 almost_equal(vault["collateralValue"], post[index]["collateralValue"])
                 almost_equal(vault["loanValue"], post[index]["loanValue"])

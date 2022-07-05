@@ -5,6 +5,7 @@
 
 #include <test/setup_common.h>
 #include <boost/test/unit_test.hpp>
+#include <boost/variant.hpp>
 #include <algorithm>
 
 inline uint256 NextTx()
@@ -76,7 +77,7 @@ BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
 BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
 {
-    std::map<std::variant<base_uint<128>, std::string>, std::string> testMap = {
+    std::map<boost::variant<base_uint<128>, std::string>, std::string> testMap = {
         { 0, "0.000000000000000000000000" },
         { 1, "0.000000000000000000000001" },
         { 42058, "0.000000000000000000042058" },
@@ -237,13 +238,14 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         auto expectedResult = kv.second;
 
         base_uint<128> input;
-        auto typeKind = key.index();
-        if (typeKind == 0) input = std::get<base_uint<128>>(key);
-        else if (typeKind == 1) input = base_uint<128>(std::get<std::string>(key));
+        auto typeKind = key.which();
+        if (typeKind == 0) input = boost::get<base_uint<128>>(key);
+        else if (typeKind == 1) input = base_uint<128>(boost::get<std::string>(key));
         else BOOST_TEST_FAIL("unknown type");
 
-        auto res = GetInterestPerBlockHighPrecisionString(input);
-        BOOST_CHECK_EQUAL(res, expectedResult);
+        auto res = TryGetInterestPerBlockHighPrecisionString(input);
+        if (!res) BOOST_TEST_FAIL("negatives detected");
+        BOOST_CHECK_EQUAL(*res, expectedResult);
     }
 
     // Quick way to generate the nums and verify 

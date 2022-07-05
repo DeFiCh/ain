@@ -122,25 +122,22 @@ Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey& key)
     return Res::Ok();
 }
 
-Res CAccountsView::StoreFuturesDUSD(const CFuturesUserKey& key, const CAmount& amount)
+std::optional<uint32_t> CAccountsView::GetMostRecentFuturesHeight()
 {
-    if (!WriteBy<ByFuturesDUSDKey>(key, amount)) {
-        return Res::Err("Failed to store futures");
+    const CFuturesUserKey key{std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()};
+    auto it = LowerBound<ByFuturesSwapKey>(key);
+    if (it.Valid()) {
+        return it.Key().height;
     }
 
-    return Res::Ok();
+    return {};
 }
 
-void CAccountsView::ForEachFuturesDUSD(std::function<bool(const CFuturesUserKey&, const CAmount&)> callback, const CFuturesUserKey& start)
-{
-    ForEach<ByFuturesDUSDKey, CFuturesUserKey, CAmount>(callback, start);
-}
-
-Res CAccountsView::EraseFuturesDUSD(const CFuturesUserKey& key)
-{
-    if (!EraseBy<ByFuturesDUSDKey>(key)) {
-        return Res::Err("Failed to erase futures");
+ResVal<CFuturesUserValue> CAccountsView::GetFuturesUserValues(const CFuturesUserKey& key) {
+    CFuturesUserValue source;
+    if (!ReadBy<ByFuturesSwapKey>(key, source)) {
+        return Res::Err("Failed to read futures source");
     }
 
-    return Res::Ok();
+    return {source, Res::Ok()};
 }

@@ -129,9 +129,6 @@ static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
 static const bool DEFAULT_PERSIST_MEMPOOL = false;
 /** Default for using fee filter */
 static const bool DEFAULT_FEEFILTER = true;
-/** Default for using live dex in attributes */
-static const bool DEFAULT_DEXSTATS = false;
-
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
@@ -351,9 +348,6 @@ bool TestLockPointValidity(const LockPoints* lp) EXCLUSIVE_LOCKS_REQUIRED(cs_mai
  * See consensus/consensus.h for flag definitions.
  */
 bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flags, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** Used to get the end of block TXN for account history entries */
-uint32_t GetNextAccPosition();
 
 /**
  * Closure representing one script verification
@@ -783,8 +777,6 @@ private:
     static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
 
     static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams);
-
-    static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
@@ -864,8 +856,8 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
-void ConsolidateRewards(CCustomCSView& view, int height,
-    const std::vector<std::pair<CScript, CAmount>> &items,
+void ConsolidateRewards(CCustomCSView& view, int height, 
+    const std::vector<std::pair<CScript, CAmount>> &items, 
     bool interruptOnShutdown, int numWorkers = 0);
 
 #endif // DEFI_VALIDATION_H

@@ -11,7 +11,7 @@
 #include <vector>
 #include <cstring>
 
-#include <variant>
+#include <boost/variant.hpp>
 
 class CBlock;
 class CTransaction;
@@ -65,7 +65,7 @@ enum class CustomTxType : uint8_t
     AccountToAccount      = 'B',
     AnyAccountsToAccounts = 'a',
     SmartContract         = 'K',
-    FutureSwap            = 'Q',
+    DFIP2203              = 'Q',
     //set governance variable
     SetGovVariable        = 'G',
     SetGovVariableHeight  = 'j',
@@ -103,7 +103,6 @@ enum class CustomTxType : uint8_t
     // Marker TXs
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
-    TokenSplit             = 'P',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -129,7 +128,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SmartContract:
-        case CustomTxType::FutureSwap:
+        case CustomTxType::DFIP2203:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
@@ -161,7 +160,6 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AuctionBid:
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
-        case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
         case CustomTxType::None:
             return type;
@@ -330,7 +328,7 @@ struct CGovernanceHeightMessage {
 
 struct CCustomTxMessageNone {};
 
-using CCustomTxMessage = std::variant<
+typedef boost::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
@@ -381,19 +379,20 @@ using CCustomTxMessage = std::variant<
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
     CAuctionBidMessage
->;
+> CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height,  uint32_t txn, CHistoryErasers& erasers);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
-Res SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap = false);
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 
 inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {

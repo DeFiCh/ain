@@ -237,38 +237,51 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     return true;
 }
 
-namespace {
-class CScriptVisitor
+namespace
 {
+class CScriptVisitor : public boost::static_visitor<bool>
+{
+private:
+    CScript *script;
 public:
-    CScript operator()(const CNoDestination& dest) const
-    {
-        return CScript();
+    explicit CScriptVisitor(CScript *scriptin) { script = scriptin; }
+
+    bool operator()(const CNoDestination &dest) const {
+        script->clear();
+        return false;
     }
 
-    CScript operator()(const PKHash& keyID) const
-    {
-        return CScript() << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+    bool operator()(const PKHash &keyID) const {
+        script->clear();
+        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        return true;
     }
 
-    CScript operator()(const ScriptHash& scriptID) const
-    {
-        return CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    bool operator()(const ScriptHash &scriptID) const {
+        script->clear();
+        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        return true;
     }
 
-    CScript operator()(const WitnessV0KeyHash& id) const
+    bool operator()(const WitnessV0KeyHash& id) const
     {
-        return CScript() << OP_0 << ToByteVector(id);
+        script->clear();
+        *script << OP_0 << ToByteVector(id);
+        return true;
     }
 
-    CScript operator()(const WitnessV0ScriptHash& id) const
+    bool operator()(const WitnessV0ScriptHash& id) const
     {
-        return CScript() << OP_0 << ToByteVector(id);
+        script->clear();
+        *script << OP_0 << ToByteVector(id);
+        return true;
     }
 
-    CScript operator()(const WitnessUnknown& id) const
+    bool operator()(const WitnessUnknown& id) const
     {
-        return CScript() << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
+        script->clear();
+        *script << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
+        return true;
     }
 };
 } // namespace
@@ -277,7 +290,8 @@ CScript GetScriptForDestination(const CTxDestination& dest)
 {
     CScript script;
 
-    return std::visit(CScriptVisitor(), dest);
+    boost::apply_visitor(CScriptVisitor(&script), dest);
+    return script;
 }
 
 CScript GetScriptForRawPubKey(const CPubKey& pubKey)
@@ -333,5 +347,5 @@ CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std
 }
 
 bool IsValidDestination(const CTxDestination& dest) {
-    return dest.index() != 0;
+    return dest.which() != 0;
 }

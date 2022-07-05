@@ -27,7 +27,6 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
-#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -164,24 +163,8 @@ static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 static boost::thread_group threadGroup;
 static CScheduler scheduler;
 
-#if HAVE_SYSTEM
-static void ShutdownNotify()
-{
-    std::vector<std::thread> threads;
-    for (const auto& cmd : gArgs.GetArgs("-shutdownnotify")) {
-        threads.emplace_back(runCommand, cmd);
-    }
-    for (auto& t : threads) {
-        t.join();
-    }
-}
-#endif
-
 void Interrupt()
 {
-#if HAVE_SYSTEM
-    ShutdownNotify();
-#endif
     InterruptHTTPServer();
     InterruptHTTPRPC();
     InterruptRPC();
@@ -393,10 +376,9 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb",
+        "-dbcrashratio", "-forcecompactdb", 
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
-        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
-        "-checkpoints-file",
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -434,9 +416,6 @@ void SetupServerArgs()
             "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex", "Rebuild chain state and block index from the blk*.dat files on disk", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex-chainstate", "Rebuild chain state from the currently indexed blocks. When in pruning mode or if blocks on disk might be corrupted, use full -reindex instead.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-#if HAVE_SYSTEM
-    gArgs.AddArg("-shutdownnotify=<cmd>", "Execute command immediately before beginning shutdown. The need for shutdown may be urgent, so be careful not to delay it long (if the command doesn't require interaction with the server, consider having it fork into the background).", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-#endif
 #ifndef WIN32
     gArgs.AddArg("-sysperms", "Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #else
@@ -502,11 +481,9 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanninghillheight", "Fort Canning Hill fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningroadheight", "Fort Canning Road fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningcrunchheight", "Fort Canning Crunch fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-fortcanningspringheight", "Fort Canning Spring fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1123,14 +1100,6 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-
-    auto checkpoints_file = gArgs.GetArg("-checkpoints-file", "");
-    if (!checkpoints_file.empty()) {
-        auto res = UpdateCheckpointsFromFile(const_cast<CChainParams&>(chainparams), checkpoints_file);
-        if (!res)
-            return InitError(strprintf(_("Error in checkpoints file : %s").translated, res.msg));
-    }
-
     if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
         LogPrintf("conf: checkpoints disabled.\n");
         // Safe to const_cast, as we know it's always allocated, and is always in the global var
@@ -1271,7 +1240,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-
+    
     return true;
 }
 
@@ -1708,7 +1677,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
-
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1723,12 +1691,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
                     paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
-                    paccountHistoryDB->CreateMultiIndexIfNeeded();
                 }
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
-                pburnHistoryDB->CreateMultiIndexIfNeeded();
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
@@ -1762,24 +1728,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(::ChainActive().Tip() != nullptr);
-                }
-
-                auto dexStats = gArgs.GetBoolArg("-dexstats", DEFAULT_DEXSTATS);
-                pcustomcsview->SetDexStatsEnabled(dexStats);
-
-                if (!fReset && !fReindexChainState && !pcustomcsDB->IsEmpty() && dexStats) {
-                    // force reindex if there is no dex data at the tip
-                    PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
-                    auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
-                    auto shouldReindex = it.Valid();
-                    auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
-                    if (lastHeight.has_value())
-                        shouldReindex &= !(*lastHeight == ::ChainActive().Tip()->nHeight);
-
-                    if (shouldReindex) {
-                        strLoadError = _("Live dex needs reindex").translated;
-                        break;
-                    }
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
@@ -1968,7 +1916,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             });
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
         }
-        pcustomcsview->Flush();
     }
 
     // ********************************************************* Step 11: import blocks
@@ -2140,8 +2087,8 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = destination.index() == PKHashType ? CKeyID(std::get<PKHash>(destination)) :
-                         destination.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(destination)) : CKeyID();
+            operatorId = destination.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&destination)) :
+                         destination.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
 
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);

@@ -2594,8 +2594,10 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            if (coinControl && coinControl->matchDestination.index() != 0) {
-                if (wtx.tx->vout[i].scriptPubKey != GetScriptForDestination(coinControl->matchDestination)) {
+            if (coinControl && coinControl->matchDestination.which() != 0) {
+                CTxDestination dest;
+                ExtractDestination(wtx.tx->vout[i].scriptPubKey, dest);
+                if (dest != coinControl->matchDestination) {
                     continue;
                 }
             }
@@ -3053,7 +3055,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
             CScript scriptChange;
             // coin control: send change to custom address
-            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
+            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
                 scriptChange = GetScriptForDestination(coin_control.destChange);
             } else { // no coin control: send change to newly generated address
                 // Reserve a new key pair from key pool
@@ -3114,7 +3116,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             CScript scriptChange;
 
             // coin control: send change to custom address
-            if (!std::get_if<CNoDestination>(&coin_control.destChange)) {
+            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
                 scriptChange = GetScriptForDestination(coin_control.destChange);
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -4271,7 +4273,7 @@ unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx) const
 
 bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (std::get_if<CNoDestination>(&dest))
+    if (boost::get<CNoDestination>(&dest))
         return false;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));
@@ -4287,7 +4289,7 @@ bool CWallet::EraseDestData(const CTxDestination &dest, const std::string &key)
 
 void CWallet::LoadDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (std::get_if<CNoDestination>(&dest))
+    if (boost::get<CNoDestination>(&dest))
         return;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));

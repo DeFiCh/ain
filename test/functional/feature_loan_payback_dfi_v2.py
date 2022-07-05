@@ -320,6 +320,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         vaultBefore = self.nodes[0].getvault(self.vaultId1)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
 
+        old_info = self.nodes[0].getburninfo()
+
         # Partial loan payback in DFI
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId1,
@@ -331,8 +333,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['dfipaybackfee'], Decimal('0.01000000')) # paybackfee defaults to 1% of total payback -> 0.01 DFI
         assert_equal(info['dfipaybacktokens'], ['3.96000000@DUSD']) # 4 - penalty (0.01DFI->0.04USD)
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal('1'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('1'))
 
         vaultAfter = self.nodes[0].getvault(self.vaultId1)
         [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
@@ -347,7 +348,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         vaultBefore = self.nodes[0].getvault(self.vaultId1)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
 
-        [old_amount, _] = self.nodes[0].getburninfo()['paybackburn'][0].split('@')
+        old_info = self.nodes[0].getburninfo()
 
         # Partial loan payback in DFI
         self.nodes[0].paybackloan({
@@ -360,8 +361,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['dfipaybackfee'], Decimal('0.06000000'))
         assert_equal(info['dfipaybacktokens'], ['7.76000000@DUSD'])
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal(old_amount) + Decimal('1'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('1'))
 
         vaultAfter = self.nodes[0].getvault(self.vaultId1)
         [amountAfter, _] = vaultAfter['loanAmounts'][0].split('@')
@@ -374,7 +374,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
         [balanceDFIBefore, _] = self.nodes[0].getaccount(self.addr_DFI)[0].split('@')
 
-        [old_amount, _] = self.nodes[0].getburninfo()['paybackburn'][0].split('@')
+        old_info = self.nodes[0].getburninfo()
 
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId1,
@@ -386,8 +386,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['dfipaybackfee'],  Decimal('1.27368435'))
         assert_equal(info['dfipaybacktokens'], ['100.00001113@DUSD']) # Total loan in vault1 + previous dfipaybacktokens
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal(old_amount) + Decimal('24.27368714'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('24.27368714'))
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/live/economy/dfi_payback_tokens'], ['1.27368435@DFI', '100.00001113@DUSD'])
@@ -406,7 +405,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(10)
 
-        [old_amount, _] = self.nodes[0].getburninfo()['paybackburn'][0].split('@')
+        old_info = self.nodes[0].getburninfo()
 
         [balanceDFIBefore, _] = self.nodes[0].getaccount(self.addr_DFI)[0].split('@')
         self.nodes[0].paybackloan({
@@ -419,8 +418,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['dfipaybackfee'], Decimal('2.58947407'))
         assert_equal(info['dfipaybacktokens'], ['200.00003016@DUSD'])
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal(old_amount) + Decimal('26.31579449'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('26.31579449'))
 
         vaultAfter = self.nodes[0].getvault(self.vaultId1)
         [balanceDFIAfter, _] = self.nodes[0].getaccount(self.addr_DFI)[0].split('@')
@@ -617,7 +615,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         vaultBefore = self.nodes[0].getvault(self.vaultId3)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
 
-        [old_amount, _] = self.nodes[0].getburninfo()['paybackburn'][0].split('@')
+        old_info = self.nodes[0].getburninfo()
 
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId3,
@@ -640,8 +638,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['paybackfees'], ['0.12500000@BTC'])
         assert_equal(info['paybacktokens'], ['3750000.00000000@TSLA'])
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal(old_amount) + Decimal('6209.54767138'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('6209.54767138'))
 
     def payback_dUSD_with_dUSD(self):
         self.nodes[0].takeloan({
@@ -688,7 +685,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        [old_amount, _] = self.nodes[0].getburninfo()['paybackburn'][0].split('@')
+        old_info = self.nodes[0].getburninfo()
 
         self.nodes[0].paybackloan({
             'vaultId': self.vaultId4,
@@ -710,8 +707,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         info = self.nodes[0].getburninfo()
         assert_equal(info['paybackfees'], ['0.12500000@BTC'])
         assert_equal(info['paybacktokens'], ['3750000.00000002@TSLA'])
-        [new_amount, _] = info['paybackburn'][0].split('@')
-        assert_equal(Decimal(new_amount), Decimal(old_amount) + Decimal('0.00012413'))
+        assert_equal(info['paybackburn'], old_info['paybackburn'] + Decimal('0.00012413'))
 
     def multipayback_DUSD_with_DFI_and_DUSD(self):
         self.vaultId5 = self.nodes[0].createvault(self.account0, 'LOAN200')
