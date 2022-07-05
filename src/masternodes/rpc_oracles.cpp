@@ -4,8 +4,6 @@
 
 #include <masternodes/mn_rpc.h>
 
-#include <masternodes/govvariables/attributes.h>
-
 extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
 extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
@@ -1155,43 +1153,15 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
 
     const auto currentHeight = ::ChainActive().Height();
 
-    const auto block = GetFuturesBlock(ParamIDs::DFIP2203);
-    if (!block || block->blockPeriod == 0) {
+    const auto block = GetFuturesBlock();
+    if (!block) {
         return 0;
     }
 
-    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
-               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
+    auto res = currentHeight + (*block - (currentHeight % *block));
     return GetRPCResultCache().Set(request, res);
 }
 
-
-UniValue getdusdswapblock(const JSONRPCRequest& request) {
-    RPCHelpMan{"getdusdswapblock",
-               "Get the next block that DFI to DUSD swap will execute on.\n",
-               {},
-               RPCResult{
-                       "n    (numeric) DFI to DUSD swap execution block. Zero if not set.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getdusdswapblock", "")
-               },
-    }.Check(request);
-
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
-    LOCK(cs_main);
-
-    const auto currentHeight = ::ChainActive().Height();
-
-    const auto block = GetFuturesBlock(ParamIDs::DFIP2206F);
-    if (!block || block->blockPeriod == 0) {
-        return 0;
-    }
-
-    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
-               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
-    return GetRPCResultCache().Set(request, res);
-}
 
 
 static const CRPCCommand commands[] =
@@ -1209,8 +1179,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfutureswapblock",      &getfutureswapblock,       {}},
-    {"oracles",     "getdusdswapblock",      &getdusdswapblock,       {}},
+    {"oracles",     "getfutureswapblock",         &getfutureswapblock,          {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

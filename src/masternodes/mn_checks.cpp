@@ -49,7 +49,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SmartContract:       return "SmartContract";
-        case CustomTxType::FutureSwap:          return "DFIP2203";
+        case CustomTxType::DFIP2203:            return "DFIP2203";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
@@ -148,7 +148,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
-        case CustomTxType::FutureSwap:                return CFutureSwapMessage{};
+        case CustomTxType::DFIP2203:                return CFutureSwapMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -247,6 +247,13 @@ class CCustomMetadataParseVisitor
     Res isPostFortCanningRoadFork() const {
         if(static_cast<int>(height) < consensus.FortCanningRoadHeight) {
             return Res::Err("called before FortCanningRoad height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningCrunchFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningCrunchHeight) {
+            return Res::Err("called before FortCanningCrunch height");
         }
         return Res::Ok();
     }
@@ -1482,21 +1489,16 @@ public:
             return Res::Err("Attributes unavailable");
         }
 
-        bool dfiToDUSD = !obj.source.nTokenId.v;
-        const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;
-
-        CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
-        CDataStructureV0 blockKey{AttributeTypes::Param, paramID, DFIPKeys::BlockPeriod};
-        CDataStructureV0 rewardKey{AttributeTypes::Param, paramID, DFIPKeys::RewardPct};
-        if (!attributes->GetValue(activeKey, false) ||
-            !attributes->CheckKey(blockKey) ||
-            !attributes->CheckKey(rewardKey)) {
-            return Res::Err("%s not currently active", dfiToDUSD ? "DFIP2206F" : "DFIP2203");
+        CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+        const auto active = attributes->GetValue(activeKey, false);
+        if (!active) {
+            return Res::Err("DFIP2203 not currently active");
         }
 
-        CDataStructureV0 startKey{AttributeTypes::Param, paramID, DFIPKeys::StartBlock};
-        if (const auto startBlock = attributes->GetValue(startKey, CAmount{}); height < startBlock) {
-            return Res::Err("%s not active until block %d", dfiToDUSD ? "DFIP2206F" : "DFIP2203", startBlock);
+        CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+        CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+        if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+            return Res::Err("DFIP2203 not currently active");
         }
 
         if (obj.source.nValue <= 0) {
@@ -1504,11 +1506,11 @@ public:
         }
 
         const auto source = mnview.GetLoanTokenByID(obj.source.nTokenId);
-        if (!dfiToDUSD && !source) {
+        if (!source) {
             return Res::Err("Could not get source loan token %d", obj.source.nTokenId.v);
         }
 
-        if (!dfiToDUSD && source->symbol == "DUSD") {
+        if (source->symbol == "DUSD") {
             CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Enabled};
             const auto enabled = attributes->GetValue(tokenKey, true);
             if (!enabled) {
@@ -1524,86 +1526,54 @@ public:
                 return Res::Err("Cannot create future swap for locked token");
             }
         } else {
-            if (!dfiToDUSD) {
-                if (obj.destination != 0) {
-                    return Res::Err("Destination should not be set when source amount is dToken or DFI");
-                }
+            if (obj.destination != 0) {
+                return Res::Err("Destination should not be set when source amount is a dToken");
+            }
 
-                if (mnview.AreTokensLocked({obj.source.nTokenId.v})) {
-                    return Res::Err("Cannot create future swap for locked token");
-                }
+            if (mnview.AreTokensLocked({obj.source.nTokenId.v})) {
+                return Res::Err("Cannot create future swap for locked token");
+            }
 
-                CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
-                const auto enabled = attributes->GetValue(tokenKey, true);
-                if (!enabled) {
-                    return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
-                }
-            } else {
-                DCT_ID id{};
-                const auto token = mnview.GetTokenGuessId("DUSD", id);
-                if (!token) {
-                    return Res::Err("No DUSD token defined");
-                }
-
-                if (!mnview.GetFixedIntervalPrice({"DFI", "USD"})) {
-                    return Res::Err("DFI / DUSD fixed interval price not found");
-                }
-
-                if (obj.destination != id.v) {
-                    return Res::Err("Incorrect destination defined for DFI swap, DUSD destination expected id: %d", id.v);
-                }
+            CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
+            const auto enabled = attributes->GetValue(tokenKey, true);
+            if (!enabled) {
+                return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
             }
         }
 
-        const auto contractType = dfiToDUSD ? SMART_CONTRACT_DFIP2206F : SMART_CONTRACT_DFIP_2203;
-        const auto contractAddressValue = GetFutureSwapContractAddress(contractType);
+        const auto contractAddressValue = GetFutureSwapContractAddress();
         if (!contractAddressValue) {
             return contractAddressValue;
         }
 
-        const auto economyKey = dfiToDUSD ? EconomyKeys::DFIP2206FCurrent : EconomyKeys::DFIP2203Current;
-        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, economyKey};
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
         auto balances = attributes->GetValue(liveKey, CBalances{});
 
+        // Can be removed after the hard fork, since it will be backward compatible
+        // but have to keep it around for pre 2.8.0 nodes for now
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
             CalculateOwnerRewards(obj.owner);
         }
 
         if (obj.withdraw) {
+            std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
+
+            mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+                if (key.owner == obj.owner &&
+                    futuresValues.source.nTokenId == obj.source.nTokenId &&
+                    futuresValues.destination == obj.destination) {
+                    userFuturesValues[key] = futuresValues;
+                }
+
+                return true;
+            }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
             CTokenAmount totalFutures{};
             totalFutures.nTokenId = obj.source.nTokenId;
 
-            if (!dfiToDUSD) {
-                std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
-
-                mnview.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
-                    if (key.owner == obj.owner &&
-                        futuresValues.source.nTokenId == obj.source.nTokenId &&
-                        futuresValues.destination == obj.destination) {
-                        userFuturesValues[key] = futuresValues;
-                    }
-                    return true;
-                }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
-
-                for (const auto& [key, value] : userFuturesValues) {
-                    totalFutures.Add(value.source.nValue);
-                    mnview.EraseFuturesUserValues(key);
-                }
-            } else {
-                std::map<CFuturesUserKey, CAmount> userFuturesValues;
-
-                mnview.ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& futuresValues) {
-                    if (key.owner == obj.owner) {
-                        userFuturesValues[key] = futuresValues;
-                    }
-                    return true;
-                }, {height, obj.owner, std::numeric_limits<uint32_t>::max()});
-
-                for (const auto& [key, amount] : userFuturesValues) {
-                    totalFutures.Add(amount);
-                    mnview.EraseFuturesDUSD(key);
-                }
+            for (const auto& [key, value] : userFuturesValues) {
+                totalFutures.Add(value.source.nValue);
+                mnview.EraseFuturesUserValues(key);
             }
 
             auto res = totalFutures.Sub(obj.source.nValue);
@@ -1612,12 +1582,7 @@ public:
             }
 
             if (totalFutures.nValue > 0) {
-                Res res{};
-                if (!dfiToDUSD) {
-                    res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
-                } else {
-                    res = mnview.StoreFuturesDUSD({height, obj.owner, txn}, totalFutures.nValue);
-                }
+                auto res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {totalFutures, obj.destination});
                 if (!res) {
                     return res;
                 }
@@ -1638,11 +1603,7 @@ public:
                 return res;
             }
 
-            if (!dfiToDUSD) {
-                res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
-            } else {
-                res = mnview.StoreFuturesDUSD({height, obj.owner, txn}, obj.source.nValue);
-            }
+            res = mnview.StoreFuturesUserValues({height, obj.owner, txn}, {obj.source, obj.destination});
             if (!res) {
                 return res;
             }
@@ -3414,7 +3375,7 @@ public:
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);
 
-                        CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
+                        CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DirectLoanDUSDBurn};
                         auto directLoanBurn = attributes->GetValue(directBurnKey, false);
 
                         res = SwapToDFIorDUSD(mnview, paybackTokenId, subInToken, obj.from, consensus.burnAddress, height, !directLoanBurn);
@@ -4172,7 +4133,7 @@ Res  SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CSc
     if (!attributes) {
         return Res::Err("Attributes unavailable");
     }
-    CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDInterestBurn};
+    CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DirectInterestDUSDBurn};
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {

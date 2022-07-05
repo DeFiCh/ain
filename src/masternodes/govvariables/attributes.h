@@ -29,7 +29,6 @@ enum ParamIDs : uint8_t  {
     TokenID   = 'c',
     Economy   = 'e',
     DFIP2206A = 'f',
-    DFIP2206F = 'g',
 };
 
 enum OracleIDs : uint8_t  {
@@ -54,9 +53,8 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
-    StartBlock              = 'i',
+    DirectInterestDUSDBurn  = 'g',
+    DirectLoanDUSDBurn      = 'h',
 };
 
 enum TokenKeys : uint8_t  {
@@ -149,7 +147,7 @@ struct CFeeDir {
     }
 };
 
-ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract);
+ResVal<CScript> GetFutureSwapContractAddress();
 
 struct CDexTokenInfo {
     struct CTokenInfo {
@@ -304,8 +302,7 @@ public:
 
 private:
     friend class CGovView;
-    bool futureUpdated{};
-    bool futureDUSDUpdated{};
+    bool futureBlockUpdated{};
     std::set<uint32_t> tokenSplits{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
@@ -322,7 +319,6 @@ private:
 
     Res ProcessVariable(const std::string& key, const std::string& value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
-    Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

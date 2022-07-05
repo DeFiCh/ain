@@ -70,20 +70,16 @@ public:
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
     Res StoreFuturesUserValues(const CFuturesUserKey& key, const CFuturesUserValue& futures);
+    ResVal<CFuturesUserValue> GetFuturesUserValues(const CFuturesUserKey& key);
     Res EraseFuturesUserValues(const CFuturesUserKey& key);
+    std::optional<uint32_t> GetMostRecentFuturesHeight();
     void ForEachFuturesUserValues(std::function<bool(const CFuturesUserKey&, const CFuturesUserValue&)> callback, const CFuturesUserKey& start =
-            {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
-
-    Res StoreFuturesDUSD(const CFuturesUserKey& key, const CAmount& amount);
-    Res EraseFuturesDUSD(const CFuturesUserKey& key);
-    void ForEachFuturesDUSD(std::function<bool(const CFuturesUserKey&, const CAmount&)> callback, const CFuturesUserKey& start =
             {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max()});
 
     // tags
     struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
     struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
     struct ByFuturesSwapKey  { static constexpr uint8_t prefix() { return 'J'; } };
-    struct ByFuturesDUSDKey  { static constexpr uint8_t prefix() { return 'm'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);
