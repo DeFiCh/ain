@@ -2399,19 +2399,22 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     if (p.size() > 0) { outToLog = p[0].get_bool(); }
     if (p.size() > 1) { outToRpc = p[1].get_bool(); }
 
+    LOCK(cs_main);
+
     std::map<std::string, std::vector<CTokenAmount>> accounts;
-    auto iter = pcustomcsDB->NewIterator();
-    auto n = IterateKV<CAccountsView::ByBalanceKey, BalanceKey, CAmount>([&](BalanceKey key, CAmount val) {
-        auto owner = ScriptToString(key.owner);
+    size_t count{};
+    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        ++count;
+        auto ownerStr = ScriptToString(owner);
         if (outToLog)
-            LogPrintf("AccountBalance: (%s: %d@%d)\n", owner, val, key.tokenID.v);
+            LogPrintf("AccountBalance: (%s: %d@%d)\n", ownerStr, balance.nValue, balance.nTokenId.v);
         if (outToRpc)
-            accounts[owner].push_back(CTokenAmount{{key.tokenID.v}, val});
+            accounts[ownerStr].push_back(CTokenAmount{{balance.nTokenId.v}, balance.nValue});
         return true;
-    }, BalanceKey{}, std::move(iter));
+    });
 
     if (outToLog)
-        LogPrintf("IndexStats: (balances: %d)\n", n);
+        LogPrintf("IndexStats: (balances: %d)\n", count);
 
     if (!outToRpc)
         return {};
@@ -2427,7 +2430,7 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     }
 
     result.pushKV("accounts", accountsJson);
-    result.pushKV("count", static_cast<uint64_t>(n));
+    result.pushKV("count", static_cast<uint64_t>(count));
     return result;
 }
 
