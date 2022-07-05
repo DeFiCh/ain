@@ -148,6 +148,7 @@ public:
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront = false);
+    Res RevertCreateToken(uint256 const & txid);
     Res UpdateToken(CTokenImpl const & newToken, bool isPreBayfront = false, const bool tokenSplitUpdatea = false);
 
     Res BayfrontFlagsCleanup();
@@ -163,6 +164,7 @@ public:
 private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
+    DCT_ID DecrementLastDctId();
     std::optional<DCT_ID> ReadLastDctId() const;
 };
 

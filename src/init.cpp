@@ -1723,12 +1723,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
                     paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
-                    paccountHistoryDB->CreateMultiIndexIfNeeded();
                 }
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
-                pburnHistoryDB->CreateMultiIndexIfNeeded();
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
