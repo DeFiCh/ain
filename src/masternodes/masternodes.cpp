@@ -1150,24 +1150,20 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
-    if (const auto token = GetToken(id)) {
-        if (const auto attributes = GetAttributes()) {
+    if (const auto attributes = GetAttributes()) {
+
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+        CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+
+        if (const auto token = GetToken(id); token && attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
-
-            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-            CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-            CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-
-            if (attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
-
-                loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-                loanToken.interest = attributes->GetValue(interestKey, CAmount{0});
-                loanToken.mintable = attributes->GetValue(mintableKey, false);
-                loanToken.symbol = token->symbol;
-                loanToken.name = token->name;
-
-                return loanToken;
-            }
+            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+            loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+            loanToken.mintable = attributes->GetValue(mintableKey, false);
+            loanToken.symbol = token->symbol;
+            loanToken.name = token->name;
+            return loanToken;
         }
     }
 
