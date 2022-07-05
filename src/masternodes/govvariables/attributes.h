@@ -28,6 +28,7 @@ enum ParamIDs : uint8_t  {
     DFIP2203  = 'b',
     TokenID   = 'c',
     Economy   = 'e',
+    DFIP2206A = 'f',
 };
 
 enum OracleIDs : uint8_t  {
@@ -43,11 +44,13 @@ enum EconomyKeys : uint8_t {
 };
 
 enum DFIPKeys : uint8_t  {
-    Active       = 'a',
-    Premium      = 'b',
-    MinSwap      = 'c',
-    RewardPct    = 'd',
-    BlockPeriod  = 'e',
+    Active                  = 'a',
+    Premium                 = 'b',
+    MinSwap                 = 'c',
+    RewardPct               = 'd',
+    BlockPeriod             = 'e',
+    DUSDInterestBurn  = 'g',
+    DUSDLoanBurn      = 'h',
 };
 
 enum TokenKeys : uint8_t  {
@@ -156,7 +159,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
-    
+
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
