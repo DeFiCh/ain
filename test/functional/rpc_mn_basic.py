@@ -183,6 +183,17 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         mnAddress = self.nodes[0].getnewaddress("", "legacy")
         mnTx = self.nodes[0].createmasternode(mnAddress)
         self.nodes[0].generate(1)
+
+        # Rollback masternode creation
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        # Make sure MN not found
+        assert_raises_rpc_error(-5, "Masternode not found", self.nodes[0].getmasternode, mnTx)
+
+        # Create masternode again
+        mnTx = self.nodes[0].createmasternode(mnAddress)
+        self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
 
         # Try and resign masternode while still in PRE_ENABLED
@@ -216,7 +227,19 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.nodes[0].resignmasternode(mnTx)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
-        self.nodes[0].generate(39)
+
+        # Test rollback of MN resign
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        # Make sure rollback succesful
+        result = self.nodes[0].getmasternode(mnTx)[mnTx]
+        assert_equal(result['resignHeight'], -1)
+        assert_equal(result['resignTx'], '0000000000000000000000000000000000000000000000000000000000000000')
+
+        # Resign again
+        self.nodes[0].resignmasternode(mnTx)
+        self.nodes[0].generate(40)
         assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "RESIGNED")
