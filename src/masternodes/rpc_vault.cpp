@@ -227,25 +227,25 @@ namespace {
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
             if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecission));
-                UniValue interestsPerBlockBalances(UniValue::VARR);
-                for (auto it=interestsPerBlockHighPrecission.begin(); it != interestsPerBlockHighPrecission.end(); ++it)
-                {
-                    auto tokenId = it->first;
-                    auto interestPerBlock = it->second;
-
-                    auto token = pcustomcsview->GetToken(tokenId);
-                    auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
-                    auto tokenSymbol = token->CreateSymbolKey(tokenId);
-                    interestsPerBlockBalances.push_back(amountStr + "@" + tokenSymbol);
+                if(isVaultTokenLocked){
+                    result.pushKV("interestPerBlockValue", -1);
+                } else {
+                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecission));
+                    for (auto it=interestsPerBlockHighPrecission.begin(); it != interestsPerBlockHighPrecission.end(); ++it) {
+                        auto tokenId = it->first;
+                        auto interestPerBlock = it->second;
+                        auto token = pcustomcsview->GetToken(tokenId);
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+                        auto tokenSymbol = token->CreateSymbolKey(tokenId);
+                        interestsPerBlockBalances.push_back(amountStr + "@" + tokenSymbol);
+                    }
                 }
-                result.pushKV("interestsPerBlock", interestsPerBlockBalances);
             } else {
                 interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
                 totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
                 result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
-                result.pushKV("interestsPerBlock", interestsPerBlockBalances);
             }
+            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
     }
