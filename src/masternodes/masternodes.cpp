@@ -3,9 +3,11 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/vaulthistory.h>
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
@@ -490,30 +492,6 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256& nodeId, const u
     }
 }
 
-Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
-{
-    auto node = GetMasternode(nodeId);
-    if (node) {
-        EraseBy<ID>(nodeId);
-        EraseBy<Operator>(node->operatorAuthAddress);
-        EraseBy<Owner>(node->ownerAuthAddress);
-        return Res::Ok();
-    }
-    return Res::Err("No such masternode %s", nodeId.GetHex());
-}
-
-Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 & resignTx)
-{
-    auto node = GetMasternode(nodeId);
-    if (node && node->resignTx == resignTx) {
-        node->resignHeight = -1;
-        node->resignTx = {};
-        WriteBy<ID>(nodeId, *node);
-        return Res::Ok();
-    }
-    return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
-}
-
 uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const
 {
     auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
@@ -725,8 +703,51 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 }
 
 /*
+ *  CSettingsView
+ */
+
+void CSettingsView::SetDexStatsLastHeight(const int32_t height)
+{
+    WriteBy<KVSettings>(DEX_STATS_LAST_HEIGHT, height);
+}
+
+std::optional<int32_t> CSettingsView::GetDexStatsLastHeight()
+{
+    return ReadBy<KVSettings, int32_t>(DEX_STATS_LAST_HEIGHT);
+}
+
+void CSettingsView::SetDexStatsEnabled(const bool enabled)
+{
+    WriteBy<KVSettings>(DEX_STATS_ENABLED, enabled);
+}
+
+std::optional<bool> CSettingsView::GetDexStatsEnabled()
+{
+    return ReadBy<KVSettings, bool>(DEX_STATS_ENABLED);
+}
+/*
  *  CCustomCSView
  */
+CCustomCSView::CCustomCSView()
+{
+    CheckPrefixes();
+}
+
+CCustomCSView::~CCustomCSView() = default;
+
+CCustomCSView::CCustomCSView(CStorageKV & st)
+    : CStorageView(new CFlushableStorageKV(st))
+{
+    CheckPrefixes();
+}
+
+// cache-upon-a-cache (not a copy!) constructor
+CCustomCSView::CCustomCSView(CCustomCSView & other)
+    : CStorageView(new CFlushableStorageKV(other.DB()))
+{
+    CheckPrefixes();
+}
+
 int CCustomCSView::GetDbVersion() const
 {
     int version;
@@ -1051,14 +1072,34 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
 }
 
 uint256 CCustomCSView::MerkleRoot() {
-    auto& rawMap = GetStorage().GetRaw();
+    auto rawMap = GetStorage().GetRaw();
     if (rawMap.empty()) {
         return {};
     }
+    auto isAttributes = [](const TBytes& key) {
+        MapKV map = {std::make_pair(key, TBytes{})};
+        // Attributes should not be part of merkle root
+        static const std::string attributes("ATTRIBUTES");
+        auto it = NewKVIterator<CGovView::ByName>(attributes, map);
+        return it.Valid() && it.Key() == attributes;
+    };
+
+    auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, rawMap);
+    for (; it.Valid(); it.Next()) {
+        CUndo value = it.Value();
+        auto& map = value.before;
+        for (auto it = map.begin(); it != map.end();) {
+            isAttributes(it->first) ? map.erase(it++) : ++it;
+        }
+        auto key = std::make_pair(CUndosView::ByUndoKey::prefix(), static_cast<const UndoKey&>(it.Key()));
+        rawMap[DbTypeToBytes(key)] = DbTypeToBytes(value);
+    }
+
     std::vector<uint256> hashes;
-    for (const auto& it : rawMap) {
-        auto value = it.second ? *it.second : TBytes{};
-        hashes.push_back(Hash2(it.first, value));
+    for (const auto& [key, value] : rawMap) {
+        if (!isAttributes(key)) {
+            hashes.push_back(Hash2(key, value ? *value : TBytes{}));
+        }
     }
     return ComputeMerkleRoot(std::move(hashes));
 }
@@ -1150,24 +1191,20 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID& id) const {
-    if (const auto token = GetToken(id)) {
-        if (const auto attributes = GetAttributes()) {
+    if (const auto attributes = GetAttributes()) {
+
+        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+        CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+        CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+
+        if (const auto token = GetToken(id); token && attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
-
-            CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-            CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-            CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-
-            if (attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
-
-                loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-                loanToken.interest = attributes->GetValue(interestKey, CAmount{0});
-                loanToken.mintable = attributes->GetValue(mintableKey, false);
-                loanToken.symbol = token->symbol;
-                loanToken.name = token->name;
-
-                return loanToken;
-            }
+            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+            loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+            loanToken.mintable = attributes->GetValue(mintableKey, false);
+            loanToken.symbol = token->symbol;
+            loanToken.name = token->name;
+            return loanToken;
         }
     }
 
@@ -1197,4 +1234,26 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
+}
+
+CAccountHistoryStorage* CCustomCSView::GetAccountHistoryStore() {
+    return accHistoryStore.get();
+}
+
+CVaultHistoryStorage* CCustomCSView::GetVaultHistoryStore() {
+    return vauHistoryStore.get();
+}
+
+void CCustomCSView::SetAccountHistoryStore() {
+    if (paccountHistoryDB) {
+        accHistoryStore.reset();
+        accHistoryStore = std::make_unique<CAccountHistoryStorage>(*paccountHistoryDB);
+    }
+}
+
+void CCustomCSView::SetVaultHistoryStore() {
+    if (pvaultHistoryDB) {
+        vauHistoryStore.reset();
+        vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
+    }
 }
