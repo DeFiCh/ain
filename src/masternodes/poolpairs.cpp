@@ -243,6 +243,31 @@ auto InitPoolVars(CPoolPairView & view, PoolHeightKey poolKey, uint32_t end) {
     return std::make_tuple(std::move(value), std::move(it), height);
 }
 
+template<>
+auto InitPoolVars<CPoolPairView::ByPoolSwap, PoolSwapValue>(CPoolPairView & view, PoolHeightKey poolKey, uint32_t end) {
+
+    auto poolId = poolKey.poolID;
+    auto it = view.LowerBound<CPoolPairView::ByPoolSwap>(poolKey);
+
+    auto height = poolKey.height;
+    if (MatchPoolId(it, poolKey.poolID)) {
+        height = it.Key().height;
+    }
+
+    static const uint32_t startHeight = Params().GetConsensus().GreatWorldHeight;
+    poolKey.height = std::max(height, startHeight);
+
+    while (!MatchPoolId(it, poolId) && poolKey.height < end) {
+        height = poolKey.height;
+        it.Seek(poolKey);
+        poolKey.height++;
+    }
+
+    auto value = MatchPoolId(it, poolId) ? it.Value() : PoolSwapValue{};
+
+    return std::make_tuple(value, std::move(it), height);
+}
+
 void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
     if (begin >= end) {
         return;
