@@ -182,6 +182,7 @@ BASE_SCRIPTS = [
     'feature_poolswap_mechanism.py',
     'feature_poolswap_mainnet.py',
     'feature_prevent_bad_tx_propagation.py',
+    'feature_commission_fix.py',
     'feature_masternode_operator.py',
     'feature_mine_cached.py',
     'feature_mempool_dakota.py',
