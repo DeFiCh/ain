@@ -1674,10 +1674,8 @@ static const CRPCCommand commands[] = {
     {"loan", "listloantokens", &listloantokens, {}},
     {"loan", "getloantoken", &getloantoken, {"by"}},
     {"loan", "createloanscheme", &createloanscheme, {"mincolratio", "interestrate", "id", "inputs"}},
-    {"loan",
-     "updateloanscheme",
-     &updateloanscheme,
-     {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
+    // clang-format off
+    {"loan", "updateloanscheme", &updateloanscheme, {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan", "setdefaultloanscheme", &setdefaultloanscheme, {"id", "inputs"}},
     {"loan", "destroyloanscheme", &destroyloanscheme, {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan", "listloanschemes", &listloanschemes, {}},
