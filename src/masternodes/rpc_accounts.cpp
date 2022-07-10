@@ -2,7 +2,7 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
 
-std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol) {
+std::string tokenAmountString(CTokenAmount const &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
     const auto amountString = ValueFromAmount(amount.nValue).getValStr();
 
@@ -24,20 +24,24 @@ std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = 
     return amountString + "@" + tokenStr;
 }
 
-UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol) {
+UniValue AmountsToJSON(TAmounts const &diffs, AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VARR);
 
-    for (auto const & diff : diffs) {
+    for (auto const &diff : diffs) {
         obj.push_back(tokenAmountString({diff.first, diff.second}, format));
     }
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts,AmountFormat format = AmountFormat::Symbol) {
+UniValue accountToJSON(CScript const &owner,
+                       CTokenAmount const &amount,
+                       bool verbose,
+                       bool indexed_amounts,
+                       AmountFormat format = AmountFormat::Symbol) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
-    if (!verbose) { // cut info
+    if (!verbose) {  // cut info
         if (ownerObj["addresses"].isArray() && !ownerObj["addresses"].get_array().empty()) {
             ownerObj = ownerObj["addresses"].get_array().getValues()[0];
         } else {
@@ -54,34 +58,40 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
         UniValue amountObj(UniValue::VOBJ);
         amountObj.pushKV(amount.nTokenId.ToString(), ValueFromAmount(amount.nValue));
         obj.pushKV("amount", amountObj);
-    }
-    else {
+    } else {
         obj.pushKV("amount", tokenAmountString(amount, format));
     }
 
     return obj;
 }
 
-UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value, AmountFormat format = AmountFormat::Symbol) {
+UniValue accounthistoryToJSON(AccountHistoryKey const &key,
+                              AccountHistoryValue const &value,
+                              AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", ScriptToString(key.owner));
-    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    obj.pushKV("blockHeight", (uint64_t)key.blockHeight);
     if (auto block = ::ChainActive()[key.blockHeight]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
     }
     obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
-    obj.pushKV("txn", (uint64_t) key.txn);
+    obj.pushKV("txn", (uint64_t)key.txn);
     obj.pushKV("txid", value.txid.ToString());
     obj.pushKV("amounts", AmountsToJSON(value.diff, format));
     return obj;
 }
 
-UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, RewardType type, CTokenAmount amount, AmountFormat format = AmountFormat::Id) {
+UniValue rewardhistoryToJSON(CScript const &owner,
+                             uint32_t height,
+                             DCT_ID const &poolId,
+                             RewardType type,
+                             CTokenAmount amount,
+                             AmountFormat format = AmountFormat::Id) {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("owner", ScriptToString(owner));
-    obj.pushKV("blockHeight", (uint64_t) height);
+    obj.pushKV("blockHeight", (uint64_t)height);
     if (auto block = ::ChainActive()[height]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
@@ -91,12 +101,15 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
         obj.pushKV("rewardType", RewardTypeToString(type));
     }
     obj.pushKV("poolID", poolId.ToString());
-    TAmounts amounts({{amount.nTokenId,amount.nValue}});
+    TAmounts amounts({{amount.nTokenId, amount.nValue}});
     obj.pushKV("amounts", AmountsToJSON(amounts, format));
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx, AmountFormat format = AmountFormat::Symbol) {
+UniValue outputEntryToJSON(COutputEntry const &entry,
+                           CBlockIndex const *index,
+                           CWalletTx const *pwtx,
+                           AmountFormat format = AmountFormat::Symbol) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
@@ -110,28 +123,30 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     } else {
         obj.pushKV("type", "receive");
     }
-    obj.pushKV("txn", (uint64_t) pwtx->nIndex);
+    obj.pushKV("txn", (uint64_t)pwtx->nIndex);
     obj.pushKV("txid", pwtx->GetHash().ToString());
-    TAmounts amounts({{DCT_ID{0},entry.amount}});
+    TAmounts amounts({{DCT_ID{0}, entry.amount}});
     obj.pushKV("amounts", AmountsToJSON(amounts, format));
     return obj;
 }
 
-static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
+static void onPoolRewards(CCustomCSView &view,
+                          CScript const &owner,
+                          uint32_t begin,
+                          uint32_t end,
+                          std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
     CCustomCSView mnview(view);
     static const uint32_t eunosHeight = Params().GetConsensus().EunosHeight;
-    view.ForEachPoolId([&] (DCT_ID const & poolId) {
+    view.ForEachPoolId([&](DCT_ID const &poolId) {
         auto height = view.GetShare(poolId, owner);
         if (!height || *height >= end) {
-            return true; // no share or target height is before a pool share' one
+            return true;  // no share or target height is before a pool share' one
         }
-        auto onLiquidity = [&]() -> CAmount {
-            return mnview.GetBalance(owner, poolId).nValue;
-        };
+        auto onLiquidity = [&]() -> CAmount { return mnview.GetBalance(owner, poolId).nValue; };
         uint32_t firstHeight = 0;
         auto beginHeight = std::max(*height, begin);
-        view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
-            [&](RewardType type, CTokenAmount amount, uint32_t height) {
+        view.CalculatePoolRewards(
+            poolId, onLiquidity, beginHeight, end, [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 if (amount.nValue == 0) {
                     return;
                 }
@@ -142,20 +157,18 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
                     firstHeight = height;
                 }
                 if (height >= eunosHeight || firstHeight != height) {
-                    mnview.AddBalance(owner, amount); // update owner liquidity
+                    mnview.AddBalance(owner, amount);  // update owner liquidity
                 }
-            }
-        );
+            });
         return true;
     });
 }
 
-static void searchInWallet(CWallet const * pwallet,
-                           CScript const & account,
+static void searchInWallet(CWallet const *pwallet,
+                           CScript const &account,
                            isminetype filter,
                            std::function<bool(CBlockIndex const *, CWalletTx const *)> shouldSkipTx,
                            std::function<bool(COutputEntry const &, CBlockIndex const *, CWalletTx const *)> txEntry) {
-
     CTxDestination destination;
     ExtractDestination(account, destination);
 
@@ -166,13 +179,13 @@ static void searchInWallet(CWallet const * pwallet,
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
-    const auto& txOrdered = pwallet->mapWallet.get<ByOrder>();
+    const auto &txOrdered = pwallet->mapWallet.get<ByOrder>();
 
     for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
-        auto* pwtx = &(*it);
+        auto *pwtx = &(*it);
 
         auto index = LookupBlockIndex(pwtx->hashBlock);
-        if (!index || index->nHeight == 0) { // skip genesis block
+        if (!index || index->nHeight == 0) {  // skip genesis block
             continue;
         }
 
@@ -186,7 +199,7 @@ static void searchInWallet(CWallet const * pwallet,
 
         pwtx->GetAmounts(listReceived, listSent, nFee, filter);
 
-        for (auto& sent : listSent) {
+        for (auto &sent : listSent) {
             if (!IsValidDestination(sent.destination)) {
                 continue;
             }
@@ -199,7 +212,7 @@ static void searchInWallet(CWallet const * pwallet,
             }
         }
 
-        for (const auto& recv : listReceived) {
+        for (const auto &recv : listReceived) {
             if (!IsValidDestination(recv.destination)) {
                 continue;
             }
@@ -213,7 +226,7 @@ static void searchInWallet(CWallet const * pwallet,
     }
 }
 
-static CScript hexToScript(std::string const& str) {
+static CScript hexToScript(std::string const &str) {
     if (!IsHex(str)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "(" + str + ") doesn't represent a correct hex:\n");
     }
@@ -221,28 +234,31 @@ static CScript hexToScript(std::string const& str) {
     return CScript{raw.begin(), raw.end()};
 }
 
-static BalanceKey decodeBalanceKey(std::string const& str) {
+static BalanceKey decodeBalanceKey(std::string const &str) {
     const auto pair = SplitAmount(str);
     DCT_ID tokenID{};
     if (!pair.second.empty()) {
         auto id = DCT_ID::FromString(pair.second);
         if (!id.ok) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "(" + str + ") doesn't represent a correct balance key:\n" + id.msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                               "(" + str + ") doesn't represent a correct balance key:\n" + id.msg);
         }
         tokenID = *id.val;
     }
     return {hexToScript(pair.first), tokenID};
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValue const& values) {
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, UniValue const &values) {
     UniValue recipients(UniValue::VOBJ);
-    for (const auto& key : values.getKeys()) {
+    for (const auto &key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
     }
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
-    for (const auto& account : accounts) {
-        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
+    for (const auto &account : accounts) {
+        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE &&
+            account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                               strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
         }
     }
     return accounts;
@@ -251,55 +267,67 @@ static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValu
 static AccountSelectionMode ParseAccountSelectionParam(const std::string selectionParam) {
     if (selectionParam == "forward") {
         return SelectionForward;
-    }
-    else if (selectionParam == "crumbs") {
+    } else if (selectionParam == "crumbs") {
         return SelectionCrumbs;
-    }
-    else if (selectionParam == "pie") {
+    } else if (selectionParam == "pie") {
         return SelectionPie;
-    }
-    else {
+    } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalide accounts selection mode.");
     }
 }
 
-UniValue listaccounts(const JSONRPCRequest& request) {
+UniValue listaccounts(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listaccounts",
-               "\nReturns information about all accounts on chain.\n",
-               {
-                       {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                                {"start", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Optional first key to iterate from, in lexicographical order."
-                                 "Typically it's set to last ID from previous request."},
-                                {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "If true, then iterate including starting position. False by default"},
-                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum number of orders to return, 100 by default"},
-                        },
-                       },
-                       {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                   "Flag for verbose list (default = true), otherwise limited objects are listed"},
-                       {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Format of amounts output (default = false): (true: {tokenid:amount}, false: \"amount@tokenid\")"},
-                       {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Get balances about all accounts belonging to the wallet"},
-               },
-               RPCResult{
-                       "{id:{...},...}     (array) Json object with accounts information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listaccounts", "")
-                       + HelpExampleRpc("listaccounts", "'{}' false")
-                       + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
-                                                      "\"limit\":100"
-                                                      "}'")
-               },
-    }.Check(request);
+    RPCHelpMan{
+        "listaccounts",
+        "\nReturns information about all accounts on chain.\n",
+        {
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            },
+            {"verbose",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Flag for verbose list (default = true), otherwise limited objects are listed"},
+            {"indexed_amounts",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Format of amounts output (default = false): (true: {tokenid:amount}, false: \"amount@tokenid\")"},
+            {"is_mine_only",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Get balances about all accounts belonging to the wallet"},
+        },
+        RPCResult{"{id:{...},...}     (array) Json object with accounts information\n"},
+        RPCExamples{HelpExampleCli("listaccounts", "") + HelpExampleRpc("listaccounts", "'{}' false") +
+                    HelpExampleRpc("listaccounts",
+                                   "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
+                                   "\"limit\":100"
+                                   "}'")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     // parse pagination
     size_t limit = 100;
@@ -309,7 +337,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
@@ -345,60 +373,73 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
-
-        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
-            return true;
-        }
-
-        mnview.CalculateOwnerRewards(account, targetHeight);
-
-        // output the relavant balances only for account
-        mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-            if (account != owner) {
-                return false;
+    mnview.ForEachAccount(
+        [&](CScript const &account) {
+            if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
+                return true;
             }
-            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
-            return --limit != 0;
-        }, {account, start.tokenID});
 
-        start.tokenID = DCT_ID{}; // reset to start id
-        return limit != 0;
-    }, start.owner);
+            mnview.CalculateOwnerRewards(account, targetHeight);
+
+            // output the relavant balances only for account
+            mnview.ForEachBalance(
+                [&](CScript const &owner, CTokenAmount balance) {
+                    if (account != owner) {
+                        return false;
+                    }
+                    ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+                    return --limit != 0;
+                },
+                {account, start.tokenID});
+
+            start.tokenID = DCT_ID{};  // reset to start id
+            return limit != 0;
+        },
+        start.owner);
 
     return GetRPCResultCache().Set(request, ret);
 }
 
-UniValue getaccount(const JSONRPCRequest& request) {
+UniValue getaccount(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getaccount",
+        "\nReturns information about account.\n",
+        {
+            {"owner", RPCArg::Type::STR, RPCArg::Optional::NO, "Owner address in base58/bech32/hex encoding"},
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last tokenID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            },
+            {"indexed_amounts",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = "
+             "[\"amount@tokenid\"...])"},
+        },
+        RPCResult{"{...}     (array) Json object with order information\n"},
+        RPCExamples{HelpExampleCli("getaccount", "owner_address")},
+    }
+        .Check(request);
 
-    RPCHelpMan{"getaccount",
-               "\nReturns information about account.\n",
-               {
-                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "Owner address in base58/bech32/hex encoding"},
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Optional first key to iterate from, in lexicographical order."
-                                 "Typically it's set to last tokenID from previous request."},
-                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "If true, then iterate including starting position. False by default"},
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum number of orders to return, 100 by default"},
-                        },
-                    },
-                    {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
-                },
-                RPCResult{
-                       "{...}     (array) Json object with order information\n"
-                },
-                RPCExamples{
-                       HelpExampleCli("getaccount", "owner_address")
-                },
-    }.Check(request);
-
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     // decode owner
     const auto reqOwner = DecodeScript(request.params[0].get_str());
@@ -411,11 +452,11 @@ UniValue getaccount(const JSONRPCRequest& request) {
         if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
             if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start.v = (uint32_t) paginationObj["start"].get_int64();
+                start.v = (uint32_t)paginationObj["start"].get_int64();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -444,53 +485,69 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
 
-    mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-        if (owner != reqOwner) {
-            return false;
-        }
+    mnview.ForEachBalance(
+        [&](CScript const &owner, CTokenAmount balance) {
+            if (owner != reqOwner) {
+                return false;
+            }
 
-        if (indexed_amounts)
-            ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
-        else
-            ret.push_back(tokenAmountString(balance));
+            if (indexed_amounts)
+                ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+            else
+                ret.push_back(tokenAmountString(balance));
 
-        limit--;
-        return limit != 0;
-    }, BalanceKey{reqOwner, start});
+            limit--;
+            return limit != 0;
+        },
+        BalanceKey{reqOwner, start});
     return GetRPCResultCache().Set(request, ret);
 }
 
-UniValue gettokenbalances(const JSONRPCRequest& request) {
+UniValue gettokenbalances(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"gettokenbalances",
-               "\nReturns the balances of all accounts that belong to the wallet.\n",
-               {
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Optional first key to iterate from, in lexicographical order."
-                                 "Typically it's set to last tokenID from previous request."},
-                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "If true, then iterate including starting position. False by default"},
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Maximum number of tokens to return, 100 by default"},
-                        },
-                    },
-                    {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
-                    {"symbol_lookup", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Use token symbols in output (default = false)"},
+    RPCHelpMan{
+        "gettokenbalances",
+        "\nReturns the balances of all accounts that belong to the wallet.\n",
+        {
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last tokenID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of tokens to return, 100 by default"},
                 },
-                RPCResult{
-                       "{...}     (array) Json object with balances information\n"
-                },
-                RPCExamples{
-                       HelpExampleCli("gettokenbalances", "")
-                },
-    }.Check(request);
+            },
+            {"indexed_amounts",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = "
+             "[\"amount@tokenid\"...])"},
+            {"symbol_lookup",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Use token symbols in output (default = false)"},
+        },
+        RPCResult{"{...}     (array) Json object with balances information\n"},
+        RPCExamples{HelpExampleCli("gettokenbalances", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     // parse pagination
     size_t limit = 100;
@@ -500,11 +557,11 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start.v = (uint32_t) paginationObj["start"].get_int64();
+                start.v = (uint32_t)paginationObj["start"].get_int64();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -536,12 +593,12 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview);
     auto targetHeight = ::ChainActive().Height() + 1;
 
-    mnview.ForEachAccount([&](CScript const & account) {
+    mnview.ForEachAccount([&](CScript const &account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
             mnview.CalculateOwnerRewards(account, targetHeight);
-            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-                return account == owner && totalBalances.Add(balance);
-            }, {account, DCT_ID{}});
+            mnview.ForEachBalance([&](CScript const &owner,
+                                      CTokenAmount balance) { return account == owner && totalBalances.Add(balance); },
+                                  {account, DCT_ID{}});
         }
         return true;
     });
@@ -561,44 +618,57 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
-UniValue utxostoaccount(const JSONRPCRequest& request) {
+UniValue utxostoaccount(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"utxostoaccount",
-               "\nCreates (and submits to local node and network) a transfer transaction from the wallet UTXOs to specfied account.\n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+    RPCHelpMan{
+        "utxostoaccount",
+        "\nCreates (and submits to local node and network) a transfer transaction from the wallet UTXOs to specfied "
+        "account.\n"
+        "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {
+                "amounts",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "",
+                {{"address",
+                  RPCArg::Type::STR,
+                  RPCArg::Optional::NO,
+                  "The defi address is the key, the value is amount in amount@token format. "
+                  "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"}},
+            },
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                 "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"}
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
                     },
-                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                },
-                            },
-                        },
-                    },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("utxostoaccount", "'{\"address1\":\"1.0@DFI\","
-                                                     "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
-                                                     "}' '[]'")
-               },
-    }.Check(request);
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("utxostoaccount",
+                                   "'{\"address1\":\"1.0@DFI\","
+                                   "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
+                                   "}' '[]'")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -610,8 +680,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount) << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
     CScript scriptBurn;
@@ -628,8 +697,8 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    for (const auto& kv : toBurn.balances) {
-        if (rawTx.vout.empty()) { // first output is metadata
+    for (const auto &kv : toBurn.balances) {
+        if (rawTx.vout.empty()) {  // first output is metadata
             rawTx.vout.push_back(CTxOut(kv.second, scriptMeta, kv.first));
         } else {
             rawTx.vout.push_back(CTxOut(kv.second, scriptBurn, kv.first));
@@ -645,30 +714,30 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
-
-UniValue sendutxosfrom(const JSONRPCRequest& request) {
+UniValue sendutxosfrom(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"sendutxosfrom",
-               "\nSend a transaction using UTXOs from the specfied address.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of sender"},
-                       {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of receiver"},
-                       {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "The amount to send"},
-                       {"change", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The address to send change to (Default: from address)"},
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("sendutxosfrom", R"("from" "to" 100)")
-                       + HelpExampleRpc("sendutxosfrom", R"("from", "to", 100")")
-               },
-    }.Check(request);
+    RPCHelpMan{
+        "sendutxosfrom",
+        "\nSend a transaction using UTXOs from the specfied address.\n" + HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of sender"},
+            {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of receiver"},
+            {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "The amount to send"},
+            {"change",
+             RPCArg::Type::STR,
+             RPCArg::Optional::OMITTED,
+             "The address to send change to (Default: from address)"},
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("sendutxosfrom", R"("from" "to" 100)") +
+                    HelpExampleRpc("sendutxosfrom", R"("from", "to", 100")")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -704,49 +773,65 @@ UniValue sendutxosfrom(const JSONRPCRequest& request) {
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(*locked_chain, pwallet, toDest, nAmount, {0}, false /* fSubtractFeeFromAmount */, coin_control, {});
+    CTransactionRef tx =
+        SendMoney(*locked_chain, pwallet, toDest, nAmount, {0}, false /* fSubtractFeeFromAmount */, coin_control, {});
     return tx->GetHash().GetHex();
 }
 
-UniValue accounttoaccount(const JSONRPCRequest& request) {
+UniValue accounttoaccount(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"accounttoaccount",
-               "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the specfied accounts.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
-                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+    RPCHelpMan{
+        "accounttoaccount",
+        "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the "
+        "specfied accounts.\n"
+        "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+            {
+                "to",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "",
+                {
+                    {"address",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::NO,
+                     "The defi address is the key, the value is amount in amount@token format. "
+                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                },
+            },
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                    },
-                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                },
-                            },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
                     },
                 },
-                RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-                },
-                RPCExamples{
-                       HelpExampleCli("accounttoaccount", "sender_address "
-                                                     "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' "
-                                                     "'[]'")
-               },
-    }.Check(request);
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("accounttoaccount",
+                                   "sender_address "
+                                   "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' "
+                                   "'[]'")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -764,8 +849,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToAccount)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToAccount) << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
@@ -776,7 +860,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    UniValue const & txInputs = request.params[2];
+    UniValue const &txInputs = request.params[2];
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
@@ -784,7 +868,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     CCoinControl coinControl;
 
-     // Set change to from address
+    // Set change to from address
     CTxDestination dest;
     ExtractDestination(msg.from, dest);
     if (IsValidDestination(dest)) {
@@ -800,46 +884,60 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue accounttoutxos(const JSONRPCRequest& request) {
+UniValue accounttoutxos(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"accounttoutxos",
-               "\nCreates (and submits to local node and network) a transfer transaction from the specified account to UTXOs.\n"
-               "The third optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
-                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+    RPCHelpMan{
+        "accounttoutxos",
+        "\nCreates (and submits to local node and network) a transfer transaction from the specified account to "
+        "UTXOs.\n"
+        "The third optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+            {
+                "to",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "",
+                {
+                    {"address",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::NO,
+                     "The defi address is the key, the value is amount in amount@token format. "
+                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                },
+            },
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "The defi address is the key, the value is amount in amount@token format. "
-                                 "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
-                            },
-                        },
-                    },
-                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                },
-                            },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
                     },
                 },
-                RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-                },
-               RPCExamples{
-                       HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"100@DFI\"}' '[]'")
-                       + HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' '[]'")
-               },
-    }.Check(request);
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{
+            HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"100@DFI\"}' '[]'") +
+            HelpExampleCli("accounttoutxos",
+                           "sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' '[]'")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -861,12 +959,16 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         dummyMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos) << msg;
 
         std::vector<unsigned char> padding(10);
-        for (const auto& recip : to) {
-            for (const auto& amount : recip.second.balances) {
+        for (const auto &recip : to) {
+            for (const auto &amount : recip.second.balances) {
                 if (amount.second != 0) {
                     CTxOut out{amount.second, recip.first, amount.first};
                     dummyMetadata << out << padding;
-                    LogPrint(BCLog::ESTIMATEFEE, "%s: out size %d padding %d\n", __func__, sizeof(out), sizeof(unsigned char) * padding.size());
+                    LogPrint(BCLog::ESTIMATEFEE,
+                             "%s: out size %d padding %d\n",
+                             __func__,
+                             sizeof(out),
+                             sizeof(unsigned char) * padding.size());
                 }
             }
         }
@@ -882,14 +984,14 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // auth
-    UniValue const & txInputs = request.params[2];
+    UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
-     // Set change to from address
+    // Set change to from address
     CTxDestination dest;
     ExtractDestination(msg.from, dest);
     if (IsValidDestination(dest)) {
@@ -904,15 +1006,14 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         scriptMeta = {};
         msg.mintingOutputsStart = rawTx.vout.size();
         CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-        markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos)
-                       << msg;
+        markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos) << msg;
         scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
     }
     rawTx.vout[0].scriptPubKey = scriptMeta;
 
     // add outputs starting from mintingOutputsStart (must be unfunded, because it's minting)
-    for (const auto& recip : to) {
-        for (const auto& amount : recip.second.balances) {
+    for (const auto &recip : to) {
+        for (const auto &amount : recip.second.balances) {
             if (amount.second != 0) {
                 rawTx.vout.push_back(CTxOut(amount.second, recip.first, amount.first));
             }
@@ -926,16 +1027,16 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 }
 
 class CScopeAccountReverter {
-    CCustomCSView & view;
-    CScript const & owner;
-    TAmounts const & balances;
+    CCustomCSView &view;
+    CScript const &owner;
+    TAmounts const &balances;
 
-public:
-    CScopeAccountReverter(CCustomCSView & view, CScript const & owner, TAmounts const & balances)
+   public:
+    CScopeAccountReverter(CCustomCSView &view, CScript const &owner, TAmounts const &balances)
         : view(view), owner(owner), balances(balances) {}
 
     ~CScopeAccountReverter() {
-        for (const auto& balance : balances) {
+        for (const auto &balance : balances) {
             auto amount = -balance.second;
             auto token = view.GetToken(balance.first);
             auto IsPoolShare = token && token->IsPoolShare();
@@ -960,44 +1061,56 @@ public:
     }
 };
 
-UniValue listaccounthistory(const JSONRPCRequest& request) {
+UniValue listaccounthistory(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listaccounthistory",
-               "\nReturns information about account history.\n",
-               {
-                        {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
-                        {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                            {
-                                 {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Optional height to iterate from (downto genesis block), (default = chaintip)."},
-                                 {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum depth, from the genesis block is the default"},
-                                 {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                  "Filter out rewards"},
-                                 {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Filter by token"},
-                                 {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Filter by transaction type, supported letter from {CustomTxType}"},
-                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum number of records to return, 100 by default"},
-                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Order in block, unlimited by default"},
-                                 {"format", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
+    RPCHelpMan{
+        "listaccounthistory",
+        "\nReturns information about account history.\n",
+        {
+            {"owner",
+             RPCArg::Type::STR,
+             RPCArg::Optional::OMITTED,
+             "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned "
+             "accounts or \"all\" to list whole DB (default = \"mine\")."},
+            {
+                "options",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"maxBlockHeight",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional height to iterate from (downto genesis block), (default = chaintip)."},
+                    {"depth",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum depth, from the genesis block is the default"},
+                    {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
+                    {"txtype",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Filter by transaction type, supported letter from {CustomTxType}"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of records to return, 100 by default"},
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Order in block, unlimited by default"},
+                    {"format",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
 
-                            },
-                        },
-               },
-               RPCResult{
-                       "[{},{}...]     (array) Objects with account history information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listaccounthistory", "address false")
-               },
-    }.Check(request);
+                },
+            },
+        },
+        RPCResult{"[{},{}...]     (array) Objects with account history information\n"},
+        RPCExamples{HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'") +
+                    HelpExampleRpc("listaccounthistory", "address false")},
+    }
+        .Check(request);
 
     std::string accounts = "mine";
     if (request.params.size() > 0) {
@@ -1008,7 +1121,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
@@ -1022,22 +1136,22 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
         RPCTypeCheckObj(optionsObj,
-            {
-                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
-                {"depth", UniValueType(UniValue::VNUM)},
-                {"no_rewards", UniValueType(UniValue::VBOOL)},
-                {"token", UniValueType(UniValue::VSTR)},
-                {"txtype", UniValueType(UniValue::VSTR)},
-                {"limit", UniValueType(UniValue::VNUM)},
-                {"txn", UniValueType(UniValue::VNUM)},
-                {"format", UniValueType(UniValue::VSTR)}
-            }, true, true);
+                        {{"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                         {"depth", UniValueType(UniValue::VNUM)},
+                         {"no_rewards", UniValueType(UniValue::VBOOL)},
+                         {"token", UniValueType(UniValue::VSTR)},
+                         {"txtype", UniValueType(UniValue::VSTR)},
+                         {"limit", UniValueType(UniValue::VNUM)},
+                         {"txn", UniValueType(UniValue::VNUM)},
+                         {"format", UniValueType(UniValue::VSTR)}},
+                        true,
+                        true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
-            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+            maxBlockHeight = (uint32_t)optionsObj["maxBlockHeight"].get_int64();
         }
         if (!optionsObj["depth"].isNull()) {
-            depth = (uint32_t) optionsObj["depth"].get_int64();
+            depth = (uint32_t)optionsObj["depth"].get_int64();
         }
 
         if (!optionsObj["no_rewards"].isNull()) {
@@ -1057,33 +1171,29 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
         }
         if (!optionsObj["limit"].isNull()) {
-            limit = (uint32_t) optionsObj["limit"].get_int64();
+            limit = (uint32_t)optionsObj["limit"].get_int64();
         }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
 
         if (!optionsObj["txn"].isNull()) {
-            txn = (uint32_t) optionsObj["txn"].get_int64();
+            txn = (uint32_t)optionsObj["txn"].get_int64();
         }
 
         if (!optionsObj["format"].isNull()) {
             const auto formatStr = optionsObj["format"].getValStr();
-            if (formatStr == "symbol"){
+            if (formatStr == "symbol") {
                 format = AmountFormat::Symbol;
-            }
-            else if (formatStr == "id") {
+            } else if (formatStr == "id") {
                 format = AmountFormat::Id;
-            }
-            else {
+            } else {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "format must be one of the following: \"id\", \"symbol\"");
             }
         }
     }
 
-    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
-        return true;
-    };
+    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) { return true; };
 
     CScript account;
     bool isMine = false;
@@ -1094,19 +1204,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         filter = ISMINE_SPENDABLE;
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
-        isMatchOwner = [&account](CScript const & owner) {
-            return owner == account;
-        };
+        isMatchOwner = [&account](CScript const &owner) { return owner == account; };
     }
 
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
-        for (auto const & diff : diffs) {
+    auto hasToken = [&tokenFilter](TAmounts const &diffs) {
+        for (auto const &diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
-            if(tokenIdStr == tokenFilter) {
+            if (tokenIdStr == tokenFilter) {
                 return true;
             }
         }
@@ -1130,7 +1238,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     auto count = limit;
     auto lastHeight = maxBlockHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
         }
@@ -1178,7 +1286,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
-            auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
+            auto &array = ret.emplace(workingHeight, UniValue::VARR).first->second;
             array.push_back(accounthistoryToJSON(key, value, format));
             if (shouldSearchInWallet) {
                 txs.insert(value.txid);
@@ -1187,15 +1295,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (!noRewards && count && lastHeight > workingHeight) {
-            onPoolRewards(view, key.owner, workingHeight, lastHeight,
-                [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
-                    if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
-                        auto& array = ret.emplace(height, UniValue::VARR).first->second;
-                        array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
-                        count ? --count : 0;
-                    }
-                }
-            );
+            onPoolRewards(view,
+                          key.owner,
+                          workingHeight,
+                          lastHeight,
+                          [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
+                              if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
+                                  auto &array = ret.emplace(height, UniValue::VARR).first->second;
+                                  array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
+                                  count ? --count : 0;
+                              }
+                          });
         }
 
         lastHeight = workingHeight;
@@ -1205,43 +1315,47 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (!noRewards && !account.empty()) {
         // revert previous tx to restore account balances to maxBlockHeight
-        paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
-            if (maxBlockHeight > key.blockHeight) {
-                return false;
-            }
-            if (!isMatchOwner(key.owner)) {
-                return false;
-            }
-            CScopeAccountReverter(view, key.owner, value.diff);
-            return true;
-        }, account);
+        paccountHistoryDB->ForEachAccountHistory(
+            [&](AccountHistoryKey const &key, AccountHistoryValue const &value) {
+                if (maxBlockHeight > key.blockHeight) {
+                    return false;
+                }
+                if (!isMatchOwner(key.owner)) {
+                    return false;
+                }
+                CScopeAccountReverter(view, key.owner, value.diff);
+                return true;
+            },
+            account);
     }
 
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
 
     if (shouldSearchInWallet) {
         count = limit;
-        searchInWallet(pwallet, account, filter,
-            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
+        searchInWallet(
+            pwallet,
+            account,
+            filter,
+            [&](CBlockIndex const *index, CWalletTx const *pwtx) {
                 uint32_t height = index->nHeight;
                 return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
             },
-            [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+            [&](COutputEntry const &entry, CBlockIndex const *index, CWalletTx const *pwtx) {
                 uint32_t height = index->nHeight;
                 uint32_t nIndex = pwtx->nIndex;
-                if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn ) {
+                if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn) {
                     return true;
                 }
-                auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
+                auto &array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
                 array.push_back(outputEntryToJSON(entry, index, pwtx, format));
                 return --count != 0;
-            }
-        );
+            });
     }
 
     UniValue slice(UniValue::VARR);
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
-        const auto& array = it->second.get_array();
+        const auto &array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
             slice.push_back(array[i]);
             --limit;
@@ -1251,32 +1365,27 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, slice);
 }
 
-UniValue getaccounthistory(const JSONRPCRequest& request) {
-
-    RPCHelpMan{"getaccounthistory",
-               "\nReturns information about account history.\n",
-               {
-                    {"owner", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "Single account ID (CScript or address)."},
-                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                        "Block Height to search in."},
-                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                        "for order in block."},
-               },
-               RPCResult{
-                       "{}  An object with account history information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2")
-                       + HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")
-               },
-    }.Check(request);
+UniValue getaccounthistory(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getaccounthistory",
+        "\nReturns information about account history.\n",
+        {
+            {"owner", RPCArg::Type::STR, RPCArg::Optional::NO, "Single account ID (CScript or address)."},
+            {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO, "Block Height to search in."},
+            {"txn", RPCArg::Type::NUM, RPCArg::Optional::NO, "for order in block."},
+        },
+        RPCResult{"{}  An object with account history information\n"},
+        RPCExamples{HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST 103 2") +
+                    HelpExampleCli("getaccounthistory", "mxxA2sQMETJFbXcNbNbUzEsBCTn1JSHXST, 103, 2")},
+    }
+        .Check(request);
 
     if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     auto owner = DecodeScript(request.params[0].getValStr());
     uint32_t blockHeight = request.params[1].get_int();
@@ -1293,37 +1402,47 @@ UniValue getaccounthistory(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, result);
 }
 
-UniValue listburnhistory(const JSONRPCRequest& request) {
+UniValue listburnhistory(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listburnhistory",
-               "\nReturns information about burn history.\n",
-               {
-                   {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                   {
-                       {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                        "Optional height to iterate from (down to genesis block), (default = chaintip)."},
-                       {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                        "Maximum depth, from the genesis block is the default"},
-                       {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                        "Filter by token"},
-                       {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                        "Filter by transaction type, supported letter from {CustomTxType}"},
-                       {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                        "Maximum number of records to return, 100 by default"},
-                   },
-                   },
-               },
-               RPCResult{
-                       "[{},{}...]     (array) Objects with burn history information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listburnhistory", "'{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listburnhistory", "")
-               },
-    }.Check(request);
+    RPCHelpMan{
+        "listburnhistory",
+        "\nReturns information about burn history.\n",
+        {
+            {
+                "options",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"maxBlockHeight",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional height to iterate from (down to genesis block), (default = chaintip)."},
+                    {"depth",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum depth, from the genesis block is the default"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
+                    {"txtype",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Filter by transaction type, supported letter from {CustomTxType}"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of records to return, 100 by default"},
+                },
+            },
+        },
+        RPCResult{"[{},{}...]     (array) Objects with burn history information\n"},
+        RPCExamples{HelpExampleCli("listburnhistory", "'{\"maxBlockHeight\":160,\"depth\":10}'") +
+                    HelpExampleRpc("listburnhistory", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
     uint32_t depth = maxBlockHeight;
@@ -1335,20 +1454,22 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     if (request.params.size() == 1) {
         UniValue optionsObj = request.params[0].get_obj();
         RPCTypeCheckObj(optionsObj,
-            {
-                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
-                {"depth", UniValueType(UniValue::VNUM)},
-                {"token", UniValueType(UniValue::VSTR)},
-                {"txtype", UniValueType(UniValue::VSTR)},
-                {"limit", UniValueType(UniValue::VNUM)},
-            }, true, true);
+                        {
+                            {"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                            {"depth", UniValueType(UniValue::VNUM)},
+                            {"token", UniValueType(UniValue::VSTR)},
+                            {"txtype", UniValueType(UniValue::VSTR)},
+                            {"limit", UniValueType(UniValue::VNUM)},
+                        },
+                        true,
+                        true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
-            maxBlockHeight = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+            maxBlockHeight = (uint32_t)optionsObj["maxBlockHeight"].get_int64();
         }
 
         if (!optionsObj["depth"].isNull()) {
-            depth = (uint32_t) optionsObj["depth"].get_int64();
+            depth = (uint32_t)optionsObj["depth"].get_int64();
         }
 
         if (!optionsObj["token"].isNull()) {
@@ -1365,7 +1486,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         }
 
         if (!optionsObj["limit"].isNull()) {
-            limit = (uint32_t) optionsObj["limit"].get_int64();
+            limit = (uint32_t)optionsObj["limit"].get_int64();
         }
 
         if (limit == 0) {
@@ -1373,17 +1494,15 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         }
     }
 
-    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
-        return true;
-    };
+    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) { return true; };
 
     std::set<uint256> txs;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
-        for (auto const & diff : diffs) {
+    auto hasToken = [&tokenFilter](TAmounts const &diffs) {
+        for (auto const &diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
-            if(tokenIdStr == tokenFilter) {
+            if (tokenIdStr == tokenFilter) {
                 return true;
             }
         }
@@ -1405,8 +1524,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 
     auto count = limit;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool
-    {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
         }
@@ -1419,11 +1537,11 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+        if (!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
         }
 
-        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        auto &array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
         array.push_back(accounthistoryToJSON(key, value));
 
         --count;
@@ -1435,7 +1553,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 
     UniValue slice(UniValue::VARR);
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
-        const auto& array = it->second.get_array();
+        const auto &array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
             slice.push_back(array[i]);
             --limit;
@@ -1445,37 +1563,46 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, slice);
 }
 
-UniValue accounthistorycount(const JSONRPCRequest& request) {
+UniValue accounthistorycount(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"accounthistorycount",
-               "\nReturns count of account history.\n",
-               {
-                   {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                       "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+    RPCHelpMan{
+        "accounthistorycount",
+        "\nReturns count of account history.\n",
+        {
+            {"owner",
+             RPCArg::Type::STR,
+             RPCArg::Optional::OMITTED,
+             "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned "
+             "accounts or \"all\" to list whole DB (default = \"mine\")."},
 
-                   {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                       {
-                            {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
-                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
-                            {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from {CustomTxType}"},
-                       },
-                   },
-               },
-               RPCResult{
-                       "count     (int) Count of account history\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("accounthistorycount", "all '{no_rewards: true}'")
-                       + HelpExampleRpc("accounthistorycount", "")
-               },
-    }.Check(request);
+            {
+                "options",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
+                    {"txtype",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Filter by transaction type, supported letter from {CustomTxType}"},
+                },
+            },
+        },
+        RPCResult{"count     (int) Count of account history\n"},
+        RPCExamples{HelpExampleCli("accounthistorycount", "all '{no_rewards: true}'") +
+                    HelpExampleRpc("accounthistorycount", "")},
+    }
+        .Check(request);
 
     if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is need for account history");
     }
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     std::string accounts = "mine";
     if (request.params.size() > 0) {
@@ -1489,11 +1616,13 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
         RPCTypeCheckObj(optionsObj,
-            {
-                {"no_rewards", UniValueType(UniValue::VBOOL)},
-                {"token", UniValueType(UniValue::VSTR)},
-                {"txtype", UniValueType(UniValue::VSTR)},
-            }, true, true);
+                        {
+                            {"no_rewards", UniValueType(UniValue::VBOOL)},
+                            {"token", UniValueType(UniValue::VSTR)},
+                            {"txtype", UniValueType(UniValue::VSTR)},
+                        },
+                        true,
+                        true);
 
         noRewards = optionsObj["no_rewards"].getBool();
 
@@ -1524,11 +1653,11 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
 
-    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
-        for (auto const & diff : diffs) {
+    auto hasToken = [&tokenFilter](TAmounts const &diffs) {
+        for (auto const &diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
-            if(tokenIdStr == tokenFilter) {
+            if (tokenIdStr == tokenFilter) {
                 return true;
             }
         }
@@ -1544,7 +1673,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     auto lastHeight = uint32_t(::ChainActive().Height());
     const auto currentHeight = lastHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
@@ -1576,13 +1705,12 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 lastOwner = key.owner;
                 lastHeight = currentHeight;
             }
-            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
-                [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
+            onPoolRewards(
+                view, key.owner, key.blockHeight, lastHeight, [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
                         ++count;
                     }
-                }
-            );
+                });
             lastHeight = key.blockHeight;
         }
 
@@ -1592,47 +1720,44 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
 
     if (shouldSearchInWallet) {
-        searchInWallet(pwallet, owner, filter,
-            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
+        searchInWallet(
+            pwallet,
+            owner,
+            filter,
+            [&](CBlockIndex const *index, CWalletTx const *pwtx) {
                 return txs.count(pwtx->GetHash()) || static_cast<uint32_t>(index->nHeight) > currentHeight;
             },
             [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
                 ++count;
                 return true;
-            }
-        );
+            });
     }
 
     return GetRPCResultCache().Set(request, count);
 }
 
-UniValue listcommunitybalances(const JSONRPCRequest& request) {
-    RPCHelpMan{"listcommunitybalances",
-               "\nReturns information about all community balances.\n",
-               {
-               },
-               RPCResult{
-                       "{balance_type:value,...}     (array) Json object with accounts information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listcommunitybalances", "")
-                       + HelpExampleRpc("listcommunitybalances", "")
-               },
-    }.Check(request);
+UniValue listcommunitybalances(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listcommunitybalances",
+        "\nReturns information about all community balances.\n",
+        {},
+        RPCResult{"{balance_type:value,...}     (array) Json object with accounts information\n"},
+        RPCExamples{HelpExampleCli("listcommunitybalances", "") + HelpExampleRpc("listcommunitybalances", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
     CAmount burnt{0};
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
-    {
+    for (const auto &kv : Params().GetConsensus().newNonUTXOSubsidies) {
         // Skip these as any unused balance will be burnt.
         if (kv.first == CommunityAccountType::Options) {
             continue;
         }
-        if (kv.first == CommunityAccountType::Unallocated ||
-            kv.first == CommunityAccountType::IncentiveFunding) {
+        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding) {
             burnt += pcustomcsview->GetCommunityBalance(kv.first);
             continue;
         }
@@ -1651,48 +1776,67 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
-UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
+UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"sendtokenstoaddress",
-               "\nCreates (and submits to local node and network) a transfer transaction from your accounts balances (may be picked manualy or autoselected) to the specfied accounts.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The source defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If obj is empty (no address keys exists) then will try to auto-select accounts from wallet "
-                                                                                     "with necessary balances to transfer."},
-                        },
-                    },
-                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                    },
-                    {"selectionMode", RPCArg::Type::STR, /* default */ "pie", "If param \"from\" is empty this param indicates accounts autoselection mode."
-                                                                              "May be once of:\n"
-                                                                              "  \"forward\" - Selecting accounts without sorting, just as address list sorted.\n"
-                                                                              "  \"crumbs\" - Selecting accounts by ascending of sum token amounts.\n"
-                                                                              "    It means that we will select first accounts with minimal sum of neccessary token amounts.\n"
-                                                                              "  \"pie\" - Selecting accounts by descending of sum token amounts.\n"
-                                                                              "    It means that we will select first accounts with maximal sum of neccessary token amounts."
-                    },
+    RPCHelpMan{
+        "sendtokenstoaddress",
+        "\nCreates (and submits to local node and network) a transfer transaction from your accounts balances (may be "
+        "picked manualy or autoselected) to the specfied accounts.\n" +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {
+                "from",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "",
+                {
+                    {"address",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "The source defi address is the key, the value is amount in amount@token format. "
+                     "If obj is empty (no address keys exists) then will try to auto-select accounts from wallet "
+                     "with necessary balances to transfer."},
                 },
-                RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+            },
+            {
+                "to",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "",
+                {
+                    {"address",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::NO,
+                     "The defi address is the key, the value is amount in amount@token format. "
+                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                 },
-                RPCExamples{
-                        HelpExampleCli("sendtokenstoaddress", "'{}' "
-                                                    "'{\"dstAddress1\":\"1.0@DFI\",\"dstAddress2\":[\"2.0@BTC\", \"3.0@ETH\"]}' \"crumbs\"") +
-                        HelpExampleCli("sendtokenstoaddress", "'{\"srcAddress1\":\"2.0@DFI\", \"srcAddress2\":[\"3.0@DFI\", \"2.0@ETH\"]}' "
-                                                    "'{\"dstAddress1\":[\"5.0@DFI\", \"2.0@ETH\"]}'")
-                        },
-    }.Check(request);
+            },
+            {"selectionMode",
+             RPCArg::Type::STR,
+             /* default */ "pie",
+             "If param \"from\" is empty this param indicates accounts autoselection mode."
+             "May be once of:\n"
+             "  \"forward\" - Selecting accounts without sorting, just as address list sorted.\n"
+             "  \"crumbs\" - Selecting accounts by ascending of sum token amounts.\n"
+             "    It means that we will select first accounts with minimal sum of neccessary token amounts.\n"
+             "  \"pie\" - Selecting accounts by descending of sum token amounts.\n"
+             "    It means that we will select first accounts with maximal sum of neccessary token amounts."},
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{
+            HelpExampleCli("sendtokenstoaddress",
+                           "'{}' "
+                           "'{\"dstAddress1\":\"1.0@DFI\",\"dstAddress2\":[\"2.0@BTC\", \"3.0@ETH\"]}' \"crumbs\"") +
+            HelpExampleCli("sendtokenstoaddress",
+                           "'{\"srcAddress1\":\"2.0@DFI\", \"srcAddress2\":[\"3.0@DFI\", \"2.0@ETH\"]}' "
+                           "'{\"dstAddress1\":[\"5.0@DFI\", \"2.0@ETH\"]}'")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -1706,7 +1850,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts in \"to\" param");
     }
 
-    if (request.params[0].get_obj().empty()) { // autoselection
+    if (request.params[0].get_obj().empty()) {  // autoselection
         CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
 
         AccountSelectionMode selectionMode = SelectionPie;
@@ -1718,24 +1862,24 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
         if (msg.from.empty()) {
             throw JSONRPCError(RPC_INVALID_REQUEST,
-                                   "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
+                               "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
         }
-    }
-    else {
+    } else {
         msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
     }
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AnyAccountsToAccounts)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AnyAccountsToAccounts) << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
     if (scriptMeta.size() > nMaxDatacarrierBytes) {
-        throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
-                                                "It may happened because too many \"from\" or \"to\" accounts balances."
-                                                "If you use autoselection, you can try to use \"pie\" selection mode for decreasing accounts count.");
+        throw JSONRPCError(
+            RPC_VERIFY_REJECTED,
+            "The output custom script size has exceeded the maximum OP_RETURN script size."
+            "It may happened because too many \"from\" or \"to\" accounts balances."
+            "If you use autoselection, you can try to use \"pie\" selection mode for decreasing accounts count.");
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
@@ -1749,7 +1893,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
     // auth
     std::set<CScript> auths;
-    for (const auto& acc : msg.from) {
+    for (const auto &acc : msg.from) {
         auths.emplace(acc.first);
     }
     CTransactionRef optAuthTx;
@@ -1775,32 +1919,29 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue getburninfo(const JSONRPCRequest& request) {
-    RPCHelpMan{"getburninfo",
-               "\nReturns burn address and burnt coin and token information.\n"
-               "Requires full acindex for correct amount, tokens and feeburn values.\n",
-               {
-               },
-               RPCResult{
-                       "{\n"
-                       "  \"address\" : \"address\",        (string) The defi burn address\n"
-                       "  \"amount\" : n.nnnnnnnn,        (string) The amount of DFI burnt\n"
-                       "  \"tokens\" :  [\n"
-                       "      { (array of burnt tokens)"
-                       "      \"name\" : \"name\"\n"
-                       "      \"amount\" : n.nnnnnnnn\n"
-                       "    ]\n"
-                       "  \"feeburn\" : n.nnnnnnnn,        (string) The amount of fees burnt\n"
-                       "  \"emissionburn\" : n.nnnnnnnn,   (string) The amount of non-utxo coinbase rewards burnt\n"
-                       "}\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getburninfo", "")
-                       + HelpExampleRpc("getburninfo", "")
-               },
-    }.Check(request);
+UniValue getburninfo(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getburninfo",
+        "\nReturns burn address and burnt coin and token information.\n"
+        "Requires full acindex for correct amount, tokens and feeburn values.\n",
+        {},
+        RPCResult{"{\n"
+                  "  \"address\" : \"address\",        (string) The defi burn address\n"
+                  "  \"amount\" : n.nnnnnnnn,        (string) The amount of DFI burnt\n"
+                  "  \"tokens\" :  [\n"
+                  "      { (array of burnt tokens)"
+                  "      \"name\" : \"name\"\n"
+                  "      \"amount\" : n.nnnnnnnn\n"
+                  "    ]\n"
+                  "  \"feeburn\" : n.nnnnnnnn,        (string) The amount of fees burnt\n"
+                  "  \"emissionburn\" : n.nnnnnnnn,   (string) The amount of non-utxo coinbase rewards burnt\n"
+                  "}\n"},
+        RPCExamples{HelpExampleCli("getburninfo", "") + HelpExampleRpc("getburninfo", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     CAmount burntDFI{0};
     CAmount burntFee{0};
@@ -1829,7 +1970,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     if (attributes) {
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
         auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
-        for (const auto& balance : tokenBalances.balances) {
+        for (const auto &balance : tokenBalances.balances) {
             if (balance.first == DCT_ID{0}) {
                 dfiPaybackFee = balance.second;
             } else {
@@ -1848,63 +1989,60 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
 
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated ||
-            kv.first == CommunityAccountType::IncentiveFunding ||
-            (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
+    for (const auto &kv : Params().GetConsensus().newNonUTXOSubsidies) {
+        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
+            (height >= fortCanningHeight && kv.first == CommunityAccountType::Loan)) {
             burnt += view.GetCommunityBalance(kv.first);
         }
     }
 
-    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, AccountHistoryValue value) {
+    auto calculateBurnAmounts = [&](AccountHistoryKey const &key, AccountHistoryValue value) {
         // UTXO burn
         if (value.category == uint8_t(CustomTxType::None)) {
-            for (auto const & diff : value.diff) {
+            for (auto const &diff : value.diff) {
                 burntDFI += diff.second;
             }
             return true;
         }
         // Fee burn
-        if (value.category == uint8_t(CustomTxType::CreateMasternode)
-        || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
-            for (auto const & diff : value.diff) {
+        if (value.category == uint8_t(CustomTxType::CreateMasternode) ||
+            value.category == uint8_t(CustomTxType::CreateToken) || value.category == uint8_t(CustomTxType::Vault)) {
+            for (auto const &diff : value.diff) {
                 burntFee += diff.second;
             }
             return true;
         }
         // withdraw burn
-        if (value.category == uint8_t(CustomTxType::PaybackLoan)
-        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
-            for (const auto& [id, amount] : value.diff) {
+        if (value.category == uint8_t(CustomTxType::PaybackLoan) ||
+            value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
+            for (const auto &[id, amount] : value.diff) {
                 paybackFee.Add({id, amount});
             }
             return true;
         }
         // auction burn
         if (value.category == uint8_t(CustomTxType::AuctionBid)) {
-            for (auto const & diff : value.diff) {
+            for (auto const &diff : value.diff) {
                 auctionFee += diff.second;
             }
             return true;
         }
         // dex fee burn
-        if (value.category == uint8_t(CustomTxType::PoolSwap)
-        ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
-            for (auto const & diff : value.diff) {
+        if (value.category == uint8_t(CustomTxType::PoolSwap) || value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+            for (auto const &diff : value.diff) {
                 dexfeeburn.Add({diff.first, diff.second});
             }
             return true;
         }
         // Token burn
-        for (auto const & diff : value.diff) {
+        for (auto const &diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
         }
         return true;
     };
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
-  
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
@@ -1925,19 +2063,18 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
     result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
 
-    return GetRPCResultCache()
-        .Set(request, result);
+    return GetRPCResultCache().Set(request, result);
 }
 
-
-UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
-        const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest &request,
+                                    CWalletCoinsUnlocker pwallet,
+                                    const std::pair<std::string, CScript> &contractPair,
+                                    CTokenAmount amount) {
     CUtxosToAccountMessage msg{};
     msg.to = {{contractPair.second, {{{{0}, amount.nValue}}}}};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount)
-                << msg;
+    metadata << static_cast<unsigned char>(CustomTxType::UtxosToAccount) << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
@@ -1966,8 +2103,10 @@ UniValue HandleSendDFIP2201DFIInput(const JSONRPCRequest& request, CWalletCoinsU
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
-UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet,
-         const std::pair<std::string, CScript>& contractPair, CTokenAmount amount) {
+UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest &request,
+                                    CWalletCoinsUnlocker pwallet,
+                                    const std::pair<std::string, CScript> &contractPair,
+                                    CTokenAmount amount) {
     if (request.params[2].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "BTC source address must be provided for " + contractPair.first);
     }
@@ -1982,8 +2121,7 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
     msg.accounts = {{script, {{{amount.nTokenId, amount.nValue}}}}};
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::SmartContract)
-                << msg;
+    metadata << static_cast<unsigned char>(CustomTxType::SmartContract) << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
@@ -2011,9 +2149,9 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet) {
+UniValue HandleSendDFIP2201(const JSONRPCRequest &request, CWalletCoinsUnlocker pwallet) {
     auto contracts = Params().GetConsensus().smartContracts;
-    const auto& contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
+    const auto &contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
     assert(contractPair != contracts.end());
 
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[1].get_str(), "amount");
@@ -2025,43 +2163,53 @@ UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker 
     }
 }
 
-UniValue executesmartcontract(const JSONRPCRequest& request) {
+UniValue executesmartcontract(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"executesmartcontract",
-               "\nCreates and sends a transaction to either fund or execute a smart contract. Available contracts: dbtcdfiswap" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Name of the smart contract to send funds to"},
-                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to be used in contract execution if required"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
+    RPCHelpMan{
+        "executesmartcontract",
+        "\nCreates and sends a transaction to either fund or execute a smart contract. Available contracts: "
+        "dbtcdfiswap" +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Name of the smart contract to send funds to"},
+            {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
+            {"address",
+             RPCArg::Type::STR,
+             RPCArg::Optional::OMITTED,
+             "Address to be used in contract execution if required"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("executesmartcontract", "dbtcdfiswap 1000@DFI")
-                       + HelpExampleRpc("executesmartcontract", "dbtcdfiswap, 1000@DFI")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("executesmartcontract", "dbtcdfiswap 1000@DFI") +
+                    HelpExampleRpc("executesmartcontract", "dbtcdfiswap, 1000@DFI")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const auto& contractName = request.params[0].get_str();
+    const auto &contractName = request.params[0].get_str();
     if (contractName == "dbtcdfiswap") {
         return HandleSendDFIP2201(request, std::move(pwallet));
     } else {
@@ -2070,41 +2218,49 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
-UniValue futureswap(const JSONRPCRequest& request) {
+UniValue futureswap(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"futureswap",
-               "\nCreates and submits to the network a futures contract" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
-                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
-                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
+    RPCHelpMan{
+        "futureswap",
+        "\nCreates and submits to the network a futures contract" + HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"address",
+             RPCArg::Type::STR,
+             RPCArg::Optional::NO,
+             "Address to fund contract and receive resulting token"},
+            {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send in amount@token format"},
+            {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Expected dToken if DUSD supplied"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
-                       + HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD TSLA")
-                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
-                       + HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@DUSD, TSLA")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA") +
+                    HelpExampleCli("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD TSLA") +
+                    HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA") +
+                    HelpExampleRpc("futureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@DUSD, TSLA")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -2130,8 +2286,7 @@ UniValue futureswap(const JSONRPCRequest& request) {
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap)
-             << msg;
+    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -2160,41 +2315,46 @@ UniValue futureswap(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-
-UniValue withdrawfutureswap(const JSONRPCRequest& request) {
+UniValue withdrawfutureswap(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"withdrawfutureswap",
-               "\nCreates and submits to the network a withdrawal from futures contract transaction.\n"
-               " Withdrawal will be back to the address specified in the futures contract." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
-                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
-                       {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
+    RPCHelpMan{
+        "withdrawfutureswap",
+        "\nCreates and submits to the network a withdrawal from futures contract transaction.\n"
+        " Withdrawal will be back to the address specified in the futures contract." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address used to fund contract with"},
+            {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to withdraw in amount@token format"},
+            {"destination", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "The dToken if DUSD supplied"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA")
-                       + HelpExampleRpc("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@TSLA") +
+                    HelpExampleRpc("withdrawfutureswap", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ, 1000@TSLA")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -2221,8 +2381,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
 
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap)
-             << msg;
+    metadata << static_cast<unsigned char>(CustomTxType::FutureSwap) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -2251,30 +2410,29 @@ UniValue withdrawfutureswap(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
-    RPCHelpMan{"listpendingfutureswaps",
-               "Get all pending futures.\n",
-               {},
-               RPCResult{
-                       "\"json\"          (string) array containing json-objects having following fields:\n"
-                       "    owner :       \"address\"\n"
-                       "    values : [{\n"
-                       "        tokenSymbol : \"SYMBOL\"\n"
-                       "        amount :      n.nnnnnnnn\n"
-                       "        destination : \"SYMBOL\"\n"
-                       "    }...]\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listpendingfutureswaps", "")
-               },
-    }.Check(request);
+UniValue listpendingfutureswaps(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listpendingfutureswaps",
+        "Get all pending futures.\n",
+        {},
+        RPCResult{"\"json\"          (string) array containing json-objects having following fields:\n"
+                  "    owner :       \"address\"\n"
+                  "    values : [{\n"
+                  "        tokenSymbol : \"SYMBOL\"\n"
+                  "        amount :      n.nnnnnnnn\n"
+                  "        destination : \"SYMBOL\"\n"
+                  "    }...]\n"},
+        RPCExamples{HelpExampleCli("listpendingfutureswaps", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     UniValue listFutures{UniValue::VARR};
 
     LOCK(cs_main);
 
-    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
+    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
         CTxDestination dest;
         ExtractDestination(key.owner, dest);
         if (!IsValidDestination(dest)) {
@@ -2308,28 +2466,27 @@ UniValue listpendingfutureswaps(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, listFutures);
 }
 
-UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
-    RPCHelpMan{"getpendingfutureswaps",
-               "Get specific pending futures.\n",
-                {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
-                },
-                RPCResult{
-                    "{\n"
-                    "    owner :       \"address\"\n"
-                    "    values : [{\n"
-                    "    tokenSymbol : \"SYMBOL\"\n"
-                    "    amount :      n.nnnnnnnn\n"
-                    "    destination : \"SYMBOL\"\n"
-                    "    }...]\n"
-                    "}\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getpendingfutureswaps", "address")
-               },
-    }.Check(request);
+UniValue getpendingfutureswaps(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getpendingfutureswaps",
+        "Get specific pending futures.\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
+        },
+        RPCResult{"{\n"
+                  "    owner :       \"address\"\n"
+                  "    values : [{\n"
+                  "    tokenSymbol : \"SYMBOL\"\n"
+                  "    amount :      n.nnnnnnnn\n"
+                  "    destination : \"SYMBOL\"\n"
+                  "    }...]\n"
+                  "}\n"},
+        RPCExamples{HelpExampleCli("getpendingfutureswaps", "address")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     UniValue listValues{UniValue::VARR};
 
     const auto owner = DecodeScript(request.params[0].get_str());
@@ -2337,16 +2494,17 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     std::vector<CFuturesUserValue> storedFutures;
-    pcustomcsview->ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues) {
+    pcustomcsview->ForEachFuturesUserValues(
+        [&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
+            if (key.owner == owner) {
+                storedFutures.push_back(futuresValues);
+            }
 
-        if (key.owner == owner) {
-            storedFutures.push_back(futuresValues);
-        }
+            return true;
+        },
+        {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
 
-        return true;
-    }, {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
-
-    for (const auto& item : storedFutures) {
+    for (const auto &item : storedFutures) {
         UniValue value{UniValue::VOBJ};
 
         const auto source = pcustomcsview->GetToken(item.source.nTokenId);
@@ -2375,35 +2533,42 @@ UniValue getpendingfutureswaps(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
-UniValue logaccountbalances(const JSONRPCRequest& request) {
+UniValue logaccountbalances(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logaccountbalances",
         "\nLogs all account balances in accounts for debugging.\n",
         {
-            {"logfile", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                "Log file (default = false), if set to true, prints to the log file, otherwise no log output"},
-            {"rpcresult", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                "RPC Result (default = true), if set to true, returns an RPC result, otherwise no RPC output"},
+            {"logfile",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "Log file (default = false), if set to true, prints to the log file, otherwise no log output"},
+            {"rpcresult",
+             RPCArg::Type::BOOL,
+             RPCArg::Optional::OMITTED,
+             "RPC Result (default = true), if set to true, returns an RPC result, otherwise no RPC output"},
         },
-        RPCResult{
-            "{...} (array) Json object with account balances if rpcresult is enabled."
-            "This is for debugging purposes only.\n"},
-        RPCExamples{
-            HelpExampleCli("logaccountbalances", "true true")},
-    }.Check(request);
+        RPCResult{"{...} (array) Json object with account balances if rpcresult is enabled."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("logaccountbalances", "true true")},
+    }
+        .Check(request);
 
     auto &p = request.params;
     auto outToLog = false;
     auto outToRpc = true;
 
-    if (p.size() > 0) { outToLog = p[0].get_bool(); }
-    if (p.size() > 1) { outToRpc = p[1].get_bool(); }
+    if (p.size() > 0) {
+        outToLog = p[0].get_bool();
+    }
+    if (p.size() > 1) {
+        outToRpc = p[1].get_bool();
+    }
 
     LOCK(cs_main);
 
     std::map<std::string, std::vector<CTokenAmount>> accounts;
     size_t count{};
-    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+    pcustomcsview->ForEachBalance([&](CScript const &owner, CTokenAmount balance) {
         ++count;
         auto ownerStr = ScriptToString(owner);
         if (outToLog)
@@ -2421,9 +2586,9 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
 
     UniValue result{UniValue::VOBJ};
     UniValue accountsJson{UniValue::VOBJ};
-    for (auto &[key, v]: accounts) {
+    for (auto &[key, v] : accounts) {
         UniValue b{UniValue::VARR};
-        for (auto &item: v) {
+        for (auto &item : v) {
             b.push_back(item.ToString());
         }
         accountsJson.pushKV(key, b);
@@ -2434,28 +2599,27 @@ UniValue logaccountbalances(const JSONRPCRequest& request) {
     return result;
 }
 
-UniValue listpendingdusdswaps(const JSONRPCRequest& request) {
-    RPCHelpMan{"listpendingdusdswaps",
-               "Get all pending DFI-to_DUSD swaps.\n",
-               {},
-               RPCResult{
-                       "\"json\"          (string) array containing json-objects having following fields:\n"
-                       "[{\n"
-                       "    owner :       \"address\"\n"
-                       "    amount :      n.nnnnnnnn\n"
-                       "}...]\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listpendingdusdswaps", "")
-               },
-    }.Check(request);
+UniValue listpendingdusdswaps(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listpendingdusdswaps",
+        "Get all pending DFI-to_DUSD swaps.\n",
+        {},
+        RPCResult{"\"json\"          (string) array containing json-objects having following fields:\n"
+                  "[{\n"
+                  "    owner :       \"address\"\n"
+                  "    amount :      n.nnnnnnnn\n"
+                  "}...]\n"},
+        RPCExamples{HelpExampleCli("listpendingdusdswaps", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     UniValue listFutures{UniValue::VARR};
 
     LOCK(cs_main);
 
-    pcustomcsview->ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
+    pcustomcsview->ForEachFuturesDUSD([&](const CFuturesUserKey &key, const CAmount &amount) {
         CTxDestination dest;
         ExtractDestination(key.owner, dest);
         if (!IsValidDestination(dest)) {
@@ -2474,24 +2638,23 @@ UniValue listpendingdusdswaps(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, listFutures);
 }
 
-UniValue getpendingdusdswaps(const JSONRPCRequest& request) {
-    RPCHelpMan{"getpendingdusdswaps",
-               "Get specific pending DFI-to-DUSD swap.\n",
-               {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
-               },
-               RPCResult{
-                       "{\n"
-                       "    owner :       \"address\"\n"
-                       "    amount :      n.nnnnnnnn\n"
-                       "}\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getpendingfutureswaps", "address")
-               },
-    }.Check(request);
+UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getpendingdusdswaps",
+        "Get specific pending DFI-to-DUSD swap.\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all pending future swaps"},
+        },
+        RPCResult{"{\n"
+                  "    owner :       \"address\"\n"
+                  "    amount :      n.nnnnnnnn\n"
+                  "}\n"},
+        RPCExamples{HelpExampleCli("getpendingfutureswaps", "address")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     UniValue listValues{UniValue::VARR};
 
     const auto owner = DecodeScript(request.params[0].get_str());
@@ -2499,14 +2662,15 @@ UniValue getpendingdusdswaps(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     CAmount total{};
-    pcustomcsview->ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount) {
+    pcustomcsview->ForEachFuturesDUSD(
+        [&](const CFuturesUserKey &key, const CAmount &amount) {
+            if (key.owner == owner) {
+                total += amount;
+            }
 
-        if (key.owner == owner) {
-            total += amount;
-        }
-
-        return true;
-    }, {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
+            return true;
+        },
+        {static_cast<uint32_t>(::ChainActive().Height()), owner, std::numeric_limits<uint32_t>::max()});
 
     UniValue obj{UniValue::VOBJ};
     if (total) {
@@ -2517,36 +2681,34 @@ UniValue getpendingdusdswaps(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
-
-static const CRPCCommand commands[] =
-{
-//  category       name                     actor (function)        params
-//  -------------  ------------------------ ----------------------  ----------
-    {"accounts",   "listaccounts",             &listaccounts,              {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
-    {"accounts",   "getaccount",               &getaccount,                {"owner", "pagination", "indexed_amounts"}},
-    {"accounts",   "gettokenbalances",         &gettokenbalances,          {"pagination", "indexed_amounts", "symbol_lookup"}},
-    {"accounts",   "utxostoaccount",           &utxostoaccount,            {"amounts", "inputs"}},
-    {"accounts",   "sendutxosfrom",            &sendutxosfrom,             {"from", "to", "amount", "change"}},
-    {"accounts",   "accounttoaccount",         &accounttoaccount,          {"from", "to", "inputs"}},
-    {"accounts",   "accounttoutxos",           &accounttoutxos,            {"from", "to", "inputs"}},
-    {"accounts",   "listaccounthistory",       &listaccounthistory,        {"owner", "options"}},
-    {"accounts",   "getaccounthistory",        &getaccounthistory,         {"owner", "blockHeight", "txn"}},
-    {"accounts",   "listburnhistory",          &listburnhistory,           {"options"}},
-    {"accounts",   "accounthistorycount",      &accounthistorycount,       {"owner", "options"}},
-    {"accounts",   "listcommunitybalances",    &listcommunitybalances,     {}},
-    {"accounts",   "sendtokenstoaddress",      &sendtokenstoaddress,       {"from", "to", "selectionMode"}},
-    {"accounts",   "getburninfo",              &getburninfo,               {}},
-    {"accounts",   "executesmartcontract",     &executesmartcontract,      {"name", "amount", "inputs"}},
-    {"accounts",   "futureswap",               &futureswap,                {"address", "amount", "destination", "inputs"}},
-    {"accounts",   "withdrawfutureswap",       &withdrawfutureswap,        {"address", "amount", "destination", "inputs"}},
-    {"accounts",   "listpendingfutureswaps",   &listpendingfutureswaps,    {}},
-    {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
-    {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
-    {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
-    {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
+static const CRPCCommand commands[] = {
+    //  category       name                     actor (function)        params
+    //  -------------  ------------------------ ----------------------  ----------
+    {"accounts", "listaccounts", &listaccounts, {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
+    {"accounts", "getaccount", &getaccount, {"owner", "pagination", "indexed_amounts"}},
+    {"accounts", "gettokenbalances", &gettokenbalances, {"pagination", "indexed_amounts", "symbol_lookup"}},
+    {"accounts", "utxostoaccount", &utxostoaccount, {"amounts", "inputs"}},
+    {"accounts", "sendutxosfrom", &sendutxosfrom, {"from", "to", "amount", "change"}},
+    {"accounts", "accounttoaccount", &accounttoaccount, {"from", "to", "inputs"}},
+    {"accounts", "accounttoutxos", &accounttoutxos, {"from", "to", "inputs"}},
+    {"accounts", "listaccounthistory", &listaccounthistory, {"owner", "options"}},
+    {"accounts", "getaccounthistory", &getaccounthistory, {"owner", "blockHeight", "txn"}},
+    {"accounts", "listburnhistory", &listburnhistory, {"options"}},
+    {"accounts", "accounthistorycount", &accounthistorycount, {"owner", "options"}},
+    {"accounts", "listcommunitybalances", &listcommunitybalances, {}},
+    {"accounts", "sendtokenstoaddress", &sendtokenstoaddress, {"from", "to", "selectionMode"}},
+    {"accounts", "getburninfo", &getburninfo, {}},
+    {"accounts", "executesmartcontract", &executesmartcontract, {"name", "amount", "inputs"}},
+    {"accounts", "futureswap", &futureswap, {"address", "amount", "destination", "inputs"}},
+    {"accounts", "withdrawfutureswap", &withdrawfutureswap, {"address", "amount", "destination", "inputs"}},
+    {"accounts", "listpendingfutureswaps", &listpendingfutureswaps, {}},
+    {"accounts", "getpendingfutureswaps", &getpendingfutureswaps, {"address"}},
+    {"accounts", "listpendingdusdswaps", &listpendingdusdswaps, {}},
+    {"accounts", "getpendingdusdswaps", &getpendingdusdswaps, {"address"}},
+    {"hidden", "logaccountbalances", &logaccountbalances, {"logfile", "rpcresult"}},
 };
 
-void RegisterAccountsRPCCommands(CRPCTable& tableRPC) {
+void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }

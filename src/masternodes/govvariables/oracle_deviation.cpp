@@ -4,24 +4,20 @@
 
 #include <masternodes/govvariables/oracle_deviation.h>
 
-#include <core_io.h> /// ValueFromAmount
-#include <masternodes/masternodes.h> /// CCustomCSView
-#include <rpc/util.h> /// AmountFromValue
+#include <core_io.h>                  /// ValueFromAmount
+#include <masternodes/masternodes.h>  /// CCustomCSView
+#include <rpc/util.h>                 /// AmountFromValue
 
-
-Res ORACLE_DEVIATION::Import(const UniValue & val)
-{
+Res ORACLE_DEVIATION::Import(const UniValue &val) {
     deviation = AmountFromValue(val);
     return Res::Ok();
 }
 
-UniValue ORACLE_DEVIATION::Export() const
-{
+UniValue ORACLE_DEVIATION::Export() const {
     return ValueFromAmount(deviation);
 }
 
-Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
-{
+Res ORACLE_DEVIATION::Validate(const CCustomCSView &view) const {
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
 
@@ -31,7 +27,6 @@ Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ORACLE_DEVIATION::Apply(CCustomCSView & mnview, uint32_t height)
-{
+Res ORACLE_DEVIATION::Apply(CCustomCSView &mnview, uint32_t height) {
     return mnview.SetPriceDeviation(deviation);
 }

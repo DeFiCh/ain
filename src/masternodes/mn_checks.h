@@ -6,10 +6,10 @@
 #define DEFI_MASTERNODES_MN_CHECKS_H
 
 #include <consensus/params.h>
-#include <masternodes/masternodes.h>
 #include <consensus/tx_check.h>
-#include <vector>
+#include <masternodes/masternodes.h>
 #include <cstring>
+#include <vector>
 
 #include <variant>
 
@@ -27,88 +27,87 @@ class CHistoryErasers;
 
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
-//    NotCustomTx  = 1,
+    //    NotCustomTx  = 1,
     NotEnoughBalance = 1024,
-    Fatal = uint32_t(1) << 31 // not allowed to fail
+    Fatal = uint32_t(1) << 31  // not allowed to fail
 };
 
-enum class CustomTxType : uint8_t
-{
+enum class CustomTxType : uint8_t {
     None = 0,
-    Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
+    Reject = 1,  // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode      = 'C',
-    ResignMasternode      = 'R',
-    UpdateMasternode      = 'm',
+    CreateMasternode = 'C',
+    ResignMasternode = 'R',
+    UpdateMasternode = 'm',
     SetForcedRewardAddress = 'F',
     RemForcedRewardAddress = 'f',
     // custom tokens:
-    CreateToken           = 'T',
-    MintToken             = 'M',
-    UpdateToken           = 'N', // previous type, only DAT flag triggers
-    UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
+    CreateToken = 'T',
+    MintToken = 'M',
+    UpdateToken = 'N',     // previous type, only DAT flag triggers
+    UpdateTokenAny = 'n',  // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
-    //poolpair
-    CreatePoolPair        = 'p',
-    UpdatePoolPair        = 'u',
-    PoolSwap              = 's',
-    PoolSwapV2            = 'i',
-    AddPoolLiquidity      = 'l',
-    RemovePoolLiquidity   = 'r',
+    //    CreateOrder         = 'O',
+    //    DestroyOrder        = 'E',
+    //    MatchOrders         = 'A',
+    // poolpair
+    CreatePoolPair = 'p',
+    UpdatePoolPair = 'u',
+    PoolSwap = 's',
+    PoolSwapV2 = 'i',
+    AddPoolLiquidity = 'l',
+    RemovePoolLiquidity = 'r',
     // accounts
-    UtxosToAccount        = 'U',
-    AccountToUtxos        = 'b',
-    AccountToAccount      = 'B',
+    UtxosToAccount = 'U',
+    AccountToUtxos = 'b',
+    AccountToAccount = 'B',
     AnyAccountsToAccounts = 'a',
-    SmartContract         = 'K',
-    FutureSwap            = 'Q',
-    //set governance variable
-    SetGovVariable        = 'G',
-    SetGovVariableHeight  = 'j',
+    SmartContract = 'K',
+    FutureSwap = 'Q',
+    // set governance variable
+    SetGovVariable = 'G',
+    SetGovVariableHeight = 'j',
     // Auto auth TX
-    AutoAuthPrep          = 'A',
+    AutoAuthPrep = 'A',
     // oracles
-    AppointOracle         = 'o',
-    RemoveOracleAppoint   = 'h',
-    UpdateOracleAppoint   = 't',
-    SetOracleData         = 'y',
+    AppointOracle = 'o',
+    RemoveOracleAppoint = 'h',
+    UpdateOracleAppoint = 't',
+    SetOracleData = 'y',
     // ICX
-    ICXCreateOrder      = '1',
-    ICXMakeOffer        = '2',
-    ICXSubmitDFCHTLC    = '3',
-    ICXSubmitEXTHTLC    = '4',
-    ICXClaimDFCHTLC     = '5',
-    ICXCloseOrder       = '6',
-    ICXCloseOffer       = '7',
+    ICXCreateOrder = '1',
+    ICXMakeOffer = '2',
+    ICXSubmitDFCHTLC = '3',
+    ICXSubmitEXTHTLC = '4',
+    ICXClaimDFCHTLC = '5',
+    ICXCloseOrder = '6',
+    ICXCloseOffer = '7',
     // Loans
     SetLoanCollateralToken = 'c',
-    SetLoanToken           = 'g',
-    UpdateLoanToken        = 'x',
-    LoanScheme             = 'L',
-    DefaultLoanScheme      = 'd',
-    DestroyLoanScheme      = 'D',
-    Vault                  = 'V',
-    CloseVault             = 'e',
-    UpdateVault            = 'v',
-    DepositToVault         = 'S',
-    WithdrawFromVault      = 'J',
-    TakeLoan               = 'X',
-    PaybackLoan            = 'H',
-    PaybackLoanV2          = 'k',
-    AuctionBid             = 'I',
+    SetLoanToken = 'g',
+    UpdateLoanToken = 'x',
+    LoanScheme = 'L',
+    DefaultLoanScheme = 'd',
+    DestroyLoanScheme = 'D',
+    Vault = 'V',
+    CloseVault = 'e',
+    UpdateVault = 'v',
+    DepositToVault = 'S',
+    WithdrawFromVault = 'J',
+    TakeLoan = 'X',
+    PaybackLoan = 'H',
+    PaybackLoanV2 = 'k',
+    AuctionBid = 'I',
     // Marker TXs
-    FutureSwapExecution    = 'q',
-    FutureSwapRefund       = 'w',
-    TokenSplit             = 'P',
+    FutureSwapExecution = 'q',
+    FutureSwapRefund = 'w',
+    TokenSplit = 'P',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     auto type = static_cast<CustomTxType>(ch);
-    switch(type) {
+    switch (type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
         case CustomTxType::SetForcedRewardAddress:
@@ -170,21 +169,21 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
 }
 
 std::string ToString(CustomTxType type);
-CustomTxType FromString(const std::string& str);
+CustomTxType FromString(const std::string &str);
 
 // it's disabled after Dakota height
 inline bool NotAllowedToFail(CustomTxType txType, int height) {
-    return (height < Params().GetConsensus().DakotaHeight
-        && (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
+    return (height < Params().GetConsensus().DakotaHeight &&
+            (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }
 
-template<typename Stream>
-inline void Serialize(Stream& s, CustomTxType txType) {
+template <typename Stream>
+inline void Serialize(Stream &s, CustomTxType txType) {
     Serialize(s, static_cast<unsigned char>(txType));
 }
 
-template<typename Stream>
-inline void Unserialize(Stream& s, CustomTxType & txType) {
+template <typename Stream>
+inline void Unserialize(Stream &s, CustomTxType &txType) {
     unsigned char ch;
     Unserialize(s, ch);
 
@@ -198,7 +197,7 @@ struct CCreateMasterNodeMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(operatorType);
         READWRITE(operatorAuthAddress);
 
@@ -214,7 +213,7 @@ struct CResignMasterNodeMessage : public uint256 {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(uint256, *this);
     }
 };
@@ -227,8 +226,7 @@ struct CSetForcedRewardAddressMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(nodeId);
         READWRITE(rewardAddressType);
         READWRITE(rewardAddress);
@@ -241,8 +239,7 @@ struct CRemForcedRewardAddressMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(nodeId);
     }
 };
@@ -254,7 +251,7 @@ struct CUpdateMasterNodeMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(mnId);
         READWRITE(operatorType);
         READWRITE(operatorAuthAddress);
@@ -266,7 +263,7 @@ struct CCreateTokenMessage : public CToken {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CToken, *this);
     }
 };
@@ -277,7 +274,7 @@ struct CUpdateTokenPreAMKMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(tokenTx);
         READWRITE(isDAT);
     }
@@ -289,7 +286,7 @@ struct CUpdateTokenMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(tokenTx);
         READWRITE(token);
     }
@@ -300,7 +297,7 @@ struct CMintTokensMessage : public CBalances {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CBalances, *this);
     }
 };
@@ -330,79 +327,112 @@ struct CGovernanceHeightMessage {
 
 struct CCustomTxMessageNone {};
 
-using CCustomTxMessage = std::variant<
-    CCustomTxMessageNone,
-    CCreateMasterNodeMessage,
-    CResignMasterNodeMessage,
-    CSetForcedRewardAddressMessage,
-    CRemForcedRewardAddressMessage,
-    CUpdateMasterNodeMessage,
-    CCreateTokenMessage,
-    CUpdateTokenPreAMKMessage,
-    CUpdateTokenMessage,
-    CMintTokensMessage,
-    CCreatePoolPairMessage,
-    CUpdatePoolPairMessage,
-    CPoolSwapMessage,
-    CPoolSwapMessageV2,
-    CLiquidityMessage,
-    CRemoveLiquidityMessage,
-    CUtxosToAccountMessage,
-    CAccountToUtxosMessage,
-    CAccountToAccountMessage,
-    CAnyAccountsToAccountsMessage,
-    CSmartContractMessage,
-    CFutureSwapMessage,
-    CGovernanceMessage,
-    CGovernanceHeightMessage,
-    CAppointOracleMessage,
-    CRemoveOracleAppointMessage,
-    CUpdateOracleAppointMessage,
-    CSetOracleDataMessage,
-    CICXCreateOrderMessage,
-    CICXMakeOfferMessage,
-    CICXSubmitDFCHTLCMessage,
-    CICXSubmitEXTHTLCMessage,
-    CICXClaimDFCHTLCMessage,
-    CICXCloseOrderMessage,
-    CICXCloseOfferMessage,
-    CLoanSetCollateralTokenMessage,
-    CLoanSetLoanTokenMessage,
-    CLoanUpdateLoanTokenMessage,
-    CLoanSchemeMessage,
-    CDefaultLoanSchemeMessage,
-    CDestroyLoanSchemeMessage,
-    CVaultMessage,
-    CCloseVaultMessage,
-    CUpdateVaultMessage,
-    CDepositToVaultMessage,
-    CWithdrawFromVaultMessage,
-    CLoanTakeLoanMessage,
-    CLoanPaybackLoanMessage,
-    CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
->;
+using CCustomTxMessage = std::variant<CCustomTxMessageNone,
+                                      CCreateMasterNodeMessage,
+                                      CResignMasterNodeMessage,
+                                      CSetForcedRewardAddressMessage,
+                                      CRemForcedRewardAddressMessage,
+                                      CUpdateMasterNodeMessage,
+                                      CCreateTokenMessage,
+                                      CUpdateTokenPreAMKMessage,
+                                      CUpdateTokenMessage,
+                                      CMintTokensMessage,
+                                      CCreatePoolPairMessage,
+                                      CUpdatePoolPairMessage,
+                                      CPoolSwapMessage,
+                                      CPoolSwapMessageV2,
+                                      CLiquidityMessage,
+                                      CRemoveLiquidityMessage,
+                                      CUtxosToAccountMessage,
+                                      CAccountToUtxosMessage,
+                                      CAccountToAccountMessage,
+                                      CAnyAccountsToAccountsMessage,
+                                      CSmartContractMessage,
+                                      CFutureSwapMessage,
+                                      CGovernanceMessage,
+                                      CGovernanceHeightMessage,
+                                      CAppointOracleMessage,
+                                      CRemoveOracleAppointMessage,
+                                      CUpdateOracleAppointMessage,
+                                      CSetOracleDataMessage,
+                                      CICXCreateOrderMessage,
+                                      CICXMakeOfferMessage,
+                                      CICXSubmitDFCHTLCMessage,
+                                      CICXSubmitEXTHTLCMessage,
+                                      CICXClaimDFCHTLCMessage,
+                                      CICXCloseOrderMessage,
+                                      CICXCloseOfferMessage,
+                                      CLoanSetCollateralTokenMessage,
+                                      CLoanSetLoanTokenMessage,
+                                      CLoanUpdateLoanTokenMessage,
+                                      CLoanSchemeMessage,
+                                      CDefaultLoanSchemeMessage,
+                                      CDestroyLoanSchemeMessage,
+                                      CVaultMessage,
+                                      CCloseVaultMessage,
+                                      CUpdateVaultMessage,
+                                      CDepositToVaultMessage,
+                                      CWithdrawFromVaultMessage,
+                                      CLoanTakeLoanMessage,
+                                      CLoanPaybackLoanMessage,
+                                      CLoanPaybackLoanV2Message,
+                                      CAuctionBidMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
-bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
-Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
-Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
-Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
-ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
-ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
-ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
-bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
-Res SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap = false);
-Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
+Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &type, UniValue &results);
+Res CustomMetadataParse(uint32_t height,
+                        const Consensus::Params &consensus,
+                        const std::vector<unsigned char> &metadata,
+                        CCustomTxMessage &txMessage);
+Res ApplyCustomTx(CCustomCSView &mnview,
+                  const CCoinsViewCache &coins,
+                  const CTransaction &tx,
+                  const Consensus::Params &consensus,
+                  uint32_t height,
+                  uint64_t time = 0,
+                  uint32_t txn = 0,
+                  CHistoryWriters *writers = nullptr);
+Res CustomTxVisit(CCustomCSView &mnview,
+                  const CCoinsViewCache &coins,
+                  const CTransaction &tx,
+                  uint32_t height,
+                  const Consensus::Params &consensus,
+                  const CCustomTxMessage &txMessage,
+                  uint64_t time,
+                  uint32_t txn = 0);
+ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
+                                    const CTransaction &tx,
+                                    int height,
+                                    const uint256 &prevStakeModifier,
+                                    const std::vector<unsigned char> &metadata,
+                                    const Consensus::Params &consensusParams);
+ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
+                                        const CTransaction &tx,
+                                        int height,
+                                        const std::vector<unsigned char> &metadata,
+                                        const Consensus::Params &consensusParams);
+ResVal<CAmount> GetAggregatePrice(CCustomCSView &view,
+                                  const std::string &token,
+                                  const std::string &currency,
+                                  uint64_t lastBlockTime);
+bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t height);
+Res SwapToDFIorDUSD(CCustomCSView &mnview,
+                    DCT_ID tokenId,
+                    CAmount amount,
+                    CScript const &from,
+                    CScript const &to,
+                    uint32_t height,
+                    bool forceLoanSwap = false);
+Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
-inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& priceFeed) {
+inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
     // Allow hard coded DUSD/USD
     if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
         return true;
     }
     bool found = false;
-    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+    view.ForEachOracle([&](const COracleId &, COracle oracle) {
         return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
     });
     return found;
@@ -410,8 +440,10 @@ inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& price
 
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
-*/
-inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false){
+ */
+inline CustomTxType GuessCustomTxType(CTransaction const &tx,
+                                      std::vector<unsigned char> &metadata,
+                                      bool metadataValidation = false) {
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
@@ -446,14 +478,12 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     return txType;
 }
 
-inline bool IsMintTokenTx(const CTransaction& tx)
-{
+inline bool IsMintTokenTx(const CTransaction &tx) {
     std::vector<unsigned char> metadata;
     return GuessCustomTxType(tx, metadata) == CustomTxType::MintToken;
 }
 
-inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
-{
+inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction &tx) {
     std::vector<unsigned char> metadata;
     if (GuessCustomTxType(tx, metadata) == CustomTxType::AccountToUtxos) {
         return metadata;
@@ -461,8 +491,7 @@ inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const
     return {};
 }
 
-inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
-{
+inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction &tx) {
     const auto metadata = GetAccountToUtxosMetadata(tx);
     if (metadata) {
         CAccountToUtxosMessage msg;
@@ -477,8 +506,7 @@ inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransac
     return {};
 }
 
-inline TAmounts GetNonMintedValuesOut(const CTransaction & tx)
-{
+inline TAmounts GetNonMintedValuesOut(const CTransaction &tx) {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
     const auto accountToUtxos = GetAccountToUtxosMsg(tx);
     if (accountToUtxos) {
@@ -487,8 +515,7 @@ inline TAmounts GetNonMintedValuesOut(const CTransaction & tx)
     return tx.GetValuesOut(mintingOutputsStart);
 }
 
-inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID)
-{
+inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
     const auto accountToUtxos = GetAccountToUtxosMsg(tx);
     if (accountToUtxos) {
@@ -498,21 +525,20 @@ inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID)
 }
 
 class CPoolSwap {
-    const CPoolSwapMessage& obj;
+    const CPoolSwapMessage &obj;
     uint32_t height;
     CAmount result{0};
     DCT_ID currentID;
 
-public:
+   public:
     std::vector<std::pair<std::string, std::string>> errors;
 
-    CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
-    : obj(obj), height(height) {}
+    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height) : obj(obj), height(height) {}
 
-    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view, bool testOnly = false);
-    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
-    std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView& view);
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, bool testOnly = false);
+    Res ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, bool testOnly = false);
+    std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView &view);
     CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
-#endif // DEFI_MASTERNODES_MN_CHECKS_H
+#endif  // DEFI_MASTERNODES_MN_CHECKS_H

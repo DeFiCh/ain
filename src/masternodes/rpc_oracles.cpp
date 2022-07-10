@@ -6,116 +6,135 @@
 
 #include <masternodes/govvariables/attributes.h>
 
-extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
-extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
+extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue &value);
+extern CTokenCurrencyPair DecodePriceFeedString(const std::string &value);
 /// names of oracle json fields
 namespace oraclefields {
-    constexpr auto Alive = "live";
-    constexpr auto Token = "token";
-    constexpr auto State = "state";
-    constexpr auto Amount = "amount";
-    constexpr auto Expired = "expired";
-    constexpr auto Currency = "currency";
-    constexpr auto OracleId = "oracleid";
-    constexpr auto RawPrice = "rawprice";
-    constexpr auto Timestamp = "timestamp";
-    constexpr auto Weightage = "weightage";
-    constexpr auto AggregatedPrice = "price";
-    constexpr auto TokenAmount = "tokenAmount";
-    constexpr auto ValidityFlag = "ok";
-    constexpr auto FlagIsValid = true;
-    constexpr auto PriceFeeds = "priceFeeds";
-    constexpr auto OracleAddress = "address";
-    constexpr auto TokenPrices = "tokenPrices";
-    constexpr auto MaxWeightage = 255;
-    constexpr auto MinWeightage = 0;
-}; // namespace oraclefields
+constexpr auto Alive = "live";
+constexpr auto Token = "token";
+constexpr auto State = "state";
+constexpr auto Amount = "amount";
+constexpr auto Expired = "expired";
+constexpr auto Currency = "currency";
+constexpr auto OracleId = "oracleid";
+constexpr auto RawPrice = "rawprice";
+constexpr auto Timestamp = "timestamp";
+constexpr auto Weightage = "weightage";
+constexpr auto AggregatedPrice = "price";
+constexpr auto TokenAmount = "tokenAmount";
+constexpr auto ValidityFlag = "ok";
+constexpr auto FlagIsValid = true;
+constexpr auto PriceFeeds = "priceFeeds";
+constexpr auto OracleAddress = "address";
+constexpr auto TokenPrices = "tokenPrices";
+constexpr auto MaxWeightage = 255;
+constexpr auto MinWeightage = 0;
+};  // namespace oraclefields
 
 namespace {
-    CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue& value) {
-        if (!value.exists(oraclefields::Currency)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
-        }
-        if (!value.exists(oraclefields::Token)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
-        }
-
-        auto token = value[oraclefields::Token].getValStr();
-        auto currency = value[oraclefields::Currency].getValStr();
-
-        token = trim_ws(token).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-
-        if (token.empty() || currency.empty()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s/%s is empty", oraclefields::Token, oraclefields::Currency).msg);
-        }
-
-        return std::make_pair(token, currency);
+CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue &value) {
+    if (!value.exists(oraclefields::Currency)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+    }
+    if (!value.exists(oraclefields::Token)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
     }
 
-    std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const UniValue& values) {
+    auto token = value[oraclefields::Token].getValStr();
+    auto currency = value[oraclefields::Currency].getValStr();
 
-        if (!values.isArray()) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
-        }
+    token = trim_ws(token).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-        std::set<CTokenCurrencyPair> pairs;
-
-        for (const auto &value : values.get_array().getValues()) {
-            pairs.insert(DecodeTokenCurrencyPair(value));
-        }
-
-        return pairs;
+    if (token.empty() || currency.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           Res::Err("%s/%s is empty", oraclefields::Token, oraclefields::Currency).msg);
     }
+
+    return std::make_pair(token, currency);
 }
+
+std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const UniValue &values) {
+    if (!values.isArray()) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
+    }
+
+    std::set<CTokenCurrencyPair> pairs;
+
+    for (const auto &value : values.get_array().getValues()) {
+        pairs.insert(DecodeTokenCurrencyPair(value));
+    }
+
+    return pairs;
+}
+}  // namespace
 
 UniValue appointoracle(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"appointoracle",
-               "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
-               "and saves oracle to database.\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"pricefeeds", RPCArg::Type::ARR, RPCArg::Optional::NO, "list of allowed token-currency pairs",
+    RPCHelpMan{
+        "appointoracle",
+        "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
+        "and saves oracle to database.\n"
+        "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {
+                "address",
+                RPCArg::Type::STR,
+                RPCArg::Optional::NO,
+                "oracle address",
+            },
+            {
+                "pricefeeds",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::NO,
+                "list of allowed token-currency pairs",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
-                                         {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
-                                 },
-                                },
+                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
                         },
-                       },
-                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                    },
+                },
+            },
+            {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli(
-                               "appointoracle",
-                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"}]' 20)")
-                       + HelpExampleRpc(
-                               "appointoracle",
-                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"}]' 20)")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{
+            HelpExampleCli(
+                "appointoracle",
+                R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"}]' 20)") +
+            HelpExampleRpc(
+                "appointoracle",
+                R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"}]' 20)")},
+    }
+        .Check(request);
 
-    RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -139,8 +158,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)};
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
@@ -173,55 +191,74 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue updateoracle(const JSONRPCRequest& request) {
+UniValue updateoracle(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"updateoracle",
-               "\nCreates (and submits to local node and network) a `update oracle transaction`, \n"
-               "and saves oracle updates to database.\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
-                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"pricefeeds", RPCArg::Type::ARR, RPCArg::Optional::NO, "list of allowed token-currency pairs",
+    RPCHelpMan{
+        "updateoracle",
+        "\nCreates (and submits to local node and network) a `update oracle transaction`, \n"
+        "and saves oracle updates to database.\n"
+        "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
+            {
+                "address",
+                RPCArg::Type::STR,
+                RPCArg::Optional::NO,
+                "oracle address",
+            },
+            {
+                "pricefeeds",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::NO,
+                "list of allowed token-currency pairs",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
-                                         {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
-                                 },
-                                },
+                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
                         },
-                       },
-                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                    },
+                },
+            },
+            {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli(
-                               "updateoracle",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"]}' 20)")
-                       + HelpExampleRpc(
-                               "updateoracle",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"]}' 20)")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{
+            HelpExampleCli(
+                "updateoracle",
+                R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"]}' 20)") +
+            HelpExampleRpc(
+                "updateoracle",
+                R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC"}, {"currency": "EUR", "token":"ETH"]}' 20)")},
+    }
+        .Check(request);
 
-    RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR},
-                 false);
+    RPCTypeCheck(
+        request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -248,14 +285,11 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     CUpdateOracleAppointMessage msg{
-            oracleId,
-            CAppointOracleMessage{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)}
-    };
+        oracleId, CAppointOracleMessage{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)}};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::UpdateOracleAppoint)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::UpdateOracleAppoint) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
@@ -269,7 +303,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
 
-    CCoinControl coinControl;//    std::string oracles;
+    CCoinControl coinControl;  //    std::string oracles;
 
     // Set change to auth address if there's only one auth address
     if (auths.size() == 1) {
@@ -288,34 +322,40 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue removeoracle(const JSONRPCRequest& request) {
+UniValue removeoracle(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"removeoracle",
-               "\nRemoves oracle, \n"
-               "The only argument is oracleid hex value." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+    RPCHelpMan{
+        "removeoracle",
+        "\nRemoves oracle, \n"
+        "The only argument is oracleid hex value." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("removeoracle", "0xabcd1234ac1243578697085986498694")
-                       + HelpExampleRpc("removeoracle", "0xabcd1234ac1243578697085986498694")
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("removeoracle", "0xabcd1234ac1243578697085986498694") +
+                    HelpExampleRpc("removeoracle", "0xabcd1234ac1243578697085986498694")},
+    }
+        .Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, false);
 
@@ -334,8 +374,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::RemoveOracleAppoint)
-                   << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::RemoveOracleAppoint) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
@@ -372,58 +411,74 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 UniValue setoracledata(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"setoracledata",
-               "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
-                       {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
-                       {"prices", RPCArg::Type::ARR, RPCArg::Optional::NO,
-                        "tokens raw prices:the array of price and token strings in price@token format. ",
+    RPCHelpMan{
+        "setoracledata",
+        "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
+        "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {
+                "oracleid",
+                RPCArg::Type::STR_HEX,
+                RPCArg::Optional::NO,
+                "oracle hex id",
+            },
+            {
+                "timestamp",
+                RPCArg::Type::NUM,
+                RPCArg::Optional::NO,
+                "balances timestamp",
+            },
+            {
+                "prices",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::NO,
+                "tokens raw prices:the array of price and token strings in price@token format. ",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
-                                    {"tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount@token"},
-                                },
-                            },
+                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                            {"tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount@token"},
                         },
-                       },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
+                    },
+                },
+            },
+            {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
-                       },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli(
-                               "setoracledata",
-                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
-                               R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC"}"
-                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')"
-                       )
-                       + HelpExampleRpc(
-                               "setoracledata",
-                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
-                               R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC"}"
-                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')"
-                       )
-               },
-    }.Check(request);
+                    },
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("setoracledata",
+                                   "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
+                                   R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC"}"
+                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')") +
+                    HelpExampleRpc("setoracledata",
+                                   "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
+                                   R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC"}"
+                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')")},
+    }
+        .Check(request);
 
-    RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VNUM, UniValue::VARR, UniValue::VARR},
-                 false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValue::VARR, UniValue::VARR}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -438,7 +493,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     int64_t timestamp = request.params[1].get_int64();
 
     // decode prices
-    auto const & prices = request.params[2];
+    auto const &prices = request.params[2];
 
     CMutableTransaction rawTx{};
     CTransactionRef optAuthTx;
@@ -489,14 +544,14 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // timestamp is checked at consensus level
     if (targetHeight < Params().GetConsensus().FortCanningHeight) {
         if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                               "timestamp cannot be negative, zero or over 5 minutes in the future");
         }
     }
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
-                    << msg;
+    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
@@ -535,7 +590,7 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
-std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview) {
     auto fixedBlocks = mnview.GetIntervalBlock();
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
@@ -543,74 +598,75 @@ std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustom
 }
 
 namespace {
-    UniValue PriceFeedToJSON(const CTokenCurrencyPair& priceFeed) {
-        UniValue pair(UniValue::VOBJ);
-        pair.pushKV(oraclefields::Token, priceFeed.first);
-        pair.pushKV(oraclefields::Currency, priceFeed.second);
-        return pair;
-    }
-
-    UniValue OracleToJSON(const COracleId& oracleId, const COracle& oracle) {
-        UniValue result{UniValue::VOBJ};
-        result.pushKV(oraclefields::Weightage, oracle.weightage);
-        result.pushKV(oraclefields::OracleId, oracleId.GetHex());
-        result.pushKV(oraclefields::OracleAddress, oracle.oracleAddress.GetHex());
-
-        UniValue priceFeeds{UniValue::VARR};
-        for (const auto& feed : oracle.availablePairs) {
-            priceFeeds.push_back(PriceFeedToJSON(feed));
-        }
-
-        result.pushKV(oraclefields::PriceFeeds, priceFeeds);
-
-        UniValue tokenPrices{UniValue::VARR};
-        for (const auto& tokenPrice: oracle.tokenPrices) {
-            for (const auto& price: tokenPrice.second) {
-                const auto& currency = price.first;
-                const auto& pricePair = price.second;
-                auto amount = pricePair.first;
-                auto timestamp = pricePair.second;
-
-                UniValue item(UniValue::VOBJ);
-                item.pushKV(oraclefields::Token, tokenPrice.first);
-                item.pushKV(oraclefields::Currency, currency);
-                item.pushKV(oraclefields::Amount, ValueFromAmount(amount));
-                item.pushKV(oraclefields::Timestamp, timestamp);
-                tokenPrices.push_back(item);
-            }
-        }
-
-        result.pushKV(oraclefields::TokenPrices, tokenPrices);
-        return result;
-    }
+UniValue PriceFeedToJSON(const CTokenCurrencyPair &priceFeed) {
+    UniValue pair(UniValue::VOBJ);
+    pair.pushKV(oraclefields::Token, priceFeed.first);
+    pair.pushKV(oraclefields::Currency, priceFeed.second);
+    return pair;
 }
 
-UniValue getoracledata(const JSONRPCRequest &request) {
+UniValue OracleToJSON(const COracleId &oracleId, const COracle &oracle) {
+    UniValue result{UniValue::VOBJ};
+    result.pushKV(oraclefields::Weightage, oracle.weightage);
+    result.pushKV(oraclefields::OracleId, oracleId.GetHex());
+    result.pushKV(oraclefields::OracleAddress, oracle.oracleAddress.GetHex());
 
-    RPCHelpMan{"getoracledata",
-               "\nReturns oracle data in json form.\n",
-               {
-                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
-               },
-               RPCResult{
-                       "\"json\"                  (string) oracle data in json form\n"
-               },
-               RPCExamples{
-                       HelpExampleCli(
-                               "getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
-                       + HelpExampleRpc(
-                               "getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf"
-                       )
-               },
-    }.Check(request);
+    UniValue priceFeeds{UniValue::VARR};
+    for (const auto &feed : oracle.availablePairs) {
+        priceFeeds.push_back(PriceFeedToJSON(feed));
+    }
+
+    result.pushKV(oraclefields::PriceFeeds, priceFeeds);
+
+    UniValue tokenPrices{UniValue::VARR};
+    for (const auto &tokenPrice : oracle.tokenPrices) {
+        for (const auto &price : tokenPrice.second) {
+            const auto &currency = price.first;
+            const auto &pricePair = price.second;
+            auto amount = pricePair.first;
+            auto timestamp = pricePair.second;
+
+            UniValue item(UniValue::VOBJ);
+            item.pushKV(oraclefields::Token, tokenPrice.first);
+            item.pushKV(oraclefields::Currency, currency);
+            item.pushKV(oraclefields::Amount, ValueFromAmount(amount));
+            item.pushKV(oraclefields::Timestamp, timestamp);
+            tokenPrices.push_back(item);
+        }
+    }
+
+    result.pushKV(oraclefields::TokenPrices, tokenPrices);
+    return result;
+}
+}  // namespace
+
+UniValue getoracledata(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getoracledata",
+        "\nReturns oracle data in json form.\n",
+        {
+            {
+                "oracleid",
+                RPCArg::Type::STR_HEX,
+                RPCArg::Optional::NO,
+                "oracle hex id",
+            },
+        },
+        RPCResult{"\"json\"                  (string) oracle data in json form\n"},
+        RPCExamples{
+            HelpExampleCli("getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
+            HelpExampleRpc("getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")},
+    }
+        .Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+    CCustomCSView mnview(*pcustomcsview);  // don't write into actual DB
 
     auto oracleRes = mnview.GetOracleData(oracleId);
     if (!oracleRes.ok) {
@@ -622,59 +678,64 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 }
 
 UniValue listoracles(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listoracles",
+        "\nReturns list of oracle ids.\n",
+        {
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR_HEX,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order. "
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            },
+        },
+        RPCResult{"\"hash\"                  (string) list of known oracle ids\n"},
+        RPCExamples{HelpExampleCli("listoracles", "") +
+                    HelpExampleCli("listoracles",
+                                   "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                   "\"including_start\": true, "
+                                   "\"limit\":100}'") +
+                    HelpExampleRpc("listoracles", "'{}'") +
+                    HelpExampleRpc("listoracles",
+                                   "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                   "\"including_start\": true, "
+                                   "\"limit\":100}'")},
+    }
+        .Check(request);
 
-    RPCHelpMan{"listoracles",
-               "\nReturns list of oracle ids.\n",
-               {
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
-                                "Optional first key to iterate from, in lexicographical order. "
-                                "Typically it's set to last ID from previous request."
-                            },
-                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                "If true, then iterate including starting position. False by default"
-                            },
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                "Maximum number of orders to return, 100 by default"
-                            },
-                        },
-                    },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) list of known oracle ids\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listoracles", "")
-                       + HelpExampleCli("listoracles",
-                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
-                                        "\"including_start\": true, "
-                                        "\"limit\":100}'")
-                       + HelpExampleRpc("listoracles", "'{}'")
-                       + HelpExampleRpc("listoracles",
-                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
-                                        "\"including_start\": true, "
-                                        "\"limit\":100}'")
-               },
-    }.Check(request);
-
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     // parse pagination
     COracleId start = {};
     bool including_start = true;
     size_t limit = 100;
     {
-        if (request.params.size() > 0){
+        if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
-            if (!paginationObj["start"].isNull()){
+            if (!paginationObj["start"].isNull()) {
                 start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!paginationObj["limit"].isNull()){
-                limit = (size_t) paginationObj["limit"].get_int64();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
         }
         if (limit == 0) {
@@ -686,64 +747,75 @@ UniValue listoracles(const JSONRPCRequest &request) {
 
     UniValue res(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
-    view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
-        if (!including_start)
-        {
-            including_start = true;
-            return (true);
-        }
-        res.push_back(id.GetHex());
-        limit--;
-        return limit != 0;
-    }, start);
+    view.ForEachOracle(
+        [&](const COracleId &id, CLazySerialize<COracle>) {
+            if (!including_start) {
+                including_start = true;
+                return (true);
+            }
+            res.push_back(id.GetHex());
+            limit--;
+            return limit != 0;
+        },
+        start);
 
     return GetRPCResultCache().Set(request, res);
 }
 
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
-
-    RPCHelpMan{"listlatestrawprices",
-               "\nReturns latest raw price updates through all the oracles for specified token and currency , \n",
+    RPCHelpMan{
+        "listlatestrawprices",
+        "\nReturns latest raw price updates through all the oracles for specified token and currency , \n",
+        {
+            {
+                "request",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "request in json-form, containing currency and token names",
                 {
-                   {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
-                        "request in json-form, containing currency and token names",
-                        {
-                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
-                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
-                        },
-                   },
-                   {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
-                                "Optional first key to iterate from, in lexicographical order. "
-                                "Typically it's set to last ID from previous request."
-                            },
-                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                "If true, then iterate including starting position. False by default"
-                            },
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                "Maximum number of orders to return, 100 by default"
-                            },
-                        },
-                    },
+                    {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
                 },
-               RPCResult{
-                       "\"json\"                  (string) Array of json objects containing full information about token prices\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listlatestrawprices",
-                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
-                       + HelpExampleCli("listlatestrawprices",
-                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
-                       + HelpExampleRpc("listlatestrawprices",
-                                        R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
-                       + HelpExampleRpc("listlatestrawprices",
-                                        R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
-               },
-    }.Check(request);
+            },
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR_HEX,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order. "
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            },
+        },
+        RPCResult{"\"json\"                  (string) Array of json objects containing full information about token "
+                  "prices\n"},
+        RPCExamples{
+            HelpExampleCli("listlatestrawprices", R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')") +
+            HelpExampleCli(
+                "listlatestrawprices",
+                R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')") +
+            HelpExampleRpc("listlatestrawprices", R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')") +
+            HelpExampleRpc(
+                "listlatestrawprices",
+                R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")},
+    }
+        .Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     std::optional<CTokenCurrencyPair> tokenPair;
 
@@ -752,16 +824,16 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     bool including_start = true;
     size_t limit = 100;
     {
-        if (request.params.size() > 1){
+        if (request.params.size() > 1) {
             UniValue paginationObj = request.params[1].get_obj();
-            if (!paginationObj["start"].isNull()){
+            if (!paginationObj["start"].isNull()) {
                 start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!paginationObj["limit"].isNull()){
-                limit = (size_t) paginationObj["limit"].get_int64();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
         }
         if (limit == 0) {
@@ -778,67 +850,71 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
 
     UniValue result(UniValue::VARR);
-    mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
-        if (!including_start)
-        {
-            including_start = true;
-            return (true);
-        }
-        if (tokenPair && !oracle.SupportsPair(tokenPair->first, tokenPair->second)) {
-            return true;
-        }
-        for (const auto& tokenPrice: oracle.tokenPrices) {
-            const auto& token = tokenPrice.first;
-            if (tokenPair && tokenPair->first != token) {
-                continue;
+    mnview.ForEachOracle(
+        [&](const COracleId &oracleId, COracle oracle) {
+            if (!including_start) {
+                including_start = true;
+                return (true);
             }
-            for (const auto& price: tokenPrice.second) {
-                const auto& currency = price.first;
-                if (tokenPair && tokenPair->second != currency) {
+            if (tokenPair && !oracle.SupportsPair(tokenPair->first, tokenPair->second)) {
+                return true;
+            }
+            for (const auto &tokenPrice : oracle.tokenPrices) {
+                const auto &token = tokenPrice.first;
+                if (tokenPair && tokenPair->first != token) {
                     continue;
                 }
-                const auto& pricePair = price.second;
-                auto amount = pricePair.first;
-                auto timestamp = pricePair.second;
+                for (const auto &price : tokenPrice.second) {
+                    const auto &currency = price.first;
+                    if (tokenPair && tokenPair->second != currency) {
+                        continue;
+                    }
+                    const auto &pricePair = price.second;
+                    auto amount = pricePair.first;
+                    auto timestamp = pricePair.second;
 
-                UniValue value{UniValue::VOBJ};
-                auto tokenCurrency = std::make_pair(token, currency);
-                value.pushKV(oraclefields::PriceFeeds, PriceFeedToJSON(tokenCurrency));
-                value.pushKV(oraclefields::OracleId, oracleId.GetHex());
-                value.pushKV(oraclefields::Weightage, oracle.weightage);
-                value.pushKV(oraclefields::Timestamp, timestamp);
-                value.pushKV(oraclefields::RawPrice, ValueFromAmount(amount));
-                auto state = diffInHour(timestamp, lastBlockTime) ? oraclefields::Alive : oraclefields::Expired;
-                value.pushKV(oraclefields::State, state);
-                result.push_back(value);
-                limit--;
+                    UniValue value{UniValue::VOBJ};
+                    auto tokenCurrency = std::make_pair(token, currency);
+                    value.pushKV(oraclefields::PriceFeeds, PriceFeedToJSON(tokenCurrency));
+                    value.pushKV(oraclefields::OracleId, oracleId.GetHex());
+                    value.pushKV(oraclefields::Weightage, oracle.weightage);
+                    value.pushKV(oraclefields::Timestamp, timestamp);
+                    value.pushKV(oraclefields::RawPrice, ValueFromAmount(amount));
+                    auto state = diffInHour(timestamp, lastBlockTime) ? oraclefields::Alive : oraclefields::Expired;
+                    value.pushKV(oraclefields::State, state);
+                    result.push_back(value);
+                    limit--;
+                }
             }
-        }
-        return limit != 0;
-    }, start);
+            return limit != 0;
+        },
+        start);
     return GetRPCResultCache().Set(request, result);
 }
 
-ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
+ResVal<CAmount> GetAggregatePrice(CCustomCSView &view,
+                                  const std::string &token,
+                                  const std::string &currency,
+                                  uint64_t lastBlockTime) {
     // DUSD-USD always returns 1.00000000
     if (token == "DUSD" && currency == "USD") {
         return ResVal<CAmount>(COIN, Res::Ok());
     }
     arith_uint256 weightedSum = 0;
     uint64_t numLiveOracles = 0, sumWeights = 0;
-    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+    view.ForEachOracle([&](const COracleId &, COracle oracle) {
         if (!oracle.SupportsPair(token, currency)) {
             return true;
         }
-        for (const auto& tokenPrice : oracle.tokenPrices) {
+        for (const auto &tokenPrice : oracle.tokenPrices) {
             if (token != tokenPrice.first) {
                 continue;
             }
-            for (const auto& price : tokenPrice.second) {
+            for (const auto &price : tokenPrice.second) {
                 if (currency != price.first) {
                     continue;
                 }
-                const auto& pricePair = price.second;
+                const auto &pricePair = price.second;
                 auto amount = pricePair.first;
                 auto timestamp = pricePair.second;
                 if (!diffInHour(timestamp, lastBlockTime)) {
@@ -869,89 +945,90 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
 
 namespace {
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
-
-        size_t limit = 100;
-        uint32_t start = 0;
-        bool including_start = true;
-        if (!paginationObj.empty()){
-            if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
-            }
-            if (!paginationObj["start"].isNull()) {
-                including_start = false;
-                start = paginationObj["start"].get_int();
-            }
-            if (!paginationObj["including_start"].isNull()) {
-                including_start = paginationObj["including_start"].getBool();
-            }
+UniValue GetAllAggregatePrices(CCustomCSView &view, uint64_t lastBlockTime, const UniValue &paginationObj) {
+    size_t limit = 100;
+    uint32_t start = 0;
+    bool including_start = true;
+    if (!paginationObj.empty()) {
+        if (!paginationObj["limit"].isNull()) {
+            limit = (size_t)paginationObj["limit"].get_int64();
         }
-        if (limit == 0) {
-            limit = std::numeric_limits<decltype(limit)>::max();
+        if (!paginationObj["start"].isNull()) {
+            including_start = false;
+            start = paginationObj["start"].get_int();
         }
-
-        UniValue result(UniValue::VARR);
-        std::set<CTokenCurrencyPair> setTokenCurrency;
-        view.ForEachOracle([&](const COracleId&, COracle oracle) {
-            const auto& pairs = oracle.availablePairs;
-            if(start > pairs.size()-1)
-                return true;
-            const auto& startingPairIt = std::next(pairs.begin(), start);
-            if(!including_start){
-                setTokenCurrency.insert(std::next(pairs.begin(), start+1), pairs.end());
-                return true;
-            }
-            setTokenCurrency.insert(startingPairIt, pairs.end());
-            return true;
-        });
-        for (const auto& tokenCurrency : setTokenCurrency) {
-            UniValue item{UniValue::VOBJ};
-            const auto& token = tokenCurrency.first;
-            const auto& currency = tokenCurrency.second;
-            item.pushKV(oraclefields::Token, token);
-            item.pushKV(oraclefields::Currency, currency);
-            auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
-            if (aggregatePrice) {
-                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
-                item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
-            } else {
-                item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
-            }
-            result.push_back(item);
-            limit--;
-            if (limit == 0)
-                break;
+        if (!paginationObj["including_start"].isNull()) {
+            including_start = paginationObj["including_start"].getBool();
         }
-        return result;
     }
-} // namespace
+    if (limit == 0) {
+        limit = std::numeric_limits<decltype(limit)>::max();
+    }
+
+    UniValue result(UniValue::VARR);
+    std::set<CTokenCurrencyPair> setTokenCurrency;
+    view.ForEachOracle([&](const COracleId &, COracle oracle) {
+        const auto &pairs = oracle.availablePairs;
+        if (start > pairs.size() - 1)
+            return true;
+        const auto &startingPairIt = std::next(pairs.begin(), start);
+        if (!including_start) {
+            setTokenCurrency.insert(std::next(pairs.begin(), start + 1), pairs.end());
+            return true;
+        }
+        setTokenCurrency.insert(startingPairIt, pairs.end());
+        return true;
+    });
+    for (const auto &tokenCurrency : setTokenCurrency) {
+        UniValue item{UniValue::VOBJ};
+        const auto &token = tokenCurrency.first;
+        const auto &currency = tokenCurrency.second;
+        item.pushKV(oraclefields::Token, token);
+        item.pushKV(oraclefields::Currency, currency);
+        auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
+        if (aggregatePrice) {
+            item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
+            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
+        } else {
+            item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
+        }
+        result.push_back(item);
+        limit--;
+        if (limit == 0)
+            break;
+    }
+    return result;
+}
+}  // namespace
 
 UniValue getprice(const JSONRPCRequest &request) {
-
-    RPCHelpMan{"getprice",
-               "\nCalculates aggregated price, \n"
-               "The only argument is a json-form request containing token and currency names.\n",
-               {
-                       {"request", RPCArg::Type::OBJ, RPCArg::Optional::NO,
-                        "request in json-form, containing currency and token names, both are mandatory",
-                        {
-                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
-                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
-                        },
-                       },
-               },
-               RPCResult{
-                       "\"string\"                  (string) aggregated price if\n"
-                       "                        if no live oracles which meet specified request or their weights are zero, throws error\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getprice", R"(getprice '{"currency": "USD", "token": "BTC"}')")
-                       + HelpExampleRpc("getprice", R"(getprice '{"currency": "USD", "token": "BTC"}')")
-               },
-    }.Check(request);
+    RPCHelpMan{
+        "getprice",
+        "\nCalculates aggregated price, \n"
+        "The only argument is a json-form request containing token and currency names.\n",
+        {
+            {
+                "request",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::NO,
+                "request in json-form, containing currency and token names, both are mandatory",
+                {
+                    {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
+                },
+            },
+        },
+        RPCResult{"\"string\"                  (string) aggregated price if\n"
+                  "                        if no live oracles which meet specified request or their weights are zero, "
+                  "throws error\n"},
+        RPCExamples{HelpExampleCli("getprice", R"(getprice '{"currency": "USD", "token": "BTC"}')") +
+                    HelpExampleRpc("getprice", R"(getprice '{"currency": "USD", "token": "BTC"}')")},
+    }
+        .Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
@@ -965,51 +1042,58 @@ UniValue getprice(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, res);
 }
 
-UniValue listprices(const JSONRPCRequest& request) {
-
-    RPCHelpMan{"listprices",
-               "\nCalculates aggregated prices for all supported pairs (token, currency), \n",
-               {
-                   {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                "Optional first key to iterate from, in lexicographical order."
-                                "Typically it's set to last ID from previous request."},
-                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                "If true, then iterate including starting position. False by default"
-                            },
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                "Maximum number of orders to return, 100 by default"
-                            },
-                        },
-                    },
-               },
-               RPCResult{
-                       "\"json\"                  (string) array containing json-objects having following fields:\n"
-                       "                  `token` - token name,\n"
-                       "                  `currency` - currency name,\n"
-                       "                  `price` - aggregated price value,\n"
-                       "                  `ok` - `true` if price is valid, otherwise it is populated with the reason description.\n"
-                       "                   Possible reasons for a price result to be invalid:"
-                       "                   1. if there are no live oracles which meet specified request.\n"
-                       "                   2. Sum of the weight of live oracles is zero.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listprices", "")
-                       + HelpExampleCli("listprices",
-                                        "'{\"start\": 2, "
-                                        "\"including_start\": true, "
-                                        "\"limit\":100}'")
-                       + HelpExampleRpc("listprices", "'{}'")
-                       + HelpExampleRpc("listprices",
-                                        "'{\"start\": 2, "
-                                        "\"including_start\": true, "
-                                        "\"limit\":100}'")
-               },
-    }.Check(request);
+UniValue listprices(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listprices",
+        "\nCalculates aggregated prices for all supported pairs (token, currency), \n",
+        {
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            },
+        },
+        RPCResult{"\"json\"                  (string) array containing json-objects having following fields:\n"
+                  "                  `token` - token name,\n"
+                  "                  `currency` - currency name,\n"
+                  "                  `price` - aggregated price value,\n"
+                  "                  `ok` - `true` if price is valid, otherwise it is populated with the reason "
+                  "description.\n"
+                  "                   Possible reasons for a price result to be invalid:"
+                  "                   1. if there are no live oracles which meet specified request.\n"
+                  "                   2. Sum of the weight of live oracles is zero.\n"},
+        RPCExamples{HelpExampleCli("listprices", "") +
+                    HelpExampleCli("listprices",
+                                   "'{\"start\": 2, "
+                                   "\"including_start\": true, "
+                                   "\"limit\":100}'") +
+                    HelpExampleRpc("listprices", "'{}'") +
+                    HelpExampleRpc("listprices",
+                                   "'{\"start\": 2, "
+                                   "\"including_start\": true, "
+                                   "\"limit\":100}'")},
+    }
+        .Check(request);
 
     RPCTypeCheck(request.params, {}, false);
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     // parse pagination
     UniValue paginationObj(UniValue::VOBJ);
@@ -1024,30 +1108,32 @@ UniValue listprices(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, res);
 }
 
-UniValue getfixedintervalprice(const JSONRPCRequest& request) {
-    RPCHelpMan{"getfixedintervalprice",
-                "Get fixed interval price for a given pair.\n",
-                {
-                    {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
-                },
-                RPCResult{
-                       "\"json\"          (string) json-object having following fields:\n"
-                       "                  `activePrice` - current price used for loan calculations\n"
-                       "                  `nextPrice` - next price to be assigned to pair.\n"
-                       "                  `nextPriceBlock` - height of nextPrice.\n"
-                       "                  `activePriceBlock` - height of activePrice.\n"
-                       "                  `timestamp` - timestamp of active price.\n"
-                       "                  `isLive` - price liveness, within parameters"
-                       "                   Possible reasons for a price result to not be live:"
-                       "                   1. Not sufficient live oracles.\n"
-                       "                   2. Deviation is over the limit to be considered stable.\n"
-                },
-                RPCExamples{
-                        HelpExampleCli("getfixedintervalprice", "TSLA/USD")
-                },
-    }.Check(request);
+UniValue getfixedintervalprice(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getfixedintervalprice",
+        "Get fixed interval price for a given pair.\n",
+        {
+            {"fixedIntervalPriceId",
+             RPCArg::Type::STR_HEX,
+             RPCArg::Optional::NO,
+             "token/currency pair to use for price of token"},
+        },
+        RPCResult{"\"json\"          (string) json-object having following fields:\n"
+                  "                  `activePrice` - current price used for loan calculations\n"
+                  "                  `nextPrice` - next price to be assigned to pair.\n"
+                  "                  `nextPriceBlock` - height of nextPrice.\n"
+                  "                  `activePriceBlock` - height of activePrice.\n"
+                  "                  `timestamp` - timestamp of active price.\n"
+                  "                  `isLive` - price liveness, within parameters"
+                  "                   Possible reasons for a price result to not be live:"
+                  "                   1. Not sufficient live oracles.\n"
+                  "                   2. Deviation is over the limit to be considered stable.\n"},
+        RPCExamples{HelpExampleCli("getfixedintervalprice", "TSLA/USD")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     auto fixedIntervalStr = request.params[0].getValStr();
     UniValue objPrice{UniValue::VOBJ};
@@ -1055,9 +1141,9 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     auto pairId = DecodePriceFeedUni(objPrice);
 
     LOCK(cs_main);
-    LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
+    LogPrint(BCLog::ORACLE, "%s()->", __func__); /* Continued */
     auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
-    if(!fixedPrice)
+    if (!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
@@ -1071,36 +1157,43 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, objPrice);
 }
 
-UniValue listfixedintervalprices(const JSONRPCRequest& request) {
-    RPCHelpMan{"listfixedintervalprices",
-                "Get all fixed interval prices.\n",
+UniValue listfixedintervalprices(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listfixedintervalprices",
+        "Get all fixed interval prices.\n",
+        {
+            {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
                 {
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                              "Optional first key to iterate from, in lexicographical order."
-                              "Typically it's set to last ID from previous request."},
-                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                              "Maximum number of fixed interval prices to return, 100 by default"},
-                        },
-                    },
+                    {"start",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last ID from previous request."},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of fixed interval prices to return, 100 by default"},
                 },
-                RPCResult{
-                       "\"json\"          (string) array containing json-objects having following fields:\n"
-                       "                  `activePrice` - current price used for loan calculations\n"
-                       "                  `nextPrice` - next price to be assigned to pair.\n"
-                       "                  `timestamp` - timestamp of active price.\n"
-                       "                  `isLive` - price liveness, within parameters"
-                       "                   Possible reasons for a price result to not be live:"
-                       "                   1. Not sufficient live oracles.\n"
-                       "                   2. Deviation is over the limit to be considered stable.\n"
-                },
-                RPCExamples{
-                        HelpExampleCli("listfixedintervalprices", R"('{""}')")
-                },
-    }.Check(request);
+            },
+        },
+        RPCResult{"\"json\"          (string) array containing json-objects having following fields:\n"
+                  "                  `activePrice` - current price used for loan calculations\n"
+                  "                  `nextPrice` - next price to be assigned to pair.\n"
+                  "                  `timestamp` - timestamp of active price.\n"
+                  "                  `isLive` - price liveness, within parameters"
+                  "                   Possible reasons for a price result to not be live:"
+                  "                   1. Not sufficient live oracles.\n"
+                  "                   2. Deviation is over the limit to be considered stable.\n"},
+        RPCExamples{HelpExampleCli("listfixedintervalprices", R"('{""}')")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
 
     size_t limit = 100;
     CTokenCurrencyPair start{};
@@ -1108,7 +1201,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         if (request.params.size() > 0) {
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
+                limit = (size_t)paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
                 auto priceFeedId = paginationObj["start"].getValStr();
@@ -1122,35 +1215,36 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-
     UniValue listPrice{UniValue::VARR};
-    pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
-        UniValue obj{UniValue::VOBJ};
-        obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
-        obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
-        obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
-        obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-        obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
-        listPrice.push_back(obj);
-        limit--;
-        return limit != 0;
-    }, start);
+    pcustomcsview->ForEachFixedIntervalPrice(
+        [&](const CTokenCurrencyPair &, CFixedIntervalPrice fixedIntervalPrice) {
+            UniValue obj{UniValue::VOBJ};
+            obj.pushKV("priceFeedId",
+                       (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
+            obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
+            obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
+            obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
+            obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
+            listPrice.push_back(obj);
+            limit--;
+            return limit != 0;
+        },
+        start);
     return GetRPCResultCache().Set(request, listPrice);
 }
 
-UniValue getfutureswapblock(const JSONRPCRequest& request) {
-    RPCHelpMan{"getfutureswapblock",
-               "Get the next block that futures will execute and update on.\n",
-               {},
-               RPCResult{
-                       "n    (numeric) Futures execution block. Zero if not set.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getfutureswapblock", "")
-               },
-    }.Check(request);
+UniValue getfutureswapblock(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getfutureswapblock",
+        "Get the next block that futures will execute and update on.\n",
+        {},
+        RPCResult{"n    (numeric) Futures execution block. Zero if not set.\n"},
+        RPCExamples{HelpExampleCli("getfutureswapblock", "")},
+    }
+        .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     LOCK(cs_main);
 
     const auto currentHeight = ::ChainActive().Height();
@@ -1160,25 +1254,24 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
         return 0;
     }
 
-    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
-               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
+    auto res = currentHeight < block->startBlock
+                   ? block->startBlock + block->blockPeriod
+                   : currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
     return GetRPCResultCache().Set(request, res);
 }
 
+UniValue getdusdswapblock(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getdusdswapblock",
+        "Get the next block that DFI to DUSD swap will execute on.\n",
+        {},
+        RPCResult{"n    (numeric) DFI to DUSD swap execution block. Zero if not set.\n"},
+        RPCExamples{HelpExampleCli("getdusdswapblock", "")},
+    }
+        .Check(request);
 
-UniValue getdusdswapblock(const JSONRPCRequest& request) {
-    RPCHelpMan{"getdusdswapblock",
-               "Get the next block that DFI to DUSD swap will execute on.\n",
-               {},
-               RPCResult{
-                       "n    (numeric) DFI to DUSD swap execution block. Zero if not set.\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("getdusdswapblock", "")
-               },
-    }.Check(request);
-
-    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    if (auto res = GetRPCResultCache().TryGet(request))
+        return *res;
     LOCK(cs_main);
 
     const auto currentHeight = ::ChainActive().Height();
@@ -1188,32 +1281,31 @@ UniValue getdusdswapblock(const JSONRPCRequest& request) {
         return 0;
     }
 
-    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
-               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
+    auto res = currentHeight < block->startBlock
+                   ? block->startBlock + block->blockPeriod
+                   : currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
     return GetRPCResultCache().Set(request, res);
 }
 
-
-static const CRPCCommand commands[] =
-{
-//  category        name                       actor (function)           params
-//  -------------   ---------------------      --------------------       ----------
-    {"oracles",     "appointoracle",           &appointoracle,            {"address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "removeoracle",            &removeoracle,             {"oracleid", "inputs"}},
-    {"oracles",     "updateoracle",            &updateoracle,             {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "setoracledata",           &setoracledata,            {"oracleid", "timestamp", "prices", "inputs"}},
-    {"oracles",     "getoracledata",           &getoracledata,            {"oracleid"}},
-    {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
-    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
-    {"oracles",     "getprice",                &getprice,                 {"request"}},
-    {"oracles",     "listprices",              &listprices,               {"pagination"}},
-    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
-    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfutureswapblock",      &getfutureswapblock,       {}},
-    {"oracles",     "getdusdswapblock",      &getdusdswapblock,       {}},
+static const CRPCCommand commands[] = {
+    //  category        name                       actor (function)           params
+    //  -------------   ---------------------      --------------------       ----------
+    {"oracles", "appointoracle", &appointoracle, {"address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles", "removeoracle", &removeoracle, {"oracleid", "inputs"}},
+    {"oracles", "updateoracle", &updateoracle, {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles", "setoracledata", &setoracledata, {"oracleid", "timestamp", "prices", "inputs"}},
+    {"oracles", "getoracledata", &getoracledata, {"oracleid"}},
+    {"oracles", "listoracles", &listoracles, {"pagination"}},
+    {"oracles", "listlatestrawprices", &listlatestrawprices, {"request", "pagination"}},
+    {"oracles", "getprice", &getprice, {"request"}},
+    {"oracles", "listprices", &listprices, {"pagination"}},
+    {"oracles", "getfixedintervalprice", &getfixedintervalprice, {"fixedIntervalPriceId"}},
+    {"oracles", "listfixedintervalprices", &listfixedintervalprices, {"pagination"}},
+    {"oracles", "getfutureswapblock", &getfutureswapblock, {}},
+    {"oracles", "getdusdswapblock", &getdusdswapblock, {}},
 };
 
-void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {
+void RegisterOraclesRPCCommands(CRPCTable &tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }

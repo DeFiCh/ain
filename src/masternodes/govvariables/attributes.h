@@ -15,66 +15,66 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live      = 'l',
-    Oracles   = 'o',
-    Param     = 'a',
-    Token     = 't',
+    Live = 'l',
+    Oracles = 'o',
+    Param = 'a',
+    Token = 't',
     Poolpairs = 'p',
-    Locks     = 'L',
+    Locks = 'L',
 };
 
-enum ParamIDs : uint8_t  {
-    DFIP2201  = 'a',
-    DFIP2203  = 'b',
-    TokenID   = 'c',
-    Economy   = 'e',
+enum ParamIDs : uint8_t {
+    DFIP2201 = 'a',
+    DFIP2203 = 'b',
+    TokenID = 'c',
+    Economy = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
 };
 
-enum OracleIDs : uint8_t  {
-    Splits    = 'a',
+enum OracleIDs : uint8_t {
+    Splits = 'a',
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
+    PaybackDFITokens = 'a',
+    PaybackTokens = 'b',
+    DFIP2203Current = 'c',
+    DFIP2203Burned = 'd',
+    DFIP2203Minted = 'e',
+    DFIP2206FCurrent = 'f',
+    DFIP2206FBurned = 'g',
+    DFIP2206FMinted = 'h',
+    DexTokens = 'i',
 };
 
-enum DFIPKeys : uint8_t  {
-    Active                  = 'a',
-    Premium                 = 'b',
-    MinSwap                 = 'c',
-    RewardPct               = 'd',
-    BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
-    StartBlock              = 'i',
+enum DFIPKeys : uint8_t {
+    Active = 'a',
+    Premium = 'b',
+    MinSwap = 'c',
+    RewardPct = 'd',
+    BlockPeriod = 'e',
+    DUSDInterestBurn = 'g',
+    DUSDLoanBurn = 'h',
+    StartBlock = 'i',
 };
 
-enum TokenKeys : uint8_t  {
-    PaybackDFI            = 'a',
-    PaybackDFIFeePCT      = 'b',
-    LoanPayback           = 'c',
-    LoanPaybackFeePCT     = 'd',
-    DexInFeePct           = 'e',
-    DexOutFeePct          = 'f',
-    DFIP2203Enabled       = 'g',
-    FixedIntervalPriceId  = 'h',
+enum TokenKeys : uint8_t {
+    PaybackDFI = 'a',
+    PaybackDFIFeePCT = 'b',
+    LoanPayback = 'c',
+    LoanPaybackFeePCT = 'd',
+    DexInFeePct = 'e',
+    DexOutFeePct = 'f',
+    DFIP2203Enabled = 'g',
+    FixedIntervalPriceId = 'h',
     LoanCollateralEnabled = 'i',
-    LoanCollateralFactor  = 'j',
-    LoanMintingEnabled    = 'k',
-    LoanMintingInterest   = 'l',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
+    LoanCollateralFactor = 'j',
+    LoanMintingEnabled = 'k',
+    LoanMintingInterest = 'l',
+    Ascendant = 'm',
+    Descendant = 'n',
+    Epitaph = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -93,7 +93,7 @@ struct CDataStructureV0 {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(type);
         READWRITE(typeId);
         READWRITE(VARINT(key));
@@ -105,12 +105,10 @@ struct CDataStructureV0 {
     }
 
     bool IsExtendedSize() const {
-        return type == AttributeTypes::Token
-            && (key == TokenKeys::LoanPayback
-            ||  key == TokenKeys::LoanPaybackFeePCT);
+        return type == AttributeTypes::Token && (key == TokenKeys::LoanPayback || key == TokenKeys::LoanPaybackFeePCT);
     }
 
-    bool operator<(const CDataStructureV0& o) const {
+    bool operator<(const CDataStructureV0 &o) const {
         return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
     }
 };
@@ -120,9 +118,9 @@ struct CDataStructureV1 {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {}
+    inline void SerializationOp(Stream &s, Operation ser_action) {}
 
-     bool operator<(const CDataStructureV1& o) const { return false; }
+    bool operator<(const CDataStructureV1 &o) const { return false; }
 };
 
 struct CTokenPayback {
@@ -132,7 +130,7 @@ struct CTokenPayback {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(tokensFee);
         READWRITE(tokensPayback);
     }
@@ -144,12 +142,12 @@ struct CFeeDir {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(feeDir);
     }
 };
 
-ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract);
+ResVal<CScript> GetFutureSwapContractAddress(const std::string &contract);
 
 struct CDexTokenInfo {
     struct CTokenInfo {
@@ -160,7 +158,7 @@ struct CDexTokenInfo {
         ADD_SERIALIZE_METHODS;
 
         template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream& s, Operation ser_action) {
+        inline void SerializationOp(Stream &s, Operation ser_action) {
             READWRITE(swaps);
             READWRITE(feeburn);
             READWRITE(commissions);
@@ -173,24 +171,29 @@ struct CDexTokenInfo {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(totalTokenA);
         READWRITE(totalTokenB);
     }
 };
 
-enum FeeDirValues : uint8_t {
-    Both,
-    In,
-    Out
-};
+enum FeeDirValues : uint8_t { Both, In, Out };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool,
+                                     CAmount,
+                                     CBalances,
+                                     CTokenPayback,
+                                     CTokenCurrencyPair,
+                                     OracleSplits,
+                                     DescendantValue,
+                                     AscendantValue,
+                                     CFeeDir,
+                                     CDexBalances>;
 
 enum GovVarsFilter {
     All,
@@ -201,41 +204,38 @@ enum GovVarsFilter {
     Version2Dot7,
 };
 
-class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES>
-{
-public:
+class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES> {
+   public:
     virtual ~ATTRIBUTES() override {}
 
-    std::string GetName() const override {
-        return TypeName();
-    }
+    std::string GetName() const override { return TypeName(); }
 
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
 
-    Res Validate(CCustomCSView const& mnview) const override;
+    Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
-    static constexpr char const * TypeName() { return "ATTRIBUTES"; }
-    static GovVariable * Create() { return new ATTRIBUTES(); }
+    static constexpr char const *TypeName() { return "ATTRIBUTES"; }
+    static GovVariable *Create() { return new ATTRIBUTES(); }
 
-    template<typename T>
-    static void GetIf(std::optional<T>& opt, const CAttributeValue& var) {
+    template <typename T>
+    static void GetIf(std::optional<T> &opt, const CAttributeValue &var) {
         if (auto value = std::get_if<T>(&var)) {
             opt = *value;
         }
     }
 
-    template<typename T>
-    static void GetIf(T& val, const CAttributeValue& var) {
+    template <typename T>
+    static void GetIf(T &val, const CAttributeValue &var) {
         if (auto value = std::get_if<T>(&var)) {
             val = *value;
         }
     }
 
-    template<typename K, typename T>
-    [[nodiscard]] T GetValue(const K& key, T value) const {
+    template <typename K, typename T>
+    [[nodiscard]] T GetValue(const K &key, T value) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
         auto it = attributes.find(key);
         if (it != attributes.end()) {
@@ -244,29 +244,29 @@ public:
         return value;
     }
 
-    template<typename K, typename T>
-    void SetValue(const K& key, T&& value) {
+    template <typename K, typename T>
+    void SetValue(const K &key, T &&value) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
         static_assert(std::is_convertible_v<T, CAttributeValue>);
         changed.insert(key);
         attributes[key] = std::forward<T>(value);
     }
 
-    template<typename K>
-    void EraseKey(const K& key) {
+    template <typename K>
+    void EraseKey(const K &key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
         changed.insert(key);
         attributes.erase(key);
     }
 
-    template<typename K>
-    [[nodiscard]] bool CheckKey(const K& key) const {
+    template <typename K>
+    [[nodiscard]] bool CheckKey(const K &key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
         return attributes.count(key) > 0;
     }
 
-    template<typename C, typename K>
-    void ForEach(const C& callback, const K& key) const {
+    template <typename C, typename K>
+    void ForEach(const C &callback, const K &key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
         static_assert(std::is_invocable_r_v<bool, C, K, CAttributeValue>);
         for (auto it = attributes.lower_bound(key); it != attributes.end(); ++it) {
@@ -278,31 +278,30 @@ public:
         }
     }
 
-    [[nodiscard]] const std::map<CAttributeType, CAttributeValue>& GetAttributesMap() const {
-        return attributes;
-    }
+    [[nodiscard]] const std::map<CAttributeType, CAttributeValue> &GetAttributesMap() const { return attributes; }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(attributes);
     }
-
 
     uint32_t time{0};
 
     // For formatting in export
-    static const std::map<uint8_t, std::string>& displayVersions();
-    static const std::map<uint8_t, std::string>& displayTypes();
-    static const std::map<uint8_t, std::string>& displayParamsIDs();
-    static const std::map<uint8_t, std::string>& displayOracleIDs();
-    static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
+    static const std::map<uint8_t, std::string> &displayVersions();
+    static const std::map<uint8_t, std::string> &displayTypes();
+    static const std::map<uint8_t, std::string> &displayParamsIDs();
+    static const std::map<uint8_t, std::string> &displayOracleIDs();
+    static const std::map<uint8_t, std::map<uint8_t, std::string>> &displayKeys();
 
-    Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+    Res RefundFuturesContracts(CCustomCSView &mnview,
+                               const uint32_t height,
+                               const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 
-private:
+   private:
     friend class CGovView;
     bool futureUpdated{};
     bool futureDUSDUpdated{};
@@ -311,18 +310,19 @@ private:
     std::map<CAttributeType, CAttributeValue> attributes;
 
     // Defined allowed arguments
-    static const std::map<std::string, uint8_t>& allowedVersions();
-    static const std::map<std::string, uint8_t>& allowedTypes();
-    static const std::map<std::string, uint8_t>& allowedParamIDs();
-    static const std::map<std::string, uint8_t>& allowedLocksIDs();
-    static const std::map<std::string, uint8_t>& allowedOracleIDs();
-    static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
-    static const std::map<uint8_t, std::map<uint8_t,
-            std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
+    static const std::map<std::string, uint8_t> &allowedVersions();
+    static const std::map<std::string, uint8_t> &allowedTypes();
+    static const std::map<std::string, uint8_t> &allowedParamIDs();
+    static const std::map<std::string, uint8_t> &allowedLocksIDs();
+    static const std::map<std::string, uint8_t> &allowedOracleIDs();
+    static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
+    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
+        &parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
-                        std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
+    Res ProcessVariable(const std::string &key,
+                        const std::string &value,
+                        std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 
-#endif // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
+#endif  // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H

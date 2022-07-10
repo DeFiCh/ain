@@ -5,21 +5,20 @@
 #ifndef DEFI_MASTERNODES_UNDO_H
 #define DEFI_MASTERNODES_UNDO_H
 
-
-#include <cstdint>
-#include <uint256.h>
+#include <flushablestorage.h>
 #include <serialize.h>
 #include <serialize_optional.h>
-#include <flushablestorage.h>
+#include <uint256.h>
+#include <cstdint>
 
 struct UndoKey {
-    uint32_t height; // height is there to be able to prune older undos using lexicographic iteration
+    uint32_t height;  // height is there to be able to prune older undos using lexicographic iteration
     uint256 txid;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(WrapBigEndian(height));
         READWRITE(txid);
     }
@@ -28,10 +27,10 @@ struct UndoKey {
 struct CUndo {
     MapKV before;
 
-    static CUndo Construct(CStorageKV const & before, MapKV const & diff) {
+    static CUndo Construct(CStorageKV const &before, MapKV const &diff) {
         CUndo result;
-        for (const auto & kv : diff) {
-            const auto& beforeKey = kv.first;
+        for (const auto &kv : diff) {
+            const auto &beforeKey = kv.first;
             TBytes beforeVal;
             if (before.Read(beforeKey, beforeVal)) {
                 result.before[beforeKey] = std::move(beforeVal);
@@ -42,8 +41,8 @@ struct CUndo {
         return result;
     }
 
-    static void Revert(CStorageKV & after, CUndo const & undo) {
-        for (const auto & kv : undo.before) {
+    static void Revert(CStorageKV &after, CUndo const &undo) {
+        for (const auto &kv : undo.before) {
             if (kv.second) {
                 after.Write(kv.first, *kv.second);
             } else {
@@ -55,10 +54,9 @@ struct CUndo {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(before);
     }
 };
 
-
-#endif //DEFI_MASTERNODES_UNDO_H
+#endif  // DEFI_MASTERNODES_UNDO_H

@@ -13,10 +13,9 @@
 class ATTRIBUTES;
 class CCustomCSView;
 
-class GovVariable
-{
-public:
-    static std::shared_ptr<GovVariable> Create(std::string const & name) {
+class GovVariable {
+   public:
+    static std::shared_ptr<GovVariable> Create(std::string const &name) {
         return std::shared_ptr<GovVariable>(Factory<GovVariable>::Create(name));
     }
     virtual ~GovVariable() = default;
@@ -29,31 +28,35 @@ public:
     virtual Res Validate(CCustomCSView const &) const = 0;
     virtual Res Apply(CCustomCSView &, uint32_t) = 0;
 
-    virtual void Serialize(CVectorWriter& s) const = 0;
-    virtual void Unserialize(VectorReader& s) = 0;
+    virtual void Serialize(CVectorWriter &s) const = 0;
+    virtual void Unserialize(VectorReader &s) = 0;
 
-    virtual void Serialize(CDataStream& s) const = 0;
-    virtual void Unserialize(CDataStream& s) = 0;
+    virtual void Serialize(CDataStream &s) const = 0;
+    virtual void Unserialize(CDataStream &s) = 0;
 };
 
-class CGovView : public virtual CStorageView
-{
-public:
-    Res SetVariable(GovVariable const & var);
+class CGovView : public virtual CStorageView {
+   public:
+    Res SetVariable(GovVariable const &var);
     std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
 
-    Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
+    Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>> &govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
-    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> GetStoredVariablesRange(const uint32_t startHeight, const uint32_t endHeight);
+    std::vector<std::pair<uint32_t, std::shared_ptr<GovVariable>>> GetStoredVariablesRange(const uint32_t startHeight,
+                                                                                           const uint32_t endHeight);
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const;
 
-    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const = 0;
 
-    struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
-    struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
+    struct ByHeightVars {
+        static constexpr uint8_t prefix() { return 'G'; }
+    };
+    struct ByName {
+        static constexpr uint8_t prefix() { return 'g'; }
+    };
 };
 
 struct GovVarKey {
@@ -63,7 +66,7 @@ struct GovVarKey {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(WrapBigEndian(height));
         READWRITE(name);
     }
@@ -102,4 +105,4 @@ public:
 };
 */
 
-#endif // DEFI_MASTERNODES_GV_H
+#endif  // DEFI_MASTERNODES_GV_H

@@ -4,13 +4,11 @@
 
 #include <masternodes/govvariables/oracle_block_interval.h>
 
-#include <core_io.h> /// ValueFromAmount
-#include <masternodes/masternodes.h> /// CCustomCSView
-#include <rpc/util.h> /// AmountFromValue
+#include <core_io.h>                  /// ValueFromAmount
+#include <masternodes/masternodes.h>  /// CCustomCSView
+#include <rpc/util.h>                 /// AmountFromValue
 
-
-Res ORACLE_BLOCK_INTERVAL::Import(const UniValue & val)
-{
+Res ORACLE_BLOCK_INTERVAL::Import(const UniValue &val) {
     if (!val.isNum())
         throw JSONRPCError(RPC_TYPE_ERROR, "Block interval amount is not a number");
 
@@ -18,13 +16,11 @@ Res ORACLE_BLOCK_INTERVAL::Import(const UniValue & val)
     return Res::Ok();
 }
 
-UniValue ORACLE_BLOCK_INTERVAL::Export() const
-{
+UniValue ORACLE_BLOCK_INTERVAL::Export() const {
     return static_cast<uint64_t>(blockInterval);
 }
 
-Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
-{
+Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView &view) const {
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
 
@@ -34,7 +30,6 @@ Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView & mnview, const uint32_t height)
-{
+Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView &mnview, const uint32_t height) {
     return mnview.SetIntervalBlock(blockInterval);
 }

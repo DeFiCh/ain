@@ -5,12 +5,12 @@
 #ifndef DEFI_MASTERNODES_INCENTIVEFUNDING_H
 #define DEFI_MASTERNODES_INCENTIVEFUNDING_H
 
+#include <amount.h>
 #include <flushablestorage.h>
 #include <masternodes/communityaccounttypes.h>
 #include <masternodes/res.h>
-#include <amount.h>
 
-inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
+inline CommunityAccountType CommunityAccountCodeToType(unsigned char ch) {
     char const types[] = "IALOU";
     if (memchr(types, ch, strlen(types)))
         return static_cast<CommunityAccountType>(ch);
@@ -18,23 +18,25 @@ inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
         return CommunityAccountType::None;
 }
 
-inline char const * GetCommunityAccountName(CommunityAccountType t)
-{
-    switch (t)
-    {
-        case CommunityAccountType::IncentiveFunding: return "IncentiveFunding";
-        case CommunityAccountType::AnchorReward:     return "AnchorReward";
-        case CommunityAccountType::Loan:             return "Loan";
-        case CommunityAccountType::Options:          return "Options";
-        case CommunityAccountType::Unallocated:      return "Burnt";
+inline char const *GetCommunityAccountName(CommunityAccountType t) {
+    switch (t) {
+        case CommunityAccountType::IncentiveFunding:
+            return "IncentiveFunding";
+        case CommunityAccountType::AnchorReward:
+            return "AnchorReward";
+        case CommunityAccountType::Loan:
+            return "Loan";
+        case CommunityAccountType::Options:
+            return "Options";
+        case CommunityAccountType::Unallocated:
+            return "Burnt";
         default:
             return "Unknown";
     }
 }
 
-class CCommunityBalancesView : public virtual CStorageView
-{
-public:
+class CCommunityBalancesView : public virtual CStorageView {
+   public:
     CAmount GetCommunityBalance(CommunityAccountType account) const;
     Res SetCommunityBalance(CommunityAccountType account, CAmount amount);
 
@@ -44,7 +46,9 @@ public:
     Res SubCommunityBalance(CommunityAccountType account, CAmount amount);
 
     // tags
-    struct ById { static constexpr uint8_t prefix() { return 'F'; } };
+    struct ById {
+        static constexpr uint8_t prefix() { return 'F'; }
+    };
 };
 
-#endif //DEFI_MASTERNODES_INCENTIVEFUNDING_H
+#endif  // DEFI_MASTERNODES_INCENTIVEFUNDING_H

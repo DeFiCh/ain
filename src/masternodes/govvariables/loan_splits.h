@@ -5,35 +5,32 @@
 #ifndef DEFI_MASTERNODES_GOVVARIABLES_LOAN_SPLITS_H
 #define DEFI_MASTERNODES_GOVVARIABLES_LOAN_SPLITS_H
 
-#include <masternodes/gv.h>
 #include <amount.h>
+#include <masternodes/gv.h>
 
-class LP_LOAN_TOKEN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_TOKEN_SPLITS>
-{
-public:
+class LP_LOAN_TOKEN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_TOKEN_SPLITS> {
+   public:
     virtual ~LP_LOAN_TOKEN_SPLITS() override {}
 
-    std::string GetName() const override {
-        return TypeName();
-    }
+    std::string GetName() const override { return TypeName(); }
 
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const * TypeName() { return "LP_LOAN_TOKEN_SPLITS"; }
-    static GovVariable * Create() { return new LP_LOAN_TOKEN_SPLITS(); }
+    static constexpr char const *TypeName() { return "LP_LOAN_TOKEN_SPLITS"; }
+    static GovVariable *Create() { return new LP_LOAN_TOKEN_SPLITS(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(splits);
     }
 
     std::map<DCT_ID, CAmount> splits;
 };
 
-#endif // DEFI_MASTERNODES_GOVVARIABLES_LOAN_SPLITS_H
+#endif  // DEFI_MASTERNODES_GOVVARIABLES_LOAN_SPLITS_H
