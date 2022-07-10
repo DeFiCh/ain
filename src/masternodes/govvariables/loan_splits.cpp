@@ -23,7 +23,7 @@ Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue &val) {
 
 UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
     UniValue res(UniValue::VOBJ);
-    for (auto const &kv : splits) {
+    for (const auto &kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
     }
     return res;
@@ -34,7 +34,7 @@ Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView &mnview) const {
         return Res::Err("Cannot be set before FortCanning");
 
     CAmount total{0};
-    for (auto const &kv : splits) {
+    for (const auto &kv : splits) {
         if (!mnview.HasPoolPair(kv.first))
             return Res::Err("pool with id=%s not found", kv.first.ToString());
 
@@ -54,7 +54,7 @@ Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView &mnview, uint32_t height) {
     mnview.ForEachPoolId([&](DCT_ID poolId) {
         // we ought to reset previous value:
         CAmount rewardLoanPct = 0;
-        auto it = splits.find(poolId);
+        auto it               = splits.find(poolId);
         if (it != splits.end())
             rewardLoanPct = it->second;
 

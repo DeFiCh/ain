@@ -144,7 +144,7 @@ std::string CMasternode::GetTimelockToString(TimeLock timelock) {
     }
 }
 
-bool operator==(CMasternode const &a, CMasternode const &b) {
+bool operator==(const CMasternode &a, const CMasternode &b) {
     return (a.mintedBlocks == b.mintedBlocks && a.ownerType == b.ownerType &&
             a.ownerAuthAddress == b.ownerAuthAddress && a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress && a.rewardAddress == b.rewardAddress &&
@@ -153,7 +153,7 @@ bool operator==(CMasternode const &a, CMasternode const &b) {
             a.banTx == b.banTx);
 }
 
-bool operator!=(CMasternode const &a, CMasternode const &b) {
+bool operator!=(const CMasternode &a, const CMasternode &b) {
     return !(a == b);
 }
 
@@ -182,7 +182,7 @@ std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &id
 }
 
 void CMasternodesView::ForEachMasternode(std::function<bool(const uint256 &, CLazySerialize<CMasternode>)> callback,
-                                         uint256 const &start) {
+                                         const uint256 &start) {
     ForEach<ID, uint256, CMasternode>(callback, start);
 }
 
@@ -201,12 +201,12 @@ void CMasternodesView::DecrementMintedBy(const uint256 &nodeId) {
 }
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const {
-    auto const operators = gArgs.GetArgs("-masternode_operator");
-    for (auto const &key : operators) {
-        CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                   : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                      : CKeyID();
+    const auto operators = gArgs.GetArgs("-masternode_operator");
+    for (const auto &key : operators) {
+        const CTxDestination dest = DecodeDestination(key);
+        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
+                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
+                                                                       : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -217,13 +217,13 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
 }
 
 std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const {
-    auto const operators = gArgs.GetArgs("-masternode_operator");
+    const auto operators = gArgs.GetArgs("-masternode_operator");
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
-    for (auto const &key : operators) {
-        CTxDestination const dest = DecodeDestination(key);
-        CKeyID const authAddress = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
-                                   : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
-                                                                      : CKeyID();
+    for (const auto &key : operators) {
+        const CTxDestination dest = DecodeDestination(key);
+        const CKeyID authAddress  = dest.index() == PKHashType         ? CKeyID(std::get<PKHash>(dest))
+                                    : dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest))
+                                                                       : CKeyID();
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -236,7 +236,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    CKeyID const authAddress =
+    const CKeyID authAddress =
         dest.index() == PKHashType
             ? CKeyID(std::get<PKHash>(dest))
             : (dest.index() == WitV0KeyHashType ? CKeyID(std::get<WitnessV0KeyHash>(dest)) : CKeyID());
@@ -289,16 +289,16 @@ Res CMasternodesView::ResignMasternode(const uint256 &nodeId, const uint256 &txi
         return Res::Err("Trying to resign masternode before timelock expiration.");
     }
 
-    node->resignTx = txid;
+    node->resignTx     = txid;
     node->resignHeight = height;
     WriteBy<ID>(nodeId, *node);
 
     return Res::Ok();
 }
 
-Res CMasternodesView::SetForcedRewardAddress(uint256 const &nodeId,
+Res CMasternodesView::SetForcedRewardAddress(const uint256 &nodeId,
                                              const char rewardAddressType,
-                                             CKeyID const &rewardAddress,
+                                             const CKeyID &rewardAddress,
                                              int height) {
     // Temporarily disabled for 2.2
     return Res::Err("reward address change is disabled for Fort Canning");
@@ -319,13 +319,13 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const &nodeId,
 
     // Set new reward address
     node->rewardAddressType = rewardAddressType;
-    node->rewardAddress = rewardAddress;
+    node->rewardAddress     = rewardAddress;
     WriteBy<ID>(nodeId, *node);
 
     return Res::Ok();
 }
 
-Res CMasternodesView::RemForcedRewardAddress(uint256 const &nodeId, int height) {
+Res CMasternodesView::RemForcedRewardAddress(const uint256 &nodeId, int height) {
     // Temporarily disabled for 2.2
     return Res::Err("reward address change is disabled for Fort Canning");
 
@@ -345,7 +345,7 @@ Res CMasternodesView::RemForcedRewardAddress(uint256 const &nodeId, int height) 
     return Res::Ok();
 }
 
-Res CMasternodesView::UpdateMasternode(uint256 const &nodeId,
+Res CMasternodesView::UpdateMasternode(const uint256 &nodeId,
                                        char operatorType,
                                        const CKeyID &operatorAuthAddress,
                                        int height) {
@@ -370,7 +370,7 @@ Res CMasternodesView::UpdateMasternode(uint256 const &nodeId,
     // Remove old record
     EraseBy<Operator>(node->operatorAuthAddress);
 
-    node->operatorType = operatorType;
+    node->operatorType        = operatorType;
     node->operatorAuthAddress = operatorAuthAddress;
 
     // Overwrite and create new record
@@ -417,8 +417,8 @@ void CMasternodesView::EraseMasternodeLastBlockTime(const uint256 &nodeId, const
     EraseBy<Staker>(MNBlockTimeKey{nodeId, blockHeight});
 }
 
-void CMasternodesView::ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback,
-                                         MNBlockTimeKey const &start) {
+void CMasternodesView::ForEachMinterNode(std::function<bool(const MNBlockTimeKey &, CLazySerialize<int64_t>)> callback,
+                                         const MNBlockTimeKey &start) {
     ForEach<Staker, MNBlockTimeKey, int64_t>(callback, start);
 }
 
@@ -459,8 +459,8 @@ std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID &minter
 }
 
 void CMasternodesView::ForEachSubNode(
-    std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback,
-    SubNodeBlockTimeKey const &start) {
+    std::function<bool(const SubNodeBlockTimeKey &, CLazySerialize<int64_t>)> callback,
+    const SubNodeBlockTimeKey &start) {
     ForEach<SubNode, SubNodeBlockTimeKey, int64_t>(callback, start);
 }
 
@@ -704,12 +704,14 @@ CCustomCSView::CCustomCSView() {
 
 CCustomCSView::~CCustomCSView() = default;
 
-CCustomCSView::CCustomCSView(CStorageKV &st) : CStorageView(new CFlushableStorageKV(st)) {
+CCustomCSView::CCustomCSView(CStorageKV &st)
+    : CStorageView(new CFlushableStorageKV(st)) {
     CheckPrefixes();
 }
 
 // cache-upon-a-cache (not a copy!) constructor
-CCustomCSView::CCustomCSView(CCustomCSView &other) : CStorageView(new CFlushableStorageKV(other.DB())) {
+CCustomCSView::CCustomCSView(CCustomCSView &other)
+    : CStorageView(new CFlushableStorageKV(other.DB())) {
     CheckPrefixes();
 }
 
@@ -731,7 +733,7 @@ CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 &stakeMod
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    ForEachMasternode([&](uint256 const &id, CMasternode node) {
+    ForEachMasternode([&](const uint256 &id, CMasternode node) {
         if (!node.IsActive(height))
             return true;
 
@@ -767,7 +769,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 &stakeModifier, const CBloc
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> authMN;
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> confirmMN;
-    ForEachMasternode([&](uint256 const &id, CMasternode node) {
+    ForEachMasternode([&](const uint256 &id, CMasternode node) {
         if (!node.IsActive(pindexNew->nHeight))
             return true;
 
@@ -824,7 +826,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 &stakeModifier, const CBloc
 void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec *anchor,
                                                        const uint256 &btcTxHash,
                                                        const CKey &masternodeKey) {
-    auto prev = panchors->GetAnchorByTx(anchor->anchor.previousAnchor);
+    auto prev           = panchors->GetAnchorByTx(anchor->anchor.previousAnchor);
     auto confirmMessage = CAnchorConfirmMessage::CreateSigned(
         anchor->anchor, prev ? prev->anchor.height : 0, btcTxHash, masternodeKey, anchor->btcHeight);
 
@@ -834,7 +836,7 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::Ancho
     }
 }
 
-void CCustomCSView::OnUndoTx(uint256 const &txid, uint32_t height) {
+void CCustomCSView::OnUndoTx(const uint256 &txid, uint32_t height) {
     const auto undo = GetUndo(UndoKey{height, txid});
     if (!undo) {
         return;  // not custom tx, or no changes done
@@ -856,7 +858,7 @@ bool CCustomCSView::CanSpend(const uint256 &txId, int height) const {
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
-bool CCustomCSView::CalculateOwnerRewards(CScript const &owner, uint32_t targetHeight) {
+bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetHeight) {
     auto balanceHeight = GetBalancesHeight(owner);
     if (balanceHeight >= targetHeight) {
         return false;
@@ -890,14 +892,14 @@ double CCollateralLoans::calcRatio(uint64_t maxRatio) const {
 
 uint32_t CCollateralLoans::ratio() const {
     constexpr auto maxRatio = std::numeric_limits<uint32_t>::max();
-    auto ratio = calcRatio(maxRatio) * 100;
+    auto ratio              = calcRatio(maxRatio) * 100;
     return ratio > maxRatio ? maxRatio : uint32_t(lround(ratio));
 }
 
 CAmount CCollateralLoans::precisionRatio() const {
     constexpr auto maxRatio = std::numeric_limits<CAmount>::max();
-    auto ratio = calcRatio(maxRatio);
-    const auto precision = COIN * 100;
+    auto ratio              = calcRatio(maxRatio);
+    const auto precision    = COIN * 100;
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
@@ -909,7 +911,7 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
     if (!priceResult)
         return priceResult;
 
-    auto price = *priceResult.val;
+    auto price            = *priceResult.val;
     auto amountInCurrency = MultiplyAmounts(price, amount);
     if (price > COIN && amountInCurrency < amount)
         return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
@@ -917,8 +919,8 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount,
     return ResVal<CAmount>(amountInCurrency, Res::Ok());
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const &vaultId,
-                                                           CBalances const &collaterals,
+ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(const CVaultId &vaultId,
+                                                           const CBalances &collaterals,
                                                            uint32_t height,
                                                            int64_t blockTime,
                                                            bool useNextPrice,
@@ -950,7 +952,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
                                                          bool useNextPrice,
                                                          bool requireLivePrice) {
     auto tokenSymbol = priceFeedId.first;
-    auto currency = priceFeedId.second;
+    auto currency    = priceFeedId.second;
 
     LogPrint(BCLog::ORACLE, "\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
 
@@ -962,7 +964,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
         return Res::Err("No live fixed prices for %s/%s", tokenSymbol, currency);
 
     auto priceRecordIndex = useNextPrice ? 1 : 0;
-    auto price = priceFeed.val->priceRecord[priceRecordIndex];
+    auto price            = priceFeed.val->priceRecord[priceRecordIndex];
     if (price <= 0)
         return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
 
@@ -970,7 +972,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
-                                     CVaultId const &vaultId,
+                                     const CVaultId &vaultId,
                                      uint32_t height,
                                      int64_t blockTime,
                                      bool useNextPrice,
@@ -980,7 +982,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
         return Res::Ok();
 
     for (const auto &loan : loanTokens->balances) {
-        auto loanTokenId = loan.first;
+        auto loanTokenId     = loan.first;
         auto loanTokenAmount = loan.second;
 
         auto token = GetLoanTokenByID(loanTokenId);
@@ -1014,14 +1016,14 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans &result,
 }
 
 Res CCustomCSView::PopulateCollateralData(CCollateralLoans &result,
-                                          CVaultId const &vaultId,
-                                          CBalances const &collaterals,
+                                          const CVaultId &vaultId,
+                                          const CBalances &collaterals,
                                           uint32_t height,
                                           int64_t blockTime,
                                           bool useNextPrice,
                                           bool requireLivePrice) {
     for (const auto &col : collaterals.balances) {
-        auto tokenId = col.first;
+        auto tokenId     = col.first;
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
@@ -1062,7 +1064,7 @@ uint256 CCustomCSView::MerkleRoot() {
     auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, rawMap);
     for (; it.Valid(); it.Next()) {
         CUndo value = it.Value();
-        auto &map = value.before;
+        auto &map   = value.before;
         for (auto it = map.begin(); it != map.end();) {
             isAttributes(it->first) ? map.erase(it++) : ++it;
         }
@@ -1131,11 +1133,11 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(
     return GetLoanTokenFromAttributes(id);
 }
 
-std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const &team) {
+std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team) {
     AssertLockHeld(cs_main);
 
     std::map<CKeyID, CKey> operatorDetails;
-    auto const mnIds = pcustomcsview->GetOperatorsMulti();
+    const auto mnIds = pcustomcsview->GetOperatorsMulti();
     for (const auto &mnId : mnIds) {
         auto node = pcustomcsview->GetMasternode(mnId.second);
         if (!node) {
@@ -1145,7 +1147,7 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const &team) 
         if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
             CKey masternodeKey;
             std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-            for (auto const &wallet : wallets) {
+            for (const auto &wallet : wallets) {
                 if (wallet->GetKey(mnId.first, masternodeKey)) {
                     break;
                 }
@@ -1170,10 +1172,10 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
                                              attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
             CLoanView::CLoanSetLoanTokenImpl loanToken;
             loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-            loanToken.interest = attributes->GetValue(interestKey, CAmount{});
-            loanToken.mintable = attributes->GetValue(mintableKey, false);
-            loanToken.symbol = token->symbol;
-            loanToken.name = token->name;
+            loanToken.interest             = attributes->GetValue(interestKey, CAmount{});
+            loanToken.mintable             = attributes->GetValue(mintableKey, false);
+            loanToken.symbol               = token->symbol;
+            loanToken.name                 = token->name;
             return loanToken;
         }
     }
@@ -1191,8 +1193,8 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
 
         if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
             collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-            collToken.factor = attributes->GetValue(factorKey, CAmount{0});
-            collToken.idToken = id;
+            collToken.factor               = attributes->GetValue(factorKey, CAmount{0});
+            collToken.idToken              = id;
 
             auto token = GetToken(id);
             if (token) {

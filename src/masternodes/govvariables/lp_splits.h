@@ -14,12 +14,12 @@ class LP_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_SPL
 
     std::string GetName() const override { return TypeName(); }
 
-    Res Import(UniValue const &val) override;
+    Res Import(const UniValue &val) override;
     UniValue Export() const override;
-    Res Validate(CCustomCSView const &mnview) const override;
+    Res Validate(const CCustomCSView &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const *TypeName() { return "LP_SPLITS"; }
+    static constexpr const char *TypeName() { return "LP_SPLITS"; }
     static GovVariable *Create() { return new LP_SPLITS(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS

@@ -155,7 +155,7 @@ CustomTxType FromString(const std::string &str) {
     return type == customTxTypeMap.end() ? CustomTxType::None : type->second;
 }
 
-static ResVal<CBalances> BurntTokens(CTransaction const &tx) {
+static ResVal<CBalances> BurntTokens(const CTransaction &tx) {
     CBalances balances;
     for (const auto &out : tx.vout) {
         if (out.scriptPubKey.size() > 0 && out.scriptPubKey[0] == OP_RETURN) {
@@ -168,7 +168,7 @@ static ResVal<CBalances> BurntTokens(CTransaction const &tx) {
     return {balances, Res::Ok()};
 }
 
-static ResVal<CBalances> MintedTokens(CTransaction const &tx, uint32_t mintingOutputsStart) {
+static ResVal<CBalances> MintedTokens(const CTransaction &tx, uint32_t mintingOutputsStart) {
     CBalances balances;
     for (uint32_t i = mintingOutputsStart; i < (uint32_t)tx.vout.size(); i++) {
         auto res = balances.Add(tx.vout[i].TokenAmount());
@@ -295,7 +295,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     return CCustomTxMessageNone{};
 }
 
-extern std::string ScriptToString(CScript const &script);
+extern std::string ScriptToString(const CScript &script);
 
 class CCustomMetadataParseVisitor {
     uint32_t height;
@@ -379,7 +379,9 @@ class CCustomMetadataParseVisitor {
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params &consensus,
                                 const std::vector<unsigned char> &metadata)
-        : height(height), consensus(consensus), metadata(metadata) {}
+        : height(height),
+          consensus(consensus),
+          metadata(metadata) {}
 
     Res operator()(CCreateMasterNodeMessage &obj) const { return serialize(obj); }
 
@@ -718,7 +720,11 @@ class CCustomTxVisitor {
                      CCustomCSView &mnview,
                      const Consensus::Params &consensus)
 
-        : height(height), mnview(mnview), tx(tx), coins(coins), consensus(consensus) {}
+        : height(height),
+          mnview(mnview),
+          tx(tx),
+          coins(coins),
+          consensus(consensus) {}
 
     bool HasAuth(const CScript &auth) const {
         for (const auto &input : tx.vin) {
@@ -774,7 +780,7 @@ class CCustomTxVisitor {
         return Res::Ok();
     }
 
-    Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const &from, CScript const &to) const {
+    Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const {
         assert(!from.empty() || !to.empty());
 
         CTokenAmount tokenAmount{id, amount};
@@ -811,7 +817,7 @@ class CCustomTxVisitor {
     }
 
     CPoolPair GetBTCDFIPoolPair() const {
-        auto BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
+        auto BTC  = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         auto pair = mnview.GetPoolPair(BTC, DCT_ID{0});
         assert(pair);
         return std::move(pair->second);
@@ -970,7 +976,7 @@ class CCustomTxVisitor {
     Res normalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const {
         std::set<CTokenCurrencyPair> trimmed;
         for (const auto &pair : tokenCurrency) {
-            auto token = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            auto token    = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
             auto currency = trim_ws(pair.second).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
             if (token.empty() || currency.empty()) {
                 return Res::Err("empty token / currency");
@@ -996,7 +1002,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
                           uint64_t time,
                           uint32_t txn)
 
-        : CCustomTxVisitor(tx, height, coins, mnview, consensus), time(time), txn(txn) {}
+        : CCustomTxVisitor(tx, height, coins, mnview, consensus),
+          time(time),
+          txn(txn) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
         auto res = CheckMasternodeCreationTx();
@@ -1025,15 +1033,15 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
             if (dest.index() == PKHashType) {
-                node.ownerType = 1;
+                node.ownerType        = 1;
                 node.ownerAuthAddress = CKeyID(std::get<PKHash>(dest));
             } else if (dest.index() == WitV0KeyHashType) {
-                node.ownerType = 4;
+                node.ownerType        = 4;
                 node.ownerAuthAddress = CKeyID(std::get<WitnessV0KeyHash>(dest));
             }
         }
-        node.creationHeight = height;
-        node.operatorType = obj.operatorType;
+        node.creationHeight      = height;
+        node.operatorType        = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
 
         // Set masternode version2 after FC for new serialisation
@@ -1064,7 +1072,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         // Temporarily disabled for 2.2
         return Res::Err("reward address change is disabled for Fort Canning");
 
-        auto const node = mnview.GetMasternode(obj.nodeId);
+        const auto node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
         }
@@ -1079,7 +1087,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         // Temporarily disabled for 2.2
         return Res::Err("reward address change is disabled for Fort Canning");
 
-        auto const node = mnview.GetMasternode(obj.nodeId);
+        const auto node = mnview.GetMasternode(obj.nodeId);
         if (!node) {
             return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
         }
@@ -1107,9 +1115,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CTokenImplementation token;
         static_cast<CToken &>(token) = obj;
 
-        token.symbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.creationTx = tx.GetHash();
+        token.symbol         = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name           = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
         // check foundation auth
@@ -1165,7 +1173,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
 
         // check auth, depends from token's "origins"
-        const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
+        const Coin &auth     = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
         bool isFoundersToken = consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         auto res = Res::Ok();
@@ -1185,8 +1193,8 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
 
         CTokenImplementation updatedToken{obj.token};
-        updatedToken.creationTx = token.creationTx;
-        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.creationTx        = token.creationTx;
+        updatedToken.destructionTx     = token.destructionTx;
         updatedToken.destructionHeight = token.destructionHeight;
         if (height >= static_cast<uint32_t>(consensus.FortCanningHeight)) {
             updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
@@ -1246,10 +1254,10 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
         /// @todo ownerAddress validity checked only in rpc. is it enough?
         CPoolPair poolPair(obj.poolPair);
-        auto pairSymbol = obj.pairSymbol;
-        poolPair.creationTx = tx.GetHash();
+        auto pairSymbol         = obj.pairSymbol;
+        poolPair.creationTx     = tx.GetHash();
         poolPair.creationHeight = height;
-        auto &rewards = poolPair.rewards;
+        auto &rewards           = poolPair.rewards;
 
         auto tokenA = mnview.GetToken(poolPair.idTokenA);
         if (!tokenA) {
@@ -1274,9 +1282,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         token.flags = (uint8_t)CToken::TokenFlags::DAT | (uint8_t)CToken::TokenFlags::LPS |
                       (uint8_t)CToken::TokenFlags::Tradeable | (uint8_t)CToken::TokenFlags::Finalized;
 
-        token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.symbol = pairSymbol;
-        token.creationTx = tx.GetHash();
+        token.name           = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.symbol         = pairSymbol;
+        token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
         auto tokenId = mnview.CreateToken(token);
@@ -1374,7 +1382,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
 
         const auto &lpTokenID = pair->first;
-        auto &pool = pair->second;
+        auto &pool            = pair->second;
 
         // normalize A & B to correspond poolpair's tokens
         if (amountA.first != pool.idTokenA) {
@@ -1382,7 +1390,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
 
         bool slippageProtection = static_cast<int>(height) >= consensus.BayfrontMarinaHeight;
-        auto res = pool.AddLiquidity(
+        auto res                = pool.AddLiquidity(
             amountA.second,
             amountB.second,
             [&] /*onMint*/ (CAmount liqAmount) {
@@ -1396,7 +1404,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
     Res operator()(const CRemoveLiquidityMessage &obj) const {
         const auto &from = obj.from;
-        auto amount = obj.amount;
+        auto amount      = obj.amount;
 
         // checked internally too. remove here?
         if (amount.nValue <= 0) {
@@ -1425,7 +1433,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
         auto res = pool.RemoveLiquidity(amount.nValue, [&](CAmount amountA, CAmount amountB) {
             CalculateOwnerRewards(from);
-            CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
+            CBalances balances{
+                TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}
+            };
             return mnview.AddBalances(from, balances);
         });
 
@@ -1513,7 +1523,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (!HasAuth(script))
             return Res::Err("Must have at least one input from supplied address");
 
-        const auto &id = obj.accounts.begin()->second.balances.begin()->first;
+        const auto &id     = obj.accounts.begin()->second.balances.begin()->first;
         const auto &amount = obj.accounts.begin()->second.balances.begin()->second;
 
         if (amount <= 0)
@@ -1594,7 +1604,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
             return Res::Err("Attributes unavailable");
         }
 
-        bool dfiToDUSD = !obj.source.nTokenId.v;
+        bool dfiToDUSD     = !obj.source.nTokenId.v;
         const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;
 
         CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
@@ -1667,7 +1677,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
             }
         }
 
-        const auto contractType = dfiToDUSD ? SMART_CONTRACT_DFIP2206F : SMART_CONTRACT_DFIP_2203;
+        const auto contractType         = dfiToDUSD ? SMART_CONTRACT_DFIP2206F : SMART_CONTRACT_DFIP_2203;
         const auto contractAddressValue = GetFutureSwapContractAddress(contractType);
         if (!contractAddressValue) {
             return contractAddressValue;
@@ -1781,7 +1791,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
         // compare
         const auto sumFrom = SumAllTransfers(obj.from);
-        const auto sumTo = SumAllTransfers(obj.to);
+        const auto sumTo   = SumAllTransfers(obj.to);
 
         if (sumFrom != sumTo) {
             return Res::Err("sum of inputs (from) != sum of outputs (to)");
@@ -1904,7 +1914,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
         COracle oracle;
         static_cast<CAppointOracleMessage &>(oracle) = obj;
-        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        auto res                                     = normalizeTokenCurrencyPair(oracle.availablePairs);
         return !res ? res : mnview.AppointOracle(tx.GetHash(), oracle);
     }
 
@@ -1914,7 +1924,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
         COracle oracle;
         static_cast<CAppointOracleMessage &>(oracle) = obj.newOracleAppoint;
-        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        auto res                                     = normalizeTokenCurrencyPair(oracle.availablePairs);
         return !res ? res : mnview.UpdateOracle(obj.oracleId, std::move(oracle));
     }
 
@@ -1959,7 +1969,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXOrderImplemetation order;
         static_cast<CICXOrder &>(order) = obj;
 
-        order.creationTx = tx.GetHash();
+        order.creationTx     = tx.GetHash();
         order.creationHeight = height;
 
         if (!HasAuth(order.ownerAddress))
@@ -1989,7 +1999,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXMakeOfferImplemetation makeoffer;
         static_cast<CICXMakeOffer &>(makeoffer) = obj;
 
-        makeoffer.creationTx = tx.GetHash();
+        makeoffer.creationTx     = tx.GetHash();
         makeoffer.creationHeight = height;
 
         if (!HasAuth(makeoffer.ownerAddress))
@@ -2036,7 +2046,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXSubmitDFCHTLCImplemetation submitdfchtlc;
         static_cast<CICXSubmitDFCHTLC &>(submitdfchtlc) = obj;
 
-        submitdfchtlc.creationTx = tx.GetHash();
+        submitdfchtlc.creationTx     = tx.GetHash();
         submitdfchtlc.creationHeight = height;
 
         auto offer = mnview.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
@@ -2147,10 +2157,10 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
             uint32_t timeout, btcBlocksInDfi;
             if (static_cast<int>(height) < consensus.EunosPayaHeight) {
-                timeout = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
+                timeout        = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
                 btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
             } else {
-                timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                timeout        = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
                 btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
             }
 
@@ -2176,7 +2186,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXSubmitEXTHTLCImplemetation submitexthtlc;
         static_cast<CICXSubmitEXTHTLC &>(submitexthtlc) = obj;
 
-        submitexthtlc.creationTx = tx.GetHash();
+        submitexthtlc.creationTx     = tx.GetHash();
         submitexthtlc.creationHeight = height;
 
         auto offer = mnview.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
@@ -2213,10 +2223,10 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
             uint32_t timeout, btcBlocksInDfi;
             if (static_cast<int>(height) < consensus.EunosPayaHeight) {
-                timeout = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
+                timeout        = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
                 btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
             } else {
-                timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                timeout        = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
                 btcBlocksInDfi = CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS;
             }
 
@@ -2297,7 +2307,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXClaimDFCHTLCImplemetation claimdfchtlc;
         static_cast<CICXClaimDFCHTLC &>(claimdfchtlc) = obj;
 
-        claimdfchtlc.creationTx = tx.GetHash();
+        claimdfchtlc.creationTx     = tx.GetHash();
         claimdfchtlc.creationHeight = height;
 
         auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
@@ -2366,9 +2376,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
         // Order fulfilled, close order.
         if (order->amountToFill == 0) {
-            order->closeTx = claimdfchtlc.creationTx;
+            order->closeTx     = claimdfchtlc.creationTx;
             order->closeHeight = height;
-            res = mnview.ICXCloseOrderTx(*order, CICXOrder::STATUS_FILLED);
+            res                = mnview.ICXCloseOrderTx(*order, CICXOrder::STATUS_FILLED);
             if (!res)
                 return res;
         }
@@ -2401,7 +2411,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXCloseOrderImplemetation closeorder;
         static_cast<CICXCloseOrder &>(closeorder) = obj;
 
-        closeorder.creationTx = tx.GetHash();
+        closeorder.creationTx     = tx.GetHash();
         closeorder.creationHeight = height;
 
         std::unique_ptr<CICXOrderImplemetation> order;
@@ -2418,7 +2428,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (!HasAuth(order->ownerAddress))
             return Res::Err("tx must have at least one input from order owner");
 
-        order->closeTx = closeorder.creationTx;
+        order->closeTx     = closeorder.creationTx;
         order->closeHeight = closeorder.creationHeight;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0) {
@@ -2442,7 +2452,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CICXCloseOfferImplemetation closeoffer;
         static_cast<CICXCloseOffer &>(closeoffer) = obj;
 
-        closeoffer.creationTx = tx.GetHash();
+        closeoffer.creationTx     = tx.GetHash();
         closeoffer.creationHeight = height;
 
         std::unique_ptr<CICXMakeOfferImplemetation> offer;
@@ -2463,7 +2473,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (!HasAuth(offer->ownerAddress))
             return Res::Err("tx must have at least one input from offer owner");
 
-        offer->closeTx = closeoffer.creationTx;
+        offer->closeTx     = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
         bool isPreEunosPaya = static_cast<int>(height) < consensus.EunosPayaHeight;
@@ -2507,7 +2517,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
             const auto &tokenId = obj.idToken.v;
 
-            auto attributes = mnview.GetAttributes();
+            auto attributes  = mnview.GetAttributes();
             attributes->time = time;
 
             CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
@@ -2546,7 +2556,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CLoanSetCollateralTokenImplementation collToken;
         static_cast<CLoanSetCollateralToken &>(collToken) = obj;
 
-        collToken.creationTx = tx.GetHash();
+        collToken.creationTx     = tx.GetHash();
         collToken.creationHeight = height;
 
         auto token = mnview.GetToken(collToken.idToken);
@@ -2574,7 +2584,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
             return Res::Err(price.msg);
 
         fixedIntervalPrice.priceRecord[1] = price;
-        fixedIntervalPrice.timestamp = time;
+        fixedIntervalPrice.timestamp      = time;
 
         LogPrint(BCLog::ORACLE, "CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
@@ -2597,12 +2607,12 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         }
 
         CTokenImplementation token;
-        token.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        token.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        token.creationTx = tx.GetHash();
+        token.symbol         = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name           = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx     = tx.GetHash();
         token.creationHeight = height;
-        token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
-                                   : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+        token.flags          = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
+                                            : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
         token.flags |=
             static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
@@ -2613,7 +2623,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
             const auto &id = tokenId.val->v;
 
-            auto attributes = mnview.GetAttributes();
+            auto attributes  = mnview.GetAttributes();
             attributes->time = time;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
@@ -2652,7 +2662,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         CLoanSetLoanTokenImplementation loanToken;
         static_cast<CLoanSetLoanToken &>(loanToken) = obj;
 
-        loanToken.creationTx = tx.GetHash();
+        loanToken.creationTx     = tx.GetHash();
         loanToken.creationHeight = height;
 
         auto nextPrice =
@@ -2666,9 +2676,9 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
                             obj.fixedIntervalPriceId.second);
 
         CFixedIntervalPrice fixedIntervalPrice;
-        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+        fixedIntervalPrice.priceFeedId    = loanToken.fixedIntervalPriceId;
         fixedIntervalPrice.priceRecord[1] = nextPrice;
-        fixedIntervalPrice.timestamp = time;
+        fixedIntervalPrice.timestamp      = time;
 
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!resSetFixedPrice)
@@ -2722,7 +2732,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
             const auto &id = pair->first.v;
 
-            auto attributes = mnview.GetAttributes();
+            auto attributes  = mnview.GetAttributes();
             attributes->time = time;
 
             CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
@@ -2799,7 +2809,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
             // Duplicate scheme already exists
             if (data.ratio == obj.ratio && data.rate == obj.rate) {
                 duplicateLoan = true;
-                duplicateID = key;
+                duplicateID   = key;
                 return false;
             }
             return true;
@@ -2815,7 +2825,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
                     // Duplicate delayed loan scheme
                     if (data.ratio == obj.ratio && data.rate == obj.rate) {
                         duplicateLoan = true;
-                        duplicateKey = key;
+                        duplicateKey  = key;
                         return false;
                     }
                     return true;
@@ -2997,7 +3007,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
         // return half fee, the rest is burned at creation
         auto feeBack = consensus.vaultCreationFee / 2;
-        res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
+        res          = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
         return !res ? res : mnview.EraseVault(obj.vaultId);
     }
 
@@ -3049,7 +3059,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
                             scheme->ratio);
                 }
 
-        vault->schemeId = obj.schemeId;
+        vault->schemeId     = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
         return mnview.UpdateVault(obj.vaultId, *vault);
     }
@@ -3208,7 +3218,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto &kv : obj.amounts.balances) {
             const DCT_ID &tokenId = kv.first;
-            auto loanToken = mnview.GetLoanTokenByID(tokenId);
+            auto loanToken        = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
@@ -3236,14 +3246,14 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
             for (int i = 0; i < 2; i++) {
                 // check active and next price
-                auto price = priceFeed.val->priceRecord[int(i > 0)];
+                auto price  = priceFeed.val->priceRecord[int(i > 0)];
                 auto amount = MultiplyAmounts(price, kv.second);
                 if (price > COIN && amount < kv.second)
                     return Res::Err(
                         "Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
 
                 auto &totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
-                auto prevLoans = totalLoans;
+                auto prevLoans   = totalLoans;
                 totalLoans += amount;
                 if (prevLoans > totalLoans)
                     return Res::Err("Exceed maximum loans");
@@ -3306,7 +3316,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     Res operator()(const CLoanPaybackLoanMessage &obj) const {
         std::map<DCT_ID, CBalances> loans;
         for (auto &balance : obj.amounts.balances) {
-            auto id = balance.first;
+            auto id     = balance.first;
             auto amount = balance.second;
 
             CBalances *loan;
@@ -3346,17 +3356,17 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
             return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
         auto shouldSetVariable = false;
-        auto attributes = mnview.GetAttributes();
+        auto attributes        = mnview.GetAttributes();
 
         for (const auto &idx : obj.loans) {
             DCT_ID loanTokenId = idx.first;
-            auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
+            auto loanToken     = mnview.GetLoanTokenByID(loanTokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
             for (const auto &kv : idx.second.balances) {
                 DCT_ID paybackTokenId = kv.first;
-                auto paybackAmount = kv.second;
+                auto paybackAmount    = kv.second;
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
                 auto paybackToken = mnview.GetToken(paybackTokenId);
@@ -3438,11 +3448,11 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
 
                 LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
                 auto subInterest = TotalInterest(*rate, height);
-                auto subLoan = paybackAmount - subInterest;
+                auto subLoan     = paybackAmount - subInterest;
 
                 if (paybackAmount < subInterest) {
                     subInterest = paybackAmount;
-                    subLoan = 0;
+                    subLoan     = 0;
                 } else if (it->second - subLoan < 0) {
                     subLoan = it->second;
                 }
@@ -3736,46 +3746,46 @@ void PopulateVaultHistoryData(CHistoryWriters *writers,
                               const uint32_t txn,
                               const uint256 &txid) {
     if (txType == CustomTxType::Vault) {
-        auto obj = std::get<CVaultMessage>(txMessage);
+        auto obj          = std::get<CVaultMessage>(txMessage);
         writers->schemeID = obj.schemeId;
-        view.vaultID = txid;
+        view.vaultID      = txid;
     } else if (txType == CustomTxType::CloseVault) {
-        auto obj = std::get<CCloseVaultMessage>(txMessage);
+        auto obj     = std::get<CCloseVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::UpdateVault) {
-        auto obj = std::get<CUpdateVaultMessage>(txMessage);
+        auto obj     = std::get<CUpdateVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
         if (!obj.schemeId.empty()) {
             writers->schemeID = obj.schemeId;
         }
     } else if (txType == CustomTxType::DepositToVault) {
-        auto obj = std::get<CDepositToVaultMessage>(txMessage);
+        auto obj     = std::get<CDepositToVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::WithdrawFromVault) {
-        auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
+        auto obj     = std::get<CWithdrawFromVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::TakeLoan) {
-        auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
+        auto obj     = std::get<CLoanTakeLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoan) {
-        auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
+        auto obj     = std::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoanV2) {
-        auto obj = std::get<CLoanPaybackLoanV2Message>(txMessage);
+        auto obj     = std::get<CLoanPaybackLoanV2Message>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
-        auto obj = std::get<CAuctionBidMessage>(txMessage);
+        auto obj     = std::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::LoanScheme) {
-        auto obj = std::get<CLoanSchemeMessage>(txMessage);
+        auto obj                             = std::get<CLoanSchemeMessage>(txMessage);
         writers->globalLoanScheme.identifier = obj.identifier;
-        writers->globalLoanScheme.ratio = obj.ratio;
-        writers->globalLoanScheme.rate = obj.rate;
+        writers->globalLoanScheme.ratio      = obj.ratio;
+        writers->globalLoanScheme.rate       = obj.rate;
         if (!obj.updateHeight) {
             writers->globalLoanScheme.schemeCreationTxid = txid;
         } else {
             writers->vaultView->ForEachGlobalScheme(
-                [&writers](VaultGlobalSchemeKey const &key, CLazySerialize<VaultGlobalSchemeValue> value) {
+                [&writers](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> value) {
                     if (value.get().loanScheme.identifier != writers->globalLoanScheme.identifier) {
                         return true;
                     }
@@ -3850,7 +3860,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     // construct undo
     auto &flushable = view.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
+    auto undo       = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
     // flush changes
     view.Flush();
     // write undo
@@ -3861,11 +3871,11 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 }
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
-                                    CTransaction const &tx,
+                                    const CTransaction &tx,
                                     int height,
-                                    uint256 const &prevStakeModifier,
-                                    std::vector<unsigned char> const &metadata,
-                                    Consensus::Params const &consensusParams) {
+                                    const uint256 &prevStakeModifier,
+                                    const std::vector<unsigned char> &metadata,
+                                    const Consensus::Params &consensusParams) {
     if (height >= consensusParams.DakotaHeight) {
         return Res::Err("Old anchor TX type after Dakota fork. Height %d", height);
     }
@@ -3895,11 +3905,11 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
 
     // check reward sum
     if (height >= consensusParams.AMKHeight) {
-        auto const cbValues = tx.GetValuesOut();
+        const auto cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
 
-        auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
+        const auto anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
         if (cbValues.begin()->second != anchorReward) {
             return Res::ErrDbg("bad-ar-amount",
                                "anchor pays wrong amount (actual=%d vs expected=%d)",
@@ -3943,10 +3953,10 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
 }
 
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
-                                        CTransaction const &tx,
+                                        const CTransaction &tx,
                                         int height,
-                                        std::vector<unsigned char> const &metadata,
-                                        Consensus::Params const &consensusParams) {
+                                        const std::vector<unsigned char> &metadata,
+                                        const Consensus::Params &consensusParams) {
     if (height < consensusParams.DakotaHeight) {
         return Res::Err("New anchor TX type before Dakota fork. Height %d", height);
     }
@@ -3965,7 +3975,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
     int anchorHeight = height - 1;
-    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
+    auto uniqueKeys  = finMsg.CheckConfirmSigs(anchorHeight);
     if (!uniqueKeys) {
         return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
@@ -4002,11 +4012,11 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     }
 
     // check reward sum
-    auto const cbValues = tx.GetValuesOut();
+    const auto cbValues = tx.GetValuesOut();
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be paid in DFI only");
 
-    auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
+    const auto anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
     if (cbValues.begin()->second != anchorReward) {
         return Res::ErrDbg("bad-ar-amount",
                            "anchor pays wrong amount (actual=%d vs expected=%d)",
@@ -4128,10 +4138,10 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView &vi
         [&](DCT_ID const &id, const CPoolPair &pool) {
             // Loop through from pool multimap on unique keys only
             for (auto fromIt = fromPoolsID.begin(); fromIt != fromPoolsID.end();
-                 fromIt = fromPoolsID.equal_range(fromIt->first).second) {
+                 fromIt      = fromPoolsID.equal_range(fromIt->first).second) {
                 // Loop through to pool multimap on unique keys only
                 for (auto toIt = toPoolsID.begin(); toIt != toPoolsID.end();
-                     toIt = toPoolsID.equal_range(toIt->first).second) {
+                     toIt      = toPoolsID.equal_range(toIt->first).second) {
                     // If a pool pairs matches from pair and to pair add it to the pool paths
                     if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
                         (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
@@ -4230,21 +4240,21 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
-        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto dirA          = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB          = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
-        auto &balances = dexBalances[currentID];
-        auto forward = swapAmount.nTokenId == pool->idTokenA;
+        auto &balances   = dexBalances[currentID];
+        auto forward     = swapAmount.nTokenId == pool->idTokenA;
 
         auto &totalTokenA = forward ? balances.totalTokenA : balances.totalTokenB;
         auto &totalTokenB = forward ? balances.totalTokenB : balances.totalTokenA;
 
-        const auto &reserveAmount = forward ? pool->reserveA : pool->reserveB;
+        const auto &reserveAmount   = forward ? pool->reserveA : pool->reserveB;
         const auto &blockCommission = forward ? pool->blockCommissionA : pool->blockCommissionB;
 
-        const auto initReserveAmount = reserveAmount;
+        const auto initReserveAmount   = reserveAmount;
         const auto initBlockCommission = blockCommission;
 
         // Perform swap
@@ -4280,14 +4290,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
                 CCustomCSView intermediateView(view);
                 // hide interemidiate swaps
                 auto &subView = i == 0 ? view : intermediateView;
-                res = subView.SubBalance(obj.from, swapAmount);
+                res           = subView.SubBalance(obj.from, swapAmount);
                 if (!res) {
                     return res;
                 }
                 intermediateView.Flush();
 
                 auto &addView = lastSwap ? view : intermediateView;
-                res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
+                res           = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
                 if (!res) {
                     return res;
                 }
@@ -4350,21 +4360,21 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, boo
 Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     DCT_ID tokenId,
                     CAmount amount,
-                    CScript const &from,
-                    CScript const &to,
+                    const CScript &from,
+                    const CScript &to,
                     uint32_t height,
                     bool forceLoanSwap) {
     CPoolSwapMessage obj;
 
-    obj.from = from;
-    obj.to = to;
+    obj.from        = from;
+    obj.to          = to;
     obj.idTokenFrom = tokenId;
-    obj.idTokenTo = DCT_ID{0};
-    obj.amountFrom = amount;
-    obj.maxPrice = POOLPRICE_MAX;
+    obj.idTokenTo   = DCT_ID{0};
+    obj.amountFrom  = amount;
+    obj.maxPrice    = POOLPRICE_MAX;
 
     auto poolSwap = CPoolSwap(obj, height);
-    auto token = mnview.GetToken(tokenId);
+    auto token    = mnview.GetToken(tokenId);
     if (!token)
         return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 

@@ -23,7 +23,7 @@ Res LP_SPLITS::Import(const UniValue &val) {
 
 UniValue LP_SPLITS::Export() const {
     UniValue res(UniValue::VOBJ);
-    for (auto const &kv : splits) {
+    for (const auto &kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
     }
     return res;
@@ -31,7 +31,7 @@ UniValue LP_SPLITS::Export() const {
 
 Res LP_SPLITS::Validate(const CCustomCSView &mnview) const {
     CAmount total{0};
-    for (auto const &kv : splits) {
+    for (const auto &kv : splits) {
         if (!mnview.HasPoolPair(kv.first))
             return Res::Err("pool with id=%s not found", kv.first.ToString());
 
@@ -51,7 +51,7 @@ Res LP_SPLITS::Apply(CCustomCSView &mnview, uint32_t height) {
     mnview.ForEachPoolId([&](DCT_ID poolId) {
         // we ought to reset previous value:
         CAmount rewardPct = 0;
-        auto it = splits.find(poolId);
+        auto it           = splits.find(poolId);
         if (it != splits.end())
             rewardPct = it->second;
 

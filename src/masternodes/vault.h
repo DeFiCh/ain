@@ -144,14 +144,14 @@ struct CAuctionBatch {
 class CVaultView : public virtual CStorageView {
    public:
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
-    using AuctionStoreKey = std::pair<CVaultId, uint32_t>;
+    using AuctionStoreKey   = std::pair<CVaultId, uint32_t>;
 
     Res StoreVault(const CVaultId &, const CVaultData &);
     Res EraseVault(const CVaultId &);
     std::optional<CVaultData> GetVault(const CVaultId &) const;
     Res UpdateVault(const CVaultId &vaultId, const CVaultMessage &newVault);
     void ForEachVault(std::function<bool(const CVaultId &, const CVaultData &)> callback,
-                      const CVaultId &start = {},
+                      const CVaultId &start       = {},
                       const CScript &ownerAddress = {});
 
     Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);

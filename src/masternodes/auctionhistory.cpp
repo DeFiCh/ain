@@ -7,8 +7,8 @@
 #include <masternodes/masternodes.h>
 
 void CAuctionHistoryView::ForEachAuctionHistory(
-    std::function<bool(AuctionHistoryKey const &, CLazySerialize<AuctionHistoryValue>)> callback,
-    AuctionHistoryKey const &start) {
+    std::function<bool(const AuctionHistoryKey &, CLazySerialize<AuctionHistoryValue>)> callback,
+    const AuctionHistoryKey &start) {
     ForEach<ByAuctionHistoryKey, AuctionHistoryKey, AuctionHistoryValue>(callback, start);
 }
 

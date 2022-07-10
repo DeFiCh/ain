@@ -16,23 +16,23 @@ struct Res {
     operator bool() const { return ok; }
 
     template <typename... Args>
-    static Res Err(std::string const &err, const Args &...args) {
+    static Res Err(const std::string &err, const Args &...args) {
         return Res{false, tfm::format(err, args...), 0, {}};
     }
 
     template <typename... Args>
-    static Res ErrCode(uint32_t code, std::string const &err, const Args &...args) {
+    static Res ErrCode(uint32_t code, const std::string &err, const Args &...args) {
         return Res{false, tfm::format(err, args...), code, {}};
     }
 
     // extended version just for CValidationState support
     template <typename... Args>
-    static Res ErrDbg(std::string const &debugMsg, std::string const &err, const Args &...args) {
+    static Res ErrDbg(const std::string &debugMsg, const std::string &err, const Args &...args) {
         return {false, tfm::format(err, args...), 0, debugMsg};
     }
 
     template <typename... Args>
-    static Res Ok(std::string const &msg, const Args &...args) {
+    static Res Ok(const std::string &msg, const Args &...args) {
         return Res{true, tfm::format(msg, args...), 0, {}};
     }
 
@@ -45,10 +45,13 @@ struct ResVal : public Res {
 
     ResVal() = delete;
 
-    ResVal(Res const &errRes) : Res(errRes) {
+    ResVal(const Res &errRes)
+        : Res(errRes) {
         assert(!this->ok);  // if value is not provided, then it's always an error
     }
-    ResVal(T value, Res const &okRes) : Res(okRes), val(std::move(value)) {
+    ResVal(T value, const Res &okRes)
+        : Res(okRes),
+          val(std::move(value)) {
         assert(this->ok);  // if value if provided, then it's never an error
     }
 

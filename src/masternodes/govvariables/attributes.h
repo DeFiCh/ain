@@ -15,19 +15,19 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live = 'l',
-    Oracles = 'o',
-    Param = 'a',
-    Token = 't',
+    Live      = 'l',
+    Oracles   = 'o',
+    Param     = 'a',
+    Token     = 't',
     Poolpairs = 'p',
-    Locks = 'L',
+    Locks     = 'L',
 };
 
 enum ParamIDs : uint8_t {
-    DFIP2201 = 'a',
-    DFIP2203 = 'b',
-    TokenID = 'c',
-    Economy = 'e',
+    DFIP2201  = 'a',
+    DFIP2203  = 'b',
+    TokenID   = 'c',
+    Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
 };
@@ -38,43 +38,43 @@ enum OracleIDs : uint8_t {
 
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
-    PaybackTokens = 'b',
-    DFIP2203Current = 'c',
-    DFIP2203Burned = 'd',
-    DFIP2203Minted = 'e',
+    PaybackTokens    = 'b',
+    DFIP2203Current  = 'c',
+    DFIP2203Burned   = 'd',
+    DFIP2203Minted   = 'e',
     DFIP2206FCurrent = 'f',
-    DFIP2206FBurned = 'g',
-    DFIP2206FMinted = 'h',
-    DexTokens = 'i',
+    DFIP2206FBurned  = 'g',
+    DFIP2206FMinted  = 'h',
+    DexTokens        = 'i',
 };
 
 enum DFIPKeys : uint8_t {
-    Active = 'a',
-    Premium = 'b',
-    MinSwap = 'c',
-    RewardPct = 'd',
-    BlockPeriod = 'e',
+    Active           = 'a',
+    Premium          = 'b',
+    MinSwap          = 'c',
+    RewardPct        = 'd',
+    BlockPeriod      = 'e',
     DUSDInterestBurn = 'g',
-    DUSDLoanBurn = 'h',
-    StartBlock = 'i',
+    DUSDLoanBurn     = 'h',
+    StartBlock       = 'i',
 };
 
 enum TokenKeys : uint8_t {
-    PaybackDFI = 'a',
-    PaybackDFIFeePCT = 'b',
-    LoanPayback = 'c',
-    LoanPaybackFeePCT = 'd',
-    DexInFeePct = 'e',
-    DexOutFeePct = 'f',
-    DFIP2203Enabled = 'g',
-    FixedIntervalPriceId = 'h',
+    PaybackDFI            = 'a',
+    PaybackDFIFeePCT      = 'b',
+    LoanPayback           = 'c',
+    LoanPaybackFeePCT     = 'd',
+    DexInFeePct           = 'e',
+    DexOutFeePct          = 'f',
+    DFIP2203Enabled       = 'g',
+    FixedIntervalPriceId  = 'h',
     LoanCollateralEnabled = 'i',
-    LoanCollateralFactor = 'j',
-    LoanMintingEnabled = 'k',
-    LoanMintingInterest = 'l',
-    Ascendant = 'm',
-    Descendant = 'n',
-    Epitaph = 'o',
+    LoanCollateralFactor  = 'j',
+    LoanMintingEnabled    = 'k',
+    LoanMintingInterest   = 'l',
+    Ascendant             = 'm',
+    Descendant            = 'n',
+    Epitaph               = 'o',
 };
 
 enum PoolKeys : uint8_t {
@@ -179,11 +179,11 @@ struct CDexTokenInfo {
 
 enum FeeDirValues : uint8_t { Both, In, Out };
 
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, int32_t>;
+using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using AscendantValue  = std::pair<uint32_t, std::string>;
+using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool,
                                      CAmount,
                                      CBalances,
@@ -210,14 +210,14 @@ class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRI
 
     std::string GetName() const override { return TypeName(); }
 
-    Res Import(UniValue const &val) override;
+    Res Import(const UniValue &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
 
-    Res Validate(CCustomCSView const &mnview) const override;
+    Res Validate(const CCustomCSView &mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
 
-    static constexpr char const *TypeName() { return "ATTRIBUTES"; }
+    static constexpr const char *TypeName() { return "ATTRIBUTES"; }
     static GovVariable *Create() { return new ATTRIBUTES(); }
 
     template <typename T>

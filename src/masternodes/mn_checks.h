@@ -29,80 +29,80 @@ enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
     //    NotCustomTx  = 1,
     NotEnoughBalance = 1024,
-    Fatal = uint32_t(1) << 31  // not allowed to fail
+    Fatal            = uint32_t(1) << 31  // not allowed to fail
 };
 
 enum class CustomTxType : uint8_t {
-    None = 0,
+    None   = 0,
     Reject = 1,  // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode = 'C',
-    ResignMasternode = 'R',
-    UpdateMasternode = 'm',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    UpdateMasternode       = 'm',
     SetForcedRewardAddress = 'F',
     RemForcedRewardAddress = 'f',
     // custom tokens:
-    CreateToken = 'T',
-    MintToken = 'M',
-    UpdateToken = 'N',     // previous type, only DAT flag triggers
+    CreateToken    = 'T',
+    MintToken      = 'M',
+    UpdateToken    = 'N',  // previous type, only DAT flag triggers
     UpdateTokenAny = 'n',  // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
     //    CreateOrder         = 'O',
     //    DestroyOrder        = 'E',
     //    MatchOrders         = 'A',
     // poolpair
-    CreatePoolPair = 'p',
-    UpdatePoolPair = 'u',
-    PoolSwap = 's',
-    PoolSwapV2 = 'i',
-    AddPoolLiquidity = 'l',
+    CreatePoolPair      = 'p',
+    UpdatePoolPair      = 'u',
+    PoolSwap            = 's',
+    PoolSwapV2          = 'i',
+    AddPoolLiquidity    = 'l',
     RemovePoolLiquidity = 'r',
     // accounts
-    UtxosToAccount = 'U',
-    AccountToUtxos = 'b',
-    AccountToAccount = 'B',
+    UtxosToAccount        = 'U',
+    AccountToUtxos        = 'b',
+    AccountToAccount      = 'B',
     AnyAccountsToAccounts = 'a',
-    SmartContract = 'K',
-    FutureSwap = 'Q',
+    SmartContract         = 'K',
+    FutureSwap            = 'Q',
     // set governance variable
-    SetGovVariable = 'G',
+    SetGovVariable       = 'G',
     SetGovVariableHeight = 'j',
     // Auto auth TX
     AutoAuthPrep = 'A',
     // oracles
-    AppointOracle = 'o',
+    AppointOracle       = 'o',
     RemoveOracleAppoint = 'h',
     UpdateOracleAppoint = 't',
-    SetOracleData = 'y',
+    SetOracleData       = 'y',
     // ICX
-    ICXCreateOrder = '1',
-    ICXMakeOffer = '2',
+    ICXCreateOrder   = '1',
+    ICXMakeOffer     = '2',
     ICXSubmitDFCHTLC = '3',
     ICXSubmitEXTHTLC = '4',
-    ICXClaimDFCHTLC = '5',
-    ICXCloseOrder = '6',
-    ICXCloseOffer = '7',
+    ICXClaimDFCHTLC  = '5',
+    ICXCloseOrder    = '6',
+    ICXCloseOffer    = '7',
     // Loans
     SetLoanCollateralToken = 'c',
-    SetLoanToken = 'g',
-    UpdateLoanToken = 'x',
-    LoanScheme = 'L',
-    DefaultLoanScheme = 'd',
-    DestroyLoanScheme = 'D',
-    Vault = 'V',
-    CloseVault = 'e',
-    UpdateVault = 'v',
-    DepositToVault = 'S',
-    WithdrawFromVault = 'J',
-    TakeLoan = 'X',
-    PaybackLoan = 'H',
-    PaybackLoanV2 = 'k',
-    AuctionBid = 'I',
+    SetLoanToken           = 'g',
+    UpdateLoanToken        = 'x',
+    LoanScheme             = 'L',
+    DefaultLoanScheme      = 'd',
+    DestroyLoanScheme      = 'D',
+    Vault                  = 'V',
+    CloseVault             = 'e',
+    UpdateVault            = 'v',
+    DepositToVault         = 'S',
+    WithdrawFromVault      = 'J',
+    TakeLoan               = 'X',
+    PaybackLoan            = 'H',
+    PaybackLoanV2          = 'k',
+    AuctionBid             = 'I',
     // Marker TXs
     FutureSwapExecution = 'q',
-    FutureSwapRefund = 'w',
-    TokenSplit = 'P',
+    FutureSwapRefund    = 'w',
+    TokenSplit          = 'P',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -390,8 +390,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   const CTransaction &tx,
                   const Consensus::Params &consensus,
                   uint32_t height,
-                  uint64_t time = 0,
-                  uint32_t txn = 0,
+                  uint64_t time            = 0,
+                  uint32_t txn             = 0,
                   CHistoryWriters *writers = nullptr);
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
@@ -420,8 +420,8 @@ bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t 
 Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     DCT_ID tokenId,
                     CAmount amount,
-                    CScript const &from,
-                    CScript const &to,
+                    const CScript &from,
+                    const CScript &to,
                     uint32_t height,
                     bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
@@ -441,7 +441,7 @@ inline bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &price
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
  */
-inline CustomTxType GuessCustomTxType(CTransaction const &tx,
+inline CustomTxType GuessCustomTxType(const CTransaction &tx,
                                       std::vector<unsigned char> &metadata,
                                       bool metadataValidation = false) {
     if (tx.vout.empty()) {
@@ -508,7 +508,7 @@ inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransac
 
 inline TAmounts GetNonMintedValuesOut(const CTransaction &tx) {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
-    const auto accountToUtxos = GetAccountToUtxosMsg(tx);
+    const auto accountToUtxos    = GetAccountToUtxosMsg(tx);
     if (accountToUtxos) {
         mintingOutputsStart = accountToUtxos->mintingOutputsStart;
     }
@@ -517,7 +517,7 @@ inline TAmounts GetNonMintedValuesOut(const CTransaction &tx) {
 
 inline CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
-    const auto accountToUtxos = GetAccountToUtxosMsg(tx);
+    const auto accountToUtxos    = GetAccountToUtxosMsg(tx);
     if (accountToUtxos) {
         mintingOutputsStart = accountToUtxos->mintingOutputsStart;
     }
@@ -533,7 +533,9 @@ class CPoolSwap {
    public:
     std::vector<std::pair<std::string, std::string>> errors;
 
-    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height) : obj(obj), height(height) {}
+    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height)
+        : obj(obj),
+          height(height) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, bool testOnly = false);
     Res ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, bool testOnly = false);

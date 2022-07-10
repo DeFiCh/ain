@@ -153,8 +153,8 @@ struct VaultGlobalSchemeValue {
 
 class CVaultHistoryView : public virtual CStorageView {
    public:
-    void WriteVaultHistory(VaultHistoryKey const &key, VaultHistoryValue const &value);
-    void WriteVaultScheme(VaultSchemeKey const &key, const VaultSchemeValue &value);
+    void WriteVaultHistory(const VaultHistoryKey &key, const VaultHistoryValue &value);
+    void WriteVaultScheme(const VaultSchemeKey &key, const VaultSchemeValue &value);
     void WriteVaultState(CCustomCSView &mnview,
                          const CBlockIndex &pindex,
                          const uint256 &vaultID,
@@ -162,19 +162,19 @@ class CVaultHistoryView : public virtual CStorageView {
 
     void EraseVaultHistory(const uint32_t height);
 
-    void ForEachVaultHistory(std::function<bool(VaultHistoryKey const &, CLazySerialize<VaultHistoryValue>)> callback,
-                             VaultHistoryKey const &start = {});
-    void ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback,
-                            VaultSchemeKey const &start = {});
-    void ForEachVaultState(std::function<bool(VaultStateKey const &, CLazySerialize<VaultStateValue>)> callback,
-                           VaultStateKey const &start = {});
+    void ForEachVaultHistory(std::function<bool(const VaultHistoryKey &, CLazySerialize<VaultHistoryValue>)> callback,
+                             const VaultHistoryKey &start = {});
+    void ForEachVaultScheme(std::function<bool(const VaultSchemeKey &, CLazySerialize<VaultSchemeValue>)> callback,
+                            const VaultSchemeKey &start = {});
+    void ForEachVaultState(std::function<bool(const VaultStateKey &, CLazySerialize<VaultStateValue>)> callback,
+                           const VaultStateKey &start = {});
 
     // Loan Scheme storage
-    void WriteGlobalScheme(VaultGlobalSchemeKey const &key, const VaultGlobalSchemeValue &value);
+    void WriteGlobalScheme(const VaultGlobalSchemeKey &key, const VaultGlobalSchemeValue &value);
     void EraseGlobalScheme(const VaultGlobalSchemeKey &key);
     void ForEachGlobalScheme(
-        std::function<bool(VaultGlobalSchemeKey const &, CLazySerialize<VaultGlobalSchemeValue>)> callback,
-        VaultGlobalSchemeKey const &start = {});
+        std::function<bool(const VaultGlobalSchemeKey &, CLazySerialize<VaultGlobalSchemeValue>)> callback,
+        const VaultGlobalSchemeKey &start = {});
 
     struct ByVaultHistoryKey {
         static constexpr uint8_t prefix() { return 0x01; }

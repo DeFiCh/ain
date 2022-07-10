@@ -13,7 +13,7 @@ class Factory {
    public:
     typedef TBaseType *(*Creator)();  // creator function
 
-    Factory() = delete;
+    Factory()  = delete;
     ~Factory() = delete;
 
     template <typename TType>
@@ -22,7 +22,7 @@ class Factory {
         return res.second;
     }
 
-    static TBaseType *Create(std::string const &name) {
+    static TBaseType *Create(const std::string &name) {
         typename TCreators::const_iterator creator(m_creators.find(name));
         if (creator == m_creators.end()) {
             return {};

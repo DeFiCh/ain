@@ -15,30 +15,30 @@ class CCustomCSView;
 
 class GovVariable {
    public:
-    static std::shared_ptr<GovVariable> Create(std::string const &name) {
+    static std::shared_ptr<GovVariable> Create(const std::string &name) {
         return std::shared_ptr<GovVariable>(Factory<GovVariable>::Create(name));
     }
     virtual ~GovVariable() = default;
 
     virtual std::string GetName() const = 0;
 
-    virtual Res Import(UniValue const &) = 0;
-    virtual UniValue Export() const = 0;
+    virtual Res Import(const UniValue &) = 0;
+    virtual UniValue Export() const      = 0;
     /// @todo it looks like Validate+Apply may be redundant. refactor for one?
-    virtual Res Validate(CCustomCSView const &) const = 0;
-    virtual Res Apply(CCustomCSView &, uint32_t) = 0;
+    virtual Res Validate(const CCustomCSView &) const = 0;
+    virtual Res Apply(CCustomCSView &, uint32_t)      = 0;
 
     virtual void Serialize(CVectorWriter &s) const = 0;
-    virtual void Unserialize(VectorReader &s) = 0;
+    virtual void Unserialize(VectorReader &s)      = 0;
 
     virtual void Serialize(CDataStream &s) const = 0;
-    virtual void Unserialize(CDataStream &s) = 0;
+    virtual void Unserialize(CDataStream &s)     = 0;
 };
 
 class CGovView : public virtual CStorageView {
    public:
-    Res SetVariable(GovVariable const &var);
-    std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
+    Res SetVariable(const GovVariable &var);
+    std::shared_ptr<GovVariable> GetVariable(const std::string &govKey) const;
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>> &govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);

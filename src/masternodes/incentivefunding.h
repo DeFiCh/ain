@@ -11,14 +11,14 @@
 #include <masternodes/res.h>
 
 inline CommunityAccountType CommunityAccountCodeToType(unsigned char ch) {
-    char const types[] = "IALOU";
+    const char types[] = "IALOU";
     if (memchr(types, ch, strlen(types)))
         return static_cast<CommunityAccountType>(ch);
     else
         return CommunityAccountType::None;
 }
 
-inline char const *GetCommunityAccountName(CommunityAccountType t) {
+inline const char *GetCommunityAccountName(CommunityAccountType t) {
     switch (t) {
         case CommunityAccountType::IncentiveFunding:
             return "IncentiveFunding";

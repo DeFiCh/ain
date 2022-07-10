@@ -59,7 +59,7 @@ class CLoanSetLoanToken {
     std::string symbol;
     std::string name;
     CTokenCurrencyPair fixedIntervalPriceId;
-    bool mintable = true;
+    bool mintable    = true;
     CAmount interest = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -228,7 +228,7 @@ struct CInterestRateV2 {
 
 inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2 &rate1) {
     CInterestRate rate2{};
-    rate2.height = rate1.height;
+    rate2.height           = rate1.height;
     rate2.interestPerBlock = rate1.interestPerBlock.GetLow64();
     rate2.interestToHeight = rate1.interestToHeight.GetLow64();
 
@@ -237,7 +237,7 @@ inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2 &rate1) {
 
 inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate &rate1) {
     CInterestRateV2 rate2{};
-    rate2.height = rate1.height;
+    rate2.height           = rate1.height;
     rate2.interestPerBlock = rate1.interestPerBlock;
     rate2.interestToHeight = rate1.interestToHeight;
 
@@ -307,21 +307,21 @@ class CLoanPaybackLoanV2Message {
 class CLoanView : public virtual CStorageView {
    public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
-    using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
+    using CLoanSetLoanTokenImpl       = CLoanSetLoanTokenImplementation;
 
-    std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(uint256 const &txid) const;
-    Res CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const &collToken);
+    std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(const uint256 &txid) const;
+    Res CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken);
     Res EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken);
-    void ForEachLoanCollateralToken(std::function<bool(CollateralTokenKey const &, uint256 const &)> callback,
-                                    CollateralTokenKey const &start = {DCT_ID{0}, UINT_MAX});
-    std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(CollateralTokenKey const &key);
+    void ForEachLoanCollateralToken(std::function<bool(const CollateralTokenKey &, const uint256 &)> callback,
+                                    const CollateralTokenKey &start = {DCT_ID{0}, UINT_MAX});
+    std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(const CollateralTokenKey &key);
 
-    std::optional<CLoanSetLoanTokenImpl> GetLoanToken(uint256 const &txid) const;
+    std::optional<CLoanSetLoanTokenImpl> GetLoanToken(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const &id) const = 0;
-    Res SetLoanToken(CLoanSetLoanTokenImpl const &loanToken, DCT_ID const &id);
-    Res UpdateLoanToken(CLoanSetLoanTokenImpl const &loanToken, DCT_ID const &id);
+    Res SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id);
+    Res UpdateLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id);
     Res EraseLoanToken(const DCT_ID &id);
-    void ForEachLoanToken(std::function<bool(DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback,
+    void ForEachLoanToken(std::function<bool(DCT_ID const &, const CLoanSetLoanTokenImpl &)> callback,
                           DCT_ID const &start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage &loanScheme);
@@ -356,10 +356,10 @@ class CLoanView : public virtual CStorageView {
                       CAmount interestDecreased);
     void ForEachVaultInterest(std::function<bool(const CVaultId &, DCT_ID, CInterestRate)> callback,
                               const CVaultId &vaultId = uint256(),
-                              DCT_ID id = {0});
+                              DCT_ID id               = {0});
     void ForEachVaultInterestV2(std::function<bool(const CVaultId &, DCT_ID, CInterestRateV2)> callback,
                                 const CVaultId &vaultId = uint256(),
-                                DCT_ID id = {0});
+                                DCT_ID id               = {0});
     void RevertInterestRateToV1();
     void MigrateInterestRateToV2(CVaultView &view, uint32_t height);
 

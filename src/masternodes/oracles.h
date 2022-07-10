@@ -19,11 +19,11 @@
 class CTokenImplementation;
 class CLoanSetLoanTokenImplementation;
 
-using COracleId = uint256;
-using CPriceTimePair = std::pair<CAmount, int64_t>;
+using COracleId          = uint256;
+using CPriceTimePair     = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
-using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
-using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
+using CTokenPrices       = std::map<std::string, std::map<std::string, CAmount>>;
+using CTokenPricePoints  = std::map<std::string, std::map<std::string, CPriceTimePair>>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -154,9 +154,9 @@ class COracleView : public virtual CStorageView {
     Res SetIntervalBlock(const uint32_t blockInterval);
     uint32_t GetIntervalBlock() const;
 
-    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const = 0;
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const                          = 0;
     [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string &str,
-                                                                              DCT_ID &id) const = 0;
+                                                                              DCT_ID &id) const                   = 0;
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const &id) const = 0;
 
     struct ByName {

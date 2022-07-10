@@ -11,11 +11,11 @@
 
 class CUndosView : public virtual CStorageView {
    public:
-    void ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<CUndo>)> callback, UndoKey const &start = {});
+    void ForEachUndo(std::function<bool(const UndoKey &, CLazySerialize<CUndo>)> callback, const UndoKey &start = {});
 
-    std::optional<CUndo> GetUndo(UndoKey const &key) const;
-    Res SetUndo(UndoKey const &key, CUndo const &undo);
-    Res DelUndo(UndoKey const &key);
+    std::optional<CUndo> GetUndo(const UndoKey &key) const;
+    Res SetUndo(const UndoKey &key, const CUndo &undo);
+    Res DelUndo(const UndoKey &key);
 
     // tags
     struct ByUndoKey {

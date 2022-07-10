@@ -27,7 +27,7 @@ struct UndoKey {
 struct CUndo {
     MapKV before;
 
-    static CUndo Construct(CStorageKV const &before, MapKV const &diff) {
+    static CUndo Construct(const CStorageKV &before, const MapKV &diff) {
         CUndo result;
         for (const auto &kv : diff) {
             const auto &beforeKey = kv.first;
@@ -41,7 +41,7 @@ struct CUndo {
         return result;
     }
 
-    static void Revert(CStorageKV &after, CUndo const &undo) {
+    static void Revert(CStorageKV &after, const CUndo &undo) {
         for (const auto &kv : undo.before) {
             if (kv.second) {
                 after.Write(kv.first, *kv.second);

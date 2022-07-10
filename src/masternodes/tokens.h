@@ -18,18 +18,18 @@ class UniValue;
 
 class CToken {
    public:
-    static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
-    static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
+    static const uint8_t MAX_TOKEN_NAME_LENGTH     = 128;
+    static const uint8_t MAX_TOKEN_SYMBOL_LENGTH   = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
     enum class TokenFlags : uint8_t {
-        None = 0,
-        Mintable = 0x01,
+        None      = 0,
+        Mintable  = 0x01,
         Tradeable = 0x02,
-        DAT = 0x04,
-        LPS = 0x08,        // Liquidity Pool Share
+        DAT       = 0x04,
+        LPS       = 0x08,  // Liquidity Pool Share
         Finalized = 0x10,  // locked forever
         LoanToken = 0x20,  // token created for loan
-        Default = TokenFlags::Mintable | TokenFlags::Tradeable
+        Default   = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
     //! basic properties
@@ -39,7 +39,12 @@ class CToken {
     CAmount limit;    // now isn't tracked
     uint8_t flags;    // minting support, tradeability
 
-    CToken() : symbol(""), name(""), decimal(8), limit(0), flags(uint8_t(TokenFlags::Default)) {}
+    CToken()
+        : symbol(""),
+          name(""),
+          decimal(8),
+          limit(0),
+          flags(uint8_t(TokenFlags::Default)) {}
     virtual ~CToken() = default;
 
     inline bool IsMintable() const { return flags & (uint8_t)TokenFlags::Mintable; }
@@ -75,9 +80,17 @@ class CTokenImplementation : public CToken {
     int32_t destructionHeight;
 
     CTokenImplementation()
-        : CToken(), minted(0), creationTx(), destructionTx(), creationHeight(-1), destructionHeight(-1) {}
+        : CToken(),
+          minted(0),
+          creationTx(),
+          destructionTx(),
+          creationHeight(-1),
+          destructionHeight(-1) {}
     explicit CTokenImplementation(const CToken &token)
-        : CToken(token), minted(0), creationHeight(-1), destructionHeight(-1) {}
+        : CToken(token),
+          minted(0),
+          creationHeight(-1),
+          destructionHeight(-1) {}
     ~CTokenImplementation() override = default;
 
     [[nodiscard]] inline Res IsValidSymbol() const;
@@ -102,21 +115,21 @@ class CTokensView : public virtual CStorageView {
 
     using CTokenImpl = CTokenImplementation;
     std::optional<CTokenImpl> GetToken(DCT_ID id) const;
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> GetToken(std::string const &symbol) const;
+    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> GetToken(const std::string &symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
-    std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const &txid) const;
+    std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const = 0;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback,
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const &token, bool isPreBayfront = false);
-    Res UpdateToken(CTokenImpl const &newToken, bool isPreBayfront = false, const bool tokenSplitUpdatea = false);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false);
+    Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdatea = false);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(DCT_ID const &id, CAmount const &amount);
-    Res SubMintedTokens(DCT_ID const &id, CAmount const &amount);
+    Res AddMintedTokens(DCT_ID const &id, const CAmount &amount);
+    Res SubMintedTokens(DCT_ID const &id, const CAmount &amount);
 
     // tags
     struct ID {

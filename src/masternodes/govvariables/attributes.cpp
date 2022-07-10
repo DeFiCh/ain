@@ -14,7 +14,7 @@
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
 
-extern UniValue AmountsToJSON(TAmounts const &diffs, AmountFormat format = AmountFormat::Symbol);
+extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
@@ -49,34 +49,34 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayVersions() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
-        {"locks", AttributeTypes::Locks},
-        {"oracles", AttributeTypes::Oracles},
-        {"params", AttributeTypes::Param},
+        {"locks",     AttributeTypes::Locks    },
+        {"oracles",   AttributeTypes::Oracles  },
+        {"params",    AttributeTypes::Param    },
         {"poolpairs", AttributeTypes::Poolpairs},
-        {"token", AttributeTypes::Token},
+        {"token",     AttributeTypes::Token    },
     };
     return types;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
-        {AttributeTypes::Live, "live"},
-        {AttributeTypes::Locks, "locks"},
-        {AttributeTypes::Oracles, "oracles"},
-        {AttributeTypes::Param, "params"},
+        {AttributeTypes::Live,      "live"     },
+        {AttributeTypes::Locks,     "locks"    },
+        {AttributeTypes::Oracles,   "oracles"  },
+        {AttributeTypes::Param,     "params"   },
         {AttributeTypes::Poolpairs, "poolpairs"},
-        {AttributeTypes::Token, "token"},
+        {AttributeTypes::Token,     "token"    },
     };
     return types;
 }
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
-        {"dfip2201", ParamIDs::DFIP2201},
-        {"dfip2203", ParamIDs::DFIP2203},
+        {"dfip2201",  ParamIDs::DFIP2201 },
+        {"dfip2203",  ParamIDs::DFIP2203 },
         {"dfip2206a", ParamIDs::DFIP2206A},
-        // Note: DFIP2206F is currently in beta testing
-        // for testnet. May not be enabled on mainnet until testing is complete.
+ // Note: DFIP2206F is currently in beta testing
+  // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f", ParamIDs::DFIP2206F},
     };
     return params;
@@ -91,20 +91,22 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedLocksIDs() {
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-        {ParamIDs::DFIP2201, "dfip2201"},
-        {ParamIDs::DFIP2203, "dfip2203"},
+        {ParamIDs::DFIP2201,  "dfip2201" },
+        {ParamIDs::DFIP2203,  "dfip2203" },
         {ParamIDs::DFIP2206A, "dfip2206a"},
-        // Note: DFIP2206F is currently in beta testing
-        // for testnet. May not be enabled on mainnet until testing is complete.
+ // Note: DFIP2206F is currently in beta testing
+  // for testnet. May not be enabled on mainnet until testing is complete.
         {ParamIDs::DFIP2206F, "dfip2206f"},
-        {ParamIDs::TokenID, "token"},
-        {ParamIDs::Economy, "economy"},
+        {ParamIDs::TokenID,   "token"    },
+        {ParamIDs::Economy,   "economy"  },
     };
     return params;
 }
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedOracleIDs() {
-    static const std::map<std::string, uint8_t> params{{"splits", OracleIDs::Splits}};
+    static const std::map<std::string, uint8_t> params{
+        {"splits", OracleIDs::Splits}
+    };
     return params;
 }
 
@@ -284,12 +286,15 @@ static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string &str) {
     if (value.size() != 2) {
         return Res::Err("Exactly two entires expected for currency pair");
     }
-    auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    auto token    = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     if (token.empty() || currency.empty()) {
         return Res::Err("Empty token / currency");
     }
-    return {CTokenCurrencyPair{token, currency}, Res::Ok()};
+    return {
+        CTokenCurrencyPair{token, currency},
+        Res::Ok()
+    };
 }
 
 static std::set<std::string> dirSet{"both", "in", "out"};
@@ -356,7 +361,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              {
                  {OracleIDs::Splits, VerifySplit},
              }},
-        };
+    };
     return parsers;
 }
 
@@ -748,7 +753,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = KeyBuilder(attrV0->typeId);
             }
 
-            auto const v0Key = attrV0->type == AttributeTypes::Oracles || attrV0->type == AttributeTypes::Locks
+            const auto v0Key = attrV0->type == AttributeTypes::Oracles || attrV0->type == AttributeTypes::Locks
                                    ? KeyBuilder(attrV0->key)
                                    : displayKeys().at(attrV0->type).at(attrV0->key);
 
@@ -796,7 +801,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 for (const auto &pool : *balances) {
                     auto &dexTokenA = pool.second.totalTokenA;
                     auto &dexTokenB = pool.second.totalTokenB;
-                    auto poolkey = KeyBuilder(key, pool.first.v);
+                    auto poolkey    = KeyBuilder(key, pool.first.v);
                     ret.pushKV(KeyBuilder(poolkey, "total_commission_a"), ValueFromUint(dexTokenA.commissions));
                     ret.pushKV(KeyBuilder(poolkey, "total_commission_b"), ValueFromUint(dexTokenB.commissions));
                     ret.pushKV(KeyBuilder(poolkey, "fee_burn_a"), ValueFromUint(dexTokenA.feeburn));
@@ -1022,7 +1027,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         if (attrV0->type == AttributeTypes::Poolpairs) {
             if (attrV0->key == PoolKeys::TokenAFeePCT || attrV0->key == PoolKeys::TokenBFeePCT) {
                 auto poolId = DCT_ID{attrV0->typeId};
-                auto pool = mnview.GetPoolPair(poolId);
+                auto pool   = mnview.GetPoolPair(poolId);
                 if (!pool) {
                     return Res::Err("No such pool (%d)", poolId.v);
                 }
@@ -1061,10 +1066,10 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                                         currencyPair->second);
                     }
                     CFixedIntervalPrice fixedIntervalPrice;
-                    fixedIntervalPrice.priceFeedId = *currencyPair;
-                    fixedIntervalPrice.timestamp = time;
+                    fixedIntervalPrice.priceFeedId    = *currencyPair;
+                    fixedIntervalPrice.timestamp      = time;
                     fixedIntervalPrice.priceRecord[1] = -1;
-                    const auto aggregatePrice = GetAggregatePrice(
+                    const auto aggregatePrice         = GetAggregatePrice(
                         mnview, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, time);
                     if (aggregatePrice) {
                         fixedIntervalPrice.priceRecord[1] = aggregatePrice;
@@ -1198,8 +1203,8 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
 
                     CGovernanceHeightMessage lock;
                     lock.startHeight = startHeight;
-                    lock.govVar = govVar;
-                    const auto res = storeGovVars(lock, mnview);
+                    lock.govVar      = govVar;
+                    const auto res   = storeGovVars(lock, mnview);
                     if (!res) {
                         return Res::Err("Cannot be set at or below current height");
                     }

@@ -55,19 +55,19 @@ struct CFuturesUserValue {
 
 class CAccountsView : public virtual CStorageView {
    public:
-    void ForEachAccount(std::function<bool(CScript const &)> callback, CScript const &start = {});
-    void ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback,
-                        BalanceKey const &start = {});
-    CTokenAmount GetBalance(CScript const &owner, DCT_ID tokenID) const;
+    void ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start = {});
+    void ForEachBalance(std::function<bool(const CScript &, const CTokenAmount &)> callback,
+                        const BalanceKey &start = {});
+    CTokenAmount GetBalance(const CScript &owner, DCT_ID tokenID) const;
 
-    virtual Res AddBalance(CScript const &owner, CTokenAmount amount);
-    virtual Res SubBalance(CScript const &owner, CTokenAmount amount);
+    virtual Res AddBalance(const CScript &owner, CTokenAmount amount);
+    virtual Res SubBalance(const CScript &owner, CTokenAmount amount);
 
-    Res AddBalances(CScript const &owner, CBalances const &balances);
-    Res SubBalances(CScript const &owner, CBalances const &balances);
+    Res AddBalances(const CScript &owner, const CBalances &balances);
+    Res SubBalances(const CScript &owner, const CBalances &balances);
 
-    uint32_t GetBalancesHeight(CScript const &owner);
-    Res UpdateBalancesHeight(CScript const &owner, uint32_t height);
+    uint32_t GetBalancesHeight(const CScript &owner);
+    Res UpdateBalancesHeight(const CScript &owner, uint32_t height);
 
     Res StoreFuturesUserValues(const CFuturesUserKey &key, const CFuturesUserValue &futures);
     Res EraseFuturesUserValues(const CFuturesUserKey &key);
@@ -98,7 +98,7 @@ class CAccountsView : public virtual CStorageView {
     };
 
    private:
-    Res SetBalance(CScript const &owner, CTokenAmount amount);
+    Res SetBalance(const CScript &owner, CTokenAmount amount);
 };
 
 #endif  // DEFI_MASTERNODES_ACCOUNTS_H

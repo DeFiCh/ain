@@ -6,11 +6,11 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
-std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(uint256 const &txid) const {
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollateralToken(const uint256 &txid) const {
     return ReadBy<LoanSetCollateralTokenCreationTx, CLoanSetCollateralTokenImpl>(txid);
 }
 
-Res CLoanView::CreateLoanCollateralToken(CLoanSetCollateralTokenImpl const &collToken) {
+Res CLoanView::CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken) {
     // this should not happen, but for sure
     if (GetLoanCollateralToken(collToken.creationTx))
         return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
@@ -35,12 +35,12 @@ Res CLoanView::EraseLoanCollateralToken(const CLoanSetCollateralTokenImpl &collT
     return Res::Ok();
 }
 
-void CLoanView::ForEachLoanCollateralToken(std::function<bool(CollateralTokenKey const &, uint256 const &)> callback,
-                                           CollateralTokenKey const &start) {
+void CLoanView::ForEachLoanCollateralToken(std::function<bool(const CollateralTokenKey &, const uint256 &)> callback,
+                                           const CollateralTokenKey &start) {
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }
 
-std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(CollateralTokenKey const &key) {
+std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(const CollateralTokenKey &key) {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
     if (it.Valid() && it.Key().id == key.id)
         return GetLoanCollateralToken(it.Value());
@@ -48,14 +48,14 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollater
     return GetCollateralTokenFromAttributes(key.id);
 }
 
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(uint256 const &txid) const {
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(const uint256 &txid) const {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
         return GetLoanTokenByID(*id);
     return {};
 }
 
-Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const &loanToken, DCT_ID const &id) {
+Res CLoanView::SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id) {
     // this should not happen, but for sure
     if (GetLoanTokenByID(id))
         return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
@@ -66,7 +66,7 @@ Res CLoanView::SetLoanToken(CLoanSetLoanTokenImpl const &loanToken, DCT_ID const
     return Res::Ok();
 }
 
-Res CLoanView::UpdateLoanToken(CLoanSetLoanTokenImpl const &loanToken, DCT_ID const &id) {
+Res CLoanView::UpdateLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id) {
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
 
     return Res::Ok();
@@ -78,7 +78,7 @@ Res CLoanView::EraseLoanToken(const DCT_ID &id) {
     return Res::Ok();
 }
 
-void CLoanView::ForEachLoanToken(std::function<bool(DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback,
+void CLoanView::ForEachLoanToken(std::function<bool(DCT_ID const &, const CLoanSetLoanTokenImpl &)> callback,
                                  DCT_ID const &start) {
     ForEach<LoanSetLoanTokenKey, DCT_ID, CLoanSetLoanTokenImpl>(callback, start);
 }
@@ -179,14 +179,14 @@ std::optional<CInterestRateV2> CLoanView::GetInterestRate(const CVaultId &vaultI
 // precision COIN
 template <typename T>
 inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
-    auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
+    auto netInterest                = (tokenInterest + schemeInterest) / 100;  // in %
     static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 // precisoin COIN ^3
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
-    auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
+    auto netInterest                = (tokenInterest + schemeInterest) / 100;  // in %
     static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }

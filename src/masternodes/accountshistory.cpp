@@ -37,11 +37,11 @@ struct AccountHistoryKeyNew {
     }
 };
 
-static AccountHistoryKeyNew Convert(AccountHistoryKey const &key) {
+static AccountHistoryKeyNew Convert(const AccountHistoryKey &key) {
     return {key.blockHeight, key.owner, key.txn};
 }
 
-static AccountHistoryKey Convert(AccountHistoryKeyNew const &key) {
+static AccountHistoryKey Convert(const AccountHistoryKeyNew &key) {
     return {key.owner, key.blockHeight, key.txn};
 }
 
@@ -67,7 +67,7 @@ void CAccountsHistoryView::CreateMultiIndexIfNeeded() {
 }
 
 void CAccountsHistoryView::ForEachAccountHistory(
-    std::function<bool(AccountHistoryKey const &, AccountHistoryValue)> callback,
+    std::function<bool(const AccountHistoryKey &, AccountHistoryValue)> callback,
     const CScript &owner,
     uint32_t height,
     uint32_t txn) {
@@ -77,8 +77,8 @@ void CAccountsHistoryView::ForEachAccountHistory(
     }
 
     ForEach<ByAccountHistoryKeyNew, AccountHistoryKeyNew, char>(
-        [&](AccountHistoryKeyNew const &newKey, char) {
-            auto key = Convert(newKey);
+        [&](const AccountHistoryKeyNew &newKey, char) {
+            auto key   = Convert(newKey);
             auto value = ReadAccountHistory(key);
             assert(value);
             return callback(key, *value);
@@ -86,7 +86,7 @@ void CAccountsHistoryView::ForEachAccountHistory(
         {height, owner, txn});
 }
 
-std::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(AccountHistoryKey const &key) const {
+std::optional<AccountHistoryValue> CAccountsHistoryView::ReadAccountHistory(const AccountHistoryKey &key) const {
     return ReadBy<ByAccountHistoryKey, AccountHistoryValue>(key);
 }
 
@@ -135,7 +135,7 @@ CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView &storage,
       type(type),
       writers(writers) {}
 
-Res CAccountsHistoryWriter::AddBalance(CScript const &owner, CTokenAmount amount) {
+Res CAccountsHistoryWriter::AddBalance(const CScript &owner, CTokenAmount amount) {
     auto res = CCustomCSView::AddBalance(owner, amount);
     if (writers && amount.nValue != 0 && res.ok) {
         writers->AddBalance(owner, amount, vaultID);
@@ -144,7 +144,7 @@ Res CAccountsHistoryWriter::AddBalance(CScript const &owner, CTokenAmount amount
     return res;
 }
 
-Res CAccountsHistoryWriter::SubBalance(CScript const &owner, CTokenAmount amount) {
+Res CAccountsHistoryWriter::SubBalance(const CScript &owner, CTokenAmount amount) {
     auto res = CCustomCSView::SubBalance(owner, amount);
     if (writers && res.ok && amount.nValue != 0) {
         writers->SubBalance(owner, amount, vaultID);
@@ -167,9 +167,11 @@ CAccountHistoryStorage *CAccountsHistoryWriter::GetAccountHistoryStore() {
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage *historyView,
                                  CBurnHistoryStorage *burnView,
                                  CVaultHistoryStorage *vaultView)
-    : historyView(historyView), burnView(burnView), vaultView(vaultView) {}
+    : historyView(historyView),
+      burnView(burnView),
+      vaultView(vaultView) {}
 
-extern std::string ScriptToString(CScript const &script);
+extern std::string ScriptToString(const CScript &script);
 
 void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount amount, const uint256 &vaultID) {
     if (historyView) {

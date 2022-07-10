@@ -101,21 +101,22 @@ struct CPoolPairMessage {
 class CPoolPair : public CPoolPairMessage {
    public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
-    static const CAmount SLOPE_SWAP_RATE = 1000;
-    static const uint32_t PRECISION = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair(CPoolPairMessage const &msg = {}) : CPoolPairMessage(msg) {}
+    static const CAmount SLOPE_SWAP_RATE   = 1000;
+    static const uint32_t PRECISION        = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
+    CPoolPair(const CPoolPairMessage &msg = {})
+        : CPoolPairMessage(msg) {}
     virtual ~CPoolPair() = default;
 
     // temporary values, not serialized
-    CAmount reserveA = 0;
-    CAmount reserveB = 0;
-    CAmount totalLiquidity = 0;
+    CAmount reserveA         = 0;
+    CAmount reserveB         = 0;
+    CAmount totalLiquidity   = 0;
     CAmount blockCommissionA = 0;
     CAmount blockCommissionB = 0;
 
-    CAmount rewardPct = 0;  // pool yield farming reward %%
+    CAmount rewardPct     = 0;  // pool yield farming reward %%
     CAmount rewardLoanPct = 0;
-    bool swapEvent = false;
+    bool swapEvent        = false;
 
     // serialized
     CBalances rewards;
@@ -133,9 +134,9 @@ class CPoolPair : public CPoolPairMessage {
 
     Res Swap(CTokenAmount in,
              CAmount dexfeeInPct,
-             PoolPrice const &maxPrice,
+             const PoolPrice &maxPrice,
              const std::pair<CFeeDir, CFeeDir> &asymmetricFee,
-             std::function<Res(CTokenAmount const &, CTokenAmount const &)> onTransfer,
+             std::function<Res(const CTokenAmount &, const CTokenAmount &)> onTransfer,
              int height = INT_MAX);
 
    private:
@@ -201,10 +202,10 @@ struct PoolHeightKey {
 };
 
 enum RewardType {
-    Commission = 127,
-    Rewards = 128,
-    Coinbase = Rewards | 1,
-    Pool = Rewards | 2,
+    Commission         = 127,
+    Rewards            = 128,
+    Coinbase           = Rewards | 1,
+    Pool               = Rewards | 2,
     LoanTokenDEXReward = Rewards | 4,
 };
 
@@ -213,26 +214,26 @@ std::string RewardTypeToString(RewardType type);
 
 class CPoolPairView : public virtual CStorageView {
    public:
-    Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const &pool);
+    Res SetPoolPair(const DCT_ID &poolId, uint32_t height, const CPoolPair &pool);
     Res UpdatePoolPair(DCT_ID const &poolId,
                        uint32_t height,
                        bool status,
-                       CAmount const &commission,
-                       CScript const &ownerAddress,
-                       CBalances const &rewards);
+                       const CAmount &commission,
+                       const CScript &ownerAddress,
+                       const CBalances &rewards);
 
     std::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     std::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const &tokenA, DCT_ID const &tokenB) const;
 
     void ForEachPoolId(std::function<bool(DCT_ID const &)> callback, DCT_ID const &start = DCT_ID{0});
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CPoolPair)> callback, DCT_ID const &start = DCT_ID{0});
-    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &, uint32_t)> callback,
-                          PoolShareKey const &startKey = {});
+    void ForEachPoolShare(std::function<bool(DCT_ID const &, const CScript &, uint32_t)> callback,
+                          const PoolShareKey &startKey = {});
 
-    Res SetShare(DCT_ID const &poolId, CScript const &provider, uint32_t height);
-    Res DelShare(DCT_ID const &poolId, CScript const &provider);
+    Res SetShare(DCT_ID const &poolId, const CScript &provider, uint32_t height);
+    Res DelShare(DCT_ID const &poolId, const CScript &provider);
 
-    std::optional<uint32_t> GetShare(DCT_ID const &poolId, CScript const &provider);
+    std::optional<uint32_t> GetShare(DCT_ID const &poolId, const CScript &provider);
 
     void CalculatePoolRewards(DCT_ID const &poolId,
                               std::function<CAmount()> onLiquidity,
@@ -252,8 +253,8 @@ class CPoolPairView : public virtual CStorageView {
     CAmount GetDexFeeOutPct(DCT_ID poolId, DCT_ID tokenId) const;
 
     std::pair<CAmount, CAmount> UpdatePoolRewards(
-        std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance,
-        std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer,
+        std::function<CTokenAmount(const CScript &, DCT_ID)> onGetBalance,
+        std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
         int nHeight = 0);
 
     // tags

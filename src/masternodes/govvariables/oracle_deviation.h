@@ -14,12 +14,12 @@ class ORACLE_DEVIATION : public GovVariable, public AutoRegistrator<GovVariable,
 
     std::string GetName() const override { return TypeName(); }
 
-    Res Import(UniValue const &val) override;
+    Res Import(const UniValue &val) override;
     UniValue Export() const override;
-    Res Validate(CCustomCSView const &mnview) const override;
+    Res Validate(const CCustomCSView &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const *TypeName() { return "ORACLE_DEVIATION"; }
+    static constexpr const char *TypeName() { return "ORACLE_DEVIATION"; }
     static GovVariable *Create() { return new ORACLE_DEVIATION(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS

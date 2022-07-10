@@ -52,7 +52,7 @@ class CWalletCoinsUnlocker {
    public:
     explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
     CWalletCoinsUnlocker(const CWalletCoinsUnlocker &) = delete;
-    CWalletCoinsUnlocker(CWalletCoinsUnlocker &&) = default;
+    CWalletCoinsUnlocker(CWalletCoinsUnlocker &&)      = default;
     ~CWalletCoinsUnlocker();
     CWallet *operator->();
     CWallet &operator*();
@@ -79,8 +79,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       std::set<CScript> &auths,
                                       bool needFounderAuth,
                                       CTransactionRef &optAuthTx,
-                                      UniValue const &explicitInputs);
-std::string ScriptToString(CScript const &script);
+                                      const UniValue &explicitInputs);
+std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,
                                          const CBalances &targetBalances,

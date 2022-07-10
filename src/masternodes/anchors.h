@@ -66,7 +66,9 @@ class CAnchorAuthMessage : public CAnchorData {
     using Signature = std::vector<unsigned char>;
 
    public:
-    CAnchorAuthMessage(CAnchorData const &base = CAnchorData()) : CAnchorData(base), signature() {}
+    CAnchorAuthMessage(const CAnchorData &base = CAnchorData())
+        : CAnchorData(base),
+          signature() {}
 
     Signature GetSignature() const;
     uint256 GetHash() const;
@@ -94,17 +96,21 @@ class CAnchorAuthMessage : public CAnchorData {
 
 class CAnchor : public CAnchorData {
     using Signature = std::vector<unsigned char>;
-    using CTeam = CAnchorData::CTeam;
+    using CTeam     = CAnchorData::CTeam;
 
    public:
     std::vector<Signature> sigs;
     CKeyID rewardKeyID;
     char rewardKeyType;
 
-    CAnchor(CAnchorData const &base = CAnchorData()) : CAnchorData(base), sigs(), rewardKeyID(), rewardKeyType(0) {}
+    CAnchor(const CAnchorData &base = CAnchorData())
+        : CAnchorData(base),
+          sigs(),
+          rewardKeyID(),
+          rewardKeyType(0) {}
 
-    static CAnchor Create(std::vector<CAnchorAuthMessage> const &auths, CTxDestination const &rewardDest);
-    bool CheckAuthSigs(CTeam const &team) const;
+    static CAnchor Create(const std::vector<CAnchorAuthMessage> &auths, const CTxDestination &rewardDest);
+    bool CheckAuthSigs(const CTeam &team) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -148,12 +154,12 @@ class CAnchorAuthIndex {
             >>
         Auths;
 
-    Auth const *GetAuth(uint256 const &msgHash) const;
-    Auth const *GetVote(uint256 const &signHash, CKeyID const &signer) const;
-    bool ValidateAuth(Auth const &auth) const;
-    bool AddAuth(Auth const &auth);
+    const Auth *GetAuth(const uint256 &msgHash) const;
+    const Auth *GetVote(const uint256 &signHash, const CKeyID &signer) const;
+    bool ValidateAuth(const Auth &auth) const;
+    bool AddAuth(const Auth &auth);
 
-    CAnchor CreateBestAnchor(CTxDestination const &rewardDest) const;
+    CAnchor CreateBestAnchor(const CTxDestination &rewardDest) const;
     void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
     void PruneOlderThan(THeight height);
 
@@ -168,7 +174,7 @@ class CAnchorIndex {
 
    public:
     using Signature = std::vector<unsigned char>;
-    using CTeam = CAnchorData::CTeam;
+    using CTeam     = CAnchorData::CTeam;
 
     struct AnchorRec {
         CAnchor anchor;
@@ -204,34 +210,34 @@ class CAnchorIndex {
     bool Load();
 
     void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const;
-    AnchorRec const *GetActiveAnchor() const;
+    const AnchorRec *GetActiveAnchor() const;
     bool ActivateBestAnchor(bool forced = false);  // rescan anchors
 
-    AnchorRec const *GetAnchorByTx(uint256 const &hash) const;
+    const AnchorRec *GetAnchorByTx(const uint256 &hash) const;
 
-    bool AddAnchor(CAnchor const &anchor, uint256 const &btcTxHash, THeight btcBlockHeight, bool overwrite = true);
-    bool DeleteAnchorByBtcTx(uint256 const &btcTxHash);
+    bool AddAnchor(const CAnchor &anchor, const uint256 &btcTxHash, THeight btcBlockHeight, bool overwrite = true);
+    bool DeleteAnchorByBtcTx(const uint256 &btcTxHash);
 
-    CAnchorData::CTeam GetNextTeam(uint256 const &btcPrevTx) const;
+    CAnchorData::CTeam GetNextTeam(const uint256 &btcPrevTx) const;
 
-    AnchorRec const *GetAnchorByBtcTx(uint256 const &txHash) const;
+    const AnchorRec *GetAnchorByBtcTx(const uint256 &txHash) const;
 
     using UnrewardedResult = std::set<uint256>;
     UnrewardedResult GetUnrewarded() const;
 
-    int GetAnchorConfirmations(uint256 const &txHash) const;
-    int GetAnchorConfirmations(AnchorRec const *rec) const;
+    int GetAnchorConfirmations(const uint256 &txHash) const;
+    int GetAnchorConfirmations(const AnchorRec *rec) const;
 
     void CheckActiveAnchor(uint32_t height, bool forced = false);
     void UpdateLastHeight(uint32_t height);
 
     // Post-fork anchor pending, requires chain context to validate. Some pending may be bogus, intentional or not.
-    bool AddToAnchorPending(CAnchor const &anchor,
-                            uint256 const &btcTxHash,
+    bool AddToAnchorPending(const CAnchor &anchor,
+                            const uint256 &btcTxHash,
                             THeight btcBlockHeight,
                             bool overwrite = false);
-    bool GetPendingByBtcTx(uint256 const &txHash, AnchorRec &rec) const;
-    bool DeletePendingByBtcTx(uint256 const &btcTxHash);
+    bool GetPendingByBtcTx(const uint256 &txHash, AnchorRec &rec) const;
+    bool DeletePendingByBtcTx(const uint256 &btcTxHash);
     void ForEachPending(std::function<void(const uint256 &, AnchorRec &)> callback);
 
     // Used to apply chain context to post-fork anchors which get added to pending.
@@ -241,17 +247,17 @@ class CAnchorIndex {
     bool WriteBlock(const uint32_t height, const uint256 &blockHash);
     uint256 ReadBlockHash(const uint32_t &height);
 
-    AnchorRec const *GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
+    const AnchorRec *GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
 
    private:
     AnchorIndexImpl anchors;
-    AnchorRec const *top = nullptr;
+    const AnchorRec *top      = nullptr;
     bool possibleReActivation = false;
-    uint32_t spvLastHeight = 0;
+    uint32_t spvLastHeight    = 0;
 
    private:
     template <typename Key, typename Value>
-    bool IterateTable(char prefix, std::function<void(Key const &, Value &)> callback) {
+    bool IterateTable(char prefix, std::function<void(const Key &, Value &)> callback) {
         std::unique_ptr<CDBIterator> pcursor(const_cast<CDBWrapper *>(&*db)->NewIterator());
         pcursor->Seek(prefix);
 
@@ -273,10 +279,10 @@ class CAnchorIndex {
         return true;
     }
 
-    bool DbExists(uint256 const &hash) const;
-    bool DbRead(uint256 const &hash, AnchorRec &anchor) const;
-    bool DbWrite(AnchorRec const &anchor);
-    bool DbErase(uint256 const &hash);
+    bool DbExists(const uint256 &hash) const;
+    bool DbRead(const uint256 &hash, AnchorRec &anchor) const;
+    bool DbWrite(const AnchorRec &anchor);
+    bool DbErase(const uint256 &hash);
 };
 
 struct CAnchorConfirmData {
@@ -309,8 +315,11 @@ struct CAnchorFinalizationMessage : public CAnchorConfirmData {
     CAnchorData::CTeam currentTeam;
     std::vector<Signature> sigs;
 
-    CAnchorFinalizationMessage(CAnchorConfirmData const &base = CAnchorConfirmData())
-        : CAnchorConfirmData(base), nextTeam(), currentTeam(), sigs() {}
+    CAnchorFinalizationMessage(const CAnchorConfirmData &base = CAnchorConfirmData())
+        : CAnchorConfirmData(base),
+          nextTeam(),
+          currentTeam(),
+          sigs() {}
 
     bool CheckConfirmSigs();
 
@@ -340,7 +349,8 @@ struct CAnchorConfirmDataPlus : public CAnchorConfirmData {
           dfiBlockHash{dfiBlockHash},
           btcTxHeight{btcTxHeight} {}
 
-    explicit CAnchorConfirmDataPlus(const CAnchorFinalizationMessage &base) : CAnchorConfirmData(base) {}
+    explicit CAnchorConfirmDataPlus(const CAnchorFinalizationMessage &base)
+        : CAnchorConfirmData(base) {}
 
     CAnchorConfirmDataPlus() = default;
 
@@ -364,13 +374,14 @@ class CAnchorConfirmMessage : public CAnchorConfirmDataPlus {
     // (base data + single sign)
     Signature signature;
 
-    CAnchorConfirmMessage(CAnchorConfirmDataPlus const &base = CAnchorConfirmDataPlus())
-        : CAnchorConfirmDataPlus(base), signature() {}
+    CAnchorConfirmMessage(const CAnchorConfirmDataPlus &base = CAnchorConfirmDataPlus())
+        : CAnchorConfirmDataPlus(base),
+          signature() {}
 
     static std::optional<CAnchorConfirmMessage> CreateSigned(const CAnchor &anchor,
                                                              const THeight prevAnchorHeight,
                                                              const uint256 &btcTxHash,
-                                                             CKey const &key,
+                                                             const CKey &key,
                                                              const THeight btcTxHeight);
     uint256 GetHash() const;
     CKeyID GetSigner() const;
@@ -394,8 +405,9 @@ class CAnchorConfirmMessage : public CAnchorConfirmDataPlus {
 struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus {
     std::vector<CAnchorConfirmMessage::Signature> sigs;
 
-    CAnchorFinalizationMessagePlus(CAnchorConfirmDataPlus const &base = CAnchorConfirmDataPlus())
-        : CAnchorConfirmDataPlus(base), sigs() {}
+    CAnchorFinalizationMessagePlus(const CAnchorConfirmDataPlus &base = CAnchorConfirmDataPlus())
+        : CAnchorConfirmDataPlus(base),
+          sigs() {}
 
     size_t CheckConfirmSigs(const uint32_t height);
 
@@ -410,7 +422,7 @@ struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus {
 
 class CAnchorAwaitingConfirms {
     using ConfirmMessageHash = uint256;
-    using AnchorTxHash = uint256;
+    using AnchorTxHash       = uint256;
 
    private:
     using Confirm = CAnchorConfirmMessage;
@@ -442,21 +454,21 @@ class CAnchorAwaitingConfirms {
     Confirms confirms;
 
    public:
-    bool EraseAnchor(AnchorTxHash const &txHash);
-    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const;
-    bool Add(CAnchorConfirmMessage const &newConfirmMessage);
-    bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
+    bool EraseAnchor(const AnchorTxHash &txHash);
+    const CAnchorConfirmMessage *GetConfirm(const ConfirmMessageHash &msgHash) const;
+    bool Add(const CAnchorConfirmMessage &newConfirmMessage);
+    bool Validate(const CAnchorConfirmMessage &confirmMessage) const;
     void Clear();
     void ReVote();
-    std::vector<CAnchorConfirmMessage> GetQuorumFor(CAnchorData::CTeam const &team) const;
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(const CAnchorData::CTeam &team) const;
 
-    void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
+    void ForEachConfirm(std::function<void(const Confirm &)> callback) const;
 };
 
 template <typename TContainer>
-size_t CheckSigs(uint256 const &sigHash, TContainer const &sigs, std::set<CKeyID> const &keys) {
+size_t CheckSigs(const uint256 &sigHash, const TContainer &sigs, const std::set<CKeyID> &keys) {
     std::set<CPubKey> uniqueKeys;
-    for (auto const &sig : sigs) {
+    for (const auto &sig : sigs) {
         CPubKey pubkey;
         if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
             return false;
@@ -468,12 +480,12 @@ size_t CheckSigs(uint256 const &sigHash, TContainer const &sigs, std::set<CKeyID
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
 /// even may be not here, but in CCustomCSView
-uint32_t GetMinAnchorQuorum(CAnchorData::CTeam const &team);
+uint32_t GetMinAnchorQuorum(const CAnchorData::CTeam &team);
 CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params &consensusParams);
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations
-bool ValidateAnchor(CAnchor const &anchor);
+bool ValidateAnchor(const CAnchor &anchor);
 
 // Validate anchor in the context of the active chain. This is used for anchor auths and anchors read from Bitcoin.
 bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBlock, uint64_t &anchorCreationHeight);
@@ -484,7 +496,7 @@ bool GetAnchorEmbeddedData(const CKeyID &data,
                            std::shared_ptr<std::vector<unsigned char>> &prefix);
 
 // Selects "best" of two anchors at the equal btc height (prevs must be checked before)
-CAnchorIndex::AnchorRec const *BestOfTwo(CAnchorIndex::AnchorRec const *a1, CAnchorIndex::AnchorRec const *a2);
+const CAnchorIndex::AnchorRec *BestOfTwo(const CAnchorIndex::AnchorRec *a1, const CAnchorIndex::AnchorRec *a2);
 
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
@@ -494,7 +506,7 @@ extern std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 namespace spv {
 // Define comparator and set to hold pending anchors
 using PendingOrderType = std::function<bool(const CAnchorIndex::AnchorRec &, const CAnchorIndex::AnchorRec &)>;
-using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
+using PendingSet       = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
 extern const PendingOrderType PendingOrder;
 }  // namespace spv
 

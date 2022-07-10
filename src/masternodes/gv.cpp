@@ -13,8 +13,8 @@
 #include <masternodes/govvariables/oracle_deviation.h>
 #include <masternodes/gv.h>
 
-Res CGovView::SetVariable(GovVariable const &var) {
-    auto WriteVar = [this](GovVariable const &var) {
+Res CGovView::SetVariable(const GovVariable &var) {
+    auto WriteVar = [this](const GovVariable &var) {
         return WriteBy<ByName>(var.GetName(), var) ? Res::Ok() : Res::Err("can't write to DB");
     };
     if (var.GetName() != "ATTRIBUTES") {
@@ -39,7 +39,7 @@ Res CGovView::SetVariable(GovVariable const &var) {
     return WriteVar(*attributes);
 }
 
-std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const &name) const {
+std::shared_ptr<GovVariable> CGovView::GetVariable(const std::string &name) const {
     auto var = GovVariable::Create(name);
     if (var) {
         /// @todo empty or NO variable??

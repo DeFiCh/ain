@@ -50,12 +50,12 @@ struct AuctionHistoryValue {
 
 class CAuctionHistoryView : public virtual CStorageView {
    public:
-    Res WriteAuctionHistory(AuctionHistoryKey const &key, AuctionHistoryValue const &value);
-    Res EraseAuctionHistory(AuctionHistoryKey const &key);
+    Res WriteAuctionHistory(const AuctionHistoryKey &key, const AuctionHistoryValue &value);
+    Res EraseAuctionHistory(const AuctionHistoryKey &key);
     Res EraseAuctionHistoryHeight(uint32_t height);
     void ForEachAuctionHistory(
-        std::function<bool(AuctionHistoryKey const &, CLazySerialize<AuctionHistoryValue>)> callback,
-        AuctionHistoryKey const &start = {});
+        std::function<bool(const AuctionHistoryKey &, CLazySerialize<AuctionHistoryValue>)> callback,
+        const AuctionHistoryKey &start = {});
 
     // tags
     struct ByAuctionHistoryKey {

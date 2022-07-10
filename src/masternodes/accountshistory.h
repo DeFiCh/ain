@@ -59,13 +59,13 @@ class CAccountsHistoryView : public virtual CStorageView {
    public:
     void CreateMultiIndexIfNeeded();
     Res EraseAccountHistoryHeight(uint32_t height);
-    [[nodiscard]] std::optional<AccountHistoryValue> ReadAccountHistory(AccountHistoryKey const &key) const;
-    Res WriteAccountHistory(AccountHistoryKey const &key, AccountHistoryValue const &value);
-    Res EraseAccountHistory(AccountHistoryKey const &key);
-    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, AccountHistoryValue)> callback,
+    [[nodiscard]] std::optional<AccountHistoryValue> ReadAccountHistory(const AccountHistoryKey &key) const;
+    Res WriteAccountHistory(const AccountHistoryKey &key, const AccountHistoryValue &value);
+    Res EraseAccountHistory(const AccountHistoryKey &key);
+    void ForEachAccountHistory(std::function<bool(const AccountHistoryKey &, AccountHistoryValue)> callback,
                                const CScript &owner = {},
-                               uint32_t height = std::numeric_limits<uint32_t>::max(),
-                               uint32_t txn = std::numeric_limits<uint32_t>::max());
+                               uint32_t height      = std::numeric_limits<uint32_t>::max(),
+                               uint32_t txn         = std::numeric_limits<uint32_t>::max());
 
     // tags
     struct ByAccountHistoryKey {
@@ -132,8 +132,8 @@ class CAccountsHistoryWriter : public CCustomCSView {
                            const uint256 &txid,
                            uint8_t type,
                            CHistoryWriters *writers);
-    Res AddBalance(CScript const &owner, CTokenAmount amount) override;
-    Res SubBalance(CScript const &owner, CTokenAmount amount) override;
+    Res AddBalance(const CScript &owner, CTokenAmount amount) override;
+    Res SubBalance(const CScript &owner, CTokenAmount amount) override;
     bool Flush() override;
 
     CAccountHistoryStorage *GetAccountHistoryStore() override;
