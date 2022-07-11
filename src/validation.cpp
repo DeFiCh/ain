@@ -63,11 +63,9 @@
 #include <net_processing.h>
 
 #include <future>
-#include <sstream>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/thread.hpp>
 #include <boost/asio.hpp>
 
 #if defined(NDEBUG)
@@ -130,7 +128,7 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 std::condition_variable g_best_block_cv;
 uint256 g_best_block;
-int nScriptCheckThreads = 0;
+bool g_parallel_script_checks{false};
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
 bool fHavePruned = false;
@@ -286,7 +284,7 @@ bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flag
     index.pprev = tip;
     // CheckSequenceLocks() uses ::ChainActive().Height()+1 to evaluate
     // height based locks because when SequenceLocks() is called within
-    // ConnectBlock(), the height of the block *being*
+    // ConnectBlock (), the height of the block *being*
     // evaluated is what is used.
     // Thus if we want to know if a transaction can be part of the
     // *next* block, we need to use one more than ::ChainActive().Height()
@@ -631,7 +629,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         pool.rebuildAccountsView(height, view);
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -1693,7 +1691,7 @@ static bool GetCreationTransactions(const CBlock& block, const uint32_t id, cons
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CUndosView& undosView, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
 {
     bool fClean = true;
 
@@ -1714,11 +1712,15 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
-    mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
+    undosView.OnUndoTx(UndoSource::CustomView, mnview, {}, static_cast<uint32_t>(pindex->nHeight));
+
+    pburnHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
+    if (paccountHistoryDB) {
+        paccountHistoryDB->EraseAccountHistoryHeight(pindex->nHeight);
+    }
 
     if (pindex->nHeight >= Params().GetConsensus().FortCanningHeight) {
         // erase auction fee history
-        pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
         if (paccountHistoryDB) {
             paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
         }
@@ -1832,12 +1834,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // process transactions revert for masternodes
-        mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        CHistoryErasers erasers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, erasers);
-        if (!res) {
-            LogPrintf("%s\n", res.msg);
-        }
+        undosView.OnUndoTx(UndoSource::CustomView, mnview, tx.GetHash(), pindex->nHeight);
     }
 
     // one time downgrade to revert CInterestRateV2 structure
@@ -1854,7 +1851,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // Make sure to initialize lastTxOut, otherwise it never finds the block and
         // ends up looping through uninitialized garbage value.
         uint32_t lastTxOut = 0;
-        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
+        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
         {
             if (key.owner != Params().GetConsensus().burnAddress) {
                 return false;
@@ -1870,7 +1867,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         };
 
         AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
-        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory,
+                                              Params().GetConsensus().burnAddress,
+                                              Params().GetConsensus().EunosHeight);
 
         for (uint32_t i = block.vtx.size(); i <= lastTxOut; ++i) {
             pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
@@ -1922,7 +1921,7 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
     if (pindex->GetUndoPos().IsNull()) {
         FlatFilePos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, CLIENT_VERSION) + 40))
-            return error("ConnectBlock(): FindUndoPos failed");
+            return error("%s: FindUndoPos failed", __func__);
         if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), chainparams.MessageStart()))
             return AbortNode(state, "Failed to write undo data");
 
@@ -1937,9 +1936,14 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
 
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
-void ThreadScriptCheck(int worker_num) {
-    util::ThreadRename(strprintf("scriptch.%i", worker_num));
-    scriptcheckqueue.Thread();
+void StartScriptCheckWorkerThreads(int threads_num)
+{
+    scriptcheckqueue.StartWorkerThreads(threads_num);
+}
+
+void StopScriptCheckWorkerThreads()
+{
+    scriptcheckqueue.StopWorkerThreads();
 }
 
 VersionBitsCache versionbitscache GUARDED_BY(cs_main);
@@ -2190,11 +2194,16 @@ static int64_t nBlocksTotal = 0;
 
 // Holds position for burn TXs appended to block in burn history
 static std::vector<CTransactionRef>::size_type nPhantomBurnTx{0};
+static uint32_t nPhantomAccTx{};
 
 static std::map<CScript, CBalances> mapBurnAmounts;
 
 static uint32_t GetNextBurnPosition() {
     return nPhantomBurnTx++;
+}
+
+uint32_t GetNextAccPosition() {
+    return nPhantomAccTx--;
 }
 
 // Burn non-transaction amounts, that is burns that are not sent directly to the burn address
@@ -2439,6 +2448,53 @@ bool ApplyGovVars(CCustomCSView& cache, const CBlockIndex& pindex, const std::ma
     return false;
 }
 
+static void PruneUndos(CUndosView& view, const int height) {
+    bool pruneStarted = false;
+    auto time = GetTimeMillis();
+    CUndosView pruned(view);
+    view.ForEachUndo([&](const UndoSourceKey& key, const CLazySerialize<CUndo>&) {
+        if (static_cast<int>(key.height) >= height) { // don't erase checkpoint height
+            return false;
+        }
+        if (!pruneStarted) {
+            pruneStarted = true;
+            LogPrintf("Pruning undo data prior %d, it can take a while...\n", height);
+        }
+        return pruned.DelUndo(key).ok;
+    });
+    if (pruneStarted) {
+        auto& map = pruned.GetStorage().GetRaw();
+        compactBegin = map.begin()->first;
+        compactEnd = map.rbegin()->first;
+        pruned.Flush();
+        LogPrintf("Pruning undo data finished.\n");
+        LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
+    }
+}
+
+static void PruneInterest(CCustomCSView& mnview, const CChainParams& chainparams, int height) {
+    if (height <= chainparams.GetConsensus().FortCanningHillHeight) {
+        return;
+    }
+    CCustomCSView view(mnview);
+    mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
+        view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
+        return true;
+    });
+    view.Flush();
+}
+
+static void PruneData(CCustomCSView& mnview, CUndosView& undosView, const CChainParams& chainparams, int height) {
+    auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
+    auto it = checkpoints.lower_bound(height);
+    if (it != checkpoints.begin()) {
+        --it;
+        PruneUndos(undosView, it->first);
+        // we can safely delete old interest keys
+        PruneInterest(mnview, chainparams, height);
+    }
+}
+
 bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) {
     if (!fStopOrInterrupt)
         return false;
@@ -2455,7 +2511,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
         }
         state.Invalid(
             ValidationInvalidReason::CONSENSUS,
-            error("ConnectBlock(): user interrupt"),
+            error("%s: user interrupt", __func__),
             REJECT_INVALID,
             "user-interrupt-request");
         return true;
@@ -2465,10 +2521,10 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
- *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
+ *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
-bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
+bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& mnview, CUndosView& undosView,
+                               const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2481,6 +2537,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
+
+    // Reset phantom TX to end of block TX count
+    nPhantomAccTx = std::numeric_limits<uint32_t>::max();
 
     // Wipe burn map, we only want TXs added during ConnectBlock
     mapBurnAmounts.clear();
@@ -2532,13 +2591,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
+                const auto& tx = *block.vtx[i];
+                CCustomCSView mnviewCopy(mnview);
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+                const auto res = ApplyCustomTx(mnviewCopy, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
-                                 __func__, block.vtx[i]->GetHash().ToString(), res.msg);
+                                 __func__, tx.GetHash().ToString(), res.msg);
                 }
-                AddCoins(view, *block.vtx[i], 0);
+                undosView.AddUndo(UndoSource::CustomView, mnview, mnviewCopy, tx.GetHash(), pindex->nHeight);
+                mnviewCopy.Flush();
+                AddCoins(view, tx, 0);
             }
         }
         return true;
@@ -2568,15 +2631,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (nodePtr->mintedBlocks + 1 != block.mintedBlocks)
         {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): masternode's %s mintedBlocks should be %d, got %d!",
-                                                                           nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: masternode's %s mintedBlocks should be %d, got %d!",
+                                                                           __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
-            return state.Invalid(
+        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
+        if (block.stakeModifier != stakeModifier) {            return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
-                    error("ConnectBlock(): block's stake Modifier should be %d, got %d!",
-                            block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
+                    error("%s: block's stake Modifier should be %d, got %d!",
+                            __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
                     REJECT_INVALID,
                     "bad-minted-blocks");
         }
@@ -2696,7 +2760,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         for (const auto& tx : block.vtx) {
             for (size_t o = 0; o < tx->vout.size(); o++) {
                 if (view.HaveCoin(COutPoint(tx->GetHash(), o))) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): tried to overwrite transaction"), REJECT_INVALID, "bad-txns-BIP30");
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: tried to overwrite transaction", __func__), REJECT_INVALID, "bad-txns-BIP30");
                 }
             }
         }
@@ -2716,7 +2780,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
+    CCheckQueueControl<CScriptCheck> control(fScriptChecks && g_parallel_script_checks ? &scriptcheckqueue : nullptr);
 
     std::vector<std::pair<AccountHistoryKey, AccountHistoryValue>> writeBurnEntries;
     std::vector<int> prevheights;
@@ -2740,7 +2804,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2777,7 +2841,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * witness (when witness enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
         if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): too many sigops"),
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: too many sigops", __func__),
                              REJECT_INVALID, "bad-blk-sigops");
 
         txdata.emplace_back(tx);
@@ -2785,7 +2849,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr)) {
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], g_parallel_script_checks ? &vChecks : nullptr)) {
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
                     // CheckInputs may return NOT_STANDARD for extra flags we passed,
                     // but we can't return that, as it's not defined for a block, so
@@ -2796,23 +2860,26 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     state.Invalid(ValidationInvalidReason::CONSENSUS, false,
                               state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
                 }
-                return error("ConnectBlock(): CheckInputs on %s failed with %s",
-                    tx.GetHash().ToString(), FormatStateMessage(state));
+                return error("%s: CheckInputs on %s failed with %s",
+                    __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
+            CCustomCSView mnviewCopy(accountsView);
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            const auto res = ApplyCustomTx(mnviewCopy, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
-                                               tx.GetHash().ToString(), res.msg), REJECT_CUSTOMTX, "bad-custom-tx");
+                                         error("%s: ApplyCustomTx on %s failed with %s",
+                                               __func__, tx.GetHash().ToString(), res.msg), REJECT_CUSTOMTX, "bad-custom-tx");
                 } else {
                     // we will never fail, but skip, unless transaction mints UTXOs
-                    return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
-                                tx.GetHash().ToString(), res.msg);
+                    return error("%s: ApplyCustomTx on %s failed with %s",
+                                __func__, tx.GetHash().ToString(), res.msg);
                 }
             }
+            undosView.AddUndo(UndoSource::CustomView, accountsView, mnviewCopy, tx.GetHash(), pindex->nHeight);
+            mnviewCopy.Flush();
             // log
             if (!fJustCheck && !res.msg.empty()) {
                 if (res.ok) {
@@ -2832,7 +2899,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): %s", res.msg),
+                                         error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID, res.dbgMsg);
                 }
                 rewardedAnchors.push_back(*res.val);
@@ -2846,7 +2913,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata, chainparams.GetConsensus());
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): %s", res.msg),
+                                         error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID, res.dbgMsg);
                 }
                 rewardedAnchors.push_back(*res.val);
@@ -2872,7 +2939,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
-    
+
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
@@ -2880,7 +2947,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     Res res = ApplyGeneralCoinbaseTx(accountsView, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                             error("ConnectBlock(): %s", res.msg),
+                             error("%s: %s", __func__, res.msg),
                              REJECT_INVALID, res.dbgMsg);
     }
 
@@ -2954,7 +3021,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     && pindex->nHeight < chainparams.GetConsensus().EunosKampungHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
-        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
+        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot(undosView))) {
             return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
         }
 
@@ -3016,15 +3083,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // Loan splits
         ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
 
-        // construct undo
-        auto& flushable = cache.GetStorage();
-        auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-        // flush changes to underlying view
+        // Set height for live dex data
+        if (cache.GetDexStatsEnabled().value_or(false))
+            cache.SetDexStatsLastHeight(pindex->nHeight);
+
+        // DFI-to-DUSD swaps
+        ProcessFuturesDUSD(pindex, cache, chainparams);
+
+        // Masternode updates
+        ProcessMasternodeUpdates(pindex, cache, view, chainparams);
+
+        undosView.AddUndo(UndoSource::CustomView, mnview, cache, {}, pindex->nHeight);
+
         cache.Flush();
-        // write undo
-        if (!undo.before.empty()) {
-            mnview.SetUndo(UndoKey{static_cast<uint32_t>(pindex->nHeight), uint256() }, undo); // "zero hash"
-        }
     }
 
     // Write any UTXO burns
@@ -3045,41 +3116,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
-    auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-    auto it = checkpoints.lower_bound(pindex->nHeight);
-    if (it != checkpoints.begin()) {
-        --it;
-        bool pruneStarted = false;
-        auto time = GetTimeMillis();
-        CCustomCSView pruned(mnview);
-        mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
-            if (key.height >= static_cast<uint32_t>(it->first)) { // don't erase checkpoint height
-                return false;
-            }
-            if (!pruneStarted) {
-                pruneStarted = true;
-                LogPrintf("Pruning undo data prior %d, it can take a while...\n", it->first);
-            }
-            return pruned.DelUndo(key).ok;
-        });
-        if (pruneStarted) {
-            auto& map = pruned.GetStorage().GetRaw();
-            compactBegin = map.begin()->first;
-            compactEnd = map.rbegin()->first;
-            pruned.Flush();
-            LogPrintf("Pruning undo data finished.\n");
-            LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
-        }
-        // we can safety delete old interest keys
-        if (it->first > chainparams.GetConsensus().FortCanningHillHeight) {
-            CCustomCSView view(mnview);
-            mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
-                view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
-                return true;
-            });
-            view.Flush();
-        }
-    }
+    PruneData(mnview, undosView, chainparams, pindex->nHeight);
 
     if (pindex->nHeight >= chainparams.GetConsensus().GreatWorldHeight) {
         // Remove any TXs from mempool that are now expired
@@ -3400,7 +3437,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 if (bidTokenAmount.nValue < penaltyAmount) {
-                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n", 
+                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n",
                         bidTokenAmount.nValue, penaltyAmount);
                 }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
@@ -3409,7 +3446,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, 
+                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
                         chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
@@ -3427,7 +3464,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToFill});
 
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
                     auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
@@ -3487,19 +3524,22 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
-    const auto active = attributes->GetValue(activeKey, false);
-    if (!active) {
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    if (!attributes->GetValue(activeKey, false) ||
+        !attributes->CheckKey(blockKey) ||
+        !attributes->CheckKey(rewardKey)) {
         return;
     }
 
-    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
-    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
-    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
+    const auto startBlock = attributes->GetValue(startKey, CAmount{});
+    if (pindex->nHeight < startBlock) {
         return;
     }
 
     const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
-    if (pindex->nHeight % blockPeriod != 0) {
+    if ((pindex->nHeight - startBlock) % blockPeriod != 0) {
         return;
     }
 
@@ -3571,15 +3611,13 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     std::set<CFuturesUserKey> deletionPending;
 
-    auto txn = std::numeric_limits<uint32_t>::max();
-
     auto dUsdToTokenSwapsCounter = 0;
     auto tokenTodUsdSwapsCounter = 0;
 
     cache.ForEachFuturesUserValues([&](const CFuturesUserKey& key, const CFuturesUserValue& futuresValues){
 
         CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter view(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
 
         deletionPending.insert(key);
 
@@ -3600,7 +3638,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                     burned.Add(futuresValues.source);
                     minted.Add(destination);
                     dUsdToTokenSwapsCounter++;
-                    LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Owner %s source %s destination %s\n",
+                    LogPrint(BCLog::FUTURESWAP, "ProcessFutures (): Owner %s source %s destination %s\n",
                         key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
                 }
             } catch (const std::out_of_range&) {
@@ -3620,7 +3658,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
                 burned.Add(futuresValues.source);
                 minted.Add(destination);
                 tokenTodUsdSwapsCounter++;
-                LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Payment Owner %s source %s destination %s\n",
+                LogPrint(BCLog::FUTURESWAP, "ProcessFutures (): Payment Owner %s source %s destination %s\n",
                     key.owner.GetHex(), futuresValues.source.ToString(), destination.ToString());
             } catch (const std::out_of_range&) {
                 unpaidContracts.emplace(key, futuresValues);
@@ -3632,7 +3670,7 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
         return true;
     }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
 
-    const auto contractAddressValue = GetFutureSwapContractAddress();
+    const auto contractAddressValue = GetFutureSwapContractAddress(SMART_CONTRACT_DFIP_2203);
     assert(contractAddressValue);
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
@@ -3645,17 +3683,17 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     for (const auto& [key, value] : unpaidContracts) {
 
         CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter subView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+        CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
         subView.SubBalance(*contractAddressValue, value.source);
         subView.Flush();
 
         CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
-        CAccountsHistoryWriter addView(cache, pindex->nHeight, txn--, {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+        CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
         addView.AddBalance(key.owner, value.source);
         addView.Flush();
 
-        LogPrint(BCLog::FUTURESWAP, "ProcessFutures(): Refund Owner %s source %s destination %s\n",
-                 key.owner.GetHex(), value.source.ToString(), value.source.ToString());
+        LogPrint(BCLog::FUTURESWAP, "%s: Refund Owner %s value %s\n",
+                 __func__, key.owner.GetHex(), value.source.ToString());
         balances.Sub(value.source);
     }
 
@@ -3674,6 +3712,143 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     " %d Token->DUSD swaps, %d refunds (height: %d, time: %dms)\n",
     dUsdToTokenSwapsCounter, tokenTodUsdSwapsCounter, failedContractsCounter,
     pindex->nHeight, GetTimeMillis() - time);
+
+    cache.SetVariable(*attributes);
+}
+
+
+void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
+{
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningSpringHeight) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::RewardPct};
+    if (!attributes->GetValue(activeKey, false) ||
+        !attributes->CheckKey(blockKey) ||
+        !attributes->CheckKey(rewardKey)) {
+        return;
+    }
+
+    CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::StartBlock};
+    const auto startBlock = attributes->GetValue(startKey, CAmount{});
+    if (pindex->nHeight < startBlock) {
+        return;
+    }
+
+    const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+    if ((pindex->nHeight - startBlock) % blockPeriod != 0) {
+        return;
+    }
+
+    auto time = GetTimeMillis();
+    LogPrintf("Future swap DUSD settlement in progress.. (height: %d)\n", pindex->nHeight);
+
+    const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
+    const auto discount{COIN - rewardPct};
+
+    const auto useNextPrice{false}, requireLivePrice{true};
+    const auto discountPrice = cache.GetAmountInCurrency(discount, {"DFI", "USD"}, useNextPrice, requireLivePrice);
+
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FCurrent};
+    auto balances = attributes->GetValue(liveKey, CBalances{});
+
+    const auto contractAddressValue = GetFutureSwapContractAddress(SMART_CONTRACT_DFIP2206F);
+    assert(contractAddressValue);
+
+    const auto dfiID{DCT_ID{}};
+
+    if (!discountPrice) {
+        std::vector<std::pair<CFuturesUserKey, CAmount>> refunds;
+
+        cache.ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
+            refunds.emplace_back(key, amount);
+            return true;
+        }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
+
+        for (const auto& [key, amount] : refunds) {
+            cache.EraseFuturesDUSD(key);
+
+            const CTokenAmount source{dfiID, amount};
+
+            CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+            CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
+            subView.SubBalance(*contractAddressValue, source);
+            subView.Flush();
+
+            CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
+            CAccountsHistoryWriter addView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
+            addView.AddBalance(key.owner, source);
+            addView.Flush();
+
+            LogPrint(BCLog::FUTURESWAP, "%s: Refund Owner %s value %s\n",
+                     __func__, key.owner.GetHex(), source.ToString());
+            balances.Sub(source);
+        }
+
+        if (!refunds.empty()) {
+            attributes->SetValue(liveKey, std::move(balances));
+        }
+
+        cache.SetVariable(*attributes);
+
+        LogPrintf("Future swap DUSD refunded due to no live price: (%d refunds (height: %d, time: %dms)\n",
+                  refunds.size(), pindex->nHeight, GetTimeMillis() - time);
+
+        return;
+    }
+
+    CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
+    CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FMinted};
+
+    auto burned = attributes->GetValue(burnKey, CBalances{});
+    auto minted = attributes->GetValue(mintedKey, CBalances{});
+
+    std::set<CFuturesUserKey> deletionPending;
+
+    auto swapCounter{0};
+
+    cache.ForEachFuturesDUSD([&](const CFuturesUserKey& key, const CAmount& amount){
+
+        CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
+        CAccountsHistoryWriter view(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapExecution), &writers);
+
+        deletionPending.insert(key);
+
+        const auto tokenDUSD = view.GetToken("DUSD");
+        assert(tokenDUSD);
+
+        const auto total = MultiplyAmounts(amount, discountPrice);
+        view.AddMintedTokens(tokenDUSD->first, total);
+        CTokenAmount destination{tokenDUSD->first, total};
+        view.AddBalance(key.owner, destination);
+        burned.Add({dfiID, amount});
+        minted.Add(destination);
+        ++swapCounter;
+        LogPrint(BCLog::FUTURESWAP, "ProcessFuturesDUSD (): Payment Owner %s source %d destination %s\n",
+                 key.owner.GetHex(), amount, destination.ToString());
+
+        view.Flush();
+
+        return true;
+    }, {static_cast<uint32_t>(pindex->nHeight), {}, std::numeric_limits<uint32_t>::max()});
+
+    for (const auto& key : deletionPending) {
+        cache.EraseFuturesDUSD(key);
+    }
+
+    attributes->SetValue(burnKey, std::move(burned));
+    attributes->SetValue(mintedKey, std::move(minted));
+
+    LogPrintf("Future swap DUSD settlement completed: (%d swaps (height: %d, time: %dms)\n",
+              swapCounter, pindex->nHeight, GetTimeMillis() - time);
 
     cache.SetVariable(*attributes);
 }
@@ -3748,6 +3923,28 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+        return;
+    }
+
+    // Apply any pending masternode owner changes
+    cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+        if (value.blockHeight == static_cast<uint32_t>(pindex->nHeight)) {
+            auto node = cache.GetMasternode(value.masternodeID);
+            assert(node);
+            assert(key == node->collateralTx);
+            const auto& coin = view.AccessCoin({node->collateralTx, 1});
+            assert(!coin.IsSpent());
+            CTxDestination dest;
+            assert(ExtractDestination(coin.out.scriptPubKey, dest));
+            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+        }
+        return true;
+    });
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
@@ -3884,11 +4081,11 @@ size_t RewardConsolidationWorkersCount() {
 // Note: Be careful with lambda captures and default args. GCC 11.2.0, appears the if the captures are
 // unused in the function directly, but inside the lambda, it completely disassociates them from the fn
 // possibly when the lambda is lifted up and with default args, ends up inling the default arg
-// completely. TODO: verify with smaller test case. 
+// completely. TODO: verify with smaller test case.
 // But scenario: If `interruptOnShutdown` is set as default arg to false, it will never be set true
 // on the below as it's inlined by gcc 11.2.0 on Ubuntu 22.04 incorrectly. Behavior is correct
-// in lower versions of gcc or across clang. 
-void ConsolidateRewards(CCustomCSView &view, int height, 
+// in lower versions of gcc or across clang.
+void ConsolidateRewards(CCustomCSView &view, int height,
         const std::vector<std::pair<CScript, CAmount>> &items, bool interruptOnShutdown, int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
     auto rewardsTime = GetTimeMicros();
@@ -4030,7 +4227,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 balancesToMigrate.size(), totalAccounts, nWorkers);
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
-            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), 
+            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(),
                 [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
                 return a.second > b.second;
             });
@@ -4044,10 +4241,14 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
 
             for (auto& [owner, amount] : balancesToMigrate) {
                 if (owner != Params().GetConsensus().burnAddress) {
-                    res = view.SubBalance(owner, CTokenAmount{oldPoolId, amount});
+                    CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                    CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                    res = subView.SubBalance(owner, CTokenAmount{oldPoolId, amount});
                     if (!res.ok) {
                         throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
                     }
+                    subView.Flush();
                 }
 
                 if (oldPoolPair->totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
@@ -4077,9 +4278,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     totalBalance += amountB;
                 }
 
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
                 auto refundBalances = [&, owner = owner]() {
-                    view.AddBalance(owner, {newPoolPair.idTokenA, amountA});
-                    view.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.AddBalance(owner, {newPoolPair.idTokenA, amountA});
+                    addView.AddBalance(owner, {newPoolPair.idTokenB, amountB});
+                    addView.Flush();
                 };
 
                 if (amountA <= 0 || amountB <= 0 || owner == Params().GetConsensus().burnAddress) {
@@ -4120,11 +4325,13 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                     continue;
                 }
 
-                res = view.AddBalance(owner, {newPoolId, liquidity});
+                res = addView.AddBalance(owner, {newPoolId, liquidity});
                 if (!res) {
+                    addView.Discard();
                     refundBalances();
                     continue;
                 }
+                addView.Flush();
 
                 auto oldPoolLogStr = CTokenAmount{oldPoolId, amount}.ToString();
                 auto newPoolLogStr = CTokenAmount{newPoolId, liquidity}.ToString();
@@ -4257,12 +4464,24 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
         auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
 
-        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n",
             vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
-        
+
         res = view.AddLoanToken(vaultId, newTokenAmount);
         if (!res) {
             return res;
+        }
+
+        if (view.GetVaultHistoryStore()) {
+            if (const auto vault = view.GetVault(vaultId)) {
+                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue subValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(subKey, subValue);
+
+                VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+                VaultHistoryValue addValue{uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+                view.GetVaultHistoryStore()->WriteVaultHistory(addKey, addValue);
+            }
         }
     }
 
@@ -4336,7 +4555,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             value.loanInterest = newLoanInterest;
 
             LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
-                key.first.ToString(), key.second, oldLoanAmount.ToString(), 
+                key.first.ToString(), key.second, oldLoanAmount.ToString(),
                 newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
 
@@ -4411,6 +4630,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         auto view{cache};
+        view.SetAccountHistoryStore();
+        view.SetVaultHistoryStore();
 
         // Refund affected future swaps
         auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
@@ -4504,14 +4725,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             continue;
         }
 
-        CAccounts addAccounts;
-        CAccounts subAccounts;
+        std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
 
         view.ForEachBalance([&, multiplier = multiplier](CScript const& owner, const CTokenAmount& balance) {
             if (oldTokenId.v == balance.nTokenId.v) {
                 const auto newBalance = CalculateNewAmount(multiplier, balance.nValue);
-                addAccounts[owner].Add({newTokenId, newBalance});
-                subAccounts[owner].Add(balance);
+                balanceUpdates.emplace(owner, std::pair<CTokenAmount, CTokenAmount>{{newTokenId, newBalance}, balance});
                 totalBalance += newBalance;
 
                 auto newBalanceStr = CTokenAmount{newTokenId, newBalance}.ToString();
@@ -4523,8 +4742,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         });
 
         LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
-        id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
+        "(id: %d, symbol: %s, accounts: %d, val: %d)\n",
+        id, newToken.symbol, balanceUpdates.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
@@ -4533,18 +4752,26 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
 
         try {
-            for (const auto& [owner, balances] : addAccounts) {
-                res = view.AddBalances(owner, balances);
-                if (!res) {
-                    throw std::runtime_error(res.msg);
-                }
-            }
 
-            for (const auto& [owner, balances] : subAccounts) {
-                res = view.SubBalances(owner, balances);
+            for (const auto& [owner, balances] : balanceUpdates) {
+
+                CHistoryWriters subWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter subView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &subWriters);
+
+                res = subView.SubBalance(owner, balances.second);
                 if (!res) {
                     throw std::runtime_error(res.msg);
                 }
+                subView.Flush();
+
+                CHistoryWriters addWriters{view.GetAccountHistoryStore(), nullptr, nullptr};
+                CAccountsHistoryWriter addView(view, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::TokenSplit), &addWriters);
+
+                res = addView.AddBalance(owner, balances.first);
+                if (!res) {
+                    throw std::runtime_error(res.msg);
+                }
+                addView.Flush();
             }
         } catch (const std::runtime_error& e) {
             LogPrintf("Token split failed. %s\n", res.msg);
@@ -4583,6 +4810,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         }
         view.SetVariable(*attributes);
         view.Flush();
+        if (auto accountHistory = view.GetAccountHistoryStore()) {
+            accountHistory->Flush();
+        }
+        if (auto vaultHistory = view.GetVaultHistoryStore()) {
+            vaultHistory->Flush();
+        }
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
 }
@@ -4831,10 +5064,11 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        CCustomCSView mnview(*pcustomcsview);
+        CUndosView undosView(*pundosView);
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
-        if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
+        if (DisconnectBlock(block, pindexDelete, view, mnview, undosView, disconnectedConfirms) != DISCONNECT_OK) {
             // no usable history
             if (paccountHistoryDB) {
                 paccountHistoryDB->Discard();
@@ -4848,7 +5082,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             m_disconnectTip = false;
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
-        bool flushed = view.Flush() && mnview.Flush();
+        bool flushed = view.Flush() && mnview.Flush() && undosView.Flush();
         assert(flushed);
 
         // flush history
@@ -4997,9 +5231,10 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
+        CCustomCSView mnview(*pcustomcsview);
+        CUndosView undosView(*pundosView);
         std::vector<uint256> rewardedAnchors;
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, undosView, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid()) {
@@ -5019,7 +5254,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
-        bool flushed = view.Flush() && mnview.Flush();
+        bool flushed = view.Flush() && mnview.Flush() && undosView.Flush();
         assert(flushed);
 
         // flush history
@@ -5181,8 +5416,6 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
     DisconnectedBlockTransactions disconnectpool;
     auto disconnectBlocksTo = [&](const CBlockIndex *pindex) -> bool {
         while (m_chain.Tip() && m_chain.Tip() != pindex) {
-            boost::this_thread::interruption_point();
-
             if (!DisconnectTip(state, chainparams, &disconnectpool)) {
                 // This is likely a fatal error, but keep the mempool consistent,
                 // just in case. Only remove from the mempool in this case.
@@ -5368,8 +5601,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
     do {
-        boost::this_thread::interruption_point();
-
         // Block until the validation queue drains. This should largely
         // never happen in normal operation, however may happen during
         // reindex, causing memory blowup if we run too far ahead.
@@ -5975,11 +6206,11 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
- *  set; UTXO-related validity checks are done in ConnectBlock().
- *  NOTE: This function is not currently invoked by ConnectBlock(), so we
+ *  set; UTXO-related validity checks are done in ConnectBlock ().
+ *  NOTE: This function is not currently invoked by ConnectBlock (), so we
  *  should consider upgrade issues if we change which consensus rules are
  *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
+ *  in ConnectBlock ().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
 static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& params, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -6033,10 +6264,10 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     return true;
 }
 
-/** NOTE: This function is not currently invoked by ConnectBlock(), so we
+/** NOTE: This function is not currently invoked by ConnectBlock (), so we
  *  should consider upgrade issues if we change which consensus rules are
  *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
+ *  in ConnectBlock ().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
 static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -6545,7 +6776,8 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
     std::vector<uint256> dummyRewardedAnchors;
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView mnview(*pcustomcsview);
+    CUndosView undosView(*pundosView);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
@@ -6560,7 +6792,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, undosView, chainparams, dummyRewardedAnchors, true))
         return false;
     assert(state.IsValid());
 
@@ -6943,7 +7175,8 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CCustomCSView mnview(*pcustomcsview.get());
+    CCustomCSView mnview(*pcustomcsview);
+    CUndosView undosView(*pundosView);
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -6951,7 +7184,6 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     int reportDone = 0;
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = ::ChainActive().Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
-        boost::this_thread::interruption_point();
         const int percentageDone = std::max(1, std::min(99, (int)(((double)(::ChainActive().Height() - pindex->nHeight)) / (double)nCheckDepth * (nCheckLevel >= 4 ? 50 : 100))));
         if (reportDone < percentageDone/10) {
             // report every 10% step
@@ -6989,7 +7221,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + ::ChainstateActive().CoinsTip().DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
-            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, disconnectedConfirms);
+            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, undosView, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -7012,7 +7244,6 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4) {
         while (pindex != ::ChainActive().Tip()) {
-            boost::this_thread::interruption_point();
             const int percentageDone = std::max(1, std::min(99, 100 - (int)(((double)(::ChainActive().Height() - pindex->nHeight)) / (double)nCheckDepth * 50)));
             if (reportDone < percentageDone/10) {
                 // report every 10% step
@@ -7025,8 +7256,9 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             std::vector<uint256> dummyRewardedAnchors;
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, undosView, chainparams, dummyRewardedAnchors))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
+            if (ShutdownRequested()) return true;
         }
     }
 
@@ -7060,12 +7292,13 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     return true;
 }
 
-bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview)
+bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CUndosView* undosView)
 {
     LOCK(cs_main);
 
     CCoinsViewCache cache(view);
     CCustomCSView mncache(*mnview);
+    CUndosView undosCache(*undosView);
 
     std::vector<uint256> hashHeads = view->GetHeadBlocks();
     if (hashHeads.empty()) return true; // We're already in a consistent state.
@@ -7104,7 +7337,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
             std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, disconnectedConfirms);
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, undosCache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
@@ -7132,8 +7365,8 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CCu
     return true;
 }
 
-bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview) {
-    return ::ChainstateActive().ReplayBlocks(params, view, mnview);
+bool ReplayBlocks(const CChainParams& params, CCoinsView* view, CCustomCSView* mnview, CUndosView* undosView) {
+    return ::ChainstateActive().ReplayBlocks(params, view, mnview, undosView);
 }
 
 //! Helper for CChainState::RewindBlockIndex
@@ -7366,7 +7599,7 @@ bool LoadGenesisBlock(const CChainParams& chainparams)
     return ::ChainstateActive().LoadGenesisBlock(chainparams);
 }
 
-bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFilePos *dbp)
+void LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFilePos *dbp)
 {
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, FlatFilePos> mapBlocksUnknownParent;
@@ -7378,7 +7611,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFi
         CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SERIALIZED_SIZE, MAX_BLOCK_SERIALIZED_SIZE+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
         while (!blkdat.eof()) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) return;
 
             blkdat.SetPos(nRewind);
             nRewind++; // start one byte further next time, in case of failure
@@ -7483,9 +7716,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFi
     } catch (const std::runtime_error& e) {
         AbortNode(std::string("System error: ") + e.what());
     }
-    if (nLoaded > 0)
-        LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
-    return nLoaded > 0;
+    LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
 }
 
 void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)

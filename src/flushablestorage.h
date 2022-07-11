@@ -5,14 +5,14 @@
 #ifndef DEFI_FLUSHABLESTORAGE_H
 #define DEFI_FLUSHABLESTORAGE_H
 
+#include <shutdown.h>
+
 #include <dbwrapper.h>
 #include <functional>
 #include <map>
 #include <memusage.h>
 
 #include <optional>
-
-#include <boost/thread.hpp>
 
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, std::optional<TBytes>>;
@@ -498,15 +498,16 @@ public:
     template<typename By, typename KeyType, typename ValueType>
     void ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = {}) {
         for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
-            boost::this_thread::interruption_point();
-
             if (!callback(it.Key(), it.Value())) {
                 break;
             }
         }
     }
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
+    }
 
-    bool Flush() { return DB().Flush(); }
+    virtual bool Flush() { return DB().Flush(); }
     void Discard() { DB().Discard(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
@@ -516,5 +517,21 @@ protected:
 private:
     std::unique_ptr<CStorageKV> storage;
 };
+
+template<typename KeyPrefix, typename KeyType, typename ValueType>
+size_t IterateKV(std::function<bool(KeyType, ValueType)> fn, KeyType start, std::unique_ptr<CStorageKVIterator> iter) {
+    if (!iter) return 0;
+    auto it = CStorageIteratorWrapper<KeyPrefix, KeyType>{std::move(iter)};
+    it.Seek(start);
+    auto i=0;
+    while (it.Valid()) {
+        i++;
+        auto key = it.Key();
+        ValueType val = it.Value();
+        if (!fn(key, val)) break;
+        it.Next();
+    }
+    return i;
+}
 
 #endif // DEFI_FLUSHABLESTORAGE_H

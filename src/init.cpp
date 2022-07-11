@@ -9,7 +9,6 @@
 
 #include <init.h>
 
-#include <addrman.h>
 #include <amount.h>
 #include <banman.h>
 #include <blockfilter.h>
@@ -22,11 +21,11 @@
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
 #include <index/txindex.h>
-#include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/vaulthistory.h>
 #include <miner.h>
@@ -74,10 +73,7 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/thread.hpp>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
@@ -160,11 +156,27 @@ NODISCARD static bool CreatePidFile()
 
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
-static boost::thread_group threadGroup;
+std::vector<std::thread> threadGroup;
 static CScheduler scheduler;
+
+#if HAVE_SYSTEM
+static void ShutdownNotify()
+{
+    std::vector<std::thread> threads;
+    for (const auto& cmd : gArgs.GetArgs("-shutdownnotify")) {
+        threads.emplace_back(runCommand, cmd);
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+}
+#endif
 
 void Interrupt()
 {
+#if HAVE_SYSTEM
+    ShutdownNotify();
+#endif
     InterruptHTTPServer();
     InterruptHTTPRPC();
     InterruptRPC();
@@ -219,9 +231,12 @@ void Shutdown(InitInterfaces& interfaces)
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue threadGroup
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    // CScheduler/checkqueue threaGroup
+    scheduler.stop();
+    for (auto& thread : threadGroup) {
+        if (thread.joinable()) thread.join();
+    }
+    StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
@@ -376,9 +391,10 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio", "-forcecompactdb", 
+        "-dbcrashratio", "-forcecompactdb",
         "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
-        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>"
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
+        "-checkpoints-file",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
@@ -417,6 +433,9 @@ void SetupServerArgs()
             "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex", "Rebuild chain state and block index from the blk*.dat files on disk", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex-chainstate", "Rebuild chain state from the currently indexed blocks. When in pruning mode or if blocks on disk might be corrupted, use full -reindex instead.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+#if HAVE_SYSTEM
+    gArgs.AddArg("-shutdownnotify=<cmd>", "Execute command immediately before beginning shutdown. The need for shutdown may be urgent, so be careful not to delay it long (if the command doesn't require interaction with the server, consider having it fork into the background).", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+#endif
 #ifndef WIN32
     gArgs.AddArg("-sysperms", "Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #else
@@ -482,9 +501,11 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanninghillheight", "Fort Canning Hill fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningroadheight", "Fort Canning Road fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningcrunchheight", "Fort Canning Crunch fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningspringheight", "Fort Canning Spring fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -738,6 +759,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadExternalBlockFile(chainparams, file, &pos);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             nFile++;
         }
         pblocktree->WriteReindexing(false);
@@ -755,6 +780,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
             LoadExternalBlockFile(chainparams, file);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -1101,6 +1130,14 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
+
+    auto checkpoints_file = gArgs.GetArg("-checkpoints-file", "");
+    if (!checkpoints_file.empty()) {
+        auto res = UpdateCheckpointsFromFile(const_cast<CChainParams&>(chainparams), checkpoints_file);
+        if (!res)
+            return InitError(strprintf(_("Error in checkpoints file : %s").translated, res.msg));
+    }
+
     if (!gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)) {
         LogPrintf("conf: checkpoints disabled.\n");
         // Safe to const_cast, as we know it's always allocated, and is always in the global var
@@ -1144,15 +1181,6 @@ bool AppInitParameterInteraction()
             return InitError(AmountErrMsg("incrementalrelayfee", gArgs.GetArg("-incrementalrelayfee", "")));
         incrementalRelayFee = CFeeRate(n);
     }
-
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = gArgs.GetArg("-prune", 0);
@@ -1241,7 +1269,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-    
+
     return true;
 }
 
@@ -1309,6 +1337,44 @@ void SetupAnchorSPVDatabases(bool resync) {
         } else {
             spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
         }
+    }
+}
+
+
+void MigrateDBs()
+{
+    auto it = pundosView->LowerBound<CUndosView::ByMultiUndoKey>(UndoSourceKey{});
+    if (it.Valid()) {
+        return;
+    }
+
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    std::vector<UndoKey> undos;
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        if (undos.empty()) {
+            LogPrintf("Migrating undo entries, might take a while...\n");
+        }
+
+        undos.push_back(key);
+        pundosView->SetUndo({{key.height, key.txid}, UndoSource::CustomView}, undo);
+        return true;
+    });
+
+    if (!undos.empty()) {
+        for (const auto& key : undos) {
+            pcustomcsview->DelUndo(key);
+        }
+
+        auto& flushable = pcustomcsview->GetStorage();
+        auto& map = flushable.GetRaw();
+        pcustomcsview->Flush();
+        pcustomcsDB->Compact(map.begin()->first, map.rbegin()->first);
+        pcustomcsDB->Flush();
+
+        LogPrintf("Migrating undo data finished.\n");
+        LogPrint(BCLog::BENCH, "    - Migrating undo data takes: %dms\n", GetTimeMillis() - time);
     }
 }
 
@@ -1391,15 +1457,27 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
-    if (nScriptCheckThreads) {
-        for (int i=0; i<nScriptCheckThreads-1; i++)
-            threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    if (script_threads <= 0) {
+        // -par=0 means autodetect (number of cores - 1 script threads)
+        // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
+        script_threads += GetNumCores();
+    }
+
+    // Subtract 1 because the main thread counts towards the par threads
+    script_threads = std::max(script_threads - 1, 0);
+
+    // Number of script-checking threads <= MAX_SCRIPTCHECK_THREADS
+    script_threads = std::min(script_threads, MAX_SCRIPTCHECK_THREADS);
+
+    LogPrintf("Script verification uses %d additional threads\n", script_threads);
+    if (script_threads >= 1) {
+        g_parallel_script_checks = true;
+        StartScriptCheckWorkerThreads(script_threads);
     }
 
     // Start the lightweight task scheduler thread
-    CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);
@@ -1677,7 +1755,8 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB.reset();
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB);
+
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
                         strLoadError = _("Account database is unsuitable").translated;
@@ -1695,16 +1774,27 @@ bool AppInitMain(InitInterfaces& interfaces)
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
                     paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
+                    paccountHistoryDB->CreateMultiIndexIfNeeded();
                 }
 
                 pburnHistoryDB.reset();
                 pburnHistoryDB = std::make_unique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+                pburnHistoryDB->CreateMultiIndexIfNeeded();
 
                 // Create vault history DB
                 pvaultHistoryDB.reset();
                 if (gArgs.GetBoolArg("-vaultindex", DEFAULT_VAULTINDEX)) {
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
+
+                // Create Undo DB
+                pundosDB.reset();
+                pundosDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "undos", nCustomCacheSize, false, fReset || fReindexChainState);
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(*pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1714,7 +1804,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }
@@ -1732,6 +1822,24 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(::ChainActive().Tip() != nullptr);
+                }
+
+                auto dexStats = gArgs.GetBoolArg("-dexstats", DEFAULT_DEXSTATS);
+                pcustomcsview->SetDexStatsEnabled(dexStats);
+
+                if (!fReset && !fReindexChainState && !pcustomcsDB->IsEmpty() && dexStats) {
+                    // force reindex if there is no dex data at the tip
+                    PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
+                    auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
+                    auto shouldReindex = it.Valid();
+                    auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
+                    if (lastHeight.has_value())
+                        shouldReindex &= !(*lastHeight == ::ChainActive().Tip()->nHeight);
+
+                    if (shouldReindex) {
+                        strLoadError = _("Live dex needs reindex").translated;
+                        break;
+                    }
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
@@ -1920,6 +2028,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             });
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
         }
+        pcustomcsview->Flush();
     }
 
     // ********************************************************* Step 11: import blocks
@@ -1952,7 +2061,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(std::bind(&ThreadImport, vImportFiles));
+    threadGroup.emplace_back(ThreadImport, vImportFiles);
 
     // Wait for genesis block to be processed
     {
@@ -2159,13 +2268,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // Mint proof-of-stake blocks in background
-        threadGroup.create_thread(
-            std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-                // Run ThreadStaker
-                pos::ThreadStaker threadStaker;
-                threadStaker(std::move(stakersParams), std::move(chainparams));
-            }
-        ));
+        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
+            // Run ThreadStaker
+            pos::ThreadStaker threadStaker;
+            threadStaker(stakersParams, chainparams);
+        });
     }
 
     return true;

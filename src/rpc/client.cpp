@@ -177,6 +177,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
     { "updatemasternode", 2, "inputs" },
+    { "updatemasternode", 1, "values" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},
@@ -259,6 +260,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listvaulthistory", 1, "options" },
     { "listvaults", 0, "options" },
     { "listvaults", 1, "pagination" },
+    { "getvault", 1, "verbose" },
     { "listauctions", 0, "pagination" },
     { "listauctionhistory", 1, "pagination" },
     { "estimateloan", 1, "tokens" },
@@ -342,6 +344,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "decodecustomtx", 1, "iswitness" },
 
     { "setmockcheckpoint", 0, "height" },
+    { "logaccountbalances", 0, "logfile" },
+    { "logaccountbalances", 1, "rpcresult" },
 };
 // clang-format on
 

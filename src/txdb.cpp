@@ -16,8 +16,6 @@
 
 #include <stdint.h>
 
-#include <boost/thread.hpp>
-
 static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
@@ -254,7 +252,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
 
     // Load m_block_index
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
         if (ShutdownRequested()) return false;
         std::pair<char, uint256> key;
         if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
@@ -284,11 +281,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                         return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
                     }
                 }
-//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier != pos::ComputeStakeModifier(pindexNew->pprev->stakeModifier, pindexNew->minter)) { // TODO: SS disable check stake modifier
-//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Stake modifier is incorrect (%s != %s). Index content: %s",
-//                                 __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->stakeModifier.ToString(), pos::ComputeStakeModifier(pindexNew->pprev->stakeModifier, pindexNew->minter).ToString(), pindexNew->ToString());
-//                }
-
                 pcursor->Next();
             } else {
                 return error("%s: failed to read value", __func__);
@@ -379,7 +371,6 @@ bool CCoinsViewDB::Upgrade() {
     std::pair<unsigned char, uint256> key;
     std::pair<unsigned char, uint256> prev_key = {DB_COINS, uint256()};
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
         if (ShutdownRequested()) {
             break;
         }

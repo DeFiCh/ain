@@ -116,12 +116,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<CMasternode> nodePtr;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)
             return nullptr;
-        auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight))
+        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
             return nullptr;
     }
 
@@ -212,6 +213,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     CCustomCSView mnview(*pcustomcsview);
+    CUndosView undosView(*pundosView);
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
@@ -336,7 +338,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
+        const CKeyID key = nHeight >= consensus.GreatWorldHeight ? nodePtr->ownerAuthAddress : myIDs->first;
+        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
     }
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -352,7 +355,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
-        pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
+        pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot(undosView));
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
@@ -727,6 +730,7 @@ namespace pos {
         int64_t blockHeight;
         std::vector<int64_t> subNodesBlockTime;
         uint16_t timelock;
+        std::optional<CMasternode> nodePtr;
 
         {
             LOCK(cs_main);
@@ -737,8 +741,8 @@ namespace pos {
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
-            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
+            nodePtr = pcustomcsview->GetMasternode(masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -772,7 +776,8 @@ namespace pos {
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+        const CKeyID key = blockHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
+        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, key);
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
@@ -800,7 +805,7 @@ namespace pos {
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)currentTime - t);
 
@@ -813,7 +818,7 @@ namespace pos {
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
 
@@ -823,7 +828,7 @@ namespace pos {
 
                 // Search forwards in time
                 for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)searchTime + t);
 
@@ -836,7 +841,7 @@ namespace pos {
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
         }, blockHeight);
@@ -915,7 +920,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
     for (auto& arg : args) {
         while (true) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             bool found = false;
             for (auto wallet : wallets) {
@@ -939,10 +944,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
     LogPrintf("ThreadStaker: started.\n");
 
     while (!args.empty()) {
-        boost::this_thread::interruption_point();
+        if (ShutdownRequested()) break;
 
         while (fImporting || fReindex) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             LogPrintf("ThreadStaker: waiting reindex...\n");
 
@@ -953,7 +958,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             pos::Staker staker;
 
