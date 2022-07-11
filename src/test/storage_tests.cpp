@@ -1,10 +1,8 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
-#include <rpc/util.h>
 
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
@@ -64,8 +62,6 @@ std::map<TBytes, TBytes> TakeSnapshot(CStorageKV const & storage)
     TBytes key;
     auto it = const_cast<CStorageKV&>(storage).NewIterator();
     for(it->Seek(key); it->Valid(); it->Next()) {
-        boost::this_thread::interruption_point();
-
         result.emplace(it->Key(),it->Value());
     }
     return result;
