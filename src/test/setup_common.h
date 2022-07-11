@@ -14,8 +14,7 @@
 #include <txmempool.h>
 
 #include <type_traits>
-
-#include <boost/thread.hpp>
+#include <vector>
 
 // Enable BOOST_CHECK_EQUAL for enum class types
 template <typename T>
@@ -73,7 +72,6 @@ private:
  * Included are coins database, script check threads setup.
  */
 struct TestingSetup : public BasicTestingSetup {
-    boost::thread_group threadGroup;
     CScheduler scheduler;
 
     explicit TestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
