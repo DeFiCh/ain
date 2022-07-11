@@ -316,6 +316,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgovheight", 2, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
+    { "setcustomtxexpiration", 0, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },

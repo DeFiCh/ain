@@ -104,6 +104,12 @@ enum class CustomTxType : uint8_t
     TokenSplit             = 'P',
 };
 
+enum class MetadataVersion : uint8_t {
+    None = 0,
+    One = 1,
+    Two = 2,
+};
+
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     auto type = static_cast<CustomTxType>(ch);
     switch(type) {
@@ -347,11 +353,11 @@ using CCustomTxMessage = std::variant<
     CAuctionBidMessage
 >;
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType);
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t* customTxExpiration = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
@@ -375,7 +381,8 @@ inline bool OraclePriceFeed(CCustomCSView& view, const CTokenCurrencyPair& price
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */
-inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false){
+inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false,
+                               uint32_t height = 0, CExpirationAndVersion* customTxParams = nullptr){
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
@@ -384,21 +391,25 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     if (metadataValidation) {
         for (size_t i{1}; i < tx.vout.size(); ++i) {
             std::vector<unsigned char> dummydata;
-            bool dummyOpcodes{false};
+            uint8_t dummyOpcodes{HasForks::None};
             if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
                 return CustomTxType::Reject;
             }
         }
     }
 
-    bool hasAdditionalOpcodes{false};
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
+    uint8_t hasAdditionalOpcodes{HasForks::None};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes, customTxParams)) {
         return CustomTxType::None;
     }
 
     // If metadata contains additional opcodes mark as Reject.
-    if (metadataValidation && hasAdditionalOpcodes) {
-        return CustomTxType::Reject;
+    if (metadataValidation) {
+        if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::FortCanning) {
+            return CustomTxType::Reject;
+        } else if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && hasAdditionalOpcodes & HasForks::GreatWorld) {
+            return CustomTxType::Reject;
+        }
     }
 
     auto txType = CustomTxCodeToType(metadata[0]);
