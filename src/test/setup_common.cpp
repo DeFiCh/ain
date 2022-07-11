@@ -96,7 +96,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
     // We have to run a scheduler thread to prevent ActivateBestChain
     // from blocking due to queue overrun.
-    threadGroup.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
     mempool.setSanityCheck(1.0);
@@ -113,7 +113,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         pcustomcsDB.reset();
         pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
-        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB);
+
+        pundosDB.reset();
+        pundosDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "undos", nMinDbCache << 20, true, true);
+        pundosView = std::make_unique<CUndosView>(*pundosDB);
 
         panchorauths.reset();
         panchorauths = std::make_unique<CAnchorAuthIndex>();
@@ -133,9 +137,9 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
     }
 
-    nScriptCheckThreads = 3;
-    for (int i = 0; i < nScriptCheckThreads - 1; i++)
-        threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    constexpr int script_check_threads = 2;
+    StartScriptCheckWorkerThreads(script_check_threads);
+    g_parallel_script_checks = true;
 
     g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
     g_connman = std::make_unique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
@@ -143,8 +147,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
 TestingSetup::~TestingSetup()
 {
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    scheduler.stop();
+    StopScriptCheckWorkerThreads();
     GetMainSignals().FlushBackgroundCallbacks();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     g_connman.reset();
