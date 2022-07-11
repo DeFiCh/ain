@@ -12,11 +12,6 @@
 #include <serialize_optional.h>
 #include <flushablestorage.h>
 
-// Enum for future support of multiple sources of undo data, not just CustomView.
-enum UndoSource : uint8_t {
-    CustomView = 0,
-};
-
 struct UndoKey {
     uint32_t height; // height is there to be able to prune older undos using lexicographic iteration
     uint256 txid;
@@ -27,18 +22,6 @@ struct UndoKey {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(WrapBigEndian(height));
         READWRITE(txid);
-    }
-};
-
-struct UndoSourceKey : UndoKey {
-    uint8_t key;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(UndoKey, *this);
-        READWRITE(key);
     }
 };
 

@@ -81,18 +81,13 @@ BOOST_AUTO_TEST_CASE(flushableType)
 
 BOOST_AUTO_TEST_CASE(undo)
 {
-    CCustomCSView view(*pcustomcsview);
-    CUndosView undoView(*pundosView);
-    auto& base_raw = view.GetStorage();
-    auto& undo_raw = undoView.GetStorage();
-    auto undoStart = TakeSnapshot(undo_raw);
-
+    CStorageKV & base_raw = pcustomcsview->GetStorage();
     // place some "old" record
-    view.Write("testkey1", "value0");
+    pcustomcsview->Write("testkey1", "value0");
 
     auto snapStart = TakeSnapshot(base_raw);
 
-    auto mnview(view);
+    CCustomCSView mnview(*pcustomcsview);
     BOOST_CHECK(mnview.Write("testkey1", "value1")); // modify
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
@@ -112,21 +107,17 @@ BOOST_AUTO_TEST_CASE(undo)
     BOOST_CHECK(snap1.at(ToBytes("testkey2")) == ToBytes("value2"));
 
     // write undo
-    auto snap_undo1 = TakeSnapshot(base_raw);
-    undoView.SetUndo({{1, uint256S("0x1")}, UndoSource::CustomView}, undo);
-
-    auto snap_undo = TakeSnapshot(undo_raw);
-    BOOST_CHECK_EQUAL(snap_undo.size() - undoStart.size(), 1); // undo
+    pcustomcsview->SetUndo(UndoKey{1, uint256S("0x1")}, undo);
 
     auto snap2 = TakeSnapshot(base_raw);
-    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x1"), 2); // fail
-    mnview.Flush();
+    BOOST_CHECK(snap2.size() - snap1.size() == 1); // undo
+    BOOST_CHECK(snap2.size() - snapStart.size() == 2); // onew new record + undo
+
+    pcustomcsview->OnUndoTx(uint256S("0x1"), 2); // fail
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x2"), 1); // fail
-    mnview.Flush();
+    pcustomcsview->OnUndoTx(uint256S("0x2"), 1); // fail
     BOOST_CHECK(snap2 == TakeSnapshot(base_raw));
-    undoView.OnUndoTx(UndoSource::CustomView, mnview, uint256S("0x1"), 1); // success
-    mnview.Flush();
+    pcustomcsview->OnUndoTx(uint256S("0x1"), 1); // success
     BOOST_CHECK(snapStart == TakeSnapshot(base_raw));
 }
 
