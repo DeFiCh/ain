@@ -30,6 +30,8 @@
 #include "BRTransaction.h"
 #include "BRWallet.h"
 #include "BRChainParams.h"
+
+#include <map>
 #include <stddef.h>
 #include <inttypes.h>
 

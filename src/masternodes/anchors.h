@@ -9,6 +9,7 @@
 #include <script/script.h>
 #include <script/standard.h>
 #include <serialize.h>
+#include <shutdown.h>
 #include <uint256.h>
 
 #include <functional>
@@ -21,8 +22,6 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/tag.hpp>
 #include <boost/multi_index_container.hpp>
-
-#include <boost/thread.hpp>
 
 #include <dbwrapper.h>
 
@@ -262,7 +261,8 @@ class CAnchorIndex {
         pcursor->Seek(prefix);
 
         while (pcursor->Valid()) {
-            boost::this_thread::interruption_point();
+            // ShutdownRequested replaces interruption_point
+            if (ShutdownRequested()) break;
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix) {
                 Value value;
