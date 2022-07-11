@@ -26,8 +26,6 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-#include <boost/thread.hpp>
-
 // Anchor DB storage version, increment to wipe anchor and SPV data.
 #define SPV_DB_VERSION 1
 
@@ -204,7 +202,8 @@ private:
 
         while (pcursor->Valid())
         {
-            boost::this_thread::interruption_point();
+            // ShutdownRequested replaces interruption_point
+            if (ShutdownRequested()) break;
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
             {
@@ -232,7 +231,8 @@ private:
 
         while (pcursor->Valid())
         {
-            boost::this_thread::interruption_point();
+            // ShutdownRequested replaces interruption_point
+            if (ShutdownRequested()) break;
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
             {
