@@ -276,6 +276,7 @@ private:
 
         while (pcursor->Valid())
         {
+            // ShutdownRequested replaces interruption_point
             if (ShutdownRequested()) break;
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
