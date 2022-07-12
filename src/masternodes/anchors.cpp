@@ -1011,7 +1011,7 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
     }
 
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
-    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height)) {
+    if (!it || !pcustomcsview->GetMasternode(*it)->IsActive(height, *pcustomcsview)) {
         LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
         return false;
     }
