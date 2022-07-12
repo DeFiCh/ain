@@ -709,7 +709,10 @@ void CSettingsView::SetDexStatsLastHeight(const int32_t height)
 
 std::optional<int32_t> CSettingsView::GetDexStatsLastHeight()
 {
-    return ReadBy<KVSettings, int32_t>(DEX_STATS_LAST_HEIGHT);
+    if (auto res = ReadBy<KVSettings, int32_t>(DEX_STATS_LAST_HEIGHT)) {
+        return res;
+    }
+    return {};
 }
 
 void CSettingsView::SetDexStatsEnabled(const bool enabled)
@@ -876,16 +879,6 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::Ancho
         LogPrint(BCLog::ANCHORING, "%s: Create message %s\n", __func__, confirmMessage->GetHash().GetHex());
         RelayAnchorConfirm(confirmMessage->GetHash(), *g_connman);
     }
-}
-
-void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
-{
-    const auto undo = GetUndo(UndoKey{height, txid});
-    if (!undo) {
-        return; // not custom tx, or no changes done
-    }
-    CUndo::Revert(GetStorage(), *undo); // revert the changes of this tx
-    DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
 }
 
 bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
@@ -1085,28 +1078,31 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
     return Res::Ok();
 }
 
-uint256 CCustomCSView::MerkleRoot() {
+uint256 CCustomCSView::MerkleRoot(CUndosView& undo) {
     auto rawMap = GetStorage().GetRaw();
     if (rawMap.empty()) {
         return {};
     }
     auto isAttributes = [](const TBytes& key) {
-        MapKV map = {std::make_pair(key, TBytes{})};
         // Attributes should not be part of merkle root
         static const std::string attributes("ATTRIBUTES");
+        MapKV map = {std::make_pair(key, TBytes{})};
         auto it = NewKVIterator<CGovView::ByName>(attributes, map);
         return it.Valid() && it.Key() == attributes;
     };
-
-    auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, rawMap);
+    auto& undoStorage = undo.GetStorage();
+    auto& undoMap = undoStorage.GetRaw();
+    auto it = NewKVIterator<CUndosView::ByMultiUndoKey>(UndoSourceKey{}, undoMap);
     for (; it.Valid(); it.Next()) {
-        CUndo value = it.Value();
-        auto& map = value.before;
-        for (auto it = map.begin(); it != map.end();) {
-            isAttributes(it->first) ? map.erase(it++) : ++it;
+        if (it.Key().key == UndoSource::CustomView) {
+            CUndo value = it.Value();
+            auto& map = value.before;
+            for (auto it = map.begin(); it != map.end();) {
+                isAttributes(it->first) ? map.erase(it++) : ++it;
+            }
+            auto key = std::make_pair(CUndosBaseView::ByUndoKey::prefix(), static_cast<const UndoKey&>(it.Key()));
+            rawMap[DbTypeToBytes(key)] = DbTypeToBytes(value);
         }
-        auto key = std::make_pair(CUndosView::ByUndoKey::prefix(), static_cast<const UndoKey&>(it.Key()));
-        rawMap[DbTypeToBytes(key)] = DbTypeToBytes(value);
     }
 
     std::vector<uint256> hashes;
