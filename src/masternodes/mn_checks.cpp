@@ -3184,6 +3184,17 @@ public:
                     return Res::Err("Exceed maximum loans");
             }
 
+            // Add minted token to live loan token stats
+            if (mnview.GetLoanStatsEnabled().value_or(false) && loanToken->symbol == "DUSD") {
+                CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LoanTokens};
+                auto attributes = mnview.GetAttributes();
+                assert(attributes);
+                auto loanBalances = attributes->GetValue(loanKey, CLoanBalances{});
+                loanBalances[tokenId] += kv.second;
+                attributes->SetValue(loanKey, std::move(loanBalances));
+                mnview.SetVariable(*attributes);
+            }
+
             res = mnview.AddMintedTokens(tokenId, kv.second);
             if (!res)
                 return res;
@@ -3410,6 +3421,15 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
+                    // Add minted token to live loan token stats
+                    if (mnview.GetLoanStatsEnabled().value_or(false) && loanToken->symbol == "DUSD") {
+                        CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LoanTokens};
+                        auto loanBalances = attributes->GetValue(loanKey, CLoanBalances{});
+                        loanBalances[loanTokenId] -= kv.second;
+                        attributes->SetValue(loanKey, std::move(loanBalances));
+                        shouldSetVariable = true;
+                    }
+
                     res = mnview.SubMintedTokens(loanTokenId, subLoan);
                     if (!res)
                         return res;

@@ -159,6 +159,7 @@ BASE_SCRIPTS = [
     'wallet_multiwallet.py',
     'wallet_multiwallet.py --usecli',
     'wallet_createwallet.py',
+    'feature_loanstats_vault.py',
     'wallet_createwallet.py --usecli',
     'wallet_watchonly.py',
     'wallet_watchonly.py --usecli',

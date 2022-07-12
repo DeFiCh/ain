@@ -20,7 +20,8 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50',
-             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanningspringheight=200', '-debug=loan', '-txindex=1']
+             '-fortcanningheight=50', '-fortcanninghillheight=50', '-fortcanningroadheight=196', '-fortcanningspringheight=200',
+             '-debug=loan', '-txindex=1', '-loanstats=1']
         ]
 
     def run_test(self):
@@ -115,6 +116,10 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': "2000@" + symboldUSD
         })
         self.nodes[0].generate(1)
+
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('2000.00000000'))
 
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
         # create pool DUSD-DFI
@@ -245,6 +250,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(10)
 
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('4000.00000000'))
+
         vaultBefore = self.nodes[0].getvault(vaultId)
         [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
         [balanceDFIBefore, _] = self.nodes[0].getaccount(account0)[0].split('@')
@@ -314,6 +323,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('4100.00000000'))
+
         vaultBefore = self.nodes[0].getvault(vaultId6)
         [balanceDFIBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[0].split('@')
         [balanceDUSDBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[1].split('@')
@@ -339,6 +352,10 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': ["70@DUSD", "10@DFI"]
         })
         self.nodes[0].generate(1)
+
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('4030.00000000'))
 
         vaultAfter = self.nodes[0].getvault(vaultId6)
         assert_equal(vaultAfter["loanAmounts"], [])
@@ -500,12 +517,20 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(10)
 
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('4130.00000000'))
+
         self.nodes[0].paybackloan({
             'vaultId': vaultId2,
             'from': account0,
             'amounts': ["10@DUSD"]
         })
         self.nodes[0].generate(1)
+
+        # Check live stats
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loan/3'], Decimal('4120.00000000'))
 
         burn_after = self.nodes[0].getburninfo()['paybackburn']
 

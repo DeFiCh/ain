@@ -46,6 +46,7 @@ enum EconomyKeys : uint8_t {
     DFIP2206FBurned   = 'g',
     DFIP2206FMinted   = 'h',
     DexTokens         = 'i',
+    LoanTokens        = 'j',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -186,11 +187,12 @@ enum FeeDirValues : uint8_t {
 };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using CLoanBalances = std::map<DCT_ID, CAmount>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, CLoanBalances>;
 
 enum GovVarsFilter {
     All,
@@ -212,7 +214,7 @@ public:
 
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
-    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats = true) const;
+    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats = true, const bool loanStats = true) const;
 
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;

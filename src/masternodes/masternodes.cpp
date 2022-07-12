@@ -707,9 +707,19 @@ void CSettingsView::SetDexStatsLastHeight(const int32_t height)
     WriteBy<KVSettings>(DEX_STATS_LAST_HEIGHT, height);
 }
 
+void CSettingsView::SetLoanStatsLastHeight(const int32_t height)
+{
+    WriteBy<KVSettings>(LOAN_STATS_LAST_HEIGHT, height);
+}
+
 std::optional<int32_t> CSettingsView::GetDexStatsLastHeight()
 {
     return ReadBy<KVSettings, int32_t>(DEX_STATS_LAST_HEIGHT);
+}
+
+std::optional<int32_t> CSettingsView::GetLoanStatsLastHeight()
+{
+    return ReadBy<KVSettings, int32_t>(LOAN_STATS_LAST_HEIGHT);
 }
 
 void CSettingsView::SetDexStatsEnabled(const bool enabled)
@@ -717,9 +727,19 @@ void CSettingsView::SetDexStatsEnabled(const bool enabled)
     WriteBy<KVSettings>(DEX_STATS_ENABLED, enabled);
 }
 
+void CSettingsView::SetLoanStatsEnabled(const bool enabled)
+{
+    WriteBy<KVSettings>(LOAN_STATS_ENABLED, enabled);
+}
+
 std::optional<bool> CSettingsView::GetDexStatsEnabled()
 {
     return ReadBy<KVSettings, bool>(DEX_STATS_ENABLED);
+}
+
+std::optional<bool> CSettingsView::GetLoanStatsEnabled()
+{
+    return ReadBy<KVSettings, bool>(LOAN_STATS_ENABLED);
 }
 /*
  *  CCustomCSView

@@ -689,8 +689,9 @@ UniValue getgov(const JSONRPCRequest& request) {
 
         if (name == "ATTRIBUTES") {
             const auto dexStats = pcustomcsview->GetDexStatsEnabled().value_or(false);
+            const auto loanStats = pcustomcsview->GetLoanStatsEnabled().value_or(false);
             auto attrs = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-            ret.pushKV(var->GetName(), attrs->ExportFiltered(GovVarsFilter::All, "", dexStats));
+            ret.pushKV(var->GetName(), attrs->ExportFiltered(GovVarsFilter::All, "", dexStats, loanStats));
         } else {
             ret.pushKV(var->GetName(), var->Export());
         }
@@ -776,8 +777,9 @@ UniValue listgovs(const JSONRPCRequest& request) {
                     skip = true;
                 } else {
                     const auto dexStats = pcustomcsview->GetDexStatsEnabled().value_or(false);
+                    const auto loanStats = pcustomcsview->GetLoanStatsEnabled().value_or(false);
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    val = a->ExportFiltered(mode, prefix, dexStats);
+                    val = a->ExportFiltered(mode, prefix, dexStats, loanStats);
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || 

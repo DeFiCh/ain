@@ -334,12 +334,22 @@ class CSettingsView : public virtual CStorageView
 
 public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
+    const std::string LOAN_STATS_LAST_HEIGHT = "LoanStatsLastHeight";
+
     const std::string DEX_STATS_ENABLED = "DexStatsEnabled";
+    const std::string LOAN_STATS_ENABLED = "LoanStatsEnabled";
 
     void SetDexStatsLastHeight(int32_t height);
+    void SetLoanStatsLastHeight(int32_t height);
+
     std::optional<int32_t> GetDexStatsLastHeight();
+    std::optional<int32_t> GetLoanStatsLastHeight();
+
     void SetDexStatsEnabled(bool enabled);
+    void SetLoanStatsEnabled(bool enabled);
+
     std::optional<bool> GetDexStatsEnabled();
+    std::optional<bool> GetLoanStatsEnabled();
 
     struct KVSettings { static constexpr uint8_t prefix() { return '0'; } };
 };

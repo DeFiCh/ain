@@ -211,9 +211,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
                 {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
                 {EconomyKeys::DexTokens,         "dex"},
-                {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
-                {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
-                {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::DFIP2206FCurrent,  "dfip2206f_current"},
+                {EconomyKeys::DFIP2206FBurned,   "dfip2206f_burned"},
+                {EconomyKeys::DFIP2206FMinted,   "dfip2206f_minted"},
+                {EconomyKeys::LoanTokens,        "loan"},
             }
         },
     };
@@ -747,7 +748,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::Epitaph,
 };
 
-UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats) const {
+UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats, const bool loanStats) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
         const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -856,6 +857,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(key, "in");
                 } else if (result->feeDir == FeeDirValues::Out) {
                     ret.pushKV(key, "out");
+                }
+            } else if (const auto loanBalances = std::get_if<CLoanBalances>(&attribute.second)) {
+                if (!loanStats) {
+                    continue;
+                }
+                for (const auto& [token, loanAmount] : *loanBalances) {
+                    const auto loanKey = KeyBuilder(key, token.v);
+                    ret.pushKV(loanKey, ValueFromUint(loanAmount));
                 }
             }
         } catch (const std::out_of_range&) {

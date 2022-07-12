@@ -506,6 +506,7 @@ void SetupServerArgs()
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-loanstats", strprintf("Enable storing live loan data in DB (default: %u)", DEFAULT_LOANSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1790,6 +1791,23 @@ bool AppInitMain(InitInterfaces& interfaces)
                             return InitError("dexstats disabled due to no previous data found. Reindex to build DEx stats.");
                         } else if (*lastHeight != ::ChainActive().Tip()->nHeight) {
                             return InitError(strprintf("dexstats disabled due to gap in data from %d to %d. Either reindex or rollback to the last known dex stats height %d",
+                                *lastHeight, ::ChainActive().Tip()->nHeight, *lastHeight));
+                        }
+                    }
+                }
+
+                auto loanStats = gArgs.GetBoolArg("-loanstats", DEFAULT_LOANSTATS);
+                pcustomcsview->SetLoanStatsEnabled(loanStats);
+
+                if (!fReset && !fReindexChainState && !pcustomcsDB->IsEmpty() && loanStats) {
+                    // force reindex if there is no loan data at the tip
+                    auto it = pcustomcsview->LowerBound<CLoanView::LoanTokenAmount>(uint256{});
+                    if (it.Valid()) {
+                        const auto lastHeight = pcustomcsview->GetLoanStatsLastHeight();
+                        if (!lastHeight.has_value()) {
+                            return InitError("loanstats disabled due to no previous data found. Reindex to build loan stats.");
+                        } else if (*lastHeight != ::ChainActive().Tip()->nHeight) {
+                            return InitError(strprintf("loanstats disabled due to gap in data from %d to %d. Either reindex or rollback to the last known loan stats height %d",
                                 *lastHeight, ::ChainActive().Tip()->nHeight, *lastHeight));
                         }
                     }

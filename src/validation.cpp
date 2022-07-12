@@ -3033,6 +3033,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (cache.GetDexStatsEnabled().value_or(false))
             cache.SetDexStatsLastHeight(pindex->nHeight);
 
+        // Set height for live loan data
+        if (cache.GetLoanStatsEnabled().value_or(false))
+            cache.SetLoanStatsLastHeight(pindex->nHeight);
+
         // DFI-to-DUSD swaps
         ProcessFuturesDUSD(pindex, cache, chainparams);
 
@@ -3454,6 +3458,17 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, amount);
                     view.AddVaultCollateral(vaultId, amount);
+                }
+
+                // Add minted token to live loan token stats
+                if (const auto loanToken = view.GetLoanTokenByID(batch->loanAmount.nTokenId); view.GetLoanStatsEnabled().value_or(false) && loanToken && loanToken->symbol == "DUSD") {
+                    CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LoanTokens};
+                    auto attributes = view.GetAttributes();
+                    assert(attributes);
+                    auto loanBalances = attributes->GetValue(loanKey, CLoanBalances{});
+                    loanBalances[batch->loanAmount.nTokenId] -= batch->loanAmount.nValue - batch->loanInterest;
+                    attributes->SetValue(loanKey, std::move(loanBalances));
+                    view.SetVariable(*attributes);
                 }
 
                 auto res = view.SubMintedTokens(batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest);
