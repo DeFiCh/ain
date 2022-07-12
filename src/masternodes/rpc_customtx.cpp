@@ -486,6 +486,7 @@ public:
         auto type = static_cast<CPropType>(obj.type);
         rpcInfo.pushKV("type", CPropTypeToString(type));
         rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
         auto finalHeight = height;
