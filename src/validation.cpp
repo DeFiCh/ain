@@ -3947,7 +3947,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
-                if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
                     activeMasternodes.insert(mnId);
                 }
                 return true;
