@@ -138,6 +138,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(result), 1)
         assert_equal(result[0]["proposalId"], tx)
         assert_equal(result[0]["title"], title)
+        assert_equal(result[0]["context"], context)
         assert_equal(result[0]["type"], "CommunityFundProposal")
         assert_equal(result[0]["status"], "Voting")
         assert_equal(result[0]["amount"], Decimal("100"))
@@ -209,7 +210,8 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Test Vote of Confidence
         title = "Create vote of confidence"
-        tx = self.nodes[0].creategovvoc(title, "Test context")
+        context = "Test context"
+        tx = self.nodes[0].creategovvoc(title, context)
         raw_tx = self.nodes[0].getrawtransaction(tx)
         self.nodes[3].sendrawtransaction(raw_tx)
         self.nodes[3].generate(1)
@@ -239,6 +241,7 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
+        assert_equal(result["context"], context)
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["status"], "Approved")
         assert_equal(result["approval"], "75.00 of 66.67%")
