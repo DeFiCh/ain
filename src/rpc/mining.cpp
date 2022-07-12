@@ -17,6 +17,7 @@
 #include <pos.h>
 #include <pos_kernel.h>
 #include <rpc/blockchain.h>
+#include <rpc/mining.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <script/script.h>
@@ -38,12 +39,7 @@
 #include <memory>
 #include <stdint.h>
 
-/**
- * Return average network hashes per second based on the last 'lookup' blocks,
- * or from the last difficulty change if 'lookup' is nonpositive.
- * If 'height' is nonnegative, compute the estimate at the time when a given block was found.
- */
-static UniValue GetNetworkHashPS(int lookup, int height) {
+double GetNetworkHashPS(int lookup, int height) {
     CBlockIndex *pb = ::ChainActive().Tip();
 
     if (height >= 0 && height < ::ChainActive().Height())

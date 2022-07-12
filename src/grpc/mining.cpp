@@ -1,79 +1,35 @@
 #include <grpc/mining.h>
 #include <grpc/util.h>
-
+#include <masternodes/masternodes.h>
+#include <miner.h>
+#include <policy/fees.h>
+#include <pos.h>
+#include <pos_kernel.h>
 #include <rpc/blockchain.h>
+#include <rpc/mining.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <rpc/util.h>
-
-#include <policy/fees.h>
 #include <util/fees.h>
-
-#include <pos.h>
-#include <pos_kernel.h>
-#include <miner.h>
-#include <masternodes/masternodes.h>
 #include <warnings.h>
 
-/**
- * Return average network hashes per second based on the last 'lookup' blocks,
- * or from the last difficulty change if 'lookup' is nonpositive.
- * If 'height' is nonnegative, compute the estimate at the time when a given block was found.
- */
-static double GetNetworkHashPS(int lookup, int height) {
-    CBlockIndex *pb = ::ChainActive().Tip();
-
-    if (height >= 0 && height < ::ChainActive().Height())
-        pb = ::ChainActive()[height];
-
-    if (pb == nullptr || !pb->nHeight)
-        return 0;
-
-    // If lookup is -1, then use blocks since last difficulty change.
-    if (lookup <= 0)
-        lookup = pb->nHeight % Params().GetConsensus().pos.DifficultyAdjustmentInterval() + 1;
-
-    // If lookup is larger than chain, then set it to chain length.
-    if (lookup > pb->nHeight)
-        lookup = pb->nHeight;
-
-    CBlockIndex *pb0 = pb;
-    int64_t minTime = pb0->GetBlockTime();
-    int64_t maxTime = minTime;
-    for (int i = 0; i < lookup; i++) {
-        pb0 = pb0->pprev;
-        int64_t time = pb0->GetBlockTime();
-        minTime = std::min(time, minTime);
-        maxTime = std::max(time, maxTime);
-    }
-
-    // In case there's a situation where minTime == maxTime, we don't want a divide by zero exception.
-    if (minTime == maxTime)
-        return 0;
-
-    arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
-    int64_t timeDiff = maxTime - minTime;
-
-    return workDiff.getdouble() / timeDiff;
-}
-
-void GetNetworkHashPerSecond(GetNetworkHashPerSecondInput& input, GetNetworkHashPerSecondResult& result)
+void GetNetworkHashPS(const Context&, NetworkHashRateInput& input, NetworkHashRateResult& result)
 {
     LOCK(cs_main);
-    result.hashps = GetNetworkHashPS(input.nblocks, input.height);
+    result.hashps = GetNetworkHashPS(static_cast<int>(input.nblocks), static_cast<int>(input.height));
 }
 
-void GetMiningInfo(MiningInfo& result)
+void GetMiningInfo(const Context&, MiningInfo& result)
 {
-
     LOCK(cs_main);
 
-    auto height = static_cast<int>(::ChainActive().Height());
-    result.blocks = height;
+    auto height = ::ChainActive().Height();
+    result.blocks = static_cast<int64_t>(height);
     if (BlockAssembler::m_last_block_weight) result.currentblockweight = *BlockAssembler::m_last_block_weight;
     if (BlockAssembler::m_last_block_num_txs) result.currentblocktx = *BlockAssembler::m_last_block_num_txs;
     result.difficulty = GetDifficulty(::ChainActive().Tip());
-    result.networkhashps = GetNetworkHashPS();
+    auto input = MakeNetworkHashRateInput();
+    result.networkhashps = GetNetworkHashPS(static_cast<int>(input.nblocks), static_cast<int>(input.height));
     result.pooledtx = mempool.size();
     result.chain = Params().NetworkIDString();
 
@@ -96,7 +52,7 @@ void GetMiningInfo(MiningInfo& result)
                                       CTxDestination(WitnessV0KeyHash(nodePtr->operatorAuthAddress));
         masternodeInfo.field_operator = EncodeDestination(operatorDest);
         masternodeInfo.state = CMasternode::GetHumanReadableState(state);
-        masternodeInfo.mintedblocks = (uint64_t)nodePtr->mintedBlocks;
+        masternodeInfo.mintedblocks = nodePtr->mintedBlocks;
 
         auto generate = nodePtr->IsActive(height) && genCoins;
         masternodeInfo.generate = generate;
@@ -131,9 +87,10 @@ void GetMiningInfo(MiningInfo& result)
     result.warnings = GetWarnings("statusbar");
 }
 
-void EstimateSmartFee(EstimateSmartFeeInput& input, EstimateSmartFeeResult& result) {
+void EstimateSmartFee(const Context&, SmartFeeInput& input, SmartFeeResult& result)
+{
     unsigned int max_target = ::feeEstimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
-    unsigned int conf_target = ParseConfirmTarget(input.conf_target, max_target);
+    unsigned int conf_target = ParseConfirmTarget((int)input.conf_target, max_target);
     bool conservative = true;
 
     FeeEstimateMode fee_mode;
@@ -149,5 +106,5 @@ void EstimateSmartFee(EstimateSmartFeeInput& input, EstimateSmartFeeResult& resu
     } else {
         result.errors.push_back("Insufficient data or no feerate found");
     }
-    result.blocks = feeCalc.returnedTarget;
+    result.blocks = (uint64_t)feeCalc.returnedTarget;
 }

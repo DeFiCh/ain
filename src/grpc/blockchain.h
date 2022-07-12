@@ -3,7 +3,7 @@
 
 #include <libain.hpp>
 
-void GetBestBlockHash(BlockResult& result);
-void GetBlock(BlockInput& block_input, BlockResult& result);
+void GetBestBlockHash(const Context&, BlockResult& result);
+void GetBlock(const Context&, BlockInput& block_input, BlockResult& result);
 
 #endif // DEFI_GRPC_BLOCKCHAIN_H

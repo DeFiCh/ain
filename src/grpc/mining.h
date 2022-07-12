@@ -3,12 +3,9 @@
 
 #include <libain.hpp>
 
-// Utils
-static double GetNetworkHashPS(int lookup = 120, int height = -1);
-
 // RPC calls
-void GetNetworkHashPerSecond(GetNetworkHashPerSecondInput& input, GetNetworkHashPerSecondResult& result);
-void GetMiningInfo(MiningInfo& result);
-void EstimateSmartFee(EstimateSmartFeeInput& input, EstimateSmartFeeResult& result);
+void GetNetworkHashPS(const Context&, NetworkHashRateInput& input, NetworkHashRateResult& result);
+void GetMiningInfo(const Context&, MiningInfo& result);
+void EstimateSmartFee(const Context&, SmartFeeInput& input, SmartFeeResult& result);
 
 #endif // DEFI_GRPC_MINING_H

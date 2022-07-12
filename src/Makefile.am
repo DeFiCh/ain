@@ -210,6 +210,7 @@ DEFI_CORE_H = \
   reverselock.h \
   rpc/blockchain.h \
   rpc/client.h \
+  rpc/mining.h \
   rpc/protocol.h \
   rpc/rawtransaction_util.h \
   rpc/register.h \
@@ -668,7 +669,8 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 grpc_SOURCES = \
   grpc/mining.cpp \
   grpc/blockchain.cpp \
-  grpc/util.cpp
+  grpc/util.cpp \
+  grpc/wallet.cpp
 
 
 # defid binary #
