@@ -46,7 +46,7 @@ class LoanstatsAuctionTest (DefiTestFramework):
                                     'factor': 1,
                                     'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].generate(1)
-        
+
         # Create loan tokens
         self.nodes[0].setloantoken({
             'symbol': "TSLA",
