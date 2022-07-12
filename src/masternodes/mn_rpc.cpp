@@ -688,11 +688,7 @@ UniValue getgov(const JSONRPCRequest& request) {
         UniValue ret(UniValue::VOBJ);
 
         if (name == "ATTRIBUTES") {
-            bool dexStats{};
-            const auto enabled = pcustomcsview->GetDexStatsEnabled();
-            if (enabled && *enabled) {
-                dexStats = true;
-            }
+            const auto dexStats = pcustomcsview->GetDexStatsEnabled().value_or(false);
             auto attrs = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             ret.pushKV(var->GetName(), attrs->ExportFiltered(GovVarsFilter::All, "", dexStats));
         } else {
@@ -779,12 +775,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
-                    bool dexStats{};
-                    const auto enabled = pcustomcsview->GetDexStatsEnabled();
-                    if (enabled && *enabled) {
-                        dexStats = true;
-                    }
-
+                    const auto dexStats = pcustomcsview->GetDexStatsEnabled().value_or(false);
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                     val = a->ExportFiltered(mode, prefix, dexStats);
                 }
