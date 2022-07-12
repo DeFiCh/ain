@@ -503,6 +503,9 @@ public:
             }
         }
     }
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
+    }
 
     virtual bool Flush() { return DB().Flush(); }
     void Discard() { DB().Discard(); }

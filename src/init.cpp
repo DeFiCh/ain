@@ -1340,6 +1340,48 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+
+void MigrateDBs()
+{
+    auto it = pundosView->LowerBound<CUndosView::ByMultiUndoKey>(UndoSourceKey{});
+    if (it.Valid()) {
+        return;
+    }
+
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    auto migrationStarted{false};
+    auto mnview(*pcustomcsview);
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        if (!migrationStarted) {
+            migrationStarted = true;
+            LogPrintf("Migrating undo entries, might take a while...\n");
+        }
+
+        pundosView->SetUndo({{key.height, key.txid}, UndoSource::CustomView}, undo);
+        mnview.DelUndo(key);
+
+        return true;
+    });
+
+    if (migrationStarted) {
+        pundosView->Flush();
+        pundosDB->Flush();
+
+        auto& map = mnview.GetStorage().GetRaw();
+        const auto compactBegin = map.begin()->first;
+        const auto compactEnd = map.rbegin()->first;
+        mnview.Flush();
+        pcustomcsview->Flush();
+        pcustomcsDB->Flush();
+        pcustomcsDB->Compact(compactBegin, compactEnd);
+
+        LogPrintf("Migrating undo data finished.\n");
+        LogPrint(BCLog::BENCH, "    - Migrating undo data takes: %dms\n", GetTimeMillis() - time);
+    }
+}
+
 bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &heightStore) {
     // Experimental: Block height or hash to invalidate on and stop sync
     auto val = gArgs.GetArg(argName, "");
@@ -1717,7 +1759,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB.reset();
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB);
 
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
@@ -1749,6 +1791,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
+                // Create Undo DB
+                pundosDB.reset();
+                pundosDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "undos", nCustomCacheSize, false, fReset || fReindexChainState);
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(*pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1757,7 +1808,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }

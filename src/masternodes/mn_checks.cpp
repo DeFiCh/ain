@@ -3774,15 +3774,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    // construct undo
-    auto& flushable = view.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-    // flush changes
     view.Flush();
-    // write undo
-    if (!undo.before.empty()) {
-        mnview.SetUndo(UndoKey{height, tx.GetHash()}, undo);
-    }
     return res;
 }
 
