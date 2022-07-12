@@ -747,7 +747,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::Epitaph,
 };
 
-UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
+UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto& attribute : attributes) {
         const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -820,6 +820,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
                 ret.pushKV(key, result);
             } else if (const auto balances = std::get_if<CDexBalances>(&attribute.second)) {
+                if (!dexStats) {
+                    continue;
+                }
                 for (const auto& pool : *balances) {
                     auto& dexTokenA = pool.second.totalTokenA;
                     auto& dexTokenB = pool.second.totalTokenB;

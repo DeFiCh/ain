@@ -686,7 +686,19 @@ UniValue getgov(const JSONRPCRequest& request) {
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
         UniValue ret(UniValue::VOBJ);
-        ret.pushKV(var->GetName(),var->Export());
+
+        if (name == "ATTRIBUTES") {
+            bool dexStats{};
+            const auto enabled = pcustomcsview->GetDexStatsEnabled();
+            if (enabled && *enabled) {
+                dexStats = true;
+            }
+            auto attrs = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+            ret.pushKV(var->GetName(), attrs->ExportFiltered(GovVarsFilter::All, "", dexStats));
+        } else {
+            ret.pushKV(var->GetName(), var->Export());
+        }
+
         return GetRPCResultCache().Set(request, ret);
     }
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
@@ -767,8 +779,14 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
+                    bool dexStats{};
+                    const auto enabled = pcustomcsview->GetDexStatsEnabled();
+                    if (enabled && *enabled) {
+                        dexStats = true;
+                    }
+
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    val = a->ExportFiltered(mode, prefix);
+                    val = a->ExportFiltered(mode, prefix, dexStats);
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || 

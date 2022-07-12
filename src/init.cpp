@@ -1784,14 +1784,14 @@ bool AppInitMain(InitInterfaces& interfaces)
                     // force reindex if there is no dex data at the tip
                     PoolHeightKey anyPoolSwap{DCT_ID{}, ~0u};
                     auto it = pcustomcsview->LowerBound<CPoolPairView::ByPoolSwap>(anyPoolSwap);
-                    auto shouldReindex = it.Valid();
-                    auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
-                    if (lastHeight.has_value())
-                        shouldReindex &= !(*lastHeight == ::ChainActive().Tip()->nHeight);
-
-                    if (shouldReindex) {
-                        strLoadError = _("Live dex needs reindex").translated;
-                        break;
+                    if (it.Valid()) {
+                        const auto lastHeight = pcustomcsview->GetDexStatsLastHeight();
+                        if (!lastHeight.has_value()) {
+                            return InitError("dexstats disabled due to no previous data found. Reindex to build DEx stats.");
+                        } else if (*lastHeight != ::ChainActive().Tip()->nHeight) {
+                            return InitError(strprintf("dexstats disabled due to gap in data from %d to %d. Either reindex or rollback to the last known dex stats height %d",
+                                *lastHeight, ::ChainActive().Tip()->nHeight, *lastHeight));
+                        }
                     }
                 }
             } catch (const std::exception& e) {

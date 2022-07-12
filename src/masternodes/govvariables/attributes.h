@@ -212,7 +212,7 @@ public:
 
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
-    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
+    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix, const bool dexStats = true) const;
 
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
