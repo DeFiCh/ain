@@ -89,6 +89,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             'mintable': True,
             'interest': 1
         })
+        self.nodes[0].generate(1)
 
         self.nodes[0].setloantoken({
             'symbol': symboldUSD,
@@ -101,7 +102,7 @@ class PaybackDFILoanTest (DefiTestFramework):
 
         self.nodes[0].createloanscheme(150, 5, 'LOAN150')
 
-        self.nodes[0].generate(5)
+        self.nodes[0].generate(4)
 
         iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
 
