@@ -177,6 +177,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
     { "updatemasternode", 2, "inputs" },
+    { "updatemasternode", 1, "values" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},
@@ -315,6 +316,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgovheight", 2, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
+    { "setcustomtxexpiration", 0, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },
