@@ -425,8 +425,9 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
 
 void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
     std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
-    auto txMessage = customTypeToMessage(txType);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         LOCK(cs_main);
@@ -949,6 +950,44 @@ static UniValue clearmempool(const JSONRPCRequest& request)
     return removed;
 }
 
+UniValue setcustomtxexpiration(const JSONRPCRequest& request) {
+    RPCHelpMan{"setcustomtxexpiration",
+               "\nSet the expiration in blocks of locally created transactions. This expiration is to be\n"
+               "added to the current block height at the point of transaction creation. Once the chain reaches the\n"
+               "combined height if the transaction has not been added to a block it will be removed from the mempool\n"
+               "and can no longer be added to a block\n",
+               {
+                       {"blockCount", RPCArg::Type::NUM, RPCArg::Optional::NO, ""}
+               },
+               RPCResults{},
+               RPCExamples{
+                       HelpExampleCli("setcustomtxexpiration", "10")
+                       + HelpExampleRpc("setcustomtxexpiration", "10")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VNUM}, false);
+
+    LOCK(cs_main);
+
+    pcustomcsview->SetGlobalCustomTxExpiration(request.params[0].get_int());
+
+    return {};
+}
+
+void AddVersionAndExpiration(CScript& metaData, const uint32_t height, const MetadataVersion version)
+{
+    if (height < static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+        return;
+    }
+
+    CExpirationAndVersion customTxParams{height + pcustomcsview->GetGlobalCustomTxExpiration(), static_cast<uint8_t>(version)};
+
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << customTxParams;
+
+    metaData << ToByteVector(stream);
+}
 
 static const CRPCCommand commands[] =
 {
@@ -961,6 +1000,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"blockchain",  "listsmartcontracts",    &listsmartcontracts,    {}},
     {"blockchain",  "clearmempool",          &clearmempool,          {} },
+    {"blockchain",  "setcustomtxexpiration", &setcustomtxexpiration, {"blockHeight"}},
 };
 
 void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {

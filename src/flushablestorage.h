@@ -5,14 +5,14 @@
 #ifndef DEFI_FLUSHABLESTORAGE_H
 #define DEFI_FLUSHABLESTORAGE_H
 
+#include <shutdown.h>
+
 #include <dbwrapper.h>
 #include <functional>
 #include <map>
 #include <memusage.h>
 
 #include <optional>
-
-#include <boost/thread.hpp>
 
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, std::optional<TBytes>>;
@@ -498,12 +498,13 @@ public:
     template<typename By, typename KeyType, typename ValueType>
     void ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = {}) {
         for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
-            boost::this_thread::interruption_point();
-
             if (!callback(it.Key(), it.Value())) {
                 break;
             }
         }
+    }
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
     }
 
     virtual bool Flush() { return DB().Flush(); }

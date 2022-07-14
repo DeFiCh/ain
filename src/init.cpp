@@ -9,7 +9,6 @@
 
 #include <init.h>
 
-#include <addrman.h>
 #include <amount.h>
 #include <banman.h>
 #include <blockfilter.h>
@@ -22,7 +21,6 @@
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
 #include <index/txindex.h>
-#include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
@@ -75,10 +73,7 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/thread.hpp>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
@@ -161,7 +156,7 @@ NODISCARD static bool CreatePidFile()
 
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
-static boost::thread_group threadGroup;
+std::vector<std::thread> threadGroup;
 static CScheduler scheduler;
 
 #if HAVE_SYSTEM
@@ -236,9 +231,12 @@ void Shutdown(InitInterfaces& interfaces)
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue threadGroup
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    // CScheduler/checkqueue threaGroup
+    scheduler.stop();
+    for (auto& thread : threadGroup) {
+        if (thread.joinable()) thread.join();
+    }
+    StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
@@ -418,6 +416,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbcache=<n>", strprintf("Maximum database cache size <n> MiB (%d to %d, default: %d). In addition, unused mempool memory is shared for this cache (see -maxmempool).", nMinDbCache, nMaxDbCache, nDefaultDbCache), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-customtxexpiration=<n>", strprintf("Number of blocks ahead of tip locally created transaction will expire (default: %u)", DEFAULT_CUSTOM_TX_EXPIRATION), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-loadblock=<file>", "Imports blocks from external blk000??.dat file on startup", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -760,6 +759,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadExternalBlockFile(chainparams, file, &pos);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             nFile++;
         }
         pblocktree->WriteReindexing(false);
@@ -777,6 +780,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
             LoadExternalBlockFile(chainparams, file);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -1175,15 +1182,6 @@ bool AppInitParameterInteraction()
         incrementalRelayFee = CFeeRate(n);
     }
 
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
-
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = gArgs.GetArg("-prune", 0);
     if (nPruneArg < 0) {
@@ -1342,6 +1340,48 @@ void SetupAnchorSPVDatabases(bool resync) {
     }
 }
 
+
+void MigrateDBs()
+{
+    auto it = pundosView->LowerBound<CUndosView::ByMultiUndoKey>(UndoSourceKey{});
+    if (it.Valid()) {
+        return;
+    }
+
+    auto time = GetTimeMillis();
+
+    // Migrate Undos
+    auto migrationStarted{false};
+    auto mnview(*pcustomcsview);
+    pcustomcsview->ForEachUndo([&](const UndoKey& key, const CUndo& undo){
+        if (!migrationStarted) {
+            migrationStarted = true;
+            LogPrintf("Migrating undo entries, might take a while...\n");
+        }
+
+        pundosView->SetUndo({{key.height, key.txid}, UndoSource::CustomView}, undo);
+        mnview.DelUndo(key);
+
+        return true;
+    });
+
+    if (migrationStarted) {
+        pundosView->Flush();
+        pundosDB->Flush();
+
+        auto& map = mnview.GetStorage().GetRaw();
+        const auto compactBegin = map.begin()->first;
+        const auto compactEnd = map.rbegin()->first;
+        mnview.Flush();
+        pcustomcsview->Flush();
+        pcustomcsDB->Flush();
+        pcustomcsDB->Compact(compactBegin, compactEnd);
+
+        LogPrintf("Migrating undo data finished.\n");
+        LogPrint(BCLog::BENCH, "    - Migrating undo data takes: %dms\n", GetTimeMillis() - time);
+    }
+}
+
 bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &heightStore) {
     // Experimental: Block height or hash to invalidate on and stop sync
     auto val = gArgs.GetArg(argName, "");
@@ -1421,15 +1461,27 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
-    if (nScriptCheckThreads) {
-        for (int i=0; i<nScriptCheckThreads-1; i++)
-            threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    if (script_threads <= 0) {
+        // -par=0 means autodetect (number of cores - 1 script threads)
+        // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
+        script_threads += GetNumCores();
+    }
+
+    // Subtract 1 because the main thread counts towards the par threads
+    script_threads = std::max(script_threads - 1, 0);
+
+    // Number of script-checking threads <= MAX_SCRIPTCHECK_THREADS
+    script_threads = std::min(script_threads, MAX_SCRIPTCHECK_THREADS);
+
+    LogPrintf("Script verification uses %d additional threads\n", script_threads);
+    if (script_threads >= 1) {
+        g_parallel_script_checks = true;
+        StartScriptCheckWorkerThreads(script_threads);
     }
 
     // Start the lightweight task scheduler thread
-    CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);
@@ -1707,7 +1759,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB.reset();
                 pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
-                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+                pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB);
 
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
@@ -1718,6 +1770,9 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                // Set custom Tx expiration
+                pcustomcsview->SetGlobalCustomTxExpiration(gArgs.GetArg("-customtxexpiration", DEFAULT_CUSTOM_TX_EXPIRATION));
 
                 // make account history db
                 paccountHistoryDB.reset();
@@ -1736,6 +1791,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                     pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
+                // Create Undo DB
+                pundosDB.reset();
+                pundosDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "undos", nCustomCacheSize, false, fReset || fReindexChainState);
+                pundosView.reset();
+                pundosView = std::make_unique<CUndosView>(*pundosDB);
+
+                // Migrate FutureSwaps and Undos to their own new DBs.
+                MigrateDBs();
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1744,7 +1808,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get(), pundosView.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }
@@ -2001,7 +2065,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(std::bind(&ThreadImport, vImportFiles));
+    threadGroup.emplace_back(ThreadImport, vImportFiles);
 
     // Wait for genesis block to be processed
     {
@@ -2208,13 +2272,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // Mint proof-of-stake blocks in background
-        threadGroup.create_thread(
-            std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-                // Run ThreadStaker
-                pos::ThreadStaker threadStaker;
-                threadStaker(std::move(stakersParams), std::move(chainparams));
-            }
-        ));
+        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
+            // Run ThreadStaker
+            pos::ThreadStaker threadStaker;
+            threadStaker(stakersParams, chainparams);
+        });
     }
 
     return true;

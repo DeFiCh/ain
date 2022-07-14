@@ -31,8 +31,6 @@ std::string ToString(CustomTxType type) {
     {
         case CustomTxType::CreateMasternode:    return "CreateMasternode";
         case CustomTxType::ResignMasternode:    return "ResignMasternode";
-        case CustomTxType::SetForcedRewardAddress: return "SetForcedRewardAddress";
-        case CustomTxType::RemForcedRewardAddress: return "RemForcedRewardAddress";
         case CustomTxType::UpdateMasternode:    return "UpdateMasternode";
         case CustomTxType::CreateToken:         return "CreateToken";
         case CustomTxType::UpdateToken:         return "UpdateToken";
@@ -125,13 +123,11 @@ static ResVal<CBalances> MintedTokens(CTransaction const & tx, uint32_t mintingO
     return {balances, Res::Ok()};
 }
 
-CCustomTxMessage customTypeToMessage(CustomTxType txType) {
+CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version) {
     switch (txType)
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-        case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
-        case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
         case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
@@ -285,27 +281,8 @@ public:
         return serialize(obj);
     }
 
-    Res operator()(CSetForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
-    }
-
-    Res operator()(CRemForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
-    }
-
     Res operator()(CUpdateMasterNodeMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("updatemasternode is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
+        auto res = isPostGreatWorldFork();
         return !res ? res : serialize(obj);
     }
 
@@ -952,46 +929,138 @@ public:
     }
 
     Res operator()(const CResignMasterNodeMessage& obj) const {
-        auto res = HasCollateralAuth(obj);
-        return !res ? res : mnview.ResignMasternode(obj, tx.GetHash(), height);
-    }
-
-    Res operator()(const CSetForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto const node = mnview.GetMasternode(obj.nodeId);
+        auto node = mnview.GetMasternode(obj);
         if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
+            return Res::Err("node %s does not exists", obj.ToString());
         }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
-    }
-
-    Res operator()(const CRemForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto const node = mnview.GetMasternode(obj.nodeId);
-        if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-        }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.RemForcedRewardAddress(obj.nodeId, height);
+        auto res = HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx);
+        return !res ? res : mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("updatemasternode is disabled for Fort Canning");
+        if (obj.updates.empty()) {
+            return Res::Err("No update arguments provided");
+        }
 
-        auto res = HasCollateralAuth(obj.mnId);
-        return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
+        if (obj.updates.size() > 3) {
+            return Res::Err("Too many updates provided");
+        }
+
+        auto node = mnview.GetMasternode(obj.mnId);
+        if (!node) {
+            return Res::Err("masternode %s does not exists", obj.mnId.ToString());
+        }
+
+        const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+        const auto res = HasCollateralAuth(collateralTx);
+        if (!res) {
+            return res;
+        }
+
+        auto state = node->GetState(height, mnview);
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("Masternode %s is not in 'ENABLED' state", obj.mnId.ToString());
+        }
+
+        bool ownerType{}, operatorType{}, rewardType{};
+        for (const auto& item : obj.updates) {
+            if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                if (ownerType) {
+                    return Res::Err("Multiple owner updates provided");
+                }
+                ownerType = true;
+                bool collateralFound{};
+                for (const auto& vin : tx.vin) {
+                    if (vin.prevout.hash == collateralTx && vin.prevout.n == 1) {
+                        collateralFound = true;
+                    }
+                }
+                if (!collateralFound) {
+                    return Res::Err("Missing previous collateral from transaction inputs");
+                }
+                if (tx.vout.size() == 1) {
+                    return Res::Err("Missing new collateral output");
+                }
+                if (!HasAuth(tx.vout[1].scriptPubKey)) {
+                    return Res::Err("Missing auth input for new masternode owner");
+                }
+
+                CTxDestination dest;
+                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) || (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                    return Res::Err("Owner address must be P2PKH or P2WPKH type");
+                }
+
+                if (tx.vout[1].nValue != GetMnCollateralAmount(height)) {
+                    return Res::Err("Incorrect collateral amount");
+                }
+
+                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+                if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
+                    return Res::Err("Masternode with that owner address already exists");
+                }
+
+                bool duplicate{};
+                mnview.ForEachNewCollateral([&](const uint256& key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
+                    const auto& value = valueKey.get();
+                    if (height > value.blockHeight) {
+                        return true;
+                    }
+                    const auto& coin = coins.AccessCoin({key, 1});
+                    assert(!coin.IsSpent());
+                    CTxDestination pendingDest;
+                    assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
+                    const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest)) : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    if (storedID == keyID) {
+                        duplicate = true;
+                        return false;
+                    }
+                    return true;
+                });
+                if (duplicate) {
+                    return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending already");
+                }
+
+                mnview.UpdateMasternodeCollateral(obj.mnId, *node, tx.GetHash(), height);
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+                if (operatorType) {
+                    return Res::Err("Multiple operator updates provided");
+                }
+                operatorType = true;
+
+                if (item.second.first != 1 && item.second.first != 4) {
+                    return Res::Err("Operator address must be P2PKH or P2WPKH type");
+                }
+
+                const auto keyID = CKeyID(uint160(item.second.second));
+                if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
+                    return Res::Err("Masternode with that operator address already exists");
+                }
+                mnview.UpdateMasternodeOperator(obj.mnId, *node, item.second.first, keyID, height);
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                if (rewardType) {
+                    return Res::Err("Multiple reward address updates provided");
+                }
+                rewardType = true;
+
+                if (item.second.first != 1 && item.second.first != 4) {
+                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                }
+
+                const auto keyID = CKeyID(uint160(item.second.second));
+                mnview.SetForcedRewardAddress(obj.mnId, *node, item.second.first, keyID, height);
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                if (rewardType) {
+                    return Res::Err("Multiple reward address updates provided");
+                }
+                rewardType = true;
+
+                mnview.RemForcedRewardAddress(obj.mnId, *node, height);
+            } else {
+                return Res::Err("Unknown update type provided");
+            }
+        }
+
+        return Res::Ok();
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {
@@ -3622,7 +3691,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t* customTxExpiration, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -3630,7 +3699,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
 
-    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    CExpirationAndVersion customTxParams;
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation, height, &customTxParams);
     if (txType == CustomTxType::None) {
         return res;
     }
@@ -3638,13 +3708,41 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
-    auto txMessage = customTypeToMessage(txType);
+
+    if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+        if (customTxParams.expiration == 0) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction expiration set");
+        }
+        if (customTxParams.version > static_cast<uint8_t>(MetadataVersion::Two)) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid transaction version set");
+        }
+        if (height > customTxParams.expiration) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Transaction has expired");
+        }
+        if (customTxExpiration) {
+            *customTxExpiration = customTxParams.expiration;
+        }
+    }
+
+    auto txMessage = customTypeToMessage(txType, customTxParams.version);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), writers);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (pvaultHistoryDB && writers) {
            PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
+
+        if (res && canSpend && txType == CustomTxType::UpdateMasternode) {
+            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+            for (const auto& item : obj.updates) {
+                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
@@ -3676,15 +3774,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
 
-    // construct undo
-    auto& flushable = view.GetStorage();
-    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
-    // flush changes
     view.Flush();
-    // write undo
-    if (!undo.before.empty()) {
-        mnview.SetUndo(UndoKey{height, tx.GetHash()}, undo);
-    }
     return res;
 }
 
