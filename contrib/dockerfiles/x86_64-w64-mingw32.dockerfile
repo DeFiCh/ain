@@ -18,6 +18,12 @@ libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake \
 g++-mingw-w64-x86-64 mingw-w64-x86-64-dev nsis
 
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add x86_64-pc-windows-gnu
+
 # Set the default mingw32 g++ compiler option to posix.
 RUN update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 

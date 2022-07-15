@@ -18,6 +18,12 @@ libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake \
 python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add x86_64-apple-darwin
+
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
 

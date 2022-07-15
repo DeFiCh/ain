@@ -18,6 +18,12 @@ libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake \
 g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
 
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add arm-unknown-linux-gnueabihf
+
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
 

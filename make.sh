@@ -118,6 +118,9 @@ build_conf() {
 
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
 
+    # Copying emitted C++ files
+    cp "$(pwd)/depends/${target}/libain_core.cpp" "$(pwd)/src/libain_core.cpp"
+
     ./autogen.sh
     # XREF: #make-configure
     # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
