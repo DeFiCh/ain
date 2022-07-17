@@ -390,7 +390,7 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CCommunityBalancesView
-        , public CUndosBaseView
+        , public CUndosView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
@@ -411,7 +411,7 @@ class CCustomCSView
             CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
             CAccountsView           ::  ByBalanceKey, ByHeightKey, ByFuturesSwapKey,
             CCommunityBalancesView  ::  ById,
-            CUndosBaseView          ::  ByUndoKey,
+            CUndosView              ::  ByUndoKey,
             CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct, ByRewardLoanPct,
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity, ByDailyLoanReward,
                                         ByPoolLoanReward, ByTokenDexFeePct,
@@ -461,6 +461,9 @@ public:
     /// @todo newbase move to networking?
     void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec* anchor, const uint256 & btcTxHash, const CKey &masternodeKey);
 
+    // simplified version of undo, without any unnecessary undo data
+    void OnUndoTx(uint256 const & txid, uint32_t height);
+
     bool CanSpend(const uint256 & txId, int height) const;
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
@@ -484,7 +487,12 @@ public:
     void SetGlobalCustomTxExpiration(const uint32_t height);
     uint32_t GetGlobalCustomTxExpiration() const;
 
-    uint256 MerkleRoot(CUndosView& undo);
+    uint256 MerkleRoot();
+
+    // we construct it as it
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
+    }
 
     virtual CAccountHistoryStorage* GetAccountHistoryStore();
     CVaultHistoryStorage* GetVaultHistoryStore();
