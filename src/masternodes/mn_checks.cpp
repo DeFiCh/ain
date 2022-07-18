@@ -1821,8 +1821,7 @@ public:
         }
 
         // Validate GovVariables before storing
-        // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
-        if (height >= uint32_t(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+        if (obj.govVar->GetName() == "ATTRIBUTES") {
 
             auto govVar = mnview.GetAttributes();
             if (!govVar) {
@@ -1830,7 +1829,6 @@ public:
             }
 
             auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
-            storedGovVars.emplace_back(obj.startHeight, obj.govVar);
 
             Res res{};
             CCustomCSView govCache(mnview);
@@ -1842,6 +1840,30 @@ public:
                         return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
                     }
                 }
+            }
+
+            // After GW exclude TokenSplit if split will have already been performed by startHeight
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToErase;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits && attrV0->key < obj.startHeight) {
+                                keysToErase.push_back(*attrV0);
+                            }
+                        }
+                    }
+                    for (const auto& key : keysToErase) {
+                        attrVar->EraseKey(key);
+                    }
+                }
+            }
+
+            if (!(res = govVar->Import(obj.govVar->Export())) ||
+                !(res = govVar->Validate(govCache)) ||
+                !(res = govVar->Apply(govCache, obj.startHeight))) {
+                return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
             }
         } else {
             auto result = obj.govVar->Validate(mnview);
