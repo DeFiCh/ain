@@ -246,6 +246,14 @@ static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
 
 static ResVal<CAttributeValue> VerifyFloat(const std::string& str) {
     CAmount amount = 0;
+    if (!ParseFixedPoint(str, 8, &amount)) {
+        return Res::Err("Amount must be a valid number");
+    }
+    return {amount, Res::Ok()};
+}
+
+ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
+    CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
         return Res::Err("Amount must be a positive value");
     }
@@ -253,7 +261,7 @@ static ResVal<CAttributeValue> VerifyFloat(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
-    auto resVal = VerifyFloat(str);
+    auto resVal = VerifyPositiveFloat(str);
     if (!resVal) {
         return resVal;
     }
@@ -359,7 +367,7 @@ const std::map<uint8_t, std::map<uint8_t,
             AttributeTypes::Param, {
                 {DFIPKeys::Active,                  VerifyBool},
                 {DFIPKeys::Premium,                 VerifyPct},
-                {DFIPKeys::MinSwap,                 VerifyFloat},
+                {DFIPKeys::MinSwap,                 VerifyPositiveFloat},
                 {DFIPKeys::RewardPct,               VerifyPct},
                 {DFIPKeys::BlockPeriod,             VerifyInt64},
                 {DFIPKeys::DUSDInterestBurn,  VerifyBool},
@@ -906,10 +914,17 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanMintingInterest: {
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            const auto amount = std::get_if<CAmount>(&value);
+                            if (amount && *amount < 0) {
+                                return Res::Err("Amount must be a positive value");
+                            }
+                        }
+                    }
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanCollateralFactor:
-                    case TokenKeys::LoanMintingEnabled:
-                    case TokenKeys::LoanMintingInterest: {
+                    case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return Res::Err("Cannot be set before FortCanningCrunch");
                         }
