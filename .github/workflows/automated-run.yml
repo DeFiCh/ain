@@ -19,9 +19,9 @@ jobs:
         path: ./src/defid
     - name: Upload Defi Cli
       uses: actions/upload-artifact@v3
-        with:
-          name: deficli
-          path: ./src/defi-cli
+      with:
+        name: deficli
+        ath: ./src/defi-cli
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
