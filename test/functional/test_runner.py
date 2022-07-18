@@ -178,6 +178,7 @@ BASE_SCRIPTS = [
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
+    'feature_split_migrate_lock.py',
     'feature_poolswap_composite.py',
     'feature_poolswap_mechanism.py',
     'feature_poolswap_mainnet.py',
