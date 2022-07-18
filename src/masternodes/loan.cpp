@@ -210,6 +210,9 @@ inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CA
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
 {
     auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
+    if (netInterest < 0) {
+        return 0;
+    }
     static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
