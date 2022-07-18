@@ -2549,7 +2549,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (obj.interest < 0) {
+        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.GreatWorldHeight)) {
             return Res::Err("interest rate cannot be less than 0!");
         }
 
@@ -2638,8 +2638,9 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (obj.interest < 0)
+        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.GreatWorldHeight)) {
             return Res::Err("interest rate cannot be less than 0!");
+        }
 
         auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
         if (!pair)
@@ -4137,7 +4138,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
         const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
-      
+
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
         auto& balances = dexBalances[currentID];
         auto forward = swapAmount.nTokenId == pool->idTokenA;

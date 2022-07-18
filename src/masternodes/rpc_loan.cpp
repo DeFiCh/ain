@@ -336,7 +336,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         loanToken.mintable = metaObj["mintable"].getBool();
 
     if (!metaObj["interest"].isNull())
-        loanToken.interest = AmountFromValue(metaObj["interest"]);
+        loanToken.interest = AmountFromValue(metaObj["interest"], true);
     else
         loanToken.interest = 0;
 
@@ -467,7 +467,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->mintable = metaObj["mintable"].getBool();
 
     if (!metaObj["interest"].isNull())
-        loanToken->interest = AmountFromValue(metaObj["interest"]);
+        loanToken->interest = AmountFromValue(metaObj["interest"], true);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateLoanToken)
@@ -1341,7 +1341,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
 
     // TODO: Later optimize this into a general dynamic worker pool, so we don't
-    // need to recreate these threads on each call. 
+    // need to recreate these threads on each call.
     boost::asio::thread_pool workerPool{[]() {
         const size_t workersMax = GetNumCores() - 1;
         // More than 8 is likely not very fruitful for ~10k vaults.
@@ -1393,9 +1393,9 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     std::atomic<uint64_t> loansValTotal{0};
 
     view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal, 
+        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal,
             &loansValTotal=loansValTotal, &vaultsTotal=vaultsTotal,
-            vaultId=vaultId, height=height, useNextPrice=useNextPrice, 
+            vaultId=vaultId, height=height, useNextPrice=useNextPrice,
             requireLivePrice=requireLivePrice] {
             auto collaterals = view.GetVaultCollaterals(vaultId);
             if (!collaterals)
@@ -1412,7 +1412,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     });
 
     workerPool.join();
-    // We use relaxed ordering to increment. Thread joins should in theory, 
+    // We use relaxed ordering to increment. Thread joins should in theory,
     // resolve have resulted in full barriers, but we ensure
     // to throw in a full barrier anyway. x86 arch might appear to work without
     // but let's be extra cautious about RISC optimizers.
