@@ -1,5 +1,8 @@
 name: ParallelTesting
 on:
+  push:
+    branches:
+      - parallel-test
   pull_request:
     branches:
       - parallel-test
