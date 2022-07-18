@@ -28,8 +28,8 @@ jobs:
     needs: build-binaries
     container:
       image : gcr.io/datadir-500000
-        volumes:
-          - datadir-500000
+      volumes:
+        - datadir-500000
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
@@ -59,8 +59,8 @@ jobs:
     needs: build-binaries
     container:
       image : gcr.io/datadir-550000
-        volumes:
-          - datadir-550000
+      volumes:
+        - datadir-550000
       env:
         STOP_BLOCK: 600000
     timeout-minutes: 4320
@@ -90,8 +90,8 @@ jobs:
     needs: build-binaries
     container:
       image : gcr.io/datadir-600000
-        volumes:
-          - datadir-600000
+      volumes:
+        - datadir-600000
       env:
         STOP_BLOCK: 650000
     timeout-minutes: 4320
@@ -121,8 +121,8 @@ jobs:
     needs: build-binaries
     container:
       image : gcr.io/datadir-650000
-        volumes:
-          - datadir-650000
+      volumes:
+        - datadir-650000
       env:
         STOP_BLOCK: 700000
     timeout-minutes: 4320
