@@ -1904,7 +1904,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     };
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
-  
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
