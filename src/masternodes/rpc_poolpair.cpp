@@ -948,7 +948,8 @@ UniValue compositeswap(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         // If no direct swap found search for composite swap
-        if (!pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
+        auto directPool = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        if (!directPool || !directPool->second.status) {
 
             auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
             poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
