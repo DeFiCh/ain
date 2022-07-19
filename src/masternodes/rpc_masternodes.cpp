@@ -538,7 +538,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue identifier = request.params[0].get_obj();
     int idCount{0};
-    uint256 mn_id;
+    uint256 mn_id{};
 
     if (!identifier["id"].isNull()) {
         mn_id = ParseHashV(identifier["id"], "id");
@@ -605,7 +605,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     if (!request.params[1].isNull()) {
         depth = request.params[1].get_int();
     }
-    UniValue ret(UniValue::VOBJ);
+
+    std::map<uint32_t, uint256, std::greater<>> mintedBlocks;
     auto currentHeight = ::ChainActive().Height();
     depth = std::min(depth, currentHeight);
     auto startBlock = currentHeight - depth;
@@ -624,7 +625,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         auto tip = ::ChainActive()[blockHeight];
         if (tip && depth > 0) {
             lastHeight = tip->nHeight;
-            ret.pushKV(std::to_string(lastHeight), tip->GetBlockHash().ToString());
+            mintedBlocks.emplace(lastHeight, tip->GetBlockHash());
             depth--;
         }
 
@@ -644,8 +645,13 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     for (; tip && tip->nHeight > creationHeight && depth > 0 && tip->nHeight > startBlock; tip = tip->pprev, --depth) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id && *id == mn_id) {
-            ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
+            mintedBlocks.emplace(tip->nHeight, tip->GetBlockHash());
         }
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    for (const auto& [height, hash] : mintedBlocks) {
+        ret.pushKV(std::to_string(height), hash.ToString());
     }
 
     return GetRPCResultCache().Set(request, ret);
