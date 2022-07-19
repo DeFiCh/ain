@@ -483,12 +483,11 @@ public:
 
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& txType, UniValue& results) {
     std::vector<unsigned char> metadata;
-    CExpirationAndVersion customTxParams;
-    txType = GuessCustomTxType(tx, metadata, false, 0, &customTxParams);
+    txType = GuessCustomTxType(tx, metadata);
     if (txType == CustomTxType::None) {
         return Res::Ok();
     }
-    auto txMessage = customTypeToMessage(txType, customTxParams.version);
+    auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
