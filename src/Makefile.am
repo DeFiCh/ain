@@ -363,6 +363,7 @@ libdefi_server_a_SOURCES = \
   blockfilter.cpp \
   chain.cpp \
   consensus/tx_verify.cpp \
+  dbwrapper.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -371,7 +372,6 @@ libdefi_server_a_SOURCES = \
   index/txindex.cpp \
   interfaces/chain.cpp \
   init.cpp \
-  dbwrapper.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \

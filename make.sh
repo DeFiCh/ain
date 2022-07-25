@@ -111,15 +111,19 @@ build_deps() {
     popd >/dev/null
 }
 
+patch_codegen() {
+    local target=${1:-${TARGET}}
+    # Required for patching C++ glue emitted from Rust build
+    printf "#include <libain_core.hpp>\n" > "$(pwd)/src/libain_core.cpp"
+    cat "$(pwd)/depends/${target}/libain_core.cpp" >> "$(pwd)/src/libain_core.cpp"
+}
+
 build_conf() {
     local target=${1:-${TARGET}}
     local make_conf_opts=${MAKE_CONF_ARGS:-}
     local make_jobs=${MAKE_JOBS}
 
     echo "> build-conf: target: ${target} / conf_args: ${make_conf_opts} / jobs: ${make_jobs}"
-
-    # Copying emitted C++ files
-    cp "$(pwd)/depends/${target}/libain_core.cpp" "$(pwd)/src/libain_core.cpp"
 
     ./autogen.sh
     # XREF: #make-configure
@@ -140,6 +144,7 @@ build_make() {
 
 build() {
     build_deps "$@"
+    patch_codegen "$@"
     build_conf "$@"
     build_make "$@"
 }

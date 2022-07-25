@@ -49,6 +49,7 @@ WORKDIR /work
 COPY --from=depends-builder /work/depends ./depends
 COPY . .
 
+RUN ./make.sh patch_codegen ${TARGET}
 RUN ./autogen.sh
 
 # XREF: #make-configure
