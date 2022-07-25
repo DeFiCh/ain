@@ -43,6 +43,7 @@ CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 
 constexpr uint8_t SUBNODE_COUNT{4};
+constexpr uint32_t DEFAULT_CUSTOM_TX_EXPIRATION{120};
 
 class CMasternode
 {
@@ -407,6 +408,9 @@ private:
 
     std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
+
+    uint32_t globalCustomTxExpiration{DEFAULT_CUSTOM_TX_EXPIRATION};
+
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
@@ -450,6 +454,9 @@ public:
     void SetDbVersion(int version);
 
     int GetDbVersion() const;
+
+    void SetGlobalCustomTxExpiration(const uint32_t height);
+    uint32_t GetGlobalCustomTxExpiration() const;
 
     uint256 MerkleRoot();
 

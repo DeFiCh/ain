@@ -290,6 +290,7 @@ BASE_SCRIPTS = [
     'feature_checkpoint.py',
     'rpc_getmininginfo.py',
     'feature_burn_address.py',
+    'feature_tx_versioning_and_expiration.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
     'feature_update_mn.py',
