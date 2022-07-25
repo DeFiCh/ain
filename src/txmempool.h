@@ -79,7 +79,6 @@ private:
     const int64_t sigOpCost;        //!< Total sigop cost
     int64_t feeDelta;          //!< Used for determining the priority of the transaction for mining in a block
     LockPoints lockPoints;     //!< Track the height and time at which tx was final
-    uint32_t customTxExpiration;    //!< Block height at which transaction will expire
 
     // Information about descendants of this transaction that are in the
     // mempool; if we remove this transaction we must remove all of these
@@ -98,8 +97,7 @@ public:
     CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                     int64_t _nTime, unsigned int _entryHeight,
                     bool spendsCoinbase,
-                    int64_t nSigOpsCost, LockPoints lp,
-                    uint32_t customTxExpiration = std::numeric_limits<uint32_t>::max());
+                    int64_t nSigOpsCost, LockPoints lp);
 
     const CTransaction& GetTx() const { return *this->tx; }
     CTransactionRef GetSharedTx() const { return this->tx; }
@@ -133,7 +131,6 @@ public:
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     int64_t GetSigOpCostWithAncestors() const { return nSigOpCostWithAncestors; }
-    uint32_t GetCustomTxExpiration() const { return customTxExpiration; }
 
     mutable size_t vTxHashesIdx; //!< Index in mempool's vTxHashes
 };
@@ -668,9 +665,6 @@ public:
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
     int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
-
-    /** Expire all custom transaction (and their dependencies) in the mempool by their expiration height. Return the number of removed transactions. */
-    uint32_t ExpireByHeight(const uint32_t blockHeight);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.
