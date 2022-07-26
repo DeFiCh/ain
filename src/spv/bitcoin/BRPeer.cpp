@@ -40,6 +40,8 @@
 
 #include <compat.h>
 
+#include <sys/time.h>
+
 #define HEADER_LENGTH      24
 #define MAX_MSG_LENGTH     0x02000000
 #define MAX_GETDATA_HASHES 50000
