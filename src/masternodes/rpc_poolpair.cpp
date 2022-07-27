@@ -1085,7 +1085,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
         int targetHeight = ::ChainActive().Height() + 1;
 
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
-        if (poolPair && path == "auto") path = "direct";
+        if (poolPair && poolPair->second.status && path == "auto") path = "direct";
 
         // If no direct swap found search for composite swap
         if (path == "direct") {
