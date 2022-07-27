@@ -856,7 +856,7 @@ static int _peerCheckAndGetSocket (BRPeerContext *ctx, SOCKET *socket) {
     int exists;
 
     ctx->lock.lock();
-    exists = ctx->socket >= 0;
+    exists = ctx->socket != INVALID_SOCKET;
     if (NULL != socket) *socket = ctx->socket;
     ctx->lock.unlock();
 
