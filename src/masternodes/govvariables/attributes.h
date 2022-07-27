@@ -30,6 +30,7 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Settings  = 'h',
 };
 
 enum OracleIDs : uint8_t  {
@@ -54,9 +55,13 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
+    DUSDInterestBurn        = 'g',
+    DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+};
+
+enum SettingsKeys : uint8_t  {
+    AutomaticProposalPayout = 'a',
 };
 
 enum TokenKeys : uint8_t  {

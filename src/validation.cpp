@@ -4001,7 +4001,13 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             cache.UpdatePropCycle(propId, prop.cycle + 1);
         }
 
-        if (prop.type == CPropType::CommunityFundProposal) {
+        auto attributes = cache.GetAttributes();
+        if (!attributes) {
+            return true;
+        }
+        CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Settings, SettingsKeys::AutomaticProposalPayout};
+
+        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {
                 cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
@@ -4010,6 +4016,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
                 LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
             }
         }
+
         return true;
     }, pindex->nHeight);
 }

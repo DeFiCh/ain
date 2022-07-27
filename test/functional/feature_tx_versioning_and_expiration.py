@@ -51,7 +51,7 @@ class TxVersionAndExpirationTest (DefiTestFramework):
         self.nodes[0].clearmempool()
 
         # Test invalid version
-        print(rawtx)
+        # print(rawtx)
         invalid_version = rawtx.replace('05e000000001', '05e0000000ff')
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(invalid_version)
         assert_raises_rpc_error(-26, "Invalid transaction version set", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
