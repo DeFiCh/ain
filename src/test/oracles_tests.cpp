@@ -3,15 +3,14 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/setup_common.h>
-#include <string>
+
 #include <boost/test/unit_test.hpp>
 
 #include <masternodes/oracles.h>
 #include <rpc/rawtransaction_util.h>
 #include <masternodes/masternodes.h>
 
-#include <boost/algorithm/string/join.hpp>
-#include <boost/range/adaptor/transformed.hpp>
+#include <string>
 
 struct OraclesTestingSetup : public TestingSetup {
     const std::string data1 =
@@ -22,20 +21,9 @@ struct OraclesTestingSetup : public TestingSetup {
             "\x9c\x52\x4a\xac\xcf\x56\x11\x12\x2b\x29\x12\x5e\x5d\x35\xd2\xd2"
             "\x22\x81\xaa\xb5\x24\xf0\x08\x32\xd5\x56\xb1\xf9\xea\xe5\x1d\x7d";
 
-    const std::string hex1 = "7d1de5eaf9b156d53208f033b5aa8122d2d2355d5e12292b121156cfdb4a529c";
     const std::vector<unsigned char> rawVector1{data1.begin(), data1.end()};
     const std::vector<unsigned char> rawVector2{data2.begin(), data2.end()};
-    const std::string address1 = "mhWzxsS5aDfmNY2EpPuM2xQZx7Ju3yjkQ4";
 
-    std::string JoinOracles(const std::vector<COracleId> &oracles) {
-        auto list = boost::algorithm::join(
-                oracles | boost::adaptors::transformed(
-                        [](const COracleId &x) -> std::string {
-                            return x.GetHex();
-                        }),
-                ", ");
-        return "[" + list + "]";
-    }
 };
 
 BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
@@ -113,7 +101,6 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
     BOOST_AUTO_TEST_CASE(update_oracle_test) {
 
         COracleId oracleId1{rawVector1};
-        COracleId oracleId2{rawVector2};
         uint8_t weightage = 15;
         std::vector<unsigned char> tmp{'a', 'b', 'c'};
         CScript oracleAddress1{tmp.begin(), tmp.end()};
