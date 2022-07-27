@@ -669,9 +669,13 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 defid_SOURCES = defid.cpp libain_core.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -lain_core -ldl
+defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -lain_core
+if TARGET_NOT_WINDOWS
+defid_LDFLAGS += -ldl
+endif
 
 if TARGET_WINDOWS
+defid_LDFLAGS += -luserenv -lbcrypt
 defid_SOURCES += defid-res.rc
 endif
 

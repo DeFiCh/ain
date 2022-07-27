@@ -49,3 +49,7 @@ DOCKER_EXEC echo "Number of CPUs \(nproc\): $(nproc)"
 ${CI_RETRY_EXE} DOCKER_EXEC apt-get update
 ${CI_RETRY_EXE} DOCKER_EXEC apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $DOCKER_PACKAGES
 
+# Install Rust toolchain
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+export PATH=$HOME/.cargo/bin:$PATH
+rustup target add x86_64-unknown-linux-gnu
