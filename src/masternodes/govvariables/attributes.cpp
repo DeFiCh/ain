@@ -79,8 +79,8 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         {"dfip2201",    ParamIDs::DFIP2201},
         {"dfip2203",    ParamIDs::DFIP2203},
         {"dfip2206a",   ParamIDs::DFIP2206A},
-        // Note: DFIP2206F is currently in beta testing 
-        // for testnet. May not be enabled on mainnet until testing is complete. 
+        // Note: DFIP2206F is currently in beta testing
+        // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
     };
     return params;
@@ -98,8 +98,8 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
         {ParamIDs::DFIP2206A,   "dfip2206a"},
-        // Note: DFIP2206F is currently in beta testing 
-        // for testnet. May not be enabled on mainnet until testing is complete. 
+        // Note: DFIP2206F is currently in beta testing
+        // for testnet. May not be enabled on mainnet until testing is complete.
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
@@ -922,6 +922,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             }
                         }
                     }
+                    break;
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled: {

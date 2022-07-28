@@ -3403,7 +3403,7 @@ public:
                     if (!newRate)
                         return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                    if (newRate->interestPerBlock == 0)
+                    if (static_cast<int>(height) <= consensus.GreatWorldHeight && newRate->interestPerBlock == 0)
                         return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
                 }
 

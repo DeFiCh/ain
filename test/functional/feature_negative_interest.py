@@ -11,7 +11,7 @@ from test_framework.util import assert_equal
 
 import calendar
 import time
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 class NegativeInterestTest (DefiTestFramework):
     def set_test_params(self):
@@ -225,6 +225,151 @@ class NegativeInterestTest (DefiTestFramework):
         assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
         assert_equal(vault["interestsPerBlock"], ["0.000000000000000000000000@TSLA"])
 
+    # Loan scheme interest -> 1% and loan token -> 30%
+    # Resulting interest -> 31%
+    def takeloan_after_interest_increase(self):
+        # Increase previously -30% interest -> +30%
+        self.vaultId5 = self.nodes[0].createvault(self.account0, 'LOAN1')
+        self.nodes[0].generate(1)
+        # Deposit
+        self.nodes[0].deposittovault(self.vaultId5, self.account0, "10@DFI")
+        self.nodes[0].generate(1)
+        # Take loan
+        loanAmount = 1
+        totalLoanAmount = loanAmount
+        self.nodes[0].takeloan({
+                    'vaultId': self.vaultId5,
+                    'amounts': str(loanAmount) + "@" + self.symbolTSLA})
+        self.nodes[0].generate(1)
+        # Check interests = 0
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId4, verbose)
+        assert_equal(vault["interestAmounts"], ["0.00000000@TSLA"])
+        assert_equal(Decimal(vault["interestPerBlockValue"]), Decimal('0E-16'))
+        assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
+        assert_equal(vault["interestsPerBlock"], ["0.000000000000000000000000@TSLA"])
+
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'30'}})
+        self.nodes[0].generate(1)
+        loanAmount = 1
+        totalLoanAmount += loanAmount
+        expected_IPB = Decimal(Decimal('0.31')/Decimal(1051200)*totalLoanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+
+        # Use same vault as previous case
+        self.nodes[0].takeloan({
+                    'vaultId': self.vaultId5,
+                    'amounts': str(loanAmount) +"@" + self.symbolTSLA})
+        self.nodes[0].generate(1)
+
+        # Check interests = 0
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId5, verbose)
+        interestPerBlockAmount = Decimal(vault["interestsPerBlock"][0].split('@')[0])
+        assert_equal(interestPerBlockAmount, expected_IPB)
+
+    # Loan scheme interest -> 1% and loan token -> 30%
+    # Resulting interest -> 31%
+    def takeloan_after_interest_decrease(self):
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'-30'}})
+        self.nodes[0].generate(1)
+        # Increase previously -30% interest -> +30%
+        self.vaultId6 = self.nodes[0].createvault(self.account0, 'LOAN1')
+        self.nodes[0].generate(1)
+        # Deposit
+        self.nodes[0].deposittovault(self.vaultId6, self.account0, "10@DFI")
+        self.nodes[0].generate(1)
+        # Take loan
+        loanAmount = 1
+        totalLoanAmount = loanAmount
+        self.nodes[0].takeloan({
+                    'vaultId': self.vaultId6,
+                    'amounts': str(loanAmount) + "@" + self.symbolTSLA})
+        self.nodes[0].generate(1)
+        # Check interests = 0
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId4, verbose)
+        assert_equal(vault["interestAmounts"], ["0.00000000@TSLA"])
+        assert_equal(Decimal(vault["interestPerBlockValue"]), Decimal('0E-16'))
+        assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
+        assert_equal(vault["interestsPerBlock"], ["0.000000000000000000000000@TSLA"])
+
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'-50'}})
+        self.nodes[0].generate(1)
+        loanAmount = 1
+        totalLoanAmount += loanAmount
+
+        # Use same vault as previous case
+        self.nodes[0].takeloan({
+                    'vaultId': self.vaultId6,
+                    'amounts': str(loanAmount) +"@" + self.symbolTSLA})
+        self.nodes[0].generate(1)
+
+        # Check interests = 0
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId6, verbose)
+        assert_equal(vault["interestAmounts"], ["0.00000000@TSLA"])
+        assert_equal(Decimal(vault["interestPerBlockValue"]), Decimal('0E-16'))
+        assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
+        assert_equal(vault["interestsPerBlock"], ["0.000000000000000000000000@TSLA"])
+
+    # Try payback of interest zero vault
+    def payback_interest_zero(self):
+        # Use previous vault -> vaultId6 with -49% interest (0% interest)
+        self.nodes[0].paybackloan({
+                        'vaultId': self.vaultId6,
+                        'from': self.account0,
+                        'amounts': ["1@" + self.symbolTSLA]})
+        self.nodes[0].generate(1)
+
+        # Check interests = 0
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId6, verbose)
+        assert_equal(vault["interestAmounts"], ["0.00000000@TSLA"])
+        assert_equal(Decimal(vault["interestPerBlockValue"]), Decimal('0E-16'))
+        assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
+        assert_equal(vault["interestsPerBlock"], ["0.000000000000000000000000@TSLA"])
+        assert_equal(vault["loanAmounts"], ["1.00000000@TSLA"])
+
+    # Test withdrawfromvault after setting back negative interest
+    def withdraw_interest_zero(self):
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'-50'}})
+        self.nodes[0].generate(1)
+
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId5, verbose)
+        accountInfo = self.nodes[0].getaccount(self.account0)
+        assert_equal(vault["collateralAmounts"], ['10.00000000@DFI'])
+        assert_equal(accountInfo[0], ['3930.00000000@DFI'])
+
+        self.nodes[0].withdrawfromvault(self.vaultId5, self.account0, "1@DFI")
+        self.nodes[0].generate(1)
+
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId5, verbose)
+        accountInfo = self.nodes[0].getaccount(self.account0)
+        assert_equal(vault["collateralAmounts"], ['9.00000000@DFI'])
+        assert_equal(accountInfo[0], ['3931.00000000@DFI'])
+
+    # Increase interest of previous vault and try to payback with interest > 0
+    # Loan scheme interest -> 1%
+    # Token interest -> 0%
+    # Resulting interest -> 1%
+    def payback_after_interest_increase(self):
+        # Set token interest -> 0%
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Acrue interest for 10 blocks
+        self.nodes[0].generate(10)
+        # Check interests
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId6, verbose)
+        breakpoint()
+        # This should be NOT 0 as interest of the total interest should be 1%
+        assert( vault["interestsPerBlockValue"] != Decimal(0))
+
     def run_test(self):
         self.setup()
 
@@ -233,6 +378,13 @@ class NegativeInterestTest (DefiTestFramework):
         self.vault_loantoken_interest_zero()
         self.vault_with_negative_interest()
         self.vault_with_big_negative_interest()
+        self.takeloan_after_interest_increase()
+        self.takeloan_after_interest_decrease()
+        self.payback_interest_zero()
+        self.withdraw_interest_zero()
+        # Failing! interests not accrued.
+        self.payback_after_interest_increase()
+
 
 if __name__ == '__main__':
     NegativeInterestTest().main()
