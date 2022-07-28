@@ -366,7 +366,6 @@ class NegativeInterestTest (DefiTestFramework):
         # Check interests
         verbose = True
         vault = self.nodes[0].getvault(self.vaultId6, verbose)
-        breakpoint()
         # This should be NOT 0 as interest of the total interest should be 1%
         assert( vault["interestsPerBlockValue"] != Decimal(0))
 
