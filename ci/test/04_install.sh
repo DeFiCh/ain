@@ -51,7 +51,7 @@ ${CI_RETRY_EXE} DOCKER_EXEC apt-get install --no-install-recommends --no-upgrade
 
 # Install Rust toolchain
 DOCKER_EXEC "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y"
-DOCKER_EXEC 'ln -s $HOME/.cargo/bin/cargo /usr/bin/cargo'
-DOCKER_EXEC 'ln -s $HOME/.cargo/bin/rustc /usr/bin/rustc'
-DOCKER_EXEC 'ln -s $HOME/.cargo/bin/rustup /usr/bin/rustup'
+DOCKER_EXEC "ln -s /root/.cargo/bin/cargo /usr/bin/cargo"
+DOCKER_EXEC "ln -s /root/.cargo/bin/rustc /usr/bin/rustc"
+DOCKER_EXEC "ln -s /root/.cargo/bin/rustup /usr/bin/rustup"
 DOCKER_EXEC rustup target add x86_64-unknown-linux-gnu
