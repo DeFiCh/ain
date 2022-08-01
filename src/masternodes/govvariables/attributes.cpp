@@ -214,6 +214,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
                 {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::Loans,              "loans"},
             }
         },
     };

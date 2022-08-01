@@ -419,7 +419,7 @@ void CLoanView::MigrateInterestRateToV2(CVaultView &view, uint32_t height)
     });
 }
 
-Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
+Res CLoanView::AddLoanToken(const CVaultId& vaultId, const CTokenAmount amount)
 {
     if (!GetLoanTokenByID(amount.nTokenId))
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
@@ -436,7 +436,7 @@ Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
     return Res::Ok();
 }
 
-Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
+Res CLoanView::SubLoanToken(const CVaultId& vaultId, const CTokenAmount amount)
 {
     if (!GetLoanTokenByID(amount.nTokenId))
         return Res::Err("No such loan token id %s", amount.nTokenId.ToString());

@@ -3072,10 +3072,14 @@ public:
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
+        auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
+        auto balances = attributes->GetValue(loanKey, CBalances{});
+
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
-        for (const auto& kv : obj.amounts.balances)
+        for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
-            const DCT_ID& tokenId = kv.first;
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -3083,11 +3087,12 @@ public:
             if (!loanToken->mintable)
                 return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
 
-            res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
+            const auto loanAmount{CTokenAmount{tokenId, tokenAmount}};
+            res = mnview.AddLoanToken(obj.vaultId, loanAmount);
             if (!res)
                 return res;
 
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, tokenAmount);
             if (!res)
                 return res;
 
@@ -3104,9 +3109,9 @@ public:
             for (int i = 0; i < 2; i++) {
                 // check active and next price
                 auto price = priceFeed.val->priceRecord[int(i > 0)];
-                auto amount = MultiplyAmounts(price, kv.second);
-                if (price > COIN && amount < kv.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
+                auto amount = MultiplyAmounts(price, tokenAmount);
+                if (price > COIN && amount < tokenAmount)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(tokenAmount), GetDecimaleString(price));
 
                 auto& totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
                 auto prevLoans = totalLoans;
@@ -3115,14 +3120,18 @@ public:
                     return Res::Err("Exceed maximum loans");
             }
 
-            res = mnview.AddMintedTokens(tokenId, kv.second);
+            if (loanToken->symbol == "DUSD") {
+                balances.Add(loanAmount);
+            }
+
+            res = mnview.AddMintedTokens(tokenId, tokenAmount);
             if (!res)
                 return res;
 
             const auto& address = !obj.to.empty() ? obj.to
                                                   : vault->ownerAddress;
             CalculateOwnerRewards(address);
-            res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
+            res = mnview.AddBalance(address, CTokenAmount{tokenId, tokenAmount});
             if (!res)
                 return res;
         }
@@ -3159,6 +3168,12 @@ public:
                                                                                       : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
             }
         }
+
+        if (!balances.balances.empty()) {
+            attributes->SetValue(loanKey, balances);
+            mnview.SetVariable(*attributes);
+        }
+
         return Res::Ok();
     }
 
@@ -3212,21 +3227,23 @@ public:
 
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
+        auto balances = attributes->GetValue(loanKey, CBalances{});
 
         for (const auto& idx : obj.loans)
         {
-            DCT_ID loanTokenId = idx.first;
-            auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
+            const DCT_ID loanTokenId = idx.first;
+            const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-            for (const auto& kv : idx.second.balances)
+            for (const auto& [paybackTokenId, originalPaybackAmount] : idx.second.balances)
             {
-                DCT_ID paybackTokenId = kv.first;
-                auto paybackAmount = kv.second;
+                auto paybackAmount = originalPaybackAmount;
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
-                auto paybackToken = mnview.GetToken(paybackTokenId);
+                const auto paybackToken = mnview.GetToken(paybackTokenId);
                 if (!paybackToken)
                     return Res::Err("Token with id (%s) does not exists", paybackTokenId.ToString());
 
@@ -3234,9 +3251,6 @@ public:
                 {
                     if (!IsVaultPriceValid(mnview, obj.vaultId, height))
                         return Res::Err("Cannot payback loan while any of the asset's price is invalid");
-
-                    if (!attributes)
-                        return Res::Err("Payback is not currently active");
 
                     // search in token to token
                     if (paybackTokenId != DCT_ID{0})
@@ -3269,13 +3283,13 @@ public:
                     paybackUsdPrice = MultiplyAmounts(*resVal.val, penaltyPct);
 
                     // Calculate the DFI amount in DUSD
-                    auto usdAmount = MultiplyAmounts(paybackUsdPrice, kv.second);
+                    auto usdAmount = MultiplyAmounts(paybackUsdPrice, originalPaybackAmount);
 
                     if (loanToken->symbol == "DUSD")
                     {
                         paybackAmount = usdAmount;
-                        if (paybackUsdPrice > COIN && paybackAmount < kv.second)
-                            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(paybackUsdPrice));
+                        if (paybackUsdPrice > COIN && paybackAmount < originalPaybackAmount)
+                            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(originalPaybackAmount), GetDecimaleString(paybackUsdPrice));
                     }
                     else
                     {
@@ -3318,7 +3332,8 @@ public:
                     subLoan = it->second;
                 }
 
-                res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
+                const auto tokenAmount{CTokenAmount{loanTokenId, subLoan}};
+                res = mnview.SubLoanToken(obj.vaultId, tokenAmount);
                 if (!res)
                     return res;
 
@@ -3341,13 +3356,17 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
+                    if (loanToken->symbol == "DUSD") {
+                        balances.Sub(tokenAmount);
+                    }
+
                     res = mnview.SubMintedTokens(loanTokenId, subLoan);
                     if (!res)
                         return res;
 
                     // subtract loan amount first, interest is burning below
                     LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
-                    res = mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan});
+                    res = mnview.SubBalance(obj.from, tokenAmount);
                     if (!res)
                         return res;
 
@@ -3383,7 +3402,7 @@ public:
                     }
                     else
                     {
-                        subInToken = kv.second;
+                        subInToken = originalPaybackAmount;
                     }
 
                     shouldSetVariable = true;
@@ -3424,6 +3443,11 @@ public:
                 if (!res)
                     return res;
             }
+        }
+
+        if (!balances.balances.empty()) {
+            attributes->SetValue(loanKey, balances);
+            shouldSetVariable = true;
         }
 
         return shouldSetVariable ? mnview.SetVariable(*attributes) : Res::Ok();

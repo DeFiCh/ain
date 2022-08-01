@@ -46,6 +46,7 @@ enum EconomyKeys : uint8_t {
     DFIP2206FBurned   = 'g',
     DFIP2206FMinted   = 'h',
     DexTokens         = 'i',
+    Loans             = 'j',
 };
 
 enum DFIPKeys : uint8_t  {

@@ -366,8 +366,8 @@ public:
     void RevertInterestRateToV1();
     void MigrateInterestRateToV2(CVaultView &view, uint32_t height);
 
-    Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
-    Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
+    Res AddLoanToken(const CVaultId& vaultId, const CTokenAmount amount);
+    Res SubLoanToken(const CVaultId& vaultId, const CTokenAmount amount);
     std::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanTokenAmount(std::function<bool (const CVaultId&,  const CBalances&)> callback);
 
