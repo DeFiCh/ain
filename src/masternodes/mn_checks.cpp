@@ -3075,7 +3075,7 @@ public:
         auto attributes = mnview.GetAttributes();
         assert(attributes);
         CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
-        auto balances = attributes->GetValue(loanKey, CBalances{});
+        auto loanAttributeBalances = attributes->GetValue(loanKey, CBalances{});
 
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
@@ -3121,7 +3121,7 @@ public:
             }
 
             if (loanToken->symbol == "DUSD") {
-                balances.Add(loanAmount);
+                loanAttributeBalances.Add(loanAmount);
             }
 
             res = mnview.AddMintedTokens(tokenId, tokenAmount);
@@ -3131,7 +3131,7 @@ public:
             const auto& address = !obj.to.empty() ? obj.to
                                                   : vault->ownerAddress;
             CalculateOwnerRewards(address);
-            res = mnview.AddBalance(address, CTokenAmount{tokenId, tokenAmount});
+            res = mnview.AddBalance(address, loanAmount);
             if (!res)
                 return res;
         }
@@ -3169,8 +3169,8 @@ public:
             }
         }
 
-        if (!balances.balances.empty()) {
-            attributes->SetValue(loanKey, balances);
+        if (!loanAttributeBalances.balances.empty()) {
+            attributes->SetValue(loanKey, loanAttributeBalances);
             mnview.SetVariable(*attributes);
         }
 
@@ -3229,7 +3229,7 @@ public:
         auto attributes = mnview.GetAttributes();
         assert(attributes);
         CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
-        auto balances = attributes->GetValue(loanKey, CBalances{});
+        auto loanAttributeBalances = attributes->GetValue(loanKey, CBalances{});
 
         for (const auto& idx : obj.loans)
         {
@@ -3357,7 +3357,7 @@ public:
                 if (paybackTokenId == loanTokenId)
                 {
                     if (loanToken->symbol == "DUSD") {
-                        balances.Sub(tokenAmount);
+                        loanAttributeBalances.Sub(tokenAmount);
                     }
 
                     res = mnview.SubMintedTokens(loanTokenId, subLoan);
@@ -3445,8 +3445,8 @@ public:
             }
         }
 
-        if (!balances.balances.empty()) {
-            attributes->SetValue(loanKey, balances);
+        if (!loanAttributeBalances.balances.empty()) {
+            attributes->SetValue(loanKey, loanAttributeBalances);
             shouldSetVariable = true;
         }
 
