@@ -26,5 +26,4 @@ if [ -z "$NO_DEPENDS" ]; then
   DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
 fi
 
-printf "#include <libain_core.hpp>\n" > "$(pwd)/src/libain_core.cpp"
-cat "$(pwd)/depends/${HOST}/libain_core.cpp" >> "$(pwd)/src/libain_core.cpp"
+TARGET=${HOST} ./make.sh patch_codegen
