@@ -1322,10 +1322,10 @@ bool AppInitLockDataDirectory()
     return true;
 }
 
-void SetupAnchorSPVDatabases(bool resync) {
+void SetupAnchorSPVDatabases(bool resync, int64_t customCache) {
     // Close and open database
     panchors.reset();
-    panchors = std::make_unique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+    panchors = std::make_unique<CAnchorIndex>(customCache, false, gArgs.GetBoolArg("-spv", true) && resync);
 
     // load anchors after spv due to spv (and spv height) not set before (no last height yet)
     if (gArgs.GetBoolArg("-spv", true)) {
@@ -1336,9 +1336,9 @@ void SetupAnchorSPVDatabases(bool resync) {
         if (Params().NetworkIDString() == "regtest") {
             spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
         } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, customCache, false, resync);
         } else {
-            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, customCache, false, resync);
         }
     }
 }
@@ -1907,11 +1907,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
         panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
-        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
+        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState), nCustomCacheSize);
 
         // Check if DB version changed
         if (spv::pspv && SPV_DB_VERSION != spv::pspv->GetDBVersion()) {
-            SetupAnchorSPVDatabases(true);
+            SetupAnchorSPVDatabases(true, nCustomCacheSize);
             assert(spv::pspv->SetDBVersion() == SPV_DB_VERSION);
             LogPrintf("Cleared anchor and SPV dasebase. SPV DB version set to %d\n", SPV_DB_VERSION);
         }
