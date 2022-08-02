@@ -2476,7 +2476,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2846,7 +2846,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                          error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID, res.dbgMsg);
                 }
-                rewardedAnchors.push_back(*res.val);
+                rewardedAnchors = true;
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
@@ -2860,7 +2860,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                          error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID, res.dbgMsg);
                 }
-                rewardedAnchors.push_back(*res.val);
+                rewardedAnchors = true;
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), pindex->nHeight);
                 }
@@ -5181,8 +5181,8 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        CCustomCSView mnview(*pcustomcsview.get());
-        std::vector<uint256> rewardedAnchors;
+        CCustomCSView mnview(*pcustomcsview);
+        bool rewardedAnchors{};
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
@@ -5217,11 +5217,16 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             pvaultHistoryDB->Flush();
         }
 
-        // anchor rewards re-voting etc...
-        if (!rewardedAnchors.empty()) {
-            // we do not clear ALL votes (even they are stale) for the case of rapid tip changing. At least, they'll be deleted after their rewards
-            for (auto const & btcTxHash : rewardedAnchors) {
-                panchorAwaitingConfirms->EraseAnchor(btcTxHash);
+        // Delete all other confirms from memory
+        if (rewardedAnchors) {
+            std::vector<uint256> oldConfirms;
+            panchorAwaitingConfirms->ForEachConfirm([&oldConfirms](const CAnchorConfirmMessage &confirm) {
+                oldConfirms.push_back(confirm.btcTxHash);
+                return true;
+            });
+
+            for (const auto &confirm: oldConfirms) {
+                panchorAwaitingConfirms->EraseAnchor(confirm);
             }
         }
     }
@@ -6721,8 +6726,8 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
-    std::vector<uint256> dummyRewardedAnchors;
-    CCustomCSView mnview(*pcustomcsview.get());
+    bool dummyRewardedAnchors{};
+    CCustomCSView mnview(*pcustomcsview);
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
@@ -7199,7 +7204,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            std::vector<uint256> dummyRewardedAnchors;
+            bool dummyRewardedAnchors{};
             if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
