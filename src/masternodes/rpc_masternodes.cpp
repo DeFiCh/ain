@@ -647,7 +647,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     for (const auto& [height, hash] : mintedBlocks) {
-        if (height < currentHeight - depth) {
+        if (height <= currentHeight - depth) {
             break;
         }
         ret.pushKV(std::to_string(height), hash.ToString());
