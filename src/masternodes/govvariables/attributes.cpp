@@ -914,15 +914,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
-                    case TokenKeys::LoanMintingInterest: {
+                    case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
                             if (amount && *amount < 0) {
                                 return Res::Err("Amount must be a positive value");
                             }
                         }
-                    }
-                    break;
+                        [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled: {
