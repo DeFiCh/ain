@@ -185,7 +185,7 @@ private:
 class CAnchorIndex
 {
 private:
-    std::shared_ptr<CDBWrapper> db;
+    std::unique_ptr<CDBWrapper> db;
     std::unique_ptr<CDBBatch> batch;
 public:
     using Signature = std::vector<unsigned char>;
@@ -247,9 +247,9 @@ public:
     void UpdateLastHeight(uint32_t height);
 
     // Post-fork anchor pending, requires chain context to validate. Some pending may be bogus, intentional or not.
-    bool AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = false);
+    bool AddToAnchorPending(const AnchorRec& rec);
     bool GetPendingByBtcTx(uint256 const & txHash, AnchorRec & rec) const;
-    bool DeletePendingByBtcTx(uint256 const & btcTxHash);
+    void DeletePendingByBtcTx(uint256 const & btcTxHash);
     void ForEachPending(std::function<void (const uint256 &, AnchorRec &)> callback);
 
     // Used to apply chain context to post-fork anchors which get added to pending.
@@ -297,7 +297,6 @@ private:
     }
 
     bool DbExists(uint256 const & hash) const;
-    bool DbRead(uint256 const & hash, AnchorRec & anchor) const;
     bool DbWrite(AnchorRec const & anchor);
     bool DbErase(uint256 const & hash);
 };
