@@ -148,6 +148,11 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
 
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
 
+    // Lower difficulty fork for mock network testing
+    if (fMockNetwork) {
+        return nProofOfWorkLimit;
+    }
+
     int nHeight{pindexLast->nHeight + 1};
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
