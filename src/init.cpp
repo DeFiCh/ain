@@ -2116,7 +2116,39 @@ bool AppInitMain(InitInterfaces& interfaces)
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
 
-    // ********************************************************* Step XX: start spv
+    // ********************************************************* Step XX.a: create mocknet MN
+    // MN: 0000000000000000000000000000000000000000000000000000000000000000
+    // Owner/Operator Address: df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc
+    // Owner/Operator Privkey: L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6
+
+    if (fMockNetwork && HasWallets()) {
+
+        // Import privkey
+        const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
+        const auto pubkey = key.GetPubKey();
+        const auto dest = WitnessV0KeyHash(PKHash{pubkey});
+        const auto keyID = pubkey.GetID();
+        const auto time{std::time(nullptr)};
+
+        auto pwallet = GetWallets()[0];
+        pwallet->SetAddressBook(dest, "", "receive");
+        pwallet->ImportPrivKeys({{keyID, key}}, time);
+
+        // Create masternode
+        CMasternode node;
+        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+        node.ownerType = WitV0KeyHashType;
+        node.ownerAuthAddress = keyID;
+        node.operatorType = WitV0KeyHashType;
+        node.operatorAuthAddress = keyID;
+        node.version = CMasternode::VERSION0;
+        pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
+        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+            pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+        }
+    }
+
+    // ********************************************************* Step XX.b: start spv
     if (spv::pspv)
     {
         spv::pspv->Connect();
@@ -2134,7 +2166,12 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         std::set<std::string> operatorsSet;
         bool atLeastOneRunningOperator = false;
-        auto const operators = gArgs.GetArgs("-masternode_operator");
+        auto operators = gArgs.GetArgs("-masternode_operator");
+
+        if (fMockNetwork) {
+            auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
+            operators.push_back(mocknet_operator);
+        }
 
         std::vector<pos::ThreadStaker::Args> stakersParams;
         for (auto const & op : operators) {
