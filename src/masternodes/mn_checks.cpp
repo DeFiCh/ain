@@ -3157,7 +3157,7 @@ public:
             if (!res)
                 return res;
 
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, kv.second);
             if (!res)
                 return res;
 

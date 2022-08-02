@@ -3470,7 +3470,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
-                view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, batch->loanAmount.nValue);
+                if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
+                }
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
                     auto tokenAmount = col.second;

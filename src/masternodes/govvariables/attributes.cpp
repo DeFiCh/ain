@@ -716,6 +716,8 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 
                         SetValue(attribute, *splitValue);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
+                        interestTokens.insert(attrV0->typeId);
                     }
 
                     // apply DFI via old keys
@@ -1148,6 +1150,32 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 auto res = RefundFuturesContracts(mnview, height, attrV0->typeId);
                 if (!res) {
                     return res;
+                }
+            } else if (attrV0->key == TokenKeys::LoanMintingInterest) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && interestTokens.count(attrV0->typeId)) {
+                    const auto tokenInterest = std::get_if<CAmount>(&attribute.second);
+                    if (!tokenInterest) {
+                        return Res::Err("Unexpected type");
+                    }
+
+                    std::set<CVaultId> affectedVaults;
+                    mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+                        for (const auto& [tokenId, discarded] : balances.balances) {
+                            if (tokenId.v == attrV0->typeId) {
+                                affectedVaults.insert(vaultId);
+                            }
+                        }
+                        return true;
+                    });
+
+                    for (const auto& vaultId : affectedVaults) {
+                        const auto vault = mnview.GetVault(vaultId);
+                        if (!vault) {
+                            LogPrintf("Loan amount found without a valid vault. Vault ID: %s\n", vaultId.ToString());
+                            continue;
+                        }
+                        mnview.StoreInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
+                    }
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {

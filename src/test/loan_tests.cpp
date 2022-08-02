@@ -275,7 +275,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     BOOST_CHECK_EQUAL(scheme->rate, 2 * COIN);
 
     auto vault_id = NextTx();
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, 1 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, tokenInterest, 1 * COIN));
 
     auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
     BOOST_REQUIRE(rate);
@@ -283,7 +283,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     BOOST_CHECK_EQUAL(rate->height, 1);
 
     auto interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, 1 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, tokenInterest, 1 * COIN));
 
     rate = mnview.GetInterestRate(vault_id, token_id, 5);
     BOOST_REQUIRE(rate);
@@ -360,13 +360,13 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_REQUIRE(mnview.StoreVault(vault_id, msg));
 
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {tesla_id, 10 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 10 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 5 * COIN, 10 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {tesla_id, 1 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 1 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 5 * COIN, 1 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {nft_id, 5 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 5 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 2 * COIN, 5 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {nft_id, 4 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 4 * COIN));
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 2 * COIN, 4 * COIN));
 
     auto loan_tokens = mnview.GetLoanTokens(vault_id);
     BOOST_REQUIRE(loan_tokens);

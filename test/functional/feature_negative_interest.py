@@ -288,7 +288,7 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         # Check interests = 0
         verbose = True
-        vault = self.nodes[0].getvault(self.vaultId4, verbose)
+        vault = self.nodes[0].getvault(self.vaultId6, verbose)
         assert_equal(vault["interestAmounts"], ["0.00000000@TSLA"])
         assert_equal(Decimal(vault["interestPerBlockValue"]), Decimal('0E-16'))
         assert_equal(Decimal(vault["interestValue"]), Decimal('0E-8'))
@@ -357,14 +357,16 @@ class NegativeInterestTest (DefiTestFramework):
     # Token interest -> 0%
     # Resulting interest -> 1%
     def payback_after_interest_increase(self):
+        # Check interest is zero
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId6, verbose)
+        assert( vault["interestPerBlockValue"] == '0.000000000000000000000000')
+
         # Set token interest -> 0%
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idTSLA}/loan_minting_interest':'1'}})
         self.nodes[0].generate(1)
 
-        # Acrue interest for 10 blocks
-        self.nodes[0].generate(10)
         # Check interests
-        verbose = True
         vault = self.nodes[0].getvault(self.vaultId6, verbose)
 
         # This should be NOT 0 as interest of the total interest should be 1%
