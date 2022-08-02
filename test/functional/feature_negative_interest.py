@@ -341,7 +341,7 @@ class NegativeInterestTest (DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaultId5, verbose)
         accountInfo = self.nodes[0].getaccount(self.account0)
         assert_equal(vault["collateralAmounts"], ['10.00000000@DFI'])
-        assert_equal(accountInfo[0], ['3930.00000000@DFI'])
+        assert_equal(accountInfo[0], '3930.00000000@DFI')
 
         self.nodes[0].withdrawfromvault(self.vaultId5, self.account0, "1@DFI")
         self.nodes[0].generate(1)
@@ -350,7 +350,7 @@ class NegativeInterestTest (DefiTestFramework):
         vault = self.nodes[0].getvault(self.vaultId5, verbose)
         accountInfo = self.nodes[0].getaccount(self.account0)
         assert_equal(vault["collateralAmounts"], ['9.00000000@DFI'])
-        assert_equal(accountInfo[0], ['3931.00000000@DFI'])
+        assert_equal(accountInfo[0], '3931.00000000@DFI')
 
     # Increase interest of previous vault and try to payback with interest > 0
     # Loan scheme interest -> 1%
@@ -366,8 +366,9 @@ class NegativeInterestTest (DefiTestFramework):
         # Check interests
         verbose = True
         vault = self.nodes[0].getvault(self.vaultId6, verbose)
+
         # This should be NOT 0 as interest of the total interest should be 1%
-        assert( vault["interestsPerBlockValue"] != Decimal(0))
+        assert( vault["interestPerBlockValue"] != '0.000000000000000000000000')
 
     def run_test(self):
         self.setup()
