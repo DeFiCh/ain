@@ -153,8 +153,8 @@ namespace {
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
-        std::map<DCT_ID, base_uint<128>> interestsPerBlockHighPrecission;
-        base_uint<128> interestsPerBlockValueHighPrecission{0};
+        std::map<DCT_ID, base_uint<128>> interestsPerBlockHighPrecision;
+        base_uint<128> interestsPerBlockValueHighPrecision{0};
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 
@@ -176,9 +176,9 @@ namespace {
                     totalInterests += MultiplyAmounts(price, totalInterest);
                     if (verbose) {
                         if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                            auto interestPerBlockHighPrecission = rate->interestPerBlock;
-                            interestsPerBlockValueHighPrecission += (static_cast<base_uint<128>>(price) * interestPerBlockHighPrecission / COIN);
-                            interestsPerBlockHighPrecission[loan.first] += interestPerBlockHighPrecission;
+                            auto currentInterestRate = rate->interestPerBlock;
+                            interestsPerBlockValueHighPrecision += (static_cast<base_uint<128>>(price) * currentInterestRate / COIN);
+                            interestsPerBlockHighPrecision[loan.first] += currentInterestRate;
                         } else {
                             auto interestPerBlock = rate->interestPerBlock.GetLow64();
                             interestsPerBlock.insert({loan.first, interestPerBlock});
@@ -212,7 +212,7 @@ namespace {
             ratioValue = -1;
             collateralRatio = -1;
             totalInterestsPerBlockValue = -1;
-            interestsPerBlockValueHighPrecission = -1;
+            interestsPerBlockValueHighPrecision = -1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -230,8 +230,8 @@ namespace {
                 if(isVaultTokenLocked){
                     result.pushKV("interestPerBlockValue", -1);
                 } else {
-                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecission));
-                    for (auto it=interestsPerBlockHighPrecission.begin(); it != interestsPerBlockHighPrecission.end(); ++it) {
+                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
+                    for (auto it=interestsPerBlockHighPrecision.begin(); it != interestsPerBlockHighPrecision.end(); ++it) {
                         auto tokenId = it->first;
                         auto interestPerBlock = it->second;
                         auto token = pcustomcsview->GetToken(tokenId);
