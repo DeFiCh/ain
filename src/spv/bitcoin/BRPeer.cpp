@@ -893,7 +893,6 @@ static double _peerGetMempoolTime (BRPeerContext *ctx) {
     return value;
 }
 
-
 static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *error)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
@@ -1007,10 +1006,12 @@ static void *_peerThreadRoutine(void *arg)
     SOCKET socket;
 
     threadCleanup guard(ctx->threadCleanup, ctx->info);
-   int domain{PF_INET6};
-   if (_BRPeerIsIPv4(peer)) {
+    
+    int domain{PF_INET6};
+    if (_BRPeerIsIPv4(peer)) {
        domain = PF_INET;
-   }
+    }
+    
     auto connected = _BRPeerOpenSocket(peer, domain, CONNECT_TIMEOUT, &error);
     if (connected) {
         struct timeval tv;
