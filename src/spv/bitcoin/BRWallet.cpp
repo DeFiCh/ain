@@ -33,14 +33,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <inttypes.h>
-#include <limits.h>
-#include <float.h>
 
-//#include <compat.h>
-
-#include <boost/thread.hpp>
-
-//#include <pthread.h>
 #include <assert.h>
 
 uint256 to_uint256(const UInt256 & i)
@@ -97,7 +90,7 @@ struct BRWalletStruct {
     void (*txAdded)(void *info, BRTransaction *tx);
     void (*txUpdated)(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256& blockHash);
     void (*txDeleted)(void *info, UInt256 txHash, int notifyUser, int recommendRescan);
-    boost::mutex lock;
+    std::mutex lock;
 };
 
 inline static void _BRWalletAddressFromHash160(BRWallet *wallet, char *addr, size_t addrLen, UInt160 h)

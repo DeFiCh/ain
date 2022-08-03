@@ -35,10 +35,9 @@
 #include <limits.h>
 #include <time.h>
 #include <assert.h>
+#include <thread>
 
 #include <compat.h>
-
-#include <boost/thread.hpp>
 
 //#include <pthread.h>
 //#include <errno.h>
@@ -206,7 +205,7 @@ struct BRPeerManagerStruct {
     void (*savePeers)(void *info, int replace, const BRPeer peers[], size_t peersCount);
     int (*networkIsReachable)(void *info);
     void (*threadCleanup)(void *info);
-    boost::mutex lock;
+    std::mutex lock;
 };
 
 static void _BRPeerManagerPeerMisbehavin(BRPeerManager *manager, BRPeer *peer)
@@ -779,7 +778,7 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
     else {
         size_t peerCount = array_count(manager->peers);
 
-        std::vector<boost::thread> tmpDnsThreads;
+        std::vector<std::thread> tmpDnsThreads;
 
         for (size_t i = 1; manager->params->dnsSeeds[i]; i++) {
             info = (BRFindPeersInfo *)calloc(1, sizeof(BRFindPeersInfo));
@@ -788,7 +787,7 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
             info->hostname = manager->params->dnsSeeds[i];
             info->services = services;
 
-            tmpDnsThreads.push_back(boost::thread(boost::bind(_findPeersThreadRoutine, info)));
+            tmpDnsThreads.push_back(std::thread(std::bind(_findPeersThreadRoutine, info)));
             tmpDnsThreads.back().detach();
             manager->dnsThreadCount++;
         }

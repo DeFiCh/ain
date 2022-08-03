@@ -538,7 +538,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue identifier = request.params[0].get_obj();
     int idCount{0};
-    uint256 mn_id;
+    uint256 mn_id{};
 
     if (!identifier["id"].isNull()) {
         mn_id = ParseHashV(identifier["id"], "id");
@@ -598,15 +598,15 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
 
-    auto lastHeight = ::ChainActive().Tip()->nHeight + 1;
-    const auto creationHeight = masternode->creationHeight;
-
     int depth{std::numeric_limits<int>::max()};
     if (!request.params[1].isNull()) {
         depth = request.params[1].get_int();
     }
-    UniValue ret(UniValue::VOBJ);
-    auto currentHeight = ::ChainActive().Height();
+
+    int lastHeight{};
+    const auto creationHeight = masternode->creationHeight;
+    std::map<int, uint256, std::greater<>> mintedBlocks;
+    const auto currentHeight = ::ChainActive().Height();
     depth = std::min(depth, currentHeight);
     auto startBlock = currentHeight - depth;
 
@@ -618,17 +618,14 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         if (blockHeight <= creationHeight) {
             return true;
         }
-        if (blockHeight <= startBlock) {
-            return false;
-        }
+
         auto tip = ::ChainActive()[blockHeight];
-        if (tip && depth > 0) {
+        if (tip) {
             lastHeight = tip->nHeight;
-            ret.pushKV(std::to_string(lastHeight), tip->GetBlockHash().ToString());
-            depth--;
+            mintedBlocks.emplace(lastHeight, tip->GetBlockHash());
         }
 
-        return depth != 0;
+        return true;
     };
 
     pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
@@ -641,11 +638,19 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DakotaCrescentHeight) - 1];
 
-    for (; tip && tip->nHeight > creationHeight && depth > 0 && tip->nHeight > startBlock; tip = tip->pprev, --depth) {
+    for (; tip && tip->nHeight > creationHeight && tip->nHeight > startBlock; tip = tip->pprev) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id && *id == mn_id) {
-            ret.pushKV(std::to_string(tip->nHeight), tip->GetBlockHash().ToString());
+            mintedBlocks.emplace(tip->nHeight, tip->GetBlockHash());
         }
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    for (const auto& [height, hash] : mintedBlocks) {
+        if (height <= currentHeight - depth) {
+            break;
+        }
+        ret.pushKV(std::to_string(height), hash.ToString());
     }
 
     return GetRPCResultCache().Set(request, ret);

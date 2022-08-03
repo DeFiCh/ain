@@ -11,21 +11,18 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class TokensForkTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=120'], ['-txnotokens=0', '-amkheight=120']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=120']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
-        self.nodes[0].generate(100)
-        self.sync_blocks()
-
-        self.nodes[0].generate(2) # for 2 matured utxos
+        self.nodes[0].generate(102)
 
         # Try to create token before AMK fork height but will fail:
         #========================
@@ -63,7 +60,6 @@ class TokensForkTest (DefiTestFramework):
         # assert("Token tx before AMK" in errorString)
 
         self.nodes[0].generate(17)
-        self.sync_blocks()
 
         # Now at AMK height 120
         # Now create again, it should pass
@@ -71,14 +67,39 @@ class TokensForkTest (DefiTestFramework):
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
-        }, [])
+        })
+        self.nodes[0].generate(1)
+
+        txid = self.nodes[0].createtoken({
+            "symbol": "SILVER",
+            "name": "just silver",
+            "collateralAddress": collateralSilver
+        })
+        self.nodes[0].generate(1)
+
+        # Get token ID
+        id_silver  = list(self.nodes[0].gettoken('SILVER#129').keys())[0]
+
+        # Check rollback of token
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].clearmempool()
+
+        # Make sure token not found
+        assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, txid)
+        assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, id_silver)
+        assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, 'SILVER#129')
+
+        # Create token again
         self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
-        }, [])
-
+        })
         self.nodes[0].generate(1)
+
+        # Check the same ID was provided, not an increment of the last one
+        assert_equal(id_silver, list(self.nodes[0].gettoken('SILVER#129').keys())[0])
+
         # After fork, create should pass, so now only have 3 kind of tokens
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
@@ -93,8 +114,6 @@ class TokensForkTest (DefiTestFramework):
         symbolGold = "GOLD#" + idGold
         symbolSilver = "SILVER#" + idSilver
 
-        self.sync_blocks()
-
         # MINT:
         #========================
         # Funding auth addresses
@@ -104,12 +123,9 @@ class TokensForkTest (DefiTestFramework):
         self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1 })
         self.nodes[0].generate(1)
 
-        # print(self.nodes[0].listunspent())
-
         self.nodes[0].minttokens("300@" + symbolGold, [])
         self.nodes[0].minttokens("3000@" + symbolSilver, [])
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         # synthetically check for minting. restart w/o reindex and amk (so, token exists, but minting should fail)
         self.stop_node(0)
@@ -120,8 +136,6 @@ class TokensForkTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("before AMK height" in errorString)
-
-
 
 if __name__ == '__main__':
     TokensForkTest ().main ()
