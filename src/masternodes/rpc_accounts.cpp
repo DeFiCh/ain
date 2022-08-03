@@ -310,7 +310,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     auto targetHeight = ::ChainActive().Height() + 1;
     size_t limit = 100;
     BalanceKey start = {};
-    std::string tokenSymbol;
     bool including_start = true;
     bool skipCalc{};
     auto startToken{DCT_ID{}};
@@ -330,8 +329,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
-            if (!paginationObj["tokenSymbol"].isNull()) {
-                token = mnview.GetTokenGuessId(paginationObj["tokenSymbol"].getValStr(), startToken);
+            if (!paginationObj["token"].isNull()) {
+                token = mnview.GetTokenGuessId(paginationObj["token"].getValStr(), startToken);
                 if(!token){
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Token not found");
                 }
