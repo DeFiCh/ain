@@ -893,6 +893,112 @@ static double _peerGetMempoolTime (BRPeerContext *ctx) {
     return value;
 }
 
+
+static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *error)
+{
+    BRPeerContext *ctx = (BRPeerContext *)peer;
+    struct sockaddr_storage addr;
+    struct timeval tv;
+    fd_set fds;
+    socklen_t addrLen, optLen;
+    int count, arg = 0, err = 0, on = 1, r = 1;
+    SOCKET sock = INVALID_SOCKET;
+
+    ctx->lock.lock();
+    sock = ctx->socket = socket(domain, SOCK_STREAM, IPPROTO_TCP);
+    ctx->lock.unlock();
+
+    if (sock == INVALID_SOCKET) {
+        err = WSAGetLastError();
+        r = 0;
+    }
+    else {
+#ifdef WIN32
+        int set = 1;
+        setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
+#else
+        tv.tv_sec = 1; // one second timeout for send/receive, so thread doesn't block for too long
+        tv.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &on, sizeof(on));
+#ifdef SO_NOSIGPIPE // BSD based systems have a SO_NOSIGPIPE socket option to supress SIGPIPE signals
+        setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+#endif
+#endif
+
+#ifdef WIN32
+        u_long nBlock = 1; // Non-Blocking
+        if (ioctlsocket(sock, FIONBIO, &nBlock) == SOCKET_ERROR) {
+            r = 0;
+        }
+#else
+        arg = fcntl(sock, F_GETFL, NULL);
+        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) == SOCKET_ERROR) r = 0; // temporarily set socket non-blocking
+#endif
+        if (! r) err = WSAGetLastError();
+    }
+
+    if (r) {
+        memset(&addr, 0, sizeof(addr));
+        
+        if (domain == PF_INET6) {
+            ((struct sockaddr_in6 *)&addr)->sin6_family = AF_INET6;
+            ((struct sockaddr_in6 *)&addr)->sin6_addr = *(struct in6_addr *)&peer->address;
+            ((struct sockaddr_in6 *)&addr)->sin6_port = htons(peer->port);
+            addrLen = sizeof(struct sockaddr_in6);
+        }
+        else {
+            ((struct sockaddr_in *)&addr)->sin_family = AF_INET;
+            ((struct sockaddr_in *)&addr)->sin_addr = *(struct in_addr *)&peer->address.u32[3];
+            ((struct sockaddr_in *)&addr)->sin_port = htons(peer->port);
+            addrLen = sizeof(struct sockaddr_in);
+        }
+
+#ifdef WIN32
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) == SOCKET_ERROR) err = WSAGetLastError();
+#else
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
+#endif
+
+        // Connection in progress.
+#ifdef WIN32
+        if (err == WSAEINPROGRESS || err == WSAEWOULDBLOCK || err == WSAEINVAL) {
+#else
+        if (err == EINPROGRESS) {
+#endif
+            err = 0;
+            optLen = sizeof(err);
+            tv.tv_sec = timeout;
+            tv.tv_usec = (long)(timeout*1000000) % 1000000;
+            FD_ZERO(&fds);
+            FD_SET(sock, &fds);
+            count = select(sock + 1, NULL, &fds, NULL, &tv);
+
+            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, (sockopt_arg_type)&err, &optLen) == SOCKET_ERROR || err) {
+                if (count == 0) err = ETIMEDOUT;
+                if (count < 0 || ! err) err = WSAGetLastError();
+                r = 0;
+            }
+        }
+        else if (err) {
+            r = 0;
+        }
+
+        if (r) peer_log(peer, "socket connected");
+
+#ifdef WIN32
+    u_long nZero = 0;
+    ioctlsocket(sock, FIONBIO, &nZero);
+#else
+    fcntl(sock, F_SETFL, arg);
+#endif
+    }
+    if (! r && err) peer_log(peer, "connect error: %d: %s", err, strerror(err));
+    if (error && err) *error = err;
+    return r;
+}
+
 static void *_peerThreadRoutine(void *arg)
 {
     BRPeer *peer = (BRPeer *)arg;
@@ -901,23 +1007,11 @@ static void *_peerThreadRoutine(void *arg)
     SOCKET socket;
 
     threadCleanup guard(ctx->threadCleanup, ctx->info);
-
-    const auto hostName{BRPeerHostString(peer)};
-    bool connected{false};
-    CService resolved;
-
-    if (Lookup(hostName.c_str(), resolved,  peer->port, fNameLookup && !HaveNameProxy())) {
-        CAddress addrConnect{resolved, NODE_NONE};
-
-        if (addrConnect.IsValid()) {
-            ctx->socket = CreateSocket(addrConnect);
-
-            if (ctx->socket != INVALID_SOCKET) {
-                connected = ConnectSocketDirectly(addrConnect, const_cast<const SOCKET&>(ctx->socket), nConnectTimeout, false);
-            }
-        }
-    }
-
+   int domain{PF_INET6};
+   if (_BRPeerIsIPv4(peer)) {
+       domain = PF_INET;
+   }
+    auto connected = _BRPeerOpenSocket(peer, domain, CONNECT_TIMEOUT, &error);
     if (connected) {
         struct timeval tv;
         double time = 0, msgTimeout;
