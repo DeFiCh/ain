@@ -1,7 +1,3 @@
-//
-// Created by pvl on 4/6/22.
-//
-
 #include <rpc/resultcache.h>
 #include <rpc/util.h>
 #include <logging.h>

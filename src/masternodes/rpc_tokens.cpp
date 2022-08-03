@@ -688,10 +688,10 @@ UniValue minttokens(const JSONRPCRequest& request) {
             }
             if (token->IsDAT()) {
                 needFoundersAuth = true;
-            } else {
-                const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-                auths.insert(authCoin.out.scriptPubKey);
             }
+            // Get token owner auth if present
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
+            auths.insert(authCoin.out.scriptPubKey);
         }
     }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);

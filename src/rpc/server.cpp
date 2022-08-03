@@ -171,7 +171,7 @@ UniValue stop(const JSONRPCRequest& jsonRequest)
     // this reply will get back to the client.
     StartShutdown();
     if (jsonRequest.params[0].isNum()) {
-        MilliSleep(jsonRequest.params[0].get_int());
+        UninterruptibleSleep(std::chrono::milliseconds{jsonRequest.params[0].get_int()});
     }
     return "Defi server stopping";
 }
@@ -305,6 +305,11 @@ void StopRPC()
 bool IsRPCRunning()
 {
     return g_rpc_running;
+}
+
+void RpcInterruptionPoint()
+{
+    if (!IsRPCRunning()) throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Shutting down");
 }
 
 void SetRPCWarmupStatus(const std::string& newStatus)
