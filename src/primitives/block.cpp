@@ -26,14 +26,15 @@ uint256 CBlockHeader::GetHashToSign() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, height=%u, mintedBlocks=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, height=%u, mintedBlocks=%u, vtx=%u, dmcPayload=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits,
         deprecatedHeight, mintedBlocks,
-        vtx.size());
+        vtx.size(),
+        dmcPayload.size());
     for (const auto& tx : vtx) {
         s << "  " << tx->ToString() << "\n";
     }
