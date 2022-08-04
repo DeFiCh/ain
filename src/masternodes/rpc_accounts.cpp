@@ -372,6 +372,12 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
             return true;
         }
+        if (startToken != DCT_ID{}){
+            auto balance = mnview.GetBalance(account, startToken);
+            if (balance.nValue == 0){
+                return true;
+            }
+        }
 
         if (!skipCalc) {
             mnview.CalculateOwnerRewards(account, targetHeight);
