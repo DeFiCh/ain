@@ -77,6 +77,9 @@ static CBlock BuildBlockTestCase() {
     }
     block.vtx[2] = MakeTransactionRef(tx);
 
+    // set the dmcPayload
+    block.dmcPayload = std::vector<unsigned char>({'\x44', '\x4D', '\x43', '\x20', '\x52', '\x4f', '\x43', '\x4b', '\x53'});
+
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
@@ -385,6 +388,25 @@ BOOST_AUTO_TEST_CASE(TransactionsRequestDeserializationOverflowTest) {
         // deserialize should fail
         BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
     }
+}
+
+BOOST_AUTO_TEST_CASE(BlockSerDeTest)
+{
+    // build the block
+    CBlock block(BuildBlockTestCase());
+
+    // serialize block
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << block;
+
+    // deserialize block
+    CBlock blockD;
+    ss >> blockD;
+
+    // check and verify
+    BOOST_CHECK_EQUAL(block.GetHash().ToString(), blockD.GetHash().ToString());
+    BOOST_CHECK_EQUAL(std::string(block.dmcPayload.begin(), block.dmcPayload.end()), std::string(blockD.dmcPayload.begin(), blockD.dmcPayload.end()));
+    BOOST_CHECK_EQUAL(std::string(block.dmcPayload.begin(), block.dmcPayload.end()), "DMC ROCKS");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
