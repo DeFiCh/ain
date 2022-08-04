@@ -661,15 +661,17 @@ BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
 assert_equal(BLOCK_HEADER_SIZE, 190)
 
 class CBlock(CBlockHeader):
-    __slots__ = ("vtx",)
+    __slots__ = ("vtx", "dmcPayload")
 
     def __init__(self, header=None):
         super(CBlock, self).__init__(header)
         self.vtx = []
+        self.dmcPayload = b""
 
     def deserialize(self, f):
         super(CBlock, self).deserialize(f)
         self.vtx = deser_vector(f, CTransaction)
+        self.dmcPayload = deser_string(f)
 
     def serialize(self, with_witness=True):
         r = b""
@@ -678,6 +680,8 @@ class CBlock(CBlockHeader):
             r += ser_vector(self.vtx, "serialize_with_witness")
         else:
             r += ser_vector(self.vtx, "serialize_without_witness")
+        
+        r += ser_string(self.dmcPayload)
         return r
 
     # Calculate the merkle root given a vector of transaction hashes
