@@ -1,4 +1,5 @@
 #include <DMCHandler.h>
+#include <logging.h>
 
 #include <iostream>
 
@@ -10,6 +11,6 @@ bool DMCHandler::AddDMCPayloadToNativeBlock(std::shared_ptr<CBlock> block) {
 
 bool DMCHandler::ConnectPayloadToDMC(const std::vector<unsigned char>& payload) {
   // Dummy imp for now
-  std::cout << std::string(payload.begin(), payload.end()) << std::endl;
+  LogPrintf("DMC Payload: [%s]", std::string(payload.begin(), payload.end()));
   return true;
 }

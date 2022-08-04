@@ -3113,7 +3113,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (block.dmcPayload.size() > MAX_BLOCK_SIZE_DMC) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: DMC payload size is over %d", __func__, MAX_BLOCK_SIZE_DMC), REJECT_INVALID, "");
         }
-
         g_DMCHandler->ConnectPayloadToDMC(block.dmcPayload);
     }
 

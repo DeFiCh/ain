@@ -38,6 +38,9 @@ class DMCTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
+        self.extra_args = [['-dmcgenesisheight=1'],
+                           ['-dmcgenesisheight=1']]
+
 
     def mine_chain(self):
         self.log.info('Create some old blocks')
