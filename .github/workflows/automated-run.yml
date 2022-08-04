@@ -38,12 +38,12 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Download Defid
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defid
         path: ./defid
     - name: Download Defi Cli
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defi-cli
         path: ./defi-cli
@@ -69,12 +69,12 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Download Defid
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defid
         path: ./defid
     - name: Download Defi Cli
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defi-cli
         path: ./defi-cli
@@ -100,12 +100,12 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Download Defid
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defid
         path: ./defid
     - name: Download Defi Cli
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defi-cli
         path: ./defi-cli
@@ -131,12 +131,12 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Download Defid
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defid
         path: ./defid
     - name: Download Defi Cli
-      uses: actions/download@v3
+      uses: actions/download-artifact@v3
       with:
         name: defi-cli
         path: ./defi-cli
