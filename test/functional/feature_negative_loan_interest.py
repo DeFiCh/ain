@@ -155,5 +155,25 @@ class NegativeInterestTest (DefiTestFramework):
         vault = self.nodes[0].getvault(vault_id)
         assert_equal(vault['interestAmounts'], [f'0.00000000@{self.symbolDUSD}'])
 
+        # Payback almost all of the loan amount
+        self.nodes[0].paybackloan({
+            'vaultId': vault_id,
+            'from': "*",
+            'amounts': f'1.99999711@{self.symbolDUSD}'
+        })
+        self.nodes[0].generate(1)
+
+        # Set negative interest rate very high to speed up negating vault amount
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-300000'}})
+        self.nodes[0].generate(10)
+
+        # Check loan negated
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['interestAmounts'], [])
+
+        # Close now empty vault
+        self.nodes[0].closevault(vault_id, vault_address)
+        self.nodes[0].generate(1)
+
 if __name__ == '__main__':
     NegativeInterestTest().main()

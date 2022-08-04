@@ -970,7 +970,7 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
     if (price > COIN && amountInCurrency < amount)
         return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
 
-    return ResVal<CAmount>(amountInCurrency, Res::Ok());
+    return {amountInCurrency, Res::Ok()};
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
@@ -1042,6 +1042,9 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        if (totalAmount < 0) {
+            totalAmount = 0;
+        }
         auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
             return std::move(amountInCurrency);

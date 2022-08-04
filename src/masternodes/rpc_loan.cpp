@@ -1492,11 +1492,11 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height() + 1;
 
-    std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128>> > interest;
+    std::map<DCT_ID, std::tuple<base_uint<128>, base_uint<128>, base_uint<128>> > interest;
 
-    LogPrint(BCLog::LOAN,"%s():\n", __func__);
-    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRateV2 rate)
+    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV3 &rate)
     {
+        auto& [cumulativeInterest, positiveInterest, negativeInterest] = interest[tokenId];
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId)
             return true;
@@ -1507,32 +1507,40 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (!token)
             return true;
 
-        LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
-        interest[tokenId].first += TotalInterestCalculation(rate, height);
-        interest[tokenId].second += rate.interestPerBlock;
+        const auto totalInterest = TotalInterestCalculation(rate, height);
+        cumulativeInterest += totalInterest.negative ? 0 : totalInterest.amount;
+        if (!rate.interestPerBlock.negative) {
+            positiveInterest += rate.interestPerBlock.amount;
+        } else {
+            negativeInterest += rate.interestPerBlock.amount;
+        }
 
         return true;
     };
 
-    if (height >= Params().GetConsensus().FortCanningHillHeight) {
-        pcustomcsview->ForEachVaultInterestV2(vaultInterest);
+    if (height >= Params().GetConsensus().GreatWorldHeight) {
+        pcustomcsview->ForEachVaultInterestV3(vaultInterest);
+    } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+        pcustomcsview->ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
+        });
     } else {
-        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
-            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV2(rate));
+        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRate &rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
         });
     }
 
     UniValue obj(UniValue::VOBJ);
-    for (auto it=interest.begin(); it != interest.end(); ++it)
+    for (auto it = interest.begin(); it != interest.end(); ++it)
     {
-        auto tokenId = it->first;
-        auto totalInterest = it->second.first;
-        auto interestPerBlock = it->second.second;
+        const auto tokenId = it->first;
+        const auto& [cumulativeInterest, positiveInterest, negativeInterest] = it->second;
+        const auto interestPerBlock = -CeilInterest(negativeInterest, height) + CeilInterest(positiveInterest, height);
 
-        auto token = pcustomcsview->GetToken(tokenId);
+        const auto token = pcustomcsview->GetToken(tokenId);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
-        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
+        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(cumulativeInterest, height)));
+        obj.pushKV("interestPerBlock", ValueFromAmount(interestPerBlock));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
             obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));

@@ -208,6 +208,20 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
     }
 };
 
+struct CNegativeInterest
+{
+    bool negative{};
+    base_uint<128> amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(negative);
+        READWRITE(amount);
+    }
+};
+
 struct CInterestRate
 {
     uint32_t height;
@@ -240,14 +254,40 @@ struct CInterestRateV2
     }
 };
 
-inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2& rate1)
+struct CInterestRateV3
 {
-    CInterestRate rate2{};
-    rate2.height = rate1.height;
-    rate2.interestPerBlock = rate1.interestPerBlock.GetLow64();
-    rate2.interestToHeight = rate1.interestToHeight.GetLow64();
+    uint32_t height;
+    CNegativeInterest interestPerBlock;
+    base_uint<128> interestToHeight;
 
-    return rate2;
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(height);
+        READWRITE(interestPerBlock);
+        READWRITE(interestToHeight);
+    }
+};
+
+inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2& rate2)
+{
+    CInterestRate rate1{};
+    rate1.height = rate2.height;
+    rate1.interestPerBlock = rate2.interestPerBlock.GetLow64();
+    rate1.interestToHeight = rate2.interestToHeight.GetLow64();
+
+    return rate1;
+}
+
+inline CInterestRate ConvertInterestRateToV1(const CInterestRateV3& rate3)
+{
+    CInterestRate rate1{};
+    rate1.height = rate3.height;
+    rate1.interestPerBlock = rate3.interestPerBlock.amount.GetLow64();
+    rate1.interestToHeight = rate3.interestToHeight.GetLow64();
+
+    return rate1;
 }
 
 inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
@@ -260,17 +300,48 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate& rate1)
     return rate2;
 }
 
+inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRateV3& rate3)
+{
+    CInterestRateV2 rate2{};
+    rate2.height = rate3.height;
+    rate2.interestPerBlock = rate3.interestPerBlock.amount;
+    rate2.interestToHeight = rate3.interestToHeight;
+
+    return rate2;
+}
+
+inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRate& rate1)
+{
+    CInterestRateV3 rate3{};
+    rate3.height = rate1.height;
+    rate3.interestPerBlock.amount = rate1.interestPerBlock;
+    rate3.interestToHeight = rate1.interestToHeight;
+
+    return rate3;
+}
+
+inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
+{
+    CInterestRateV3 rate3{};
+    rate3.height = rate2.height;
+    rate3.interestPerBlock = {false, rate2.interestPerBlock};
+    rate3.interestToHeight = rate2.interestToHeight;
+
+    return rate3;
+}
+
 static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
 
-CAmount TotalInterest(const CInterestRateV2& rate, uint32_t height);
-CAmount InterestPerBlock(const CInterestRateV2& rate, uint32_t height);
-base_uint<128> TotalInterestCalculation(const CInterestRateV2& rate, uint32_t height);
+CAmount TotalInterest(const CInterestRateV3& rate, uint32_t height);
+CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height);
+CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 
 std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
 
 base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
+CNegativeInterest InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
 
 class CLoanTakeLoanMessage
 {
@@ -356,15 +427,18 @@ public:
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     Res DeleteInterest(const CVaultId& vaultId, uint32_t height);
-    void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id);
-    std::optional<CInterestRateV2> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
-    void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV2& rate, uint32_t height);
+    void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id, uint32_t height);
+    std::optional<CInterestRateV3> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
+    void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV3& rate, uint32_t height);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount tokenInterest, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
-    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
-    void ForEachVaultInterestV2(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV2)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
+    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});
+    void ForEachVaultInterestV2(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV2)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});
+    void ForEachVaultInterestV3(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV3)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});
     void RevertInterestRateToV1();
+    void RevertInterestRateToV2();
     void MigrateInterestRateToV2(CVaultView &view, uint32_t height);
+    void MigrateInterestRateToV3(CVaultView &view, uint32_t height);
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -389,6 +463,7 @@ public:
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanInterestV2ByVault            { static constexpr uint8_t prefix() { return 0x1B; } };
+    struct LoanInterestV3ByVault            { static constexpr uint8_t prefix() { return 0x1C; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

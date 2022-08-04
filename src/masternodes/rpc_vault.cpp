@@ -133,9 +133,8 @@ namespace {
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
 
-        if (rate) {
+        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -153,8 +152,9 @@ namespace {
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
-        std::map<DCT_ID, base_uint<128>> interestsPerBlockHighPrecission;
-        base_uint<128> interestsPerBlockValueHighPrecission{0};
+        std::map<DCT_ID, CNegativeInterest> interestsPerBlockHighPrecission;
+        base_uint<128> blockInterestHighPrecission{};
+        base_uint<128> blockNegativeInterestHighPrecission{};
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 
@@ -163,33 +163,43 @@ namespace {
             TAmounts interestBalances{};
             CAmount totalInterests{0};
 
-            for (const auto& loan : loanTokens->balances) {
-                auto token = pcustomcsview->GetLoanTokenByID(loan.first);
+            for (const auto& [tokenId, amount] : loanTokens->balances) {
+                auto token = pcustomcsview->GetLoanTokenByID(tokenId);
                 if (!token) continue;
-                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first, height);
+                auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
                 if (!rate) continue;
                 LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
-                auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
-                    auto price = priceFeed.val->priceRecord[0];
-                    totalInterests += MultiplyAmounts(price, totalInterest);
-                    if (verbose) {
-                        if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                            auto interestPerBlockHighPrecission = rate->interestPerBlock;
-                            interestsPerBlockValueHighPrecission += (static_cast<base_uint<128>>(price) * interestPerBlockHighPrecission / COIN);
-                            interestsPerBlockHighPrecission[loan.first] += interestPerBlockHighPrecission;
-                        } else {
-                            auto interestPerBlock = rate->interestPerBlock.GetLow64();
-                            interestsPerBlock.insert({loan.first, interestPerBlock});
-                            totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                auto value = amount + totalInterest;
+                if (value > 0) {
+                    if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                        auto price = priceFeed.val->priceRecord[0];
+                        if (const auto interestCalculation = MultiplyAmounts(price, totalInterest); interestCalculation > 0) {
+                            totalInterests += interestCalculation;
+                        }
+                        if (verbose) {
+                            if (height >= Params().GetConsensus().GreatWorldHeight) {
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                                if (!rate->interestPerBlock.negative) {
+                                    blockInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
+                                } else {
+                                    blockNegativeInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
+                                }
+                            } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                                blockInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                            } else {
+                                const auto interestPerBlock = rate->interestPerBlock.amount.GetLow64();
+                                interestsPerBlock.insert({tokenId, interestPerBlock});
+                                totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                            }
                         }
                     }
-                }
 
-                totalBalances.insert({loan.first, value});
-                interestBalances.insert({loan.first, totalInterest});
-                if (pcustomcsview->AreTokensLocked({loan.first.v})){
+                    totalBalances.insert({tokenId, value});
+                    interestBalances.insert({tokenId, totalInterest > 0 ? totalInterest : 0});
+                }
+                if (pcustomcsview->AreTokensLocked({tokenId.v})){
                     isVaultTokenLocked = true;
                 }
             }
@@ -212,7 +222,7 @@ namespace {
             ratioValue = -1;
             collateralRatio = -1;
             totalInterestsPerBlockValue = -1;
-            interestsPerBlockValueHighPrecission = -1;
+            blockInterestHighPrecission = -1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -221,8 +231,7 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
-            if (rate) {
+            if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
@@ -230,14 +239,22 @@ namespace {
                 if(isVaultTokenLocked){
                     result.pushKV("interestPerBlockValue", -1);
                 } else {
-                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecission));
-                    for (auto it=interestsPerBlockHighPrecission.begin(); it != interestsPerBlockHighPrecission.end(); ++it) {
-                        auto tokenId = it->first;
-                        auto interestPerBlock = it->second;
+                    if (blockNegativeInterestHighPrecission > blockInterestHighPrecission) {
+                        blockInterestHighPrecission = blockNegativeInterestHighPrecission - blockInterestHighPrecission;
+                        result.pushKV("interestPerBlockValue", '-' + GetInterestPerBlockHighPrecisionString(blockInterestHighPrecission));
+                    } else {
+                        blockInterestHighPrecission = blockInterestHighPrecission - blockNegativeInterestHighPrecission;
+                        result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(blockInterestHighPrecission));
+                    }
+
+                    for (const auto& [id, interestPerBlock] : interestsPerBlockHighPrecission) {
+                        auto tokenId = id;
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock.amount);
                         auto token = pcustomcsview->GetToken(tokenId);
-                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+                        assert(token);
                         auto tokenSymbol = token->CreateSymbolKey(tokenId);
-                        interestsPerBlockBalances.push_back(amountStr + "@" + tokenSymbol);
+                        std::string negativeSymbol = interestPerBlock.negative ? "-" : "";
+                        interestsPerBlockBalances.push_back(negativeSymbol.append(amountStr + '@' + tokenSymbol));
                     }
                 }
             } else {

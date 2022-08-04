@@ -288,11 +288,11 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     rate = mnview.GetInterestRate(vault_id, token_id, 5);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->height, 5);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 4 * interestPerBlock.GetLow64());
+    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 4 * interestPerBlock.amount.GetLow64());
 
     auto interestToHeight = rate->interestToHeight;
     interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight + interestPerBlock).GetLow64()));
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight + interestPerBlock.amount).GetLow64()));
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
 
     BOOST_REQUIRE(rate);
