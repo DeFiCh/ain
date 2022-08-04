@@ -29,4 +29,8 @@ static constexpr unsigned int LOCKTIME_VERIFY_SEQUENCE = (1 << 0);
 /** Use GetMedianTimePast() instead of nTime for end point timestamp. */
 static constexpr unsigned int LOCKTIME_MEDIAN_TIME_PAST = (1 << 1);
 
+/** Consensus related to DMC */
+/** DMC Payload max size */
+static const unsigned int MAX_BLOCK_SIZE_DMC = 1000000 * 1; // 1MB NOTE(surangap): change this according to substrate standards
+
 #endif // DEFI_CONSENSUS_CONSENSUS_H
