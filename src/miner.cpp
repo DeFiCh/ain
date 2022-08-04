@@ -712,7 +712,7 @@ namespace pos {
         return Status::stakeReady;
     }
 
-    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args, DMCHandler& dmcHandler) {
 
         bool found = false;
 
@@ -862,6 +862,9 @@ namespace pos {
         LogPrint(BCLog::STAKING, "Running Staker with %u common transactions in block (%u bytes)\n", pblock->vtx.size() - 1,
                  ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
 
+        // Add dmc payload to the block
+        dmcHandler.AddDMCPayloadToNativeBlock(pblock);
+
         //
         // Trying to sign a block
         //
@@ -960,7 +963,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             try {
                 auto status = staker.init(chainparams);
                 if (status == Staker::Status::stakeReady) {
-                    status = staker.stake(chainparams, arg);
+                    status = staker.stake(chainparams, arg, dmcHandler);
                 }
                 if (status == Staker::Status::error) {
                     LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);

@@ -11,6 +11,7 @@
 #include <timedata.h>
 #include <txmempool.h>
 #include <validation.h>
+#include <DMCHandler.h>
 
 #include <memory>
 #include <optional>
@@ -234,6 +235,7 @@ namespace pos {
 
         /// always forward by value to avoid dangling pointers
         void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+        DMCHandler dmcHandler; // NOTE(surangap): relocate this to appropricate location based on the threading model of the minter
     };
 
     class Staker {
@@ -250,7 +252,7 @@ namespace pos {
         };
 
         Staker::Status init(const CChainParams& chainparams);
-        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
+        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args, DMCHandler& dmcHandler);
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes

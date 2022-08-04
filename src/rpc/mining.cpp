@@ -32,6 +32,7 @@
 #include <versionbitsinfo.h>
 #include <wallet/wallet.h>
 #include <warnings.h>
+#include <DMCHandler.h>
 
 #include <boost/thread.hpp>
 
@@ -116,6 +117,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
     stakerParams.operatorID = operatorID;
 
     pos::Staker staker{};
+    DMCHandler dmcHandler{};
     int32_t nMinted = 0;
     int64_t nTried = 0;
 
@@ -125,7 +127,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
         try {
             auto status = staker.init(Params());
             if (status == Staker::Status::stakeReady) {
-                status = staker.stake(Params(), stakerParams);
+                status = staker.stake(Params(), stakerParams, dmcHandler);
             }
             if (status == Staker::Status::error) {
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
