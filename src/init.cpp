@@ -64,6 +64,7 @@
 #include <validationinterface.h>
 #include <walletinitinterface.h>
 #include <wallet/wallet.h>
+#include <DMCHandler.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -1642,6 +1643,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 LOCK(cs_main);
                 // This statement makes ::ChainstateActive() usable.
                 g_chainstate = std::make_unique<CChainState>();
+                g_DMCHandler = std::make_unique<DMCHandler>();
                 UnloadBlockIndex();
 
                 // new CBlockTreeDB tries to delete the existing file, which

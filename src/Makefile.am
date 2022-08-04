@@ -184,6 +184,7 @@ DEFI_CORE_H = \
   memusage.h \
   merkleblock.h \
   miner.h \
+  DMCHandler.h \
   net.h \
   net_permissions.h \
   net_processing.h \
@@ -409,6 +410,7 @@ libdefi_server_a_SOURCES = \
   masternodes/vault.cpp \
   masternodes/vaulthistory.cpp \
   miner.cpp \
+  DMCHandler.cpp \
   net.cpp \
   net_processing.cpp \
   node/coin.cpp \

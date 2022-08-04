@@ -58,6 +58,7 @@
 #include <util/validation.h>
 #include <validationinterface.h>
 #include <warnings.h>
+#include <DMCHandler.h>
 
 #include <wallet/wallet.h>
 #include <net_processing.h>
@@ -103,6 +104,7 @@ std::map<uint32_t, CAmount> subsidyReductions;
 } // anon namespace
 
 std::unique_ptr<CChainState> g_chainstate;
+std::unique_ptr<DMCHandler> g_DMCHandler;
 
 CChainState& ChainstateActive() {
     assert(g_chainstate);
@@ -3105,6 +3107,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     int64_t nTime6 = GetTimeMicros(); nTimeCallbacks += nTime6 - nTime5;
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
+
+    // Do the dmcPayload validation here.
+    if (pindex->nHeight > chainparams.GetConsensus().DMCGenesisHeight) {
+        if (block.dmcPayload.size() > MAX_BLOCK_SIZE_DMC) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: DMC payload size is over %d", __func__, MAX_BLOCK_SIZE_DMC), REJECT_INVALID, "");
+        }
+
+        g_DMCHandler->ConnectPayloadToDMC(block.dmcPayload);
+    }
 
     return true;
 }

@@ -54,6 +54,7 @@ struct ChainTxData;
 struct DisconnectedBlockTransactions;
 struct PrecomputedTransactionData;
 struct LockPoints;
+class DMCHandler;
 
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
@@ -813,6 +814,9 @@ BlockMap& BlockIndex();
 // may not be able to assume that this has been initialized yet and so must use it
 // directly, e.g. init.cpp.
 extern std::unique_ptr<CChainState> g_chainstate;
+
+// DMC Handler
+extern std::unique_ptr<DMCHandler> g_DMCHandler;
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern std::unique_ptr<CBlockTreeDB> pblocktree;
