@@ -3438,7 +3438,6 @@ public:
                 if (!res)
                     return res;
 
-                LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol);
                 res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan, subInterest);
                 if (!res)
                     return res;
