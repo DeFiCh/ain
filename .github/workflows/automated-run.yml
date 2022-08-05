@@ -32,7 +32,7 @@ jobs:
       image : gcr.io/br-blockchains-dev/datadir-500000
       volumes:
         - datadir-500000
-        - ${{env.GITHUB_WORKSPACE}}/src:/src
+        - ${{ env.GITHUB_WORKSPACE }}/src:/src
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
