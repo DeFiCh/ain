@@ -38,7 +38,8 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Echo user
-      run: echo whoami
+      run: whoami
+    - uses: actions/checkout@v2
     - name: Download Defid
       uses: actions/download-artifact@v3
       with:
