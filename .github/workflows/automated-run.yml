@@ -41,7 +41,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defid
-        path: ./defid
+        path: defid
     - name: Download Defi Cli
       uses: actions/download-artifact@v3
       with:
@@ -72,7 +72,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defid
-        path: ./defid
+        path: defid
     - name: Download Defi Cli
       uses: actions/download-artifact@v3
       with:
@@ -103,7 +103,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defid
-        path: ./defid
+        path: defid
     - name: Download Defi Cli
       uses: actions/download-artifact@v3
       with:
@@ -134,7 +134,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defid
-        path: ./defid
+        path: defid
     - name: Download Defi Cli
       uses: actions/download-artifact@v3
       with:
