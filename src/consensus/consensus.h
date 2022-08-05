@@ -31,6 +31,6 @@ static constexpr unsigned int LOCKTIME_MEDIAN_TIME_PAST = (1 << 1);
 
 /** Consensus related to DMC */
 /** DMC Payload max size */
-static const unsigned int MAX_BLOCK_SIZE_DMC = 1000000 * 1; // 1MB NOTE(surangap): change this according to substrate standards
+static const unsigned int MAX_BLOCK_SIZE_DMC = 5 * 1024 * 1024 * 1; // 5MB substrate normal max block size
 
 #endif // DEFI_CONSENSUS_CONSENSUS_H
