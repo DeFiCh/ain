@@ -37,16 +37,16 @@ jobs:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
+    - name: Echo user
+    - run: echo whoami
     - name: Download Defid
       uses: actions/download-artifact@v3
       with:
         name: defid
-        path: ~/defid
     - name: Download Defi Cli
       uses: actions/download-artifact@v3
       with:
         name: defi-cli
-        path: ./defi-cli
     - name: download start script
       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
     - run: chmod +x ./start.sh
