@@ -15,6 +15,9 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
+    - name: download start script
+      run: wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -O src/start.sh
+    - run: chmod +x ./src/start.sh
 #     - name: Upload Defid
 #       with:
 #         name: defid
@@ -48,10 +51,7 @@ jobs:
 #       uses: actions/download-artifact@v3
 #       with:
 #         name: defi-cli
-    - run: ls -lh /src
-    - name: download start script
-      run: curl https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -o start.sh
-    - run: chmod +x ./start.sh
+    - run: cp /src/start.sh ./start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
 #     - run: chmod +x ./defi-cli
