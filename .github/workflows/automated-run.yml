@@ -30,7 +30,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     container:
-      image : gcr.io/datadir-500000
+      image : gcr.io/br-blockchains-dev/datadir-500000
       volumes:
         - datadir-500000
       env:
@@ -61,7 +61,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     container:
-      image : gcr.io/datadir-550000
+      image : gcr.io/br-blockchains-dev/datadir-550000
       volumes:
         - datadir-550000
       env:
@@ -92,7 +92,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     container:
-      image : gcr.io/datadir-600000
+      image : gcr.io/br-blockchains-dev/datadir-600000
       volumes:
         - datadir-600000
       env:
@@ -123,7 +123,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     container:
-      image : gcr.io/datadir-650000
+      image : gcr.io/br-blockchains-dev/datadir-650000
       volumes:
         - datadir-650000
       env:
