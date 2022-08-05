@@ -18,15 +18,6 @@ jobs:
     - name: download start script
       run: wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -O src/start.sh
     - run: chmod +x ./src/start.sh
-#     - name: Upload Defid
-#       with:
-#         name: defid
-#         path: ./src/defid
-#     - name: Upload Defi Cli
-#       uses: actions/upload-artifact@v3
-#       with:
-#         name: deficli
-#         path: ./src/defi-cli
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
@@ -40,25 +31,10 @@ jobs:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
-    - name: Echo user
-      run: whoami
-#     - uses: actions/checkout@v2
-#     - name: Download Defid
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defid
-#     - name: Download Defi Cli
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defi-cli
-    - run: cp /src/start.sh ./start.sh
+    - run: cp /src/start.sh start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
-#     - run: chmod +x ./defi-cli
-#     - run: chmod ./defid
-    - name: Run Node
-      run: ./defid -daemon
-    - name: Monitor running Node
+    - name: Start Node
       run: ./start.sh
   # Sync 550000 - 600000
 #   sync-550000-600000:
