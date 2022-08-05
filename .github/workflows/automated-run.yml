@@ -17,15 +17,15 @@ jobs:
       run: echo ${GITHUB_WORKSPACE}
     - name: Base Dir
       run: ls -lh
-    - name: Upload Defid
-      with:
-        name: defid
-        path: ./src/defid
-    - name: Upload Defi Cli
-      uses: actions/upload-artifact@v3
-      with:
-        name: deficli
-        path: ./src/defi-cli
+#     - name: Upload Defid
+#       with:
+#         name: defid
+#         path: ./src/defid
+#     - name: Upload Defi Cli
+#       uses: actions/upload-artifact@v3
+#       with:
+#         name: deficli
+#         path: ./src/defi-cli
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
