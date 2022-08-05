@@ -14,9 +14,11 @@ jobs:
       with:
         fetch-depth: 0
     - name: Where Am I
-       run: echo ${HOME}
-    - name: Build Node
-      run: ./make.sh build
+      run: echo ${GITHUB_WORKSPACE}
+#     - name: Build Node
+#       run: ./make.sh build
+    - name: Base Dir
+      run: ls -lh
     - name: Upload Defid
       with:
         name: defid
