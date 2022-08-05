@@ -39,6 +39,7 @@ jobs:
     steps:
     - name: Echo user
       run: whoami
+    - run: apt install -y wget
 #     - uses: actions/checkout@v2
 #     - name: Download Defid
 #       uses: actions/download-artifact@v3
