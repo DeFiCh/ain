@@ -34,9 +34,10 @@ jobs:
 #     - run: cp /src/start.sh start.sh
 #     - run: cp /src/defid defid
 #     - run: cp /src/defi-cli defi-cli
-    - run: cd /src
-    - name: Start Node
-      run: ./start.sh
+    - run: |
+          cd /src
+          ./start.sh
+
   # Sync 550000 - 600000
 #   sync-550000-600000:
 #     runs-on: [self-hosted, linux, x64]
