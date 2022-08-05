@@ -13,10 +13,11 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+    - name: Where Am I
+       run: echo ${HOME}
     - name: Build Node
       run: ./make.sh build
     - name: Upload Defid
-      uses: actions/upload-artifact@v3
       with:
         name: defid
         path: ./src/defid
@@ -58,95 +59,95 @@ jobs:
     - name: Monitor running Node
       run: ./start.sh
   # Sync 550000 - 600000
-  sync-550000-600000:
-    runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-550000
-      volumes:
-        - datadir-550000
-      env:
-        STOP_BLOCK: 600000
-    timeout-minutes: 4320
-    steps:
-    - name: Download Defid
-      uses: actions/download-artifact@v3
-      with:
-        name: defid
-        path: defid
-    - name: Download Defi Cli
-      uses: actions/download-artifact@v3
-      with:
-        name: defi-cli
-        path: ./defi-cli
-    - name: download start script
-      run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-    - run: chmod +x ./start.sh
-    - run: chmod +x ./defi-cli
-    - run: chmod +x ./defid
-    - name: Run Node
-      run: ./defid -daemon
-    - name: Monitor running Node
-      run: ./start.sh
-  # Sync 600000 - 650000
-  sync-600000-650000:
-    runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-600000
-      volumes:
-        - datadir-600000
-      env:
-        STOP_BLOCK: 650000
-    timeout-minutes: 4320
-    steps:
-    - name: Download Defid
-      uses: actions/download-artifact@v3
-      with:
-        name: defid
-        path: defid
-    - name: Download Defi Cli
-      uses: actions/download-artifact@v3
-      with:
-        name: defi-cli
-        path: ./defi-cli
-    - name: download start script
-      run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-    - run: chmod +x ./start.sh
-    - run: chmod +x ./defi-cli
-    - run: chmod +x ./defid
-    - name: Run Node
-      run: ./defid -daemon
-    - name: Monitor running Node
-      run: ./start.sh
-  # Sync 650000 - 700000
-  sync-650000-700000:
-    runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-650000
-      volumes:
-        - datadir-650000
-      env:
-        STOP_BLOCK: 700000
-    timeout-minutes: 4320
-    steps:
-    - name: Download Defid
-      uses: actions/download-artifact@v3
-      with:
-        name: defid
-        path: defid
-    - name: Download Defi Cli
-      uses: actions/download-artifact@v3
-      with:
-        name: defi-cli
-        path: ./defi-cli
-    - name: download start script
-      run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-    - run: chmod +x ./start.sh
-    - run: chmod +x ./defi-cli
-    - run: chmod +x ./defid
-    - name: Run Node
-      run: ./defid -daemon
-    - name: Monitor running Node
-      run: ./start.sh
+#   sync-550000-600000:
+#     runs-on: [self-hosted, linux, x64]
+#     needs: build-binaries
+#     container:
+#       image : gcr.io/br-blockchains-dev/datadir-550000
+#       volumes:
+#         - datadir-550000
+#       env:
+#         STOP_BLOCK: 600000
+#     timeout-minutes: 4320
+#     steps:
+#     - name: Download Defid
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defid
+#         path: defid
+#     - name: Download Defi Cli
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defi-cli
+#         path: ./defi-cli
+#     - name: download start script
+#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
+#     - run: chmod +x ./start.sh
+#     - run: chmod +x ./defi-cli
+#     - run: chmod +x ./defid
+#     - name: Run Node
+#       run: ./defid -daemon
+#     - name: Monitor running Node
+#       run: ./start.sh
+#   # Sync 600000 - 650000
+#   sync-600000-650000:
+#     runs-on: [self-hosted, linux, x64]
+#     needs: build-binaries
+#     container:
+#       image : gcr.io/br-blockchains-dev/datadir-600000
+#       volumes:
+#         - datadir-600000
+#       env:
+#         STOP_BLOCK: 650000
+#     timeout-minutes: 4320
+#     steps:
+#     - name: Download Defid
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defid
+#         path: defid
+#     - name: Download Defi Cli
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defi-cli
+#         path: ./defi-cli
+#     - name: download start script
+#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
+#     - run: chmod +x ./start.sh
+#     - run: chmod +x ./defi-cli
+#     - run: chmod +x ./defid
+#     - name: Run Node
+#       run: ./defid -daemon
+#     - name: Monitor running Node
+#       run: ./start.sh
+#   # Sync 650000 - 700000
+#   sync-650000-700000:
+#     runs-on: [self-hosted, linux, x64]
+#     needs: build-binaries
+#     container:
+#       image : gcr.io/br-blockchains-dev/datadir-650000
+#       volumes:
+#         - datadir-650000
+#       env:
+#         STOP_BLOCK: 700000
+#     timeout-minutes: 4320
+#     steps:
+#     - name: Download Defid
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defid
+#         path: defid
+#     - name: Download Defi Cli
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defi-cli
+#         path: ./defi-cli
+#     - name: download start script
+#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
+#     - run: chmod +x ./start.sh
+#     - run: chmod +x ./defi-cli
+#     - run: chmod +x ./defid
+#     - name: Run Node
+#       run: ./defid -daemon
+#     - name: Monitor running Node
+#       run: ./start.sh
