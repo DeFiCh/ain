@@ -13,10 +13,8 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-    - name: Where Am I
-      run: echo ${GITHUB_WORKSPACE}
-    - name: Base Dir
-      run: ls -lh
+    - name: Build Node
+      run: ./make.sh build
 #     - name: Upload Defid
 #       with:
 #         name: defid
@@ -34,26 +32,30 @@ jobs:
       image : gcr.io/br-blockchains-dev/datadir-500000
       volumes:
         - datadir-500000
+        - ${GITHUB_WORKSPACE}/src:/src
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
     - name: Echo user
       run: whoami
-    - uses: actions/checkout@v2
-    - name: Download Defid
-      uses: actions/download-artifact@v3
-      with:
-        name: defid
-    - name: Download Defi Cli
-      uses: actions/download-artifact@v3
-      with:
-        name: defi-cli
+#     - uses: actions/checkout@v2
+#     - name: Download Defid
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defid
+#     - name: Download Defi Cli
+#       uses: actions/download-artifact@v3
+#       with:
+#         name: defi-cli
+    - run: ls -lh /src
     - name: download start script
       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
     - run: chmod +x ./start.sh
-    - run: chmod +x ./defi-cli
-    - run: chmod +x ./defid
+    - run: cp /src/defid defid
+    - run: cp /src/defi-cli defi-cli
+#     - run: chmod +x ./defi-cli
+#     - run: chmod ./defid
     - name: Run Node
       run: ./defid -daemon
     - name: Monitor running Node
