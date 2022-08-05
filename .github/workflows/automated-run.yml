@@ -39,7 +39,6 @@ jobs:
     steps:
     - name: Echo user
       run: whoami
-    - run: sudo apt install -y wget
 #     - uses: actions/checkout@v2
 #     - name: Download Defid
 #       uses: actions/download-artifact@v3
@@ -51,7 +50,7 @@ jobs:
 #         name: defi-cli
     - run: ls -lh /src
     - name: download start script
-      run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
+      run: curl https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -o start.sh
     - run: chmod +x ./start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
