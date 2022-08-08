@@ -890,6 +890,22 @@ bool CCustomTxVisitor::IsTokensMigratedToGovVar() const
     return static_cast<int>(height) > consensus.FortCanningCrunchHeight + 1;
 }
 
+Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const
+{
+    CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+
+    auto attributes = mnview.GetAttributes();
+    if (!attributes) {
+        return Res::Err("Attributes unavailable");
+    }
+
+    if (!attributes->GetValue(payoutKey, false)) {
+        return Res::Err("Cannot create tx, on-chain governance is not enabled");
+    }
+
+    return Res::Ok();
+}
+
 class CCustomTxApplyVisitor : public CCustomTxVisitor
 {
     uint64_t time;
@@ -3591,6 +3607,11 @@ public:
 
     Res operator()(const CCreatePropMessage& obj) const
     {
+        auto res = IsOnChainGovernanceEnabled();
+        if (!res) {
+            return res;
+        }
+
         switch (obj.type) {
             case CPropType::CommunityFundProposal:
                 if (!HasAuth(obj.address))
@@ -3615,7 +3636,7 @@ public:
                 return Res::Err("unsupported proposal type");
         }
 
-        auto res = CheckProposalTx(obj.type);
+        res = CheckProposalTx(obj.type);
         if (!res)
             return res;
 
@@ -3634,6 +3655,9 @@ public:
         if (obj.context.size() > MAX_PROP_CONTEXT_SIZE)
             return Res::Err("proposal context cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
 
+        if (obj.contexthash.size() > MAX_PROP_CONTEXT_SIZE)
+            return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
+
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
@@ -3642,6 +3666,11 @@ public:
 
     Res operator()(const CPropVoteMessage& obj) const
     {
+        auto res = IsOnChainGovernanceEnabled();
+        if (!res) {
+            return res;
+        }
+
         auto prop = mnview.GetProp(obj.propId);
         if (!prop)
             return Res::Err("proposal <%s> does not exists", obj.propId.GetHex());

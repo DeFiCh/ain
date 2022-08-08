@@ -97,7 +97,7 @@ class ChainGornmentTest(DefiTestFramework):
             errorString = e.error['message']
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/settings/automatic_proposal_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/payout':'true'}})
 
         # Create CFP
         tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
@@ -248,7 +248,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["status"], "Approved")
         assert_equal(result["approval"], "75.00 of 66.67%")
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/settings/automatic_proposal_payout':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/payout':'false'}})
         title = "Create test community fund request proposal without automatic payout"
 
         # Create CFP

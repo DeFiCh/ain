@@ -9,6 +9,8 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop.title);
     ret.pushKV("context", prop.context);
+    if (!prop.contexthash.empty())
+        ret.pushKV("contexthash", prop.contexthash);
     auto type = static_cast<CPropType>(prop.type);
     ret.pushKV("type", CPropTypeToString(type));
     auto status = static_cast<CPropStatusType>(prop.status);
@@ -47,6 +49,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of community fund request"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field of community fund request"},
+                            {"contexthash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The hash of the content which context field point to of community fund request"},
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
@@ -82,7 +85,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
 
     CAmount amount;
     int cycles = 1;
-    std::string title, context, addressStr;
+    std::string title, context, contexthash, addressStr;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -98,9 +101,11 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["cycles"].isNull()) {
+    if (!data["contexthash"].isNull())
+        contexthash = data["contexthash"].get_str();
+
+    if (!data["cycles"].isNull())
         cycles = data["cycles"].get_int();
-    }
 
     if (!data["amount"].isNull()) {
         amount = AmountFromValue(data["amount"]);
@@ -127,6 +132,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     pm.nCycles = cycles;
     pm.title = title;
     pm.context = context;
+    pm.contexthash = contexthash;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -503,6 +509,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop->title);
     ret.pushKV("context", prop->context);
+    if (!prop->contexthash.empty())
+        ret.pushKV("contexthash", prop->contexthash);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
 
