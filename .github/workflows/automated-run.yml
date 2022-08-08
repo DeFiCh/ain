@@ -27,7 +27,7 @@ jobs:
       volumes:
         - datadir-500000
         - ${{ github.workspace }}/src:/src
-      options: --user=defi:defi
+      options: --user=defi:sudo
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
