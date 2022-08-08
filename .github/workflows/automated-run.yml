@@ -27,17 +27,17 @@ jobs:
       volumes:
         - datadir-500000
         - ${{ github.workspace }}/src:/src
+      user: defi:defi
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
-#     - run: cp /src/start.sh start.sh
-#     - run: cp /src/defid defid
-#     - run: cp /src/defi-cli defi-cli
-    - run: |
-          cd /src
-          ./start.sh
-
+    - run: cp /src/start.sh start.sh
+    - run: cp /src/defid defid
+    - run: cp /src/defi-cli defi-cli
+    - run: cd /src
+    - name: Start Node
+      run: ./start.sh
   # Sync 550000 - 600000
 #   sync-550000-600000:
 #     runs-on: [self-hosted, linux, x64]
