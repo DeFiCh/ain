@@ -20,10 +20,10 @@ class ChainGornmentTest(DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-grandcentralheight=101', '-subsidytest=1', '-txindex=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-grandcentralheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-grandcentralheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101', '-subsidytest=1'],
         ]
 
     def run_test(self):
@@ -55,7 +55,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        # great world
+        # grand central
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # Check community dev fund present
@@ -73,6 +73,14 @@ class ChainGornmentTest(DefiTestFramework):
         # Create address for CFP
         address = self.nodes[0].getnewaddress()
         context = "<Git issue url>"
+
+        # check that on-chain governance is disabled
+        assert_raises_rpc_error(-32600, "Cannot create tx, on-chain governance is not enabled", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})
+
+        # activate on-chain governance
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check errors
         assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})
@@ -97,7 +105,7 @@ class ChainGornmentTest(DefiTestFramework):
             errorString = e.error['message']
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/settings/automatic_proposal_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/payout':'true'}})
 
         # Create CFP
         tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
@@ -132,7 +140,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
 
         # Calculate cycle
-        cycle1 = 102 + (102 % 70) + 70
+        cycle1 = 103 + (103 % 70) + 70
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
         # Check proposal and votes
@@ -248,7 +256,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["status"], "Approved")
         assert_equal(result["approval"], "75.00 of 66.67%")
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/settings/automatic_proposal_payout':'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/payout':'false'}})
         title = "Create test community fund request proposal without automatic payout"
 
         # Create CFP
@@ -281,7 +289,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Calculate cycle
-        cycle1 = 344 + (344 % 70) + 70
+        cycle1 = 348 + (348 % 70) + 70
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
         # Check proposal and votes

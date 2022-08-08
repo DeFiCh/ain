@@ -47,6 +47,7 @@ struct CCreatePropMessage {
     uint8_t nCycles;
     std::string title;
     std::string context;
+    std::string contexthash;
 
     ADD_SERIALIZE_METHODS;
 
@@ -59,6 +60,7 @@ struct CCreatePropMessage {
         READWRITE(nCycles);
         READWRITE(title);
         READWRITE(context);
+        READWRITE(contexthash);
     }
 };
 

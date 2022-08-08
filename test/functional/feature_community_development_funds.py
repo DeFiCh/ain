@@ -18,9 +18,9 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=60', '-eunosheight=70', '-fortcanningheight=80', '-fortcanninghillheight=90', '-fortcanningroadheight=100', '-fortcanningcrunchheight=110', '-fortcanningspringheight=120', '-fortcanninggreatworldheight=130', '-grandcentralheight=201', '-subsidytest=1'],
         ]
 
     def run_test(self):
@@ -43,6 +43,13 @@ class CommunityDevelopmentFunds(DefiTestFramework):
 
         node1.generate(1)
         self.sync_all(self.nodes[:2])
+
+        # activate on-chain governance
+        node0.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        node0.generate(1)
+        self.sync_all(self.nodes[:2])
+
+        # foundation = node1.getbalances()
         foundationBalance = foundation['mine']['trusted']
         after_hardfork = foundationBalance + foundation['mine']['immature']
 
@@ -50,20 +57,24 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(before_hardfork, after_hardfork)
 
         # foundation coins are locked
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal("19.887464"))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + 2*Decimal("19.887464"))
         node0.generate(1)
         self.sync_all(self.nodes[:2])
 
         print ("Reverting...")
         self.start_node(2)
-        node2.generate(3)
+        node2.generate(4)
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
+        node1.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        node1.generate(1)
+        self.sync_blocks()
+
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(3 * 19.887464)))
-        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(3 * 19.887464)))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(5 * 19.887464)))
+        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(5 * 19.887464)))
 
 if __name__ == '__main__':
     CommunityDevelopmentFunds().main ()

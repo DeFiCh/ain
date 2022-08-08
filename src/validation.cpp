@@ -3947,7 +3947,14 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
 }
 
 void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+    CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+
+    auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight || !attributes->GetValue(enabledKey, false)) {
         return;
     }
 
@@ -4016,11 +4023,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             cache.UpdatePropCycle(propId, prop.cycle + 1);
         }
 
-        auto attributes = cache.GetAttributes();
-        if (!attributes) {
-            return true;
-        }
-        CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Settings, SettingsKeys::AutomaticProposalPayout};
+        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPPayout};
 
         if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);

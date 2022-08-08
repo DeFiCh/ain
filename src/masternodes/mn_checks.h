@@ -59,6 +59,7 @@ class CCustomTxVisitor
         Res SubBalancesDelShares(const CAccounts& accounts) const;
         Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
         bool IsTokensMigratedToGovVar() const;
+        Res IsOnChainGovernanceEnabled() const;
 };
 class CVaultHistoryView;
 class CHistoryWriters;
