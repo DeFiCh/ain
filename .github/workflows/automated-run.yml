@@ -32,6 +32,7 @@ jobs:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
+    - run: whoami
     - run: cp /src/start.sh start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
