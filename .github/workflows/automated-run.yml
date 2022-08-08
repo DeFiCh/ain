@@ -27,7 +27,8 @@ jobs:
       volumes:
         - datadir-500000
         - ${{ github.workspace }}/src:/src
-      user: defi:defi
+      options:
+        - user: defi:defi
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
