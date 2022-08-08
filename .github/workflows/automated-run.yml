@@ -15,9 +15,6 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-    - name: download start script
-      run: wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -O src/start.sh
-    - run: chmod +x ./src/start.sh
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
@@ -33,12 +30,12 @@ jobs:
     timeout-minutes: 4320
     steps:
     - run: whoami
-    - run: cp /src/start.sh start.sh
+    - run: cp /ci/parallel_sync/sync_then_diff.sh sync_then_diff.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
     - run: cd /src
     - name: Start Node
-      run: ./start.sh
+      run: ./sync_then_diff.sh
   # Sync 550000 - 600000
 #   sync-550000-600000:
 #     runs-on: [self-hosted, linux, x64]
