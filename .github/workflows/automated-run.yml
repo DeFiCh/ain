@@ -17,7 +17,7 @@ jobs:
       run: ./make.sh build
     - name: download start script
       run: wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -O src/start.sh
-    - run: chmod +x ./src/start.sh
+    - run: chmod 777 ./src/start.sh
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
