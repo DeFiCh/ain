@@ -138,9 +138,9 @@ bool fCheckBlockIndex = false;
 
 bool fStopOrInterrupt = false;
 std::string fInterruptBlockHash = "";
-int fInterruptBlockHeight = 0;
+int fInterruptBlockHeight = -1;
 std::string fStopBlockHash = "";
-int fStopBlockHeight = 0;
+int fStopBlockHeight = -1;
 
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
