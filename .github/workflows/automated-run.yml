@@ -39,7 +39,7 @@ jobs:
     - run: cp /src/defi-cli defi-cli
     - run: cd /src
     - name: Start Node
-      run: ./start.sh
+      run: DEFID=./defid DEFICLI=./defi-cli ./start.sh
   # Sync 550000 - 600000
 #   sync-550000-600000:
 #     runs-on: [self-hosted, linux, x64]
