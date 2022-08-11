@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 # Binaries
-DEFID_BIN=./defid
-DEFI_CLI_BIN=./defi-cli
+DEFID_BIN=${DEFID_BIN:-"./defid"}
+DEFI_CLI_BIN=${DEFI_CLI_BIN:-"./defi-cli"}
 
 # Files and directories
 DATADIR=${DATADIR:-".defi"}
