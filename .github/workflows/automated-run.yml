@@ -15,9 +15,6 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-    - name: download start script
-      run: wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh -O src/start.sh
-    - run: chmod 777 ./src/start.sh
   # Sync 500000 - 550000
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
@@ -27,18 +24,17 @@ jobs:
       volumes:
         - datadir-500000
         - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
       options: --privileged
       env:
-        STOP_BLOCK: 550000
+        - STOP_BLOCK: 550000
+        - DEFID_BIN: /src/defid
+        - DEFI_CLI_BIN: /src/defi-cli
+        - DATADIR: datadir-500000
     timeout-minutes: 4320
     steps:
-    - run: ln -s "/datadir-500000" ~/.defi
-    - run: cp /src/start.sh start.sh
-    - run: cp /src/defid defid
-    - run: cp /src/defi-cli defi-cli
-    - run: ./defid
     - name: Start Node
-      run: DEFID=./defid DEFICLI=./defi-cli ./start.sh
+      run: ./parallel_sync/sync_then_diff.sh
   # Sync 550000 - 600000
 #   sync-550000-600000:
 #     runs-on: [self-hosted, linux, x64]
