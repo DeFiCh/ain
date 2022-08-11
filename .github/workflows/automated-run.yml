@@ -32,7 +32,7 @@ jobs:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
-    - run: ln -s "/datadir-500000" /home/root/.defi
+    #- run: ln -s "/datadir-500000" /home/root/.defi
     - run: cp /src/start.sh start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
