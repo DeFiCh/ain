@@ -33,10 +33,10 @@ jobs:
     timeout-minutes: 4320
     steps:
     - run: ln -s "/datadir-500000" ~/.defi
-    - run: ./defid
     - run: cp /src/start.sh start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
+    - run: ./defid
     - name: Start Node
       run: DEFID=./defid DEFICLI=./defi-cli ./start.sh
   # Sync 550000 - 600000
