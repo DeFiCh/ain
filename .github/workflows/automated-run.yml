@@ -32,6 +32,7 @@ jobs:
         DATADIR: datadir-500000
     timeout-minutes: 4320
     steps:
+    - run: ls -lha
     - name: Start Node
       run: /parallel_sync/sync_then_diff.sh
   # Sync 550000 - 600000
