@@ -29,7 +29,7 @@ jobs:
         STOP_BLOCK: 550000
         DEFID_BIN: /src/defid
         DEFI_CLI_BIN: /src/defi-cli
-        DATADIR: datadir-500000
+        DATADIR: /datadir-500000
     timeout-minutes: 4320
     steps:
     - run: ls -lha
