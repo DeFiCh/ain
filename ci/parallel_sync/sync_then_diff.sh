@@ -7,7 +7,7 @@ DEFI_CLI_BIN=./defi-cli
 
 # Files and directories
 DATADIR=${DATADIR:-".defi"}
-DEBUG_FILE="$DEBUG_FILE/debug.log"
+DEBUG_FILE="$DATADIR/debug.log"
 TMP_LOG=debug-tmp-$STOP_BLOCK.log
 BASE_PATH=https://storage.googleapis.com
 BUCKET=team-drop
