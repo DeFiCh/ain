@@ -25,18 +25,17 @@ jobs:
     container:
       image : gcr.io/br-blockchains-dev/datadir-500000
       volumes:
-        - datadir-500000:~/.defi
+        - datadir-500000
         - ${{ github.workspace }}/src:/src
       options: --privileged
       env:
         STOP_BLOCK: 550000
     timeout-minutes: 4320
     steps:
-    #- run: ln -s "/datadir-500000" /home/root/.defi
+    - run: ln -s "/datadir-500000" ~/.defi
     - run: cp /src/start.sh start.sh
     - run: cp /src/defid defid
     - run: cp /src/defi-cli defi-cli
-    - run: cd /src
     - name: Start Node
       run: DEFID=./defid DEFICLI=./defi-cli ./start.sh
   # Sync 550000 - 600000
