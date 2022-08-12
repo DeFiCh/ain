@@ -44,7 +44,10 @@ $ACCOUNT_BALANCES_CMD >> $TMP_LOG
 $LIST_ANCHORS_CMD >> $TMP_LOG
 
 $DEFI_CLI_CMD stop
+
 # Download reference log file
+echo "Downloading reference log file : $REF_LOG_PATH"
 $FETCH $REF_LOG_PATH
 
+echo "diff $TMP_LOG $REF_LOG"
 diff $TMP_LOG $REF_LOG
