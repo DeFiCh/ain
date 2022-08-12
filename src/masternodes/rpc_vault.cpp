@@ -153,13 +153,15 @@ namespace {
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
+        std::map<DCT_ID, base_uint<128>> interestsPerBlockHighPrecision;
+        base_uint<128> interestsPerBlockValueHighPrecision{0};
+        TAmounts interestsPerBlock{};
+        CAmount totalInterestsPerBlock{0};
 
         if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
-            CAmount totalInterestsPerBlock{0};
-            TAmounts interestsPerBlock{};
 
             for (const auto& loan : loanTokens->balances) {
                 auto token = pcustomcsview->GetLoanTokenByID(loan.first);
@@ -173,9 +175,15 @@ namespace {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                     if (verbose) {
-                        auto interestPerBlock = rate->interestPerBlock.GetLow64();
-                        interestsPerBlock.insert({loan.first, interestPerBlock});
-                        totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                        if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                            auto currentInterestRate = rate->interestPerBlock;
+                            interestsPerBlockValueHighPrecision += (static_cast<base_uint<128>>(price) * currentInterestRate / COIN);
+                            interestsPerBlockHighPrecision[loan.first] += currentInterestRate;
+                        } else {
+                            auto interestPerBlock = rate->interestPerBlock.GetLow64();
+                            interestsPerBlock.insert({loan.first, interestPerBlock});
+                            totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                        }
                     }
                 }
 
@@ -188,10 +196,6 @@ namespace {
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
             interestAmounts = AmountsToJSON(interestBalances);
-            if (verbose) {
-                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
-                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
-            }
         }
 
         result.pushKV("vaultId", vaultId.GetHex());
@@ -208,6 +212,7 @@ namespace {
             ratioValue = -1;
             collateralRatio = -1;
             totalInterestsPerBlockValue = -1;
+            interestsPerBlockValueHighPrecision = -1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -221,7 +226,25 @@ namespace {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
-            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                if(isVaultTokenLocked){
+                    result.pushKV("interestPerBlockValue", -1);
+                } else {
+                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
+                    for (auto it=interestsPerBlockHighPrecision.begin(); it != interestsPerBlockHighPrecision.end(); ++it) {
+                        auto tokenId = it->first;
+                        auto interestPerBlock = it->second;
+                        auto token = pcustomcsview->GetToken(tokenId);
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+                        auto tokenSymbol = token->CreateSymbolKey(tokenId);
+                        interestsPerBlockBalances.push_back(amountStr + "@" + tokenSymbol);
+                    }
+                }
+            } else {
+                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
+                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
+                result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            }
             result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
