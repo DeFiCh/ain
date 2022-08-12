@@ -11,7 +11,7 @@ DEBUG_FILE="$DATADIR/debug.log"
 TMP_LOG=debug-tmp-$STOP_BLOCK.log
 BASE_PATH=https://storage.googleapis.com
 BUCKET=team-drop
-REF_LOG_DIR=master-log-full
+REF_LOG_DIR=master-logs-full
 REF_LOG=debug-$STOP_BLOCK.log
 REF_LOG_PATH=$BASE_PATH/$BUCKET/$REF_LOG_DIR/$REF_LOG
 
