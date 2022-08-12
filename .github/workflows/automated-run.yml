@@ -31,8 +31,6 @@ jobs:
         DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
-    - name: Directory
-      run: ls -lha ./${DATADIR}
     - name: Current Directory
       run: ls -lha /${DATADIR}
     - name: Start Node
