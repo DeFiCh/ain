@@ -15,7 +15,7 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-  sync-matrix:
+  sync:
     strategy:
       matrix:
         datadir:
@@ -50,4 +50,5 @@ jobs:
     - name: Sync and Diff
       run: /parallel_sync/sync_then_diff.sh
     - name: Show Debug Log
+      continue-on-error: true
       run: cat $DATADIR/debug.log
