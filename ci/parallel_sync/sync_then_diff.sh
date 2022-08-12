@@ -33,18 +33,7 @@ $DEFI_CLI_CMD clearbanned || true
 BLOCK=0
 # Sync to target block height
 while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
-  TMP_BLOCK=$($DEFI_CLI_CMD getblockcount 2>/dev/null || echo $BLOCK)
-  if [ $TMP_BLOCK -eq $BLOCK ]; then
-    echo "Node stuck at block $TMP_BLOCK"
-
-    # TODO: proper check of debug.log
-    tail -n 50 $DEBUG_FILE
-
-    echo "Restarting node..."
-    $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
-  fi
-
-  BLOCK=$TMP_BLOCK
+  BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
   echo "Current block: $BLOCK"
   sleep 20
 done
