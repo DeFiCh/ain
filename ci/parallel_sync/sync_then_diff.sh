@@ -20,7 +20,7 @@ DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange"
 DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
 ACCOUNT_BALANCES_CMD="$DEFI_CLI_CMD logaccountbalances"
 LIST_ANCHORS_CMD="$DEFI_CLI_CMD spv_listanchors"
-FETCH=wget
+FETCH="wget -q"
 GREP=grep
 
 # Start defid

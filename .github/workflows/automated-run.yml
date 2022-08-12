@@ -15,40 +15,6 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-  sync-350000-400000:
-    runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-350000
-      volumes:
-        - ${{ github.workspace }}/src:/src
-        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
-      options: --privileged
-      env:
-        STOP_BLOCK: 400000
-        DEFID_BIN: /src/defid
-        DEFI_CLI_BIN: /src/defi-cli
-    timeout-minutes: 4320
-    steps:
-    - name: Start Node
-      run: /parallel_sync/sync_then_diff.sh
-  sync-400000-450000:
-    runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-400000
-      volumes:
-        - ${{ github.workspace }}/src:/src
-        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
-      options: --privileged
-      env:
-        STOP_BLOCK: 450000
-        DEFID_BIN: /src/defid
-        DEFI_CLI_BIN: /src/defi-cli
-    timeout-minutes: 4320
-    steps:
-    - name: Start Node
-      run: /parallel_sync/sync_then_diff.sh
   sync-450000-500000:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
@@ -64,8 +30,10 @@ jobs:
         DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
-    - name: Start Node
-      run: /parallel_sync/sync_then_diff.sh
+    - name: Sync and Diff
+      run: /parallel_sync/sync_then_diff.
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
@@ -81,5 +49,83 @@ jobs:
         DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
-    - name: Start Node
+    - name: Sync and Diff
       run: /parallel_sync/sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
+  sync-550000-600000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-550000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 600000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Sync and Diff
+      run: /parallel_sync/sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
+  sync-600000-650000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-600000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 650000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Sync and Diff
+      run: /parallel_sync/sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
+  sync-650000-700000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-650000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 700000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Sync and Diff
+      run: /parallel_sync/sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
+  sync-700000-750000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-700000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 750000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Sync and Diff
+      run: /parallel_sync/sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
