@@ -28,12 +28,12 @@ echo "Syncing to block height: $STOP_BLOCK"
 $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
 sleep 30
 
-$DEFI_CLI_CMD clearbanned
+$DEFI_CLI_CMD clearbanned || true
 
 BLOCK=0
 # Sync to target block height
 while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
-  BLOCK=$($DEFI_CLI_CMD getblockcount)
+  BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
   echo "Current block: $BLOCK"
   sleep 20
 done
