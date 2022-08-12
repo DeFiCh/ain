@@ -16,23 +16,23 @@ jobs:
     - name: Build Node
       run: ./make.sh build
   sync-matrix:
-  strategy:
-    matrix:
-      datadir:
-        - start: 450000
-          stop: 500000
-        - start: 500000
-          stop: 550000
-        - start: 550000
-          stop: 600000
-        - start: 600000
-          stop: 650000
-        - start: 650000
-          stop: 700000
-        - start: 700000
-          stop: 750000
-        - start: 750000
-          stop: 800000
+    strategy:
+      matrix:
+       datadir:
+         - start: 450000
+           stop: 500000
+         - start: 500000
+           stop: 550000
+         - start: 550000
+           stop: 600000
+         - start: 600000
+           stop: 650000
+         - start: 650000
+           stop: 700000
+         - start: 700000
+           stop: 750000
+         - start: 750000
+           stop: 800000
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
     container:
