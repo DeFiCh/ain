@@ -29,8 +29,13 @@ jobs:
         STOP_BLOCK: 550000
         DEFID_BIN: /src/defid
         DEFI_CLI_BIN: /src/defi-cli
+        DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
+    - name: Directory
+      run: ls -lha ./${DATADIR}
+    - name: Current Directory
+      run: ls -lha /${DATADIR}
     - name: Start Node
       run: /parallel_sync/sync_then_diff.sh
   # Sync 550000 - 600000
