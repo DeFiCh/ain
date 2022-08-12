@@ -15,7 +15,7 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-  # Sync 500000 - 550000 - test
+  # Sync 500000 - 550000 - test2
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
