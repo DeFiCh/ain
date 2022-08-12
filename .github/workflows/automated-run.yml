@@ -48,6 +48,6 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Sync and Diff
-      run: /parallel_sync/sync_then_diff.
+      run: /parallel_sync/sync_then_diff.sh
     - name: Show Debug Log
       run: cat $DATADIR/debug.log
