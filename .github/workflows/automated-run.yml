@@ -29,7 +29,6 @@ jobs:
         STOP_BLOCK: 550000
         DEFID_BIN: /src/defid
         DEFI_CLI_BIN: /src/defi-cli
-        DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
     - name: Directory
