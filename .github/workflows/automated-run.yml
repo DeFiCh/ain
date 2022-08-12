@@ -15,7 +15,57 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
-  # Sync 500000 - 550000 - rollout build
+  sync-350000-400000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-350000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 400000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Start Node
+      run: /parallel_sync/sync_then_diff.sh
+  sync-400000-450000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-400000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 450000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Start Node
+      run: /parallel_sync/sync_then_diff.sh
+  sync-450000-500000:
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-450000
+      volumes:
+        - ${{ github.workspace }}/src:/src
+        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
+      options: --privileged
+      env:
+        STOP_BLOCK: 500000
+        DEFID_BIN: /src/defid
+        DEFI_CLI_BIN: /src/defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Start Node
+      run: /parallel_sync/sync_then_diff.sh
   sync-500000-550000:
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
@@ -31,100 +81,5 @@ jobs:
         DEFI_CLI_BIN: /src/defi-cli
     timeout-minutes: 4320
     steps:
-    - name: Current Directory
-      run: ls -lha /node
     - name: Start Node
       run: /parallel_sync/sync_then_diff.sh
-  # Sync 550000 - 600000
-#   sync-550000-600000:
-#     runs-on: [self-hosted, linux, x64]
-#     needs: build-binaries
-#     container:
-#       image : gcr.io/br-blockchains-dev/datadir-550000
-#       volumes:
-#         - datadir-550000
-#       env:
-#         STOP_BLOCK: 600000
-#     timeout-minutes: 4320
-#     steps:
-#     - name: Download Defid
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defid
-#         path: defid
-#     - name: Download Defi Cli
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defi-cli
-#         path: ./defi-cli
-#     - name: download start script
-#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-#     - run: chmod +x ./start.sh
-#     - run: chmod +x ./defi-cli
-#     - run: chmod +x ./defid
-#     - name: Run Node
-#       run: ./defid -daemon
-#     - name: Monitor running Node
-#       run: ./start.sh
-#   # Sync 600000 - 650000
-#   sync-600000-650000:
-#     runs-on: [self-hosted, linux, x64]
-#     needs: build-binaries
-#     container:
-#       image : gcr.io/br-blockchains-dev/datadir-600000
-#       volumes:
-#         - datadir-600000
-#       env:
-#         STOP_BLOCK: 650000
-#     timeout-minutes: 4320
-#     steps:
-#     - name: Download Defid
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defid
-#         path: defid
-#     - name: Download Defi Cli
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defi-cli
-#         path: ./defi-cli
-#     - name: download start script
-#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-#     - run: chmod +x ./start.sh
-#     - run: chmod +x ./defi-cli
-#     - run: chmod +x ./defid
-#     - name: Run Node
-#       run: ./defid -daemon
-#     - name: Monitor running Node
-#       run: ./start.sh
-#   # Sync 650000 - 700000
-#   sync-650000-700000:
-#     runs-on: [self-hosted, linux, x64]
-#     needs: build-binaries
-#     container:
-#       image : gcr.io/br-blockchains-dev/datadir-650000
-#       volumes:
-#         - datadir-650000
-#       env:
-#         STOP_BLOCK: 700000
-#     timeout-minutes: 4320
-#     steps:
-#     - name: Download Defid
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defid
-#         path: defid
-#     - name: Download Defi Cli
-#       uses: actions/download-artifact@v3
-#       with:
-#         name: defi-cli
-#         path: ./defi-cli
-#     - name: download start script
-#       run: "wget https://raw.githubusercontent.com/mambisi/ain-snapshotutil/master/start.sh"
-#     - run: chmod +x ./start.sh
-#     - run: chmod +x ./defi-cli
-#     - run: chmod +x ./defid
-#     - name: Run Node
-#       run: ./defid -daemon
-#     - name: Monitor running Node
-#       run: ./start.sh
