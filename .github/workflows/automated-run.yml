@@ -48,6 +48,7 @@ jobs:
     timeout-minutes: 4320
     steps:
     - name: Sync and Diff
+      continue-on-error: true
       run: /parallel_sync/sync_then_diff.sh
     - name: Show Debug Log
       continue-on-error: true
