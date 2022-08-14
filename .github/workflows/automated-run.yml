@@ -30,6 +30,13 @@ jobs:
           src/defid
           src/defi-cli
           ci/parallel_sync/sync_then_diff.sh
+    - name: Archive Sync
+      uses: actions/upload-artifact@v3
+      with:
+        name: sync
+        path: |
+          ci/parallel_sync/sync_then_diff.sh
+
   sync:
     strategy:
       matrix:
@@ -53,9 +60,6 @@ jobs:
     continue-on-error: true
     container:
       image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
-      volumes:
-        - ${{ github.workspace }}/src:/src
-        - ${{ github.workspace }}/ci/parallel_sync:/parallel_sync
       options: --privileged
       env:
         STOP_BLOCK: ${{matrix.datadir.stop}}
@@ -67,6 +71,10 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defibins
+    - name: Download Sync
+      uses: actions/download-artifact@v3
+      with:
+        name: sync
     - run: ls -lha
     - run: |
         chmod 777 defid
