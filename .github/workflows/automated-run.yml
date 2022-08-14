@@ -15,6 +15,21 @@ jobs:
         fetch-depth: 0
     - name: Build Node
       run: ./make.sh build
+    - name: Upload Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: defibins
+        path: |
+         src/defid
+         src/defi-cli
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: defibins
+        path: |
+          src/defid
+          src/defi-cli
+          ci/parallel_sync/sync_then_diff.sh
   sync:
     strategy:
       matrix:
@@ -35,6 +50,7 @@ jobs:
             stop: 800000
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
+    continue-on-error: true
     container:
       image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
       volumes:
@@ -43,13 +59,19 @@ jobs:
       options: --privileged
       env:
         STOP_BLOCK: ${{matrix.datadir.stop}}
-        DEFID_BIN: /src/defid
-        DEFI_CLI_BIN: /src/defi-cli
+        DEFID_BIN: ${{ github.workspace }}/defid
+        DEFI_CLI_BIN: ${{ github.workspace }}/defi-cli
     timeout-minutes: 4320
     steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: defibins
+    - run: |
+        chmod 777 defid
+        chmod 777 defi-cli
+        chmod 777 ./sync_then_diff.sh
     - name: Sync and Diff
-      continue-on-error: true
-      run: /parallel_sync/sync_then_diff.sh
+      run: ./sync_then_diff.sh
     - name: Show Debug Log
-      continue-on-error: true
       run: cat $DATADIR/debug.log
