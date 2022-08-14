@@ -22,15 +22,14 @@ jobs:
         path: |
          src/defid
          src/defi-cli
-    - name: Archive artifacts
+    - name: Archive Binaries
       uses: actions/upload-artifact@v3
       with:
         name: defibins
         path: |
           src/defid
           src/defi-cli
-          ci/parallel_sync/sync_then_diff.sh
-    - name: Archive Sync
+    - name: Archive Shell Commands
       uses: actions/upload-artifact@v3
       with:
         name: sync
@@ -67,11 +66,11 @@ jobs:
         DEFI_CLI_BIN: ${{ github.workspace }}/defi-cli
     timeout-minutes: 4320
     steps:
-    - name: Download Artifacts
+    - name: Download Binaries
       uses: actions/download-artifact@v3
       with:
         name: defibins
-    - name: Download Sync
+    - name: Download Shell Commands
       uses: actions/download-artifact@v3
       with:
         name: sync
@@ -81,6 +80,6 @@ jobs:
         chmod 777 defi-cli
         chmod 777 sync_then_diff.sh
     - name: Sync and Diff
-      run: sync_then_diff.sh
+      run: /sync_then_diff.sh
     - name: Show Debug Log
       run: cat $DATADIR/debug.log
