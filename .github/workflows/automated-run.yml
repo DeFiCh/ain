@@ -62,8 +62,8 @@ jobs:
       options: --privileged
       env:
         STOP_BLOCK: ${{matrix.datadir.stop}}
-        DEFID_BIN: defid
-        DEFI_CLI_BIN: defi-cli
+        DEFID_BIN: ./defid
+        DEFI_CLI_BIN: ./defi-cli
     timeout-minutes: 4320
     steps:
     - name: Download Binaries
