@@ -8,7 +8,7 @@ on:
       - parallel-test
 jobs:
   build-binaries:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, x64,server-2]
     steps:
     - uses: actions/checkout@v3
       with:
