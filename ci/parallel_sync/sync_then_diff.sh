@@ -44,7 +44,7 @@ NODE_RESTARTS=0
 while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
   if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
     if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
-      echo "Node Stuck After $attempts attempts, restarting node"
+      echo "Node Stuck After $ATTEMPTS attempts, restarting node"
       $DEFI_CLI_CMD stop
       sleep 20
       START_NODE
