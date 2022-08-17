@@ -6,11 +6,16 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than
 
 import calendar
 import time
 from decimal import ROUND_DOWN, Decimal
+
+def getDecimalAmount(amount):
+    amountTmp = amount.split('@')[0]
+    return Decimal(amountTmp)
+
 
 class NegativeInterestTest (DefiTestFramework):
     def set_test_params(self):
@@ -726,6 +731,28 @@ class NegativeInterestTest (DefiTestFramework):
         assert_equal(vault["state"], 'active')
         assert_equal(vault["interestPerBlockValue"], '-0.000002289646707572298320')
 
+    def payback_interests_and_continue_with_negative_interest(self):
+        self.nodes[0].paybackloan({
+                        'vaultId': self.vaultId7,
+                        'from': self.account0,
+                        'amounts': ["0.00001000@" + self.symbolTSLA]})
+        self.nodes[0].generate(1)
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId7, verbose)
+        amounts0 = []
+        for amount in vault["loanAmounts"]:
+            amounts0.append(getDecimalAmount(amount))
+        self.nodes[0].generate(1)
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId7, verbose)
+        amounts1 = []
+        for amount in vault["loanAmounts"]:
+            amounts1.append(getDecimalAmount(amount))
+
+        for amount in amounts0:
+            print(amount, amounts1[amounts0.index(amount)])
+            assert_greater_than(amounts1[amounts0.index(amount)], amount)
+
     def run_test(self):
         self.setup()
         self.vault_interest_zero()
@@ -742,6 +769,7 @@ class NegativeInterestTest (DefiTestFramework):
         self.updates_of_vault_scheme()
         self.total_interest_with_multiple_takeloan()
         self.vault_status_with_negative_interest()
+        self.payback_interests_and_continue_with_negative_interest()
 
 
 if __name__ == '__main__':
