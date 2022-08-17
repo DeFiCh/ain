@@ -442,7 +442,6 @@ class NegativeInterestTest (DefiTestFramework):
 
         # Check interests
         vault = self.nodes[0].getvault(self.vaultId6, verbose)
-        print(vault["interestPerBlockValue"])
 
         # This should be NOT 0 as interest of the total interest should be 1%
         assert_equal(vault["interestPerBlockValue"], '0.000000190258483637747330')
@@ -750,8 +749,21 @@ class NegativeInterestTest (DefiTestFramework):
             amounts1.append(getDecimalAmount(amount))
 
         for amount in amounts0:
-            print(amount, amounts1[amounts0.index(amount)])
-            assert_greater_than(amounts1[amounts0.index(amount)], amount)
+            assert_greater_than(amount, amounts1[amounts0.index(amount)])
+
+        accountInfo = self.nodes[0].getaccount(self.account0)
+        self.nodes[0].generate(100)
+        accountInfo1 = self.nodes[0].getaccount(self.account0)
+        assert_equal(accountInfo, accountInfo1)
+
+        verbose = True
+        vault = self.nodes[0].getvault(self.vaultId7, verbose)
+        amounts2 = []
+        for amount in vault["loanAmounts"]:
+            amounts2.append(getDecimalAmount(amount))
+
+        for amount in amounts1:
+            assert_greater_than(amount, amounts2[amounts1.index(amount)])
 
     def run_test(self):
         self.setup()
