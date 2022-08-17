@@ -5,7 +5,8 @@ $(package)_git_path=https://github.com/DeFiCh/libain-rs
 define $(package)_fetch_cmds
 	if [ ! -z ${LIBAIN_PATH} ]; then \
 		echo "Using local path for libain-rs"; \
-		cp -r $(LIBAIN_PATH) $$($(package)_extract_dir); \
+		mkdir -p $$($(package)_extract_dir); \
+		cp -r $(LIBAIN_PATH)/* $$($(package)_extract_dir)/; \
 	else \
 		echo "Cloning from Git repository for libain-rs"; \
 		git clone --single-branch --branch master $$($(package)_git_path) $$($(package)_extract_dir); \
