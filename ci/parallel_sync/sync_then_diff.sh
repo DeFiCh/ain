@@ -55,7 +55,7 @@ while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
     fi
   fi
   CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
-  if [ "$CUR_BLOCK" -eq "$BLOCK"]; then
+  if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
     ATTEMPTS=$((ATTEMPTS + 1))
   else
     ATTEMPTS=0
