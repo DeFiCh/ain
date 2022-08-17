@@ -42,7 +42,7 @@ NODE_RESTARTS=0
 
 # Sync to target block height
 while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
-  if [ $ATTEMPTS -gt $MAX_ATTEMPTS ]; then
+  if [ "$ATTEMPTS" -gt "$MAX_ATTEMPTS" ]; then
     if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
       echo "Node Stuck After $attempts attempts, restarting node"
       $DEFI_CLI_CMD stop
