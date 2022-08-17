@@ -24,16 +24,43 @@ FETCH="wget -q"
 GREP=grep
 
 # Start defid
-echo "Syncing to block height: $STOP_BLOCK"
-$DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
-sleep 30
+START_NODE () {
+  echo "Syncing to block height: $STOP_BLOCK"
+  $DEFID_CMD -interrupt-block=$((STOP_BLOCK + 1))
+  sleep 30
+}
+
+START_NODE
 
 $DEFI_CLI_CMD clearbanned || true
 
 BLOCK=0
+ATTEMPTS=0
+MAX_ATTEMPTS=10
+MAX_NODE_RESTARTS=5
+NODE_RESTARTS=0
+
 # Sync to target block height
 while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
-  BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
+  if [ $ATTEMPTS -gt $MAX_ATTEMPTS ]; then
+    if [ "$NODE_RESTARTS" -lt "$MAX_NODE_RESTARTS" ]; then
+      echo "Node Stuck After $attempts attempts, restarting node"
+      $DEFI_CLI_CMD stop
+      sleep 20
+      START_NODE
+      NODE_RESTARTS=$((NODE_RESTARTS + 1))
+      ATTEMPTS=0
+    else
+      exit 1
+    fi
+  fi
+  CUR_BLOCK=$($DEFI_CLI_CMD getblockcount:-$BLOCK)
+  if [ "$CUR_BLOCK" -eq "$BLOCK"]; then
+    ATTEMPTS=$((ATTEMPTS + 1))
+  else
+    ATTEMPTS=0
+  fi
+  BLOCK=${CUR_BLOCK:-$BLOCK}
   echo "Current block: $BLOCK"
   sleep 20
 done
@@ -44,7 +71,6 @@ $ACCOUNT_BALANCES_CMD >> $TMP_LOG
 $LIST_ANCHORS_CMD >> $TMP_LOG
 
 $DEFI_CLI_CMD stop
-
 # Download reference log file
 echo "Downloading reference log file : $REF_LOG_PATH"
 $FETCH $REF_LOG_PATH
