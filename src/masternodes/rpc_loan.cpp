@@ -1497,12 +1497,13 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     auto vaultInterest = [&](const CVaultId& vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate)
     {
-        auto& [cumulativeInterest, positiveInterest, negativeInterest] = interest[tokenId];
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId)
             return true;
         if ((id != DCT_ID{~0U}) && tokenId != id)
             return true;
+
+        auto& [cumulativeInterest, positiveInterest, negativeInterest] = interest[tokenId];
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
