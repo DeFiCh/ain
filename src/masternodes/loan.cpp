@@ -320,11 +320,8 @@ Res CLoanView::StoreInterest(const uint32_t height, const CVaultId& vaultId, con
     if (auto readRate = GetInterestRate(vaultId, id, height))
         rate = *readRate;
 
-    if (rate.height > height)
+    if (rate.height > height || height == 0)
         return Res::Err("Cannot store height in the past");
-
-    if (rate.height == 0)
-        return Res::Err("Data mismatch height == 0");
 
     CBalances amounts;
     ReadBy<LoanTokenAmount>(vaultId, amounts);
