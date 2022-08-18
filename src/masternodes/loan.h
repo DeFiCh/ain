@@ -334,7 +334,7 @@ static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,00
 
 CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
 CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height);
-CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height, CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
+CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 
 std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);

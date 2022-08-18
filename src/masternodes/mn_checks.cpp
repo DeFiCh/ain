@@ -2932,10 +2932,9 @@ public:
                     return Res::Err("Cannot get interest rate for this token (%d)", tokenId.v);
                 }
                 const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                assert(scheme);
                 const auto tokenInterest = mnview.GetLoanTokenByID(tokenId);
-                if (!tokenInterest || !scheme) {
-                    return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
-                }
+                assert(tokenInterest);
                 const auto totalInterest = TotalInterest(*rate, height, amount, tokenInterest->interest, scheme->rate);
                 if (totalInterest < 0 && amount + totalInterest <= 0) {
                     res = mnview.SubMintedTokens(tokenId, amount);
