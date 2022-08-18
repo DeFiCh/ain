@@ -21,7 +21,7 @@ DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
 ACCOUNT_BALANCES_CMD="$DEFI_CLI_CMD logaccountbalances"
 LIST_ANCHORS_CMD="$DEFI_CLI_CMD spv_listanchors"
 FETCH="wget -q"
-GREP=grep
+GREP="grep"
 
 # Start defid
 START_NODE () {
