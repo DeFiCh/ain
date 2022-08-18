@@ -1481,7 +1481,8 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    if (!pcustomcsview->GetLoanScheme(loanSchemeId))
+    const auto scheme = pcustomcsview->GetLoanScheme(loanSchemeId);
+    if (!scheme)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
 
     DCT_ID id{~0u};
@@ -1494,7 +1495,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     std::map<DCT_ID, std::tuple<base_uint<128>, base_uint<128>, base_uint<128>> > interest;
 
-    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV3 &rate)
+    auto vaultInterest = [&](const CVaultId& vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate)
     {
         auto& [cumulativeInterest, positiveInterest, negativeInterest] = interest[tokenId];
         auto vault = pcustomcsview->GetVault(vaultId);
@@ -1507,7 +1508,17 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (!token)
             return true;
 
-        const auto totalInterest = TotalInterestCalculation(rate, height);
+        const auto loans = pcustomcsview->GetLoanTokens(vaultId);
+        if (!loans || !loans->balances.count(tokenId)) {
+            return true;
+        }
+
+        const auto loanToken = pcustomcsview->GetLoanTokenByID(tokenId);
+        if (!loanToken) {
+            return true;
+        }
+
+        const auto totalInterest = TotalInterestCalculation(rate, height, loans->balances.at(tokenId), loanToken->interest, scheme->rate);
         cumulativeInterest += totalInterest.negative ? 0 : totalInterest.amount;
         if (!rate.interestPerBlock.negative) {
             positiveInterest += rate.interestPerBlock.amount;

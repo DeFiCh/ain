@@ -3333,7 +3333,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
@@ -3363,20 +3362,23 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // for auction calculations.
             CBalances totalInterest;
             for (auto& loan : loanTokens->balances) {
-                auto tokenId = loan.first;
-                auto tokenValue = loan.second;
+                const auto &tokenId = loan.first;
+                const auto &tokenValue = loan.second;
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
+
+                const auto loanToken = cache.GetLoanTokenByID(tokenId);
+                assert(loanToken);
+
+                auto subInterest = TotalInterest(*rate, pindex->nHeight, tokenValue, loanToken->interest, scheme->rate);
                 if (subInterest > 0) {
                     totalInterest.Add({tokenId, subInterest});
                 }
 
                 // Remove the interests from the vault and the storage respectively
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, std::abs(subInterest));
+
                 // Putting this back in now for auction calculations.
                 loan.second += subInterest;
             }

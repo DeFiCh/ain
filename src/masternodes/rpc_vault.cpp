@@ -114,6 +114,9 @@ namespace {
         auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
 
+        const auto scheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        assert(scheme);
+
         if (vaultState == VaultState::InLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
@@ -132,7 +135,6 @@ namespace {
 
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
-        LogPrint(BCLog::LOAN,"%s():\n", __func__);
 
         if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
@@ -158,7 +160,7 @@ namespace {
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 
-        if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
+        if (const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
@@ -168,8 +170,7 @@ namespace {
                 if (!token) continue;
                 auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
                 if (!rate) continue;
-                LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
-                auto totalInterest = TotalInterest(*rate, height + 1);
+                auto totalInterest = TotalInterest(*rate, height + 1, amount, token->interest, scheme->rate);
                 auto value = amount + totalInterest;
                 if (value > 0) {
                     if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {

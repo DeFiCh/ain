@@ -332,9 +332,9 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
 
 static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
 
-CAmount TotalInterest(const CInterestRateV3& rate, uint32_t height);
+CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
 CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height);
-CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, uint32_t height);
+CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height, CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 
 std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
@@ -430,8 +430,8 @@ public:
     void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id, uint32_t height);
     std::optional<CInterestRateV3> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
     void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV3& rate, uint32_t height);
-    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount tokenInterest, CAmount loanIncreased);
-    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
+    Res StoreInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount tokenInterest, const CAmount loanIncreased);
+    Res EraseInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount loanDecreased, const CAmount interestDecreased);
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});
     void ForEachVaultInterestV2(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV2)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});
     void ForEachVaultInterestV3(std::function<bool(const CVaultId&, DCT_ID, CInterestRateV3)> callback, const CVaultId& vaultId = {}, DCT_ID id = {});

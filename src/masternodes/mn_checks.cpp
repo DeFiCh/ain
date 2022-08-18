@@ -2525,7 +2525,6 @@ public:
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
 
-        LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
         if (!price)
             return Res::Err(price.msg);
@@ -2533,7 +2532,6 @@ public:
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
 
-        LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -2933,7 +2931,12 @@ public:
                 if (!rate) {
                     return Res::Err("Cannot get interest rate for this token (%d)", tokenId.v);
                 }
-                const auto totalInterest = TotalInterest(*rate, height);
+                const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                const auto tokenInterest = mnview.GetLoanTokenByID(tokenId);
+                if (!tokenInterest || !scheme) {
+                    return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
+                }
+                const auto totalInterest = TotalInterest(*rate, height, amount, tokenInterest->interest, scheme->rate);
                 if (totalInterest < 0 && amount + totalInterest <= 0) {
                     res = mnview.SubMintedTokens(tokenId, amount);
                     if (!res)
@@ -2994,10 +2997,9 @@ public:
             return Res::Err("Cannot update vault while any of the asset's price is invalid");
 
         // don't allow scheme change when vault is going to be in liquidation
-        if (vault->schemeId != obj.schemeId)
-            if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+        if (vault->schemeId != obj.schemeId) {
+            if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
                 for (int i = 0; i < 2; i++) {
-                    LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
                     bool useNextPrice = i > 0, requireLivePrice = true;
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
@@ -3007,6 +3009,38 @@ public:
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
+            }
+            if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+                const auto loanTokens = mnview.GetLoanTokens(obj.vaultId);
+                if (loanTokens) {
+                    for (const auto& [tokenId, tokenAmount] : loanTokens->balances) {
+                        const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
+                        assert(rate);
+                        const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                        assert(scheme);
+                        const auto loanToken = mnview.GetLoanTokenByID(tokenId);
+                        assert(loanToken);
+                        if (const auto totalInterest = TotalInterest(*rate, height, tokenAmount, loanToken->interest, scheme->rate); totalInterest < 0) {
+                            const auto subAmount = tokenAmount > std::abs(totalInterest) ? std::abs(totalInterest) : tokenAmount;
+                            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
+                            if (!res) {
+                                return res;
+                            }
+
+                            res = mnview.SubMintedTokens(tokenId, subAmount);
+                            if (!res) {
+                                return res;
+                            }
+                        }
+                        // StoreInterest will reduce interestToHeight amount for negative interest rates.
+                        res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, 0);
+                        if (!res) {
+                            return res;
+                        }
+                    }
+                }
+            }
+        }
 
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
@@ -3052,7 +3086,6 @@ public:
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
-        LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
@@ -3101,7 +3134,7 @@ public:
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
-                    LogPrint(BCLog::LOAN,"CWithdrawFromVaultMessage():\n");
+
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
@@ -3156,6 +3189,8 @@ public:
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
+        const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
@@ -3169,9 +3204,19 @@ public:
             // Calculate interest
             CAmount totalInterest{};
             CAmount mintReduced{};
+            CAmount currentLoanAmount{};
             auto loanAmount = tokenAmount;
-            if (const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height)) {
-                totalInterest = TotalInterest(*rate, height);
+
+            const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+            if (!scheme) {
+                return Res::Err("No such scheme id %s", vault->schemeId);
+            }
+
+            if (loanAmounts && loanAmounts->balances.count(tokenId)) {
+                const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
+                assert(rate);
+                currentLoanAmount = loanAmounts->balances.at(tokenId);
+                totalInterest = TotalInterest(*rate, height, currentLoanAmount, loanToken->interest, scheme->rate);
                 if (totalInterest < 0) {
                     loanAmount += totalInterest;
                     mintReduced = std::abs(totalInterest);
@@ -3183,12 +3228,7 @@ public:
                 if (!res)
                     return res;
             } else {
-                const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-                assert(loanAmounts); // Expect tokenId if we have negative interest
-                const auto it = loanAmounts->balances.find(tokenId);
-                assert(it != loanAmounts->balances.end());
-
-                auto subAmount = it->second > std::abs(loanAmount) ? std::abs(loanAmount) : it->second;
+                const auto subAmount = currentLoanAmount > std::abs(loanAmount) ? std::abs(loanAmount) : currentLoanAmount;
                 mintReduced = subAmount;
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
@@ -3196,20 +3236,19 @@ public:
                 }
             }
 
-            // Unmint amount reduced due to negative interest
             if (mintReduced > 0) {
                 res = mnview.SubMintedTokens(tokenId, mintReduced);
-                if (!res)
+                if (!res) {
                     return res;
+                }
             }
 
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmount);
             if (!res)
                 return res;
 
-            auto tokenCurrency = loanToken->fixedIntervalPriceId;
+            const auto tokenCurrency = loanToken->fixedIntervalPriceId;
 
-            LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto priceFeed = mnview.GetFixedIntervalPrice(tokenCurrency);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
@@ -3251,7 +3290,7 @@ public:
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
             bool useNextPrice = i > 0, requireLivePrice = true;
-            LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
+
             auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
@@ -3329,16 +3368,15 @@ public:
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
 
-        for (const auto& idx : obj.loans)
+        for (const auto& [loanTokenId, paybackAmounts] : obj.loans)
         {
-            DCT_ID loanTokenId = idx.first;
-            auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
+            const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-            for (const auto& kv : idx.second.balances)
+            for (const auto& kv : paybackAmounts.balances)
             {
-                DCT_ID paybackTokenId = kv.first;
+                const auto& paybackTokenId = kv.first;
                 auto paybackAmount = kv.second;
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
@@ -3408,20 +3446,25 @@ public:
                     }
                 }
 
-                auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+                const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
                 if (!loanAmounts)
                     return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
 
-                auto it = loanAmounts->balances.find(loanTokenId);
-                if (it == loanAmounts->balances.end())
+                if (!loanAmounts->balances.count(loanTokenId))
                     return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-                auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
+                const auto currentLoanAmount = loanAmounts->balances.at(loanTokenId);
+
+                const auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                 if (!rate)
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                LogPrint(BCLog::LOAN,"CLoanPaybackLoanMessage()->%s->", loanToken->symbol); /* Continued */
-                auto subInterest = TotalInterest(*rate, height);
+                const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                if (!scheme) {
+                    return Res::Err("No such scheme id %s", vault->schemeId);
+                }
+
+                auto subInterest = TotalInterest(*rate, height, currentLoanAmount, loanToken->interest, scheme->rate);
                 auto subLoan = paybackAmount - subInterest;
 
                 if (paybackAmount < subInterest)
@@ -3429,26 +3472,26 @@ public:
                     subInterest = paybackAmount;
                     subLoan = 0;
                 }
-                else if (it->second - subLoan < 0)
+                else if (currentLoanAmount - subLoan < 0)
                 {
-                    subLoan = it->second;
+                    subLoan = currentLoanAmount;
                 }
 
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
                 if (!res)
                     return res;
 
-                res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan, subInterest);
+                res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan, std::abs(subInterest));
                 if (!res)
                     return res;
 
-                if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && subLoan < it->second)
+                if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount)
                 {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                     if (!newRate)
                         return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                    if (static_cast<int>(height) <= consensus.GreatWorldHeight && newRate->interestPerBlock.amount == 0)
+                    if (height <= static_cast<uint32_t>(consensus.GreatWorldHeight) && newRate->interestPerBlock.amount == 0)
                         return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
                 }
 
@@ -3456,7 +3499,8 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
-                    res = mnview.SubMintedTokens(loanTokenId, subLoan);
+                    // If interest was negative remove it from sub amount
+                    res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
                     if (!res)
                         return res;
 

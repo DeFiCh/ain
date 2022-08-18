@@ -976,12 +976,15 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
                                                            int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
-    auto vault = GetVault(vaultId);
+    const auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
+    const auto scheme = GetLoanScheme(vault->schemeId);
+    assert(scheme);
+
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice, scheme->rate);
     if (!res)
         return std::move(res);
 
@@ -989,7 +992,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!res)
         return std::move(res);
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
+    LogPrint(BCLog::LOAN, "%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
     return ResVal<CCollateralLoans>(result, Res::Ok());
@@ -999,8 +1002,6 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
-
-    LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
 
     auto priceFeed = GetFixedIntervalPrice(priceFeedId);
     if (!priceFeed)
@@ -1018,15 +1019,13 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
-                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice, const CAmount schemeInterest)
 {
-    auto loanTokens = GetLoanTokens(vaultId);
+    const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
         return Res::Ok();
 
-    for (const auto& loan : loanTokens->balances) {
-        auto loanTokenId = loan.first;
-        auto loanTokenAmount = loan.second;
+    for (const auto& [loanTokenId, loanTokenAmount] : loanTokens->balances) {
 
         auto token = GetLoanTokenByID(loanTokenId);
         if (!token)
@@ -1039,9 +1038,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
-
-        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height, loanTokenAmount, token->interest, schemeInterest);
         if (totalAmount < 0) {
             totalAmount = 0;
         }

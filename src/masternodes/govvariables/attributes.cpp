@@ -1168,12 +1168,30 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         return true;
                     });
 
+                    const auto tokenId = DCT_ID{attrV0->typeId};
+
                     for (const auto& vaultId : affectedVaults) {
                         const auto vault = mnview.GetVault(vaultId);
-                        if (!vault) {
-                            LogPrintf("Loan amount found without a valid vault. Vault ID: %s\n", vaultId.ToString());
-                            continue;
+                        assert(vault);
+                        const auto loanTokens = mnview.GetLoanTokens(vaultId);
+                        assert(loanTokens);
+                        const auto& tokenAmount = loanTokens->balances.at(tokenId);
+                        const auto rate = mnview.GetInterestRate(vaultId, tokenId, height);
+                        assert(rate);
+                        const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                        assert(scheme);
+                        const auto loanToken = mnview.GetLoanTokenByID(tokenId);
+                        assert(loanToken);
+                        if (const auto totalInterest = TotalInterest(*rate, height, tokenAmount, loanToken->interest, scheme->rate); totalInterest < 0) {
+                            const auto subAmount = tokenAmount > std::abs(totalInterest) ? std::abs(totalInterest) : tokenAmount;
+                            mnview.SubLoanToken(vaultId, CTokenAmount{tokenId, subAmount});
+                            mnview.SubMintedTokens(tokenId, subAmount);
                         }
+                        // Calculate up-to-date interest rate for old rate first. Reduces any interestToHeight amount.
+                        if (rate->interestPerBlock.negative) {
+                            mnview.StoreInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, loanToken->interest, 0);
+                        }
+                        // Updated stored interest with new interest rate.
                         mnview.StoreInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
                     }
                 }
