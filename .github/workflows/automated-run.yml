@@ -2,10 +2,10 @@ name: ParallelTesting
 on:
   push:
     branches:
-      - parallel-test
+      - master
   pull_request:
     branches:
-      - parallel-test
+      - master
 jobs:
   build-binaries:
     runs-on: [self-hosted, linux, x64,server-2]
