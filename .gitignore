@@ -25,6 +25,7 @@ src/test/test_defi_fuzzy
 
 # Generated code
 src/libain_core.cpp
+src/libain_core.h
 
 # autoreconf
 Makefile.in

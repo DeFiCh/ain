@@ -1121,6 +1121,98 @@ bool CCustomCSView::AreTokensLocked(const std::set<uint32_t>& tokenIds) const
     return false;
 }
 
+BurnInfo CCustomCSView::GetBurnInfo()
+{
+    BurnInfo info = {0, 0, 0, 0, 0};
+
+    AssertLockHeld(cs_main);
+    auto height = ::ChainActive().Height();
+    auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
+    auto& burnView = pburnHistoryDB;
+    auto attributes = GetAttributes();
+
+    if (attributes) {
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+        for (const auto& balance : tokenBalances.balances) {
+            if (balance.first == DCT_ID{0}) {
+                info.dfiPaybackFee = balance.second;
+            } else {
+                info.dfipaybacktokens.Add({balance.first, balance.second});
+            }
+        }
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+        info.paybackfees = std::move(paybacks.tokensFee);
+        info.paybacktokens = std::move(paybacks.tokensPayback);
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+        info.dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+
+        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
+        info.dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
+    }
+
+    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+        if (kv.first == CommunityAccountType::Unallocated ||
+            kv.first == CommunityAccountType::IncentiveFunding ||
+            (height >= fortCanningHeight && kv.first == CommunityAccountType::Loan)) {
+            info.burnt += GetCommunityBalance(kv.first);
+        }
+    }
+
+    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, AccountHistoryValue value) {
+        // UTXO burn
+        if (value.category == uint8_t(CustomTxType::None)) {
+            for (auto const & diff : value.diff) {
+                info.burntDFI += diff.second;
+            }
+            return true;
+        }
+        // Fee burn
+        if (value.category == uint8_t(CustomTxType::CreateMasternode)
+        || value.category == uint8_t(CustomTxType::CreateToken)
+        || value.category == uint8_t(CustomTxType::Vault)) {
+            for (auto const & diff : value.diff) {
+                info.burntFee += diff.second;
+            }
+            return true;
+        }
+        // withdraw burn
+        if (value.category == uint8_t(CustomTxType::PaybackLoan)
+        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
+            for (const auto& [id, amount] : value.diff) {
+                info.paybackFee.Add({id, amount});
+            }
+            return true;
+        }
+        // auction burn
+        if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+            for (auto const & diff : value.diff) {
+                info.auctionFee += diff.second;
+            }
+            return true;
+        }
+        // dex fee burn
+        if (value.category == uint8_t(CustomTxType::PoolSwap)
+        ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+            for (auto const & diff : value.diff) {
+                info.dexfeeburn.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+        // Token burn
+        for (auto const & diff : value.diff) {
+            info.burntTokens.Add({diff.first, diff.second});
+        }
+        return true;
+    };
+
+    burnView->ForEachAccountHistory(calculateBurnAmounts);
+
+    return info;
+}
+
 std::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std::string & str, DCT_ID & id) const
 {
     std::string const key = trim_ws(str);

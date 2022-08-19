@@ -66,7 +66,7 @@ static bool AppInit(int argc, char* argv[])
 
     util::ThreadRename("init");
 
-    set_fee_coefficient(1.8); // set dex stabilization fee coefficient (Rust), TODO: Move this to appropriate site
+    set_fee_coefficient(180000000); // set dex stabilization fee coefficient (Rust), TODO: Move this to appropriate site
 
     //
     // Parameters

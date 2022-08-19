@@ -114,8 +114,10 @@ build_deps() {
 patch_codegen() {
     local target=${1:-${TARGET}}
     # Required for patching C++ glue emitted from Rust build
+    # mv "$(pwd)/depends/${target}/include/libain_core.hpp" "$(pwd)/src/libain_core.h"
     printf "#include <libain_core.hpp>\n" > "$(pwd)/src/libain_core.cpp"
     cat "$(pwd)/depends/${target}/libain_core.cpp" >> "$(pwd)/src/libain_core.cpp"
+    # mv "$(pwd)/depends/${target}/lib/libain_core.a" "$(pwd)/src/"
 }
 
 build_conf() {

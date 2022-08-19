@@ -1802,128 +1802,31 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
-    CAmount burntDFI{0};
-    CAmount burntFee{0};
-    CAmount auctionFee{0};
-    CAmount dfiPaybackFee{0};
-    CAmount burnt{0};
-
-    CBalances burntTokens;
-    CBalances dexfeeburn;
-    CBalances paybackfees;
-    CBalances paybackFee;
-    CBalances paybacktokens;
-    CBalances dfi2203Tokens;
-    CBalances dfipaybacktokens;
-    CBalances dfiToDUSDTokens;
-
     LOCK(cs_main);
 
-    auto height = ::ChainActive().Height();
-    auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
-    auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
-    auto &burnView = pburnHistoryDB;
-    auto attributes = view.GetAttributes();
-
-    if (attributes) {
-        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
-        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
-        for (const auto& balance : tokenBalances.balances) {
-            if (balance.first == DCT_ID{0}) {
-                dfiPaybackFee = balance.second;
-            } else {
-                dfipaybacktokens.Add({balance.first, balance.second});
-            }
-        }
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
-        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
-        paybackfees = std::move(paybacks.tokensFee);
-        paybacktokens = std::move(paybacks.tokensPayback);
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
-        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
-        dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
-    }
-
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated ||
-            kv.first == CommunityAccountType::IncentiveFunding ||
-            (height >= fortCanningHeight  && kv.first == CommunityAccountType::Loan)) {
-            burnt += view.GetCommunityBalance(kv.first);
-        }
-    }
-
-    auto calculateBurnAmounts = [&](AccountHistoryKey const& key, AccountHistoryValue value) {
-        // UTXO burn
-        if (value.category == uint8_t(CustomTxType::None)) {
-            for (auto const & diff : value.diff) {
-                burntDFI += diff.second;
-            }
-            return true;
-        }
-        // Fee burn
-        if (value.category == uint8_t(CustomTxType::CreateMasternode)
-        || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
-            for (auto const & diff : value.diff) {
-                burntFee += diff.second;
-            }
-            return true;
-        }
-        // withdraw burn
-        if (value.category == uint8_t(CustomTxType::PaybackLoan)
-        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
-            for (const auto& [id, amount] : value.diff) {
-                paybackFee.Add({id, amount});
-            }
-            return true;
-        }
-        // auction burn
-        if (value.category == uint8_t(CustomTxType::AuctionBid)) {
-            for (auto const & diff : value.diff) {
-                auctionFee += diff.second;
-            }
-            return true;
-        }
-        // dex fee burn
-        if (value.category == uint8_t(CustomTxType::PoolSwap)
-        ||  value.category == uint8_t(CustomTxType::PoolSwapV2)) {
-            for (auto const & diff : value.diff) {
-                dexfeeburn.Add({diff.first, diff.second});
-            }
-            return true;
-        }
-        // Token burn
-        for (auto const & diff : value.diff) {
-            burntTokens.Add({diff.first, diff.second});
-        }
-        return true;
-    };
-
-    burnView->ForEachAccountHistory(calculateBurnAmounts);
+    auto info = view.GetBurnInfo();
+    auto burnAddress = Params().GetConsensus().burnAddress;
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
-    result.pushKV("amount", ValueFromAmount(burntDFI));
+    result.pushKV("amount", ValueFromAmount(info.burntDFI));
 
-    result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
-    result.pushKV("feeburn", ValueFromAmount(burntFee));
-    result.pushKV("auctionburn", ValueFromAmount(auctionFee));
-    result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));
-    result.pushKV("dexfeetokens", AmountsToJSON(dexfeeburn.balances));
+    result.pushKV("tokens", AmountsToJSON(info.burntTokens.balances));
+    result.pushKV("feeburn", ValueFromAmount(info.burntFee));
+    result.pushKV("auctionburn", ValueFromAmount(info.auctionFee));
+    result.pushKV("paybackburn", AmountsToJSON(info.paybackFee.balances));
+    result.pushKV("dexfeetokens", AmountsToJSON(info.dexfeeburn.balances));
 
-    result.pushKV("dfipaybackfee", ValueFromAmount(dfiPaybackFee));
-    result.pushKV("dfipaybacktokens", AmountsToJSON(dfipaybacktokens.balances));
+    result.pushKV("dfipaybackfee", ValueFromAmount(info.dfiPaybackFee));
+    result.pushKV("dfipaybacktokens", AmountsToJSON(info.dfipaybacktokens.balances));
 
-    result.pushKV("paybackfees", AmountsToJSON(paybackfees.balances));
-    result.pushKV("paybacktokens", AmountsToJSON(paybacktokens.balances));
+    result.pushKV("paybackfees", AmountsToJSON(info.paybackfees.balances));
+    result.pushKV("paybacktokens", AmountsToJSON(info.paybacktokens.balances));
 
-    result.pushKV("emissionburn", ValueFromAmount(burnt));
-    result.pushKV("dfip2203", AmountsToJSON(dfi2203Tokens.balances));
-    result.pushKV("dfip2206f", AmountsToJSON(dfiToDUSDTokens.balances));
+    result.pushKV("emissionburn", ValueFromAmount(info.burnt));
+    result.pushKV("dfip2203", AmountsToJSON(info.dfi2203Tokens.balances));
+    result.pushKV("dfip2206f", AmountsToJSON(info.dfiToDUSDTokens.balances));
 
     return GetRPCResultCache()
         .Set(request, result);

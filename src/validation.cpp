@@ -23,9 +23,9 @@
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
+#include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
-#include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
@@ -41,8 +41,8 @@
 #include <script/script.h>
 #include <script/sigcache.h>
 #include <script/standard.h>
-#include <spv/spv_wrapper.h>
 #include <shutdown.h>
+#include <spv/spv_wrapper.h>
 #include <timedata.h>
 #include <tinyformat.h>
 #include <txdb.h>
@@ -3034,6 +3034,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // DFI-to-DUSD swaps
         ProcessFuturesDUSD(pindex, cache, chainparams);
 
+        PerformDUSDStabilization(pindex, cache, chainparams);
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -3689,6 +3691,119 @@ void CChainState::ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache
     cache.SetVariable(*attributes);
 }
 
+void CChainState::PerformDUSDStabilization(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningCrunchHeight) {
+        return;
+    }
+
+    // Sum loaned DUSD from existing vaults
+    DCT_ID tokenDUSD{0};
+    CAmount totalLoanedDUSD{0};
+    cache.ForEachLoanTokenAmount([&](const CVaultId& vaultId, const CBalances& balances) {
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenDUSD.v == 0) {
+                const auto token = cache.GetToken(tokenId);
+                if (token->symbol == "DUSD") {
+                    tokenDUSD = tokenId;
+                } else {
+                    continue;
+                }
+            }
+
+            if (tokenDUSD == tokenId) {
+                auto res = SafeAdd(totalLoanedDUSD, amount);
+                if (res.ok) {
+                    totalLoanedDUSD = *res.val;
+                } else {
+                    LogPrintf("Failed to add amount (vault: %s): %s (height: %d)\n", vaultId.ToString(), GetDecimaleString(amount), pindex->nHeight);
+                    totalLoanedDUSD = CAmount{};
+                    return false;
+                }
+            }
+        }
+        return true;
+    });
+
+    // Get DUSD supply
+    const auto dusdInfo = cache.GetToken(tokenDUSD);
+    CAmount supply = dusdInfo->minted;
+    auto info = cache.GetBurnInfo();
+
+    auto subBurnAmounts = [&](TAmounts const& amounts) {
+        for (auto const& pair : amounts) {
+            if (pair.first != tokenDUSD) {
+                continue;
+            }
+            supply -= pair.second;
+        }
+    };
+
+    subBurnAmounts(info.paybackFee.balances);
+    subBurnAmounts(info.dexfeeburn.balances);
+    subBurnAmounts(info.dfi2203Tokens.balances);
+
+    // auto fee = calc_dex_fee(totalLoanedDUSD, supply);
+    // LogPrintf("Fee: %s\n", GetDecimaleString(fee));
+
+    LogPrintf("\n\n [ DUSD ] Loaned: %s, Supply: %s\n\n", GetDecimaleString(totalLoanedDUSD), GetDecimaleString(supply));
+
+    // Get DFI and DUSD reserve in pool
+    DCT_ID poolID{0};
+    CAmount reserveDFI{0},
+    reserveDUSD{0};
+    cache.ForEachPoolPair([&](DCT_ID const& id, CPoolPair pool) {
+        const auto tokenA = cache.GetToken(pool.idTokenA);
+        const auto tokenB = cache.GetToken(pool.idTokenB);
+        if ((tokenA->symbol == "DUSD" && tokenB->symbol == "DFI") || (tokenA->symbol == "DFI" && tokenB->symbol == "DUSD")) {
+            reserveDFI = (tokenA->symbol == "DFI") ? pool.reserveA : pool.reserveB;
+            reserveDUSD = (tokenA->symbol == "DUSD") ? pool.reserveA : pool.reserveB;
+            poolID = id;
+            return false;
+        }
+
+        return true;
+    }, DCT_ID{0});
+
+    LogPrintf("\n\n [ RESERVE ] DUSD: %s, DFI: %s\n\n", GetDecimaleString(reserveDUSD), GetDecimaleString(reserveDFI));
+
+    // Get latest DFI price within the last hour from any oracle
+    int64_t priceUpdatedTime{0};
+    CAmount latestPrice{0};
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    cache.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
+        CTokenCurrencyPair pair = std::make_pair("DFI", "USD");
+        if (!oracle.SupportsPair(pair.first, pair.second)) {
+            return true;
+        }
+
+        for (const auto& tokenPrice : oracle.tokenPrices) {
+            const auto& token = tokenPrice.first;
+            if (pair.first != token) {
+                continue;
+            }
+            for (const auto& price: tokenPrice.second) {
+                const auto& currency = price.first;
+                if (pair.second != currency) {
+                    continue;
+                }
+                const auto& pricePair = price.second;
+                auto amount = pricePair.first;
+                auto timestamp = pricePair.second;
+                extern bool diffInHour(int64_t time1, int64_t time2);
+                if (diffInHour(timestamp, lastBlockTime) && timestamp > priceUpdatedTime) {
+                    priceUpdatedTime = timestamp;
+                    latestPrice = amount;
+                }
+            }
+        }
+        return true;
+    });
+
+    if (reserveDUSD != 0 && latestPrice != 0) {
+        // auto rate = calc_loan_interest_rate(reserveDUSD, reserveDFI, latestPrice);
+        // LogPrintf("Rate: %s\n", GetDecimaleString(rate));
+    }
+}
 
 void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
 {
@@ -3966,7 +4081,7 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
                   "(%d loan tokens, %d collateral tokens, height: %d, time: %dms)\n",
                   loanCount, collateralCount, pindex->nHeight, GetTimeMillis() - time);
 
-    } catch(std::out_of_range&) {
+    } catch (std::out_of_range&) {
         LogPrintf("Non-existant map entry referenced in loan/collateral token to Gov var migration\n");
     }
 }
