@@ -1,4 +1,6 @@
 #!/bin/bash
+
+export LC_ALL=C
 set -Eeuo pipefail
 
 # Binaries
