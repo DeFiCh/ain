@@ -254,16 +254,17 @@ CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const ui
     const auto totalInterest = (height - rate.height) * rate.interestPerBlock.amount;
 
     CNegativeInterest interest;
-    if ((!rate.interestPerBlock.negative && !rate.interestToHeight.negative) ||
-        (rate.interestPerBlock.negative && rate.interestToHeight.negative)) {
+    if ((!rate.interestToHeight.negative && !rate.interestPerBlock.negative) ||
+        (rate.interestToHeight.negative && rate.interestPerBlock.negative)) {
         interest.amount = rate.interestToHeight.amount + totalInterest;
         interest.negative = rate.interestPerBlock.negative && rate.interestToHeight.negative;
     } else {
         if (rate.interestToHeight.amount > totalInterest) {
             interest.amount = rate.interestToHeight.amount - totalInterest;
+            interest.negative = rate.interestToHeight.negative;
         } else {
             interest.amount = totalInterest - rate.interestToHeight.amount;
-            interest.negative = !rate.interestToHeight.negative && rate.interestPerBlock.negative;
+            interest.negative = !rate.interestToHeight.negative;
         }
     }
 
