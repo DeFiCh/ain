@@ -155,8 +155,7 @@ namespace {
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
         std::map<DCT_ID, CNegativeInterest> interestsPerBlockHighPrecission;
-        base_uint<128> blockInterestHighPrecission{};
-        base_uint<128> blockNegativeInterestHighPrecission{};
+        CNegativeInterest interestsPerBlockValueHighPrecision;
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 
@@ -170,7 +169,7 @@ namespace {
                 if (!token) continue;
                 auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
                 if (!rate) continue;
-                auto totalInterest = TotalInterest(*rate, height + 1, amount, token->interest, scheme->rate);
+                auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = amount + totalInterest;
                 if (value > 0) {
                     if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
@@ -180,14 +179,10 @@ namespace {
                         }
                         if (verbose) {
                             if (height >= Params().GetConsensus().GreatWorldHeight) {
+                                InterestCalculation(interestsPerBlockValueHighPrecision, {rate->interestPerBlock.negative, static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
                                 interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
-                                if (!rate->interestPerBlock.negative) {
-                                    blockInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
-                                } else {
-                                    blockNegativeInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
-                                }
                             } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
-                                blockInterestHighPrecission += (static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN);
+                                interestsPerBlockValueHighPrecision.amount += static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;
                                 interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
                             } else {
                                 const auto interestPerBlock = rate->interestPerBlock.amount.GetLow64();
@@ -198,7 +193,7 @@ namespace {
                     }
 
                     totalBalances.insert({tokenId, value});
-                    interestBalances.insert({tokenId, totalInterest > 0 ? totalInterest : 0});
+                    interestBalances.insert({tokenId, totalInterest});
                 }
                 if (pcustomcsview->AreTokensLocked({tokenId.v})){
                     isVaultTokenLocked = true;
@@ -223,7 +218,8 @@ namespace {
             ratioValue = -1;
             collateralRatio = -1;
             totalInterestsPerBlockValue = -1;
-            blockInterestHighPrecission = -1;
+            interestsPerBlockValueHighPrecision.negative = true; // Not really an invalid amount as it could actually be -1
+            interestsPerBlockValueHighPrecision.amount = 1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -240,22 +236,14 @@ namespace {
                 if(isVaultTokenLocked){
                     result.pushKV("interestPerBlockValue", -1);
                 } else {
-                    if (blockNegativeInterestHighPrecission > blockInterestHighPrecission) {
-                        blockInterestHighPrecission = blockNegativeInterestHighPrecission - blockInterestHighPrecission;
-                        result.pushKV("interestPerBlockValue", '-' + GetInterestPerBlockHighPrecisionString(blockInterestHighPrecission));
-                    } else {
-                        blockInterestHighPrecission = blockInterestHighPrecission - blockNegativeInterestHighPrecission;
-                        result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(blockInterestHighPrecission));
-                    }
-
+                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
                     for (const auto& [id, interestPerBlock] : interestsPerBlockHighPrecission) {
                         auto tokenId = id;
-                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock.amount);
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
                         auto token = pcustomcsview->GetToken(tokenId);
                         assert(token);
                         auto tokenSymbol = token->CreateSymbolKey(tokenId);
-                        std::string negativeSymbol = interestPerBlock.negative ? "-" : "";
-                        interestsPerBlockBalances.push_back(negativeSymbol.append(amountStr + '@' + tokenSymbol));
+                        interestsPerBlockBalances.push_back(amountStr.append("@").append(tokenSymbol));
                     }
                 }
             } else {

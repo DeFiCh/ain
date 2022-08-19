@@ -980,11 +980,8 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
-    const auto scheme = GetLoanScheme(vault->schemeId);
-    assert(scheme);
-
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice, scheme->rate);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
     if (!res)
         return std::move(res);
 
@@ -995,7 +992,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     LogPrint(BCLog::LOAN, "%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
-    return ResVal<CCollateralLoans>(result, Res::Ok());
+    return {result, Res::Ok()};
 }
 
 ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice)
@@ -1015,11 +1012,11 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     if (price <= 0)
         return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
 
-    return ResVal<CAmount>(price, Res::Ok());
+    return {price, Res::Ok()};
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
-                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice, const CAmount schemeInterest)
+                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
@@ -1027,22 +1024,19 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
     for (const auto& [loanTokenId, loanTokenAmount] : loanTokens->balances) {
 
-        auto token = GetLoanTokenByID(loanTokenId);
+        const auto token = GetLoanTokenByID(loanTokenId);
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = GetInterestRate(vaultId, loanTokenId, height);
+        const auto rate = GetInterestRate(vaultId, loanTokenId, height);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
 
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height, loanTokenAmount, token->interest, schemeInterest);
-        if (totalAmount < 0) {
-            totalAmount = 0;
-        }
-        auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        const auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 

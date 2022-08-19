@@ -249,59 +249,37 @@ static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
     return amountHP;
 }
 
-CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest)
+CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height)
 {
+    const auto totalInterest = (height - rate.height) * rate.interestPerBlock.amount;
+
     CNegativeInterest interest;
-    if (rate.interestPerBlock.negative) {
-
-        base_uint<128> reduction{};
-        auto reductionRate{rate.interestPerBlock};
-        auto interestToHeight{rate.interestToHeight};
-        auto loanAmountHP{ToHigherPrecision(loanAmount, height)};
-
-        for (size_t i{}; i < height - rate.height; ++i) {
-            auto reductionStep = reductionRate.amount;
-            if (interestToHeight > 0) {
-                if (interestToHeight > reductionStep) {
-                    interestToHeight -= reductionStep;
-                    reduction += reductionStep;
-                    reductionStep = 0;
-                } else {
-                    interestToHeight = 0;
-                    reductionStep -= interestToHeight;
-                    reduction += interestToHeight;
-                }
-            }
-            const auto reductionCeil = reductionStep;
-            if (loanAmountHP > reductionCeil) {
-                loanAmountHP -= reductionCeil;
-                reduction += reductionCeil;
-            } else {
-                // Loan amount reduced to zero
-                reduction += loanAmountHP;
-                break;
-            }
-            reductionRate = InterestPerBlockCalculationV3(CeilInterest(loanAmountHP, std::numeric_limits<uint32_t>::max()), tokenInterest, schemeInterest);
-        }
-
-        if (reduction >= rate.interestToHeight) {
-            interest.amount = reduction - rate.interestToHeight;
-            interest.negative = true;
-        } else {
-            interest.amount = rate.interestToHeight - reduction;
-        }
+    if ((!rate.interestPerBlock.negative && !rate.interestToHeight.negative) ||
+        (rate.interestPerBlock.negative && rate.interestToHeight.negative)) {
+        interest.amount = rate.interestToHeight.amount + totalInterest;
+        interest.negative = rate.interestPerBlock.negative && rate.interestToHeight.negative;
     } else {
-        interest.amount = rate.interestToHeight + ((height - rate.height) * rate.interestPerBlock.amount);
+        if (rate.interestToHeight.amount > totalInterest) {
+            interest.amount = rate.interestToHeight.amount - totalInterest;
+        } else {
+            interest.amount = totalInterest - rate.interestToHeight.amount;
+            interest.negative = !rate.interestToHeight.negative && rate.interestPerBlock.negative;
+        }
     }
 
     LogPrint(BCLog::LOAN, "%s(): CInterestRate{.height=%d, .perBlock=%d, .toHeight=%d}, height %d - totalInterest %d\n",
-        __func__, rate.height, rate.interestPerBlock.negative ? -InterestPerBlock(rate, height) : InterestPerBlock(rate, height), CeilInterest(rate.interestToHeight, height), height, CeilInterest(interest.amount, height));
+        __func__,
+        rate.height, rate.interestPerBlock.negative ? -InterestPerBlock(rate, height) : InterestPerBlock(rate, height),
+        rate.interestToHeight.negative ? -CeilInterest(rate.interestToHeight.amount, height) : CeilInterest(rate.interestToHeight.amount, height),
+        height,
+        interest.negative ? -CeilInterest(interest.amount, height) : CeilInterest(interest.amount, height));
+
     return interest;
 }
 
-CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest)
+CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height)
 {
-    const auto totalInterest = TotalInterestCalculation(rate, height, loanAmount, tokenInterest, schemeInterest);
+    const auto totalInterest = TotalInterestCalculation(rate, height);
     const auto amount = CeilInterest(totalInterest.amount, height);
     return totalInterest.negative ? -amount : amount;
 }
@@ -329,7 +307,8 @@ Res CLoanView::StoreInterest(const uint32_t height, const CVaultId& vaultId, con
         return Res::Err("No such scheme id %s", loanSchemeID);
 
     const auto token = GetLoanTokenByID(id);
-    assert(token);
+    if (!token)
+        return Res::Err("No such loan token id %s", id.ToString());
 
     CInterestRateV3 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height))
@@ -338,17 +317,20 @@ Res CLoanView::StoreInterest(const uint32_t height, const CVaultId& vaultId, con
     if (rate.height > height || height == 0)
         return Res::Err("Cannot store height in the past");
 
-    CBalances amounts;
-    ReadBy<LoanTokenAmount>(vaultId, amounts);
-
-    const auto totalInterest = TotalInterestCalculation(rate, height, amounts.balances[id], token->interest, scheme->rate);
-    rate.interestToHeight = totalInterest.negative ? 0 : totalInterest.amount;
+    rate.interestToHeight = TotalInterestCalculation(rate, height);
     rate.height = height;
 
     if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+        CBalances amounts;
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
+
+        // Use argument token interest as update from Gov var TX will not be applied to GetLoanTokenByID at this point in time.
         rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], tokenInterest, scheme->rate);
+
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
-        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], tokenInterest, scheme->rate)};
+        CBalances amounts;
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
+        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
         interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, tokenInterest, scheme->rate));
@@ -381,19 +363,21 @@ Res CLoanView::EraseInterest(const uint32_t height, const CVaultId& vaultId, con
     if (rate.height == 0)
         return Res::Err("Data mismatch height == 0");
 
-    CBalances amounts;
-    ReadBy<LoanTokenAmount>(vaultId, amounts);
-
-    const auto totalInterest = TotalInterestCalculation(rate, height, amounts.balances[id], token->interest, scheme->rate);
-    const auto interestToHeight = totalInterest.negative ? 0 : totalInterest.amount;
+    const auto interestToHeight = TotalInterestCalculation(rate, height);
     const auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
 
-    rate.interestToHeight = interestToHeight < interestDecreasedHP ? 0 : interestToHeight - interestDecreasedHP;
+    rate.interestToHeight.amount = interestToHeight.amount < interestDecreasedHP ? 0
+                                 : interestToHeight.amount - interestDecreasedHP;
+
     rate.height = height;
 
     if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+        CBalances amounts;
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate);
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
+        CBalances amounts;
+        ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
@@ -580,15 +564,17 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     return 5 * COIN / 100;
 }
 
-std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
+std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CNegativeInterest& value) {
     struct HighPrecisionInterestValue {
         typedef boost::multiprecision::int128_t int128;
         typedef int64_t int64;
 
         int128 value;
+        bool negative;
 
-        explicit HighPrecisionInterestValue(const base_uint<128>& val) {
-            value = int128("0x" + val.GetHex());
+        explicit HighPrecisionInterestValue(const CNegativeInterest& val) {
+            value = int128("0x" + val.amount.GetHex());
+            negative = val.negative;
         }
 
         int64 GetInterestPerBlockSat() const {
@@ -617,18 +603,18 @@ std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_
             if (mag < 0 || dec < 0)
                 return {};
 
-            result << mag << "." << std::setw(24) << std::setfill('0') << dec;
+            result << (negative ? "-" : "") << mag << "." << std::setw(24) << std::setfill('0') << dec;
             return result.str();
         }
     };
     return HighPrecisionInterestValue(value).GetInterestPerBlockString();
 }
 
-std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value) {
+std::string GetInterestPerBlockHighPrecisionString(const CNegativeInterest& value) {
     auto res = TryGetInterestPerBlockHighPrecisionString(value);
     if (!res) {
         LogPrintf("WARNING: High precision interest string conversion failure. Falling back to hex.\n");
-        return value.ToString();
+        return value.negative ? "negative " + value.amount.ToString() : value.amount.ToString();
     }
     return *res;
 }

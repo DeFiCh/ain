@@ -3364,13 +3364,14 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (auto& loan : loanTokens->balances) {
                 const auto &tokenId = loan.first;
                 const auto &tokenValue = loan.second;
+
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
 
                 const auto loanToken = cache.GetLoanTokenByID(tokenId);
                 assert(loanToken);
 
-                auto subInterest = TotalInterest(*rate, pindex->nHeight, tokenValue, loanToken->interest, scheme->rate);
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 if (subInterest > 0) {
                     totalInterest.Add({tokenId, subInterest});
                 }
@@ -4528,9 +4529,9 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         view.EraseInterestDirect(vaultId, oldTokenId, height);
         auto oldRateToHeight = rate.interestToHeight;
-        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight.amount);
 
-        rate.interestToHeight = newRateToHeight;
+        rate.interestToHeight.amount = newRateToHeight;
 
         auto oldInterestPerBlock = rate.interestPerBlock;
         CNegativeInterest newInterestRatePerBlock{};
@@ -4545,9 +4546,9 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
                 vaultId.ToString(),
                 GetInterestPerBlockHighPrecisionString(oldRateToHeight),
-                GetInterestPerBlockHighPrecisionString(newRateToHeight),
-                GetInterestPerBlockHighPrecisionString(oldInterestPerBlock.amount),
-                GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock.amount));
+                GetInterestPerBlockHighPrecisionString({oldRateToHeight.negative, newRateToHeight}),
+                GetInterestPerBlockHighPrecisionString(oldInterestPerBlock),
+                GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock));
         }
 
         view.WriteInterestRate(std::make_pair(vaultId, newTokenId), rate, rate.height);

@@ -84,10 +84,10 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         { 117009132, "0.000000000000000117009132" },
         { 11700913242, "0.000000000000011700913242" },
         // 2378234398782343987
-        { "21012F95D4094B33", "0.000002378234398782343987" }, 
+        { "21012F95D4094B33", "0.000002378234398782343987" },
         // 80897539693407360060932882613242451388
         { "3CDC4CA64879921C03BF061156E455BC" , "80897539693407.360060932882613242451388" },
-         // 87741364994776235347880977943597222 
+         // 87741364994776235347880977943597222
         { "10E5FBB8CA9E273D0B0353C23D90A6" , "87741364994.776235347880977943597222" },
         // 877413626032608048611111111
         { "2D5C78FF9C3FE70F9F0B0C7" , "877.413626032608048611111111" },
@@ -242,9 +242,15 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
         else if (typeKind == 1) input = base_uint<128>(std::get<std::string>(key));
         else BOOST_TEST_FAIL("unknown type");
 
-        auto res = GetInterestPerBlockHighPrecisionString(input);
+        auto res = GetInterestPerBlockHighPrecisionString({false, input});
         BOOST_CHECK_EQUAL(res, expectedResult);
     }
+
+    // Lets at least test a couple of negative interest rates. TODO add more!
+    auto res = GetInterestPerBlockHighPrecisionString({true, 1});
+    BOOST_CHECK_EQUAL(res, "-0.000000000000000000000001");
+    res = GetInterestPerBlockHighPrecisionString({true, std::numeric_limits<int64_t>::min()});
+    BOOST_CHECK_EQUAL(res, "-0.000009223372036854775808");
 
     // Quick way to generate the nums and verify 
     // std::vector<base_uint<128>> nums;
@@ -279,7 +285,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 
     auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
     BOOST_CHECK_EQUAL(rate->height, 1);
 
     auto interestPerBlock = rate->interestPerBlock;
@@ -288,21 +294,21 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     rate = mnview.GetInterestRate(vault_id, token_id, 5);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->height, 5);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 4 * interestPerBlock.amount.GetLow64());
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 4 * interestPerBlock.amount.GetLow64());
 
     auto interestToHeight = rate->interestToHeight;
     interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight + interestPerBlock.amount).GetLow64()));
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight.amount + interestPerBlock.amount).GetLow64()));
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
 
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
 
     BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
 
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(collateralization_ratio)

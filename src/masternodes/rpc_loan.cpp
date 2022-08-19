@@ -1493,7 +1493,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height() + 1;
 
-    std::map<DCT_ID, std::tuple<base_uint<128>, base_uint<128>, base_uint<128>> > interest;
+    std::map<DCT_ID, std::pair<CNegativeInterest, CNegativeInterest>> interest;
 
     auto vaultInterest = [&](const CVaultId& vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate)
     {
@@ -1503,29 +1503,15 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if ((id != DCT_ID{~0U}) && tokenId != id)
             return true;
 
-        auto& [cumulativeInterest, positiveInterest, negativeInterest] = interest[tokenId];
+        auto& [cumulativeInterest, interestPerBlock] = interest[tokenId];
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
             return true;
 
-        const auto loans = pcustomcsview->GetLoanTokens(vaultId);
-        if (!loans || !loans->balances.count(tokenId)) {
-            return true;
-        }
-
-        const auto loanToken = pcustomcsview->GetLoanTokenByID(tokenId);
-        if (!loanToken) {
-            return true;
-        }
-
-        const auto totalInterest = TotalInterestCalculation(rate, height, loans->balances.at(tokenId), loanToken->interest, scheme->rate);
-        cumulativeInterest += totalInterest.negative ? 0 : totalInterest.amount;
-        if (!rate.interestPerBlock.negative) {
-            positiveInterest += rate.interestPerBlock.amount;
-        } else {
-            negativeInterest += rate.interestPerBlock.amount;
-        }
+        const auto totalInterest = TotalInterestCalculation(rate, height);
+        InterestCalculation(cumulativeInterest, totalInterest);
+        InterestCalculation(interestPerBlock, rate.interestPerBlock);
 
         return true;
     };
@@ -1545,17 +1531,19 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue obj(UniValue::VOBJ);
     for (auto it = interest.begin(); it != interest.end(); ++it)
     {
-        const auto tokenId = it->first;
-        const auto& [cumulativeInterest, positiveInterest, negativeInterest] = it->second;
-        const auto interestPerBlock = -CeilInterest(negativeInterest, height) + CeilInterest(positiveInterest, height);
+        const auto& tokenId = it->first;
+        const auto& [cumulativeInterest, totalInterestPerBlock] = it->second;
+
+        const auto totalInterest = cumulativeInterest.negative ? -CeilInterest(cumulativeInterest.amount, height) : CeilInterest(cumulativeInterest.amount, height);
+        const auto interestPerBlock = totalInterestPerBlock.negative ? -CeilInterest(totalInterestPerBlock.amount, height) : CeilInterest(totalInterestPerBlock.amount, height);
 
         const auto token = pcustomcsview->GetToken(tokenId);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
-        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(cumulativeInterest, height)));
+        obj.pushKV("totalInterest", ValueFromAmount(totalInterest));
         obj.pushKV("interestPerBlock", ValueFromAmount(interestPerBlock));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
-            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(totalInterestPerBlock)));
         }
         ret.push_back(obj);
     }

@@ -258,7 +258,7 @@ struct CInterestRateV3
 {
     uint32_t height;
     CNegativeInterest interestPerBlock;
-    base_uint<128> interestToHeight;
+    CNegativeInterest interestToHeight;
 
     ADD_SERIALIZE_METHODS;
 
@@ -285,7 +285,7 @@ inline CInterestRate ConvertInterestRateToV1(const CInterestRateV3& rate3)
     CInterestRate rate1{};
     rate1.height = rate3.height;
     rate1.interestPerBlock = rate3.interestPerBlock.amount.GetLow64();
-    rate1.interestToHeight = rate3.interestToHeight.GetLow64();
+    rate1.interestToHeight = rate3.interestToHeight.amount.GetLow64();
 
     return rate1;
 }
@@ -305,7 +305,7 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRateV3& rate3)
     CInterestRateV2 rate2{};
     rate2.height = rate3.height;
     rate2.interestPerBlock = rate3.interestPerBlock.amount;
-    rate2.interestToHeight = rate3.interestToHeight;
+    rate2.interestToHeight = rate3.interestToHeight.amount;
 
     return rate2;
 }
@@ -315,7 +315,7 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRate& rate1)
     CInterestRateV3 rate3{};
     rate3.height = rate1.height;
     rate3.interestPerBlock.amount = rate1.interestPerBlock;
-    rate3.interestToHeight = rate1.interestToHeight;
+    rate3.interestToHeight.amount = rate1.interestToHeight;
 
     return rate3;
 }
@@ -325,20 +325,34 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
     CInterestRateV3 rate3{};
     rate3.height = rate2.height;
     rate3.interestPerBlock = {false, rate2.interestPerBlock};
-    rate3.interestToHeight = rate2.interestToHeight;
+    rate3.interestToHeight = {false, rate2.interestToHeight};
 
     return rate3;
 }
 
+inline const auto InterestCalculation = [](CNegativeInterest &a, const CNegativeInterest &b) {
+    if ((!a.negative && !b.negative) ||
+        (a.negative && b.negative)) {
+        a.amount += b.amount;
+    } else {
+        if (a.amount > b.amount) {
+            a.amount -= b.amount;
+        } else {
+            a.amount = b.amount - a.amount;
+            a.negative = !a.negative && b.negative;
+        }
+    }
+};
+
 static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
 
-CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
+CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height);
 CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height);
-CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height, const CAmount loanAmount, const CAmount tokenInterest, const CAmount schemeInterest);
+CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 
-std::string GetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
-std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const base_uint<128>& value);
+std::string GetInterestPerBlockHighPrecisionString(const CNegativeInterest& value);
+std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CNegativeInterest& value);
 
 base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
 CNegativeInterest InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
