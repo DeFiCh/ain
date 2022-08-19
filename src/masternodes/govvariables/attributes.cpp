@@ -1185,7 +1185,6 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         if (const auto totalInterest = TotalInterest(*rate, height, tokenAmount, loanToken->interest, scheme->rate); totalInterest < 0) {
                             const auto subAmount = tokenAmount > std::abs(totalInterest) ? std::abs(totalInterest) : tokenAmount;
                             mnview.SubLoanToken(vaultId, CTokenAmount{tokenId, subAmount});
-                            mnview.SubMintedTokens(tokenId, subAmount);
                         }
                         // Calculate up-to-date interest rate for old rate first. Reduces any interestToHeight amount.
                         if (rate->interestPerBlock.negative) {

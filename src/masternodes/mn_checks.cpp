@@ -2935,12 +2935,7 @@ public:
                 assert(scheme);
                 const auto tokenInterest = mnview.GetLoanTokenByID(tokenId);
                 assert(tokenInterest);
-                const auto totalInterest = TotalInterest(*rate, height, amount, tokenInterest->interest, scheme->rate);
-                if (totalInterest < 0 && amount + totalInterest <= 0) {
-                    res = mnview.SubMintedTokens(tokenId, amount);
-                    if (!res)
-                        return res;
-                } else {
+                if (const auto totalInterest = TotalInterest(*rate, height, amount, tokenInterest->interest, scheme->rate); amount + totalInterest > 0) {
                     return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
                 }
             }
@@ -3022,11 +3017,6 @@ public:
                         if (const auto totalInterest = TotalInterest(*rate, height, tokenAmount, loanToken->interest, scheme->rate); totalInterest < 0) {
                             const auto subAmount = tokenAmount > std::abs(totalInterest) ? std::abs(totalInterest) : tokenAmount;
                             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
-                            if (!res) {
-                                return res;
-                            }
-
-                            res = mnview.SubMintedTokens(tokenId, subAmount);
                             if (!res) {
                                 return res;
                             }
