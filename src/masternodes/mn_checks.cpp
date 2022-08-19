@@ -3176,14 +3176,31 @@ public:
 
             // Calculate interest
             CAmount currentLoanAmount{};
+            bool storedInterestUpdated{};
             auto loanAmount = tokenAmount;
 
             if (loanAmounts && loanAmounts->balances.count(tokenId)) {
+                currentLoanAmount = loanAmounts->balances.at(tokenId);
                 const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 assert(rate);
-                currentLoanAmount = loanAmounts->balances.at(tokenId);
-                if (const CAmount totalInterest = TotalInterest(*rate, height); totalInterest < 0) {
+                const CAmount totalInterest = TotalInterest(*rate, height);
+
+                CAmount subInterest{};
+                if (totalInterest < 0) {
                     loanAmount += totalInterest;
+                    subInterest = std::numeric_limits<CAmount>::max();
+                } else {
+                    // Get the difference to reduce from stored interest. Other circumstance should be covered by totalInterest < 0 or StoreInterest can be called.
+                    if (rate->interestPerBlock.negative && !rate->interestToHeight.negative) {
+                        subInterest = CeilInterest(rate->interestToHeight.amount, std::numeric_limits<uint32_t>::max()) - totalInterest;
+                    }
+                }
+
+                if (subInterest) {
+                    storedInterestUpdated = true;
+                    res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, 0, subInterest);
+                    if (!res)
+                        return res;
                 }
             }
 
@@ -3199,9 +3216,11 @@ public:
                 }
             }
 
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmount);
-            if (!res)
-                return res;
+            if (!storedInterestUpdated) {
+                res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmount);
+                if (!res)
+                    return res;
+            }
 
             const auto tokenCurrency = loanToken->fixedIntervalPriceId;
 
@@ -3437,7 +3456,7 @@ public:
                 // If subInterest is negative erase the current interest stored in the rate, the
                 // negative amount in subInterest is added to subLoan to reduce the loan amount.
                 res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan,
-                    subInterest >= 0 ? subInterest : CeilInterest(rate->interestToHeight.amount, std::numeric_limits<uint32_t>::max()));
+                    subInterest >= 0 ? subInterest : std::numeric_limits<CAmount>::max());
                 if (!res)
                     return res;
 
