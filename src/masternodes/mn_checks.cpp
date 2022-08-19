@@ -3178,11 +3178,6 @@ public:
             CAmount currentLoanAmount{};
             auto loanAmount = tokenAmount;
 
-            const auto scheme = mnview.GetLoanScheme(vault->schemeId);
-            if (!scheme) {
-                return Res::Err("No such scheme id %s", vault->schemeId);
-            }
-
             if (loanAmounts && loanAmounts->balances.count(tokenId)) {
                 const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 assert(rate);
