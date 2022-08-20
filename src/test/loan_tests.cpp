@@ -252,7 +252,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
     res = GetInterestPerBlockHighPrecisionString({true, std::numeric_limits<int64_t>::min()});
     BOOST_CHECK_EQUAL(res, "-0.000009223372036854775808");
 
-    // Quick way to generate the nums and verify 
+    // Quick way to generate the nums and verify
     // std::vector<base_uint<128>> nums;
     // std::string hexStr = "8000 0000 0000 0000 0000 0000 0000 0000";
     // hexStr.erase(std::remove(hexStr.begin(), hexStr.end(), ' '), hexStr.end());
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(high_precision_interest_rate_to_string_tests)
     // }
 }
 
-BOOST_AUTO_TEST_CASE(loan_iterest_rate)
+BOOST_AUTO_TEST_CASE(loan_interest_rate)
 {
     CCustomCSView mnview(*pcustomcsview);
 
@@ -309,6 +309,75 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
+}
+
+BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
+{
+    // Activate negative interest rate
+    const_cast<int&>(Params().GetConsensus().GreatWorldHeight) = 1;
+
+    CCustomCSView mnview(*pcustomcsview);
+
+    const std::string scheme_id("sch1");
+    CreateScheme(mnview, scheme_id, 150, 0);
+
+    CAmount tokenInterest = 5 * COIN;
+    auto token_id = CreateLoanToken(mnview, "TST", "TEST", "", tokenInterest);
+
+    auto vault_id = NextTx();
+    BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {token_id, 1 * COIN}));
+
+    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, scheme_id, token_id, tokenInterest, 0));
+    auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
+    CNegativeInterest totalInterest = TotalInterestCalculation(*rate, 1);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, false);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(totalInterest.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 0);
+
+    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, scheme_id, token_id, tokenInterest, 0));
+    rate = mnview.GetInterestRate(vault_id, token_id, 5);
+    totalInterest = TotalInterestCalculation(*rate, 5);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 4 * rate->interestPerBlock.amount.GetLow64());
+
+    tokenInterest = -5 * COIN;
+
+    BOOST_REQUIRE(mnview.StoreInterest(6, vault_id, scheme_id, token_id, tokenInterest, 0));
+    rate = mnview.GetInterestRate(vault_id, token_id, 6);
+    totalInterest = TotalInterestCalculation(*rate, 6);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 5 * rate->interestPerBlock.amount.GetLow64());
+
+    BOOST_REQUIRE(mnview.StoreInterest(7, vault_id, scheme_id, token_id, tokenInterest, 0));
+    rate = mnview.GetInterestRate(vault_id, token_id, 7);
+    totalInterest = TotalInterestCalculation(*rate, 7);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.negative, false);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 4 * rate->interestPerBlock.amount.GetLow64());
+
+    BOOST_REQUIRE(mnview.StoreInterest(11, vault_id, scheme_id, token_id, tokenInterest, 0));
+    rate = mnview.GetInterestRate(vault_id, token_id, 11);
+    totalInterest = TotalInterestCalculation(*rate, 11);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
+    BOOST_CHECK_EQUAL(totalInterest.negative, true);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 0);
+
+    BOOST_REQUIRE(mnview.StoreInterest(15, vault_id, scheme_id, token_id, tokenInterest, 0));
+    rate = mnview.GetInterestRate(vault_id, token_id, 15);
+    totalInterest = TotalInterestCalculation(*rate, 15);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, true);
+    BOOST_CHECK_EQUAL(totalInterest.negative, true);
+    BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 4 * rate->interestPerBlock.amount.GetLow64());
 }
 
 BOOST_AUTO_TEST_CASE(collateralization_ratio)
