@@ -1035,10 +1035,13 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        const auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
+        if (totalAmount < 0) {
+            totalAmount = 0;
+        }
         const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
-            return std::move(amountInCurrency);
+            return amountInCurrency;
 
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
