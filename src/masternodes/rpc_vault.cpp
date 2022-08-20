@@ -179,7 +179,7 @@ namespace {
                         }
                         if (verbose) {
                             if (height >= Params().GetConsensus().GreatWorldHeight) {
-                                InterestCalculation(interestsPerBlockValueHighPrecision, {rate->interestPerBlock.negative, static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
+                                InterestAddition(interestsPerBlockValueHighPrecision, {rate->interestPerBlock.negative, static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
                                 interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
                             } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
                                 interestsPerBlockValueHighPrecision.amount += static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;

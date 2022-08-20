@@ -330,16 +330,15 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
     return rate3;
 }
 
-inline const auto InterestCalculation = [](CNegativeInterest &a, const CNegativeInterest &b) {
-    if ((!a.negative && !b.negative) ||
-        (a.negative && b.negative)) {
+inline const auto InterestAddition = [](CNegativeInterest &a, const CNegativeInterest &b) {
+    if (a.negative == b.negative) {
         a.amount += b.amount;
     } else {
         if (a.amount > b.amount) {
             a.amount -= b.amount;
         } else {
             a.amount = b.amount - a.amount;
-            a.negative = !a.negative && b.negative;
+            a.negative = b.negative;
         }
     }
 };
