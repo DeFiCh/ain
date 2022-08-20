@@ -442,7 +442,7 @@ public:
 
     Res DeleteInterest(const CVaultId& vaultId, uint32_t height);
     void EraseInterestDirect(const CVaultId& vaultId, DCT_ID id, uint32_t height);
-    std::optional<CInterestRateV3> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id, uint32_t height);
+    std::optional<CInterestRateV3> GetInterestRate(const CVaultId& vaultId, const DCT_ID id, const uint32_t height);
     void WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV3& rate, uint32_t height);
     Res StoreInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount tokenInterest, const CAmount loanIncreased);
     Res EraseInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount loanDecreased, const CAmount interestDecreased);

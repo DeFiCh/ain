@@ -186,7 +186,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
     EraseBy<DestroyLoanSchemeKey>(loanSchemeID);
 }
 
-std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId& vaultId, DCT_ID id, uint32_t height)
+std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId& vaultId, const DCT_ID id, const uint32_t height)
 {
     if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
         return ReadBy<LoanInterestV3ByVault, CInterestRateV3>(std::make_pair(vaultId, id));

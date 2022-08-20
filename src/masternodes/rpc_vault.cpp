@@ -1861,6 +1861,56 @@ UniValue estimatevault(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+
+UniValue getstoredinterest(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getstoredinterest",
+        "Returns the stored interest for the specified vault and token.\n",
+        {
+            {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "One of the keys may be specified (id/symbol/creationTx)"},
+        },
+        RPCResult{
+            "{\n"
+            "  \"interestToHeight\" : n.nnnnnnnn,        (amount) Interest stored to the point of the hight value\n"
+            "  \"interestPerBlock\" : n.nnnnnnnn,        (amount) Interest per block\n"
+            "  \"height\" : n,                           (amount) Height stored interest last updated\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("getstoredinterest", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf DUSD)") +
+            HelpExampleRpc("getstoredinterest", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf, DUSD)")
+        },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    const auto vaultId = ParseHashV(request.params[0], "vaultId");
+    if (const auto vault = pcustomcsview->GetVault(vaultId); !vault) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Vault not found");
+    }
+
+    DCT_ID tokenId{};
+    if (const auto token = pcustomcsview->GetTokenGuessId(request.params[1].getValStr(), tokenId); !token) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
+    }
+
+    const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, ::ChainActive().Height());
+    if (!interestRate) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, "No stored interest for this token found in the vault.");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+
+    ret.pushKV("interestToHeight", GetInterestPerBlockHighPrecisionString(interestRate->interestToHeight));
+    ret.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(interestRate->interestPerBlock));
+    ret.pushKV("height", static_cast<uint64_t>(interestRate->height));
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1879,6 +1929,7 @@ static const CRPCCommand commands[] =
     {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens", "targetRatio"}},
     {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
     {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
+    {"hidden",       "getstoredinterest",         &getstoredinterest,     {"vaultId", "token"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {

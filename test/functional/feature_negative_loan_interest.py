@@ -151,9 +151,15 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
+        # Check stored interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000951293759512937595')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
         # Check loan interest
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['interestAmounts'], [f'0.00000000@{self.symbolDUSD}'])
+        assert_equal(vault['interestAmounts'], [f'-0.00000096@{self.symbolDUSD}'])
 
         # Payback almost all of the loan amount
         self.nodes[0].paybackloan({
@@ -165,10 +171,11 @@ class NegativeInterestTest (DefiTestFramework):
 
         # Set negative interest rate very high to speed up negating vault amount
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-300000'}})
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(20)
 
-        # Check loan negated
+        # Check loan amount and interest fully negated
         vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['loanAmounts'], [])
         assert_equal(vault['interestAmounts'], [])
 
         # Close now empty vault
