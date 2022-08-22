@@ -38,6 +38,21 @@ class GetStoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         return vaultId
 
+    def setDUSDInterest(self, interest=0):
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.iddUSD}/loan_minting_interest':str(interest)}})
+        self.nodes[0].generate(1)
+
+    def templateFn(self, doRevert = True):
+        blockHeight = self.nodes[0].getblockcount()
+        # fn body
+
+
+        if doRevert:
+            self.revert(blockHeight)
+            block = self.nodes[0].getblockcount()
+            assert_equal(block+1, blockHeight)
+            # further check for changes undone
+
     def createTokens(self):
         self.symbolDFI = "DFI"
         self.symboldUSD = "DUSD"
@@ -173,6 +188,7 @@ class GetStoredInterestTest (DefiTestFramework):
 
     def run_test(self):
         self.setup()
+        self.templateFn()
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()
