@@ -21,8 +21,9 @@ class GetStoredInterestTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.greatworldheight = 700
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanningspringheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-greatworldheight=1', '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanningspringheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', f'-greatworldheight={self.greatworldheight}', '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
     # Utils
@@ -38,14 +39,26 @@ class GetStoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         return vaultId
 
-    def setDUSDInterest(self, interest=0):
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.iddUSD}/loan_minting_interest':str(interest)}})
+    def goToGWHeight(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.greatworldheight > blockHeight:
+            self.nodes[0].generate((self.greatworldheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], True)
+
+    def goToSetupHeight(self):
+        self.revert(self.setupHeight)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], False)
+
+    # Default token = 1 = dUSD
+    def setTokenInterest(self, token=1, interest=0):
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{token}/loan_minting_interest':str(interest)}})
         self.nodes[0].generate(1)
 
     def templateFn(self, doRevert = True):
         blockHeight = self.nodes[0].getblockcount()
         # fn body
-
 
         if doRevert:
             self.revert(blockHeight)
@@ -72,7 +85,7 @@ class GetStoredInterestTest (DefiTestFramework):
                                     'name': "DUSD stable token",
                                     'fixedIntervalPriceId': "DUSD/USD",
                                     'mintable': True,
-                                    'interest': -1})
+                                    'interest': 0})
         self.nodes[0].generate(120)
         self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
 
@@ -89,7 +102,7 @@ class GetStoredInterestTest (DefiTestFramework):
                                     'name': "GOLD token",
                                     'fixedIntervalPriceId': "GOLD/USD",
                                     'mintable': True,
-                                    'interest': -3})
+                                    'interest': 0})
         self.nodes[0].generate(1)
         self.idGOLD = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
         self.nodes[0].minttokens("1000@GOLD")
@@ -188,7 +201,10 @@ class GetStoredInterestTest (DefiTestFramework):
 
     def run_test(self):
         self.setup()
+        self.setupHeight = self.nodes[0].getblockcount()
         self.templateFn()
+        self.goToGWHeight()
+        self.goToSetupHeight()
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()
