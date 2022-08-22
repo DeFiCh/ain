@@ -188,6 +188,30 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(Decimal(stored_interest['interestToHeight']), negative_stored_ipb * 10)
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
+        # Set positive token interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(6)
+
+        # Apply again to update stored interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(10)
+
+        # Check interest to height has additional negative interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
+        assert_equal(Decimal(stored_interest['interestToHeight']), negative_stored_ipb * 5)
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 9)
+
+        # Apply again to update stored interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Check interest to height has additional negative interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
+        assert_equal(Decimal(stored_interest['interestToHeight']), positive_stored_ipb * 5)
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
     def test_scheme_change(self):
 
         # Reset token interest
@@ -271,6 +295,38 @@ class StoredInterestTest (DefiTestFramework):
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '-0.000000380517503805175038')
         assert_equal(Decimal(stored_interest['interestToHeight']), negative_stored_ipb * 10)
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Set positive token interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(6)
+
+        # Apply scheme change to update stored interest
+        self.nodes[0].updatevault(vault_id, {'loanSchemeId': 'LOAN002'})
+        self.nodes[0].generate(10)
+
+        # Check vault scheme has actually changed
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['loanSchemeId'], 'LOAN002')
+
+        # Check interest to height has additional negative interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
+        assert_equal(Decimal(stored_interest['interestToHeight']), negative_stored_ipb * 5)
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 9)
+
+        # Apply scheme change to update stored interest
+        self.nodes[0].updatevault(vault_id, {'loanSchemeId': 'LOAN001'})
+        self.nodes[0].generate(1)
+
+        # Check vault scheme has actually changed
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['loanSchemeId'], 'LOAN001')
+
+        # Check interest to height has additional negative interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
+        assert_equal(Decimal(stored_interest['interestToHeight']), positive_stored_ipb * 5)
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
 if __name__ == '__main__':
