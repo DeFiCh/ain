@@ -2976,7 +2976,8 @@ public:
             return Res::Err("tx must have at least one input from token owner");
 
         // loan scheme exists
-        if (!mnview.GetLoanScheme(obj.schemeId))
+        const auto scheme = mnview.GetLoanScheme(obj.schemeId);
+        if (!scheme)
             return Res::Err("Cannot find existing loan scheme with id %s", obj.schemeId);
 
         // loan scheme is not set to be destroyed
@@ -2995,7 +2996,6 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
-                    auto scheme = mnview.GetLoanScheme(obj.schemeId);
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
@@ -3006,7 +3006,7 @@ public:
                     for (const auto& [tokenId, tokenAmount] : loanTokens->balances) {
                         const auto loanToken = mnview.GetLoanTokenByID(tokenId);
                         assert(loanToken);
-                        res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, 0);
+                        res = mnview.StoreInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0);
                         if (!res) {
                             return res;
                         }
