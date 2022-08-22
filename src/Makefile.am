@@ -372,6 +372,8 @@ libdefi_server_a_SOURCES = \
   index/txindex.cpp \
   interfaces/chain.cpp \
   init.cpp \
+  libain_core.h \
+  libain_core.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
@@ -666,12 +668,12 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # defid binary #
-defid_SOURCES = defid.cpp libain_core.cpp
+defid_SOURCES = defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -lain_core
+defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 if TARGET_NOT_WINDOWS
-defid_LDFLAGS += -ldl
+defid_LDFLAGS += -lain_core -ldl
 endif
 
 if TARGET_WINDOWS
@@ -684,7 +686,6 @@ endif
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBDEFI_SPV) \
@@ -696,7 +697,7 @@ defid_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+defid_LDADD += $(AIN_CORE_LIBS) $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp

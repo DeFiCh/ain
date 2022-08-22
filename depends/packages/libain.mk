@@ -9,7 +9,7 @@ define $(package)_fetch_cmds
 		cp -r $(LIBAIN_PATH)/* $$($(package)_extract_dir)/; \
 	else \
 		echo "Cloning from Git repository for libain-rs"; \
-		git clone --single-branch --branch master $$($(package)_git_path) $$($(package)_extract_dir); \
+		git clone --single-branch --branch amount $$($(package)_git_path) $$($(package)_extract_dir); \
 	fi
 endef
 

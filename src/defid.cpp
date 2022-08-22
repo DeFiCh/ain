@@ -13,7 +13,6 @@
 #include <fs.h>
 #include <init.h>
 #include <interfaces/chain.h>
-#include <libain_core.hpp>
 #include <noui.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -65,8 +64,6 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
-
-    set_fee_coefficient(180000000); // set dex stabilization fee coefficient (Rust), TODO: Move this to appropriate site
 
     //
     // Parameters

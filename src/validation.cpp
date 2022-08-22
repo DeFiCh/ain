@@ -19,6 +19,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <libain_core.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
@@ -3742,10 +3743,8 @@ void CChainState::PerformDUSDStabilization(const CBlockIndex* pindex, CCustomCSV
     subBurnAmounts(info.dexfeeburn.balances);
     subBurnAmounts(info.dfi2203Tokens.balances);
 
-    // auto fee = calc_dex_fee(totalLoanedDUSD, supply);
-    // LogPrintf("Fee: %s\n", GetDecimaleString(fee));
-
-    LogPrintf("\n\n [ DUSD ] Loaned: %s, Supply: %s\n\n", GetDecimaleString(totalLoanedDUSD), GetDecimaleString(supply));
+    auto fee = calc_dex_fee(totalLoanedDUSD, supply);
+    LogPrintf("\n\n [ DUSD ] Loaned: %s, Supply: %s, Fee: %s\n\n", GetDecimaleString(totalLoanedDUSD), GetDecimaleString(supply), GetDecimaleString(fee));
 
     // Get DFI and DUSD reserve in pool
     DCT_ID poolID{0};
@@ -3763,8 +3762,6 @@ void CChainState::PerformDUSDStabilization(const CBlockIndex* pindex, CCustomCSV
 
         return true;
     }, DCT_ID{0});
-
-    LogPrintf("\n\n [ RESERVE ] DUSD: %s, DFI: %s\n\n", GetDecimaleString(reserveDUSD), GetDecimaleString(reserveDFI));
 
     // Get latest DFI price within the last hour from any oracle
     int64_t priceUpdatedTime{0};
@@ -3800,8 +3797,8 @@ void CChainState::PerformDUSDStabilization(const CBlockIndex* pindex, CCustomCSV
     });
 
     if (reserveDUSD != 0 && latestPrice != 0) {
-        // auto rate = calc_loan_interest_rate(reserveDUSD, reserveDFI, latestPrice);
-        // LogPrintf("Rate: %s\n", GetDecimaleString(rate));
+        auto rate = calc_loan_interest_rate(reserveDUSD, reserveDFI, latestPrice);
+        LogPrintf("\n\n [ RESERVE ] DUSD: %s, DFI: %s, Interest: %s\n\n", GetDecimaleString(reserveDUSD), GetDecimaleString(reserveDFI), GetDecimaleString(rate));
     }
 }
 
