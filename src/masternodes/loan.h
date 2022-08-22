@@ -330,17 +330,21 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
     return rate3;
 }
 
-inline const auto InterestAddition = [](CNegativeInterest &a, const CNegativeInterest &b) {
+inline const auto InterestAddition = [](const CNegativeInterest &a, const CNegativeInterest &b) {
+    CNegativeInterest interest;
     if (a.negative == b.negative) {
-        a.amount += b.amount;
+        interest.amount = a.amount + b.amount;
+        interest.negative = b.negative;
     } else {
         if (a.amount > b.amount) {
-            a.amount -= b.amount;
+            interest.amount = a.amount - b.amount;
+            interest.negative = a.negative;
         } else {
-            a.amount = b.amount - a.amount;
-            a.negative = b.negative;
+            interest.amount = b.amount - a.amount;
+            interest.negative = !a.negative;
         }
     }
+    return interest;
 };
 
 static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000

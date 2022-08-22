@@ -1510,8 +1510,8 @@ UniValue getinterest(const JSONRPCRequest& request) {
             return true;
 
         const auto totalInterest = TotalInterestCalculation(rate, height);
-        InterestAddition(cumulativeInterest, totalInterest);
-        InterestAddition(interestPerBlock, rate.interestPerBlock);
+        cumulativeInterest = InterestAddition(cumulativeInterest, totalInterest);
+        interestPerBlock = InterestAddition(interestPerBlock, rate.interestPerBlock);
 
         return true;
     };
