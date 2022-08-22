@@ -113,6 +113,7 @@ BASE_SCRIPTS = [
     'feature_abortnode.py',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
+    'feature_stored_interest.py',
     'feature_fee_estimation.py',
     'feature_dip1.py',
     'feature_dfip8_communitybalances.py',
