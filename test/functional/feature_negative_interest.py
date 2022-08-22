@@ -844,8 +844,8 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         verbose = True
         vault = self.nodes[0].getvault(self.vaultId8, verbose)
-        assert_equal(vault["loanValue"], Decimal('4.91098160'))
-        assert_equal(vault["interestPerBlockValue"], '-0.047166506391285102739726')
+        assert_equal(vault["loanValue"], Decimal('4.91058346'))
+        assert_equal(vault["interestPerBlockValue"], '-0.047564640410958904109589')
         accountInfo = self.nodes[0].getaccount(self.account1)
         assert_equal(accountInfo, ['10.00000000@DUSD'])
 
