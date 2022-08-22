@@ -3188,7 +3188,6 @@ public:
                 CAmount subInterest{};
                 if (totalInterest < 0) {
                     loanAmount += totalInterest;
-                    subInterest = std::numeric_limits<CAmount>::max();
                 } else {
                     // Get the difference to reduce from stored interest. Other circumstance should be covered by totalInterest < 0 or StoreInterest can be called.
                     if (rate->interestPerBlock.negative && !rate->interestToHeight.negative) {
