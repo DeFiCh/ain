@@ -34,6 +34,9 @@ class StoredInterestTest (DefiTestFramework):
         # Test scheme changes
         self.test_scheme_change()
 
+        # Test take loan
+        self.test_take_loan()
+
     def setup_test_tokens(self):
         # Generate chain
         self.nodes[0].generate(120)
@@ -328,6 +331,75 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestPerBlock'], '0.000000380517503805175038')
         assert_equal(Decimal(stored_interest['interestToHeight']), positive_stored_ipb * 5)
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+    def test_take_loan(self):
+
+        # Reset token interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'1'}})
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Fund vault address
+        self.nodes[0].accounttoaccount(self.address, {vault_address: f"10@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, vault_address, f"10@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].generate(10)
+
+        # Store base interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)['interestPerBlock']
+        assert_equal(stored_interest, '0.000000380517503805175038')
+
+        # Take another loan to update stored interest
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check interest has updated as expected
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517507610350076')
+        assert_equal(stored_interest['interestToHeight'], '0.000003805175038051750380')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Set negative interest to be inverse of positive interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
+        self.nodes[0].generate(6)
+
+        # Check negative rate
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517507610350076')
+
+        # Take another loan to update stored interest
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(6)
+
+        # Check interest has reduced as expected
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517511415525114')
+        assert_equal(stored_interest['interestToHeight'], '0.000001902587500000000000') # Reduced 6 * IPB
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
+
+        # Take another loan to update stored interest
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check interest has wiped as expected
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517366818873668')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Check loan amount is reduced as expected by one negative interest block
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, ['0.99999964@DUSD'])
 
 if __name__ == '__main__':
     StoredInterestTest().main()

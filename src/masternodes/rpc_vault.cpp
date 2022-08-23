@@ -1911,6 +1911,38 @@ UniValue getstoredinterest(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+
+UniValue getloantokens(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getloantokens",
+               "Returns loan tokens stored in a vault.\n",
+               {
+                       {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+               },
+               RPCResult{
+                       "[ n.nnnnnnn@Symbol, ...]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getloantokens", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)") +
+                       HelpExampleRpc("getloantokens", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    const auto vaultId = ParseHashV(request.params[0], "vaultId");
+    const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId);
+    if (!loanTokens) {
+        return {};
+    }
+
+    const auto ret = AmountsToJSON(loanTokens->balances);
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1930,6 +1962,7 @@ static const CRPCCommand commands[] =
     {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
     {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
     {"hidden",       "getstoredinterest",         &getstoredinterest,     {"vaultId", "token"}},
+    {"hidden",       "getloantokens",             &getloantokens,         {"vaultId"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {

@@ -3176,7 +3176,7 @@ public:
 
             // Calculate interest
             CAmount currentLoanAmount{};
-            bool storedInterestUpdated{};
+            bool wipeInterestToHeight{};
             auto loanAmount = tokenAmount;
 
             if (loanAmounts && loanAmounts->balances.count(tokenId)) {
@@ -3185,21 +3185,9 @@ public:
                 assert(rate);
                 const CAmount totalInterest = TotalInterest(*rate, height);
 
-                CAmount subInterest{};
                 if (totalInterest < 0) {
                     loanAmount += totalInterest;
-                } else {
-                    // Get the difference to reduce from stored interest. Other circumstance should be covered by totalInterest < 0 or StoreInterest can be called.
-                    if (rate->interestPerBlock.negative && !rate->interestToHeight.negative) {
-                        subInterest = CeilInterest(rate->interestToHeight.amount, std::numeric_limits<uint32_t>::max()) - totalInterest;
-                    }
-                }
-
-                if (subInterest) {
-                    storedInterestUpdated = true;
-                    res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, 0, subInterest);
-                    if (!res)
-                        return res;
+                    wipeInterestToHeight = true;
                 }
             }
 
@@ -3215,7 +3203,9 @@ public:
                 }
             }
 
-            if (!storedInterestUpdated) {
+            if (wipeInterestToHeight) {
+                mnview.WipeInterest(height, obj.vaultId, vault->schemeId, tokenId);
+            } else {
                 res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmount);
                 if (!res)
                     return res;

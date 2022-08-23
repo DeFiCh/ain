@@ -381,6 +381,27 @@ Res CLoanView::EraseInterest(const uint32_t height, const CVaultId& vaultId, con
     return Res::Ok();
 }
 
+
+void CLoanView::WipeInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id)
+{
+    const auto scheme = GetLoanScheme(loanSchemeID);
+    assert(scheme);
+
+    const auto token = GetLoanTokenByID(id);
+    assert(token);
+
+    CBalances amounts;
+    ReadBy<LoanTokenAmount>(vaultId, amounts);
+
+    const CInterestRateV3 rate{
+            height,
+            InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate),
+            {false, 0}
+    };
+
+    WriteInterestRate(std::make_pair(vaultId, id), rate, height);
+}
+
 void CLoanView::ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId, DCT_ID id)
 {
     ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, CInterestRate>([&](const std::pair<CVaultId, DCT_ID>& pair, CInterestRate rate) {
