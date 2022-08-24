@@ -433,7 +433,7 @@ class GetStoredInterestTest (DefiTestFramework):
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), Decimal(expected_IPB1))
         assert_equal(Decimal(storedInterest1["interestToHeight"]), Decimal(storedInterest["interestToHeight"])+Decimal(expected_IPB*11))
 
-        # Repeat process with anotther loan
+        # Repeat process with another loan
         self.nodes[0].generate(10)
         loanAmount = 3
         self.nodes[0].takeloan({
@@ -445,6 +445,292 @@ class GetStoredInterestTest (DefiTestFramework):
         assert(storedInterest1["interestPerBlock"] !=  storedInterest2["interestPerBlock"])
         assert_equal(Decimal(storedInterest2["interestPerBlock"]), Decimal(expected_IPB2))
         assert_equal(Decimal(storedInterest2["interestToHeight"]), Decimal(storedInterest1["interestToHeight"])+Decimal(expected_IPB1*11))
+
+        if doRevert:
+            self.revert(blockHeight)
+            block = self.nodes[0].getblockcount()
+            assert_equal(block+1, blockHeight)
+            try:
+                self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+            except JSONRPCException as e:
+                errorString = e.error['message']
+            assert("Vault not found" in errorString)
+            # further check for changes undone
+            attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+            assert_equal(attributes["v0/token/1/loan_minting_interest"], '0')
+
+    def payback_loan_IPB_positive_and_ITH_positive(self, doRevert = True):
+        blockHeight = self.nodes[0].getblockcount()
+        # Init use case
+        # Set interest
+        self.goToGWHeight()
+        self.setTokenInterest(interest=1)
+        # Create vault and take loan
+        loanScheme = 'LOAN1'
+        vaultId = self.newvault(loanScheme)
+        loanAmount = 1
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.02')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
+
+        vault = self.nodes[0].getvault(vaultId)
+        [interestAmount, _] = vault["interestAmounts"][0].split("@")
+        self.nodes[0].generate(1)
+
+        # Payback half the interest
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId,
+                    'from': self.account0,
+                    'amounts': f"{float(interestAmount) / 2}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.02') / Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        expected_ITH = Decimal(expected_IPB * 2 - Decimal(interestAmount) / 2).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(Decimal(storedInterest["interestToHeight"]), expected_ITH)
+        assert_equal(Decimal(storedInterest["interestPerBlock"]), expected_IPB)
+
+        vault = self.nodes[0].getvault(vaultId)
+        [interestAmount, _] = vault["interestAmounts"][0].split("@")
+        # Payback half the loan
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId,
+                    'from': self.account0,
+                    'amounts': f"{loanAmount / 2 + float(interestAmount)}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+        storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB1 = Decimal(Decimal('0.02') / 2 / Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB1, Decimal(storedInterest1["interestPerBlock"]))
+        assert_equal(Decimal(storedInterest1["interestToHeight"]), 0)
+        assert_equal(Decimal(storedInterest1["interestPerBlock"]), (Decimal(storedInterest["interestPerBlock"]) / 2).quantize(Decimal('1E-24'), ROUND_DOWN))
+
+        if doRevert:
+            self.revert(blockHeight)
+            block = self.nodes[0].getblockcount()
+            assert_equal(block+1, blockHeight)
+            try:
+                self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+            except JSONRPCException as e:
+                errorString = e.error['message']
+            assert("Vault not found" in errorString)
+            # further check for changes undone
+            attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+            assert_equal(attributes["v0/token/1/loan_minting_interest"], '0')
+
+    def payback_loan_IPB_positive_and_ITH_negative(self, doRevert = True):
+        blockHeight = self.nodes[0].getblockcount()
+        # Init use case
+        # Set interest
+        self.goToGWHeight()
+        self.setTokenInterest(interest=-2)
+        # Create vault and take loan
+        loanScheme = 'LOAN1'
+        vaultId = self.newvault(loanScheme)
+        loanAmount = 1
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('-0.01')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
+
+        # Generate 10 blocks + update vault and check again
+        self.nodes[0].generate(19)
+        self.nodes[0].updatevault(vaultId, {'loanSchemeId': 'LOAN3'})
+        self.nodes[0].generate(1)
+        expected_ITH = Decimal(expected_IPB) * 20
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.01')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(expected_ITH, Decimal(storedInterest["interestToHeight"]))
+
+        # Set IPB positive
+        self.setTokenInterest(interest=2)
+        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId)
+        print("vault", vault)
+        print("expected_IPB", expected_IPB)
+        print("expected_ITH", expected_ITH)
+
+        # Check positive IPB and negative ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        assert(Decimal(storedInterest["interestPerBlock"]) > 0)
+        assert(Decimal(storedInterest["interestToHeight"]) < 0)
+
+        vault = self.nodes[0].getvault(vaultId)
+        [interestAmount, _] = vault["interestAmounts"][0].split("@")
+
+        # Payback half the loan, check that negative interest is used first
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId,
+                    'from': self.account0,
+                    'amounts': f"{loanAmount / 2 + float(interestAmount)}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId)
+        storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.025') / Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(Decimal(storedInterest1["interestToHeight"]), 0) # negative interest was used for payback
+        assert_equal(Decimal(storedInterest1["interestPerBlock"]), expected_IPB)
+
+        if doRevert:
+            self.revert(blockHeight)
+            block = self.nodes[0].getblockcount()
+            assert_equal(block+1, blockHeight)
+            try:
+                self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+            except JSONRPCException as e:
+                errorString = e.error['message']
+            assert("Vault not found" in errorString)
+            # further check for changes undone
+            attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+            assert_equal(attributes["v0/token/1/loan_minting_interest"], '0')
+
+    def payback_loan_IPB_negative_and_ITH_positive(self, doRevert = True):
+        blockHeight = self.nodes[0].getblockcount()
+        # Init use case
+        # Set interest
+        self.goToGWHeight()
+        self.setTokenInterest(interest=0)
+        # Create vault and take loan
+        loanScheme = 'LOAN1'
+        vaultId = self.newvault(loanScheme)
+        loanAmount = 1
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.01')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
+
+        # Generate 10 blocks + update vault and check again
+        self.nodes[0].generate(9)
+        self.nodes[0].updatevault(vaultId, {'loanSchemeId': 'LOAN2'})
+        self.nodes[0].generate(1)
+        expected_ITH = Decimal(expected_IPB) * 10
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.02')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(expected_ITH, Decimal(storedInterest["interestToHeight"]))
+
+        # Set IPB negative
+        self.setTokenInterest(interest=-4)
+        self.nodes[0].generate(1)
+
+        # Check positive ITH and negative IPB
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('-0.02')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        expected_ITH = expected_ITH - expected_IPB
+        assert_equal(Decimal(storedInterest["interestPerBlock"]), expected_IPB)
+        assert_equal(Decimal(storedInterest["interestToHeight"]), expected_ITH)
+        assert(Decimal(storedInterest["interestPerBlock"]) < 0)
+        assert(Decimal(storedInterest["interestToHeight"]) > 0)
+
+        vault = self.nodes[0].getvault(vaultId)
+        [interestAmount, _] = vault["interestAmounts"][0].split("@")
+        assert(float(interestAmount) > 0)
+        loanAmount = vault["loanAmounts"][0]
+
+        # Payback rest of the loan
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId,
+                    'from': self.account0,
+                    'amounts': loanAmount})
+        self.nodes[0].generate(1)
+
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        assert_equal(Decimal(storedInterest["interestToHeight"]), 0)
+        assert_equal(Decimal(storedInterest["interestPerBlock"]), 0)
+
+        if doRevert:
+            self.revert(blockHeight)
+            block = self.nodes[0].getblockcount()
+            assert_equal(block+1, blockHeight)
+            try:
+                self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+            except JSONRPCException as e:
+                errorString = e.error['message']
+            assert("Vault not found" in errorString)
+            # further check for changes undone
+            attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+            assert_equal(attributes["v0/token/1/loan_minting_interest"], '0')
+
+    def payback_loan_IPB_negative_and_ITH_negative(self, doRevert = True):
+        blockHeight = self.nodes[0].getblockcount()
+        # Init use case
+        # Set interest
+        self.goToGWHeight()
+        self.setTokenInterest(interest=0)
+        # Create vault and take loan
+        loanScheme = 'LOAN1'
+        vaultId = self.newvault(loanScheme)
+        loanAmount = 1
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.01')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
+
+        # Generate 10 blocks + update vault and check again
+        self.nodes[0].generate(9)
+        self.nodes[0].updatevault(vaultId, {'loanSchemeId': 'LOAN2'})
+        self.nodes[0].generate(1)
+        expected_ITH = Decimal(expected_IPB) * 10
+
+        # Check expected IPB and ITH
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('0.02')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+        assert_equal(expected_ITH, Decimal(storedInterest["interestToHeight"]))
+
+        # Set IPB negative
+        self.setTokenInterest(interest=-4)
+        self.nodes[0].generate(1)
+
+        # Check negative IPB
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        expected_IPB = Decimal(Decimal('-0.02')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
+        assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
+
+        # Accrue enough negative interest to pay part of the loan
+        self.nodes[0].generate(10)
+        vault = self.nodes[0].getvault(vaultId)
+        [interestAmount, _] = vault["interestAmounts"][0].split("@")
+        assert(float(interestAmount) < 0)
+        loanAmount = vault["loanAmounts"][0]
+
+        # Payback rest of the loan
+        self.nodes[0].paybackloan({
+                    'vaultId': vaultId,
+                    'from': self.account0,
+                    'amounts': loanAmount})
+        self.nodes[0].generate(1)
+
+        storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
+        assert_equal(Decimal(storedInterest["interestToHeight"]), 0)
+        assert_equal(Decimal(storedInterest["interestPerBlock"]), 0)
 
         if doRevert:
             self.revert(blockHeight)
@@ -621,5 +907,11 @@ class GetStoredInterestTest (DefiTestFramework):
         self.takeloan_IPB_and_ITH_negative()
         #self.takeloan_IPB_negative_ITH_positive()
         #self.takeloan_IPB_positive_ITH_negative()
+
+        self.payback_loan_IPB_positive_and_ITH_positive()
+        self.payback_loan_IPB_positive_and_ITH_negative()
+        self.payback_loan_IPB_negative_and_ITH_positive()
+        self.payback_loan_IPB_negative_and_ITH_negative()
+
 if __name__ == '__main__':
     GetStoredInterestTest().main()
