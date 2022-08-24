@@ -1935,7 +1935,7 @@ UniValue getloantokens(const JSONRPCRequest& request) {
     const auto vaultId = ParseHashV(request.params[0], "vaultId");
     const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId);
     if (!loanTokens) {
-        return {};
+        return UniValue::VARR;
     }
 
     const auto ret = AmountsToJSON(loanTokens->balances);
