@@ -3186,7 +3186,7 @@ public:
                 const CAmount totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmount += totalInterest;
+                    loanAmount = currentLoanAmount > std::abs(totalInterest) ? loanAmount + totalInterest : loanAmount - currentLoanAmount;
                     wipeInterestToHeight = true;
                 }
             }
