@@ -139,16 +139,14 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
-        # Check loan interest
-        vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['interestAmounts'], [f'0.00000000@{self.symbolDUSD}'])
+        # Check stored interest is nil
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
-        # Set negative interest rate to go below 0 when combined with scheme interest
+        # Set overall negative interest rate to -2
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-10'}})
-        self.nodes[0].generate(1)
-
-        # Take DUSD loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check stored interest
@@ -160,6 +158,20 @@ class NegativeInterestTest (DefiTestFramework):
         # Check loan interest
         vault = self.nodes[0].getvault(vault_id)
         assert_equal(vault['interestAmounts'], [f'-0.00000096@{self.symbolDUSD}'])
+
+        # Take DUSD loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB doubled and ITH wiped
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000001902586605783866057')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Check loan interest
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['interestAmounts'], [f'-0.00000191@{self.symbolDUSD}'])
 
         # Payback almost all of the loan amount
         self.nodes[0].paybackloan({
