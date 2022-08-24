@@ -41,7 +41,10 @@ class StoredInterestTest (DefiTestFramework):
         self.test_payback_loan()
 
         # Test negative interest does not apply to new loan if previous loan fully negated
-        self.test_takeloan_close_vault()
+        self.test_takeloan_close_loan()
+
+        # Test payback on fully negated loan does not remove funds from users account
+        self.test_payback_close_loan()
 
     def setup_test_tokens(self):
         # Generate chain
@@ -427,7 +430,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "from": self.address, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(10)
 
         # Check interest
@@ -506,7 +509,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 6)
 
-    def test_takeloan_close_vault(self):
+    def test_takeloan_close_loan(self):
 
         # Set mega negative interest
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-200000'}})
@@ -526,7 +529,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(60)
 
         # Check interest
@@ -543,7 +546,7 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestToHeight'], '-0.000000022830936073059360')
 
         # Take loan
-        self.nodes[0].takeloan({ "vaultId": vault_id, "from": self.address, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
         # Check interest and interest to height are both zero
@@ -553,6 +556,55 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check that new loan amount is in full and does not have previous negative interest applied
         assert_equal(self.nodes[0].getloantokens(vault_id), ['1.00000000@DUSD'])
+
+    def test_payback_close_loan(self):
+
+        # Set mega negative interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-200000'}})
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Fund vault address
+        self.nodes[0].accounttoaccount(self.address, {vault_address: f"10@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, vault_address, f"10@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(60)
+
+        # Check interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)['interestPerBlock']
+        assert_equal(stored_interest, '-0.000000000380515601217656')
+
+        # Set resonable negative interest. Ends up at 0% in vault.
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-1'}})
+        self.nodes[0].generate(1)
+
+        # Check interest fully negates loan amount of 1 Sat
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '-0.000000022830936073059360')
+
+        # Payback loan
+        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check interest and interest to height are both zero
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
+
+        # Check that the DUSD balance has not been used to payback the loan
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [f'0.00000001@{self.symbolDUSD}'])
 
 if __name__ == '__main__':
     StoredInterestTest().main()

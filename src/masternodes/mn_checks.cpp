@@ -3468,11 +3468,14 @@ public:
                     if (!res)
                         return res;
 
-                    // subtract loan amount first, interest is burning below
-                    LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
-                    res = mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan});
-                    if (!res)
-                        return res;
+                    // Do not sub balance if negative interest fully negates the current loan amount
+                    if (!(subInterest < 0 && std::abs(subInterest) > currentLoanAmount)) {
+                        // subtract loan amount first, interest is burning below
+                        LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                        res = mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan});
+                        if (!res)
+                            return res;
+                    }
 
                     // burn interest Token->USD->DFI->burnAddress
                     if (subInterest > 0)
