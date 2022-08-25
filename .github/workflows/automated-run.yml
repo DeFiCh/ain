@@ -1,4 +1,4 @@
-name: ParallelTesting
+name: Full Sync Tests
 on:
   push:
     branches:
