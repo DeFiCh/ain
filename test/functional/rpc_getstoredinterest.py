@@ -432,9 +432,7 @@ class GetStoredInterestTest (DefiTestFramework):
         expected_IPB1 = Decimal(Decimal('-0.05')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
         assert(storedInterest["interestPerBlock"] !=  storedInterest1["interestPerBlock"])
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), Decimal(expected_IPB1))
-        print(storedInterest1)
-        # ITH is 0, should be updated after takeloan action
-        # assert_equal(Decimal(storedInterest1["interestToHeight"]), Decimal(storedInterest["interestToHeight"])+Decimal(expected_IPB*11))
+        assert_equal(storedInterest1["interestToHeight"], '0.000000000000000000000000')
 
         # Repeat process with another loan
         self.nodes[0].generate(10)
@@ -447,9 +445,7 @@ class GetStoredInterestTest (DefiTestFramework):
         expected_IPB2 = Decimal(Decimal('-0.05')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
         assert(storedInterest1["interestPerBlock"] !=  storedInterest2["interestPerBlock"])
         assert_equal(Decimal(storedInterest2["interestPerBlock"]), Decimal(expected_IPB2))
-        print(storedInterest2)
-        # ITH is 0, should be updated after takeloan action
-        # assert_equal(Decimal(storedInterest2["interestToHeight"]), Decimal(storedInterest1["interestToHeight"])+Decimal(expected_IPB1*11))
+        assert_equal(storedInterest2["interestToHeight"], '0.000000000000000000000000')
 
         if doRevert:
             self.revert(blockHeight)
@@ -591,8 +587,7 @@ class GetStoredInterestTest (DefiTestFramework):
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
         loanAmount = getDecimalAmount(self.nodes[0].getloantokens(vaultId)[0])
         expected_IPB = Decimal(Decimal('0.05') / Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
-        # ITH not being updated
-        assert(Decimal(storedInterest1["interestToHeight"]) != 0)
+        assert_equal(storedInterest1["interestToHeight"], '0.000000000000000000000000')
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), expected_IPB)
 
         self.nodes[0].generate(10)
