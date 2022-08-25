@@ -426,7 +426,6 @@ class GetStoredInterestTest (DefiTestFramework):
                     'vaultId': vaultId,
                     'amounts': "1@" + self.symboldUSD})
         self.nodes[0].generate(1)
-        vault = self.nodes[0].getvault(vaultId, True)
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
         loanAmount = getDecimalAmount(self.nodes[0].getloantokens(vaultId)[0])
         expected_IPB1 = Decimal(Decimal('-0.05')/Decimal(1051200)*loanAmount).quantize(Decimal('1E-24'), ROUND_DOWN)
