@@ -54,7 +54,7 @@ static CBlock BuildBlockTestCase() {
         tip = ::ChainActive().Tip();
 
         auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(tip->nHeight, *pcustomcsview))
+        if (!nodePtr || !nodePtr->IsActive(tip->nHeight))
             return {};
 
         mintedBlocks = nodePtr->mintedBlocks;

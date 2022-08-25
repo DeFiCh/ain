@@ -18,19 +18,11 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
+    /// @todo is it possible to pass minter key here, or we really need to extract it srom sig???
     CKeyID key;
     if (!blockHeader.ExtractMinterKey(key)) {
-        return error("%s: Can't extract minter key\n", __func__);
-    }
-
-    if (pindexPrev->nHeight + 1 >= Params().GetConsensus().GreatWorldHeight) {
-        auto nodeId = pcustomcsview->GetMasternodeIdByOperator(key);
-        if (!nodeId) {
-            return error("%s: No master operator found with minter key\n", __func__);
-        }
-        auto nodePtr = pcustomcsview->GetMasternode(*nodeId);
-        assert(nodePtr);
-        key = nodePtr->ownerAuthAddress;
+        LogPrintf("CheckStakeModifier: Can't extract minter key\n");
+        return false;
     }
 
     return blockHeader.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
@@ -78,7 +70,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(height, *mnView)) {
+        if (!nodePtr || !nodePtr->IsActive(height)) {
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
@@ -204,7 +196,7 @@ std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CK
 
     bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
     if (!signingRes) {
-        return "Block signing error";
+        return {std::string{} + "Block signing error"};
     }
 
     return {};

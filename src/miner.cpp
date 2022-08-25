@@ -116,13 +116,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
-    std::optional<CMasternode> nodePtr;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)
             return nullptr;
-        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
+        auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight))
             return nullptr;
     }
 
@@ -337,8 +336,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        const CKeyID key = nHeight >= consensus.GreatWorldHeight ? nodePtr->ownerAuthAddress : myIDs->first;
-        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
+        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -729,7 +727,6 @@ namespace pos {
         int64_t blockHeight;
         std::vector<int64_t> subNodesBlockTime;
         uint16_t timelock;
-        std::optional<CMasternode> nodePtr;
 
         {
             LOCK(cs_main);
@@ -740,8 +737,8 @@ namespace pos {
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
-            nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview))
+            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -775,8 +772,7 @@ namespace pos {
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        const CKeyID key = blockHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
-        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, key);
+        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {

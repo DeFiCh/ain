@@ -177,7 +177,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
     { "updatemasternode", 2, "inputs" },
-    { "updatemasternode", 1, "values" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},
