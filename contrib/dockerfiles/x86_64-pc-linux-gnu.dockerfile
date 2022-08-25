@@ -7,7 +7,6 @@ LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
-COPY ./make.sh /make.sh
 COPY ./make.sh .
 
 RUN apt update && apt install -y apt-transport-https
