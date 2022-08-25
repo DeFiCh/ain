@@ -479,22 +479,6 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     s << tx.nLockTime;
 }
 
-/*
- * DeFiChain custom transaction expiration and version added after metadata.
- */
-struct CExpirationAndVersion {
-    uint32_t expiration{std::numeric_limits<uint32_t>::max()};
-    uint8_t version{0};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(expiration);
-        READWRITE(version);
-    }
-};
 
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
 static inline CTransactionRef MakeTransactionRef() { return std::make_shared<const CTransaction>(); }
