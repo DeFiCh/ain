@@ -363,5 +363,21 @@ class PriceUpdateTest (DefiTestFramework):
         realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
         assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
 
+        # Go after FCH for high precission interestPerBlock and interestPerBlockValue
+        self.nodes[0].generate(self.FCH - self.nodes[0].getblockcount())
+
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
+        assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+
+        # Check one block interest is added correctly
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
+
 if __name__ == '__main__':
     PriceUpdateTest().main()
