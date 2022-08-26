@@ -52,6 +52,12 @@ class StoredInterestTest (DefiTestFramework):
         # Test payback on half negated loan, payback of full amount should only have half subbed
         self.test_payback_partial_close_loan()
 
+        # Test minimum negative interest take loan
+        self.check_minimum_interest_takeloan()
+
+        # Test minimum negative interest payback
+        self.check_minimum_interest_payback()
+
     def setup_test_tokens(self):
         # Generate chain
         self.nodes[0].generate(120)
@@ -412,13 +418,13 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check ITH is wiped and IPB increased slightly
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517515220700152')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517519025875190')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Check amount has increased for the new loan amount not negated
         loan_tokens = self.nodes[0].getloantokens(vault_id)
-        assert_equal(loan_tokens, [f'1.00000003@{self.symbolDUSD}'])
+        assert_equal(loan_tokens, [f'1.00000004@{self.symbolDUSD}'])
 
         # Revert and restore positive ITH
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -430,13 +436,13 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check ITH is wiped and IPB decreased slightly
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517366818873668')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517370624048706')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Check amount has decreased for amount negated by interest
         loan_tokens = self.nodes[0].getloantokens(vault_id)
-        assert_equal(loan_tokens, [f'0.99999964@{self.symbolDUSD}'])
+        assert_equal(loan_tokens, [f'0.99999965@{self.symbolDUSD}'])
 
         # Revert and restore positive ITH
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount() - 1))
@@ -535,13 +541,13 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check interest has wiped as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517343987823439')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517347792998477')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
 
         # Check loan amount is reduced as expected by one negative interest block
         loan_tokens = self.nodes[0].getloantokens(vault_id)
-        assert_equal(loan_tokens, ['0.99999958@DUSD'])
+        assert_equal(loan_tokens, ['0.99999959@DUSD'])
 
         # Apply token interest to update interest to height
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
@@ -549,8 +555,8 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check interest increased as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517343987823439')
-        assert_equal(stored_interest['interestToHeight'], '-0.000002283104063926940634')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000380517347792998477')
+        assert_equal(stored_interest['interestToHeight'], '-0.000002283104086757990862')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Payback loan in full
@@ -560,7 +566,7 @@ class StoredInterestTest (DefiTestFramework):
         # Check interest has wiped as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '-0.000000000000000000000000')
-        assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 5)
 
         # Apply token interest to update interest to height
@@ -570,7 +576,7 @@ class StoredInterestTest (DefiTestFramework):
         # Make sure that interest is still wiped and not updated
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '-0.000000000000000000000000')
-        assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount() - 6)
 
     def test_takeloan_close_loan(self):
@@ -664,7 +670,7 @@ class StoredInterestTest (DefiTestFramework):
         # Check interest and interest to height are both zero
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
-        assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
 
         # Check that the DUSD balance has not been used to payback the loan
         account = self.nodes[0].getaccount(vault_address)
@@ -717,11 +723,11 @@ class StoredInterestTest (DefiTestFramework):
         # Check interest and interest to height are both zero
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
-        assert_equal(stored_interest['interestToHeight'], '-0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
 
-        # Check that the DUSD balance has not been used to payback the loan
+        # Check that only part of the user's balaance was used to payback the loan
         account = self.nodes[0].getaccount(vault_address)
-        assert_equal(account, [f'0.51369350@{self.symbolDUSD}'])
+        assert_equal(account, [f'0.51369349@{self.symbolDUSD}'])
 
         # Check loan amount is nil
         loan_tokens = self.nodes[0].getloantokens(vault_id)
@@ -778,7 +784,7 @@ class StoredInterestTest (DefiTestFramework):
         loan_tokens = self.nodes[0].getloantokens(vault_id)
         assert_equal(loan_tokens, [f'1.00000001@{self.symbolDUSD}'])
 
-        # Set negative intereswt
+        # Set negative interest
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
         self.nodes[0].generate(20)
 
@@ -792,7 +798,7 @@ class StoredInterestTest (DefiTestFramework):
 
         # Accrued interes should have wiped negative interest and left positive ITH
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '0.000000380517869101978691')
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380517872907153729')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
@@ -802,7 +808,7 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check loan amount is increased for the new loan not negated by interest
         loan_tokens = self.nodes[0].getloantokens(vault_id)
-        assert_equal(loan_tokens, [f'1.00000096@{self.symbolDUSD}'])
+        assert_equal(loan_tokens, [f'1.00000097@{self.symbolDUSD}'])
 
         # Revert and restore negative ITH
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -814,7 +820,7 @@ class StoredInterestTest (DefiTestFramework):
 
         # Accrued interes should have wiped negative interest and left positive ITH
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
-        assert_equal(stored_interest['interestPerBlock'], '0.000000380516727549467275')
+        assert_equal(stored_interest['interestPerBlock'], '0.000000380516731354642313')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
@@ -824,7 +830,7 @@ class StoredInterestTest (DefiTestFramework):
 
         # Check loan amount is decreased for the excess negative interest
         loan_tokens = self.nodes[0].getloantokens(vault_id)
-        assert_equal(loan_tokens, [f'0.99999796@{self.symbolDUSD}'])
+        assert_equal(loan_tokens, [f'0.99999797@{self.symbolDUSD}'])
 
         # Revert and restore negative ITH
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -861,6 +867,119 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestPerBlock'], '0.000000190258751902587519')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+    def check_minimum_interest_takeloan(self):
+
+        # Set negative interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-2'}})
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Fund vault address
+        self.nodes[0].accounttoaccount(self.address, {vault_address: f"1@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, vault_address, f"1@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB is sub satoshi
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000000000001902587519')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Take new Sat loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB is doubled and ITH updated
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000000000003805175038')
+        assert_equal(stored_interest['interestToHeight'], '-0.000000000000001902587519')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Check loan amount shows all loan amounts
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, [f'0.00000002@{self.symbolDUSD}'])
+
+        # User's account is the expected amount
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [f'0.00000002@{self.symbolDUSD}'])
+
+
+    def check_minimum_interest_payback(self):
+
+        # Set negative interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-2'}})
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Fund vault address
+        self.nodes[0].accounttoaccount(self.address, {vault_address: f"1@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, vault_address, f"1@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000002@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB is sub satoshi
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000000000003805175038')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Payback part of the DUSD loan
+        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB is doubled and ITH updated
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000000000001902587519')
+        assert_equal(stored_interest['interestToHeight'], '-0.000000000000003805175038')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Check loan amount reduced
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, [f'0.00000001@{self.symbolDUSD}'])
+
+        # User's was used to payback the amount
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [f'0.00000001@{self.symbolDUSD}'])
+
+        # Payback the rest of the DUSD loan
+        self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check IPB is doubled and ITH updated
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+        assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
+
+        # Check loan amount now removed
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, [])
+
+        # User's was used to payback the amount
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [])
 
 if __name__ == '__main__':
     StoredInterestTest().main()

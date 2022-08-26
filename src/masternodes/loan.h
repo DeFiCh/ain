@@ -330,7 +330,7 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2& rate2)
     return rate3;
 }
 
-inline const auto InterestAddition = [](const CNegativeInterest &a, const CNegativeInterest &b) {
+inline auto InterestAddition = [](const CNegativeInterest &a, const CNegativeInterest &b) {
     CNegativeInterest interest;
     if (a.negative == b.negative) {
         interest.amount = a.amount + b.amount;
