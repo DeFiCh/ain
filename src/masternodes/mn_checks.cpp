@@ -3098,7 +3098,7 @@ public:
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
-            if (tokenAmount <= 0) 
+            if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight) && tokenAmount <= 0)
                 return Res::Err("Valid loan amount required (input: %d@%d)", tokenAmount, tokenId.v);
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -3120,7 +3120,6 @@ public:
                 const CAmount totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    auto newLoanAmount = currentLoanAmount + tokenAmount + totalInterest;
                     loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
                         // Interest to decrease smaller than overall existing loan amount.
                         // So reduce interest from the borrowing principal. If this is negative,
@@ -3286,7 +3285,7 @@ public:
                 const auto& paybackTokenId = kv.first;
                 auto paybackAmount = kv.second;
 
-                if (paybackAmount <= 0) {
+                if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight) && paybackAmount <= 0) {
                     return Res::Err("Valid payback amount required (input: %d@%d)", paybackAmount, paybackTokenId.v);
                 }
 
