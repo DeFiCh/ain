@@ -249,6 +249,10 @@ static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
     return amountHP;
 }
 
+const auto InterestPerBlock = [](const CInterestRateV3& rate, const uint32_t height) {
+    return CeilInterest(rate.interestPerBlock.amount, height);
+};
+
 CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height)
 {
     const auto totalInterest = (height - rate.height) * rate.interestPerBlock.amount;
@@ -270,11 +274,6 @@ CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height)
     const auto totalInterest = TotalInterestCalculation(rate, height);
     const auto amount = CeilInterest(totalInterest.amount, height);
     return totalInterest.negative ? -amount : amount;
-}
-
-CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height)
-{
-    return CeilInterest(rate.interestPerBlock.amount, height);
 }
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV3& rate, uint32_t height)

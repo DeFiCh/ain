@@ -350,7 +350,6 @@ inline const auto InterestAddition = [](const CNegativeInterest &a, const CNegat
 static const CAmount HIGH_PRECISION_SCALER = COIN * COIN; // 1,0000,0000,0000,0000
 
 CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height);
-CAmount InterestPerBlock(const CInterestRateV3& rate, uint32_t height);
 CNegativeInterest TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height);
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 

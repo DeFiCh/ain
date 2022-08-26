@@ -3348,9 +3348,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // further. Note, however, it's added back so that it's accurate
             // for auction calculations.
             CBalances totalInterest;
-            for (auto& loan : loanTokens->balances) {
-                const auto &tokenId = loan.first;
-                const auto &tokenValue = loan.second;
+            for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
+                const auto &[tokenId, tokenValue] = *it;
 
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
@@ -3361,14 +3360,28 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 if (subInterest > 0) {
                     totalInterest.Add({tokenId, subInterest});
+
+                    // Remove the interests from the vault and the storage respectively
+                    cache.SubLoanToken(vaultId, {tokenId, tokenValue});
+                    cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+                } else {
+                    // Negated interest from loan amount
+                    const auto subAmount = tokenValue + subInterest < 0 ? tokenValue : tokenValue + subInterest;
+
+                    // Remove the interests from the vault and the storage respectively
+                    cache.SubLoanToken(vaultId, {tokenId, subAmount});
+                    cache.WipeInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId);
                 }
 
-                // Remove the interests from the vault and the storage respectively
-                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, std::abs(subInterest));
-
                 // Putting this back in now for auction calculations.
-                loan.second += subInterest;
+                it->second += subInterest;
+
+                // If loan amount fully negated then remove it
+                if (it->second < 0) {
+                    it = loanTokens->balances.erase(it);
+                } else {
+                    ++it;
+                }
             }
 
             // Remove the collaterals out of the vault.
