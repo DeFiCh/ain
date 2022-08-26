@@ -509,6 +509,14 @@ void CLoanView::MigrateInterestRateToV3(CVaultView &view, uint32_t height)
     ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
         auto newRate = ConvertInterestRateToV3(rate);
         WriteBy<LoanInterestV3ByVault>(std::make_pair(vaultId, tokenId), newRate);
+
+        const auto token = GetLoanTokenByID(tokenId);
+        assert(token);
+
+        const auto vault = view.GetVault(vaultId);
+        assert(vault);
+
+        StoreInterest(height, vaultId, vault->schemeId, tokenId, token->interest, 0);
         return true;
     });
 }
