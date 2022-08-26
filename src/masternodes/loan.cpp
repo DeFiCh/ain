@@ -227,7 +227,7 @@ CNegativeInterest InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInt
 {
     const auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
     static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
-    return {netInterest < 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
+    return {netInterest < 0 && amount > 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
 }
 
 CAmount CeilInterest(const base_uint<128>& value, uint32_t height)
