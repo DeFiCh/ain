@@ -3098,6 +3098,9 @@ public:
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
+            if (tokenAmount <= 0) 
+                return Res::Err("Valid loan amount required", tokenAmount);
+
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
@@ -3108,7 +3111,7 @@ public:
             // Calculate interest
             CAmount currentLoanAmount{};
             bool wipeInterestToHeight{};
-            auto loanAmount = tokenAmount;
+            auto loanAmountChange = tokenAmount;
 
             if (loanAmounts && loanAmounts->balances.count(tokenId)) {
                 currentLoanAmount = loanAmounts->balances.at(tokenId);
@@ -3117,17 +3120,26 @@ public:
                 const CAmount totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmount = currentLoanAmount > std::abs(totalInterest) ? loanAmount + totalInterest : loanAmount - currentLoanAmount;
+                    auto newLoanAmount = currentLoanAmount + tokenAmount + totalInterest;
+                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
+                        // Interest to decrease smaller than overall existing loan amount.
+                        // So reduce interest from the borrowing principal. If this is negative,
+                        // we'll reduce from principal. 
+                        tokenAmount + totalInterest : 
+                        // Interest to decrease is larger than old loan amount.
+                        // We reduce from the borrowing principal. If this is negative, 
+                        // we'll reduce from principal. 
+                        tokenAmount - currentLoanAmount;
                     wipeInterestToHeight = true;
                 }
             }
 
-            if (loanAmount > 0) {
-                res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmount});
+            if (loanAmountChange > 0) {
+                res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmountChange});
                 if (!res)
                     return res;
             } else {
-                const auto subAmount = currentLoanAmount > std::abs(loanAmount) ? std::abs(loanAmount) : currentLoanAmount;
+                const auto subAmount = currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3137,7 +3149,7 @@ public:
             if (wipeInterestToHeight) {
                 mnview.WipeInterest(height, obj.vaultId, vault->schemeId, tokenId);
             } else {
-                res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmount);
+                res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange);
                 if (!res)
                     return res;
             }
