@@ -3099,7 +3099,7 @@ public:
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
             if (tokenAmount <= 0) 
-                return Res::Err("Valid loan amount required", tokenAmount);
+                return Res::Err("Valid loan amount required (input: %d@%d)", tokenAmount, tokenId);
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
@@ -3285,6 +3285,11 @@ public:
             {
                 const auto& paybackTokenId = kv.first;
                 auto paybackAmount = kv.second;
+
+                if (paybackAmount < 0) {
+                    return Res::Err("Valid payback amount required (input: %d@%d)", paybackAmount, paybackTokenId.v);
+                }
+
                 CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
                 auto paybackToken = mnview.GetToken(paybackTokenId);
