@@ -127,3 +127,4 @@ jobs:
       run: ./sync_then_diff.sh
     - name: Show Debug Log
       run: cat $DATADIR/debug.log
+      if: ${{ failure() ||  success() }}
