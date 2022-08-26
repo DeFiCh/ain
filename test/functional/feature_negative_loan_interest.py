@@ -157,7 +157,7 @@ class NegativeInterestTest (DefiTestFramework):
 
         # Check loan interest
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['interestAmounts'], [f'-0.00000096@{self.symbolDUSD}'])
+        assert_equal(vault['interestAmounts'], [f'-0.00000095@{self.symbolDUSD}'])
 
         # Take DUSD loan
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
@@ -166,12 +166,12 @@ class NegativeInterestTest (DefiTestFramework):
         # Check IPB doubled and ITH wiped
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
-        assert_equal(stored_interest['interestPerBlock'], '-0.000001902586605783866057')
+        assert_equal(stored_interest['interestPerBlock'], '-0.000001902586615296803652')
         assert_equal(stored_interest['height'], self.nodes[0].getblockcount())
 
         # Check loan interest
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['interestAmounts'], [f'-0.00000191@{self.symbolDUSD}'])
+        assert_equal(vault['interestAmounts'], [f'-0.00000190@{self.symbolDUSD}'])
 
         # Payback almost all of the loan amount
         self.nodes[0].paybackloan({
