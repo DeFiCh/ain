@@ -3286,7 +3286,7 @@ public:
                 const auto& paybackTokenId = kv.first;
                 auto paybackAmount = kv.second;
 
-                if (paybackAmount < 0) {
+                if (paybackAmount <= 0) {
                     return Res::Err("Valid payback amount required (input: %d@%d)", paybackAmount, paybackTokenId.v);
                 }
 
