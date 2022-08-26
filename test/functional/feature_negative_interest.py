@@ -379,8 +379,6 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].generate(1)
         loanAmount = 1
         totalLoanAmount += loanAmount
-        verbose = True
-        vault = self.nodes[0].getvault(self.vaultId6, verbose)
 
         # Use same vault as previous case
         self.nodes[0].takeloan({
@@ -853,16 +851,21 @@ class NegativeInterestTest (DefiTestFramework):
         assert_equal(loanTokens, ['5.00000000@DUSD'])
         assert_equal(storedInterest["interestPerBlock"], '-0.047564640410958904109589')
 
+        storedLoans = self.nodes[0].getloantokens(self.vaultId8)
+        storedAmount = getDecimalAmount(storedLoans[0])
         self.nodes[0].generate(10)
         self.nodes[0].takeloan({
                     'vaultId': self.vaultId8,
                     'amounts': "0.00000001@" + self.symboldUSD})
         self.nodes[0].generate(1)
-        storedInterest = self.nodes[0].getstoredinterest(self.vaultId8, self.symboldUSD)
+        storedLoans1 = self.nodes[0].getloantokens(self.vaultId8)
+        storedAmount1 = getDecimalAmount(storedLoans1[0])
+
+        assert(storedAmount > storedAmount1)
         loanTokens = self.nodes[0].getloantokens(self.vaultId8)
         assert_equal(loanTokens, ['4.47678896@DUSD'])
-        assert_equal(storedInterest["interestPerBlock"], '-0.042587371415630136986301')
-        assert(storedInterest["interestToHeight"]  != '0.000000000000000000000000')
+        assert_equal(storedInterest["interestPerBlock"], '-0.047564640410958904109589')
+        assert_equal(storedInterest["interestToHeight"], '0.000000000000000000000000')
 
 
     def run_test(self):
