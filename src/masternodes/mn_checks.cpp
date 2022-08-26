@@ -3099,7 +3099,7 @@ public:
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
             if (tokenAmount <= 0) 
-                return Res::Err("Valid loan amount required (input: %d@%d)", tokenAmount, tokenId);
+                return Res::Err("Valid loan amount required (input: %d@%d)", tokenAmount, tokenId.v);
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
             if (!loanToken)
