@@ -248,7 +248,7 @@ CAmount FloorInterest(const base_uint<128>& value)
 static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height)
 {
     base_uint<128> amountHP = amount;
-    if (int(height) >= Params().GetConsensus().FortCanningHillHeight)
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight))
         amountHP *= HIGH_PRECISION_SCALER;
 
     return amountHP;
@@ -357,8 +357,9 @@ Res CLoanView::EraseInterest(const uint32_t height, const CVaultId& vaultId, con
     const auto interestToHeight = TotalInterestCalculation(rate, height);
     const auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
 
-    rate.interestToHeight.amount = interestToHeight.amount < interestDecreasedHP ? 0
-                                 : interestToHeight.amount - interestDecreasedHP;
+    rate.interestToHeight = interestToHeight.amount < interestDecreasedHP ?
+                                CNegativeInterest{false, 0} :
+                                CNegativeInterest{interestToHeight.negative, interestToHeight.amount - interestDecreasedHP};
 
     rate.height = height;
 

@@ -985,7 +985,7 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
-        # Check IPB is doubled and ITH updated
+        # Check IPB and ITH now wiped
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
         assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')

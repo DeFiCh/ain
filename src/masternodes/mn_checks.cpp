@@ -3389,19 +3389,13 @@ public:
                 if (!res)
                     return res;
 
-                // If interest is positive erase it from the store. If interest negative or sub loan equals the current loan
-                // then wipe interest otherwise update interest to height, this includes updating sub-Sat amounts.
-                if (subInterest > 0) {
-                    res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan, subInterest);
-                    if (!res)
-                        return res;
-                } else if (subInterest < 0 || subLoan == currentLoanAmount) {
-                    mnview.WipeInterest(height, obj.vaultId, vault->schemeId, loanTokenId);
-                } else {
-                    res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, loanTokenId, loanToken->interest, 0);
-                    if (!res)
-                        return res;
-                }
+                // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
+                // subInterest is negative or subLoan is equal to the loan amount then IPB will be
+                // updated and ITH will be wiped.
+                res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan,
+                    subInterest < 0 || subLoan == currentLoanAmount ? std::numeric_limits<CAmount>::max() : subInterest);
+                if (!res)
+                    return res;
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount)
                 {
