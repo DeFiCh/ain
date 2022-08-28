@@ -3363,14 +3363,14 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                     // Remove the interests from the vault and the storage respectively
                     cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                    cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+                    cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
                 } else {
                     // Negated interest from loan amount
                     const auto subAmount = tokenValue + subInterest < 0 ? tokenValue : tokenValue + subInterest;
 
                     // Remove the interests from the vault and the storage respectively
                     cache.SubLoanToken(vaultId, {tokenId, subAmount});
-                    cache.WipeInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId);
+                    cache.ResetInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId);
                 }
 
                 // Putting this back in now for auction calculations.
@@ -3491,7 +3491,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
                 if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
+                    view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
                 }
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
@@ -4505,14 +4505,14 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             return Res::Err("Failed to get loan scheme.");
         }
 
-        view.EraseInterestDirect(vaultId, oldTokenId, height);
+        view.EraseInterest(vaultId, oldTokenId, height);
         auto oldRateToHeight = rate.interestToHeight;
         auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight.amount);
 
         rate.interestToHeight.amount = newRateToHeight;
 
         auto oldInterestPerBlock = rate.interestPerBlock;
-        CNegativeInterest newInterestRatePerBlock{};
+        CInterestAmount newInterestRatePerBlock{};
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {

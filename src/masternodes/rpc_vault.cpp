@@ -154,8 +154,8 @@ namespace {
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
-        std::map<DCT_ID, CNegativeInterest> interestsPerBlockHighPrecission;
-        CNegativeInterest interestsPerBlockValueHighPrecision;
+        std::map<DCT_ID, CInterestAmount> interestsPerBlockHighPrecission;
+        CInterestAmount interestsPerBlockValueHighPrecision;
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 

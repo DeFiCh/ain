@@ -2878,7 +2878,7 @@ public:
         }
 
         // delete all interest to vault
-        res = mnview.DeleteInterest(obj.vaultId, height);
+        res = mnview.EraseInterest(obj.vaultId, height);
         if (!res)
             return res;
 
@@ -2937,7 +2937,7 @@ public:
                     for (const auto& [tokenId, tokenAmount] : loanTokens->balances) {
                         const auto loanToken = mnview.GetLoanTokenByID(tokenId);
                         assert(loanToken);
-                        res = mnview.StoreInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0);
+                        res = mnview.IncreaseInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0);
                         if (!res) {
                             return res;
                         }
@@ -3146,9 +3146,9 @@ public:
             }
 
             if (wipeInterestToHeight) {
-                mnview.WipeInterest(height, obj.vaultId, vault->schemeId, tokenId);
+                mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
             } else {
-                res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange);
+                res = mnview.IncreaseInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange);
                 if (!res)
                     return res;
             }
@@ -3392,7 +3392,7 @@ public:
                 // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
                 // subInterest is negative or subLoan is equal to the loan amount then IPB will be
                 // updated and ITH will be wiped.
-                res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan,
+                res = mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan,
                     subInterest < 0 || subLoan == currentLoanAmount ? std::numeric_limits<CAmount>::max() : subInterest);
                 if (!res)
                     return res;

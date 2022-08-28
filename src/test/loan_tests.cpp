@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE(loan_interest_rate)
     BOOST_CHECK_EQUAL(scheme->rate, 2 * COIN);
 
     auto vault_id = NextTx();
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, token_id, tokenInterest, 1 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, id, token_id, tokenInterest, 1 * COIN));
 
     auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
     BOOST_REQUIRE(rate);
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE(loan_interest_rate)
     BOOST_CHECK_EQUAL(rate->height, 1);
 
     auto interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, tokenInterest, 1 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(5, vault_id, id, token_id, tokenInterest, 1 * COIN));
 
     rate = mnview.GetInterestRate(vault_id, token_id, 5);
     BOOST_REQUIRE(rate);
@@ -298,13 +298,13 @@ BOOST_AUTO_TEST_CASE(loan_interest_rate)
 
     auto interestToHeight = rate->interestToHeight;
     interestPerBlock = rate->interestPerBlock;
-    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight.amount + interestPerBlock.amount).GetLow64()));
+    BOOST_REQUIRE(mnview.DecreaseInterest(6, vault_id, id, token_id, 1 * COIN, (interestToHeight.amount + interestPerBlock.amount).GetLow64()));
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
 
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
 
-    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
+    BOOST_REQUIRE(mnview.DecreaseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
 
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
     BOOST_REQUIRE(rate);
@@ -327,16 +327,16 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
     auto vault_id = NextTx();
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {token_id, 1 * COIN}));
 
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, scheme_id, token_id, tokenInterest, 0));
     auto rate = mnview.GetInterestRate(vault_id, token_id, 1);
-    CNegativeInterest totalInterest = TotalInterestCalculation(*rate, 1);
+    CInterestAmount totalInterest = TotalInterestCalculation(*rate, 1);
     BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, false);
     BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
     BOOST_CHECK_EQUAL(totalInterest.negative, false);
     BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 0);
 
-    BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(5, vault_id, scheme_id, token_id, tokenInterest, 0));
     rate = mnview.GetInterestRate(vault_id, token_id, 5);
     totalInterest = TotalInterestCalculation(*rate, 5);
     BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
@@ -346,7 +346,7 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
 
     tokenInterest = -5 * COIN;
 
-    BOOST_REQUIRE(mnview.StoreInterest(6, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(6, vault_id, scheme_id, token_id, tokenInterest, 0));
     rate = mnview.GetInterestRate(vault_id, token_id, 6);
     totalInterest = TotalInterestCalculation(*rate, 6);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
     BOOST_CHECK_EQUAL(totalInterest.negative, false);
     BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 5 * rate->interestPerBlock.amount.GetLow64());
 
-    BOOST_REQUIRE(mnview.StoreInterest(7, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(7, vault_id, scheme_id, token_id, tokenInterest, 0));
     rate = mnview.GetInterestRate(vault_id, token_id, 7);
     totalInterest = TotalInterestCalculation(*rate, 7);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
@@ -362,7 +362,7 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
     BOOST_CHECK_EQUAL(totalInterest.negative, false);
     BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 4 * rate->interestPerBlock.amount.GetLow64());
 
-    BOOST_REQUIRE(mnview.StoreInterest(11, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(11, vault_id, scheme_id, token_id, tokenInterest, 0));
     rate = mnview.GetInterestRate(vault_id, token_id, 11);
     totalInterest = TotalInterestCalculation(*rate, 11);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
     BOOST_CHECK_EQUAL(totalInterest.negative, true);
     BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 0);
 
-    BOOST_REQUIRE(mnview.StoreInterest(15, vault_id, scheme_id, token_id, tokenInterest, 0));
+    BOOST_REQUIRE(mnview.IncreaseInterest(15, vault_id, scheme_id, token_id, tokenInterest, 0));
     rate = mnview.GetInterestRate(vault_id, token_id, 15);
     totalInterest = TotalInterestCalculation(*rate, 15);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
@@ -435,13 +435,13 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_REQUIRE(mnview.StoreVault(vault_id, msg));
 
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {tesla_id, 10 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 5 * COIN, 10 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, id, tesla_id, 5 * COIN, 10 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {tesla_id, 1 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id, 5 * COIN, 1 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, id, tesla_id, 5 * COIN, 1 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {nft_id, 5 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 2 * COIN, 5 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, id, nft_id, 2 * COIN, 5 * COIN));
     BOOST_REQUIRE(mnview.AddLoanToken(vault_id, {nft_id, 4 * COIN}));
-    BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id, 2 * COIN, 4 * COIN));
+    BOOST_REQUIRE(mnview.IncreaseInterest(1, vault_id, id, nft_id, 2 * COIN, 4 * COIN));
 
     auto loan_tokens = mnview.GetLoanTokens(vault_id);
     BOOST_REQUIRE(loan_tokens);

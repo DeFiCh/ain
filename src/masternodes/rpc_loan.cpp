@@ -1493,7 +1493,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height() + 1;
 
-    std::map<DCT_ID, std::pair<CNegativeInterest, CNegativeInterest>> interest;
+    std::map<DCT_ID, std::pair<CInterestAmount, CInterestAmount>> interest;
 
     auto vaultInterest = [&](const CVaultId& vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate)
     {

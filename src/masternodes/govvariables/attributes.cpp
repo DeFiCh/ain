@@ -1174,7 +1174,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         assert(vault);
 
                         // Updated stored interest with new interest rate.
-                        mnview.StoreInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
+                        mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
                     }
                 }
             }
