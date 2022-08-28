@@ -3026,8 +3026,29 @@ public:
         if (!res)
             return res;
 
-        if (mnview.GetLoanTokens(obj.vaultId))
+        if (const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId))
         {
+            // Update negative interest in vault
+            for (const auto& [tokenId, currentLoanAmount] : loanAmounts->balances) {
+                const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
+                assert(rate);
+
+                const auto totalInterest = TotalInterest(*rate, height);
+
+                // Ignore positive or nil interest
+                if (totalInterest >= 0) {
+                    continue;
+                }
+
+                const auto subAmount = currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
+                res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
+                if (!res) {
+                    return res;
+                }
+
+                mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
+            }
+
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
                 std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
@@ -3062,9 +3083,9 @@ public:
                                                                                               : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD");
                     }
                 }
-            }
-            else
+            } else {
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
+            }
         }
 
         return mnview.AddBalance(obj.to, obj.amount);
@@ -3110,14 +3131,14 @@ public:
 
             // Calculate interest
             CAmount currentLoanAmount{};
-            bool wipeInterestToHeight{};
+            bool resetInterestToHeight{};
             auto loanAmountChange = tokenAmount;
 
             if (loanAmounts && loanAmounts->balances.count(tokenId)) {
                 currentLoanAmount = loanAmounts->balances.at(tokenId);
                 const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 assert(rate);
-                const CAmount totalInterest = TotalInterest(*rate, height);
+                const auto totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
                     loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
@@ -3129,7 +3150,7 @@ public:
                         // We reduce from the borrowing principal. If this is negative, 
                         // we'll reduce from principal. 
                         tokenAmount - currentLoanAmount;
-                    wipeInterestToHeight = true;
+                    resetInterestToHeight = true;
                 }
             }
 
@@ -3145,7 +3166,7 @@ public:
                 }
             }
 
-            if (wipeInterestToHeight) {
+            if (resetInterestToHeight) {
                 mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
             } else {
                 res = mnview.IncreaseInterest(height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange);

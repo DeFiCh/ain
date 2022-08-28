@@ -58,6 +58,9 @@ class StoredInterestTest (DefiTestFramework):
         # Test minimum negative interest payback
         self.check_minimum_interest_payback()
 
+        # Test withdraw from vault
+        self.test_withdraw_from_vault()
+
     def setup_test_tokens(self):
         # Generate chain
         self.nodes[0].generate(120)
@@ -998,6 +1001,85 @@ class StoredInterestTest (DefiTestFramework):
         # User's was used to payback the amount
         account = self.nodes[0].getaccount(vault_address)
         assert_equal(account, [])
+
+    def test_withdraw_from_vault(self):
+
+        # Set mega negative interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Fund vault address
+        self.nodes[0].accounttoaccount(self.address, {vault_address: f"10@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, vault_address, f"10@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].generate(26)
+
+        # Set same interest to update and check stored interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].generate(1)
+
+        # Check interest
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.019025684931506849315068')
+        assert_equal(stored_interest['interestToHeight'], '-0.494667808219178082191768')
+
+        # Withdraw from vault loan
+        self.nodes[0].withdrawfromvault(vault_id, vault_address, f'0.5@{self.symbolDFI}')
+        self.nodes[0].generate(60)
+
+        # Check interest after withdrawal
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.009252314439400684931506')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+
+        # Check user balance
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [f'0.50000000@{self.symbolDFI}', f'1.00000000@{self.symbolDUSD}'])
+
+        # Check loan amount is nil
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, [f'0.48630651@{self.symbolDUSD}'])
+
+        # Set same interest to update and check stored interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].generate(1)
+
+        # Check interest now enough to fully negate loan
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '-0.009252314439400684931506')
+        assert_equal(stored_interest['interestToHeight'], '-0.555138866364041095890360')
+
+        # Set mega negative interest
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-100000'}})
+        self.nodes[0].generate(1)
+
+        # Withdraw the rest of the collateral from vault
+        self.nodes[0].withdrawfromvault(vault_id, vault_address, f'0.5@{self.symbolDFI}')
+        self.nodes[0].generate(1)
+
+        # Check interest is now nil
+        stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
+        assert_equal(stored_interest['interestToHeight'], '0.000000000000000000000000')
+
+        # Check user balance
+        account = self.nodes[0].getaccount(vault_address)
+        assert_equal(account, [f'1.00000000@{self.symbolDFI}', f'1.00000000@{self.symbolDUSD}'])
+
+        # Check loan amount is nil
+        loan_tokens = self.nodes[0].getloantokens(vault_id)
+        assert_equal(loan_tokens, [])
 
 if __name__ == '__main__':
     StoredInterestTest().main()

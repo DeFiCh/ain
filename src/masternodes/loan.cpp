@@ -324,10 +324,10 @@ Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, 
         rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
-        interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, tokenInterest, scheme->rate));
+        interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
         rate.interestPerBlock = {false, interestPerBlock};
     } else {
-        rate.interestPerBlock.amount += InterestPerBlockCalculationV1<CAmount>(loanIncreased, tokenInterest, scheme->rate);
+        rate.interestPerBlock.amount += InterestPerBlockCalculationV1<CAmount>(loanIncreased, token->interest, scheme->rate);
     }
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);
