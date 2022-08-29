@@ -3418,13 +3418,15 @@ public:
                 if (!res)
                     return res;
 
-                if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount)
+                if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) &&
+                    subLoan < currentLoanAmount &&
+                    height < static_cast<uint32_t>(consensus.GreatWorldHeight))
                 {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                     if (!newRate)
                         return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-                    if (height <= static_cast<uint32_t>(consensus.GreatWorldHeight) && newRate->interestPerBlock.amount == 0)
+                    if (newRate->interestPerBlock.amount == 0)
                         return Res::Err("Cannot payback this amount of loan for %s, either payback full amount or less than this amount!", loanToken->symbol);
                 }
 
