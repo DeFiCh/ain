@@ -3411,10 +3411,10 @@ public:
                     return res;
 
                 // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
-                // subInterest is negative or subLoan is equal to the loan amount then IPB will be
-                // updated and ITH will be wiped.
+                // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
+                // then IPB will be updated and ITH will be wiped.
                 res = mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, loanTokenId, subLoan,
-                    subInterest < 0 || subLoan == currentLoanAmount ? std::numeric_limits<CAmount>::max() : subInterest);
+                    subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount) ? std::numeric_limits<CAmount>::max() : subInterest);
                 if (!res)
                     return res;
 
@@ -3440,7 +3440,7 @@ public:
                         return res;
 
                     // Do not sub balance if negative interest fully negates the current loan amount
-                    if (!(subInterest < 0 && std::abs(subInterest) > currentLoanAmount)) {
+                    if (!(subInterest < 0 && std::abs(subInterest) >= currentLoanAmount)) {
 
                         // If negative interest plus payback amount overpays then reduce payback amount by the difference
                         if (subInterest < 0 && paybackAmount - subInterest > currentLoanAmount) {

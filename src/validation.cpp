@@ -3354,24 +3354,17 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
 
-                const auto loanToken = cache.GetLoanTokenByID(tokenId);
-                assert(loanToken);
-
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 if (subInterest > 0) {
                     totalInterest.Add({tokenId, subInterest});
-
-                    // Remove the interests from the vault and the storage respectively
-                    cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                    cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
-                } else {
-                    // Negated interest from loan amount
-                    const auto subAmount = tokenValue + subInterest < 0 ? tokenValue : tokenValue + subInterest;
-
-                    // Remove the interests from the vault and the storage respectively
-                    cache.SubLoanToken(vaultId, {tokenId, subAmount});
-                    cache.ResetInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId);
                 }
+
+                // Remove loan from the vault
+                cache.SubLoanToken(vaultId, {tokenId, tokenValue});
+
+                // Remove interest from the vault
+                cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue,
+                    subInterest < 0 || (!subInterest && rate->interestPerBlock.negative) ? std::numeric_limits<CAmount>::max() : subInterest);
 
                 // Putting this back in now for auction calculations.
                 it->second += subInterest;
