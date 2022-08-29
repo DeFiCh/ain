@@ -331,8 +331,8 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
         expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
-        realInteresAfterOneBlock = Decimal(vaultBeforeUpdate["interestAmounts"][0].split('@')[0])
-        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
+        realInterestAfterOneBlock = Decimal(vaultBeforeUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInterestAfterOneBlock, expectedInterestAfterOneBlock)
         # Let price update and check vault again
         self.nodes[0].generate(5)
 
@@ -344,6 +344,22 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
         expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
+        realInterestAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInterestAfterOneBlock, expectedInterestAfterOneBlock)
+
+        # Go after FCH for high precission interestPerBlock and interestPerBlockValue
+        self.nodes[0].generate(self.FCH - self.nodes[0].getblockcount())
+
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
+        assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+
+        # Check one block interest is added correctly
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
         realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
         assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
 

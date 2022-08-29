@@ -336,7 +336,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         loanToken.mintable = metaObj["mintable"].getBool();
 
     if (!metaObj["interest"].isNull())
-        loanToken.interest = AmountFromValue(metaObj["interest"]);
+        loanToken.interest = AmountFromValue(metaObj["interest"], true);
     else
         loanToken.interest = 0;
 
@@ -467,7 +467,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->mintable = metaObj["mintable"].getBool();
 
     if (!metaObj["interest"].isNull())
-        loanToken->interest = AmountFromValue(metaObj["interest"]);
+        loanToken->interest = AmountFromValue(metaObj["interest"], true);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateLoanToken)
@@ -1341,7 +1341,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
 
     // TODO: Later optimize this into a general dynamic worker pool, so we don't
-    // need to recreate these threads on each call. 
+    // need to recreate these threads on each call.
     boost::asio::thread_pool workerPool{[]() {
         const size_t workersMax = GetNumCores() - 1;
         // More than 8 is likely not very fruitful for ~10k vaults.
@@ -1393,9 +1393,9 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     std::atomic<uint64_t> loansValTotal{0};
 
     view.ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
-        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal, 
+        boost::asio::post(workerPool, [&, &colsValTotal=colsValTotal,
             &loansValTotal=loansValTotal, &vaultsTotal=vaultsTotal,
-            vaultId=vaultId, height=height, useNextPrice=useNextPrice, 
+            vaultId=vaultId, height=height, useNextPrice=useNextPrice,
             requireLivePrice=requireLivePrice] {
             auto collaterals = view.GetVaultCollaterals(vaultId);
             if (!collaterals)
@@ -1412,7 +1412,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     });
 
     workerPool.join();
-    // We use relaxed ordering to increment. Thread joins should in theory, 
+    // We use relaxed ordering to increment. Thread joins should in theory,
     // resolve have resulted in full barriers, but we ensure
     // to throw in a full barrier anyway. x86 arch might appear to work without
     // but let's be extra cautious about RISC optimizers.
@@ -1481,7 +1481,8 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    if (!pcustomcsview->GetLoanScheme(loanSchemeId))
+    const auto scheme = pcustomcsview->GetLoanScheme(loanSchemeId);
+    if (!scheme)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
 
     DCT_ID id{~0u};
@@ -1492,10 +1493,9 @@ UniValue getinterest(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height() + 1;
 
-    std::map<DCT_ID, std::pair<base_uint<128>, base_uint<128>> > interest;
+    std::map<DCT_ID, std::pair<CInterestAmount, CInterestAmount>> interest;
 
-    LogPrint(BCLog::LOAN,"%s():\n", __func__);
-    auto vaultInterest = [&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRateV2 rate)
+    auto vaultInterest = [&](const CVaultId& vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate)
     {
         auto vault = pcustomcsview->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId)
@@ -1503,39 +1503,47 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if ((id != DCT_ID{~0U}) && tokenId != id)
             return true;
 
+        auto& [cumulativeInterest, interestPerBlock] = interest[tokenId];
+
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
             return true;
 
-        LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
-        interest[tokenId].first += TotalInterestCalculation(rate, height);
-        interest[tokenId].second += rate.interestPerBlock;
+        const auto totalInterest = TotalInterestCalculation(rate, height);
+        cumulativeInterest = InterestAddition(cumulativeInterest, totalInterest);
+        interestPerBlock = InterestAddition(interestPerBlock, rate.interestPerBlock);
 
         return true;
     };
 
-    if (height >= Params().GetConsensus().FortCanningHillHeight) {
-        pcustomcsview->ForEachVaultInterestV2(vaultInterest);
+    if (height >= Params().GetConsensus().GreatWorldHeight) {
+        pcustomcsview->ForEachVaultInterestV3(vaultInterest);
+    } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+        pcustomcsview->ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
+        });
     } else {
-        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate) {
-            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV2(rate));
+        pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRate &rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
         });
     }
 
     UniValue obj(UniValue::VOBJ);
-    for (auto it=interest.begin(); it != interest.end(); ++it)
+    for (auto it = interest.begin(); it != interest.end(); ++it)
     {
-        auto tokenId = it->first;
-        auto totalInterest = it->second.first;
-        auto interestPerBlock = it->second.second;
+        const auto& tokenId = it->first;
+        const auto& [cumulativeInterest, totalInterestPerBlock] = it->second;
 
-        auto token = pcustomcsview->GetToken(tokenId);
+        const auto totalInterest = cumulativeInterest.negative ? -CeilInterest(cumulativeInterest.amount, height) : CeilInterest(cumulativeInterest.amount, height);
+        const auto interestPerBlock = totalInterestPerBlock.negative ? -CeilInterest(totalInterestPerBlock.amount, height) : CeilInterest(totalInterestPerBlock.amount, height);
+
+        const auto token = pcustomcsview->GetToken(tokenId);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
-        obj.pushKV("totalInterest", ValueFromAmount(CeilInterest(totalInterest, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(CeilInterest(interestPerBlock, height)));
+        obj.pushKV("totalInterest", ValueFromAmount(totalInterest));
+        obj.pushKV("interestPerBlock", ValueFromAmount(interestPerBlock));
         if (height >= Params().GetConsensus().FortCanningHillHeight)
         {
-            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(interestPerBlock)));
+            obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(totalInterestPerBlock)));
         }
         ret.push_back(obj);
     }

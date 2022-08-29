@@ -79,8 +79,8 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         {"dfip2201",    ParamIDs::DFIP2201},
         {"dfip2203",    ParamIDs::DFIP2203},
         {"dfip2206a",   ParamIDs::DFIP2206A},
-        // Note: DFIP2206F is currently in beta testing 
-        // for testnet. May not be enabled on mainnet until testing is complete. 
+        // Note: DFIP2206F is currently in beta testing
+        // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
     };
     return params;
@@ -98,8 +98,8 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2201,    "dfip2201"},
         {ParamIDs::DFIP2203,    "dfip2203"},
         {ParamIDs::DFIP2206A,   "dfip2206a"},
-        // Note: DFIP2206F is currently in beta testing 
-        // for testnet. May not be enabled on mainnet until testing is complete. 
+        // Note: DFIP2206F is currently in beta testing
+        // for testnet. May not be enabled on mainnet until testing is complete.
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
@@ -246,6 +246,14 @@ static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
 
 static ResVal<CAttributeValue> VerifyFloat(const std::string& str) {
     CAmount amount = 0;
+    if (!ParseFixedPoint(str, 8, &amount)) {
+        return Res::Err("Amount must be a valid number");
+    }
+    return {amount, Res::Ok()};
+}
+
+ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
+    CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
         return Res::Err("Amount must be a positive value");
     }
@@ -253,7 +261,7 @@ static ResVal<CAttributeValue> VerifyFloat(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
-    auto resVal = VerifyFloat(str);
+    auto resVal = VerifyPositiveFloat(str);
     if (!resVal) {
         return resVal;
     }
@@ -359,7 +367,7 @@ const std::map<uint8_t, std::map<uint8_t,
             AttributeTypes::Param, {
                 {DFIPKeys::Active,                  VerifyBool},
                 {DFIPKeys::Premium,                 VerifyPct},
-                {DFIPKeys::MinSwap,                 VerifyFloat},
+                {DFIPKeys::MinSwap,                 VerifyPositiveFloat},
                 {DFIPKeys::RewardPct,               VerifyPct},
                 {DFIPKeys::BlockPeriod,             VerifyInt64},
                 {DFIPKeys::DUSDInterestBurn,  VerifyBool},
@@ -708,6 +716,8 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 
                         SetValue(attribute, *splitValue);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
+                        interestTokens.insert(attrV0->typeId);
                     }
 
                     // apply DFI via old keys
@@ -907,10 +917,17 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanMintingInterest:
+                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                            const auto amount = std::get_if<CAmount>(&value);
+                            if (amount && *amount < 0) {
+                                return Res::Err("Amount must be a positive value");
+                            }
+                        }
+                        [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanCollateralFactor:
-                    case TokenKeys::LoanMintingEnabled:
-                    case TokenKeys::LoanMintingInterest: {
+                    case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return Res::Err("Cannot be set before FortCanningCrunch");
                         }
@@ -1134,6 +1151,31 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 auto res = RefundFuturesContracts(mnview, height, attrV0->typeId);
                 if (!res) {
                     return res;
+                }
+            } else if (attrV0->key == TokenKeys::LoanMintingInterest) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && interestTokens.count(attrV0->typeId)) {
+                    const auto tokenInterest = std::get_if<CAmount>(&attribute.second);
+                    if (!tokenInterest) {
+                        return Res::Err("Unexpected type");
+                    }
+
+                    std::set<CVaultId> affectedVaults;
+                    mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+                        for (const auto& [tokenId, discarded] : balances.balances) {
+                            if (tokenId.v == attrV0->typeId) {
+                                affectedVaults.insert(vaultId);
+                            }
+                        }
+                        return true;
+                    });
+
+                    for (const auto& vaultId : affectedVaults) {
+                        const auto vault = mnview.GetVault(vaultId);
+                        assert(vault);
+
+                        // Updated stored interest with new interest rate.
+                        mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
+                    }
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {

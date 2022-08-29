@@ -307,6 +307,7 @@ private:
     bool futureUpdated{};
     bool futureDUSDUpdated{};
     std::set<uint32_t> tokenSplits{};
+    std::set<uint32_t> interestTokens{};
     std::set<CAttributeType> changed;
     std::map<CAttributeType, CAttributeValue> attributes;
 

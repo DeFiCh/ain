@@ -113,6 +113,7 @@ BASE_SCRIPTS = [
     'feature_abortnode.py',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
+    'feature_stored_interest.py',
     'feature_fee_estimation.py',
     'feature_dip1.py',
     'feature_dfip8_communitybalances.py',
@@ -160,6 +161,7 @@ BASE_SCRIPTS = [
     'wallet_multiwallet.py --usecli',
     'wallet_createwallet.py',
     'wallet_createwallet.py --usecli',
+    'feature_negative_loan_interest.py',
     'wallet_watchonly.py',
     'wallet_watchonly.py --usecli',
     'feature_poolpair.py',
@@ -294,6 +296,8 @@ BASE_SCRIPTS = [
     'feature_sendutxosfrom.py',
     'feature_update_mn.py',
     'feature_block_reward.py',
+    'feature_negative_interest.py',
+    'rpc_getstoredinterest.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
