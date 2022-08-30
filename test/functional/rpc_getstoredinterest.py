@@ -100,7 +100,7 @@ class GetStoredInterestTest(DefiTestFramework):
 
         # Check expected IPB and ITH
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB1 = Decimal(Decimal('0.02') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB1 = Decimal(Decimal('0.02') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB1, Decimal(storedInterest1["interestPerBlock"]))
         assert_equal(Decimal(storedInterest["interestToHeight"]) + expected_IPB_tmp,
@@ -260,7 +260,7 @@ class GetStoredInterestTest(DefiTestFramework):
         # Force ITH update
         self.set_token_interest(interest=-4)
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('-0.03') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('-0.03') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal('-0.000000418569254185692533'))
@@ -591,7 +591,7 @@ class GetStoredInterestTest(DefiTestFramework):
 
         # Check expected IPB and ITH
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('-0.01') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('-0.01') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
         assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
@@ -776,7 +776,7 @@ class GetStoredInterestTest(DefiTestFramework):
         self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(vaultId)
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('0.025') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('0.025') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(Decimal(storedInterest1["interestToHeight"]), 0)  # negative interest was used for payback
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), expected_IPB)
@@ -1054,7 +1054,7 @@ class GetStoredInterestTest(DefiTestFramework):
         # Check DUSD is again in vault generating interest
         storedInterestDUSD = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
         loanAmounts = self.nodes[0].getloantokens(vaultId)
-        expected_IPB_DUSD = Decimal(Decimal('0.02') / BLOCKS_PER_YEAR * get_decimal_amount(loanAmounts[0])).quantize(
+        expected_IPB_DUSD = Decimal(Decimal('0.02') * get_decimal_amount(loanAmounts[0]) / BLOCKS_PER_YEAR).quantize(
             Decimal('1E-24'), ROUND_DOWN)
         assert_equal(expected_IPB_DUSD, Decimal(storedInterestDUSD["interestPerBlock"]))
         assert_equal(storedInterestDUSD["interestToHeight"], '-0.000000285387405821917806')
@@ -1236,10 +1236,15 @@ class GetStoredInterestTest(DefiTestFramework):
     def run_test(self):
         self.setup()
         block_height = self.nodes[0].getblockcount()
-        rollback = True
+        rollback = False
+        node = self.nodes[0]
+
         for x in range(20):
             self.log.info("run: %d", x)
-            self.rollback_to(block_height)
+            govs = node.listgovs()
+            vaults = node.listvaults({"verbose": "true"})
+            balances = node.logaccountbalances()
+
             self.update_oracle_price()
             # Auctions
             self.vault_in_liquidation_negative_interest(do_revert=rollback)
@@ -1261,6 +1266,11 @@ class GetStoredInterestTest(DefiTestFramework):
             self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
             self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
             self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
+
+            self.rollback_to(block_height)
+            assert_equal(govs, node.listgovs())
+            assert_equal(vaults, node.listvaults({"verbose": "true"}))
+            assert_equal(balances, node.logaccountbalances())
 
 
 if __name__ == '__main__':
