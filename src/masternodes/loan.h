@@ -344,6 +344,9 @@ inline auto InterestAddition = [](const CInterestAmount &a, const CInterestAmoun
             interest.negative = !a.negative;
         }
     }
+    if (interest.negative && interest.amount == 0) {
+        interest.negative = false;
+    }
     return interest;
 };
 
