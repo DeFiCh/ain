@@ -265,8 +265,8 @@ CInterestAmount TotalInterestCalculation(const CInterestRateV3& rate, const uint
     const auto totalInterest =  heightDiff * interestAmount;
 
     if (heightDiff != 0 && interestAmount / heightDiff != totalInterest) {
-        LogPrintf("WARNING: Overflow detected. This will be soon be saturated. (height=%d, amount=%s, interest=%s)",
-                  heightDiff, GetInterestPerBlockHighPrecisionString(rate.interestPerBlock)\n,
+        LogPrintf("WARNING: Overflow detected. This will be soon be saturated. (height=%d, amount=%s, interest=%s)\n",
+                  heightDiff, GetInterestPerBlockHighPrecisionString(rate.interestPerBlock),
                   GetInterestPerBlockHighPrecisionString({rate.interestPerBlock.negative, totalInterest}));
     }
 
