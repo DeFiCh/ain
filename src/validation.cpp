@@ -4903,6 +4903,7 @@ bool CChainState::FlushStateToDisk(
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
         if (fMemoryCacheLarge && !CoinsTip().GetBestBlock().IsNull()) {
             // Flush view first to estimate size on disk later
+            LOCK(cs_main);
             if (!pcustomcsview->Flush()) {
                 return AbortNode(state, "Failed to write db batch");
             }
