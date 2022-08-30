@@ -1911,6 +1911,68 @@ UniValue getstoredinterest(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue logstoredinterests(const JSONRPCRequest& request) {
+    RPCHelpMan{"logstoredinterests",
+               "Logs all stored interests.\n",
+               {
+
+                },
+               RPCResult{
+                       "[\"vaultId\": {\n"
+                       "  \"token\" : n,                            Token ID\n"
+                       "  \"amount\" : n,                           (amount) Token Amount\n"
+                       "  \"interestHeight\" : n,                   Height stored interest last updated\n"
+                       "  \"interestToHeight\" : n.nnnnnnnn,        Interest stored to the point of the hight value\n"
+                       "  \"interestPerBlock\" : n.nnnnnnnn,        nterest per block\n"
+                       "}] \n"
+               },
+               RPCExamples{
+                       HelpExampleCli("logstoredinterests", "") +
+                       HelpExampleRpc("logstoredinterests", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    auto height = ::ChainActive().Height();
+    typedef std::tuple<DCT_ID,CAmount,CInterestRateV3> VaultInfo;
+    std::map<std::string, std::vector<VaultInfo>> items;
+
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& vaultData) {
+        auto vaultTokens = pcustomcsview->GetLoanTokens(vaultId);
+        if (!vaultTokens) return true;
+
+        std::vector<VaultInfo> infoItems;
+
+        for (const auto &[tokenId, tokenAmount]: vaultTokens->balances) {
+            const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
+            if (interestRate) {
+                infoItems.push_back({tokenId, tokenAmount, *interestRate});
+            }
+        }
+        items[vaultId.ToString()] = infoItems;
+        return true;
+        }, CVaultId{}, CScript{});
+
+    UniValue ret(UniValue::VARR);
+    for (const auto &[vaultId, infoItems]: items) {
+        UniValue v(UniValue::VOBJ);
+        v.pushKV("vaultId", vaultId);
+        for (const auto &[tokenId, amount, rate]: infoItems) {
+            v.pushKV("token", tokenId.ToString());
+            v.pushKV("amount", ValueFromAmount(amount));
+            v.pushKV("interestHeight", static_cast<uint64_t>(rate.height));
+            v.pushKV("interestToHeight", GetInterestPerBlockHighPrecisionString(rate.interestToHeight));
+            v.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(rate.interestPerBlock));
+        }
+        ret.push_back(v);
+    }
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 
 UniValue getloantokens(const JSONRPCRequest& request) {
 
@@ -1962,6 +2024,7 @@ static const CRPCCommand commands[] =
     {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
     {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
     {"hidden",       "getstoredinterest",         &getstoredinterest,     {"vaultId", "token"}},
+    {"hidden",       "logstoredinterests",        &logstoredinterests,    {}},
     {"hidden",       "getloantokens",             &getloantokens,         {"vaultId"}},
 };
 
