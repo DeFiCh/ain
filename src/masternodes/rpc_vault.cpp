@@ -1937,7 +1937,7 @@ UniValue logstoredinterests(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto height = ::ChainActive().Height();
-    typedef std::tuple<DCT_ID,CAmount,CInterestRateV3> VaultInfo;
+    using VaultInfo = std::tuple<DCT_ID,CAmount,CInterestRateV3>;
     std::map<std::string, std::vector<VaultInfo>> items;
 
     pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& vaultData) {
@@ -1954,7 +1954,7 @@ UniValue logstoredinterests(const JSONRPCRequest& request) {
         }
         items[vaultId.ToString()] = infoItems;
         return true;
-        }, CVaultId{}, CScript{});
+        });
 
     UniValue ret(UniValue::VARR);
     for (const auto &[vaultId, infoItems]: items) {
