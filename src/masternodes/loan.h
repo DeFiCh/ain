@@ -336,7 +336,10 @@ inline auto InterestAddition = [](const CInterestAmount &a, const CInterestAmoun
         interest.amount = a.amount + b.amount;
         interest.negative = b.negative;
     } else {
-        if (a.amount > b.amount) {
+        if (a.amount == b.amount) {
+            interest.amount = 0;
+            interest.negative = false;
+        } else if (a.amount > b.amount) {
             interest.amount = a.amount - b.amount;
             interest.negative = a.negative;
         } else {
