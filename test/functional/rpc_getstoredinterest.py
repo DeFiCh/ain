@@ -1236,7 +1236,7 @@ class GetStoredInterestTest(DefiTestFramework):
     def run_test(self):
         self.setup()
         block_height = self.nodes[0].getblockcount()
-        rollback = False
+        rollback = True
         node = self.nodes[0]
 
         govs = node.listgovs()
