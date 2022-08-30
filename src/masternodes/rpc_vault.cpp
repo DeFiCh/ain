@@ -1960,15 +1960,17 @@ UniValue logstoredinterests(const JSONRPCRequest& request) {
     for (const auto &[vaultId, infoItems]: items) {
         UniValue v(UniValue::VOBJ);
         v.pushKV("vaultId", vaultId);
-        UniValue i(UniValue::VOBJ);
+        UniValue vItems(UniValue::VARR);
         for (const auto& [tokenId, amount, rate] : infoItems) {
+            UniValue i(UniValue::VOBJ);
             i.pushKV("token", tokenId.ToString());
             i.pushKV("amount", ValueFromAmount(amount));
             i.pushKV("interestHeight", static_cast<uint64_t>(rate.height));
             i.pushKV("interestToHeight", GetInterestPerBlockHighPrecisionString(rate.interestToHeight));
             i.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(rate.interestPerBlock));
+            vItems.push_back(i);
         }
-        v.pushKV("items", i);
+        v.pushKV("items", vItems);
         ret.push_back(v);
     }
 
