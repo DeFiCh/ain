@@ -366,9 +366,9 @@ BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
     rate = mnview.GetInterestRate(vault_id, token_id, 11);
     totalInterest = TotalInterestCalculation(*rate, 11);
     BOOST_CHECK_EQUAL(rate->interestPerBlock.negative, true);
-    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, true);
+    BOOST_CHECK_EQUAL(rate->interestToHeight.negative, false);
     BOOST_CHECK_EQUAL(rate->interestToHeight.amount.GetLow64(), 0);
-    BOOST_CHECK_EQUAL(totalInterest.negative, true);
+    BOOST_CHECK_EQUAL(totalInterest.negative, false);
     BOOST_CHECK_EQUAL(totalInterest.amount.GetLow64(), 0);
 
     BOOST_REQUIRE(mnview.IncreaseInterest(15, vault_id, scheme_id, token_id, tokenInterest, 0));
