@@ -260,16 +260,24 @@ const auto InterestPerBlock = [](const CInterestRateV3& rate, const uint32_t hei
 
 CInterestAmount TotalInterestCalculation(const CInterestRateV3& rate, const uint32_t height)
 {
-    const auto totalInterest = (height - rate.height) * rate.interestPerBlock.amount;
+    const auto heightDiff = (height - rate.height);
+    const auto interestAmount = rate.interestPerBlock.amount;
+    const auto totalInterest =  heightDiff * interestAmount;
+
+    if (heightDiff != 0 && interestAmount / heightDiff != totalInterest) {
+        LogPrintf("WARNING: Overflow detected. This will be soon be saturated. (height=%d, amount=%s, interest=%s)",
+                  heightDiff, GetInterestPerBlockHighPrecisionString(rate.interestPerBlock),
+                  GetInterestPerBlockHighPrecisionString({rate.interestPerBlock.negative, totalInterest}));
+    }
 
     auto interest = InterestAddition(rate.interestToHeight, {rate.interestPerBlock.negative, totalInterest});
 
     LogPrint(BCLog::LOAN, "%s(): CInterestRate{.height=%d, .perBlock=%d, .toHeight=%d}, height %d - totalInterest %d\n",
         __func__,
         rate.height, rate.interestPerBlock.negative ? -InterestPerBlock(rate, height) : InterestPerBlock(rate, height),
-        rate.interestToHeight.negative ? -CeilInterest(rate.interestToHeight.amount, height) : CeilInterest(rate.interestToHeight.amount, height),
+        rate.interestToHeight.negative ? -FloorInterest(rate.interestToHeight.amount) : CeilInterest(rate.interestToHeight.amount, height),
         height,
-        interest.negative ? -CeilInterest(interest.amount, height) : CeilInterest(interest.amount, height));
+        interest.negative ? -FloorInterest(interest.amount) : CeilInterest(interest.amount, height));
 
     return interest;
 }
