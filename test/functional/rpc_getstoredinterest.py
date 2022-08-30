@@ -35,10 +35,16 @@ class GetStoredInterestTest(DefiTestFramework):
         ]
 
     # Utils
-    def revert(self, block):
-        blockhash = self.nodes[0].getblockhash(block)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
+    def rollback_to(self, block):
+        self.log.info("rollback to: %d", block)
+        node = self.nodes[0]
+        current_height = node.getblockcount()
+        if current_height == block:
+            return
+        blockhash = node.getblockhash(block + 1)
+        node.invalidateblock(blockhash)
+        node.clearmempool()
+        assert_equal(block, node.getblockcount())
 
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -55,7 +61,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], True)
 
     def goto_setup_height(self):
-        self.revert(self.setup_height)
+        self.rollback_to(self.setup_height)
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], False)
 
@@ -94,7 +100,7 @@ class GetStoredInterestTest(DefiTestFramework):
 
         # Check expected IPB and ITH
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB1 = Decimal(Decimal('0.02') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB1 = Decimal(Decimal('0.02') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB1, Decimal(storedInterest1["interestPerBlock"]))
         assert_equal(Decimal(storedInterest["interestToHeight"]) + expected_IPB_tmp,
@@ -132,9 +138,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      Decimal(storedInterest1["interestToHeight"]))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -212,9 +216,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      Decimal(storedInterest1["interestToHeight"]))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -225,7 +227,7 @@ class GetStoredInterestTest(DefiTestFramework):
             assert_equal(attributes["v0/token/1/loan_minting_interest"], '0')
 
     def update_vault_IPB_and_ITH_negative(self, do_revert=True):
-        blockHeight = self.nodes[0].getblockcount() + 1
+        blockHeight = self.nodes[0].getblockcount()
         # Init use case
         # Set interest
         self.goto_gw_height()
@@ -258,7 +260,7 @@ class GetStoredInterestTest(DefiTestFramework):
         # Force ITH update
         self.set_token_interest(interest=-4)
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('-0.03') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('-0.03') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal('-0.000000418569254185692533'))
@@ -279,9 +281,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      Decimal(storedInterest["interestToHeight"]) + Decimal(expected_IPB))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -346,9 +346,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      Decimal(storedInterest["interestToHeight"]) + Decimal(expected_IPB))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -419,9 +417,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      Decimal(storedInterest1["interestToHeight"]) + Decimal(expected_IPB1 * 11))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -490,9 +486,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(storedInterest2["interestToHeight"], '0.000000000000000000000000')
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -570,9 +564,7 @@ class GetStoredInterestTest(DefiTestFramework):
             '0.000000076103500761034999'))  # expected_ITH = expected_ITH + expected_IPB off by 1E-24 rounding difference
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -599,7 +591,7 @@ class GetStoredInterestTest(DefiTestFramework):
 
         # Check expected IPB and ITH
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('-0.01') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('-0.01') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(expected_IPB, Decimal(storedInterest["interestPerBlock"]))
         assert_equal(Decimal(0), Decimal(storedInterest["interestToHeight"]))
@@ -652,9 +644,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), expected_IPB)
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -720,9 +710,7 @@ class GetStoredInterestTest(DefiTestFramework):
                      (Decimal(storedInterest["interestPerBlock"]) / 2).quantize(Decimal('1E-24'), ROUND_DOWN))
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -788,15 +776,13 @@ class GetStoredInterestTest(DefiTestFramework):
         self.nodes[0].generate(1)
         vault = self.nodes[0].getvault(vaultId)
         storedInterest1 = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
-        expected_IPB = Decimal(Decimal('0.025') / BLOCKS_PER_YEAR * Decimal(loanAmount)).quantize(Decimal('1E-24'),
+        expected_IPB = Decimal(Decimal('0.025') * Decimal(loanAmount) / BLOCKS_PER_YEAR).quantize(Decimal('1E-24'),
                                                                                                   ROUND_DOWN)
         assert_equal(Decimal(storedInterest1["interestToHeight"]), 0)  # negative interest was used for payback
         assert_equal(Decimal(storedInterest1["interestPerBlock"]), expected_IPB)
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -872,9 +858,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(Decimal(storedInterest["interestPerBlock"]), 0)
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -948,9 +932,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(Decimal(storedInterest["interestPerBlock"]), 0)
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -965,9 +947,7 @@ class GetStoredInterestTest(DefiTestFramework):
         # fn body
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             # further check for changes undone
 
     def vault_in_liquidation_negative_interest(self, do_revert=True):
@@ -1074,7 +1054,7 @@ class GetStoredInterestTest(DefiTestFramework):
         # Check DUSD is again in vault generating interest
         storedInterestDUSD = self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
         loanAmounts = self.nodes[0].getloantokens(vaultId)
-        expected_IPB_DUSD = Decimal(Decimal('0.02') / BLOCKS_PER_YEAR * get_decimal_amount(loanAmounts[0])).quantize(
+        expected_IPB_DUSD = Decimal(Decimal('0.02') * get_decimal_amount(loanAmounts[0]) / BLOCKS_PER_YEAR).quantize(
             Decimal('1E-24'), ROUND_DOWN)
         assert_equal(expected_IPB_DUSD, Decimal(storedInterestDUSD["interestPerBlock"]))
         assert_equal(storedInterestDUSD["interestToHeight"], '-0.000000285387405821917806')
@@ -1093,9 +1073,7 @@ class GetStoredInterestTest(DefiTestFramework):
         assert_equal(accountInfo, ['9.53410975@DFI', '10.00000000@DUSD', '9.00000000@TSLA'])
 
         if do_revert:
-            self.revert(blockHeight)
-            block = self.nodes[0].getblockcount()
-            assert_equal(block + 1, blockHeight)
+            self.rollback_to(blockHeight)
             try:
                 self.nodes[0].getstoredinterest(vaultId, self.symboldUSD)
             except JSONRPCException as e:
@@ -1256,28 +1234,31 @@ class GetStoredInterestTest(DefiTestFramework):
         self.setup_height = self.nodes[0].getblockcount()
 
     def run_test(self):
+        rollback = True
+
+        # Initial set up
         self.setup()
+        self.update_oracle_price()
         # Auctions
-        self.vault_in_liquidation_negative_interest()
+        self.vault_in_liquidation_negative_interest(do_revert=rollback)
         # Update vault
         self.update_oracle_price()
-        self.update_vault_IPB_and_ITH_positive()
-        self.update_vault_IPB_and_ITH_negative()
-        self.update_vault_IPB_negative_ITH_positive()
-        self.update_vault_IPB_positive_ITH_negative()
-        # # Takeloan
+        self.update_vault_IPB_and_ITH_positive(do_revert=rollback)
+        self.update_vault_IPB_and_ITH_negative(do_revert=rollback)
+        self.update_vault_IPB_negative_ITH_positive(do_revert=rollback)
+        self.update_vault_IPB_positive_ITH_negative(do_revert=rollback)
+        # Takeloan
         self.update_oracle_price()
-        self.takeloan_IPB_and_ITH_positive()
-        self.takeloan_IPB_and_ITH_negative()
-        self.takeloan_IPB_negative_ITH_positive()
-        self.takeloan_IPB_positive_ITH_negative()
-        # # Payback
+        self.takeloan_IPB_and_ITH_positive(do_revert=rollback)
+        self.takeloan_IPB_and_ITH_negative(do_revert=rollback)
+        self.takeloan_IPB_negative_ITH_positive(do_revert=rollback)
+        self.takeloan_IPB_positive_ITH_negative(do_revert=rollback)
+        # Payback
         self.update_oracle_price()
-        self.payback_loan_IPB_positive_and_ITH_positive()
-        self.payback_loan_IPB_positive_and_ITH_negative()
-        self.payback_loan_IPB_negative_and_ITH_positive()
-        self.payback_loan_IPB_negative_and_ITH_negative()
-
+        self.payback_loan_IPB_positive_and_ITH_positive(do_revert=rollback)
+        self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
+        self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
+        self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()
