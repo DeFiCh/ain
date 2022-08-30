@@ -37,10 +37,14 @@ class GetStoredInterestTest(DefiTestFramework):
     # Utils
     def rollback_to(self, block):
         self.log.info("rollback to: %d", block)
-        blockhash = self.nodes[0].getblockhash(block + 1)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
-        assert_equal(block, self.nodes[0].getblockcount())
+        node = self.nodes[0]
+        current_height = node.getblockcount()
+        if current_height == block:
+            return
+        blockhash = node.getblockhash(block + 1)
+        node.invalidateblock(blockhash)
+        node.clearmempool()
+        assert_equal(block, node.getblockcount())
 
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -1231,9 +1235,12 @@ class GetStoredInterestTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
+        block_height = self.nodes[0].getblockcount()
         rollback = True
         for x in range(20):
             self.log.info("run: %d", x)
+            self.rollback_to(block_height)
+            self.update_oracle_price()
             # Auctions
             self.vault_in_liquidation_negative_interest(do_revert=rollback)
             # Update vault
