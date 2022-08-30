@@ -1234,15 +1234,10 @@ class GetStoredInterestTest(DefiTestFramework):
         self.setup_height = self.nodes[0].getblockcount()
 
     def run_test(self):
-        self.setup()
-        block_height = self.nodes[0].getblockcount()
         rollback = True
-        node = self.nodes[0]
 
-        govs = node.listgovs()
-        vaults = node.listvaults({"verbose": "true"})
-        balances = node.logaccountbalances()
-
+        # Initial set up
+        self.setup()
         self.update_oracle_price()
         # Auctions
         self.vault_in_liquidation_negative_interest(do_revert=rollback)
@@ -1264,11 +1259,6 @@ class GetStoredInterestTest(DefiTestFramework):
         self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
         self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
-
-        self.rollback_to(block_height)
-        assert_equal(govs, node.listgovs())
-        assert_equal(vaults, node.listvaults({"verbose": "true"}))
-        assert_equal(balances, node.logaccountbalances())
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()
