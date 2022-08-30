@@ -1239,39 +1239,36 @@ class GetStoredInterestTest(DefiTestFramework):
         rollback = False
         node = self.nodes[0]
 
-        for x in range(20):
-            self.log.info("run: %d", x)
-            govs = node.listgovs()
-            vaults = node.listvaults({"verbose": "true"})
-            balances = node.logaccountbalances()
+        govs = node.listgovs()
+        vaults = node.listvaults({"verbose": "true"})
+        balances = node.logaccountbalances()
 
-            self.update_oracle_price()
-            # Auctions
-            self.vault_in_liquidation_negative_interest(do_revert=rollback)
-            # Update vault
-            self.update_oracle_price()
-            self.update_vault_IPB_and_ITH_positive(do_revert=rollback)
-            self.update_vault_IPB_and_ITH_negative(do_revert=rollback)
-            self.update_vault_IPB_negative_ITH_positive(do_revert=rollback)
-            self.update_vault_IPB_positive_ITH_negative(do_revert=rollback)
-            # Takeloan
-            self.update_oracle_price()
-            self.takeloan_IPB_and_ITH_positive(do_revert=rollback)
-            self.takeloan_IPB_and_ITH_negative(do_revert=rollback)
-            self.takeloan_IPB_negative_ITH_positive(do_revert=rollback)
-            self.takeloan_IPB_positive_ITH_negative(do_revert=rollback)
-            # Payback
-            self.update_oracle_price()
-            self.payback_loan_IPB_positive_and_ITH_positive(do_revert=rollback)
-            self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
-            self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
-            self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
+        self.update_oracle_price()
+        # Auctions
+        self.vault_in_liquidation_negative_interest(do_revert=rollback)
+        # Update vault
+        self.update_oracle_price()
+        self.update_vault_IPB_and_ITH_positive(do_revert=rollback)
+        self.update_vault_IPB_and_ITH_negative(do_revert=rollback)
+        self.update_vault_IPB_negative_ITH_positive(do_revert=rollback)
+        self.update_vault_IPB_positive_ITH_negative(do_revert=rollback)
+        # Takeloan
+        self.update_oracle_price()
+        self.takeloan_IPB_and_ITH_positive(do_revert=rollback)
+        self.takeloan_IPB_and_ITH_negative(do_revert=rollback)
+        self.takeloan_IPB_negative_ITH_positive(do_revert=rollback)
+        self.takeloan_IPB_positive_ITH_negative(do_revert=rollback)
+        # Payback
+        self.update_oracle_price()
+        self.payback_loan_IPB_positive_and_ITH_positive(do_revert=rollback)
+        self.payback_loan_IPB_positive_and_ITH_negative(do_revert=rollback)
+        self.payback_loan_IPB_negative_and_ITH_positive(do_revert=rollback)
+        self.payback_loan_IPB_negative_and_ITH_negative(do_revert=rollback)
 
-            self.rollback_to(block_height)
-            assert_equal(govs, node.listgovs())
-            assert_equal(vaults, node.listvaults({"verbose": "true"}))
-            assert_equal(balances, node.logaccountbalances())
-
+        self.rollback_to(block_height)
+        assert_equal(govs, node.listgovs())
+        assert_equal(vaults, node.listvaults({"verbose": "true"}))
+        assert_equal(balances, node.logaccountbalances())
 
 if __name__ == '__main__':
     GetStoredInterestTest().main()
