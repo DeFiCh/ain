@@ -251,13 +251,6 @@ class CCustomMetadataParseVisitor
         return Res::Ok();
     }
 
-    Res isPostGreatWorldFork() const {
-        if(static_cast<int>(height) < consensus.GreatWorldHeight) {
-            return Res::Err("called before GreatWorldHeight height");
-        }
-        return Res::Ok();
-    }
-
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -2478,7 +2471,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
             return Res::Err("interest rate cannot be less than 0!");
         }
 
@@ -2567,7 +2560,7 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.GreatWorldHeight)) {
+        if (obj.interest < 0 && height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
             return Res::Err("interest rate cannot be less than 0!");
         }
 
@@ -2931,9 +2924,8 @@ public:
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
             }
-            if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight)) {
-                const auto loanTokens = mnview.GetLoanTokens(obj.vaultId);
-                if (loanTokens) {
+            if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+                if (const auto loanTokens = mnview.GetLoanTokens(obj.vaultId)) {
                     for (const auto& [tokenId, tokenAmount] : loanTokens->balances) {
                         const auto loanToken = mnview.GetLoanTokenByID(tokenId);
                         assert(loanToken);
@@ -3119,7 +3111,7 @@ public:
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
-            if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight) && tokenAmount <= 0)
+            if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight) && tokenAmount <= 0)
                 return Res::Err("Valid loan amount required (input: %d@%d)", tokenAmount, tokenId.v);
 
             auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -3306,7 +3298,7 @@ public:
                 const auto& paybackTokenId = kv.first;
                 auto paybackAmount = kv.second;
 
-                if (height >= static_cast<uint32_t>(consensus.GreatWorldHeight) && paybackAmount <= 0) {
+                if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight) && paybackAmount <= 0) {
                     return Res::Err("Valid payback amount required (input: %d@%d)", paybackAmount, paybackTokenId.v);
                 }
 
@@ -3420,7 +3412,7 @@ public:
 
                 if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) &&
                     subLoan < currentLoanAmount &&
-                    height < static_cast<uint32_t>(consensus.GreatWorldHeight))
+                    height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight))
                 {
                     auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                     if (!newRate)

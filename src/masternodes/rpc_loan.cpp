@@ -1516,7 +1516,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         return true;
     };
 
-    if (height >= Params().GetConsensus().GreatWorldHeight) {
+    if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
         pcustomcsview->ForEachVaultInterestV3(vaultInterest);
     } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
         pcustomcsview->ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {

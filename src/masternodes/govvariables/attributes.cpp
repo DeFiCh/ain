@@ -918,7 +918,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         }
                     break;
                     case TokenKeys::LoanMintingInterest:
-                        if (view.GetLastHeight() < Params().GetConsensus().GreatWorldHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
                             if (amount && *amount < 0) {
                                 return Res::Err("Amount must be a positive value");
@@ -1153,7 +1153,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return res;
                 }
             } else if (attrV0->key == TokenKeys::LoanMintingInterest) {
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight) && interestTokens.count(attrV0->typeId)) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight) && interestTokens.count(attrV0->typeId)) {
                     const auto tokenInterest = std::get_if<CAmount>(&attribute.second);
                     if (!tokenInterest) {
                         return Res::Err("Unexpected type");
