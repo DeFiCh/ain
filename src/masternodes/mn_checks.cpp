@@ -252,7 +252,7 @@ class CCustomMetadataParseVisitor
     }
 
     Res isPostGrandCentralFork() const {
-        if(static_cast<int>(height) < consensus.FortCanningRoadHeight) {
+        if(static_cast<int>(height) < consensus.GrandCentralHeight) {
             return Res::Err("called before GrandCentral height");
         }
         return Res::Ok();
