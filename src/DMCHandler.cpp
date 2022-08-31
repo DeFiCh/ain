@@ -1,16 +1,31 @@
 #include <DMCHandler.h>
 #include <logging.h>
 
+#include "rpc/client.h"
+
 #include <iostream>
 
-bool DMCHandler::AddDMCPayloadToNativeBlock(std::shared_ptr<CBlock> block) {
-  // Dummy imp for now
-  block->dmcPayload = std::vector<unsigned char>({'\x44', '\x4D', '\x43', '\x20', '\x52', '\x4f', '\x43', '\x4b', '\x53'});
+void DMCHandler::InitializeRPCClient(){
+  // Add the correct port number
+  this->DMCNode("localhost", 8080);
+}
+
+bool DMCHandler::AddDMCPayloadToNativeBlock(std::shared_ptr<CBlock> block, std::vector<DMCTx> txN) {
+  // Get DMC node to mint the new block
+  EncodedDMCBlock newDMCBlock = nullptr;
+  newDMCBlock = (this->DMCNode).call("mintBlock", txN);
+  if(newDMCBlock == nullptr){
+    // TODO: add exponential backoff
+    newDMCBlock = (this->DMCNode).call("getBlock");
+  }
+  block->dmcPayload = newDMCBlock;
+  
   return true;
 }
 
 bool DMCHandler::ConnectPayloadToDMC(const std::vector<unsigned char>& payload) {
   // Dummy imp for now
   LogPrintf("DMC Payload: [%s]", std::string(payload.begin(), payload.end()));
+  (this->DMCNode).call("connectBlock", payload);
   return true;
 }
