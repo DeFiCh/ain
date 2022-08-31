@@ -263,6 +263,13 @@ class CCustomMetadataParseVisitor
         return Res::Ok();
     }
 
+    Res isPostGrandCentralFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningRoadHeight) {
+            return Res::Err("called before GrandCentral height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);

@@ -98,7 +98,12 @@ struct Params {
     int FortCanningCrunchHeight;
     int FortCanningSpringHeight;
     int FortCanningGreatWorldHeight;
+<<<<<<< HEAD
     int FortCanningEpilogueHeight;
+||||||| parent of df640538fe (Add Grand Central fork)
+=======
+    int GrandCentralHeight;
+>>>>>>> df640538fe (Add Grand Central fork)
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
