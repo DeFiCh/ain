@@ -1845,7 +1845,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // one time downgrade to revert CInterestRateV3 structure
-    if (pindex->nHeight == Params().GetConsensus().GreatWorldHeight) {
+    if (pindex->nHeight == Params().GetConsensus().FortCanningGreatWorldHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate reverting ...\n");
         mnview.RevertInterestRateToV2();
@@ -2572,7 +2572,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
-    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningGreatWorldHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
         mnview.MigrateInterestRateToV3(mnview, static_cast<uint32_t>(pindex->nHeight));
@@ -4412,7 +4412,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
     CVaultId failedVault;
     std::vector<std::tuple<CVaultId, CInterestRateV3, std::string>> loanInterestRates;
-    if (height >= Params().GetConsensus().GreatWorldHeight) {
+    if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
         view.ForEachVaultInterestV3([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV3& rate) {
             if (tokenId == oldTokenId) {
                 const auto vaultData = view.GetVault(vaultId);

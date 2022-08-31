@@ -314,7 +314,7 @@ BOOST_AUTO_TEST_CASE(loan_interest_rate)
 BOOST_AUTO_TEST_CASE(loan_total_interest_calculation)
 {
     // Activate negative interest rate
-    const_cast<int&>(Params().GetConsensus().GreatWorldHeight) = 1;
+    const_cast<int&>(Params().GetConsensus().FortCanningGreatWorldHeight) = 1;
 
     CCustomCSView mnview(*pcustomcsview);
 

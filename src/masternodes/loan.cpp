@@ -188,7 +188,7 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId& vaultId, const DCT_ID id, const uint32_t height)
 {
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         return ReadBy<LoanInterestV3ByVault, CInterestRateV3>(std::make_pair(vaultId, id));
     }
 
@@ -292,7 +292,7 @@ CAmount TotalInterest(const CInterestRateV3& rate, const uint32_t height)
 
 void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const CInterestRateV3& rate, uint32_t height)
 {
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         WriteBy<LoanInterestV3ByVault>(pair, rate);
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
         WriteBy<LoanInterestV2ByVault>(pair, ConvertInterestRateToV2(rate));
@@ -321,7 +321,7 @@ Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, 
     rate.interestToHeight = TotalInterestCalculation(rate, height);
     rate.height = height;
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
 
@@ -373,7 +373,7 @@ Res CLoanView::DecreaseInterest(const uint32_t height, const CVaultId& vaultId, 
 
     rate.height = height;
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
         rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate);
@@ -452,7 +452,7 @@ void EraseInterest(CLoanView& view, const CVaultId& vaultId)
 
 Res CLoanView::EraseInterest(const CVaultId& vaultId, uint32_t height)
 {
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         ::EraseInterest<LoanInterestV3ByVault>(*this, vaultId);
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
         ::EraseInterest<LoanInterestV2ByVault>(*this, vaultId);
@@ -465,7 +465,7 @@ Res CLoanView::EraseInterest(const CVaultId& vaultId, uint32_t height)
 
 void CLoanView::EraseInterest(const CVaultId& vaultId, DCT_ID id, uint32_t height)
 {
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().GreatWorldHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         EraseBy<LoanInterestV3ByVault>(std::make_pair(vaultId, id));
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
         EraseBy<LoanInterestV2ByVault>(std::make_pair(vaultId, id));

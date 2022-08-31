@@ -26,11 +26,11 @@ class GetStoredInterestTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.greatworldheight = 700
+        self.fortcanninggreatworldheight = 700
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
              '-fortcanningmuseumheight=1', '-fortcanningspringheight=1', '-fortcanninghillheight=1',
-             '-fortcanningcrunchheight=1', f'-greatworldheight={self.greatworldheight}', '-jellyfish_regtest=1',
+             '-fortcanningcrunchheight=1', f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}', '-jellyfish_regtest=1',
              '-txindex=1', '-simulatemainnet=1']
         ]
 
@@ -55,15 +55,15 @@ class GetStoredInterestTest(DefiTestFramework):
 
     def goto_gw_height(self):
         blockHeight = self.nodes[0].getblockcount()
-        if self.greatworldheight > blockHeight:
-            self.nodes[0].generate((self.greatworldheight - blockHeight) + 2)
+        if self.fortcanninggreatworldheight > blockHeight:
+            self.nodes[0].generate((self.fortcanninggreatworldheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["fortcanninggreatworld"]["active"], True)
 
     def goto_setup_height(self):
         self.rollback_to(self.setup_height)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["greatworld"]["active"], False)
+        assert_equal(blockchainInfo["softforks"]["fortcanninggreatworld"]["active"], False)
 
     # Default token = 1 = dUSD
     def set_token_interest(self, token='1', interest=0):
