@@ -159,7 +159,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             CAmount burnt{0};
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
-                if (blockindex->nHeight < Params().GetConsensus().GreatWorldHeight
+                if (blockindex->nHeight < Params().GetConsensus().GrandCentralHeight
                 && kv.first == CommunityAccountType::CommunityDevFunds) {
                     continue;
                 }

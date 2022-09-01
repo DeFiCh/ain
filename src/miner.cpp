@@ -277,7 +277,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (nHeight >= consensus.EunosHeight)
     {
         auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        if (nHeight < consensus.GreatWorldHeight) {
+        if (nHeight < consensus.GrandCentralHeight) {
             coinbaseTx.vout.resize(2);
             // Community payment always expected
             coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;

@@ -18,9 +18,9 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=201', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=201', '-subsidytest=1'],
         ]
 
     def run_test(self):

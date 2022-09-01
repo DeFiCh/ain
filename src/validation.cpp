@@ -2063,7 +2063,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (height >= consensus.AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.GreatWorldHeight)
+        if (height >= consensus.GrandCentralHeight)
         {
             // no foundation reward check anymore
         }
@@ -2107,7 +2107,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < consensus.GreatWorldHeight) {
+                    if (height < consensus.GrandCentralHeight) {
                         continue;
                     }
                 }
@@ -2175,7 +2175,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < Params().GetConsensus().GreatWorldHeight) {
+                    if (height < Params().GetConsensus().GrandCentralHeight) {
                         continue;
                     }
                 }
@@ -3947,7 +3947,7 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
 }
 
 void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
         return;
     }
 

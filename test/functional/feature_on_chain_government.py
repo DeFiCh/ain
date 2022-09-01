@@ -20,10 +20,10 @@ class ChainGornmentTest(DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1', '-txindex=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-greatworldheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=101', '-subsidytest=1', '-txindex=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-grandcentralheight=101', '-subsidytest=1'],
         ]
 
     def run_test(self):

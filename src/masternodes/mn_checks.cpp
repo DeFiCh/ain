@@ -602,12 +602,12 @@ public:
     }
 
     Res operator()(CCreatePropMessage& obj) const {
-        auto res = isPostGreatWorldFork();
+        auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CPropVoteMessage& obj) const {
-        auto res = isPostGreatWorldFork();
+        auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
 
@@ -3174,14 +3174,14 @@ public:
                 const auto totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
+                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ?
                         // Interest to decrease smaller than overall existing loan amount.
                         // So reduce interest from the borrowing principal. If this is negative,
-                        // we'll reduce from principal. 
-                        tokenAmount + totalInterest : 
+                        // we'll reduce from principal.
+                        tokenAmount + totalInterest :
                         // Interest to decrease is larger than old loan amount.
-                        // We reduce from the borrowing principal. If this is negative, 
-                        // we'll reduce from principal. 
+                        // We reduce from the borrowing principal. If this is negative,
+                        // we'll reduce from principal.
                         tokenAmount - currentLoanAmount;
                     resetInterestToHeight = true;
                 }
