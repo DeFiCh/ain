@@ -976,6 +976,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
     UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
     UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
