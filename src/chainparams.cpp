@@ -15,11 +15,11 @@
 #include <util/strencodings.h>
 #include <versionbitsinfo.h>
 
+#include <algorithm>
 #include <cassert>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 
 bool fMockNetwork = false;
 
@@ -136,7 +136,8 @@ public:
         consensus.FortCanningRoadHeight = 1786000; // April 11, 2022.
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
-        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
+        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -384,7 +385,8 @@ public:
         consensus.FortCanningRoadHeight = 893700;
         consensus.FortCanningCrunchHeight = 1011600;
         consensus.FortCanningSpringHeight = 1086000;
-        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningGreatWorldHeight = 1223000;
+        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -587,7 +589,8 @@ public:
         consensus.FortCanningRoadHeight = std::numeric_limits<int>::max();
         consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
         consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
-        consensus.GreatWorldHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -782,7 +785,8 @@ public:
         consensus.FortCanningRoadHeight = 10000000;
         consensus.FortCanningCrunchHeight = 10000000;
         consensus.FortCanningSpringHeight = 10000000;
-        consensus.GreatWorldHeight = 10000000;
+        consensus.FortCanningGreatWorldHeight = 10000000;
+        consensus.GrandCentralHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -981,7 +985,7 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            auto lowerArgName = boost::to_lower_copy(argName);
+            std::string lowerArgName = ToLower(argFlag);
             throw std::runtime_error(strprintf(
                 "Activation height %ld for %s is out of valid range. Use -1 to disable %s.",
                 height, argName, lowerArgName));
@@ -1015,7 +1019,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
     UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
     UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
-    UpdateHeightValidation("Great World", "-greatworldheight", consensus.GreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

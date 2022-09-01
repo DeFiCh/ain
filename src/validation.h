@@ -84,8 +84,8 @@ static const unsigned int BLOCKFILE_CHUNK_SIZE = 0x2000000; // 32 MiB
 /** The pre-allocation chunk size for rev?????.dat files (since 0.8) */
 static const unsigned int UNDOFILE_CHUNK_SIZE = 0x200000; // 2 MiB
 
-/** Maximum number of script-checking threads allowed */
-static const int MAX_SCRIPTCHECK_THREADS = 16;
+/** Maximum number of dedicated script-checking threads allowed */
+static const int MAX_SCRIPTCHECK_THREADS = 15;
 /** -par default (number of script-checking threads, 0 = auto) */
 static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
 /** Number of blocks that can be requested at any given time from a single peer. */
@@ -158,9 +158,12 @@ typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
 extern Mutex g_best_block_mutex;
 extern std::condition_variable g_best_block_cv;
 extern uint256 g_best_block;
+/** Whether there are dedicated script-checking threads running.
+ * False indicates all script checking is done on the main threadMessageHandler thread.
+ */
+extern bool g_parallel_script_checks;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
-extern int nScriptCheckThreads;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 
@@ -262,7 +265,7 @@ FILE* OpenBlockFile(const FlatFilePos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
 fs::path GetBlockPosFilename(const FlatFilePos &pos);
 /** Import blocks from an external file */
-bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFilePos *dbp = nullptr);
+void LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, FlatFilePos *dbp = nullptr);
 /** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
 bool LoadGenesisBlock(const CChainParams& chainparams);
 /** Load the block tree and coins database from disk,
@@ -272,8 +275,10 @@ bool LoadBlockIndex(const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs
 bool LoadChainTip(const CChainParams& chainparams) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 /** Unload database information */
 void UnloadBlockIndex();
-/** Run an instance of the script checking thread */
-void ThreadScriptCheck(int worker_num);
+/** Run instances of script checking worker threads */
+void StartScriptCheckWorkerThreads(int threads_num);
+/** Stop all of the script checking worker threads */
+void StopScriptCheckWorkerThreads();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr);
 /**
@@ -722,7 +727,7 @@ public:
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Apply the effects of a block disconnection on the UTXO set.
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions* disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, ::mempool.cs);

@@ -802,20 +802,20 @@ namespace pos {
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)currentTime - t);
 
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                        LogPrintf("MakeStake: kernel found\n");
 
                         found = true;
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
 
@@ -825,7 +825,7 @@ namespace pos {
 
                 // Search forwards in time
                 for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
-                    boost::this_thread::interruption_point();
+                    if (ShutdownRequested()) break;
 
                     blockTime = ((uint32_t)searchTime + t);
 
@@ -838,7 +838,7 @@ namespace pos {
                         break;
                     }
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    std::this_thread::yield(); // give a slot to other threads
                 }
             }
         }, blockHeight);
@@ -917,7 +917,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
     for (auto& arg : args) {
         while (true) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             bool found = false;
             for (auto wallet : wallets) {
@@ -941,10 +941,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
     LogPrintf("ThreadStaker: started.\n");
 
     while (!args.empty()) {
-        boost::this_thread::interruption_point();
+        if (ShutdownRequested()) break;
 
         while (fImporting || fReindex) {
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             LogPrintf("ThreadStaker: waiting reindex...\n");
 
@@ -955,7 +955,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
-            boost::this_thread::interruption_point();
+            if (ShutdownRequested()) break;
 
             pos::Staker staker;
 

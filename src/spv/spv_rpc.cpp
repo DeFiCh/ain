@@ -1274,6 +1274,10 @@ static UniValue spv_dumpprivkey(const JSONRPCRequest& request)
         },
     }.Check(request);
 
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
@@ -1298,6 +1302,10 @@ static UniValue spv_getbalance(const JSONRPCRequest& request)
             + HelpExampleRpc("spv_getbalance", "")
         },
     }.Check(request);
+
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
 
     return ValueFromAmount(spv::pspv->GetBitcoinBalance());
 }

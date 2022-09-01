@@ -89,7 +89,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
@@ -98,7 +98,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
@@ -107,7 +107,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
@@ -116,7 +116,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair({
@@ -125,7 +125,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Tokenise DFI
@@ -147,7 +147,7 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "amountFrom": ltc_to_doge_from,
                 "to": destination,
                 "tokenTo": symbolDOGE,
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('"LTC-DFI":"Lack of liquidity."' in errorString)
@@ -176,7 +176,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "amountFrom": ltc_to_doge_from,
             "to": destination,
             "tokenTo": symbolDOGE,
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Check source
@@ -202,7 +202,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "to": destination,
             "tokenTo": symbolDOGE,
             "maxPrice": ltc_per_doge
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Check source
@@ -227,7 +227,7 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "to": destination,
                 "tokenTo": symbolDOGE,
                 "maxPrice": ltc_per_doge - Decimal('0.00000001'),
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('"DOGE-DFI":"Price is higher than indicated."' in errorString)
@@ -360,7 +360,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "to": destination,
             "tokenTo": symbolDOGE,
             "maxPrice": ltc_per_doge
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Check source
@@ -391,7 +391,7 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "amountFrom": tsla_to_ltc_from,
                 "to": destination,
                 "tokenTo": symbolLTC
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('Cannot find usable pool pair.' in errorString)
@@ -403,7 +403,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Now swap TSLA to
@@ -415,7 +415,7 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "amountFrom": tsla_to_ltc_from,
                 "to": destination,
                 "tokenTo": symbolLTC
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('"DUSD-DFI":"Lack of liquidity."' in errorString)
@@ -435,7 +435,7 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "to": destination,
                 "tokenTo": symbolLTC,
                 "maxPrice": "0.15311841"
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
@@ -447,7 +447,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "to": destination,
             "tokenTo": symbolLTC,
             "maxPrice": "0.15311842"
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Check source
@@ -467,7 +467,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "commission": 0.1,
             "status": True,
             "ownerAddress": owner
-        }, [])
+        })
         self.nodes[0].generate(1)
 
         # Add some liquidity
@@ -491,20 +491,20 @@ class PoolPairCompositeTest(DefiTestFramework):
                 "to": destination,
                 "tokenTo": symbolLTC,
                 "maxPrice": "0.03361577"
-            }, [])
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
         assert('"LTC-USDC":"Price is higher than indicated."' in errorString)
 
-        self.nodes[0].compositeswap({
+        tx = self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolTSLA,
             "amountFrom": tsla_to_ltc_from,
             "to": destination,
             "tokenTo": symbolLTC,
             "maxPrice": "0.03361578"
-            }, [])
+            })
         self.nodes[0].generate(1)
 
         # Check source
@@ -517,6 +517,32 @@ class PoolPairCompositeTest(DefiTestFramework):
         assert_equal(dest_balance[idLTC], Decimal('29.74793123'))
         assert_equal(len(dest_balance), 1)
 
+        # Add disabled direct path
+        self.nodes[0].createpoolpair({
+            "tokenA": symbolTSLA,
+            "tokenB": symbolLTC,
+            "commission": 0.1,
+            "status": False,
+            "ownerAddress": owner
+        })
+        self.nodes[0].generate(1)
+
+        # Try swap again with disabled pool
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolTSLA,
+            "amountFrom": tsla_to_ltc_from,
+            "to": destination,
+            "tokenTo": symbolLTC
+        })
+
+        # Check result uses composite swap
+        result = self.nodes[0].getcustomtx(tx)
+        assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
+
+        # Wipe mempool
+        self.nodes[0].clearmempool()
+
         # Fund source and move to Fort Canning Hill height
         self.nodes[0].sendtoaddress(source, 0.1)
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
@@ -528,7 +554,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             "amountFrom": tsla_to_ltc_from,
             "to": destination,
             "tokenTo": 0
-            }, [])
+            })
 
         rawtx_verbose = self.nodes[0].getrawtransaction(tx, 1)
         metadata = rawtx_verbose['vout'][0]['scriptPubKey']['hex']

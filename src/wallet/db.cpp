@@ -14,8 +14,6 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/thread.hpp>
-
 namespace {
 
 //! Make sure database has a unique fileid within the environment. If it
@@ -169,8 +167,6 @@ bool BerkeleyEnvironment::Open(bool retry)
     if (fDbEnvInit)
         return true;
 
-    boost::this_thread::interruption_point();
-
     fs::path pathIn = strPath;
     TryCreateDirectories(pathIn);
     if (!LockDirectory(pathIn, ".walletlock")) {
@@ -242,8 +238,6 @@ bool BerkeleyEnvironment::Open(bool retry)
 BerkeleyEnvironment::BerkeleyEnvironment()
 {
     Reset();
-
-    boost::this_thread::interruption_point();
 
     LogPrint(BCLog::DB, "BerkeleyEnvironment::MakeMock\n");
 
@@ -759,7 +753,7 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
                 return fSuccess;
             }
         }
-        MilliSleep(100);
+        UninterruptibleSleep(std::chrono::milliseconds{100});
     }
 }
 
@@ -827,7 +821,6 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
 
         if (nRefCount == 0)
         {
-            boost::this_thread::interruption_point();
             std::map<std::string, int>::iterator mi = env->mapFileUseCount.find(strFile);
             if (mi != env->mapFileUseCount.end())
             {
@@ -891,7 +884,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                 }
             }
         }
-        MilliSleep(100);
+        UninterruptibleSleep(std::chrono::milliseconds{100});
     }
 }
 

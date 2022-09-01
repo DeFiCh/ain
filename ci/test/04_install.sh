@@ -10,7 +10,7 @@ mkdir -p "${BASE_SCRATCH_DIR}"
 #ccache echo "Creating ccache dir if it didn't already exist"
 mkdir -p "${CCACHE_DIR}"
 
-if [ ! -d ${DIR_QA_ASSETS} ]; then
+if [ ! -d ${DIR_QA_ASSETS} ] && [ "$RUN_FUZZ_TESTS" = "true" ]; then
   git clone https://github.com/bitcoin-core/qa-assets ${DIR_QA_ASSETS}
 fi
 export DIR_FUZZ_IN=${DIR_QA_ASSETS}/fuzz_seed_corpus/

@@ -338,7 +338,7 @@ void CAnchorAuthIndex::PruneOlderThan(THeight height)
 }
 
 CAnchorIndex::CAnchorIndex(size_t nCacheSize, bool fMemory, bool fWipe)
-    : db(new CDBWrapper(GetDataDir() / "anchors", nCacheSize, fMemory, fWipe))
+    : db(std::make_unique<CDBWrapper>(GetDataDir() / "anchors", nCacheSize, fMemory, fWipe))
 {
 }
 
@@ -522,8 +522,7 @@ void CAnchorIndex::CheckPendingAnchors()
             continue;
         }
 
-        const auto timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
-        const auto blockHeight = spv::pspv->ReadTxBlockHeight(rec.txHash);
+        const auto [blockHeight, timestamp] = spv::pspv->ReadTxHeightTime(rec.txHash);
         const auto blockHash = panchors->ReadBlockHash(rec.btcHeight);
 
         // Do not delete, TX time still pending. If block height is set to max we cannot trust the timestamp.
@@ -669,14 +668,9 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
     return top != oldTop;
 }
 
-bool CAnchorIndex::AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite)
+bool CAnchorIndex::AddToAnchorPending(const AnchorRec& rec)
 {
     AssertLockHeld(cs_main);
-
-    AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
-    if (overwrite) {
-        DeletePendingByBtcTx(btcTxHash);
-    }
 
     return db->Write(std::make_pair(DB_PENDING, rec.txHash), rec);
 }
@@ -688,20 +682,13 @@ bool CAnchorIndex::GetPendingByBtcTx(uint256 const & txHash, AnchorRec & rec) co
     return db->Read(std::make_pair(DB_PENDING, txHash), rec);
 }
 
-bool CAnchorIndex::DeletePendingByBtcTx(uint256 const & btcTxHash)
+void CAnchorIndex::DeletePendingByBtcTx(uint256 const & btcTxHash)
 {
     AssertLockHeld(cs_main);
 
-    AnchorRec pending;
-
-    if (GetPendingByBtcTx(btcTxHash, pending)) {
-        if (db->Exists(std::make_pair(DB_PENDING, btcTxHash))) {
-            db->Erase(std::make_pair(DB_PENDING, btcTxHash));
-        }
-        return true;
+    if (db->Exists(std::make_pair(DB_PENDING, btcTxHash))) {
+        db->Erase(std::make_pair(DB_PENDING, btcTxHash));
     }
-
-    return false;
 }
 
 bool CAnchorIndex::WriteBlock(const uint32_t height, const uint256& blockHash)
@@ -727,11 +714,6 @@ void CAnchorIndex::ForEachPending(std::function<void (uint256 const &, AnchorRec
 bool CAnchorIndex::DbExists(const uint256 & hash) const
 {
     return db->Exists(std::make_pair(DB_ANCHORS, hash));
-}
-
-bool CAnchorIndex::DbRead(uint256 const & hash, AnchorRec & rec) const
-{
-    return db->Read(std::make_pair(DB_ANCHORS, hash), rec);
 }
 
 bool CAnchorIndex::DbWrite(AnchorRec const & rec)
