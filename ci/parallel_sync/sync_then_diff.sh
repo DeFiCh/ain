@@ -13,6 +13,7 @@ setup_vars() {
   # Files and directories
   DATADIR=${DATADIR:-".defi"}
   DEBUG_FILE="$DATADIR/debug.log"
+  CONF_FILE="$DATADIR/defi.conf"
   TMP_LOG=debug-tmp-$STOP_BLOCK.log
   BASE_PATH=https://storage.googleapis.com
   BUCKET=team-drop
@@ -35,6 +36,19 @@ setup_vars() {
   NODE_RESTARTS=0
 }
 
+echo "======== Sync Test Info ==========
+- Block range: ${START_BLOCK} - ${STOP_BLOCK}
+- Base snapshot: grc.io/br-blockchains-dev/datadir-${START_BLOCK}
+- Reference logs:
+  - debug.log: $REF_LOG_PATH
+- Commands used:
+ - $ACCOUNT_BALANCES_CMD
+ - $LIST_ANCHORS_CMD
+- defid cmd: ${DEFI_CLI_CMD}
+- defi.conf:
+  $(cat $CONF_FILE)
+----------------------------------
+"
 # Start defid
 start_node () {
   echo "Syncing to block height: $STOP_BLOCK"
