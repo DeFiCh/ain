@@ -399,9 +399,7 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount dexfeeInPct, PoolPrice const & maxP
     CTokenAmount dexfeeInAmount{in.nTokenId, 0};
 
     if (dexfeeInPct > 0 && poolInFee(forward, asymmetricFee)) {
-        if (dexfeeInPct > COIN) {
-            return Res::Err("Dex fee input percentage over 100%%");
-        }
+        Require(dexfeeInPct <= COIN, "Dex fee input percentage over 100%%");
         dexfeeInAmount.nValue = MultiplyAmounts(in.nValue, dexfeeInPct);
         in.nValue -= dexfeeInAmount.nValue;
     }

@@ -981,15 +981,12 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 
     for (const auto& [loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        if (!token)
-            return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        Require(token, "Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        if (!rate)
-            return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+        Require(rate, "Cannot get interest rate for token (%s)!", token->symbol);
 
-        if (rate->height > height)
-            return Res::Err("Trying to read loans in the past");
+        Require(height >= rate->height, "Trying to read loans in the past");
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         if (totalAmount < 0) {
@@ -1002,8 +999,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
 
-        if (prevLoans > result.totalLoans)
-            return Res::Err("Exceeded maximum loans");
+        Require(prevLoans <= result.totalLoans, "Exceeded maximum loans");
 
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
@@ -1028,8 +1024,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;
 
-        if (prevCollaterals > result.totalCollaterals)
-            return Res::Err("Exceeded maximum collateral");
+        Require(prevCollaterals <= result.totalCollaterals, "Exceeded maximum collateral");
 
         result.collaterals.push_back({tokenId, amountInCurrency});
     }

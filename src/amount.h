@@ -100,9 +100,7 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     const uint64_t sum = a + b;
     // check overflow
 
-    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
-        return Res::Err("overflow");
-    }
+    Require((sum - a) == b && (uint64_t)std::numeric_limits<CAmount>::max() >= sum, "overflow");
     return {(CAmount) sum, Res::Ok()};
 }
 
