@@ -415,9 +415,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         node.clearmempool()
 
     # rollback to block
-    # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> [] -> node 0)
-    def rollback_to(self, block, nodes=[]):
-        if len(nodes) == 0:
+    # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
+    def rollback_to(self, block, nodes=None):
+        if nodes is None:
             self.rollback_to_node(block)
         else:
             for node in nodes:
