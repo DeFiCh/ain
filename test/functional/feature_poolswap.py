@@ -23,24 +23,17 @@ from math import trunc
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 4
+        self.num_nodes = 3
         # node0: main (Foundation)
-        # node3: revert create (all)
-        # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-dexstats'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-dexstats']]
 
     def setup(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
-
         self.setup_tokens()
-        # Stop node #3 for future revert
-        self.stop_node(3)
-
         self.symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         self.symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
         self.idGold = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
@@ -537,14 +530,10 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
     def revert_to_initial_state(self):
-        self.start_node(3)
-        self.nodes[3].generate(30)
-
-        connect_nodes_bi(self.nodes, 0, 3)
-        connect_nodes_bi(self.nodes, 1, 3)
-        connect_nodes_bi(self.nodes, 2, 3)
-        self.sync_blocks()
+        self.rollback_to(block=30, nodes=[0, 1, 2])
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
+        assert_equal(len(self.nodes[1].listpoolpairs()), 0)
+        assert_equal(len(self.nodes[2].listpoolpairs()), 0)
 
 
     def run_test(self):
