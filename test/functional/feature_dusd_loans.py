@@ -7,7 +7,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import assert_equal
 
 import calendar
 import time
@@ -44,10 +44,12 @@ class DUSDLoanTests(DefiTestFramework):
         ]
 
     def vault_without_dusd_loan_test_withdraw_before_and_after_fce(self):
-        blockHeight = self.nodes[0].getblockcount()
 
+        blockHeight = self.nodes[0].getblockcount()
+        self.update_oracle_price()
         # BEFORE FCE
         self.goto_gw_height()
+
 
         loanScheme = 'LOAN1'
         vaultId = self.new_vault_with_dusd_and_btc(loanScheme, deposit=10)
@@ -108,15 +110,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].deposittovault(vaultId, self.account0, '5@DFI')
         self.nodes[0].generate(1)
 
-        err_string = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue"
-        try:
-            self.nodes[0].takeloan({
-                'vaultId': vaultId,
-                'amounts': "1@" + self.symboldUSD})
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
 
         loanAmount = 1
         self.nodes[0].takeloan({
@@ -152,7 +145,7 @@ class DUSDLoanTests(DefiTestFramework):
 
     def vault_with_dusd_loan_test_withdraw_before_and_after_fce(self):
         blockHeight = self.nodes[0].getblockcount()
-
+        self.update_oracle_price()
         # BEFORE FCE
         self.goto_gw_height()
 
@@ -240,115 +233,121 @@ class DUSDLoanTests(DefiTestFramework):
         assert(err_string in errorString)
 
     def dusd_loans_before_and_after_fce(self):
+
         blockHeight = self.nodes[0].getblockcount()
+        self.update_oracle_price()
+        # BEFORE FCE
         self.goto_gw_height()
-        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
-        self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify()
-        self.test_new_dusd_only_vault_and_take_dusd_loan_and_verify()
-        self.rollback_to(blockHeight)
 
-        self.goto_fce_height()
-        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
-        err_string = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue"
-        assert_raises_rpc_error(-32600, err_string, self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify)
-        assert_raises_rpc_error(-32600, err_string, self.test_new_dusd_only_vault_and_take_dusd_loan_and_verify)
-        self.rollback_to(blockHeight)
-
-    def dusd_collateral_add_before_and_after_fce(self):
-        blockHeight = self.nodes[0].getblockcount()
-        self.goto_gw_height()
-        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
-        self.test_new_dusd_only_vault_and_add_collateral_and_verify()
-        self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify()
-        self.rollback_to(blockHeight)
-
-        self.goto_fce_height()
-        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
-        err_string = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue"
-        assert_raises_rpc_error(-32600, err_string, self.test_new_dusd_only_vault_and_add_collateral_and_verify)
-        assert_raises_rpc_error(-32600, err_string, self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify)
-        self.rollback_to(blockHeight)
-
-    def test_new_dusd_only_vault_and_take_dusd_loan_and_verify(self):
         loanScheme = 'LOAN1'
         vaultId = self.new_vault_with_dusd_only(loanScheme)
         dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
         loanAmount = 1
+
         self.nodes[0].takeloan({
             'vaultId': vaultId,
             'amounts': f"{loanAmount}@" + self.symboldUSD})
         self.nodes[0].generate(1)
 
         dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
 
-    def test_new_dfi_only_vault_and_take_dusd_loan_and_verify(self):
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_only(loanScheme)
+        self.nodes[0].deposittovault(vaultId, self.account0, '100' + "@BTC")
+        self.nodes[0].generate(1)
+
+        loanAmount = 15
+        err_string = "At least 50% of the minimum required collateral must be in DFI or DUSD when taking a loan."
+        try:
+            self.nodes[0].takeloan({
+                'vaultId': vaultId,
+                'amounts': f"{loanAmount}@" + self.symboldUSD})
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert(err_string in errorString)
         dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
+
         loanAmount = 1
+
         self.nodes[0].takeloan({
             'vaultId': vaultId,
             'amounts': f"{loanAmount}@" + self.symboldUSD})
         self.nodes[0].generate(1)
 
         dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
 
-    def test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify(self):
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_and_dusd(loanScheme)
+        self.goto_fce_height()
+        err_string = "At least 50% of the minimum required collateral must be in DFI"
+        try:
+            self.nodes[0].takeloan({
+                'vaultId': vaultId,
+                'amounts': f"{loanAmount}@" + self.symboldUSD})
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert(err_string in errorString)
+
+        tsla_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
+
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symbolTSLA})
+        self.nodes[0].generate(1)
+
+        tsla_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
+        assert_equal(tsla_balance_after_loan, tsla_balance_before_loan + loanAmount)
+
+        err_string = "At least 50% of the minimum required collateral must be in DFI"
+        try:
+            withdraw_amount = Decimal('50')
+            self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolBTC)
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert(err_string in errorString)
+
+        self.nodes[0].deposittovault(vaultId, self.account0, '1' + "@DFI")
+        self.nodes[0].generate(1)
+
+        loanAmount = 15
+        err_string = "At least 50% of the minimum required collateral must be in DFI"
+        try:
+            self.nodes[0].takeloan({
+                'vaultId': vaultId,
+                'amounts': f"{loanAmount}@" + self.symboldUSD})
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert(err_string in errorString)
+
+        self.nodes[0].deposittovault(vaultId, self.account0, '20' + "@DFI")
+        self.nodes[0].generate(1)
+
         dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
+
         self.nodes[0].takeloan({
             'vaultId': vaultId,
             'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(10)
 
         dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
 
-    def test_new_dusd_only_vault_and_add_collateral_and_verify(self):
-        # TODO
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dusd_only(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
 
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
 
-    def test_new_dfi_only_vault_and_add_collateral_and_verify(self):
-        # TODO
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_only(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId)
+        assert_equal(vault["collateralRatio"], 1185)
+        assert_equal(vault["collateralAmounts"],  ['21.00000000@DFI','100.00000000@BTC','10.00000000@DUSD'])
+        assert_equal(vault["loanAmounts"], ['17.00002065@DUSD', '1.00000013@TSLA'])
 
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
-
-    def test_new_dfi_dusd_vault_and_add_collateral_and_verify(self):
-        # TODO
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_and_dusd(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+        self.rollback_to(blockHeight)
+        err_string = f"Vault <{vaultId}> not found"
+        try:
+            self.nodes[0].getvault(vaultId)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert(err_string in errorString)
 
     # Utils
 
@@ -404,11 +403,6 @@ class DUSDLoanTests(DefiTestFramework):
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["fortcanningroad"]["active"], True)
 
-    def goto_setup_height(self):
-        self.rollback_to(self.setup_height)
-        blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["fortcanninggreatworld"]["active"], False)
-        assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], False)
 
     # Default token = 1 = dUSD
     def set_token_interest(self, token='1', interest=0):
@@ -563,16 +557,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
-    def rollback_to(self, block):
-        node = self.nodes[0]
-        current_height = node.getblockcount()
-        if current_height == block:
-            return
-        blockhash = node.getblockhash(block + 1)
-        node.invalidateblock(blockhash)
-        node.clearmempool()
-        assert_equal(block, node.getblockcount())
-
     def run_test(self):
         # Initial set up
         self.setup()
@@ -582,7 +566,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.vault_with_dusd_loan_test_withdraw_before_and_after_fce()
         # Take loan
         self.dusd_loans_before_and_after_fce()
-        self.dusd_collateral_add_before_and_after_fce()
 
 if __name__ == '__main__':
     DUSDLoanTests().main()

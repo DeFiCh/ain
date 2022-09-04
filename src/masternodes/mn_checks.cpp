@@ -3078,10 +3078,7 @@ public:
 
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
-                std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
-                if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
-                    tokenDUSD = mnview.GetToken("DUSD");
-                }
+
                 const auto scheme = mnview.GetLoanScheme(vault->schemeId);
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
@@ -3155,12 +3152,13 @@ public:
 
         const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
 
+        auto hasDUSDLoans = false;
+
         std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
         if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
             tokenDUSD = mnview.GetToken("DUSD");
         }
 
-        auto hasDUSDLoans = false;
 
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
@@ -3271,27 +3269,41 @@ public:
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-            uint64_t totalCollaterals = 0;
+            uint64_t totalCollateralsDUSD = 0;
+            uint64_t totalCollateralsDFI = 0;
 
-            for (auto& col : collateralsLoans.val->collaterals) {
-                if (col.nTokenId == DCT_ID{0} || (tokenDUSD && col.nTokenId == tokenDUSD->first)) {
-                    totalCollaterals += col.nValue;
+            for (auto& col : collateralsLoans.val->collaterals){
+                if (col.nTokenId == DCT_ID{0} ){
+                    totalCollateralsDFI += col.nValue;
                 }
-                if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
-                    if (hasDUSDLoans && tokenDUSD && col.nTokenId == tokenDUSD->first) {
-                        return Res::Err(std::string(ERR_STRING_DUSD_USAGE));
-                    }
+                if(tokenDUSD && col.nTokenId == tokenDUSD->first){
+                    totalCollateralsDUSD += col.nValue;
                 }
             }
 
-            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-                if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
-                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
+            uint64_t totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
+            if (static_cast<int>(height) < consensus.FortCanningHillHeight
+                && totalCollateralsDUSD < collateralsLoans.val->totalCollaterals / 2){
+                return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             } else {
+                if (hasDUSDLoans
+                    && arith_uint256(totalCollateralsDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2
+                    && static_cast<int>(height) >= consensus.FortCanningEpilogueHeight){
+                    return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
+                }
                 if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
                     return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
                                                                                       : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
             }
+
+//            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
+//                if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
+//                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
+//            } else {
+//                if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
+//                    return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
+//                                                                                      : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
+//            }
         }
         return Res::Ok();
     }

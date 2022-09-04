@@ -188,11 +188,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.nodes[0].removepoolliquidity(account, amountLP+"@T1-DUSD", [])
         self.nodes[0].generate(1)
 
-    def revert(self, block):
-        blockhash = self.nodes[0].getblockhash(block)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
-
     def accounts_usd_values(self):
         values =[]
         revertHeight = self.nodes[0].getblockcount()
@@ -205,7 +200,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             amounts["DUSD"] = Decimal(self.get_amount_from_account(account, "DUSD")) * Decimal(activePriceDUSD)
             amounts["T1"] = Decimal(self.get_amount_from_account(account, "T1")) *Decimal(activePriceT1)
             values.append(amounts)
-        self.revert(revertHeight)
+        self.rollback_to(revertHeight)
         return values
 
     def compare_value_list(self, pre, post):
@@ -254,7 +249,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         # TODO fail
         self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
         if revert:
-            self.revert(revertHeight)
+            self.rollback_to(revertHeight)
             self.idT1=self.idT1old
 
     def setup_vaults(self, collateralSplit=False):
@@ -301,7 +296,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         self.compare_vaults_list(vault_values_pre_split,vault_values_post_split)
 
         if revert:
-            self.revert(revertHeight)
+            self.rollback_to(revertHeight)
             self.idT1=self.idT1old
 
     def test_values_non_zero_with_token_locked(self):
