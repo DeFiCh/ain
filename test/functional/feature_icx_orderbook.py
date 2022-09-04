@@ -44,6 +44,7 @@ class ICXOrderbookTest (DefiTestFramework):
         symbolDFI = "DFI"
         symbolBTC = "BTC"
 
+        assert("" == "")
         self.nodes[1].minttokens("100@" + symbolBTC)
 
         self.nodes[1].generate(1)
