@@ -138,9 +138,9 @@ bool fCheckBlockIndex = false;
 
 bool fStopOrInterrupt = false;
 std::string fInterruptBlockHash = "";
-int fInterruptBlockHeight = 0;
+int fInterruptBlockHeight = -1;
 std::string fStopBlockHash = "";
-int fStopBlockHeight = 0;
+int fStopBlockHeight = -1;
 
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
@@ -1844,6 +1844,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
     }
 
+    // one time downgrade to revert CInterestRateV3 structure
+    if (pindex->nHeight == Params().GetConsensus().FortCanningGreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate reverting ...\n");
+        mnview.RevertInterestRateToV2();
+        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
+    }
+
     // Remove burn balance transfers
     if (pindex->nHeight == Params().GetConsensus().EunosHeight)
     {
@@ -2561,6 +2569,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
         mnview.MigrateInterestRateToV2(mnview,(uint32_t)pindex->nHeight);
+        LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
+    }
+
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningGreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate migration ...\n");
+        mnview.MigrateInterestRateToV3(mnview, static_cast<uint32_t>(pindex->nHeight));
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -3305,7 +3320,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
@@ -3334,21 +3348,33 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // further. Note, however, it's added back so that it's accurate
             // for auction calculations.
             CBalances totalInterest;
-            for (auto& loan : loanTokens->balances) {
-                auto tokenId = loan.first;
-                auto tokenValue = loan.second;
+            for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
+                const auto &[tokenId, tokenValue] = *it;
+
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
-                totalInterest.Add({tokenId, subInterest});
 
-                // Remove the interests from the vault and the storage respectively
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                if (subInterest > 0) {
+                    totalInterest.Add({tokenId, subInterest});
+                }
+
+                // Remove loan from the vault
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+
+                // Remove interest from the vault
+                cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue,
+                    subInterest < 0 || (!subInterest && rate->interestPerBlock.negative) ? std::numeric_limits<CAmount>::max() : subInterest);
+
                 // Putting this back in now for auction calculations.
-                loan.second += subInterest;
+                it->second += subInterest;
+
+                // If loan amount fully negated then remove it
+                if (it->second < 0) {
+                    it = loanTokens->balances.erase(it);
+                } else {
+                    ++it;
+                }
             }
 
             // Remove the collaterals out of the vault.
@@ -3457,7 +3483,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
-                view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, batch->loanAmount.nValue);
+                if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
+                }
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
                     auto tokenAmount = col.second;
@@ -4383,18 +4411,32 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     }
 
     CVaultId failedVault;
-    std::vector<std::tuple<CVaultId, CInterestRateV2, std::string>> loanInterestRates;
-    view.ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2& rate) {
-        if (tokenId == oldTokenId) {
-            const auto vaultData = view.GetVault(vaultId);
-            if (!vaultData) {
-                failedVault = vaultId;
-                return false;
+    std::vector<std::tuple<CVaultId, CInterestRateV3, std::string>> loanInterestRates;
+    if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
+        view.ForEachVaultInterestV3([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV3& rate) {
+            if (tokenId == oldTokenId) {
+                const auto vaultData = view.GetVault(vaultId);
+                if (!vaultData) {
+                    failedVault = vaultId;
+                    return false;
+                }
+                loanInterestRates.emplace_back(vaultId, rate, vaultData->schemeId);
             }
-            loanInterestRates.emplace_back(vaultId, rate, vaultData->schemeId);
-        }
-        return true;
-    });
+            return true;
+        });
+    } else {
+        view.ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2& rate) {
+            if (tokenId == oldTokenId) {
+                const auto vaultData = view.GetVault(vaultId);
+                if (!vaultData) {
+                    failedVault = vaultId;
+                    return false;
+                }
+                loanInterestRates.emplace_back(vaultId, ConvertInterestRateToV3(rate), vaultData->schemeId);
+            }
+            return true;
+        });
+    }
 
     if (failedVault != CVaultId{}) {
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
@@ -4456,18 +4498,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             return Res::Err("Failed to get loan scheme.");
         }
 
-        view.EraseInterestDirect(vaultId, oldTokenId);
+        view.EraseInterest(vaultId, oldTokenId, height);
         auto oldRateToHeight = rate.interestToHeight;
-        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight.amount);
 
-        rate.interestToHeight = newRateToHeight;
+        rate.interestToHeight.amount = newRateToHeight;
 
         auto oldInterestPerBlock = rate.interestPerBlock;
-        auto newInterestRatePerBlock = base_uint<128>(0);
+        CInterestAmount newInterestRatePerBlock{};
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
-            newInterestRatePerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            newInterestRatePerBlock = InterestPerBlockCalculationV3(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
@@ -4475,7 +4517,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
                 vaultId.ToString(),
                 GetInterestPerBlockHighPrecisionString(oldRateToHeight),
-                GetInterestPerBlockHighPrecisionString(newRateToHeight),
+                GetInterestPerBlockHighPrecisionString({oldRateToHeight.negative, newRateToHeight}),
                 GetInterestPerBlockHighPrecisionString(oldInterestPerBlock),
                 GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock));
         }

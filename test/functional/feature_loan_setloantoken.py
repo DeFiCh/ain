@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal,assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 from decimal import Decimal
 import calendar
@@ -57,16 +57,12 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
-        try:
-            self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla stock token",
-                            'fixedIntervalPriceId': "TSLA/USD",
-                            'mintable': False,
-                            'interest': -1})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Amount out of range" in errorString)
+        assert_raises_rpc_error(-32600, "interest rate cannot be less than 0", self.nodes[0].setloantoken, {
+            'symbol': "TSLA",
+            'name': "Tesla stock token",
+            'fixedIntervalPriceId': "TSLA/USD",
+            'mintable': False,
+            'interest': -1})
 
         try:
             self.nodes[0].setloantoken({
