@@ -1,10 +1,8 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
-#include <rpc/util.h>
 
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
@@ -64,8 +62,6 @@ std::map<TBytes, TBytes> TakeSnapshot(CStorageKV const & storage)
     TBytes key;
     auto it = const_cast<CStorageKV&>(storage).NewIterator();
     for(it->Seek(key); it->Valid(); it->Next()) {
-        boost::this_thread::interruption_point();
-
         result.emplace(it->Key(),it->Value());
     }
     return result;
@@ -233,28 +229,6 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{129});
         BOOST_REQUIRE(pair->second.creationTx == uint256S("0x2222"));
-    }
-
-    // revert create token
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0xffff")) == false);
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0x1111")) == false);
-    BOOST_REQUIRE(pcustomcsview->RevertCreateToken(uint256S("0x2222")));
-    BOOST_REQUIRE(GetTokensCount() == 2);
-    {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{128});
-        BOOST_REQUIRE(token);
-        BOOST_REQUIRE(token->symbol == "DCT1");
-    }
-
-    // create again, with same tx and dctid
-    token1.symbol = "DCT3";
-    token1.creationTx = uint256S("0x2222"); // SAME!
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
-    BOOST_REQUIRE(GetTokensCount() == 3);
-    {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{129});
-        BOOST_REQUIRE(token);
-        BOOST_REQUIRE(token->symbol == "DCT3");
     }
 
     {   // search by id

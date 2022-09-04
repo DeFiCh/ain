@@ -4,6 +4,8 @@
 
 #include <masternodes/mn_rpc.h>
 
+#include <masternodes/govvariables/attributes.h>
+
 extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
 extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
@@ -861,7 +863,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
     }
 
     ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
-    LogPrint(BCLog::LOAN, "%s(): %s/%s=%lld\n", __func__, token, currency, *res.val);
+
     return res;
 }
 
@@ -1053,7 +1055,6 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     auto pairId = DecodePriceFeedUni(objPrice);
 
     LOCK(cs_main);
-    LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
     auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
@@ -1153,15 +1154,43 @@ UniValue getfutureswapblock(const JSONRPCRequest& request) {
 
     const auto currentHeight = ::ChainActive().Height();
 
-    const auto block = GetFuturesBlock();
-    if (!block) {
+    const auto block = GetFuturesBlock(ParamIDs::DFIP2203);
+    if (!block || block->blockPeriod == 0) {
         return 0;
     }
 
-    auto res = currentHeight + (*block - (currentHeight % *block));
+    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
+               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
     return GetRPCResultCache().Set(request, res);
 }
 
+
+UniValue getdusdswapblock(const JSONRPCRequest& request) {
+    RPCHelpMan{"getdusdswapblock",
+               "Get the next block that DFI to DUSD swap will execute on.\n",
+               {},
+               RPCResult{
+                       "n    (numeric) DFI to DUSD swap execution block. Zero if not set.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getdusdswapblock", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+    LOCK(cs_main);
+
+    const auto currentHeight = ::ChainActive().Height();
+
+    const auto block = GetFuturesBlock(ParamIDs::DFIP2206F);
+    if (!block || block->blockPeriod == 0) {
+        return 0;
+    }
+
+    auto res = currentHeight < block->startBlock ? block->startBlock + block->blockPeriod :
+               currentHeight + (block->blockPeriod - ((currentHeight - block->startBlock) % block->blockPeriod));
+    return GetRPCResultCache().Set(request, res);
+}
 
 
 static const CRPCCommand commands[] =
@@ -1179,7 +1208,8 @@ static const CRPCCommand commands[] =
     {"oracles",     "listprices",              &listprices,               {"pagination"}},
     {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
     {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
-    {"oracles",     "getfutureswapblock",         &getfutureswapblock,          {}},
+    {"oracles",     "getfutureswapblock",      &getfutureswapblock,       {}},
+    {"oracles",     "getdusdswapblock",      &getdusdswapblock,       {}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

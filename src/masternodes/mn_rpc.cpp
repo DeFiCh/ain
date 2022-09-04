@@ -452,7 +452,7 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<CAmount> GetFuturesBlock()
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId)
 {
     LOCK(cs_main);
 
@@ -461,19 +461,21 @@ std::optional<CAmount> GetFuturesBlock()
         return {};
     }
 
-    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
+    CDataStructureV0 activeKey{AttributeTypes::Param, typeId, DFIPKeys::Active};
     const auto active = attributes->GetValue(activeKey, false);
     if (!active) {
         return {};
     }
 
-    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
-    CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
+    CDataStructureV0 blockKey{AttributeTypes::Param, typeId, DFIPKeys::BlockPeriod};
+    CDataStructureV0 rewardKey{AttributeTypes::Param, typeId, DFIPKeys::RewardPct};
     if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
         return {};
     }
 
-    return attributes->GetValue(blockKey, CAmount{});
+    CDataStructureV0 startKey{AttributeTypes::Param, typeId, DFIPKeys::StartBlock};
+
+    return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
@@ -932,6 +934,13 @@ static UniValue clearmempool(const JSONRPCRequest& request)
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
+        const auto& byHash = pwallet->mapWallet.get<ByHash>();
+        for (const auto &wtx : byHash) {
+            if (wtx.GetDepthInMainChain(*locked_chain) == 0 && !wtx.IsCoinBase()) {
+                vtxid.push_back(wtx.GetHash());
+            }
+        }
 
         std::vector<uint256> vHashOut;
         if (pwallet->ZapSelectTx(vtxid, vHashOut) != DBErrors::LOAD_OK) {
