@@ -194,5 +194,9 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].closevault(vault_id, vault_address)
         self.nodes[0].generate(1)
 
+        # Check attributes. Amount was 0.00000285 before, diff of remaining 4 Sat loan amount.
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest'], [f'0.00000289@{self.symbolDUSD}'])
+
 if __name__ == '__main__':
     NegativeInterestTest().main()

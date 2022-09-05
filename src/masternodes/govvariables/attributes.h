@@ -46,6 +46,8 @@ enum EconomyKeys : uint8_t {
     DFIP2206FBurned   = 'g',
     DFIP2206FMinted   = 'h',
     DexTokens         = 'i',
+    NegativeInt       = 'j',
+    NegativeIntCurrent= 'k',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -191,6 +193,8 @@ using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,

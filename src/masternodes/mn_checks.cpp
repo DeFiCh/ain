@@ -2855,8 +2855,14 @@ public:
                 if (!rate) {
                     return Res::Err("Cannot get interest rate for this token (%d)", tokenId.v);
                 }
-                if (const auto totalInterest = TotalInterest(*rate, height); amount + totalInterest > 0) {
+
+                const auto totalInterest = TotalInterest(*rate, height);
+                if (amount + totalInterest > 0) {
                     return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
+                }
+
+                if (totalInterest < 0) {
+                    TrackNegativeInterest(mnview, {tokenId, amount > std::abs(totalInterest)  ? std::abs(totalInterest) : amount});
                 }
             }
         }
@@ -3038,6 +3044,8 @@ public:
                     return res;
                 }
 
+                TrackNegativeInterest(mnview, {tokenId, subAmount});
+
                 mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
             }
 
@@ -3143,6 +3151,7 @@ public:
                         // we'll reduce from principal. 
                         tokenAmount - currentLoanAmount;
                     resetInterestToHeight = true;
+                    TrackNegativeInterest(mnview, {tokenId, currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount});
                 }
             }
 
@@ -3384,6 +3393,10 @@ public:
                     return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
                 auto subInterest = TotalInterest(*rate, height);
+
+                if (subInterest < 0) {
+                    TrackNegativeInterest(mnview, {loanTokenId, currentLoanAmount > std::abs(subInterest) ? std::abs(subInterest) : subInterest});
+                }
 
                 // In the case of negative subInterest the amount ends up being added to paybackAmount
                 auto subLoan = paybackAmount - subInterest;
