@@ -35,7 +35,7 @@ jobs:
         run: |
           cd defichain
           TARGET="x86_64-pc-linux-gnu" ./make.sh git_version
-              
+
       - name: Build and package
         run: |
           echo ">>> BUILD VERSION <<<"
@@ -44,10 +44,10 @@ jobs:
           TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
           docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
           docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
-      
+
       - name: Run tests
         continue-on-error: true
         run: |
           npm ci
-          npm run build
-          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run test:ci
+          npm run all:build
+          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test
