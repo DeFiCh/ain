@@ -970,13 +970,13 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
     if (price > COIN && amountInCurrency < amount)
         return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(amount), GetDecimaleString(price));
 
-    return ResVal<CAmount>(amountInCurrency, Res::Ok());
+    return {amountInCurrency, Res::Ok()};
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
                                                            int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
-    auto vault = GetVault(vaultId);
+    const auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
@@ -989,10 +989,10 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!res)
         return std::move(res);
 
-    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
+    LogPrint(BCLog::LOAN, "%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",
         __func__, result.totalCollaterals, result.totalLoans, result.ratio());
 
-    return ResVal<CCollateralLoans>(result, Res::Ok());
+    return {result, Res::Ok()};
 }
 
 ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
@@ -1001,8 +1001,8 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     auto currency = priceFeedId.second;
 
     LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
-
     auto priceFeed = GetFixedIntervalPrice(priceFeedId, skipLockedCheck);
+
     if (!priceFeed)
         return std::move(priceFeed);
 
@@ -1014,37 +1014,38 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
     if (price <= 0)
         return Res::Err("Negative price (%s/%s)", tokenSymbol, currency);
 
-    return ResVal<CAmount>(price, Res::Ok());
+    return {price, Res::Ok()};
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
                                      int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
-    auto loanTokens = GetLoanTokens(vaultId);
+    const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
         return Res::Ok();
 
-    for (const auto& loan : loanTokens->balances) {
-        auto loanTokenId = loan.first;
-        auto loanTokenAmount = loan.second;
+    for (const auto& [loanTokenId, loanTokenAmount] : loanTokens->balances) {
 
-        auto token = GetLoanTokenByID(loanTokenId);
+        const auto token = GetLoanTokenByID(loanTokenId);
         if (!token)
             return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
 
-        auto rate = GetInterestRate(vaultId, loanTokenId, height);
+        const auto rate = GetInterestRate(vaultId, loanTokenId, height);
         if (!rate)
             return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
 
         if (rate->height > height)
             return Res::Err("Trying to read loans in the past");
 
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
-
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
-        auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
+        
+        if (totalAmount < 0) {
+            totalAmount = 0;
+        }
+        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
+
         if (!amountInCurrency)
-            return std::move(amountInCurrency);
+            return amountInCurrency;
 
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
