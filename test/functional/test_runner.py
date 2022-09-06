@@ -127,6 +127,7 @@ BASE_SCRIPTS = [
     'feature_token_split.py',
     'feature_token_split_mechanism.py',
     'feature_token_split_usd_value.py',
+    'feature_token_merge_usd_value.py',
     'feature_token_merge.py',
     'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
