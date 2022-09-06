@@ -2009,6 +2009,114 @@ UniValue getloantokens(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue getloandusd(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getloandusd",
+        "Returns the total number of loan DUSD.\n",
+        {},
+        RPCResult{
+            "n.nnnnnnnn\n"
+        },
+        RPCExamples{
+            HelpExampleCli("getloandusd", "") +
+            HelpExampleRpc("getloandusd", "")
+        },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    CAmount totalDUSD{};
+
+    DCT_ID dusd{};
+    const auto token = pcustomcsview->GetTokenGuessId("DUSD", dusd);
+    if (!token) {
+        return {};
+    }
+
+    pcustomcsview->ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenId == dusd) {
+                totalDUSD += amount;
+            }
+        }
+        return true;
+    });
+
+    return GetRPCResultCache().Set(request, ValueFromAmount(totalDUSD));
+}
+
+UniValue getloandusdbacking(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getloandusdbacking",
+        "Shows the percentage of DUSD backed by DUSD.\n",
+        {},
+        RPCResult{
+            "n.nnnnnnnn\n"
+        },
+        RPCExamples{
+            HelpExampleCli("getloandusdbacking", "") +
+            HelpExampleRpc("getloandusdbacking", "")
+        },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    DCT_ID dusd{};
+    const auto dusdToken = pcustomcsview->GetTokenGuessId("DUSD", dusd);
+    if (!dusdToken) {
+        return {};
+    }
+
+    const auto useNextPrice{false}, requireLivePrice{false};
+    const auto& pindex = ::ChainActive().Tip();
+    std::map<uint32_t, CLoanView::CLoanSetCollateralTokenImpl> collateralTokens;
+    CLoanView::CLoanSetCollateralTokenImpl collateralToken;
+    CAmount dusdBacked{}, nonDusdBacked{};
+
+    pcustomcsview->ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenId == dusd) {
+                const auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+                assert(collaterals);
+
+                for (const auto& [collId, collateralAmount] : collaterals->balances) {
+
+                    if (collateralTokens.count(collId.v)) {
+                        collateralToken = collateralTokens.at(collId.v);
+                    } else if (auto optionalToken = pcustomcsview->HasLoanCollateralToken({collId, static_cast<uint32_t>(pindex->nHeight)})) {
+                        collateralToken = *optionalToken;
+                        collateralTokens.emplace(collId.v, collateralToken);
+                    } else {
+                        continue;
+                    }
+
+                    const auto amountInCurrency = pcustomcsview->GetAmountInCurrency(collateralAmount, collateralToken.fixedIntervalPriceId, useNextPrice, requireLivePrice);
+                    if (!amountInCurrency) {
+                        continue;
+                    }
+
+                    const auto amountFactor = MultiplyAmounts(collateralToken.factor, *amountInCurrency.val);
+
+                    if (collId == dusd) {
+                        dusdBacked += amountFactor;
+                    } else {
+                        nonDusdBacked += amountFactor;
+                    }
+                }
+            }
+        }
+        return true;
+    });
+
+    const auto totalBackByDUSD = static_cast<double>(dusdBacked) / (dusdBacked + nonDusdBacked);
+
+    return GetRPCResultCache().Set(request, totalBackByDUSD);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -2030,6 +2138,8 @@ static const CRPCCommand commands[] =
     {"hidden",       "getstoredinterest",         &getstoredinterest,     {"vaultId", "token"}},
     {"hidden",       "logstoredinterests",        &logstoredinterests,    {}},
     {"hidden",       "getloantokens",             &getloantokens,         {"vaultId"}},
+    {"hidden",       "getloandusd",               &getloandusd,           {""}},
+    {"hidden",       "getloandusdbacking",        &getloandusdbacking,    {""}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
