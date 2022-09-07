@@ -2946,6 +2946,8 @@ public:
     Res PreventDUSDLoanAndCollateralAtSameTime(DCT_ID collateralInToken, const CCollateralLoans& colleteralLoans) const {
         auto tokenDUSD = mnview.GetToken("DUSD");
         if (!tokenDUSD) return Res::Err("DUSD token not found");
+        if (collateralInToken != tokenDUSD->first)
+            return Res::Ok();
 
         auto hasDUSDInCollateral = false;
         auto hasDUSDInLoans = false;
