@@ -3897,8 +3897,10 @@ void CChainState::ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSVi
         return true;
     });
 
-    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
-    cache.SetVariable(*attributes);
+    if (!negativeInterestBalances.balances.empty()) {
+        attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+        cache.SetVariable(*attributes);
+    }
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
