@@ -3003,10 +3003,6 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-        if (!collateralsLoans) return std::move(collateralsLoans);
-
-        res = CollateralAddVerifyDUSDUsage(obj.amount.nTokenId, collateralsLoans);
-        if (!res) return res;
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -3106,7 +3102,7 @@ public:
                     uint64_t totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
                     if (static_cast<int>(height) < consensus.FortCanningHillHeight
-                            && totalCollateralsDUSD < collateralsLoans.val->totalCollaterals / 2){
+                            && totalCollateralsDFI < collateralsLoans.val->totalCollaterals / 2){
                             return Res::Err("At least 50%% of the collateral must be in DFI");
                     } else {
                         if (hasDUSDLoans
@@ -3283,7 +3279,7 @@ public:
 
             uint64_t totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
             if (static_cast<int>(height) < consensus.FortCanningHillHeight
-                && totalCollateralsDUSD < collateralsLoans.val->totalCollaterals / 2){
+                && totalCollateralsDFI < collateralsLoans.val->totalCollaterals / 2){
                 return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
             } else {
                 if (hasDUSDLoans
