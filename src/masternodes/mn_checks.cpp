@@ -2949,20 +2949,11 @@ public:
         if (collateralInToken != tokenDUSD->first)
             return Res::Ok();
 
-        auto hasDUSDInCollateral = false;
-        auto hasDUSDInLoans = false;
-        for (const auto& item : colleteralLoans.collaterals) {
-            if (item.nTokenId == tokenDUSD->first) {
-                hasDUSDInCollateral = true;
-            }
-        }
         for (const auto& item : colleteralLoans.loans) {
             if (item.nTokenId == tokenDUSD->first) {
-                hasDUSDInLoans = true;
+                return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
             }
-        }
-        if (hasDUSDInCollateral && hasDUSDInCollateral)
-            return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
+        }    
         
         return Res::Ok();
     }
