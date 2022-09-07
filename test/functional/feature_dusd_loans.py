@@ -42,6 +42,15 @@ class DUSDLoanTests(DefiTestFramework):
             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
+    def dusd_loans_before_and_after_fce(self):
+        blockHeight = self.nodes[0].getblockcount()
+        self.goto_gw_height()
+        self.create_new_vault_and_take_dusd_loan_and_verify()
+        self.rollback_to(blockHeight)
+        self.goto_fce_height()
+        assert_raises_rpc_error(-32600, "DUSD loans cannot be taken on a vault that also has DUSD as collateral", 
+            self.create_new_vault_and_take_dusd_loan_and_verify)
+
     # Utils
     def rollback_to(self, block):
         node = self.nodes[0]
@@ -98,17 +107,6 @@ class DUSDLoanTests(DefiTestFramework):
 
         dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
         assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
-
-
-    def dusd_loans_before_and_after_fce(self):
-        blockHeight = self.nodes[0].getblockcount()
-        self.goto_gw_height()
-        self.create_new_vault_and_take_dusd_loan_and_verify()
-        self.rollback_to(blockHeight)
-        self.goto_fce_height()
-        assert_raises_rpc_error(-32600, "DUSD loans cannot be taken on a vault that also has DUSD as collateral", 
-            self.create_new_vault_and_take_dusd_loan_and_verify)
-
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
