@@ -45,27 +45,114 @@ class DUSDLoanTests(DefiTestFramework):
     def dusd_loans_before_and_after_fce(self):
         blockHeight = self.nodes[0].getblockcount()
         self.goto_gw_height()
-        self.create_new_dfi_only_vault_and_take_dusd_loan_and_verify()
-        self.create_new_dfi_dusd_vault_and_take_dusd_loan_and_verify()
-        self.create_new_dusd_only_vault_and_take_dusd_loan_and_verify()
+        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
+        self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify()
+        self.test_new_dusd_only_vault_and_take_dusd_loan_and_verify()
         self.rollback_to(blockHeight)
-        
+
         self.goto_fce_height()
-        self.create_new_dfi_only_vault_and_take_dusd_loan_and_verify()
+        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
         err_string = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue"
-        assert_raises_rpc_error(-32600, err_string, self.create_new_dusd_only_vault_and_take_dusd_loan_and_verify)
-        assert_raises_rpc_error(-32600, err_string, self.create_new_dusd_only_vault_and_take_dusd_loan_and_verify)
+        assert_raises_rpc_error(-32600, err_string, self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify)
+        assert_raises_rpc_error(-32600, err_string, self.test_new_dusd_only_vault_and_take_dusd_loan_and_verify)
+
+    def dusd_collateral_add_before_and_after_fce(self):
+        # TODO
+        blockHeight = self.nodes[0].getblockcount()
+        self.goto_gw_height()
+        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
+        self.test_new_dusd_only_vault_and_add_collateral_and_verify()
+        self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify()
+        self.rollback_to(blockHeight)
+
+        self.goto_fce_height()
+        self.test_new_dfi_only_vault_and_take_dusd_loan_and_verify()
+        err_string = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue"
+        assert_raises_rpc_error(-32600, err_string, self.test_new_dusd_only_vault_and_add_collateral_and_verify)
+        assert_raises_rpc_error(-32600, err_string, self.test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify)
+
+    def test_new_dusd_only_vault_and_take_dusd_loan_and_verify(self):
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dusd_only(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+
+    def test_new_dfi_only_vault_and_take_dusd_loan_and_verify(self):
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dfi_only(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+
+    def test_new_dfi_dusd_vault_and_take_dusd_loan_and_verify(self):
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dfi_and_dusd(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+
+    def test_new_dusd_only_vault_and_add_collateral_and_verify(self):
+        # TODO
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dusd_only(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+
+    def test_new_dfi_only_vault_and_add_collateral_and_verify(self):
+        # TODO
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dfi_only(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
+
+    def test_new_dfi_dusd_vault_and_add_collateral_and_verify(self):
+        # TODO
+        loanScheme = 'LOAN1'
+        vaultId = self.new_vault_with_dfi_and_dusd(loanScheme)
+        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        loanAmount = 1
+        self.nodes[0].takeloan({
+            'vaultId': vaultId,
+            'amounts': f"{loanAmount}@" + self.symboldUSD})
+        self.nodes[0].generate(1)
+
+        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
+        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
 
     # Utils
-    def rollback_to(self, block):
-        node = self.nodes[0]
-        current_height = node.getblockcount()
-        if current_height == block:
-            return
-        blockhash = node.getblockhash(block + 1)
-        node.invalidateblock(blockhash)
-        node.clearmempool()
-        assert_equal(block, node.getblockcount())
 
     def new_vault_with_dfi_only(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
@@ -113,45 +200,6 @@ class DUSDLoanTests(DefiTestFramework):
     def set_token_interest(self, token='1', interest=0):
         self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{token}/loan_minting_interest': str(interest)}})
         self.nodes[0].generate(1)
-
-    def create_new_dusd_only_vault_and_take_dusd_loan_and_verify(self):
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dusd_only(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
-
-    def create_new_dfi_only_vault_and_take_dusd_loan_and_verify(self):
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_only(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
-
-    def create_new_dfi_dusd_vault_and_take_dusd_loan_and_verify(self):
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dfi_and_dusd(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -280,11 +328,22 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
+    def rollback_to(self, block):
+        node = self.nodes[0]
+        current_height = node.getblockcount()
+        if current_height == block:
+            return
+        blockhash = node.getblockhash(block + 1)
+        node.invalidateblock(blockhash)
+        node.clearmempool()
+        assert_equal(block, node.getblockcount())
+
     def run_test(self):
         # Initial set up
         self.setup()
         self.update_oracle_price()
         self.dusd_loans_before_and_after_fce()
+        self.dusd_collateral_add_before_and_after_fce()
 
 if __name__ == '__main__':
     DUSDLoanTests().main()
