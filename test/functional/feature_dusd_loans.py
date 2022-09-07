@@ -22,7 +22,7 @@ def get_decimal_amount(amount):
     return Decimal(account_tmp)
 
 
-class NoDUSDLoopLoans(DefiTestFramework):
+class DUSDLoanTests(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
@@ -105,7 +105,7 @@ class NoDUSDLoopLoans(DefiTestFramework):
         assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
 
 
-    def no_dusd_loop_loans_after_fce(self):
+    def dusd_loans_before_and_after_fce(self):
         blockHeight = self.nodes[0].getblockcount()
         self.goto_gw_height()
         self.create_new_vault_and_take_dusd_loan_and_verify()
@@ -246,7 +246,7 @@ class NoDUSDLoopLoans(DefiTestFramework):
         # Initial set up
         self.setup()
         self.update_oracle_price()
-        self.no_dusd_loop_loans_after_fce()
+        self.dusd_loans_before_and_after_fce()
 
 if __name__ == '__main__':
-    NoDUSDLoopLoans().main()
+    DUSDLoanTests().main()
