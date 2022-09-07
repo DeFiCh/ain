@@ -26,6 +26,8 @@
 
 #include <algorithm>
 
+constexpr std::string_view ERR_STRING_DUSD_USAGE = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue";
+
 std::string ToString(CustomTxType type) {
     switch (type)
     {
@@ -2956,7 +2958,7 @@ public:
 
         for (const auto& item : colleteralLoans.loans) {
             if (item.nTokenId == tokenDUSD->first) {
-                return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
+                return Res::Err(std::string(ERR_STRING_DUSD_USAGE));
             }
         }
         return Res::Ok();
@@ -3252,7 +3254,7 @@ public:
                 }
                 if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
                     if (hasDUSDLoans && tokenDUSD && col.nTokenId == tokenDUSD->first) {
-                        return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
+                        return Res::Err(std::string(ERR_STRING_DUSD_USAGE));
                     }
                 }
             }
