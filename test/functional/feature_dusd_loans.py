@@ -48,7 +48,8 @@ class DUSDLoanTests(DefiTestFramework):
         self.create_new_vault_and_take_dusd_loan_and_verify()
         self.rollback_to(blockHeight)
         self.goto_fce_height()
-        assert_raises_rpc_error(-32600, "DUSD loans cannot be taken on a vault that also has DUSD as collateral", 
+        assert_raises_rpc_error(-32600, 
+            "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue", 
             self.create_new_vault_and_take_dusd_loan_and_verify)
 
     # Utils

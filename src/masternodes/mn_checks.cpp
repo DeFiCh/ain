@@ -3232,7 +3232,7 @@ public:
                 }
                 if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
                     if (hasDUSDLoans && tokenDUSD && col.nTokenId == tokenDUSD->first) {
-                        return Res::Err("DUSD loans cannot be taken on a vault that also has DUSD as collateral");
+                        return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
                     }
                 }
             }
