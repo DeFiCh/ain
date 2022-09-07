@@ -14,20 +14,16 @@ import time
 
 from decimal import ROUND_DOWN, Decimal
 
-BLOCKS_PER_YEAR = Decimal(1051200)
-
-
 def get_decimal_amount(amount):
     account_tmp = amount.split('@')[0]
     return Decimal(account_tmp)
-
 
 class DUSDLoanTests(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.fortcanninggreatworldheight = 100
+        self.fortcanninggreatworldheight = 1000
         self.fortcanningepilogueheight = 2000
         self.extra_args = [
             ['-txnotokens=0', 
@@ -48,7 +44,6 @@ class DUSDLoanTests(DefiTestFramework):
 
     # Utils
     def rollback_to(self, block):
-        self.log.info("rollback to: %d", block)
         node = self.nodes[0]
         current_height = node.getblockcount()
         if current_height == block:
