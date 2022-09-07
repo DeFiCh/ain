@@ -2951,12 +2951,12 @@ public:
 
         auto hasDUSDInCollateral = false;
         auto hasDUSDInLoans = false;
-        for (auto& item : colleteralLoans.collaterals) {
+        for (const auto& item : colleteralLoans.collaterals) {
             if (item.nTokenId == tokenDUSD->first) {
                 hasDUSDInCollateral = true;
             }
         }
-        for (auto& item : colleteralLoans.loans) {
+        for (const auto& item : colleteralLoans.loans) {
             if (item.nTokenId == tokenDUSD->first) {
                 hasDUSDInLoans = true;
             }
