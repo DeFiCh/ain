@@ -966,12 +966,13 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
+    TAmounts loansCurrencyValue;
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice, loansCurrencyValue);
     if (!res)
         return std::move(res);
 
-    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
+    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice, loansCurrencyValue);
     if (!res)
         return std::move(res);
 
@@ -1002,7 +1003,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
-                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice, TAmounts &loansCurrencyValue)
 {
     const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
@@ -1035,17 +1036,23 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (prevLoans > result.totalLoans)
             return Res::Err("Exceeded maximum loans");
 
+        loansCurrencyValue.emplace(loanTokenId, *amountInCurrency);
+
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
     return Res::Ok();
 }
 
 Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals,
-                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, const TAmounts &loansCurrencyValue)
 {
-    for (const auto& col : collaterals.balances) {
-        auto tokenId = col.first;
-        auto tokenAmount = col.second;
+    const auto dusdToken = GetToken("DUSD");
+    bool hasDUSDLoan{};
+    if (dusdToken) {
+        hasDUSDLoan = loansCurrencyValue.count(dusdToken->first);
+    }
+
+    for (const auto& [tokenId, tokenAmount] : collaterals.balances) {
 
         auto token = HasLoanCollateralToken({tokenId, height});
         if (!token)
@@ -1055,7 +1062,47 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 
-        auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
+        CAmount dusdFactor{};
+        CAmount dusdPercentage{};
+
+        // Hard coded for DUSD
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight) && hasDUSDLoan && tokenId == dusdToken->first) {
+            const auto attributes = GetAttributes();
+            assert(attributes);
+
+            CDataStructureV0 factorKey{AttributeTypes::Token, tokenId.v, TokenKeys::DUSDCollateralFactor};
+            if (attributes->CheckKey(factorKey)) {
+                dusdFactor = attributes->GetValue(factorKey, CAmount{});
+
+                // Total loan value
+                CAmount totalValue{};
+                for (const auto& [id, amount] : loansCurrencyValue) {
+                    totalValue += amount;
+                }
+
+                // Percentage of loans that is DUSD
+                dusdPercentage = loansCurrencyValue.at(dusdToken->first) * COIN / totalValue;
+            }
+        }
+
+        CAmount amountFactor{};
+
+        if (dusdFactor && dusdPercentage) {
+
+            // USD value of DUSD and non-DUSD loans
+            const auto dusdPart = MultiplyAmounts(dusdPercentage, *amountInCurrency.val);
+            const auto otherPart = MultiplyAmounts(COIN - dusdPercentage, *amountInCurrency.val);
+
+            // Apply DUSD factor to DUSD loan and regular factor to the rest
+            const auto dusdValue = MultiplyAmounts(dusdFactor, dusdPart);
+            const auto otherValue = MultiplyAmounts(token->factor, otherPart);
+
+            // Add to total
+            amountFactor += dusdValue;
+            amountFactor += otherValue;
+        } else {
+            amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
+        }
 
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;

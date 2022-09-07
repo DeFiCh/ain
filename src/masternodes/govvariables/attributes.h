@@ -75,6 +75,7 @@ enum TokenKeys : uint8_t  {
     Ascendant             = 'm',
     Descendant            = 'n',
     Epitaph               = 'o',
+    DUSDCollateralFactor  = 'p',
 };
 
 enum PoolKeys : uint8_t {

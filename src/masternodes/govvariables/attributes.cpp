@@ -135,6 +135,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
                 {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
                 {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
+                {"dusd_collateral_factor",  TokenKeys::DUSDCollateralFactor},
                 {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
                 {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
             }
@@ -176,6 +177,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
                 {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
                 {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
+                {TokenKeys::DUSDCollateralFactor,  "dusd_collateral_factor"},
                 {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
                 {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
                 {TokenKeys::DFIP2203Enabled,       "dfip2203"},
@@ -350,6 +352,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
                 {TokenKeys::LoanCollateralEnabled, VerifyBool},
                 {TokenKeys::LoanCollateralFactor,  VerifyPct},
+                {TokenKeys::DUSDCollateralFactor,  VerifyPositiveFloat}, // Allows more than 100%
                 {TokenKeys::LoanMintingEnabled,    VerifyBool},
                 {TokenKeys::LoanMintingInterest,   VerifyFloat},
                 {TokenKeys::DFIP2203Enabled,       VerifyBool},
@@ -749,6 +752,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::LoanCollateralEnabled,
     TokenKeys::LoanCollateralFactor,
+    TokenKeys::DUSDCollateralFactor,
     TokenKeys::LoanMintingEnabled,
     TokenKeys::LoanMintingInterest,
     TokenKeys::FixedIntervalPriceId,
@@ -917,6 +921,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::DUSDCollateralFactor:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            return Res::Err("Cannot be set before FortCanningEpilogue");
+                        }
+                        [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
