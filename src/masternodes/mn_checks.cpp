@@ -3108,6 +3108,13 @@ public:
 
         const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
 
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
+
+        auto hasDUSDLoans = false;
+
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
@@ -3120,6 +3127,10 @@ public:
 
             if (!loanToken->mintable)
                 return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
+
+            if (tokenDUSD && tokenId == tokenDUSD->first) {
+                hasDUSDLoans = true;
+            }
 
             // Calculate interest
             CAmount currentLoanAmount{};
@@ -3201,10 +3212,6 @@ public:
                 return res;
         }
 
-        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
-        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
-            tokenDUSD = mnview.GetToken("DUSD");
-        }
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
@@ -3219,10 +3226,16 @@ public:
 
             uint64_t totalCollaterals = 0;
 
-            for (auto& col : collateralsLoans.val->collaterals)
-                if (col.nTokenId == DCT_ID{0}
-                || (tokenDUSD && col.nTokenId == tokenDUSD->first))
+            for (auto& col : collateralsLoans.val->collaterals) {
+                if (col.nTokenId == DCT_ID{0} || (tokenDUSD && col.nTokenId == tokenDUSD->first)) {
                     totalCollaterals += col.nValue;
+                }
+                if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
+                    if (hasDUSDLoans && tokenDUSD && col.nTokenId == tokenDUSD->first) {
+                        return Res::Err("DUSD loans cannot be taken on a vault that also has DUSD as collateral");
+                    }
+                }
+            }
 
             if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
                 if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)

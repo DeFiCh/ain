@@ -137,6 +137,7 @@ public:
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
+        consensus.FortCanningEpilogueHeight = 2218000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -375,6 +376,7 @@ public:
         consensus.FortCanningCrunchHeight = 1011600;
         consensus.FortCanningSpringHeight = 1086000;
         consensus.FortCanningGreatWorldHeight = 1223000;
+        consensus.FortCanningEpilogueHeight = 1233000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -568,6 +570,7 @@ public:
         consensus.FortCanningCrunchHeight = std::numeric_limits<int>::max();
         consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
         consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -977,6 +980,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
     UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogue", consensus.FortCanningEpilogueHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
