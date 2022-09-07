@@ -2943,9 +2943,14 @@ public:
         return mnview.UpdateVault(obj.vaultId, *vault);
     }
 
-    Res PreventDUSDLoanAndCollateralAtSameTime(DCT_ID collateralInToken, const CCollateralLoans& colleteralLoans) const {
+    Res CollateralAddVerifyDUSDUsage(DCT_ID collateralInToken, const CCollateralLoans& colleteralLoans) const {
+        if (static_cast<int>(height) < consensus.FortCanningEpilogueHeight)
+            return Res::Ok();
+
         auto tokenDUSD = mnview.GetToken("DUSD");
-        if (!tokenDUSD) return Res::Err("DUSD token not found");
+        if (!tokenDUSD) 
+            return Res::Err("DUSD token not found");
+            
         if (collateralInToken != tokenDUSD->first)
             return Res::Ok();
 
@@ -2953,8 +2958,7 @@ public:
             if (item.nTokenId == tokenDUSD->first) {
                 return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
             }
-        }    
-        
+        }
         return Res::Ok();
     }
 
@@ -2991,20 +2995,16 @@ public:
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
 
         res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
-        if (!res)
-            return res;
+        if (!res) return res;
 
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-        if (!collateralsLoans)
-            return std::move(collateralsLoans);
+        if (!collateralsLoans) return std::move(collateralsLoans);
 
-        if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
-            auto res = PreventDUSDLoanAndCollateralAtSameTime(obj.amount.nTokenId, collateralsLoans);
-            if (!res) return res;
-        }
+        res = CollateralAddVerifyDUSDUsage(obj.amount.nTokenId, collateralsLoans);
+        if (!res) return res;
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
