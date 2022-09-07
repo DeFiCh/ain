@@ -2943,6 +2943,28 @@ public:
         return mnview.UpdateVault(obj.vaultId, *vault);
     }
 
+    Res PreventDUSDLoanAndCollateralAtSameTime(DCT_ID collateralInToken, const CCollateralLoans& colleteralLoans) const {
+        auto tokenDUSD = mnview.GetToken("DUSD");
+        if (!tokenDUSD) return Res::Err("DUSD token not found");
+
+        auto hasDUSDInCollateral = false;
+        auto hasDUSDInLoans = false;
+        for (auto& item : colleteralLoans.collaterals) {
+            if (item.nTokenId == tokenDUSD->first) {
+                hasDUSDInCollateral = true;
+            }
+        }
+        for (auto& item : colleteralLoans.loans) {
+            if (item.nTokenId == tokenDUSD->first) {
+                hasDUSDInLoans = true;
+            }
+        }
+        if (hasDUSDInCollateral && hasDUSDInCollateral)
+            return Res::Err("DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue");
+        
+        return Res::Ok();
+    }
+
     Res operator()(const CDepositToVaultMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
@@ -2985,6 +3007,11 @@ public:
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
+
+        if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight) {
+            auto res = PreventDUSDLoanAndCollateralAtSameTime(obj.amount.nTokenId, collateralsLoans);
+            if (!res) return res;
+        }
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
