@@ -2950,9 +2950,9 @@ public:
             return Res::Ok();
 
         auto tokenDUSD = mnview.GetToken("DUSD");
-        if (!tokenDUSD) 
+        if (!tokenDUSD)
             return Res::Err("DUSD token not found");
-            
+
         if (collateralInToken != tokenDUSD->first)
             return Res::Ok();
 
@@ -3040,10 +3040,22 @@ public:
         if (!res)
             return res;
 
+        auto hasDUSDLoans = false;
+
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
+
         if (const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId))
         {
             // Update negative interest in vault
             for (const auto& [tokenId, currentLoanAmount] : loanAmounts->balances) {
+
+                if (tokenDUSD && tokenId == tokenDUSD->first) {
+                    hasDUSDLoans = true;
+                }
+
                 const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 assert(rate);
 
@@ -3061,6 +3073,7 @@ public:
                 }
 
                 mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
+
             }
 
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
@@ -3081,17 +3094,29 @@ public:
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-                    uint64_t totalCollaterals = 0;
+                    uint64_t totalCollateralsDUSD = 0;
+                    uint64_t totalCollateralsDFI = 0;
 
-                    for (auto& col : collateralsLoans.val->collaterals)
-                        if (col.nTokenId == DCT_ID{0}
-                        || (tokenDUSD && col.nTokenId == tokenDUSD->first))
-                            totalCollaterals += col.nValue;
+                    for (auto& col : collateralsLoans.val->collaterals){
+                        if (col.nTokenId == DCT_ID{0} ){
+                            totalCollateralsDFI += col.nValue;
+                        }
+                        if(tokenDUSD && col.nTokenId == tokenDUSD->first){
+                            totalCollateralsDUSD += col.nValue;
+                        }
+                    }
 
-                    if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-                        if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
+                    uint64_t totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
+
+                    if (static_cast<int>(height) < consensus.FortCanningHillHeight
+                            && totalCollateralsDUSD < collateralsLoans.val->totalCollaterals / 2){
                             return Res::Err("At least 50%% of the collateral must be in DFI");
                     } else {
+                        if (hasDUSDLoans
+                                && arith_uint256(totalCollateralsDFI) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2
+                                && static_cast<int>(height) >= consensus.FortCanningEpilogueHeight){
+                                return Res::Err("At least 50%% of the minimum required collateral must be in DFI");
+                        }
                         if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
                             return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI")
                                                                                               : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD");
@@ -3166,14 +3191,14 @@ public:
                 const auto totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
+                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ?
                         // Interest to decrease smaller than overall existing loan amount.
                         // So reduce interest from the borrowing principal. If this is negative,
-                        // we'll reduce from principal. 
-                        tokenAmount + totalInterest : 
+                        // we'll reduce from principal.
+                        tokenAmount + totalInterest :
                         // Interest to decrease is larger than old loan amount.
-                        // We reduce from the borrowing principal. If this is negative, 
-                        // we'll reduce from principal. 
+                        // We reduce from the borrowing principal. If this is negative,
+                        // we'll reduce from principal.
                         tokenAmount - currentLoanAmount;
                     resetInterestToHeight = true;
                 }
