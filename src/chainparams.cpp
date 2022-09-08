@@ -979,8 +979,8 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
     UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
     UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
-    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
