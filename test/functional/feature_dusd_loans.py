@@ -12,7 +12,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
 
-from decimal import ROUND_DOWN, Decimal
+from decimal import Decimal
 
 def get_decimal_amount(amount):
     account_tmp = amount.split('@')[0]
@@ -77,7 +77,6 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(1)
         btc_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
         assert_equal(Decimal(btc_balance_before_withdraw), Decimal(btc_balance_after_withdraw) - Decimal(withdraw_amount))
-        vaullt = self.nodes[0].getvault(vaultId)
 
         withdraw_amount = Decimal('0.1')
         err_string = "At least 50% of the minimum required collateral must be in DFI or DUSD"

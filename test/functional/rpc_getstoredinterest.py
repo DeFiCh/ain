@@ -28,8 +28,8 @@ class GetStoredInterestTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.fortcanninggreatworldheight = 700
         self.extra_args = [
-            ['-txnotokens=0', 
-            '-amkheight=1', 
+            ['-txnotokens=0',
+            '-amkheight=1',
             '-bayfrontheight=1',
             '-eunosheight=1',
             '-fortcanningheight=1',
@@ -37,7 +37,7 @@ class GetStoredInterestTest(DefiTestFramework):
             '-fortcanningparkheight=1',
             '-fortcanninghillheight=1',
             '-fortcanningroadheight=1',
-            '-fortcanningcrunchheight=1', 
+            '-fortcanningcrunchheight=1',
             '-fortcanningspringheight=1',
             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
