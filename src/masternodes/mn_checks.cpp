@@ -3295,15 +3295,6 @@ public:
                     return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
                                                                                       : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
             }
-
-//            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-//                if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
-//                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
-//            } else {
-//                if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-//                    return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
-//                                                                                      : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
-//            }
         }
         return Res::Ok();
     }
