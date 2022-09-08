@@ -1186,6 +1186,22 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
                     }
                 }
+            } else if (attrV0->key == TokenKeys::DUSDCollateralFactor) {
+                std::set<CAmount> ratio;
+                mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
+                    ratio.insert(data.ratio);
+                    return true;
+                });
+                if (ratio.empty()) {
+                    return Res::Err("Set loan scheme before setting DUSD collateral factor.");
+                }
+                const auto factor = std::get_if<CAmount>(&attribute.second);
+                if (!factor) {
+                    return Res::Err("Unexpected type");
+                }
+                if (*factor > *ratio.begin() * CENT) {
+                    return Res::Err("Factor cannot be more than lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
             if (attrV0->typeId == ParamIDs::DFIP2203) {

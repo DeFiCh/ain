@@ -25,14 +25,17 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.set_collateral_factor()
 
         # Test new factor when taking DUSD loan
-        self.take_dusd_loan_with_dusd()
+        self.take_dusd_loan()
+
+        # Test with multiple loan tokens
+        self.take_multiple_loans()
 
     def setup(self):
         # Generate chain
         self.nodes[0].generate(120)
 
         # Create loan scheme
-        self.nodes[0].createloanscheme(100, 1, 'LOAN001')
+        self.nodes[0].createloanscheme(150, 1, 'LOAN001')
         self.nodes[0].generate(1)
 
         # Get MN address
@@ -41,6 +44,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         # Token symbols
         self.symbolDFI = "DFI"
         self.symbolDUSD = "DUSD"
+        self.symbolTSLA = "TSLA"
 
         # Create Oracle address
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
@@ -48,6 +52,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         # Define price feeds
         price_feed = [
             {"currency": "USD", "token": f"{self.symbolDFI}"},
+            {"currency": "USD", "token": f"{self.symbolTSLA}"},
         ]
 
         # Appoint Oracle
@@ -57,6 +62,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         # Set Oracle prices
         oracle_prices = [
             {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
@@ -66,6 +72,15 @@ class DUSDCollateralFactorTest(DefiTestFramework):
             'symbol': self.symbolDUSD,
             'name': self.symbolDUSD,
             'fixedIntervalPriceId': f"{self.symbolDUSD}/USD",
+            'mintable': True,
+            'interest': -1
+        })
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setloantoken({
+            'symbol': self.symbolTSLA,
+            'name': self.symbolTSLA,
+            'fixedIntervalPriceId': f"{self.symbolTSLA}/USD",
             'mintable': True,
             'interest': -1
         })
@@ -105,6 +120,9 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         # Move to fork
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
+        # Test setting higher than the lowest scheme rate
+        assert_raises_rpc_error(-32600, "Factor cannot be more than lowest scheme rate of 1.50000000", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/dusd_collateral_factor': '1.51'}})
+
         # Now set new token factor
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/dusd_collateral_factor': '1.49'}})
         self.nodes[0].generate(1)
@@ -113,7 +131,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/token/1/dusd_collateral_factor'], '1.49')
 
-    def take_dusd_loan_with_dusd(self):
+    def take_dusd_loan(self):
 
         # Create vault
         vault_address = self.nodes[0].getnewaddress('', 'legacy')
@@ -121,20 +139,72 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Deposit DUSD and DFI to vault
-        self.nodes[0].deposittovault(vault_id, self.address, f"1@{self.symbolDFI}")
+        self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDFI}")
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vault_id, self.address, f"1@{self.symbolDUSD}")
+        self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDUSD}")
         self.nodes[0].generate(1)
 
         # Take DUSD loan greater than collateral amount
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"2.49@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
-        # Check that we are on 100% collateral ratio
+        # Check that we are on 150% collateral ratio
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['collateralRatio'], 100)
-        assert_equal(vault['collateralValue'], Decimal('2.49000000'))
+        assert_equal(vault['collateralRatio'], 150)
+        assert_equal(vault['informativeRatio'], Decimal('150.00000000'))
+        assert_equal(vault['collateralValue'], Decimal('3.73500000'))
         assert_equal(vault['loanValue'], Decimal('2.49000000'))
+
+    def take_multiple_loans(self):
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress('', 'legacy')
+        vault_id = self.nodes[0].createvault(vault_address, 'LOAN001')
+        self.nodes[0].generate(1)
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDUSD}")
+        self.nodes[0].generate(1)
+
+        # Take TSLA loan for half the available ratio
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolTSLA}"})
+        self.nodes[0].generate(1)
+
+        # Check that we are on 300% collateral ratio
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['collateralRatio'], 300)
+        assert_equal(vault['informativeRatio'], Decimal('300.00000000'))
+        assert_equal(vault['collateralValue'], Decimal('3.00000000'))
+        assert_equal(vault['loanValue'], Decimal('1.00000000'))
+
+        # Take a DUSD loan
+        self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"1@{self.symbolDUSD}"})
+        self.nodes[0].generate(1)
+
+        # Check that vault still has capacity to take more loans
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['loanValue'], Decimal('2.00000000'))
+
+        # Collateral value
+        #
+        # TSLA backed by 50% DUSD at 1x and 50% DFI at 1x
+        # (0.5 * 1.5 DUSD * 1) + (0.5 * 1.5 DFI * 1) = 1.5
+        #
+        # DUSD backed by 50% DUSD at 1.49x and 50% DFI at 1x
+        # (0.5 * 1.5 DUSD * 1.49) + (0.5 * 1.5 DFI * 1) = 1.8675
+        #
+        # Added together this amounts to:
+        # 1.5 + 1.8675 = 3.3675
+        assert_equal(vault['collateralValue'], Decimal('3.36750000'))
+
+        # Collateral ratio
+        #
+        # Collateral divided into loan amount
+        # 3.3675 / 2 * 100 = 168.375
+        assert_equal(vault['informativeRatio'], Decimal('168.37500000'))
+        assert_equal(vault['collateralRatio'], 168)
 
 if __name__ == '__main__':
     DUSDCollateralFactorTest().main()
