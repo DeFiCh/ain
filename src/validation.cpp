@@ -3867,6 +3867,10 @@ void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& c
 
 void CChainState::ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache) {
 
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+
     auto attributes = cache.GetAttributes();
     assert(attributes);
 

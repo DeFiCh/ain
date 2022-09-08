@@ -410,6 +410,9 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
 }
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
     auto attributes = mnview.GetAttributes();
     assert(attributes);
     const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};

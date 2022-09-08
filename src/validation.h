@@ -131,7 +131,8 @@ static const bool DEFAULT_PERSIST_MEMPOOL = false;
 static const bool DEFAULT_FEEFILTER = true;
 /** Default for using live dex in attributes */
 static const bool DEFAULT_DEXSTATS = false;
-
+/** Default for tracking amount negated by negative interest in attributes */
+static const bool DEFAULT_NEGATIVE_INTEREST = false;
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
