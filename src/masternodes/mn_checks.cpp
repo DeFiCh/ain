@@ -75,6 +75,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
+        case CustomTxType::PaybackWithCollateral: return "PaybackWithCollateral";
         case CustomTxType::TakeLoan:            return "TakeLoan";
         case CustomTxType::PaybackLoan:         return "PaybackLoan";
         case CustomTxType::PaybackLoanV2:       return "PaybackLoan";
@@ -174,6 +175,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
+        case CustomTxType::PaybackWithCollateral:   return CPaybackWithCollateralMessage{};
         case CustomTxType::TakeLoan:                return CLoanTakeLoanMessage{};
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
@@ -247,6 +249,13 @@ class CCustomMetadataParseVisitor
     Res isPostFortCanningRoadFork() const {
         if(static_cast<int>(height) < consensus.FortCanningRoadHeight) {
             return Res::Err("called before FortCanningRoad height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningEpilogueFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningEpilogueHeight) {
+            return Res::Err("called before FortCanningEpilogue height");
         }
         return Res::Ok();
     }
@@ -565,6 +574,11 @@ public:
 
     Res operator()(CWithdrawFromVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPaybackWithCollateralMessage& obj) const {
+        auto res = isPostFortCanningEpilogueFork();
         return !res ? res : serialize(obj);
     }
 
@@ -3083,6 +3097,93 @@ public:
         return mnview.AddBalance(obj.to, obj.amount);
     }
 
+    Res operator()(const CPaybackWithCollateralMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes)
+            return Res::Err("Attributes unavailable");
+
+        auto dUsdToken = mnview.GetToken("DUSD");
+        if (!dUsdToken)
+            return Res::Err("Cannot find token DUSD");
+
+        CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
+        if (!attributes->GetValue(activeKey, false))
+            return Res::Err("Payback of DUSD loan with collateral is not currently active");
+
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if (vault->isUnderLiquidation)
+            return Res::Err("Cannot payback vault with collateral while vault's under liquidation");
+
+        // owner auth
+        if (!HasAuth(vault->ownerAddress))
+            return Res::Err("tx must have at least one input from token owner");
+
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot payback vault with collateral while any of the asset's price is invalid");
+
+        const auto collateralAmounts = mnview.GetVaultCollaterals(obj.vaultId);
+        if (!collateralAmounts) {
+            return Res::Err("Vault has no collaterals");
+        }
+        if (!collateralAmounts->balances.count(dUsdToken->first)) {
+            return Res::Err("Vault does not have any DUSD collaterals");
+        }
+        const auto& collateralDUSD = collateralAmounts->balances.at(dUsdToken->first);
+
+        const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+        if (!loanAmounts) {
+            return Res::Err("Vault has no loans");
+        }
+        if (!loanAmounts->balances.count(dUsdToken->first)) {
+            return Res::Err("Vault does not have any DUSD loans");
+        }
+        const auto& loanDUSD = loanAmounts->balances.at(dUsdToken->first);
+
+        auto rate = mnview.GetInterestRate(obj.vaultId, dUsdToken->first, height);
+        if (!rate)
+            return Res::Err("Cannot get interest rate for this token (DUSD)!");
+        auto subInterest = TotalInterest(*rate, height);
+
+        // Edge case where interest is greater than collateral
+        if (subInterest > collateralDUSD) {
+            res = mnview.SubVaultCollateral(obj.vaultId, {dUsdToken->first, collateralDUSD});
+            if (!res)
+                return res;
+
+            return mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first, 0, collateralDUSD);
+        }
+
+        CTokenAmount subLoanAmount;
+        CTokenAmount subCollateralAmount;
+        if (loanDUSD + subInterest > collateralDUSD) {
+            subLoanAmount = {dUsdToken->first, collateralDUSD - subInterest};
+            subCollateralAmount = {dUsdToken->first, collateralDUSD};
+        } else {
+            subLoanAmount = {dUsdToken->first, loanDUSD};
+            subCollateralAmount = {dUsdToken->first, loanDUSD + subInterest};
+        }
+
+        res = mnview.SubLoanToken(obj.vaultId, subLoanAmount);
+        if (!res)
+            return res;
+
+        res = mnview.SubVaultCollateral(obj.vaultId, subCollateralAmount);
+        if (!res)
+            return res;
+
+        mnview.ResetInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first);
+        return Res::Ok();
+    }
+
     Res operator()(const CLoanTakeLoanMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
@@ -3133,14 +3234,14 @@ public:
                 const auto totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
+                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ?
                         // Interest to decrease smaller than overall existing loan amount.
                         // So reduce interest from the borrowing principal. If this is negative,
-                        // we'll reduce from principal. 
-                        tokenAmount + totalInterest : 
+                        // we'll reduce from principal.
+                        tokenAmount + totalInterest :
                         // Interest to decrease is larger than old loan amount.
-                        // We reduce from the borrowing principal. If this is negative, 
-                        // we'll reduce from principal. 
+                        // We reduce from the borrowing principal. If this is negative,
+                        // we'll reduce from principal.
                         tokenAmount - currentLoanAmount;
                     resetInterestToHeight = true;
                 }
@@ -3685,6 +3786,9 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::WithdrawFromVault) {
         auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
+        view.vaultID = obj.vaultId;
+    } else if (txType == CustomTxType::PaybackWithCollateral) {
+        auto obj = std::get<CPaybackWithCollateralMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::TakeLoan) {
         auto obj = std::get<CLoanTakeLoanMessage>(txMessage);

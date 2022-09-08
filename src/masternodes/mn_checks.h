@@ -96,6 +96,7 @@ enum class CustomTxType : uint8_t
     UpdateVault            = 'v',
     DepositToVault         = 'S',
     WithdrawFromVault      = 'J',
+    PaybackWithCollateral  = 'W',
     TakeLoan               = 'X',
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
@@ -155,6 +156,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateVault:
         case CustomTxType::DepositToVault:
         case CustomTxType::WithdrawFromVault:
+        case CustomTxType::PaybackWithCollateral:
         case CustomTxType::TakeLoan:
         case CustomTxType::PaybackLoan:
         case CustomTxType::PaybackLoanV2:
@@ -377,6 +379,7 @@ using CCustomTxMessage = std::variant<
     CUpdateVaultMessage,
     CDepositToVaultMessage,
     CWithdrawFromVaultMessage,
+    CPaybackWithCollateralMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
