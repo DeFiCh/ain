@@ -719,6 +719,10 @@ class StoredInterestTest (DefiTestFramework):
         assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
         assert_equal(stored_interest['interestToHeight'], '-0.513693493150684931506836')
 
+        # Check negative interest value
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['interestAmounts'], [f'-0.51369349@{self.symbolDUSD}'])
+
         # Payback loan
         self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"1@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
