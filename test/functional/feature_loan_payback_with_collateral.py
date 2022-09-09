@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, assert_raises_rpc_error
-from decimal import ROUND_UP, Decimal
+from decimal import ROUND_UP, ROUND_DOWN, Decimal
 import calendar
 import time
 
@@ -204,13 +204,14 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].deposittovault(vaultId, self.account0, str(self.collateralAmount) + "@" + self.symbolDFI)
         self.nodes[0].generate(1)
 
-
         self.nodes[0].deposittovault(vaultId, self.account0, str(collateralDUSDAmount) + "@" + self.symbolDUSD)
         self.nodes[0].generate(1)
 
         # Take DUSD loan
         self.nodes[0].takeloan({ "vaultId": vaultId, "amounts": str(loanDUSDAmount) + "@" + self.symbolDUSD })
         self.nodes[0].generate(1)
+
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
 
         vaultBefore = self.nodes[0].getvault(vaultId)
         [collateralAmountBefore, _] = vaultBefore["collateralAmounts"][1].split("@")
@@ -229,6 +230,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(Decimal(storedInterest["interestPerBlock"]), Decimal(0))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, mintedAmount + Decimal(loanAmountBefore))
 
         self.rollback_to(height)
 
@@ -253,6 +257,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vaultId, "amounts":  str(loanDUSDAmount) + "@" + self.symbolDUSD })
         self.nodes[0].generate(1)
 
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(storedInterest["interestPerBlock"], "0.000010464231354642313546")
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
@@ -273,13 +279,18 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         assert_equal(storedInterest["interestPerBlock"], "0.000000951293859113394216")
         assert_equal(Decimal(interestAmount), Decimal(storedInterest["interestPerBlock"]).quantize(Decimal('1E-8'), rounding=ROUND_UP))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, mintedAmount + collateralDUSDAmount)
+
         self.rollback_to(height)
 
     def test_loans_equal_to_collaterals(self):
         height = self.nodes[0].getblockcount()
 
-        collateralDUSDAmount = 1000
+        expected_IPB = 0.00000952
         loanDUSDAmount = 1000
+        collateralDUSDAmount = loanDUSDAmount + expected_IPB
 
         vault_address = self.nodes[0].getnewaddress()
 
@@ -289,13 +300,14 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].deposittovault(vaultId, self.account0, str(self.collateralAmount) + "@" + self.symbolDFI)
         self.nodes[0].generate(1)
 
-        expected_IPB = 0.00000952
-        self.nodes[0].deposittovault(vaultId, self.account0, str(collateralDUSDAmount + expected_IPB) + "@" + self.symbolDUSD) # Deposit enough to match amount of loans + interest after one block
+        self.nodes[0].deposittovault(vaultId, self.account0, str(collateralDUSDAmount) + "@" + self.symbolDUSD) # Deposit enough to match amount of loans + interest after one block
         self.nodes[0].generate(1)
 
         # Take DUSD loan
         self.nodes[0].takeloan({ "vaultId": vaultId, "amounts":  str(loanDUSDAmount) + "@" + self.symbolDUSD })
         self.nodes[0].generate(1)
+
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
 
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
@@ -312,6 +324,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(Decimal(storedInterest["interestPerBlock"]), Decimal(0))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, Decimal(mintedAmount + Decimal(collateralDUSDAmount)).quantize(Decimal('1E-8'), rounding=ROUND_DOWN))
 
         self.rollback_to(height)
 
@@ -335,12 +350,11 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vaultId, "amounts":  str(loanDUSDAmount) + "@" + self.symbolDUSD })
         self.nodes[0].generate(1)
 
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
-
-        vaultBefore = self.nodes[0].getvault(vaultId)
-        [interestAmountBefore, _] = vaultBefore["interestAmounts"][0].split("@")
 
         self.nodes[0].paybackwithcollateral(vaultId)
         self.nodes[0].generate(1)
@@ -355,13 +369,17 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         assert_equal(Decimal(interestAmount), Decimal(Decimal(storedInterest["interestPerBlock"]) * 2 - Decimal(collateralDUSDAmount)).quantize(Decimal('1E-8'), rounding=ROUND_UP))
 
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, mintedAmount + Decimal(collateralDUSDAmount))
+
         self.rollback_to(height)
 
     def test_interest_equal_to_collaterals(self):
         height = self.nodes[0].getblockcount()
 
-        collateralDUSDAmount = 0
+        expected_IPB = 0.00000952
         loanDUSDAmount = 1000
+        collateralDUSDAmount = expected_IPB
 
         vault_address = self.nodes[0].getnewaddress()
 
@@ -371,13 +389,15 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].deposittovault(vaultId, self.account0, str(self.collateralAmount) + "@" + self.symbolDFI)
         self.nodes[0].generate(1)
 
-        expected_IPB = 0.00000952
-        self.nodes[0].deposittovault(vaultId, self.account0, str(collateralDUSDAmount + expected_IPB) + "@" + self.symbolDUSD) # Deposit enough to match amount of interest after one block
+
+        self.nodes[0].deposittovault(vaultId, self.account0, str(collateralDUSDAmount) + "@" + self.symbolDUSD) # Deposit enough to match amount of interest after one block
         self.nodes[0].generate(1)
 
         # Take DUSD loan
         self.nodes[0].takeloan({ "vaultId": vaultId, "amounts":  str(loanDUSDAmount) + "@" + self.symbolDUSD })
         self.nodes[0].generate(1)
+
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
 
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
@@ -397,6 +417,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, Decimal(mintedAmount + Decimal(collateralDUSDAmount)).quantize(Decimal('1E-8'), rounding=ROUND_DOWN))
 
         self.rollback_to(height)
 
@@ -426,8 +449,11 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         # accrue negative interest
         self.nodes[0].generate(5)
 
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+
         vault = self.nodes[0].getvault(vaultId)
         [DUSDInterestAmount, _] = vault["interestAmounts"][0].split("@")
+        [DUSDloanAmount, _] = vault["loanAmounts"][0].split("@")
         assert(Decimal(DUSDInterestAmount) < 0)
 
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
@@ -448,6 +474,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(Decimal(storedInterest["interestPerBlock"]), Decimal("0"))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal("0"))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, mintedAmount + Decimal(DUSDloanAmount))
 
         self.rollback_to(height)
 
@@ -477,6 +506,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         # accrue negative interest
         self.nodes[0].generate(5)
 
+        mintedAmountBefore = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+
         vaultBefore = self.nodes[0].getvault(vaultId)
         [DUSDLoanAmountBefore, _] = vaultBefore["loanAmounts"][0].split("@")
         [DUSDInterestAmount, _] = vaultBefore["interestAmounts"][0].split("@")
@@ -498,6 +529,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         storedInterest = self.nodes[0].getstoredinterest(vaultId, self.idDUSD)
         assert_equal(Decimal(storedInterest["interestPerBlock"]), Decimal("-0.000474546864344558599695"))
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal("0"))
+
+        mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
+        assert_equal(mintedAmountBefore, mintedAmount + collateralDUSDAmount)
 
         self.rollback_to(height)
 

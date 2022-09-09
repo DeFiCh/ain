@@ -3153,36 +3153,43 @@ public:
             return Res::Err("Cannot get interest rate for this token (DUSD)!");
         auto subInterest = TotalInterest(*rate, height);
 
+        CAmount subLoanAmount{0};
+        CAmount subCollateralAmount{0};
         // Edge case where interest is greater than collateral
         if (subInterest > collateralDUSD) {
-            res = mnview.SubVaultCollateral(obj.vaultId, {dUsdToken->first, collateralDUSD});
+            subCollateralAmount = collateralDUSD;
+
+            res = mnview.SubVaultCollateral(obj.vaultId, {dUsdToken->first, subCollateralAmount});
             if (!res)
                 return res;
 
-            res = mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first, 0, collateralDUSD);
+            res = mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first, 0, subCollateralAmount);
             if (!res)
                 return res;
         } else {
-            CTokenAmount subLoanAmount;
-            CTokenAmount subCollateralAmount;
+
             if (loanDUSD + subInterest > collateralDUSD) {
-                subLoanAmount = {dUsdToken->first, collateralDUSD - subInterest};
-                subCollateralAmount = {dUsdToken->first, collateralDUSD};
+                subLoanAmount = collateralDUSD - subInterest;
+                subCollateralAmount = collateralDUSD;
             } else {
-                subLoanAmount = {dUsdToken->first, loanDUSD};
-                subCollateralAmount = {dUsdToken->first, loanDUSD + subInterest};
+                subLoanAmount = loanDUSD;
+                subCollateralAmount = loanDUSD + subInterest;
             }
 
-            res = mnview.SubLoanToken(obj.vaultId, subLoanAmount);
+            res = mnview.SubLoanToken(obj.vaultId, {dUsdToken->first, subLoanAmount});
             if (!res)
                 return res;
 
-            res = mnview.SubVaultCollateral(obj.vaultId, subCollateralAmount);
+            res = mnview.SubVaultCollateral(obj.vaultId, {dUsdToken->first,subCollateralAmount});
             if (!res)
                 return res;
 
             mnview.ResetInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first);
         }
+
+        res = mnview.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+        if (!res)
+            return res;
 
         // Guard against liquidation
         const auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
