@@ -4,23 +4,22 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-"""Test token split"""
-
-from test_framework.test_framework import DefiTestFramework
+"""Test token merge"""
 
 from decimal import Decimal
 import time
 
+from test_framework.test_framework import DefiTestFramework
+
 def truncate(str, decimal):
     return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
 
-class TokenSplitMechanismTest(DefiTestFramework):
+class TokenMergeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.FCC_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.FCC_HEIGHT}', '-jellyfish_regtest=1', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-greatworldheight=1', '-jellyfish_regtest=1', '-subsidytest=1']]
 
     def setup_oracles(self):
         # Symbols
@@ -250,28 +249,22 @@ class TokenSplitMechanismTest(DefiTestFramework):
             self.nodes[0].addpoolliquidity({self.account3: ["10@T1", "0.5@T2"]}, self.account3)
             self.nodes[0].generate(1)
 
-    def gotoFCC(self):
-        height = self.nodes[0].getblockcount()
-        if height < self.FCC_HEIGHT:
-            self.nodes[0].generate((self.FCC_HEIGHT - height) + 2)
-
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
         self.setup_tokens()
         self.setup_accounts()
         self.setup_pools()
-        self.gotoFCC()
 
     # Make the split and return split height for revert if needed
-    def split(self, tokenId, keepLocked=False):
+    def merge(self, tokenId, keepLocked=False):
         tokenSymbol = self.getTokenSymbolFromId(tokenId)
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
         self.nodes[0].generate(1)
 
         # Token split
         splitHeight = self.nodes[0].getblockcount() + 2
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/2'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/-2'}})
         self.nodes[0].generate(2)
 
         tokenId = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
@@ -297,8 +290,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
         assert(len(tokenPools) > 0)
         return tokenPools
 
-    def check_attributes_on_split(self, tokenId, revert=False):
-        self.nodes[0].generate(10)
+    def check_attributes_on_merge(self, tokenId, revert=False):
         tokenSymbol = self.getTokenSymbolFromId(tokenId)
         revert_block = self.nodes[0].getblockcount()
         pools = self.getTokenPools(tokenId)
@@ -322,7 +314,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
             assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
             assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
 
-        splitHeight = self.split(tokenId) - 2
+        splitHeight = self.merge(tokenId) - 2
         self.nodes[0].generate(1)
 
         new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
@@ -378,7 +370,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
                 amountStr = amountSplit[0]
         return amountStr
 
-    def check_amounts_on_split(self, poolId, tokenId, revert=False):
+    def check_amounts_on_merge(self, poolId, tokenId, revert=False):
         self.nodes[0].generate(10)
         tokenSymbol = self.getTokenSymbolFromId(tokenId)
         poolSymbol = self.getTokenSymbolFromId(poolId)
@@ -409,7 +401,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
 
         self.rollback_to(revertHeight)
 
-        self.split(tokenId)
+        self.merge(tokenId)
         new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
 
         amountLPAfterAcc1 = self.getAmountFromAccount(self.account1, poolSymbol)
@@ -431,9 +423,9 @@ class TokenSplitMechanismTest(DefiTestFramework):
         assert((Decimal(amountTokenB_BeforeAcc1) - Decimal(amountTokenB_AfterAcc1)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc1)))
         assert((Decimal(amountTokenB_BeforeAcc2) - Decimal(amountTokenB_AfterAcc2)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc2)))
         assert((Decimal(amountTokenB_BeforeAcc3) - Decimal(amountTokenB_AfterAcc3)).copy_abs() <= (Decimal(0.00001)*Decimal(amountTokenB_BeforeAcc3)))
-        assert(((Decimal(amountTokenBeforeAcc1)*2) - Decimal(amountTokenAfterAcc1)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc1))
-        assert(((Decimal(amountTokenBeforeAcc2)*2) - Decimal(amountTokenAfterAcc2)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc2))
-        assert(((Decimal(amountTokenBeforeAcc3)*2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc3))
+        assert(((Decimal(amountTokenBeforeAcc1)/2) - Decimal(amountTokenAfterAcc1)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc1))
+        assert(((Decimal(amountTokenBeforeAcc2)/2) - Decimal(amountTokenAfterAcc2)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc2))
+        assert(((Decimal(amountTokenBeforeAcc3)/2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc3))
 
         if revert:
             self.rollback_to(revertHeight)
@@ -441,43 +433,36 @@ class TokenSplitMechanismTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
-        initialStateBlock = self.nodes[0].getblockcount()
+        self.check_attributes_on_merge(self.idT1, revert=True)
+        self.check_attributes_on_merge(self.idT2, revert=True)
+        self.check_attributes_on_merge(self.idT1, revert=True)
+        self.check_attributes_on_merge(self.idT3, revert=True)
+        self.idT3 = self.check_attributes_on_merge(self.idT3, revert=False)
+        self.idT1 = self.check_attributes_on_merge(self.idT1, revert=False)
+        self.idT2 = self.check_attributes_on_merge(self.idT2, revert=False)
+        self.idT3 = self.check_attributes_on_merge(self.idT3, revert=False)
 
-        self.check_attributes_on_split(self.idT1, revert=True)
-        self.check_attributes_on_split(self.idT2, revert=True)
-        self.check_attributes_on_split(self.idT1, revert=True)
-        self.check_attributes_on_split(self.idT3, revert=True)
-        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
-        self.idT1 = self.check_attributes_on_split(self.idT1, revert=False)
-        self.idT2 = self.check_attributes_on_split(self.idT2, revert=False)
-        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
-        # second round split
-        self.check_attributes_on_split(self.idT1, revert=True)
-        self.check_attributes_on_split(self.idT2, revert=True)
-        self.check_attributes_on_split(self.idT1, revert=True)
-        self.check_attributes_on_split(self.idT3, revert=True)
-        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
-        self.idT1 = self.check_attributes_on_split(self.idT1, revert=False)
-        self.idT2 = self.check_attributes_on_split(self.idT2, revert=False)
-        self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
+        # Second round split
+        self.check_attributes_on_merge(self.idT1, revert=True)
+        self.check_attributes_on_merge(self.idT2, revert=True)
+        self.check_attributes_on_merge(self.idT1, revert=True)
+        self.check_attributes_on_merge(self.idT3, revert=True)
+        self.idT3 = self.check_attributes_on_merge(self.idT3, revert=False)
+        self.idT1 = self.check_attributes_on_merge(self.idT1, revert=False)
+        self.idT2 = self.check_attributes_on_merge(self.idT2, revert=False)
+        self.idT3 = self.check_attributes_on_merge(self.idT3, revert=False)
 
-        self.rollback_to(initialStateBlock)
-        # Update token ids
-        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
-        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
-        self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
-        self.gotoFCC()
-
-        self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=True)
-        self.check_amounts_on_split(self.idT2_DUSD, self.idT2, revert=True)
-        self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=True)
-        self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=True)
-        self.check_amounts_on_split(self.idT1_T2, self.idT1, revert=True)
-        self.idT1 = self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=False)
-        self.idT2 = self.check_amounts_on_split(self.idT2_DUSD, self.idT2, revert=False)
-        self.idT3 = self.check_amounts_on_split(self.idT3_DUSD, self.idT3, revert=False)
-        self.idT2 = self.check_amounts_on_split(self.idT1_T2, self.idT2, revert=False)
+        # Check amounts pre an dpost merge
+        self.check_amounts_on_merge(self.idT1_DUSD, self.idT1, revert=True)
+        self.check_amounts_on_merge(self.idT2_DUSD, self.idT2, revert=True)
+        self.check_amounts_on_merge(self.idT3_DUSD, self.idT3, revert=True)
+        self.check_amounts_on_merge(self.idT1_T2, self.idT2, revert=True)
+        self.check_amounts_on_merge(self.idT1_T2, self.idT1, revert=True)
+        self.idT1 = self.check_amounts_on_merge(self.idT1_DUSD, self.idT1, revert=False)
+        self.idT2 = self.check_amounts_on_merge(self.idT2_DUSD, self.idT2, revert=False)
+        self.idT3 = self.check_amounts_on_merge(self.idT3_DUSD, self.idT3, revert=False)
+        self.idT2 = self.check_amounts_on_merge(self.idT1_T2, self.idT2, revert=False)
 
 if __name__ == '__main__':
-    TokenSplitMechanismTest().main()
+    TokenMergeTest().main()
 
