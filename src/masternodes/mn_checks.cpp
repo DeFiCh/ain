@@ -26,8 +26,6 @@
 
 #include <algorithm>
 
-constexpr std::string_view ERR_STRING_DUSD_USAGE = "DUSD can either be used as collateral or loaned, but not both at the same time after Fort Canning Epilogue";
-
 std::string ToString(CustomTxType type) {
     switch (type)
     {
@@ -2943,25 +2941,6 @@ public:
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
         return mnview.UpdateVault(obj.vaultId, *vault);
-    }
-
-    Res CollateralAddVerifyDUSDUsage(DCT_ID collateralInToken, const CCollateralLoans& colleteralLoans) const {
-        if (static_cast<int>(height) < consensus.FortCanningEpilogueHeight)
-            return Res::Ok();
-
-        auto tokenDUSD = mnview.GetToken("DUSD");
-        if (!tokenDUSD)
-            return Res::Err("DUSD token not found");
-
-        if (collateralInToken != tokenDUSD->first)
-            return Res::Ok();
-
-        for (const auto& item : colleteralLoans.loans) {
-            if (item.nTokenId == tokenDUSD->first) {
-                return Res::Err(std::string(ERR_STRING_DUSD_USAGE));
-            }
-        }
-        return Res::Ok();
     }
 
     Res operator()(const CDepositToVaultMessage& obj) const {
