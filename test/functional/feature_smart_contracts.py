@@ -17,11 +17,6 @@ class SmartContractTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-jellyfish_regtest=1']]
 
-    def rollback(self, count):
-        block = self.nodes[0].getblockhash(count)
-        self.nodes[0].invalidateblock(block)
-        self.nodes[0].clearmempool()
-
     def run_test(self):
         self.nodes[0].generate(1000)
 
@@ -147,7 +142,7 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(balance + staker_reward + community_reward - Decimal('18336.225') + fee, self.nodes[0].getbalance())
 
         # Test swap for more than in community fund by 1 Sat
-        block = self.nodes[0].getblockcount() + 1
+        block = self.nodes[0].getblockcount()
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000000'}})
         self.nodes[0].generate(1)
         assert_raises_rpc_error(-32600, 'amount 18336.22500000 is less than 18336.22500001', self.nodes[0].executesmartcontract, dfip, '18336.22500001@2', address)
@@ -159,20 +154,20 @@ class SmartContractTest(DefiTestFramework):
         assert('0' not in self.nodes[0].listsmartcontracts())
 
         # Set "real world" prices
-        self.rollback(block)
+        self.rollback_to(block)
         prices = [{'currency': 'USD', 'tokenAmount': '2@DFI'},
                   {'currency': 'USD', 'tokenAmount': '40000@BTC'}]
         self.nodes[0].setoracledata(oracle, int(time.time()), prices)
         self.nodes[0].generate(10)
 
         # Test default 2.5% premium
-        block = self.nodes[0].getblockcount() + 1
+        block = self.nodes[0].getblockcount()
         self.nodes[0].executesmartcontract(dfip, '0.09999999@2', address)
         self.nodes[0].generate(1)
         assert_equal(2049.999795, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test 5% premium
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.05'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.09999999@2', address)
@@ -180,7 +175,7 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(2099.99979, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test 0.1% premium
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.09999999@2', address)
@@ -188,7 +183,7 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(2001.9997998, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test 0.000001% premium
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.1@2', address)
@@ -196,7 +191,7 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(2000.00002, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test 0% premium
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/premium':'0.00000000'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.1@2', address)
@@ -204,13 +199,13 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(2000, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Swap min amount
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].executesmartcontract(dfip, '0.00001@2', address)
         self.nodes[0].generate(1)
         assert_equal(0.205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test smallest min amount
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.00000001@2', address)
@@ -218,7 +213,7 @@ class SmartContractTest(DefiTestFramework):
         assert_equal(0.000205, float(self.nodes[0].getaccount(address)[0].split('@')[0]))
 
         # Test no smallest min amount
-        self.rollback(block)
+        self.rollback_to(block)
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2201/minswap':'0.00000001'}})
         self.nodes[0].generate(1)
         self.nodes[0].executesmartcontract(dfip, '0.00000001@2', address)
