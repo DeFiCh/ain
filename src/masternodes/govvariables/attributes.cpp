@@ -349,7 +349,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::DexOutFeePct,          VerifyPct},
                 {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
                 {TokenKeys::LoanCollateralEnabled, VerifyBool},
-                {TokenKeys::LoanCollateralFactor,  VerifyPct},
+                {TokenKeys::LoanCollateralFactor,  VerifyPositiveFloat},
                 {TokenKeys::LoanMintingEnabled,    VerifyBool},
                 {TokenKeys::LoanMintingInterest,   VerifyFloat},
                 {TokenKeys::DFIP2203Enabled,       VerifyBool},
@@ -917,6 +917,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanCollateralFactor:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            const auto amount = std::get_if<CAmount>(&value);
+                            if (amount && *amount > COIN) {
+                                return Res::Err("Percentage exceeds 100%%");
+                            }
+                        }
+                        [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
@@ -926,7 +934,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
-                    case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return Res::Err("Cannot be set before FortCanningCrunch");
@@ -1176,6 +1183,22 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         // Updated stored interest with new interest rate.
                         mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
                     }
+                }
+            } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
+                std::set<CAmount> ratio;
+                mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
+                    ratio.insert(data.ratio);
+                    return true;
+                });
+                if (ratio.empty()) {
+                    return Res::Err("Set loan scheme before setting collateral factor.");
+                }
+                const auto factor = std::get_if<CAmount>(&attribute.second);
+                if (!factor) {
+                    return Res::Err("Unexpected type");
+                }
+                if (*factor >= *ratio.begin() * CENT) {
+                    return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
