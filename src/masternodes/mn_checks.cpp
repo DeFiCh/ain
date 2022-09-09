@@ -2967,33 +2967,33 @@ public:
         }
         auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
-        // Heigh checks
+        // Height checks
         auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
         auto isPreFCH = static_cast<int>(height) < consensus.FortCanningHillHeight;
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
 
         // Condition checks
-        auto isDFIHalfOfAllCollaterall = totalCollateralsDFI < collateralsLoans.totalCollaterals / 2;
-        auto isDFIAndDUSDHalfOfRequiredCollateral = arith_uint256(totalCollaterals)*100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
-        auto isDFIHalfOfRequiredCollateral = arith_uint256(totalCollateralsDFI)*100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+        auto isDFILessThanHalfOfTotalCollateral = totalCollateralsDFI < collateralsLoans.totalCollaterals / 2;
+        auto isDFIAndDUSDLessThanHalfOfRequiredCollateral = arith_uint256(totalCollaterals) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+        auto isDFILessThanHalfOfRequiredCollateral = arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
 
         if(isPostFCE){
             if (hasDUSDLoans){
-                if(isDFIHalfOfRequiredCollateral)
+                if(isDFILessThanHalfOfRequiredCollateral)
                     return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
             }else {
-                if(isDFIAndDUSDHalfOfRequiredCollateral)
+                if(isDFIAndDUSDLessThanHalfOfRequiredCollateral)
                     return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT));
             }
             return Res::Ok();
         }
 
-        if (isPostFCR && isDFIAndDUSDHalfOfRequiredCollateral)
+        if (isPostFCR && isDFIAndDUSDLessThanHalfOfRequiredCollateral)
             return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT));
-        if (isPostFCH && isDFIHalfOfRequiredCollateral)
+        if (isPostFCH && isDFILessThanHalfOfRequiredCollateral)
             return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
-        if (isPreFCH && isDFIHalfOfAllCollaterall)
+        if (isPreFCH && isDFILessThanHalfOfTotalCollateral)
             return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
 
         return Res::Ok();
