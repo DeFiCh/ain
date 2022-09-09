@@ -670,7 +670,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_enabled':'true'}})
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'-1'}})
-        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000001'}})
+        assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000001'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'not_a_number'}})
         assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_factor':'1'}})
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1'}})
