@@ -7,7 +7,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import calendar
 import time
@@ -18,14 +18,24 @@ def get_decimal_amount(amount):
     account_tmp = amount.split('@')[0]
     return Decimal(account_tmp)
 
+def token_index_in_account(accounts, symbol):
+    for id in range(len(accounts)):
+        if symbol in accounts[id]:
+            return id
+    return -1
+
+ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI";
+ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50% of the minimum required collateral must be in DFI or DUSD";
+
 class DUSDLoanTests(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.fortcanninggreatworldheight = 1000
-        self.fortcanningroadheight = 1500
-        self.fortcanningepilogueheight = 2000
+        self.fortcanninghillheight = 1000
+        self.fortcanningroadheight = 2000
+        self.fortcanninggreatworldheight = 3000
+        self.fortcanningepilogueheight = 4000
         self.extra_args = [
             ['-txnotokens=0',
             '-amkheight=1',
@@ -34,353 +44,60 @@ class DUSDLoanTests(DefiTestFramework):
             '-fortcanningheight=1',
             '-fortcanningmuseumheight=1',
             '-fortcanningparkheight=1',
-            '-fortcanninghillheight=1',
-            '-fortcanningroadheight=1',
-            '-fortcanningcrunchheight=1',
-            '-fortcanningspringheight=1',
+            f'-fortcanninghillheight={self.fortcanninghillheight}',
+            f'-fortcanningroadheight={self.fortcanningroadheight}',
             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
             f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
-    def vault_without_dusd_loan_test_withdraw_before_and_after_fce(self):
+    def takeloan_withdraw(self, vaultId, amount, type='takeloan'):
+        account = self.nodes[0].getaccount(self.account0)
+        id = token_index_in_account(account, amount.split("@")[1])
+        balance_before = Decimal(0)
+        if id != -1:
+            balance_before = get_decimal_amount(account[id])
 
-        blockHeight = self.nodes[0].getblockcount()
-        self.update_oracle_price()
-        # BEFORE FCE
-        self.goto_gw_height()
-
-
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dusd_and_btc(loanScheme, deposit=10)
-        tsla_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
-        loanAmount = 1
-
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symbolTSLA})
-        self.nodes[0].generate(1)
-
-        tsla_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
-        assert_equal(tsla_balance_after_loan, tsla_balance_before_loan + loanAmount)
-        vault = self.nodes[0].getvault(vaultId)
-
-        # Withdraw
-        dusd_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        withdraw_amount = Decimal('2.4')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symboldUSD)
-        self.nodes[0].generate(1)
-        dusd_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(Decimal(dusd_balance_before_withdraw), Decimal(dusd_balance_after_withdraw) - Decimal(withdraw_amount))
-
-        btc_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        withdraw_amount = Decimal('0.1')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolBTC)
-        self.nodes[0].generate(1)
-        btc_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(Decimal(btc_balance_before_withdraw), Decimal(btc_balance_after_withdraw) - Decimal(withdraw_amount))
-
-        withdraw_amount = Decimal('0.1')
-        err_string = "At least 50% of the minimum required collateral must be in DFI or DUSD"
-        try:
-            self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+"@"+self.symboldUSD)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        self.goto_fce_height()
-
-        withdraw_amount = Decimal('0.1')
-        err_string = "At least 50% of the minimum required collateral must be in DFI or DUSD"
-        try:
-            self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+"@"+self.symboldUSD)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        btc_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        withdraw_amount = Decimal('0.1')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolBTC)
-        self.nodes[0].generate(1)
-        btc_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(Decimal(btc_balance_before_withdraw), Decimal(btc_balance_after_withdraw) - Decimal(withdraw_amount))
-
-        self.nodes[0].deposittovault(vaultId, self.account0, '100@DUSD')
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, '5@DFI')
-        self.nodes[0].generate(1)
-
-
-        loanAmount = 1
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symbolTSLA})
-        self.nodes[0].generate(1)
-
-        dfi_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[0])
-        withdraw_amount = Decimal('5')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolDFI)
-        self.nodes[0].generate(1)
-        dfi_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[0])
-        assert_equal(Decimal(dfi_balance_before_withdraw), Decimal(dfi_balance_after_withdraw) - Decimal(withdraw_amount))
-        vault = self.nodes[0].getvault(vaultId)
-        assert_equal(vault["collateralAmounts"], ['9.80000000@BTC', '107.60000000@DUSD'])
-
-        btc_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        withdraw_amount = Decimal('9.8')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolBTC)
-        self.nodes[0].generate(1)
-        btc_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[1])
-        assert_equal(Decimal(btc_balance_before_withdraw), Decimal(btc_balance_after_withdraw) - Decimal(withdraw_amount))
-        vault = self.nodes[0].getvault(vaultId)
-        assert_equal(vault["collateralAmounts"], ['107.60000000@DUSD'])
-
-        self.rollback_to(blockHeight)
-        err_string = f"Vault <{vaultId}> not found"
-        try:
-            self.nodes[0].getvault(vaultId)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-    def vault_with_dusd_loan_test_withdraw_before_and_after_fce(self):
-        blockHeight = self.nodes[0].getblockcount()
-        self.update_oracle_price()
-        # BEFORE FCE
-        self.goto_gw_height()
-
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dusd_only(loanScheme, deposit=100)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
-        vault = self.nodes[0].getvault(vaultId)
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + 1)
-
-        # Withdraw
-        dusd_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        withdraw_amount = 8
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, f'{str(withdraw_amount)}@{self.symboldUSD}')
-        self.nodes[0].generate(1)
-        dusd_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_before_withdraw, dusd_balance_after_withdraw - Decimal(withdraw_amount))
-
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symbolTSLA})
-        self.nodes[0].generate(1)
-
-        dusd_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        withdraw_amount = 8
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, f'{str(withdraw_amount)}@{self.symboldUSD}')
-        self.nodes[0].generate(1)
-        dusd_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_before_withdraw, dusd_balance_after_withdraw - Decimal(withdraw_amount))
-
-        # AFTER CFE
-        self.goto_fce_height()
-        withdraw_amount = 8
-
-        err_string = "At least 50% of the minimum required collateral must be in DFI"
-        try:
-            self.nodes[0].withdrawfromvault(vaultId, self.account0, f'{str(withdraw_amount)}@{self.symboldUSD}')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        # Deposit DFI so it does not fail on withdraw
-        self.nodes[0].deposittovault(vaultId, self.account0, '0.9@DFI')
-        self.nodes[0].generate(1)
-
-        dfi_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[0])
-        withdraw_amount = Decimal('0.07')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolDFI)
-        self.nodes[0].generate(1)
-        dfi_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[0])
-        assert_equal(Decimal(dfi_balance_before_withdraw), Decimal(dfi_balance_after_withdraw) - Decimal(withdraw_amount))
-
-        withdraw_amount = Decimal('0.01')
-        err_string = "At least 50% of the minimum required collateral must be in DFI"
-        try:
-            self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolDFI)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        dusd_balance_before_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        withdraw_amount = Decimal('75.75')
-        self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symboldUSD)
-        self.nodes[0].generate(1)
-        dusd_balance_after_withdraw = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(Decimal(dusd_balance_before_withdraw), Decimal(dusd_balance_after_withdraw) - Decimal(withdraw_amount))
-
-        vault = self.nodes[0].getvault(vaultId)
-        assert_equal(vault["collateralRatio"], 150)
-        assert_equal(vault["collateralAmounts"], ['0.83000000@DFI', '8.25000000@DUSD'])
-        assert_equal(vault["loanAmounts"], ['1.00000953@DUSD', '1.00000951@TSLA'])
-
-        self.rollback_to(blockHeight)
-        err_string = f"Vault <{vaultId}> not found"
-        try:
-            self.nodes[0].getvault(vaultId)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-    def dusd_loans_before_and_after_fce(self):
-
-        blockHeight = self.nodes[0].getblockcount()
-        self.update_oracle_price()
-        # BEFORE FCE
-        self.goto_gw_height()
-
-        loanScheme = 'LOAN1'
-        vaultId = self.new_vault_with_dusd_only(loanScheme)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        loanAmount = 1
-
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
-
-        self.nodes[0].deposittovault(vaultId, self.account0, '100' + "@BTC")
-        self.nodes[0].generate(1)
-
-        loanAmount = 15
-        err_string = "At least 50% of the minimum required collateral must be in DFI or DUSD when taking a loan."
-        try:
+        if  type == 'takeloan':
             self.nodes[0].takeloan({
                 'vaultId': vaultId,
-                'amounts': f"{loanAmount}@" + self.symboldUSD})
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
+                'amounts': amount})
 
-        loanAmount = 1
+        if type == 'withdraw':
+            self.nodes[0].withdrawfromvault(vaultId, self.account0, amount)
 
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
         self.nodes[0].generate(1)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
-
-        self.goto_fce_height()
-        err_string = "At least 50% of the minimum required collateral must be in DFI"
-        try:
-            self.nodes[0].takeloan({
-                'vaultId': vaultId,
-                'amounts': f"{loanAmount}@" + self.symboldUSD})
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        tsla_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
-
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symbolTSLA})
-        self.nodes[0].generate(1)
-
-        tsla_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[3])
-        assert_equal(tsla_balance_after_loan, tsla_balance_before_loan + loanAmount)
-
-        err_string = "At least 50% of the minimum required collateral must be in DFI"
-        try:
-            withdraw_amount = Decimal('50')
-            self.nodes[0].withdrawfromvault(vaultId, self.account0, str(withdraw_amount)+'@'+self.symbolBTC)
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        self.nodes[0].deposittovault(vaultId, self.account0, '1' + "@DFI")
-        self.nodes[0].generate(1)
-
-        loanAmount = 15
-        err_string = "At least 50% of the minimum required collateral must be in DFI"
-        try:
-            self.nodes[0].takeloan({
-                'vaultId': vaultId,
-                'amounts': f"{loanAmount}@" + self.symboldUSD})
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
-
-        self.nodes[0].deposittovault(vaultId, self.account0, '20' + "@DFI")
-        self.nodes[0].generate(1)
-
-        dusd_balance_before_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-
-        self.nodes[0].takeloan({
-            'vaultId': vaultId,
-            'amounts': f"{loanAmount}@" + self.symboldUSD})
-        self.nodes[0].generate(10)
-
-        dusd_balance_after_loan = get_decimal_amount(self.nodes[0].getaccount(self.account0)[2])
-        assert_equal(dusd_balance_after_loan, dusd_balance_before_loan + loanAmount)
-
-
-
-        vault = self.nodes[0].getvault(vaultId)
-        assert_equal(vault["collateralRatio"], 1185)
-        assert_equal(vault["collateralAmounts"],  ['21.00000000@DFI','100.00000000@BTC','10.00000000@DUSD'])
-        assert_equal(vault["loanAmounts"], ['17.00002065@DUSD', '1.00000013@TSLA'])
-
-        self.rollback_to(blockHeight)
-        err_string = f"Vault <{vaultId}> not found"
-        try:
-            self.nodes[0].getvault(vaultId)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert(err_string in errorString)
+        account = self.nodes[0].getaccount(self.account0)
+        if id == -1:
+            id = token_index_in_account(account, amount.split("@")[1])
+        balance_after = get_decimal_amount(account[id])
+        assert_equal(balance_before + Decimal(amount.split("@")[0]), balance_after)
 
     # Utils
 
-    def new_vault_with_dfi_only(self, loan_scheme, deposit=10):
+    def new_vault(self, loan_scheme, amounts = []):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@DFI")
-        self.nodes[0].generate(1)
+        for amount in amounts:
+            self.nodes[0].deposittovault(vaultId, self.account0, amount)
+            self.nodes[0].generate(1)
+        vault = self.nodes[0].getvault(vaultId)
+        assert_equal(vault["collateralAmounts"], amounts)
         return vaultId
 
-    def new_vault_with_dusd_only(self, loan_scheme, deposit=10):
-        vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@DUSD")
-        self.nodes[0].generate(1)
-        return vaultId
+    def goto_fch_height(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.fortcanninghillheight > blockHeight:
+            self.nodes[0].generate((self.fortcanninghillheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["fortcanninghill"]["active"], True)
 
-    def new_vault_with_dusd_and_btc(self, loan_scheme, deposit=10):
-        vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@DUSD")
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@BTC")
-        self.nodes[0].generate(1)
-        return vaultId
-
-    def new_vault_with_dfi_and_dusd(self, loan_scheme, deposit=10):
-        vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
-        self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@DFI")
-        self.nodes[0].deposittovault(vaultId, self.account0, str(deposit) + "@DUSD")
-        self.nodes[0].generate(1)
-        return vaultId
+    def goto_fcr_height(self):
+        blockHeight = self.nodes[0].getblockcount()
+        if self.fortcanningroadheight > blockHeight:
+            self.nodes[0].generate((self.fortcanningroadheight - blockHeight) + 2)
+        blockchainInfo = self.nodes[0].getblockchaininfo()
+        assert_equal(blockchainInfo["softforks"]["fortcanningroad"]["active"], True)
 
     def goto_gw_height(self):
         blockHeight = self.nodes[0].getblockcount()
@@ -396,18 +113,6 @@ class DUSDLoanTests(DefiTestFramework):
         blockchainInfo = self.nodes[0].getblockchaininfo()
         assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], True)
 
-    def goto_fcr_height(self):
-        blockHeight = self.nodes[0].getblockcount()
-        if self.fortcanningepilogueheight > blockHeight:
-            self.nodes[0].generate((self.fortcanningroadheight - blockHeight) + 2)
-        blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["fortcanningroad"]["active"], True)
-
-
-    # Default token = 1 = dUSD
-    def set_token_interest(self, token='1', interest=0):
-        self.nodes[0].setgov({"ATTRIBUTES": {f'v0/token/{token}/loan_minting_interest': str(interest)}})
-        self.nodes[0].generate(1)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -557,15 +262,151 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
+    def rollback_checks(self, vaults = []):
+        for vault in vaults:
+            try:
+                self.nodes[0].getvault(vault)
+            except JSONRPCException as e:
+                errorString = e.error['message']
+            assert(f"Vault <{vault}> not found" in errorString)
+
+
+
+    # TESTS
+    def pre_FCH_DFI_minimum_check_takeloan(self):
+        block_height = self.nodes[0].getblockcount()
+
+        vault_id = self.new_vault('LOAN1', ["10.00000000@DFI", "100.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+
+        vault_id_1 = self.new_vault('LOAN1', ["9.00000000@DFI", "100.00000000@BTC"])
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id_1, "1.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '100@DFI')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id, vault_id_1])
+
+    def pre_FCR_DFI_minimum_check_takeloan(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fch_height()
+
+        vault_id = self.new_vault('LOAN1', ["3.74000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id, self.account0, '0.011@DFI')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+
+        # Check DUSD does not add to collateral
+        vault_id_1 = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"])
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '5000.00000000@DUSD')
+        self.nodes[0].generate(1)
+
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '100@DFI')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id, vault_id_1])
+
+
+    def post_FCR_DFI_minimum_check_takeloan(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fcr_height()
+
+        vault_id = self.new_vault('LOAN1', ["3.74000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id, self.account0, '0.011@DFI')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+
+        # Check DUSD also adds to collateral
+        vault_id_1 = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"])
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '0.11@DUSD')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id, vault_id_1])
+
+    def post_FCE_DFI_minimum_check_takeloan(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fce_height()
+
+        vault_id = self.new_vault('LOAN1', ["200.00000000@BTC", "37.40000000@DUSD"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+
+        # Check after depositting DFI check passess
+        self.nodes[0].deposittovault(vault_id, self.account0, '0.11@DUSD')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+
+        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC", "37.40000000@DUSD"])
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id_1, "1.00000000@DUSD", 'takeloan')
+
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '1@DFI')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id_1, "4.00000000@DUSD", 'takeloan')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id, vault_id_1])
+
+
+
     def run_test(self):
         # Initial set up
         self.setup()
         self.update_oracle_price()
-        # Withdraw
-        self.vault_without_dusd_loan_test_withdraw_before_and_after_fce()
-        self.vault_with_dusd_loan_test_withdraw_before_and_after_fce()
-        # Take loan
-        self.dusd_loans_before_and_after_fce()
+
+        self.pre_FCH_DFI_minimum_check_takeloan()
+        self.pre_FCR_DFI_minimum_check_takeloan()
+        self.post_FCR_DFI_minimum_check_takeloan()
+        self.post_FCE_DFI_minimum_check_takeloan()
 
 if __name__ == '__main__':
     DUSDLoanTests().main()
