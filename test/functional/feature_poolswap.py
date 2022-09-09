@@ -529,7 +529,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
     def revert_to_initial_state(self):
-        self.rollback_to(block=30, nodes=[0, 1, 2])
+        self.rollback_to(block=0, nodes=[0, 1, 2])
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
         assert_equal(len(self.nodes[1].listpoolpairs()), 0)
         assert_equal(len(self.nodes[2].listpoolpairs()), 0)

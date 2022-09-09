@@ -405,7 +405,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     # rollback one node (Default = node 0)
-    def rollback_to_node(self, block, node=0):
+    def _rollback_to(self, block, node=0):
         node = self.nodes[node]
         current_height = node.getblockcount()
         if current_height == block:
