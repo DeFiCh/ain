@@ -139,6 +139,7 @@ class BlockchainTest(DefiTestFramework):
             'fortcanningcrunch': {'type': 'buried', 'active': False, 'height': 10000000},
             'fortcanningspring': {'type': 'buried', 'active': False, 'height': 10000000},
             'fortcanninggreatworld': {'type': 'buried', 'active': False, 'height': 10000000},
+            'fortcanningepilogue': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
