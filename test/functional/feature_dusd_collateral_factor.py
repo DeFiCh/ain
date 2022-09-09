@@ -121,7 +121,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Test setting higher than the lowest scheme rate
-        assert_raises_rpc_error(-32600, "Factor cannot be more than lowest scheme rate of 1.50000000", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/dusd_collateral_factor': '1.51'}})
+        assert_raises_rpc_error(-32600, "Factor cannot be more than or equal to the lowest scheme rate of 1.50000000", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/dusd_collateral_factor': '1.50'}})
 
         # Now set new token factor
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/dusd_collateral_factor': '1.49'}})

@@ -1199,8 +1199,8 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 if (!factor) {
                     return Res::Err("Unexpected type");
                 }
-                if (*factor > *ratio.begin() * CENT) {
-                    return Res::Err("Factor cannot be more than lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                if (*factor >= *ratio.begin() * CENT) {
+                    return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
