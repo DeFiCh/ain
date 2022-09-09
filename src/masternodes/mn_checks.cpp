@@ -3159,28 +3159,45 @@ public:
             if (!res)
                 return res;
 
-            return mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first, 0, collateralDUSD);
-        }
-
-        CTokenAmount subLoanAmount;
-        CTokenAmount subCollateralAmount;
-        if (loanDUSD + subInterest > collateralDUSD) {
-            subLoanAmount = {dUsdToken->first, collateralDUSD - subInterest};
-            subCollateralAmount = {dUsdToken->first, collateralDUSD};
+            res = mnview.DecreaseInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first, 0, collateralDUSD);
+            if (!res)
+                return res;
         } else {
-            subLoanAmount = {dUsdToken->first, loanDUSD};
-            subCollateralAmount = {dUsdToken->first, loanDUSD + subInterest};
+            CTokenAmount subLoanAmount;
+            CTokenAmount subCollateralAmount;
+            if (loanDUSD + subInterest > collateralDUSD) {
+                subLoanAmount = {dUsdToken->first, collateralDUSD - subInterest};
+                subCollateralAmount = {dUsdToken->first, collateralDUSD};
+            } else {
+                subLoanAmount = {dUsdToken->first, loanDUSD};
+                subCollateralAmount = {dUsdToken->first, loanDUSD + subInterest};
+            }
+
+            res = mnview.SubLoanToken(obj.vaultId, subLoanAmount);
+            if (!res)
+                return res;
+
+            res = mnview.SubVaultCollateral(obj.vaultId, subCollateralAmount);
+            if (!res)
+                return res;
+
+            mnview.ResetInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first);
         }
 
-        res = mnview.SubLoanToken(obj.vaultId, subLoanAmount);
-        if (!res)
-            return res;
+        // Guard against liquidation
+        const auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        const auto loans = mnview.GetLoanTokens(obj.vaultId);
+        if (!collaterals && loans)
+            return Res::Err("Vault cannot have loans without collaterals");
 
-        res = mnview.SubVaultCollateral(obj.vaultId, subCollateralAmount);
-        if (!res)
-            return res;
+        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time);
+        if (!collateralsLoans)
+            return std::move(collateralsLoans);
 
-        mnview.ResetInterest(height, obj.vaultId, vault->schemeId, dUsdToken->first);
+        const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+        if (collateralsLoans.val->ratio() < scheme->ratio)
+            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+
         return Res::Ok();
     }
 
