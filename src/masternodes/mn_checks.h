@@ -396,6 +396,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& t
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
+bool IsPaybackWithCollateral(CCustomCSView& mnview, const std::map<DCT_ID, CBalances>& loans);
+Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CVaultId& vaultId, uint32_t height, uint64_t time);
 Res SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 
