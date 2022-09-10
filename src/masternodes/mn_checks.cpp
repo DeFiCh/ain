@@ -3044,6 +3044,8 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+        if (!collateralsLoans)
+            return std::move(collateralsLoans);
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         if (collateralsLoans.val->ratio() < scheme->ratio)
