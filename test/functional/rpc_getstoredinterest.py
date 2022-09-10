@@ -34,18 +34,6 @@ class GetStoredInterestTest(DefiTestFramework):
              '-txindex=1', '-simulatemainnet=1']
         ]
 
-    # Utils
-    def rollback_to(self, block):
-        self.log.info("rollback to: %d", block)
-        node = self.nodes[0]
-        current_height = node.getblockcount()
-        if current_height == block:
-            return
-        blockhash = node.getblockhash(block + 1)
-        node.invalidateblock(blockhash)
-        node.clearmempool()
-        assert_equal(block, node.getblockcount())
-
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
         self.nodes[0].generate(1)
