@@ -418,10 +418,10 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
     # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
     def rollback_to(self, block, nodes=None):
         if nodes is None:
-            self.rollback_to_node(block)
+            self._rollback_to(block)
         else:
             for node in nodes:
-                self.rollback_to_node(block, node=node)
+                self._rollback_to(block, node=node)
 
     def run_test(self):
         """Tests must override this method to define test logic"""
