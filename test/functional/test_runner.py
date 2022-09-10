@@ -242,6 +242,7 @@ BASE_SCRIPTS = [
     'rpc_named_arguments.py',
     'wallet_listsinceblock.py',
     'p2p_leak.py',
+    'feature_higher_collateral_factor.py',
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
