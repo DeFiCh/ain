@@ -204,13 +204,13 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].setoracledata(self.oracle_id2, timestamp, oracle_prices)
         self.nodes[0].generate(120)
 
-    def update_oracle_price(self):
+    def update_oracle_price(self, add_time=3000):
         oracle_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
                          {"currency": "USD", "tokenAmount": "1@DUSD"},
                          {"currency": "USD", "tokenAmount": "1@BTC"},
                          {"currency": "USD", "tokenAmount": "10@DFI"}]
 
-        mock_time = int(time.time() + 3000)
+        mock_time = int(time.time()+add_time)
         self.nodes[0].setmocktime(mock_time)
         self.nodes[0].setoracledata(self.oracle_id1, mock_time, oracle_prices)
         self.nodes[0].generate(120)
@@ -272,6 +272,119 @@ class DUSDLoanTests(DefiTestFramework):
             assert(f"Vault <{vault}> not found" in errorString)
 
     # TESTS
+    def pre_FCH_DFI_minimum_check_withdraw(self):
+        block_height = self.nodes[0].getblockcount()
+
+        vault_id = self.new_vault('LOAN1', ["10.00000000@DFI", "100.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
+        self.takeloan_withdraw(vault_id, "1.00000000@BTC", 'withdraw')
+
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "1.00000000@DFI", 'withdraw')
+
+        self.nodes[0].deposittovault(vault_id, self.account0, '100@DFI')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id, "100.00000000@DFI", 'withdraw')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id])
+
+    def pre_FCR_DFI_minimum_check_withdraw(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fch_height()
+
+        vault_id = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "10.00000000@DUSD"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id, "2.00000000@DFI", 'withdraw')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+
+        # Check DUSD addition as collateral is ignored
+        self.nodes[0].deposittovault(vault_id, self.account0, '1000@DUSD')
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id])
+
+    def post_FCR_DFI_minimum_check_withdraw(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fcr_height()
+
+        vault_id = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id, "2.00000000@DFI", 'withdraw')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+
+        # Check DUSD addition as collateral is added to collateral
+        self.nodes[0].deposittovault(vault_id, self.account0, '2.7@DUSD')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id, "0.26000000@DFI", 'withdraw')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id, "0.50000000@DFI", 'withdraw')
+
+        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC","30.00000000@DUSD"])
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id_1, "20.00000000@DUSD", 'withdraw')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id_1, "2.60000000@DUSD", 'withdraw')
+
+        # Check DFI addition as collateral is added to collateral
+        self.nodes[0].deposittovault(vault_id_1, self.account0, '0.27@DFI')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id_1, "2.60000000@DUSD", 'withdraw')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+                                self.takeloan_withdraw, vault_id_1, "5.00000000@DUSD", 'withdraw')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id, vault_id_1])
+
+    def post_FCE_DFI_minimum_check_withdraw(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.goto_fce_height()
+        self.update_oracle_price()
+
+        vault_id = self.new_vault('LOAN1', ["200.00000000@BTC", "37.50000000@DUSD"])
+        self.takeloan_withdraw(vault_id, "5.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "0.10000000@DUSD", 'withdraw')
+        self.nodes[0].deposittovault(vault_id, self.account0, '0.02@DFI')
+        self.nodes[0].generate(1)
+
+        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", 'withdraw')
+        # Try to take a DUSD loan without 50% DFI
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "10.00000000@DUSD", 'takeloan')
+
+        # Deposit DFI and try again to take a DUSD loan
+        self.nodes[0].deposittovault(vault_id, self.account0, '3.9@DFI')
+        self.nodes[0].generate(1)
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
+
+        # Try withdraw to break 50% DFI
+        assert_raises_rpc_error(-32600,
+                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+                                self.takeloan_withdraw, vault_id, "0.10000000@DFI", 'withdraw')
+        # Try withdraw DUSD
+        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", 'withdraw')
+
+        self.rollback_to(block_height)
+        self.rollback_checks([vault_id])
+
     def pre_FCH_DFI_minimum_check_takeloan(self):
         block_height = self.nodes[0].getblockcount()
 
@@ -403,9 +516,24 @@ class DUSDLoanTests(DefiTestFramework):
         self.update_oracle_price()
 
         self.pre_FCH_DFI_minimum_check_takeloan()
+        self.pre_FCH_DFI_minimum_check_withdraw()
+        self.update_oracle_price()
         self.pre_FCR_DFI_minimum_check_takeloan()
+        self.pre_FCR_DFI_minimum_check_withdraw()
+        self.update_oracle_price()
         self.post_FCR_DFI_minimum_check_takeloan()
+        self.post_FCR_DFI_minimum_check_withdraw()
+        self.update_oracle_price()
         self.post_FCE_DFI_minimum_check_takeloan()
+
+        # self.post_FCE_DFI_minimum_check_withdraw()
+
+        # TODO
+        # test passes, update_oracle_price() makes it fail
+        # File "/Users/diegodelcorral/workspace/fce-no-dusd-loop/test/functional/test_framework/test_framework.py", line 421, in rollback_to
+        # self._rollback_to(block)
+        # File "/Users/diegodelcorral/workspace/fce-no-dusd-loop/test/functional/test_framework/test_framework.py", line 414, in _rollback_to
+        # node.invalidateblock(blockhash)
 
 if __name__ == '__main__':
     DUSDLoanTests().main()
