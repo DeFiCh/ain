@@ -2988,10 +2988,16 @@ public:
             return Res::Ok();
         }
 
-        if (isPostFCR && isDFIAndDUSDLessThanHalfOfRequiredCollateral)
-            return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT));
-        if (isPostFCH && isDFILessThanHalfOfRequiredCollateral)
-            return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
+        if (isPostFCR)
+            return isDFIAndDUSDLessThanHalfOfRequiredCollateral ?
+                Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT)) :
+                Res::Ok();
+
+        if (isPostFCH)
+            return isDFILessThanHalfOfRequiredCollateral ?
+                Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT)) :
+                Res::Ok();
+
         if (isPreFCH && isDFILessThanHalfOfTotalCollateral)
             return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
 
