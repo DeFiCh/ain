@@ -55,7 +55,7 @@ class DUSDLoanTests(DefiTestFramework):
         if id != -1:
             balance_before = get_decimal_amount(account[id])
 
-        if  type == 'takeloan':
+        if type == 'takeloan':
             self.nodes[0].takeloan({
                 'vaultId': vaultId,
                 'amounts': amount})
@@ -73,7 +73,7 @@ class DUSDLoanTests(DefiTestFramework):
     # Utils
 
     def new_vault(self, loan_scheme, amounts = None):
-        if amounts == None:
+        if amounts is None:
             amounts = []
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
         self.nodes[0].generate(1)
@@ -262,7 +262,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.setup_height = self.nodes[0].getblockcount()
 
     def rollback_checks(self, vaults = None):
-        if vaults == None:
+        if vaults is None:
             vaults = []
         for vault in vaults:
             try:
