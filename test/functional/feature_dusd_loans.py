@@ -6,12 +6,9 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
-
 from test_framework.util import assert_equal, assert_raises_rpc_error
-
 import calendar
 import time
-
 from decimal import Decimal
 
 def get_decimal_amount(amount):
@@ -24,8 +21,8 @@ def token_index_in_account(accounts, symbol):
             return id
     return -1
 
-ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI";
-ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50% of the minimum required collateral must be in DFI or DUSD";
+ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI"
+ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50% of the minimum required collateral must be in DFI or DUSD"
 
 class DUSDLoanTests(DefiTestFramework):
 
@@ -75,7 +72,9 @@ class DUSDLoanTests(DefiTestFramework):
 
     # Utils
 
-    def new_vault(self, loan_scheme, amounts = []):
+    def new_vault(self, loan_scheme, amounts = None):
+        if amounts == None:
+            amounts = []
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)
         self.nodes[0].generate(1)
         for amount in amounts:
@@ -262,15 +261,15 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
-    def rollback_checks(self, vaults = []):
+    def rollback_checks(self, vaults = None):
+        if vaults == None:
+            vaults = []
         for vault in vaults:
             try:
                 self.nodes[0].getvault(vault)
             except JSONRPCException as e:
                 errorString = e.error['message']
             assert(f"Vault <{vault}> not found" in errorString)
-
-
 
     # TESTS
     def pre_FCH_DFI_minimum_check_takeloan(self):
