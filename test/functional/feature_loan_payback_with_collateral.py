@@ -133,6 +133,10 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        # Create loan scheme
+        self.nodes[0].createloanscheme(150, 1, 'LOAN001')
+        self.nodes[0].generate(1)
+
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
                                     'token': self.symbolDFI,
@@ -146,9 +150,6 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
                                     })
         self.nodes[0].generate(120)
 
-        # Create loan scheme
-        self.nodes[0].createloanscheme(150, 1, 'LOAN001')
-        self.nodes[0].generate(1)
 
         self.nodes[0].accounttoaccount(self.mn_address, {self.account0: str(self.collateralAmount) + "@" + self.symbolDUSD})
         self.nodes[0].accounttoaccount(self.mn_address, {self.account0: str(self.collateralAmount) + "@" + self.symbolDFI})
@@ -189,6 +190,42 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         assert_raises_rpc_error(-32600, "Vault does not have any DUSD loans", self.nodes[0].paybackwithcollateral, self.vaultId)
+
+        self.rollback_to(height)
+
+    def test_guard_against_liquidation(self):
+        height = self.nodes[0].getblockcount()
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.49'}})
+        self.nodes[0].generate(1)
+
+        # Check results
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/token/1/loan_collateral_factor'], '1.49')
+
+        # Deposit DUSD and DFI to vault
+        self.nodes[0].deposittovault(self.vaultId, self.account0, "151@" + self.symbolDFI)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vaultId, self.account0, "1000@" + self.symbolDUSD)
+        self.nodes[0].generate(1)
+
+        vault = self.nodes[0].getvault(self.vaultId)
+        print("vault", vault)
+
+        self.nodes[0].takeloan({ "vaultId": self.vaultId, "amounts": "1900@" + self.symbolTSLA })
+        self.nodes[0].generate(1)
+
+        vault = self.nodes[0].getvault(self.vaultId)
+        print("vault", vault)
+
+        self.nodes[0].takeloan({ "vaultId": self.vaultId, "amounts": "100@" + self.symbolDUSD })
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'50000000'}})
+        self.nodes[0].generate(2) # accrue enough interest to drop below collateralization ratio
+
+        assert_raises_rpc_error(-32600, "Vault does not have enough collateralization ratio defined by loan scheme - 143 < 150", self.nodes[0].paybackwithcollateral, self.vaultId)
 
         self.rollback_to(height)
 
@@ -507,6 +544,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         self.test_guards()
 
+        self.test_guard_against_liquidation()
+
         payback_fns = [
             lambda: self.nodes[0].paybackwithcollateral(self.vaultId),
             lambda: self.nodes[0].paybackloan({
@@ -516,6 +555,7 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         ]
 
         for payback_fn in payback_fns:
+
             self.test_collaterals_greater_than_loans(payback_fn)
 
             self.test_loans_greater_than_collaterals(payback_fn)
