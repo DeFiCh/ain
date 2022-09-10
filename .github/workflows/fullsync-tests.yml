@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-binaries:
-    if: ${{ github.event.label.name == 'consensus' }}
+    if: ${{ github.event.label.name == 'consensus' || github.event.label.name == 'ci/sync' }}
     runs-on: [self-hosted, linux, x64,server-2]
     steps:
     - uses: actions/checkout@v3
@@ -100,7 +100,7 @@ jobs:
            stop: 1900000
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
-    if: ${{ github.event.label.name == 'consensus' }}
+    if: ${{ github.event.label.name == 'consensus' || github.event.label.name == 'ci/sync' }}
     continue-on-error: true
     container:
       image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
