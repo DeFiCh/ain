@@ -3141,14 +3141,14 @@ public:
                 const auto totalInterest = TotalInterest(*rate, height);
 
                 if (totalInterest < 0) {
-                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ? 
+                    loanAmountChange = currentLoanAmount > std::abs(totalInterest) ?
                         // Interest to decrease smaller than overall existing loan amount.
                         // So reduce interest from the borrowing principal. If this is negative,
-                        // we'll reduce from principal. 
-                        tokenAmount + totalInterest : 
+                        // we'll reduce from principal.
+                        tokenAmount + totalInterest :
                         // Interest to decrease is larger than old loan amount.
-                        // We reduce from the borrowing principal. If this is negative, 
-                        // we'll reduce from principal. 
+                        // We reduce from the borrowing principal. If this is negative,
+                        // we'll reduce from principal.
                         tokenAmount - currentLoanAmount;
                     resetInterestToHeight = true;
                     TrackNegativeInterest(mnview, {tokenId, currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount});
@@ -3440,7 +3440,10 @@ public:
                 if (paybackTokenId == loanTokenId)
                 {
                     // If interest was negative remove it from sub amount
-                    res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
+                    if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
+                        subLoan += subInterest;
+
+                    res = mnview.SubMintedTokens(loanTokenId, subLoan);
                     if (!res)
                         return res;
 
