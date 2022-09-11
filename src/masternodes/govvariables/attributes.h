@@ -37,17 +37,17 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
-    NegativeInt       = 'j',
-    NegativeIntCurrent= 'k',
+    PaybackDFITokens   = 'a',
+    PaybackTokens      = 'b',
+    DFIP2203Current    = 'c',
+    DFIP2203Burned     = 'd',
+    DFIP2203Minted     = 'e',
+    DFIP2206FCurrent   = 'f',
+    DFIP2206FBurned    = 'g',
+    DFIP2206FMinted    = 'h',
+    DexTokens          = 'i',
+    NegativeInt        = 'j',
+    NegativeIntCurrent = 'k',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -56,28 +56,29 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
+    DUSDInterestBurn        = 'g',
+    DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI            = 'a',
-    PaybackDFIFeePCT      = 'b',
-    LoanPayback           = 'c',
-    LoanPaybackFeePCT     = 'd',
-    DexInFeePct           = 'e',
-    DexOutFeePct          = 'f',
-    DFIP2203Enabled       = 'g',
-    FixedIntervalPriceId  = 'h',
-    LoanCollateralEnabled = 'i',
-    LoanCollateralFactor  = 'j',
-    LoanMintingEnabled    = 'k',
-    LoanMintingInterest   = 'l',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
-    LoanPaybackCollateral = 'p',
+    PaybackDFI                = 'a',
+    PaybackDFIFeePCT          = 'b',
+    LoanPayback               = 'c',
+    LoanPaybackFeePCT         = 'd',
+    DexInFeePct               = 'e',
+    DexOutFeePct              = 'f',
+    DFIP2203Enabled           = 'g',
+    FixedIntervalPriceId      = 'h',
+    LoanCollateralEnabled     = 'i',
+    LoanCollateralFactor      = 'j',
+    LoanMintingEnabled        = 'k',
+    LoanMintingInterest       = 'l',
+    Ascendant                 = 'm',
+    Descendant                = 'n',
+    Epitaph                   = 'o',
+    LoanPaybackCollateral     = 'p',
+    LoanPaybackCollateralBurn = 'q',
 };
 
 enum PoolKeys : uint8_t {
@@ -88,7 +89,7 @@ enum PoolKeys : uint8_t {
 };
 
 struct CDataStructureV0 {
-    uint8_t type;
+    uint8_t  type;
     uint32_t typeId;
     uint32_t key;
     uint32_t keyId;
@@ -188,11 +189,11 @@ enum FeeDirValues : uint8_t {
     Out
 };
 
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, int32_t>;
+using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using AscendantValue  = std::pair<uint32_t, std::string>;
+using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);

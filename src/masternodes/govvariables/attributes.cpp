@@ -125,19 +125,20 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
             AttributeTypes::Token, {
-                {"payback_dfi",             TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
-                {"loan_payback",            TokenKeys::LoanPayback},
-                {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
-                {"loan_payback_collateral", TokenKeys::LoanPaybackCollateral},
-                {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
-                {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
-                {"dfip2203",                TokenKeys::DFIP2203Enabled},
-                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
-                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
-                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
-                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
-                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
+                {"payback_dfi",                  TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct",          TokenKeys::PaybackDFIFeePCT},
+                {"loan_payback",                 TokenKeys::LoanPayback},
+                {"loan_payback_fee_pct",         TokenKeys::LoanPaybackFeePCT},
+                {"loan_payback_collateral",      TokenKeys::LoanPaybackCollateral},
+                {"loan_payback_collateral_burn", TokenKeys::LoanPaybackCollateralBurn},
+                {"dex_in_fee_pct",               TokenKeys::DexInFeePct},
+                {"dex_out_fee_pct",              TokenKeys::DexOutFeePct},
+                {"dfip2203",                     TokenKeys::DFIP2203Enabled},
+                {"fixed_interval_price_id",      TokenKeys::FixedIntervalPriceId},
+                {"loan_collateral_enabled",      TokenKeys::LoanCollateralEnabled},
+                {"loan_collateral_factor",       TokenKeys::LoanCollateralFactor},
+                {"loan_minting_enabled",         TokenKeys::LoanMintingEnabled},
+                {"loan_minting_interest",        TokenKeys::LoanMintingInterest},
             }
         },
         {
@@ -168,22 +169,23 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,            "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
-                {TokenKeys::LoanPayback,           "loan_payback"},
-                {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
-                {TokenKeys::LoanPaybackCollateral, "loan_payback_collateral"},
-                {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
-                {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
-                {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
-                {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
-                {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
-                {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
-                {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
-                {TokenKeys::DFIP2203Enabled,       "dfip2203"},
-                {TokenKeys::Ascendant,             "ascendant"},
-                {TokenKeys::Descendant,            "descendant"},
-                {TokenKeys::Epitaph,               "epitaph"},
+                {TokenKeys::PaybackDFI,                "payback_dfi"},
+                {TokenKeys::PaybackDFIFeePCT,          "payback_dfi_fee_pct"},
+                {TokenKeys::LoanPayback,               "loan_payback"},
+                {TokenKeys::LoanPaybackFeePCT,         "loan_payback_fee_pct"},
+                {TokenKeys::LoanPaybackCollateral,     "loan_payback_collateral"},
+                {TokenKeys::LoanPaybackCollateralBurn, "loan_payback_collateral_burn"},
+                {TokenKeys::DexInFeePct,               "dex_in_fee_pct"},
+                {TokenKeys::DexOutFeePct,              "dex_out_fee_pct"},
+                {TokenKeys::FixedIntervalPriceId,      "fixed_interval_price_id"},
+                {TokenKeys::LoanCollateralEnabled,     "loan_collateral_enabled"},
+                {TokenKeys::LoanCollateralFactor,      "loan_collateral_factor"},
+                {TokenKeys::LoanMintingEnabled,        "loan_minting_enabled"},
+                {TokenKeys::LoanMintingInterest,       "loan_minting_interest"},
+                {TokenKeys::DFIP2203Enabled,           "dfip2203"},
+                {TokenKeys::Ascendant,                 "ascendant"},
+                {TokenKeys::Descendant,                "descendant"},
+                {TokenKeys::Epitaph,                   "epitaph"},
             }
         },
         {
@@ -345,19 +347,20 @@ const std::map<uint8_t, std::map<uint8_t,
         std::function<ResVal<CAttributeValue>(const std::string&)>>> parsers{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,            VerifyBool},
-                {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
-                {TokenKeys::LoanPayback,           VerifyBool},
-                {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
-                {TokenKeys::LoanPaybackCollateral, VerifyBool},
-                {TokenKeys::DexInFeePct,           VerifyPct},
-                {TokenKeys::DexOutFeePct,          VerifyPct},
-                {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
-                {TokenKeys::LoanCollateralEnabled, VerifyBool},
-                {TokenKeys::LoanCollateralFactor,  VerifyPositiveFloat},
-                {TokenKeys::LoanMintingEnabled,    VerifyBool},
-                {TokenKeys::LoanMintingInterest,   VerifyFloat},
-                {TokenKeys::DFIP2203Enabled,       VerifyBool},
+                {TokenKeys::PaybackDFI,                VerifyBool},
+                {TokenKeys::PaybackDFIFeePCT,          VerifyPct},
+                {TokenKeys::LoanPayback,               VerifyBool},
+                {TokenKeys::LoanPaybackFeePCT,         VerifyPct},
+                {TokenKeys::LoanPaybackCollateral,     VerifyBool},
+                {TokenKeys::LoanPaybackCollateralBurn, VerifyBool},
+                {TokenKeys::DexInFeePct,               VerifyPct},
+                {TokenKeys::DexOutFeePct,              VerifyPct},
+                {TokenKeys::FixedIntervalPriceId,      VerifyCurrencyPair},
+                {TokenKeys::LoanCollateralEnabled,     VerifyBool},
+                {TokenKeys::LoanCollateralFactor,      VerifyPositiveFloat},
+                {TokenKeys::LoanMintingEnabled,        VerifyBool},
+                {TokenKeys::LoanMintingInterest,       VerifyFloat},
+                {TokenKeys::DFIP2203Enabled,           VerifyBool},
             }
         },
         {
@@ -909,6 +912,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             case AttributeTypes::Token:
                 switch (attrV0->key) {
                     case TokenKeys::LoanPaybackCollateral:
+                    case TokenKeys::LoanPaybackCollateralBurn:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
                             return Res::Err("Cannot be set before FortCanningEpilogue");
                         }

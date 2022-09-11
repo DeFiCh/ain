@@ -4458,6 +4458,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     Res res{};
     CAmount subLoanAmount{0};
     CAmount subCollateralAmount{0};
+    CAmount burnAmount{0};
     // Edge case where interest is greater than collateral
     if (subInterest > collateralDUSD) {
         subCollateralAmount = collateralDUSD;
@@ -4469,6 +4470,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         res = view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount);
         if (!res)
             return res;
+
+        burnAmount = subCollateralAmount;
     } else {
         if (loanDUSD + subInterest > collateralDUSD) {
             subLoanAmount = collateralDUSD - subInterest;
@@ -4487,6 +4490,17 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             return res;
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
+
+        burnAmount = subInterest;
+    }
+
+    CDataStructureV0 DUSDInterestBurn{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateralBurn};
+    if (attributes->GetValue(DUSDInterestBurn, false) && burnAmount > 0)
+    {
+        res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
+        if (!res) {
+            return res;
+        }
     }
 
     // Guard against liquidation

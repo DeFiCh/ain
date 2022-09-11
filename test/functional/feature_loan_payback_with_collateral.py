@@ -157,6 +157,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idDUSD + '/loan_payback_collateral':'true'}})
         self.nodes[0].generate(1)
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idDUSD + '/loan_payback_collateral_burn':'true'}})
+        self.nodes[0].generate(1)
 
         vault_address = self.nodes[0].getnewaddress()
 
@@ -210,14 +212,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         self.nodes[0].deposittovault(self.vaultId, self.account0, "1000@" + self.symbolDUSD)
         self.nodes[0].generate(1)
 
-        vault = self.nodes[0].getvault(self.vaultId)
-        print("vault", vault)
-
         self.nodes[0].takeloan({ "vaultId": self.vaultId, "amounts": "1900@" + self.symbolTSLA })
         self.nodes[0].generate(1)
-
-        vault = self.nodes[0].getvault(self.vaultId)
-        print("vault", vault)
 
         self.nodes[0].takeloan({ "vaultId": self.vaultId, "amounts": "100@" + self.symbolDUSD })
         self.nodes[0].generate(1)
@@ -312,6 +308,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, mintedAmount + collateralDUSDAmount)
 
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"][0], vaultBefore["interestAmounts"][0])
+
         self.rollback_to(height)
 
     def test_loans_equal_to_collaterals(self, payback_with_collateral):
@@ -337,6 +336,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
 
+        vaultBefore = self.nodes[0].getvault(self.vaultId)
+
         payback_with_collateral()
         self.nodes[0].generate(1)
 
@@ -351,6 +352,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, Decimal(mintedAmount + Decimal(collateralDUSDAmount)).quantize(Decimal('1E-8'), rounding=ROUND_DOWN))
+
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"][0], vaultBefore["interestAmounts"][0])
 
         self.rollback_to(height)
 
@@ -375,6 +379,8 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         assert_equal(storedInterest["interestPerBlock"], "0.000009512937595129375951")
         assert_equal(Decimal(storedInterest["interestToHeight"]), Decimal(0))
 
+        vaultBefore = self.nodes[0].getvault(self.vaultId)
+
         payback_with_collateral()
         self.nodes[0].generate(1)
 
@@ -390,6 +396,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, mintedAmount + Decimal(collateralDUSDAmount))
+
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"][0], vaultBefore["collateralAmounts"][1])
 
         self.rollback_to(height)
 
@@ -434,6 +443,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, Decimal(mintedAmount + Decimal(collateralDUSDAmount)).quantize(Decimal('1E-8'), rounding=ROUND_DOWN))
+
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"][0], vaultBefore["interestAmounts"][0])
 
         self.rollback_to(height)
 
@@ -487,6 +499,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, mintedAmount + Decimal(DUSDloanAmount))
 
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"], []) # no burn on negative interest
+
         self.rollback_to(height)
 
     def test_negative_interest_loans_greater_than_collaterals(self, payback_with_collateral):
@@ -536,6 +551,9 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         mintedAmount = self.nodes[0].gettoken(self.symbolDUSD)[self.idDUSD]["minted"]
         assert_equal(mintedAmountBefore, mintedAmount + collateralDUSDAmount)
+
+        burnInfo = self.nodes[0].getburninfo()
+        assert_equal(burnInfo["paybackburn"], []) # no burn on negative interest
 
         self.rollback_to(height)
 
