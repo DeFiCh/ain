@@ -214,6 +214,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
                 {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::NegativeInt,        "negative_interest"},
+                {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
             }
         },
     };
@@ -405,6 +407,19 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
         error += ' ' + pair.first + ',';
     }
     return Res::Err(error);
+}
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestBalances.Add(amount);
+    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+    mnview.SetVariable(*attributes);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
