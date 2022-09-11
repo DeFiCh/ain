@@ -129,6 +129,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
                 {"loan_payback",            TokenKeys::LoanPayback},
                 {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
+                {"loan_payback_collateral", TokenKeys::LoanPaybackCollateral},
                 {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
                 {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
                 {"dfip2203",                TokenKeys::DFIP2203Enabled},
@@ -171,6 +172,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
                 {TokenKeys::LoanPayback,           "loan_payback"},
                 {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
+                {TokenKeys::LoanPaybackCollateral, "loan_payback_collateral"},
                 {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
                 {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
                 {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
@@ -214,6 +216,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
                 {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::NegativeInt,        "negative_interest"},
+                {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
             }
         },
     };
@@ -345,11 +349,12 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
                 {TokenKeys::LoanPayback,           VerifyBool},
                 {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
+                {TokenKeys::LoanPaybackCollateral, VerifyBool},
                 {TokenKeys::DexInFeePct,           VerifyPct},
                 {TokenKeys::DexOutFeePct,          VerifyPct},
                 {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
                 {TokenKeys::LoanCollateralEnabled, VerifyBool},
-                {TokenKeys::LoanCollateralFactor,  VerifyPct},
+                {TokenKeys::LoanCollateralFactor,  VerifyPositiveFloat},
                 {TokenKeys::LoanMintingEnabled,    VerifyBool},
                 {TokenKeys::LoanMintingInterest,   VerifyFloat},
                 {TokenKeys::DFIP2203Enabled,       VerifyBool},
@@ -405,6 +410,19 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
         error += ' ' + pair.first + ',';
     }
     return Res::Err(error);
+}
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestBalances.Add(amount);
+    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+    mnview.SetVariable(*attributes);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
@@ -890,6 +908,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         switch (attrV0->type) {
             case AttributeTypes::Token:
                 switch (attrV0->key) {
+                    case TokenKeys::LoanPaybackCollateral:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            return Res::Err("Cannot be set before FortCanningEpilogue");
+                        }
+
+                        [[fallthrough]];
                     case TokenKeys::PaybackDFI:
                     case TokenKeys::PaybackDFIFeePCT:
                         if (!view.GetLoanTokenByID({attrV0->typeId})) {
@@ -917,6 +941,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanCollateralFactor:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            const auto amount = std::get_if<CAmount>(&value);
+                            if (amount && *amount > COIN) {
+                                return Res::Err("Percentage exceeds 100%%");
+                            }
+                        }
+                        [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
@@ -926,7 +958,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
-                    case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return Res::Err("Cannot be set before FortCanningCrunch");
@@ -1175,6 +1206,24 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
 
                         // Updated stored interest with new interest rate.
                         mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
+                    }
+                }
+            } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
+                if (height >= Params().GetConsensus().FortCanningEpilogueHeight) {
+                    std::set<CAmount> ratio;
+                    mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
+                        ratio.insert(data.ratio);
+                        return true;
+                    });
+                    if (ratio.empty()) {
+                        return Res::Err("Set loan scheme before setting collateral factor.");
+                    }
+                    const auto factor = std::get_if<CAmount>(&attribute.second);
+                    if (!factor) {
+                        return Res::Err("Unexpected type");
+                    }
+                    if (*factor >= *ratio.begin() * CENT) {
+                        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
                     }
                 }
             }
