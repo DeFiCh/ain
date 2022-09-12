@@ -4519,12 +4519,10 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         subCollateralAmount = collateralDUSD;
 
         res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
-        if (!res)
-            return res;
+        if (!res) return res;
 
         res = view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount);
-        if (!res)
-            return res;
+        if (!res) return res;
 
         burnAmount = subCollateralAmount;
     } else {
@@ -4537,9 +4535,9 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             // Negative interest safe guard: abs(interest) > collateral. Excess dropped.
             // Eg: Loan 100, interest -10 and collateral only a 1. SubLoanToken should be 0. 
             if (subLoanAmount < 0) subLoanAmount = 0;
-        
+
         } else {
-        // Common case: Collateral > loans.
+            // Common case: Collateral > loans.
             subLoanAmount = loanDUSD;
             subCollateralAmount = loanDUSD + subInterest;
 
@@ -4547,16 +4545,22 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             if (subCollateralAmount < 0) subCollateralAmount = 0;
         }
 
-        res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
-        if (!res)
-            return res;
+        // Note amounts can be negative.
 
-        res = view.SubVaultCollateral(vaultId, {dUsdToken->first,subCollateralAmount});
-        if (!res)
-            return res;
+        // Negative interest safe guard: abs(interest) > collateral. Excess dropped.
+        // Eg: Loan 100, interest -10 and collateral only a 1. 
+        if (subLoanAmount > 0) {    
+            res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
+            if (!res) return res;
+        }
+
+        // Negative interest safe guard. Excess dropped.
+        if (subCollateralAmount > 0) {
+            res = view.SubVaultCollateral(vaultId, {dUsdToken->first,subCollateralAmount});
+            if (!res) return res;
+        }
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
-
         burnAmount = subInterest;
     }
 
@@ -4564,9 +4568,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (burnAmount > 0)
     {
         res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
-        if (!res) {
-            return res;
-        }
+        if (!res) return res;
     }
 
     // Guard against liquidation
@@ -4583,7 +4585,12 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (collateralsLoans.val->ratio() < scheme->ratio)
         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-    return view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+    if (subCollateralAmount > 0) {
+        res = view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+        if (!res) return res;
+    }
+
+    return Res::Ok();
 }
 
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
