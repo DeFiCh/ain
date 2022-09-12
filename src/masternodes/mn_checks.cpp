@@ -4478,7 +4478,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (!attributes)
         return Res::Err("Attributes unavailable");
 
-    auto dUsdToken = view.GetToken("DUSD");
+    const auto dUsdToken = view.GetToken("DUSD");
     if (!dUsdToken)
         return Res::Err("Cannot find token DUSD");
 
@@ -4504,43 +4504,58 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     }
     const auto& loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
-    auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
+    const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
     if (!rate)
         return Res::Err("Cannot get interest rate for this token (DUSD)!");
-    auto subInterest = TotalInterest(*rate, height);
+    const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
     CAmount subLoanAmount{0};
     CAmount subCollateralAmount{0};
-    // Edge case where interest is greater than collateral
+    CAmount burnAmount{0};
+
+    // Case where interest > collateral: decrease interest, wipe collateral.
     if (subInterest > collateralDUSD) {
         subCollateralAmount = collateralDUSD;
 
         res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
-        if (!res)
-            return res;
+        if (!res) return res;
 
         res = view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount);
-        if (!res)
-            return res;
+        if (!res) return res;
+
+        burnAmount = subCollateralAmount;
     } else {
+        // Postive interest: Loan + interest > collateral. 
+        // Negative interest: Loan - abs(interest) > collateral. 
         if (loanDUSD + subInterest > collateralDUSD) {
             subLoanAmount = collateralDUSD - subInterest;
             subCollateralAmount = collateralDUSD;
         } else {
+            // Common case: Collateral > loans.
             subLoanAmount = loanDUSD;
             subCollateralAmount = loanDUSD + subInterest;
         }
 
-        res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
-        if (!res)
-            return res;
+        if (subLoanAmount > 0) {    
+            res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
+            if (!res) return res;
+        }
 
-        res = view.SubVaultCollateral(vaultId, {dUsdToken->first,subCollateralAmount});
-        if (!res)
-            return res;
+        if (subCollateralAmount > 0) {
+            res = view.SubVaultCollateral(vaultId, {dUsdToken->first,subCollateralAmount});
+            if (!res) return res;
+        }
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
+        burnAmount = subInterest;
+    }
+
+
+    if (burnAmount > 0)
+    {
+        res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
+        if (!res) return res;
     }
 
     // Guard against liquidation
@@ -4553,11 +4568,22 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (!collateralsLoans)
         return std::move(collateralsLoans);
 
+    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable. 
+    // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5 currently)
+    // can be tested for economical stability. Taking the safer approach for now. 
+    if (!IsVaultPriceValid(view, vaultId, height))
+        return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
+
     const auto scheme = view.GetLoanScheme(vault.schemeId);
     if (collateralsLoans.val->ratio() < scheme->ratio)
         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-    return view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+    if (subCollateralAmount > 0) {
+        res = view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
+        if (!res) return res;
+    }
+
+    return Res::Ok();
 }
 
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view) {
