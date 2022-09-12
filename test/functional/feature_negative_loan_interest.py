@@ -17,7 +17,7 @@ class NegativeInterestTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1','-jellyfish_regtest=1', '-simulatemainnet=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1','-jellyfish_regtest=1', '-simulatemainnet=1', '-negativeinterest=1']]
 
     def run_test(self):
         # Create tokens for tests
@@ -116,16 +116,16 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].setoracledata(self.oracle_id2, timestamp, oracle_prices)
         self.nodes[0].generate(120)
 
+        # Create loan scheme
+        self.nodes[0].createloanscheme(150, 5, 'LOAN001')
+        self.nodes[0].generate(1)
+
         # Set collateral tokens
         self.nodes[0].setcollateraltoken({
                                     'token': self.symbolDFI,
                                     'factor': 1,
                                     'fixedIntervalPriceId': "DFI/USD"
                                     })
-        self.nodes[0].generate(1)
-
-        # Create loan scheme
-        self.nodes[0].createloanscheme(150, 5, 'LOAN001')
         self.nodes[0].generate(120)
 
     def test_negative_interest(self):
@@ -218,9 +218,9 @@ class NegativeInterestTest (DefiTestFramework):
         self.nodes[0].closevault(vault_id, vault_address)
         self.nodes[0].generate(1)
 
-        # Check attributes. Amount was 0.00000285 before, diff of remaining 4 Sat loan amount.
+        # Check attributes. Amount was 0.00000013 before, diff of remaining 9987 Sat loan amount.
         attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attrs['v0/live/economy/negative_interest'], [f'0.00000289@{self.symbolDUSD}'])
+        assert_equal(attrs['v0/live/economy/negative_interest'], [f'0.00010000@{self.symbolDUSD}'])
 
 if __name__ == '__main__':
     NegativeInterestTest().main()
