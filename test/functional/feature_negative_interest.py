@@ -44,6 +44,10 @@ class NegativeInterestTest (DefiTestFramework):
 
         self.idDFI = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
 
+        # Create loan scheme
+        self.nodes[0].createloanscheme(150, 1, 'LOAN1')
+        self.nodes[0].generate(1)
+
         self.nodes[0].setcollateraltoken({
                                     'token': self.idDFI,
                                     'factor': 1,
@@ -172,9 +176,6 @@ class NegativeInterestTest (DefiTestFramework):
     # Loan scheme interest->1% and loantoken interest-> -1%
     # Resulting interest must be 0.
     def vault_interest_zero(self):
-        # Create loan scheme
-        self.nodes[0].createloanscheme(150, 1, 'LOAN1')
-        self.nodes[0].generate(1)
 
         # Init vault (create, deposit takeloan)
         self.nodes[0].utxostoaccount({self.account0: "4000@DFI"})
