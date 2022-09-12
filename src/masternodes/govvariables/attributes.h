@@ -78,7 +78,6 @@ enum TokenKeys : uint8_t  {
     Descendant                = 'n',
     Epitaph                   = 'o',
     LoanPaybackCollateral     = 'p',
-    LoanPaybackCollateralBurn = 'q',
 };
 
 enum PoolKeys : uint8_t {

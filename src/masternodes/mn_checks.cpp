@@ -4548,8 +4548,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         burnAmount = subInterest;
     }
 
-    CDataStructureV0 DUSDInterestBurn{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateralBurn};
-    if (attributes->GetValue(DUSDInterestBurn, false) && burnAmount > 0)
+
+    if (burnAmount > 0)
     {
         res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
         if (!res) {

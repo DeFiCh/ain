@@ -130,7 +130,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"loan_payback",                 TokenKeys::LoanPayback},
                 {"loan_payback_fee_pct",         TokenKeys::LoanPaybackFeePCT},
                 {"loan_payback_collateral",      TokenKeys::LoanPaybackCollateral},
-                {"loan_payback_collateral_burn", TokenKeys::LoanPaybackCollateralBurn},
                 {"dex_in_fee_pct",               TokenKeys::DexInFeePct},
                 {"dex_out_fee_pct",              TokenKeys::DexOutFeePct},
                 {"dfip2203",                     TokenKeys::DFIP2203Enabled},
@@ -174,7 +173,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanPayback,               "loan_payback"},
                 {TokenKeys::LoanPaybackFeePCT,         "loan_payback_fee_pct"},
                 {TokenKeys::LoanPaybackCollateral,     "loan_payback_collateral"},
-                {TokenKeys::LoanPaybackCollateralBurn, "loan_payback_collateral_burn"},
                 {TokenKeys::DexInFeePct,               "dex_in_fee_pct"},
                 {TokenKeys::DexOutFeePct,              "dex_out_fee_pct"},
                 {TokenKeys::FixedIntervalPriceId,      "fixed_interval_price_id"},
@@ -352,7 +350,6 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::LoanPayback,               VerifyBool},
                 {TokenKeys::LoanPaybackFeePCT,         VerifyPct},
                 {TokenKeys::LoanPaybackCollateral,     VerifyBool},
-                {TokenKeys::LoanPaybackCollateralBurn, VerifyBool},
                 {TokenKeys::DexInFeePct,               VerifyPct},
                 {TokenKeys::DexOutFeePct,              VerifyPct},
                 {TokenKeys::FixedIntervalPriceId,      VerifyCurrencyPair},
@@ -912,7 +909,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             case AttributeTypes::Token:
                 switch (attrV0->key) {
                     case TokenKeys::LoanPaybackCollateral:
-                    case TokenKeys::LoanPaybackCollateralBurn:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
                             return Res::Err("Cannot be set before FortCanningEpilogue");
                         }

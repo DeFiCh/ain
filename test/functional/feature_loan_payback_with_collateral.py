@@ -157,8 +157,6 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idDUSD + '/loan_payback_collateral':'true'}})
         self.nodes[0].generate(1)
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/token/' + self.idDUSD + '/loan_payback_collateral_burn':'true'}})
-        self.nodes[0].generate(1)
 
         vault_address = self.nodes[0].getnewaddress()
 
