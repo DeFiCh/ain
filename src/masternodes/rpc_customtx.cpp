@@ -420,6 +420,10 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
+    void operator()(const CPaybackWithCollateralMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+    }
+
     void operator()(const CLoanTakeLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         if (!obj.to.empty())

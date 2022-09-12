@@ -129,6 +129,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
                 {"loan_payback",            TokenKeys::LoanPayback},
                 {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
+                {"loan_payback_collateral", TokenKeys::LoanPaybackCollateral},
                 {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
                 {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
                 {"dfip2203",                TokenKeys::DFIP2203Enabled},
@@ -171,6 +172,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
                 {TokenKeys::LoanPayback,           "loan_payback"},
                 {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
+                {TokenKeys::LoanPaybackCollateral, "loan_payback_collateral"},
                 {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
                 {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
                 {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
@@ -214,6 +216,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
                 {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::NegativeInt,        "negative_interest"},
+                {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
             }
         },
     };
@@ -345,6 +349,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
                 {TokenKeys::LoanPayback,           VerifyBool},
                 {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
+                {TokenKeys::LoanPaybackCollateral, VerifyBool},
                 {TokenKeys::DexInFeePct,           VerifyPct},
                 {TokenKeys::DexOutFeePct,          VerifyPct},
                 {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
@@ -405,6 +410,19 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
         error += ' ' + pair.first + ',';
     }
     return Res::Err(error);
+}
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestBalances.Add(amount);
+    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+    mnview.SetVariable(*attributes);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
@@ -890,6 +908,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         switch (attrV0->type) {
             case AttributeTypes::Token:
                 switch (attrV0->key) {
+                    case TokenKeys::LoanPaybackCollateral:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            return Res::Err("Cannot be set before FortCanningEpilogue");
+                        }
+
+                        [[fallthrough]];
                     case TokenKeys::PaybackDFI:
                     case TokenKeys::PaybackDFIFeePCT:
                         if (!view.GetLoanTokenByID({attrV0->typeId})) {
