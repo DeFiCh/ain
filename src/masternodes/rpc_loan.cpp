@@ -1550,6 +1550,72 @@ UniValue getinterest(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue paybackwithcollateral(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"paybackwithcollateral",
+               "Payback vault's loans with vault's collaterals.\n",
+               {
+                       {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+               },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("paybackwithcollateral", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)") +
+                       HelpExampleRpc("paybackwithcollateral", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)")
+               },
+    }.Check(request);
+
+    const auto vaultId = ParseHashV(request.params[0], "vaultId");
+    CPaybackWithCollateralMessage msg{vaultId};
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::PaybackWithCollateral)
+                   << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight;
+    CScript ownerAddress;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+        // decode vaultId
+        auto vault = pcustomcsview->GetVault(vaultId);
+        if (!vault)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
+
+        ownerAddress = vault->ownerAddress;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue const & txInputs = request.params[3];
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{ownerAddress};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+     // Set change to from address
+    CTxDestination dest;
+    ExtractDestination(ownerAddress, dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
 
 static const CRPCCommand commands[] =
 {
@@ -1570,6 +1636,7 @@ static const CRPCCommand commands[] =
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
     {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
     {"loan",        "paybackloan",               &paybackloan,           {"metadata", "inputs"}},
+    {"vault",       "paybackwithcollateral",     &paybackwithcollateral, {"vaultId"}},
     {"loan",        "getloaninfo",               &getloaninfo,           {}},
     {"loan",        "getinterest",               &getinterest,           {"id", "token"}},
 };

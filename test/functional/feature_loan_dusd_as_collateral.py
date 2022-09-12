@@ -206,7 +206,7 @@ class LoanDUSDCollateralTest (DefiTestFramework):
             self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": str(loan_dusd) + "@" + symbolDUSD })
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan." in errorString)
+        assert("At least 50% of the minimum required collateral must be in DFI" in errorString)
 
         self.nodes[0].generate(215 - self.nodes[0].getblockcount()) # move to fortcanningroad height
 
