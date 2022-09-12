@@ -4531,18 +4531,10 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         if (loanDUSD + subInterest > collateralDUSD) {
             subLoanAmount = collateralDUSD - subInterest;
             subCollateralAmount = collateralDUSD;
-
-            // Negative interest safe guard: abs(interest) > collateral. Excess dropped.
-            // Eg: Loan 100, interest -10 and collateral only a 1. SubLoanToken should be 0. 
-            if (subLoanAmount < 0) subLoanAmount = 0;
-
         } else {
             // Common case: Collateral > loans.
             subLoanAmount = loanDUSD;
             subCollateralAmount = loanDUSD + subInterest;
-
-            // Negative interest safe guard. Excess dropped.
-            if (subCollateralAmount < 0) subCollateralAmount = 0;
         }
 
         if (subLoanAmount > 0) {    
