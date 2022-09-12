@@ -142,7 +142,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Deposit DUSD and DFI to vault
-        self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDFI}")
+        self.nodes[0].deposittovault(vault_id, self.address, f"1.8675@{self.symbolDFI}")
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vault_id, self.address, f"1.5@{self.symbolDUSD}")
         self.nodes[0].generate(1)
@@ -153,9 +153,9 @@ class DUSDCollateralFactorTest(DefiTestFramework):
 
         # Check that we are on 150% collateral ratio
         vault = self.nodes[0].getvault(vault_id)
-        assert_equal(vault['collateralRatio'], 150)
-        assert_equal(vault['informativeRatio'], Decimal('150.00000000'))
-        assert_equal(vault['collateralValue'], Decimal('3.73500000'))
+        assert_equal(vault['collateralRatio'], 165)
+        assert_equal(vault['informativeRatio'], Decimal('164.75903614'))
+        assert_equal(vault['collateralValue'], Decimal('4.10250000'))
         assert_equal(vault['loanValue'], Decimal('2.49000000'))
 
     def take_multiple_loans(self):
