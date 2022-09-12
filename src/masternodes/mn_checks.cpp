@@ -4545,16 +4545,11 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             if (subCollateralAmount < 0) subCollateralAmount = 0;
         }
 
-        // Note amounts can be negative.
-
-        // Negative interest safe guard: abs(interest) > collateral. Excess dropped.
-        // Eg: Loan 100, interest -10 and collateral only a 1. 
         if (subLoanAmount > 0) {    
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }
 
-        // Negative interest safe guard. Excess dropped.
         if (subCollateralAmount > 0) {
             res = view.SubVaultCollateral(vaultId, {dUsdToken->first,subCollateralAmount});
             if (!res) return res;
@@ -4580,6 +4575,12 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     auto collateralsLoans = view.GetLoanCollaterals(vaultId, *collaterals, height, time);
     if (!collateralsLoans)
         return std::move(collateralsLoans);
+
+    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable. 
+    // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5 currently)
+    // can be tested for economical stability. Taking the safer approach for now. 
+    if (!IsVaultPriceValid(view, vaultId, height))
+        return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
 
     const auto scheme = view.GetLoanScheme(vault.schemeId);
     if (collateralsLoans.val->ratio() < scheme->ratio)
