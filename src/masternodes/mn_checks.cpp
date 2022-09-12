@@ -26,6 +26,9 @@
 
 #include <algorithm>
 
+constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50%% of the minimum required collateral must be in DFI";
+constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50%% of the minimum required collateral must be in DFI or DUSD";
+
 std::string ToString(CustomTxType type) {
     switch (type)
     {
@@ -2963,6 +2966,65 @@ public:
         return mnview.UpdateVault(obj.vaultId, *vault);
     }
 
+    Res CollateralPctCheck(const bool hasDUSDLoans, const CCollateralLoans& collateralsLoans, const uint32_t ratio) const {
+
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
+
+        // Calculate DFI and DUSD value separately
+        uint64_t totalCollateralsDUSD = 0;
+        uint64_t totalCollateralsDFI = 0;
+
+        for (auto& col : collateralsLoans.collaterals){
+            if (col.nTokenId == DCT_ID{0} )
+                totalCollateralsDFI += col.nValue;
+
+            if(tokenDUSD && col.nTokenId == tokenDUSD->first)
+                totalCollateralsDUSD += col.nValue;
+        }
+        auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
+
+        // Height checks
+        auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
+        auto isPreFCH = static_cast<int>(height) < consensus.FortCanningHillHeight;
+        auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
+        auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
+
+        // Condition checks
+        auto isDFILessThanHalfOfTotalCollateral = totalCollateralsDFI < collateralsLoans.totalCollaterals / 2;
+        auto isDFIAndDUSDLessThanHalfOfRequiredCollateral = arith_uint256(totalCollaterals) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+        auto isDFILessThanHalfOfRequiredCollateral = arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
+
+        if(isPostFCE){
+            if (hasDUSDLoans){
+                if(isDFILessThanHalfOfRequiredCollateral)
+                    return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
+            }else {
+                if(isDFIAndDUSDLessThanHalfOfRequiredCollateral)
+                    return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT));
+            }
+            return Res::Ok();
+        }
+
+        if (isPostFCR)
+            return isDFIAndDUSDLessThanHalfOfRequiredCollateral ?
+                Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT)) :
+                Res::Ok();
+
+        if (isPostFCH)
+            return isDFILessThanHalfOfRequiredCollateral ?
+                Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT)) :
+                Res::Ok();
+
+        if (isPreFCH && isDFILessThanHalfOfTotalCollateral)
+            return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
+
+        return Res::Ok();
+    }
+
+
     Res operator()(const CDepositToVaultMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
@@ -2996,8 +3058,7 @@ public:
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
 
         res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
-        if (!res)
-            return res;
+        if (!res) return res;
 
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
@@ -3038,10 +3099,22 @@ public:
         if (!res)
             return res;
 
+        auto hasDUSDLoans = false;
+
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
+
         if (const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId))
         {
             // Update negative interest in vault
             for (const auto& [tokenId, currentLoanAmount] : loanAmounts->balances) {
+
+                if (tokenDUSD && tokenId == tokenDUSD->first) {
+                    hasDUSDLoans = true;
+                }
+
                 const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
                 assert(rate);
 
@@ -3061,14 +3134,12 @@ public:
                 TrackNegativeInterest(mnview, {tokenId, subAmount});
 
                 mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
+
             }
 
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
             {
-                std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
-                if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
-                    tokenDUSD = mnview.GetToken("DUSD");
-                }
+
                 const auto scheme = mnview.GetLoanScheme(vault->schemeId);
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
@@ -3081,21 +3152,9 @@ public:
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-                    uint64_t totalCollaterals = 0;
-
-                    for (auto& col : collateralsLoans.val->collaterals)
-                        if (col.nTokenId == DCT_ID{0}
-                        || (tokenDUSD && col.nTokenId == tokenDUSD->first))
-                            totalCollaterals += col.nValue;
-
-                    if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-                        if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
-                            return Res::Err("At least 50%% of the collateral must be in DFI");
-                    } else {
-                        if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                            return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI")
-                                                                                              : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD");
-                    }
+                    res = CollateralPctCheck(hasDUSDLoans, collateralsLoans, scheme->ratio);
+                    if(!res)
+                        return res;
                 }
             } else {
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
@@ -3151,6 +3210,13 @@ public:
 
         const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
 
+        auto hasDUSDLoans = false;
+
+        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
+        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+            tokenDUSD = mnview.GetToken("DUSD");
+        }
+
         uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& [tokenId, tokenAmount] : obj.amounts.balances)
         {
@@ -3163,6 +3229,10 @@ public:
 
             if (!loanToken->mintable)
                 return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
+
+            if (tokenDUSD && tokenId == tokenDUSD->first) {
+                hasDUSDLoans = true;
+            }
 
             // Calculate interest
             CAmount currentLoanAmount{};
@@ -3245,10 +3315,6 @@ public:
                 return res;
         }
 
-        std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> tokenDUSD;
-        if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
-            tokenDUSD = mnview.GetToken("DUSD");
-        }
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
@@ -3261,21 +3327,9 @@ public:
             if (collateralsLoans.val->ratio() < scheme->ratio)
                 return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
-            uint64_t totalCollaterals = 0;
-
-            for (auto& col : collateralsLoans.val->collaterals)
-                if (col.nTokenId == DCT_ID{0}
-                || (tokenDUSD && col.nTokenId == tokenDUSD->first))
-                    totalCollaterals += col.nValue;
-
-            if (static_cast<int>(height) < consensus.FortCanningHillHeight) {
-                if (totalCollaterals < collateralsLoans.val->totalCollaterals / 2)
-                    return Res::Err("At least 50%% of the collateral must be in DFI when taking a loan.");
-            } else {
-                if (arith_uint256(totalCollaterals) * 100 < arith_uint256(collateralsLoans.val->totalLoans) * scheme->ratio / 2)
-                    return static_cast<int>(height) < consensus.FortCanningRoadHeight ? Res::Err("At least 50%% of the minimum required collateral must be in DFI when taking a loan.")
-                                                                                      : Res::Err("At least 50%% of the minimum required collateral must be in DFI or DUSD when taking a loan.");
-            }
+            res = CollateralPctCheck(hasDUSDLoans, collateralsLoans, scheme->ratio);
+            if(!res)
+                return res;
         }
         return Res::Ok();
     }
