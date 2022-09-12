@@ -38,7 +38,7 @@ setup_vars() {
 
 echo "======== Sync Test Info ==========
 - Block range: ${START_BLOCK} - ${STOP_BLOCK}
-- Base snapshot: grc.io/br-blockchains-dev/datadir-${START_BLOCK}
+- Base snapshot: https://grc.io/br-blockchains-dev/datadir-${START_BLOCK}
 - Reference logs:
   - debug.log: $REF_LOG_PATH
 - Commands used:
