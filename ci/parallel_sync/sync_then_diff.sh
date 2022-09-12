@@ -31,6 +31,8 @@ setup_vars() {
 
   BLOCK=0
   ATTEMPTS=0
+  START_BLOCK=${START_BLOCK:-0}
+  STOP_BLOCK=${STOP_BLOCK:-0}
   MAX_ATTEMPTS=10
   MAX_NODE_RESTARTS=5
   NODE_RESTARTS=0
@@ -38,7 +40,7 @@ setup_vars() {
 
 echo "======== Sync Test Info ==========
 - Block range: ${START_BLOCK} - ${STOP_BLOCK}
-- Base snapshot: https://grc.io/br-blockchains-dev/datadir-${START_BLOCK}
+- Base snapshot: https://gcr.io/br-blockchains-dev/datadir-${START_BLOCK}
 - Reference logs:
   - debug.log: $REF_LOG_PATH
 - Commands used:
@@ -46,7 +48,7 @@ echo "======== Sync Test Info ==========
  - $LIST_ANCHORS_CMD
 - defid cmd: ${DEFI_CLI_CMD}
 - defi.conf:
-  $(cat $CONF_FILE)
+  $(cat "$CONF_FILE")
 ----------------------------------
 "
 # Start defid
@@ -88,17 +90,17 @@ main() {
   done
 
   # Create temporary log file
-  $GREP "AccountChange:" $DEBUG_FILE | cut -d" " -f2- > $TMP_LOG
-  $ACCOUNT_BALANCES_CMD >> $TMP_LOG
-  $LIST_ANCHORS_CMD >> $TMP_LOG
+  $GREP "AccountChange:" "$DEBUG_FILE" | cut -d" " -f2- > "$TMP_LOG"
+  $ACCOUNT_BALANCES_CMD >> "$TMP_LOG"
+  $LIST_ANCHORS_CMD >> "$TMP_LOG"
 
   $DEFI_CLI_CMD stop
   # Download reference log file
   echo "Downloading reference log file : $REF_LOG_PATH"
-  $FETCH $REF_LOG_PATH
+  $FETCH "$REF_LOG_PATH"
 
   echo "diff $TMP_LOG $REF_LOG"
-  diff $TMP_LOG $REF_LOG
+  diff "$TMP_LOG" "$REF_LOG"
 }
 
 main "$@"

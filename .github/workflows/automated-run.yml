@@ -105,6 +105,7 @@ jobs:
       image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
       options: --privileged
       env:
+        START_BLOCK: ${{matrix.datadir.start}}
         STOP_BLOCK: ${{matrix.datadir.stop}}
         DEFID_BIN: ./defid
         DEFI_CLI_BIN: ./defi-cli
