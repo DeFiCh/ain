@@ -451,13 +451,9 @@ class VaultTest (DefiTestFramework):
         assert_equal(acBTC, ['9.30000000@BTC'])
 
     def takeloan_breaking_50pctDFI_rule(self):
-        try:
-            self.nodes[0].takeloan({
-                    'vaultId': self.vaults[0],
-                    'amounts': "0.1@TSLA"})
-        except JSONRPCException as e:
-            error_str = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan" in error_str)
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].takeloan, {
+            'vaultId': self.vaults[0],
+            'amounts': "0.1@TSLA"})
 
     def takeloan_with_50pctDFI(self):
         self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '0.7@DFI')

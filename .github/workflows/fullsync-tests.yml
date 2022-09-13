@@ -1,13 +1,13 @@
 name: Full Sync Tests
 on:
-  push:
-    branches:
-      - master
   pull_request:
     branches:
       - master
+    types: [labeled, opened, reopened, synchronize]
+
 jobs:
   build-binaries:
+    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
     runs-on: [self-hosted, linux, x64,server-2]
     steps:
     - uses: actions/checkout@v3
@@ -100,6 +100,7 @@ jobs:
            stop: 1900000
     runs-on: [self-hosted, linux, x64]
     needs: build-binaries
+    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
     continue-on-error: true
     container:
       image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}

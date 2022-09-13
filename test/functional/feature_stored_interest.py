@@ -16,7 +16,7 @@ class StoredInterestTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-jellyfish_regtest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-jellyfish_regtest=1', '-negativeinterest=1']]
 
     def run_test(self):
         # Create tokens for tests
@@ -196,7 +196,16 @@ class StoredInterestTest (DefiTestFramework):
 
         # Apply again to update stored interest
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
-        self.nodes[0].generate(5)
+        self.nodes[0].generate(1)
+
+        # Check amount negated shown in attributes, 5 * negative_stored_ipb
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest_current'], [f'0.00000190@{self.symbolDUSD}'])
+        self.nodes[0].generate(4)
+
+        # Check amount negated shown in attributes, 9 * negative_stored_ipb
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest_current'], [f'0.00000342@{self.symbolDUSD}'])
 
         # Check interest to height is now negative
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
@@ -208,6 +217,10 @@ class StoredInterestTest (DefiTestFramework):
         # Apply again to update stored interest
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_minting_interest':'-3'}})
         self.nodes[0].generate(1)
+
+        # Check amount negated shown in attributes, 10 * negative_stored_ipb
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest_current'], [f'0.00000380@{self.symbolDUSD}'])
 
         # Check interest to height has additional negative interest
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
@@ -419,6 +432,13 @@ class StoredInterestTest (DefiTestFramework):
         self.nodes[0].takeloan({ "vaultId": vault_id, "amounts": f"0.00000040@{self.symbolDUSD}"})
         self.nodes[0].generate(1)
 
+        # Check amount negated shown in attributes
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest'], [f'0.00000038@{self.symbolDUSD}'])
+
+        # Current total
+        assert_equal(attrs['v0/live/economy/negative_interest_current'], [f'0.00000038@{self.symbolDUSD}'])
+
         # Check ITH is wiped and IPB increased slightly
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '-0.000000380517519025875190')
@@ -541,6 +561,10 @@ class StoredInterestTest (DefiTestFramework):
         # Payback DUSD loan to update stored interest
         self.nodes[0].paybackloan({ "vaultId": vault_id, "from": self.address, "amounts": f"0.00000001@{self.symbolDUSD}"})
         self.nodes[0].generate(6)
+
+        # Check attributes. Amount was 2.00000003 before.
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest'], [f'2.00000043@{self.symbolDUSD}'])
 
         # Check interest has wiped as expected
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
@@ -718,6 +742,10 @@ class StoredInterestTest (DefiTestFramework):
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(stored_interest['interestPerBlock'], '0.000000000000000000000000')
         assert_equal(stored_interest['interestToHeight'], '-0.513693493150684931506836')
+
+        # Check negative interest value
+        vault = self.nodes[0].getvault(vault_id)
+        assert_equal(vault['interestAmounts'], [f'-0.51369349@{self.symbolDUSD}'])
 
         # Payback loan
         self.nodes[0].paybackloan({ "vaultId": vault_id, "from": vault_address, "amounts": f"1@{self.symbolDUSD}"})
@@ -1037,6 +1065,13 @@ class StoredInterestTest (DefiTestFramework):
         # Withdraw from vault loan
         self.nodes[0].withdrawfromvault(vault_id, vault_address, f'0.5@{self.symbolDFI}')
         self.nodes[0].generate(60)
+
+        # Check attributes. Amount was 2.51369659 before, diff of 0.51369349 = ITH + IPB
+        attrs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attrs['v0/live/economy/negative_interest'], [f'3.02739008@{self.symbolDUSD}'])
+
+        # Current total
+        assert_equal(attrs['v0/live/economy/negative_interest_current'], [f'7.51369661@{self.symbolDUSD}'])
 
         # Check interest after withdrawal
         stored_interest = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
