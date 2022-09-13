@@ -3740,7 +3740,7 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& c
 
     // Leaving close orders, as withdrawal of existing should be ok?
     // disable ICX orders for all networks other than testnet
-    if (Params().NetworkIDString() != CBaseChainParams::TEST)
+    if (Params().NetworkIDString() != CBaseChainParams::TESTNET)
     {
     	switch (type) {
     	    case CustomTxType::ICXCreateOrder:
