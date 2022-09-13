@@ -626,6 +626,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 
     // Set change to selected foundation address
     CTxDestination dest;
+
     ExtractDestination(*auths.cbegin(), dest);
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;

@@ -226,79 +226,58 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
 
 static ResVal<int32_t> VerifyInt32(const std::string& str) {
     int32_t int32;
-    if (!ParseInt32(str, &int32)) {
-        return Res::Err("Value must be an integer");
-    }
+    Require(ParseInt32(str, &int32), "Value must be an integer");
     return {int32, Res::Ok()};
 }
 
 static ResVal<int32_t> VerifyPositiveInt32(const std::string& str) {
     int32_t int32;
-    if (!ParseInt32(str, &int32) || int32 < 0) {
-        return Res::Err("Value must be a positive integer");
-    }
+    Require(ParseInt32(str, &int32) && int32 >= 0, "Value must be a positive integer");
     return {int32, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
     CAmount int64;
-    if (!ParseInt64(str, &int64) || int64 < 0) {
-        return Res::Err("Value must be a positive integer");
-    }
+    Require(ParseInt64(str, &int64) && int64 >= 0, "Value must be a positive integer");
     return {int64, Res::Ok()};
 }
 
+
 static ResVal<CAttributeValue> VerifyFloat(const std::string& str) {
     CAmount amount = 0;
-    if (!ParseFixedPoint(str, 8, &amount)) {
-        return Res::Err("Amount must be a valid number");
-    }
+    Require(ParseFixedPoint(str, 8, &amount),"Amount must be a valid number");
     return {amount, Res::Ok()};
 }
 
 ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
     CAmount amount = 0;
-    if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
-        return Res::Err("Amount must be a positive value");
-    }
+    Require(ParseFixedPoint(str, 8, &amount) && amount >= 0, "Amount must be a positive value");
     return {amount, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     auto resVal = VerifyPositiveFloat(str);
-    if (!resVal) {
-        return resVal;
-    }
-    if (std::get<CAmount>(*resVal.val) > COIN) {
-        return Res::Err("Percentage exceeds 100%%");
-    }
+    Require(resVal);
+    Require(std::get<CAmount>(*resVal.val) <= COIN, "Percentage exceeds 100%%");
     return resVal;
 }
 
 static ResVal<CAttributeValue> VerifyBool(const std::string& str) {
-    if (str != "true" && str != "false") {
-        return Res::Err(R"(Boolean value must be either "true" or "false")");
-    }
+    Require(str == "true" || str == "false", R"(Boolean value must be either "true" or "false")");
     return {str == "true", Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     OracleSplits splits;
     const auto pairs = KeyBreaker(str);
-    if (pairs.size() != 2) {
-        return Res::Err("Two int values expected for split in id/mutliplier");
-    }
+    Require(pairs.size() == 2, "Two int values expected for split in id/mutliplier");
     const auto resId = VerifyPositiveInt32(pairs[0]);
-    if (!resId) {
-        return resId;
-    }
+    Require(resId);
+
     const auto resMultiplier = VerifyInt32(pairs[1]);
-    if (!resMultiplier) {
-        return resMultiplier;
-    }
-    if (*resMultiplier == 0) {
-        return Res::Err("Mutliplier cannot be zero");
-    }
+    Require(resMultiplier);
+    Require(*resMultiplier != 0, "Mutliplier cannot be zero");
+
     splits[*resId] = *resMultiplier;
 
     return {splits, Res::Ok()};
@@ -306,14 +285,11 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
 
 static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
     const auto value = KeyBreaker(str);
-    if (value.size() != 2) {
-        return Res::Err("Exactly two entires expected for currency pair");
-    }
+    Require(value.size() == 2, "Exactly two entires expected for currency pair");
+
     auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-    if (token.empty() || currency.empty()) {
-        return Res::Err("Empty token / currency");
-    }
+    Require(!token.empty() && !currency.empty(), "Empty token / currency");
     return {CTokenCurrencyPair{token, currency}, Res::Ok()};
 }
 
@@ -322,9 +298,7 @@ static std::set<std::string> dirSet{"both", "in", "out"};
 static ResVal<CAttributeValue> VerifyFeeDirection(const std::string& str) {
     auto lowerStr = ToLower(str);
     const auto it = dirSet.find(lowerStr);
-    if (it == dirSet.end()) {
-        return Res::Err("Fee direction value must be both, in or out");
-    }
+    Require(it != dirSet.end(), "Fee direction value must be both, in or out");
     return {CFeeDir{static_cast<uint8_t>(std::distance(dirSet.begin(), it))}, Res::Ok()};
 }
 
@@ -404,12 +378,12 @@ ResVal<CScript> GetFutureSwapContractAddress(const std::string& contract) {
     return {contractAddress, Res::Ok()};
 }
 
-static Res ShowError(const std::string& key, const std::map<std::string, uint8_t>& keys) {
+static std::string ShowError(const std::string& key, const std::map<std::string, uint8_t>& keys) {
     std::string error{"Unrecognised " + key + " argument provided, valid " + key + "s are:"};
     for (const auto& pair : keys) {
         error += ' ' + pair.first + ',';
     }
-    return Res::Err(error);
+    return error;
 }
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
@@ -428,64 +402,43 @@ void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
                                 std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
 
-    if (key.size() > 128) {
-        return Res::Err("Identifier exceeds maximum length (128)");
-    }
+    Require(key.size() <= 128, "Identifier exceeds maximum length (128)");
 
     const auto keys = KeyBreaker(key);
-    if (keys.empty() || keys[0].empty()) {
-        return Res::Err("Empty version");
-    }
+    Require(!keys.empty() && !keys[0].empty(), "Empty version");
 
-    if (value.empty()) {
-        return Res::Err("Empty value");
-    }
+    Require(!value.empty(), "Empty value");
 
-    const auto& iver = allowedVersions().find(keys[0]);
-    if (iver == allowedVersions().end()) {
-        return Res::Err("Unsupported version");
-    }
+    auto iver = allowedVersions().find(keys[0]);
+    Require(iver != allowedVersions().end(), "Unsupported version");
 
-    const auto& version = iver->second;
-    if (version != VersionTypes::v0) {
-        return Res::Err("Unsupported version");
-    }
+    auto version = iver->second;
+    Require(version == VersionTypes::v0, "Unsupported version");
 
-    if (keys.size() < 4 || keys[1].empty() || keys[2].empty() || keys[3].empty()) {
-        return Res::Err("Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
-    }
+    Require(keys.size() >= 4 && !keys[1].empty() && !keys[2].empty() && !keys[3].empty(),
+              "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected");
 
     auto itype = allowedTypes().find(keys[1]);
-    if (itype == allowedTypes().end()) {
-        return ::ShowError("type", allowedTypes());
-    }
+    Require(itype != allowedTypes().end(), ::ShowError("type", allowedTypes()));
 
     const auto type = itype->second;
 
     uint32_t typeId{0};
     if (type == AttributeTypes::Param) {
         auto id = allowedParamIDs().find(keys[2]);
-        if (id == allowedParamIDs().end()) {
-            return ::ShowError("param", allowedParamIDs());
-        }
+        Require(id != allowedParamIDs().end(), ::ShowError("param", allowedParamIDs()));
         typeId = id->second;
     } else if (type == AttributeTypes::Locks) {
         auto id = allowedLocksIDs().find(keys[2]);
-        if (id == allowedLocksIDs().end()) {
-            return ::ShowError("locks", allowedLocksIDs());
-        }
+        Require(id != allowedLocksIDs().end(), ::ShowError("locks", allowedLocksIDs()));
         typeId = id->second;
     } else if (type == AttributeTypes::Oracles) {
         auto id = allowedOracleIDs().find(keys[2]);
-        if (id == allowedOracleIDs().end()) {
-            return ::ShowError("oracles", allowedOracleIDs());
-        }
+        Require(id != allowedOracleIDs().end(), ::ShowError("oracles", allowedOracleIDs()));
         typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
-        if (!id) {
-            return std::move(id);
-        }
+        Require(id);
         typeId = *id.val;
     }
 
@@ -504,9 +457,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
     } else {
         auto ikey = allowedKeys().find(type);
-        if (ikey == allowedKeys().end()) {
-            return Res::Err("Unsupported type {%d}", type);
-        }
+        Require(ikey != allowedKeys().end(), "Unsupported type {%d}", type);
 
         // Alias of reward_pct in Export.
         if (keys[3] == "fee_pct") {
@@ -514,9 +465,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
 
         itype = ikey->second.find(keys[3]);
-        if (itype == ikey->second.end()) {
-            return ::ShowError("key", ikey->second);
-        }
+        Require(itype != ikey->second.end(), ::ShowError("key", ikey->second));
 
         typeKey = itype->second;
 
@@ -542,10 +491,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     }
                 }
             } else if (typeId == ParamIDs::DFIP2206A) {
-                if (typeKey != DFIPKeys::DUSDInterestBurn &&
-                    typeKey != DFIPKeys::DUSDLoanBurn) {
-                    return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
-                }
+                Require(typeKey == DFIPKeys::DUSDInterestBurn
+                     || typeKey == DFIPKeys::DUSDLoanBurn,
+                     "Unsupported type for DFIP2206A {%d}", typeKey);
             }  else {
                 return Res::Err("Unsupported Param ID");
             }
@@ -555,26 +503,18 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     }
 
     if (attrV0.IsExtendedSize()) {
-        if (keys.size() != 5 || keys[4].empty()) {
-            return Res::Err("Exact 5 keys are required {%d}", keys.size());
-        }
+        Require(keys.size() == 5 && !keys[4].empty(), "Exact 5 keys are required {%d}", keys.size());
         auto id = VerifyInt32(keys[4]);
-        if (!id) {
-            return std::move(id);
-        }
+        Require(id);
         attrV0.keyId = *id.val;
     } else {
-        if (keys.size() != 4) {
-            return Res::Err("Exact 4 keys are required {%d}", keys.size());
-        }
+        Require(keys.size() == 4, "Exact 4 keys are required {%d}", keys.size());
     }
 
     try {
         if (auto parser = parseValue().at(type).at(typeKey)) {
             auto attribValue = parser(value);
-            if (!attribValue) {
-                return std::move(attribValue);
-            }
+            Require(attribValue);
             return applyVariable(attrV0, *attribValue.val);
         }
     } catch (const std::out_of_range&) {
@@ -622,25 +562,16 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
         CHistoryWriters subWriters{historyStore, nullptr, nullptr};
         CAccountsHistoryWriter subView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
 
-        auto res = subView.SubBalance(*contractAddressValue, value.source);
-        if (!res) {
-            return res;
-        }
+        Require(subView.SubBalance(*contractAddressValue, value.source));
         subView.Flush();
 
         CHistoryWriters addWriters{historyStore, nullptr, nullptr};
         CAccountsHistoryWriter addView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
 
-        res = addView.AddBalance(key.owner, value.source);
-        if (!res) {
-            return res;
-        }
+        Require(addView.AddBalance(key.owner, value.source));
         addView.Flush();
 
-        res = balances.Sub(value.source);
-        if (!res) {
-            return res;
-        }
+        Require(balances.Sub(value.source));
     }
 
     SetValue(liveKey, std::move(balances));
@@ -677,24 +608,15 @@ Res ATTRIBUTES::RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height)
 
         CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
         CAccountsHistoryWriter subView(mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &subWriters);
-        auto res = subView.SubBalance(*contractAddressValue, {DCT_ID{}, amount});
-        if (!res) {
-            return res;
-        }
+        Require(subView.SubBalance(*contractAddressValue, {DCT_ID{}, amount}));
         subView.Flush();
 
         CHistoryWriters addWriters{paccountHistoryDB.get(), nullptr, nullptr};
         CAccountsHistoryWriter addView(mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund), &addWriters);
-        res = addView.AddBalance(key.owner, {DCT_ID{}, amount});
-        if (!res) {
-            return res;
-        }
+        Require(addView.AddBalance(key.owner, {DCT_ID{}, amount}));
         addView.Flush();
 
-        res = balances.Sub({DCT_ID{}, amount});
-        if (!res) {
-            return res;
-        }
+        Require(balances.Sub({DCT_ID{}, amount}));
     }
 
     SetValue(liveKey, std::move(balances));
@@ -703,17 +625,14 @@ Res ATTRIBUTES::RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height)
 }
 
 Res ATTRIBUTES::Import(const UniValue & val) {
-    if (!val.isObject()) {
-        return Res::Err("Object of values expected");
-    }
+    Require(val.isObject(), "Object of values expected");
 
     std::map<std::string, UniValue> objMap;
     val.getObjMap(objMap);
 
-    for (const auto& pair : objMap) {
-        auto res = ProcessVariable(
-            pair.first, pair.second.get_str(),
-            [this](const CAttributeType& attribute, const CAttributeValue& value) {
+    for (const auto& [key, value] : objMap) {
+        Require(ProcessVariable(key, value.get_str(),
+            [this](const CAttributeType& attribute, const CAttributeValue& attrValue) {
                 if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
                             (attrV0->type == AttributeTypes::Token &&
@@ -722,12 +641,9 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                               attrV0->key == TokenKeys::Epitaph))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
-                        const auto splitValue = std::get_if<OracleSplits>(&value);
-                        if (!splitValue) {
-                            return Res::Err("Failed to get Oracle split value");
-                        }
-                        if (splitValue->size() != 1)
-                            return Res::Err("Invalid number of token splits, allowed only one per height!");
+                        const auto splitValue = std::get_if<OracleSplits>(&attrValue);
+                        Require(splitValue, "Failed to get Oracle split value");
+                        Require(splitValue->size() == 1,"Invalid number of token splits, allowed only one per height!");
 
                         const auto& [id, multiplier] = *(splitValue->begin());
                         tokenSplits.insert(id);
@@ -746,17 +662,14 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         } else {
                             newAttr.key = TokenKeys::PaybackDFIFeePCT;
                         }
-                        SetValue(newAttr, value);
+                        SetValue(newAttr, attrValue);
                         return Res::Ok();
                     }
                 }
-                SetValue(attribute, value);
+                SetValue(attribute, attrValue);
                 return Res::Ok();
-            }
-        );
-        if (!res) {
-            return res;
         }
+        ));
     }
     return Res::Ok();
 }
@@ -897,96 +810,61 @@ UniValue ATTRIBUTES::Export() const {
 
 Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 {
-    if (view.GetLastHeight() < Params().GetConsensus().FortCanningHillHeight)
-        return Res::Err("Cannot be set before FortCanningHill");
+    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHillHeight, "Cannot be set before FortCanningHill");
 
     for (const auto& [key, value] : attributes) {
         const auto attrV0 = std::get_if<CDataStructureV0>(&key);
-        if (!attrV0) {
-            return Res::Err("Unsupported version");
-        }
+        Require(attrV0, "Unsupported version");
         switch (attrV0->type) {
             case AttributeTypes::Token:
                 switch (attrV0->key) {
                     case TokenKeys::LoanPaybackCollateral:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
-                            return Res::Err("Cannot be set before FortCanningEpilogue");
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningEpilogueHeight, "Cannot be set before FortCanningEpilogue");
 
                         [[fallthrough]];
                     case TokenKeys::PaybackDFI:
                     case TokenKeys::PaybackDFIFeePCT:
-                        if (!view.GetLoanTokenByID({attrV0->typeId})) {
-                            return Res::Err("No such loan token (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLoanTokenByID({attrV0->typeId}), "No such loan token (%d)", attrV0->typeId);
                     break;
                     case TokenKeys::LoanPayback:
                     case TokenKeys::LoanPaybackFeePCT:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
-                            return Res::Err("Cannot be set before FortCanningRoad");
-                        }
-                        if (!view.GetLoanTokenByID(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such loan token (%d)", attrV0->typeId);
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->keyId})) {
-                            return Res::Err("No such token (%d)", attrV0->keyId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningRoadHeight,"Cannot be set before FortCanningRoad");
+                        Require(view.GetLoanTokenByID(DCT_ID{attrV0->typeId}), "No such loan token (%d)", attrV0->typeId);
+                        Require(view.GetToken(DCT_ID{attrV0->keyId}), "No such token (%d)", attrV0->keyId);
                     break;
                     case TokenKeys::DexInFeePct:
                     case TokenKeys::DexOutFeePct:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
-                            return Res::Err("Cannot be set before FortCanningRoad");
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningRoadHeight, "Cannot be set before FortCanningRoad");
+                        Require(view.GetToken(DCT_ID{attrV0->typeId}), "No such token (%d)", attrV0->typeId);
                     break;
                     case TokenKeys::LoanCollateralFactor:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
-                            if (amount && *amount > COIN) {
-                                return Res::Err("Percentage exceeds 100%%");
-                            }
+                            if (amount) Require(*amount <= COIN, "Percentage exceeds 100%%");
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
-                            if (amount && *amount < 0) {
-                                return Res::Err("Amount must be a positive value");
-                            }
+                            if (amount) Require(*amount >= 0, "Amount must be a positive value");
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
                     case TokenKeys::LoanMintingEnabled: {
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
-                            return Res::Err("Cannot be set before FortCanningCrunch");
-                        }
-                        if (!VerifyToken(view, attrV0->typeId)) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningCrunchHeight, "Cannot be set before FortCanningCrunch");
+                        Require(VerifyToken(view, attrV0->typeId), "No such token (%d)", attrV0->typeId);
                         CDataStructureV0 intervalPriceKey{AttributeTypes::Token, attrV0->typeId,
                                                           TokenKeys::FixedIntervalPriceId};
-                        if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
-                            return Res::Err("Fixed interval price currency pair must be set first");
-                        }
+                        Require(!(GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}), "Fixed interval price currency pair must be set first");
                         break;
                     }
                     case TokenKeys::FixedIntervalPriceId:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
-                            return Res::Err("Cannot be set before FortCanningCrunch");
-                        }
-                        if (!VerifyToken(view, attrV0->typeId)) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningCrunchHeight, "Cannot be set before FortCanningCrunch");
+                        Require(VerifyToken(view, attrV0->typeId), "No such token (%d)", attrV0->typeId);
                         break;
                     case TokenKeys::DFIP2203Enabled:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
-                            return Res::Err("Cannot be set before FortCanningRoad");
-                        }
-                        if (!view.GetLoanTokenByID(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such loan token (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningRoadHeight, "Cannot be set before FortCanningRoad");
+                        Require(view.GetLoanTokenByID(DCT_ID{attrV0->typeId}), "No such loan token (%d)", attrV0->typeId);
                     break;
                     case TokenKeys::Ascendant:
                     case TokenKeys::Descendant:
@@ -998,31 +876,18 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Oracles:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
-                    return Res::Err("Cannot be set before FortCanningCrunch");
-                }
+                Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningCrunchHeight, "Cannot be set before FortCanningCrunch");
                 if (attrV0->typeId == OracleIDs::Splits) {
                     const auto splitMap = std::get_if<OracleSplits>(&value);
-                    if (!splitMap) {
-                        return Res::Err("Unsupported value");
-                    }
+                    Require(splitMap, "Unsupported value");
+
                     for (const auto& [tokenId, multipler] : *splitMap) {
-                        if (tokenId == 0) {
-                            return Res::Err("Tokenised DFI cannot be split");
-                        }
-                        if (view.HasPoolPair(DCT_ID{tokenId})) {
-                            return Res::Err("Pool tokens cannot be split");
-                        }
+                        Require(tokenId != 0, "Tokenised DFI cannot be split");
+                        Require(!view.HasPoolPair(DCT_ID{tokenId}), "Pool tokens cannot be split");
                         const auto token = view.GetToken(DCT_ID{tokenId});
-                        if (!token) {
-                            return Res::Err("Token (%d) does not exist", tokenId);
-                        }
-                        if (!token->IsDAT()) {
-                            return Res::Err("Only DATs can be split");
-                        }
-                        if (!view.GetLoanTokenByID(DCT_ID{tokenId}).has_value()) {
-                            return Res::Err("No loan token with id (%d)", tokenId);
-                        }
+                        Require(token, "Token (%d) does not exist", tokenId);
+                        Require(token->IsDAT(), "Only DATs can be split");
+                        Require(view.GetLoanTokenByID(DCT_ID{tokenId}).has_value(), "No loan token with id (%d)", tokenId);
                     }
                 } else {
                     return Res::Err("Unsupported key");
@@ -1033,18 +898,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 switch (attrV0->key) {
                     case PoolKeys::TokenAFeePCT:
                     case PoolKeys::TokenBFeePCT:
-                        if (!view.GetPoolPair({attrV0->typeId})) {
-                            return Res::Err("No such pool (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetPoolPair({attrV0->typeId}), "No such pool (%d)", attrV0->typeId);
                     break;
                     case PoolKeys::TokenAFeeDir:
                     case PoolKeys::TokenBFeeDir:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
-                            return Res::Err("Cannot be set before FortCanningSpringHeight");
-                        }
-                        if (!view.GetPoolPair({attrV0->typeId})) {
-                            return Res::Err("No such pool (%d)", attrV0->typeId);
-                        }
+                        Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningSpringHeight, "Cannot be set before FortCanningSpringHeight");
+                        Require(view.GetPoolPair({attrV0->typeId}), "No such pool (%d)", attrV0->typeId);
                     break;
                     default:
                         return Res::Err("Unsupported key");
@@ -1053,13 +912,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Param:
                 if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
-                        return Res::Err("Cannot be set before FortCanningSpringHeight");
-                    }
+                    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningSpringHeight, "Cannot be set before FortCanningSpringHeight");
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {
-                    if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
-                        return Res::Err("Cannot be set before FortCanningRoadHeight");
-                    }
+                    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningRoadHeight, "Cannot be set before FortCanningRoadHeight");
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
@@ -1070,15 +925,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Locks:
-                if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
-                    return Res::Err("Cannot be set before FortCanningCrunch");
-                }
-                if (attrV0->typeId != ParamIDs::TokenID) {
-                    return Res::Err("Unrecognised locks id");
-                }
-                if (!view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
-                    return Res::Err("No loan token with id (%d)", attrV0->key);
-                }
+                Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningCrunchHeight, "Cannot be set before FortCanningCrunch");
+                Require(attrV0->typeId == ParamIDs::TokenID, "Unrecognised locks id");
+                Require(view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value(), "No loan token with id (%d)", attrV0->key);
             break;
 
             default:
@@ -1101,16 +950,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 attrV0->key == PoolKeys::TokenBFeePCT) {
                 auto poolId = DCT_ID{attrV0->typeId};
                 auto pool = mnview.GetPoolPair(poolId);
-                if (!pool) {
-                    return Res::Err("No such pool (%d)", poolId.v);
-                }
+                Require(pool, "No such pool (%d)", poolId.v);
                 auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
                                pool->idTokenA : pool->idTokenB;
 
                 const auto valuePct = std::get_if<CAmount>(&attribute.second);
-                if (!valuePct) {
-                    return Res::Err("Unexpected type");
-                }
+                Require(valuePct, "Unexpected type");
                 if (auto res = mnview.SetDexFeePct(poolId, tokenId, *valuePct); !res) {
                     return res;
                 }
@@ -1123,9 +968,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     std::swap(tokenA, tokenB);
                 }
                 const auto valuePct = std::get_if<CAmount>(&attribute.second);
-                if (!valuePct) {
-                    return Res::Err("Unexpected type");
-                }
+                Require(valuePct, "Unexpected type");
                 if (auto res = mnview.SetDexFeePct(tokenA, tokenB, *valuePct); !res) {
                     return res;
                 }
@@ -1150,28 +993,20 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     if (aggregatePrice) {
                         fixedIntervalPrice.priceRecord[1] = aggregatePrice;
                     }
-                    const auto res = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
-                    if (!res) {
-                        return res;
-                    }
+                    Require(mnview.SetFixedIntervalPrice(fixedIntervalPrice));
                 } else {
                     return Res::Err("Unrecognised value for FixedIntervalPriceId");
                 }
             } else if (attrV0->key == TokenKeys::DFIP2203Enabled) {
-
                 const auto value = std::get_if<bool>(&attribute.second);
-                if (!value) {
-                    return Res::Err("Unexpected type");
-                }
+                Require(value, "Unexpected type");
 
                 if (*value) {
                     continue;
                 }
 
                 const auto token = mnview.GetLoanTokenByID(DCT_ID{attrV0->typeId});
-                if (!token) {
-                    return Res::Err("No such loan token (%d)", attrV0->typeId);
-                }
+                Require(token, "No such loan token (%d)", attrV0->typeId);
 
                 // Special case: DUSD will be used as a source for swaps but will
                 // be set as disabled for Future swap destination.
@@ -1179,16 +1014,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     continue;
                 }
 
-                auto res = RefundFuturesContracts(mnview, height, attrV0->typeId);
-                if (!res) {
-                    return res;
-                }
+                Require(RefundFuturesContracts(mnview, height, attrV0->typeId));
             } else if (attrV0->key == TokenKeys::LoanMintingInterest) {
                 if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight) && interestTokens.count(attrV0->typeId)) {
                     const auto tokenInterest = std::get_if<CAmount>(&attribute.second);
-                    if (!tokenInterest) {
-                        return Res::Err("Unexpected type");
-                    }
+                    Require(tokenInterest, "Unexpected type");
 
                     std::set<CVaultId> affectedVaults;
                     mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
@@ -1215,36 +1045,25 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         ratio.insert(data.ratio);
                         return true;
                     });
-                    if (ratio.empty()) {
-                        return Res::Err("Set loan scheme before setting collateral factor.");
-                    }
+                    Require(!ratio.empty(), "Set loan scheme before setting collateral factor.");
+
                     const auto factor = std::get_if<CAmount>(&attribute.second);
-                    if (!factor) {
-                        return Res::Err("Unexpected type");
-                    }
-                    if (*factor >= *ratio.begin() * CENT) {
-                        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
-                    }
+                    Require(factor, "Unexpected type");
+
+                    Require(*factor < *ratio.begin() * CENT, "Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
             if (attrV0->typeId == ParamIDs::DFIP2203) {
                 if (attrV0->key == DFIPKeys::Active) {
-
                     const auto value = std::get_if<bool>(&attribute.second);
-                    if (!value) {
-                        return Res::Err("Unexpected type");
-                    }
+                    Require(value, "Unexpected type");
 
                     if (*value) {
                         continue;
                     }
 
-                    Res res = RefundFuturesContracts(mnview, height);
-                    if (!res) {
-                        return res;
-                    }
-
+                    Require(RefundFuturesContracts(mnview, height));
                 } else if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
 
                     // Only check this when block period has been set, otherwise
@@ -1260,21 +1079,14 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             } else if (attrV0->typeId == ParamIDs::DFIP2206F) {
                 if (attrV0->key == DFIPKeys::Active) {
-
                     const auto value = std::get_if<bool>(&attribute.second);
-                    if (!value) {
-                        return Res::Err("Unexpected type");
-                    }
+                    Require(value, "Unexpected type");
 
                     if (*value) {
                         continue;
                     }
 
-                    Res res = RefundFuturesDUSD(mnview, height);
-                    if (!res) {
-                        return res;
-                    }
-
+                    Require(RefundFuturesDUSD(mnview, height));
                 } else if (attrV0->key == DFIPKeys::BlockPeriod) {
 
                     // Only check this when block period has been set, otherwise
@@ -1284,54 +1096,41 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     }
 
                     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
-                    if (GetValue(activeKey, false)) {
-                        return Res::Err("Cannot set block period while DFIP2206F is active");
-                    }
+                    Require(!GetValue(activeKey, false), "Cannot set block period while DFIP2206F is active");
                 }
             }
 
         } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
             const auto value = std::get_if<OracleSplits>(&attribute.second);
-            if (!value) {
-                return Res::Err("Unsupported value");
-            }
+            Require(value, "Unsupported value");
             for (const auto split : tokenSplits) {
                 if (auto it{value->find(split)}; it == value->end()) {
                     continue;
                 }
 
-                if (attrV0->key <= height) {
-                    return Res::Err("Cannot be set at or below current height");
-                }
+                Require(attrV0->key > height, "Cannot be set at or below current height");
 
                 CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, split};
                 if (GetValue(lockKey, false)) {
                     continue;
                 }
 
-                if (!mnview.GetLoanTokenByID(DCT_ID{split}).has_value()) {
-                    return Res::Err("Auto lock. No loan token with id (%d)", split);
-                }
+                Require(mnview.GetLoanTokenByID(DCT_ID{split}).has_value(), "Auto lock. No loan token with id (%d)", split);
 
                 const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
-                    if (!var) {
-                        return Res::Err("Failed to create Gov var for lock");
-                    }
+                    Require(var, "Failed to create Gov var for lock");
+
                     auto govVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    if (!govVar) {
-                        return Res::Err("Failed to cast Gov var to ATTRIBUTES");
-                    }
+                    Require(govVar, "Failed to cast Gov var to ATTRIBUTES");
                     govVar->attributes[lockKey] = true;
 
                     CGovernanceHeightMessage lock;
                     lock.startHeight = startHeight;
                     lock.govVar = govVar;
-                    const auto res = storeGovVars(lock, mnview);
-                    if (!res) {
-                        return Res::Err("Cannot be set at or below current height");
-                    }
+
+                    Require(storeGovVars(lock, mnview), "Cannot be set at or below current height");
                 } else {
                     // Less than a day's worth of blocks, apply instant lock
                     SetValue(lockKey, true);

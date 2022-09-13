@@ -298,7 +298,7 @@ void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const
 
 Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount tokenInterest, const CAmount loanIncreased)
 {
-    auto scheme = GetLoanScheme(loanSchemeID);
+    const auto scheme = GetLoanScheme(loanSchemeID);
     Require(scheme, "No such scheme id %s", loanSchemeID);
 
     auto token = GetLoanTokenByID(id);
@@ -338,7 +338,7 @@ Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, 
 
 Res CLoanView::DecreaseInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount loanDecreased, const CAmount interestDecreased)
 {
-    auto scheme = GetLoanScheme(loanSchemeID);
+    const auto scheme = GetLoanScheme(loanSchemeID);
     Require(scheme, "No such scheme id %s", loanSchemeID);
 
     auto token = GetLoanTokenByID(id);
@@ -469,8 +469,9 @@ void CLoanView::RevertInterestRateToV1()
         return true;
     });
 
-    for (auto it = pairs.begin(); it != pairs.end(); it = pairs.erase(it))
+    for (auto it = pairs.begin(); it != pairs.end(); it = pairs.erase(it)) {
         EraseBy<LoanInterestV2ByVault>(*it);
+    }
 }
 
 void CLoanView::RevertInterestRateToV2()

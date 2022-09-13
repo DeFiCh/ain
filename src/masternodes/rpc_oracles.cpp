@@ -34,10 +34,10 @@ namespace oraclefields {
 namespace {
     CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue& value) {
         if (!value.exists(oraclefields::Currency)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Currency));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
         }
         if (!value.exists(oraclefields::Token)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Token));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
         }
 
         auto token = value[oraclefields::Token].getValStr();
@@ -445,10 +445,10 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
         if (!value.exists(oraclefields::Currency)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::Currency));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
         }
         if (!value.exists(oraclefields::TokenAmount)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("%s is required field", oraclefields::TokenAmount));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
         }
 
         auto currency = value[oraclefields::Currency].getValStr();

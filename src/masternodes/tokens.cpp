@@ -226,8 +226,9 @@ DCT_ID CTokensView::IncrementLastDctId()
 std::optional<DCT_ID> CTokensView::ReadLastDctId() const
 {
     DCT_ID lastDctId{DCT_ID_START};
-    if (Read(LastDctId::prefix(), lastDctId))
+    if (Read(LastDctId::prefix(), lastDctId)) {
         return {lastDctId};
+    }
 
     return {};
 }
