@@ -2249,7 +2249,7 @@ public:
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            res = TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
             if (!res)
                 return res;
         }
@@ -3739,15 +3739,19 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params& c
     // ICXCloseOffer       = '7',
 
     // Leaving close orders, as withdrawal of existing should be ok?
-    switch (type) {
-        case CustomTxType::ICXCreateOrder:
-        case CustomTxType::ICXMakeOffer:
-        case CustomTxType::ICXSubmitDFCHTLC:
-        case CustomTxType::ICXSubmitEXTHTLC:
-        case CustomTxType::ICXClaimDFCHTLC:
-            return true;
-        default:
-            return false;
+    // disable ICX orders for all networks other than testnet
+    if (Params().NetworkIDString() != CBaseChainParams::TEST)
+    {
+    	switch (type) {
+    	    case CustomTxType::ICXCreateOrder:
+    	    case CustomTxType::ICXMakeOffer:
+    	    case CustomTxType::ICXSubmitDFCHTLC:
+    	    case CustomTxType::ICXSubmitEXTHTLC:
+    	    case CustomTxType::ICXClaimDFCHTLC:
+    	        return true;
+    	    default:
+    	        return false;
+    	}
     }
 }
 
