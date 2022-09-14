@@ -956,7 +956,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
 
         # dBTC/BTC Scenario, tests 75% taker fee refund
-        # both accounts have >=1BTC        
+        # both accounts have >=1BTC
         self.nodes[1].accounttoaccount(accountBTC, {accountDFI: "1@" + symbolBTC})
         self.nodes[1].generate(1)
         self.sync_blocks()
