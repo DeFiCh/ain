@@ -23,6 +23,10 @@ src/defi-wallet
 src/test/test_defi
 src/test/test_defi_fuzzy
 
+# Generated code
+src/libain_rpc.cpp
+src/libain_rpc.h
+
 # autoreconf
 Makefile.in
 aclocal.m4

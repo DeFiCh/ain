@@ -19,13 +19,14 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <libain_rpc.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
+#include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
-#include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
@@ -41,8 +42,8 @@
 #include <script/script.h>
 #include <script/sigcache.h>
 #include <script/standard.h>
-#include <spv/spv_wrapper.h>
 #include <shutdown.h>
+#include <spv/spv_wrapper.h>
 #include <timedata.h>
 #include <tinyformat.h>
 #include <txdb.h>
@@ -2486,6 +2487,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                   CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
 {
+    auto clientDMC = NewClient("localhost:12433");
     AssertLockHeld(cs_main);
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());

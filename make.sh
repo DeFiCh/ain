@@ -111,6 +111,16 @@ build_deps() {
     popd >/dev/null
 }
 
+patch_codegen() {
+    local target=${1:-${TARGET}}
+    # Required for patching C++ glue emitted from Rust build
+    printf "#ifndef DEFI_RUST_RPC_H\n#define DEFI_RUST_RPC_H\n\n" > "$(pwd)/src/libain_rpc.h"
+    cat "$(pwd)/depends/${target}/include/libain_rpc.hpp" >> "$(pwd)/src/libain_rpc.h"
+    printf "\n#endif // DEFI_RUST_RPC_H" >> "$(pwd)/src/libain_rpc.h"
+    printf "#include <libain_rpc.h>\n" > "$(pwd)/src/libain_rpc.cpp"
+    cat "$(pwd)/depends/${target}/libain_rpc.cpp" >> "$(pwd)/src/libain_rpc.cpp"
+}
+
 build_conf() {
     local target=${1:-${TARGET}}
     local make_conf_opts=${MAKE_CONF_ARGS:-}
@@ -137,6 +147,7 @@ build_make() {
 
 build() {
     build_deps "$@"
+    patch_codegen "$@"
     build_conf "$@"
     build_make "$@"
 }

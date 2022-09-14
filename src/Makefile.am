@@ -372,6 +372,8 @@ libdefi_server_a_SOURCES = \
   interfaces/chain.cpp \
   init.cpp \
   dbwrapper.cpp \
+  libain_rpc.h \
+  libain_rpc.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
@@ -672,7 +674,11 @@ defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
+defid_LDFLAGS += -luserenv -lbcrypt
 defid_SOURCES += defid-res.rc
+endif
+if TARGET_NOT_WINDOWS
+defid_LDFLAGS += -lain_grpc -ldl
 endif
 
 # Libraries below may be listed more than once to resolve circular dependencies (see
@@ -692,7 +698,7 @@ defid_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+defid_LDADD += $(AIN_GRPC_LIBS) $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp

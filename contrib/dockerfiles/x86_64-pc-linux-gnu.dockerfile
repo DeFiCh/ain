@@ -19,6 +19,12 @@ libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-de
 libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
 curl cmake
 
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add x86_64-unknown-linux-gnu
+
 # install clang 11
 RUN wget https://apt.llvm.org/llvm.sh
 RUN chmod +x llvm.sh
@@ -49,6 +55,7 @@ WORKDIR /work
 COPY --from=depends-builder /work/depends ./depends
 COPY . .
 
+RUN ./make.sh patch_codegen ${TARGET}
 RUN ./autogen.sh
 
 # XREF: #make-configure

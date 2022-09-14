@@ -12,6 +12,7 @@
 #include <compat.h>
 #include <fs.h>
 #include <init.h>
+#include <libain_rpc.h>
 #include <interfaces/chain.h>
 #include <noui.h>
 #include <shutdown.h>
@@ -64,6 +65,8 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
+
+    init_runtime();
 
     //
     // Parameters
@@ -176,6 +179,7 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
+    stop_runtime();
 
     return fRet;
 }
