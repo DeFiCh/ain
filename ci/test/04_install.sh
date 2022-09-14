@@ -55,3 +55,9 @@ DOCKER_EXEC ln -s /root/.cargo/bin/cargo /usr/bin/cargo
 DOCKER_EXEC ln -s /root/.cargo/bin/rustc /usr/bin/rustc
 DOCKER_EXEC ln -s /root/.cargo/bin/rustup /usr/bin/rustup
 DOCKER_EXEC rustup target add x86_64-unknown-linux-gnu
+
+DOCKER_EXEC "curl -L https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip -o /tmp/proto.zip"
+DOCKER_EXEC "unzip -o /tmp/proto.zip -d /tmp/proto"
+DOCKER_EXEC "chmod 755 -R /tmp/proto/bin"
+DOCKER_EXEC "cp /tmp/proto/bin/protoc /usr/local/bin/"
+DOCKER_EXEC "cp -R /tmp/proto/include/* /usr/local/include/"
