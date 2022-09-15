@@ -1210,6 +1210,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
                 if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
+                    // Skip on JellyFish
+                    if (gArgs.GetBoolArg("-jellyfish_regtest", false)) {
+                        continue;
+                    }
+
                     std::set<CAmount> ratio;
                     mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
                         ratio.insert(data.ratio);
