@@ -116,9 +116,6 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         # Move to fork
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
-        # Test setting before scheme set
-        assert_raises_rpc_error(-32600, "Set loan scheme before setting collateral factor", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/token/{self.idDUSD}/loan_collateral_factor': '1.50'}})
-
         # Create loan scheme
         self.nodes[0].createloanscheme(150, 1, 'LOAN001')
         self.nodes[0].generate(1)
