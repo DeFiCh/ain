@@ -3050,6 +3050,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // DFI-to-DUSD swaps
         ProcessFuturesDUSD(pindex, cache, chainparams);
 
+        // Tally negative interest across vaults
+        ProcessNegativeInterest(pindex, cache);
+
         // Masternode updates
         ProcessMasternodeUpdates(pindex, cache, view, chainparams);
 
@@ -3375,8 +3378,16 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 // If loan amount fully negated then remove it
                 if (it->second < 0) {
+
+                    TrackNegativeInterest(cache, {tokenId, tokenValue});
+
                     it = loanTokens->balances.erase(it);
                 } else {
+
+                    if (subInterest < 0) {
+                        TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                    }
+
                     ++it;
                 }
             }
@@ -3856,6 +3867,48 @@ void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& c
               swapCounter, pindex->nHeight, GetTimeMillis() - time);
 
     cache.SetVariable(*attributes);
+}
+
+void CChainState::ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache) {
+
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    DCT_ID dusd{};
+    const auto token = cache.GetTokenGuessId("DUSD", dusd);
+    if (!token) {
+        return;
+    }
+
+    CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestKey.key = EconomyKeys::NegativeIntCurrent;
+
+    cache.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenId == dusd) {
+                const auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
+                if (!rate) {
+                    continue;
+                }
+
+                const auto totalInterest = TotalInterest(*rate, pindex->nHeight);
+                if (totalInterest < 0) {
+                    negativeInterestBalances.Add({tokenId, amount > std::abs(totalInterest)  ? std::abs(totalInterest) : amount});
+                }
+            }
+        }
+        return true;
+    });
+
+    if (!negativeInterestBalances.balances.empty()) {
+        attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+        cache.SetVariable(*attributes);
+    }
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
