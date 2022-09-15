@@ -137,7 +137,7 @@ public:
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
-        consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
