@@ -1225,13 +1225,14 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         if (const auto amount = std::get_if<CAmount>(&attribute.second); amount && *amount > COIN) {
                             return Res::Err("Percentage exceeds 100%%");
                         }
-                    }
-                    const auto factor = std::get_if<CAmount>(&attribute.second);
-                    if (!factor) {
-                        return Res::Err("Unexpected type");
-                    }
-                    if (*factor >= *ratio.begin() * CENT) {
-                        return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                    } else {
+                        const auto factor = std::get_if<CAmount>(&attribute.second);
+                        if (!factor) {
+                            return Res::Err("Unexpected type");
+                        }
+                        if (*factor >= *ratio.begin() * CENT) {
+                            return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                        }
                     }
                 }
             }
