@@ -15,7 +15,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=200', '-jellyfish_regtest=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', '-fortcanningroadheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=200']]
 
     def run_test(self):
         # Setup
@@ -105,7 +105,7 @@ class DUSDCollateralFactorTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create DFI tokens
-        self.nodes[0].utxostoaccount({self.address: "100000@" + self.symbolDFI})
+        self.nodes[0].utxostoaccount({self.address: "500@" + self.symbolDFI})
         self.nodes[0].generate(1)
 
     def set_collateral_factor(self):
