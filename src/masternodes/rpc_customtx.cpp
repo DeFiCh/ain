@@ -214,7 +214,9 @@ public:
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
-        rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+        std::ostringstream result;
+        result << obj.maxPrice.integer << "." << obj.maxPrice.fraction;
+        rpcInfo.pushKV("maxPrice", UniValue(UniValue::VNUM, result.str()));
     }
 
     void operator()(const CPoolSwapMessageV2& obj) const {
