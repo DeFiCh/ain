@@ -1215,8 +1215,11 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         ratio.insert(data.ratio);
                         return true;
                     });
+                    // No loan schemes, fall back to 100% limit
                     if (ratio.empty()) {
-                        return Res::Err("Set loan scheme before setting collateral factor.");
+                        if (const auto amount = std::get_if<CAmount>(&attribute.second); amount && *amount > COIN) {
+                            return Res::Err("Percentage exceeds 100%%");
+                        }
                     }
                     const auto factor = std::get_if<CAmount>(&attribute.second);
                     if (!factor) {
