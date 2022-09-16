@@ -2249,7 +2249,8 @@ public:
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            if (Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= 1248000) {
+            if ((Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= 1248000) ||
+                 Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
             } else {
                 res = TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
