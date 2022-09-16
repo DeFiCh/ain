@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
@@ -100,16 +101,26 @@ CMasternode::CMasternode()
     , resignHeight(-1)
     , version(-1)
     , resignTx()
-    , banTx()
+    , collateralTx()
 {
 }
 
-CMasternode::State CMasternode::GetState(int height) const
+CMasternode::State CMasternode::GetState(int height, const CMasternodesView& mnview) const
 {
     int EunosPayaHeight = Params().GetConsensus().EunosPayaHeight;
 
     if (height < creationHeight) {
         return State::UNKNOWN;
+    }
+
+    if (!collateralTx.IsNull()) {
+        auto idHeight = mnview.GetNewCollateral(collateralTx);
+        assert(idHeight);
+        if (static_cast<uint32_t>(height) < idHeight->blockHeight) {
+            return State::TRANSFERRING;
+        } else if (static_cast<uint32_t>(height) < idHeight->blockHeight + GetMnActivationDelay(idHeight->blockHeight)) {
+            return State::PRE_ENABLED;
+        }
     }
 
     if (resignHeight == -1 || height < resignHeight) { // enabled or pre-enabled
@@ -131,9 +142,9 @@ CMasternode::State CMasternode::GetState(int height) const
     return State::UNKNOWN;
 }
 
-bool CMasternode::IsActive(int height) const
+bool CMasternode::IsActive(int height, const CMasternodesView& mnview) const
 {
-    State state = GetState(height);
+    State state = GetState(height, mnview);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
         return state == ENABLED;
     }
@@ -151,6 +162,8 @@ std::string CMasternode::GetHumanReadableState(State state)
             return "PRE_RESIGNED";
         case RESIGNED:
             return "RESIGNED";
+        case TRANSFERRING:
+            return "TRANSFERRING";
         default:
             return "UNKNOWN";
     }
@@ -178,7 +191,7 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.resignHeight == b.resignHeight &&
             a.version == b.version &&
             a.resignTx == b.resignTx &&
-            a.banTx == b.banTx
+            a.collateralTx == b.collateralTx
             );
 }
 
@@ -307,14 +320,9 @@ Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode
     return Res::Ok();
 }
 
-Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & txid, int height)
+Res CMasternodesView::ResignMasternode(CMasternode& node, const uint256 & nodeId, const uint256 & txid, int height)
 {
-    // auth already checked!
-    auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("node %s does not exists", nodeId.ToString());
-    }
-    auto state = node->GetState(height);
+    auto state = node.GetState(height, *this);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
         if (state != CMasternode::ENABLED) {
             return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
@@ -323,96 +331,85 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    const auto timelock = GetTimelock(nodeId, *node, height);
+    const auto timelock = GetTimelock(nodeId, node, height);
     if (timelock) {
         return Res::Err("Trying to resign masternode before timelock expiration.");
     }
 
-    node->resignTx =  txid;
-    node->resignHeight = height;
-    WriteBy<ID>(nodeId, *node);
+    node.resignTx =  txid;
+    node.resignHeight = height;
+    WriteBy<ID>(nodeId, node);
 
     return Res::Ok();
 }
 
-Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
+void CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, CMasternode& node, const char rewardAddressType, CKeyID const & rewardAddress, int height)
 {
-    // Temporarily disabled for 2.2
-    return Res::Err("reward address change is disabled for Fort Canning");
-
-    auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("masternode %s does not exists", nodeId.ToString());
-    }
-    auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
-        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
-    }
-
-    // If old masternode update foor new serialisatioono
-    if (node->version < CMasternode::VERSION0) {
-        node->version = CMasternode::VERSION0;
+    // If old masternode update for new serialisation
+    if (node.version < CMasternode::VERSION0) {
+        node.version = CMasternode::VERSION0;
     }
 
     // Set new reward address
-    node->rewardAddressType = rewardAddressType;
-    node->rewardAddress = rewardAddress;
-    WriteBy<ID>(nodeId, *node);
-
-    return Res::Ok();
+    node.rewardAddressType = rewardAddressType;
+    node.rewardAddress = rewardAddress;
+    WriteBy<ID>(nodeId, node);
 }
 
-Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
+void CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, CMasternode& node, int height)
 {
-    // Temporarily disabled for 2.2
-    return Res::Err("reward address change is disabled for Fort Canning");
-
-    auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("masternode %s does not exists", nodeId.ToString());
-    }
-    auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
-        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
-    }
-
-    node->rewardAddressType = 0;
-    node->rewardAddress.SetNull();
-    WriteBy<ID>(nodeId, *node);
-
-    return Res::Ok();
+    node.rewardAddressType = 0;
+    node.rewardAddress.SetNull();
+    WriteBy<ID>(nodeId, node);
 }
 
-Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
-    // Temporarily disabled for 2.2
-    return Res::Err("updatemasternode is disabled for Fort Canning");
-
-    // auth already checked!
-    auto node = GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("node %s does not exists", nodeId.ToString());
-    }
-
-    const auto state = node->GetState(height);
-    if (state != CMasternode::ENABLED) {
-        return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
-    }
-
-    if (operatorType == node->operatorType && operatorAuthAddress == node->operatorAuthAddress) {
-        return Res::Err("The new operator is same as existing operator");
-    }
-
+void CMasternodesView::UpdateMasternodeOperator(uint256 const & nodeId, CMasternode& node, const char operatorType, const CKeyID& operatorAuthAddress, int height)
+{
     // Remove old record
-    EraseBy<Operator>(node->operatorAuthAddress);
+    EraseBy<Operator>(node.operatorAuthAddress);
 
-    node->operatorType = operatorType;
-    node->operatorAuthAddress = operatorAuthAddress;
+    node.operatorType = operatorType;
+    node.operatorAuthAddress = operatorAuthAddress;
 
     // Overwrite and create new record
-    WriteBy<ID>(nodeId, *node);
-    WriteBy<Operator>(node->operatorAuthAddress, nodeId);
+    WriteBy<ID>(nodeId, node);
+    WriteBy<Operator>(node.operatorAuthAddress, nodeId);
+}
 
-    return Res::Ok();
+void CMasternodesView::UpdateMasternodeOwner(uint256 const & nodeId, CMasternode& node, const char ownerType, const CKeyID& ownerAuthAddress)
+{
+    // Remove old record
+    EraseBy<Owner>(node.ownerAuthAddress);
+
+    node.ownerType = ownerType;
+    node.ownerAuthAddress = ownerAuthAddress;
+
+    // Overwrite and create new record
+    WriteBy<ID>(nodeId, node);
+    WriteBy<Owner>(node.ownerAuthAddress, nodeId);
+}
+
+void CMasternodesView::UpdateMasternodeCollateral(uint256 const & nodeId, CMasternode& node, const uint256& newCollateralTx, const int height)
+{
+    // Remove old record.
+    EraseBy<NewCollateral>(node.collateralTx);
+
+    // Store new collateral. Used by HasCollateralAuth.
+    node.collateralTx = newCollateralTx;
+    WriteBy<ID>(nodeId, node);
+
+    // Prioritise fast lookup in CanSpend() and GetState()
+    WriteBy<NewCollateral>(newCollateralTx, MNNewOwnerHeightValue{static_cast<uint32_t>(height + GetMnResignDelay(height)), nodeId});
+}
+
+std::optional<MNNewOwnerHeightValue> CMasternodesView::GetNewCollateral(const uint256& txid) const
+{
+    return ReadBy<NewCollateral, MNNewOwnerHeightValue>(txid);
+}
+
+void CMasternodesView::ForEachNewCollateral(std::function<bool(const uint256&, CLazySerialize<MNNewOwnerHeightValue>)> callback)
+{
+    ForEach<NewCollateral, uint256, MNNewOwnerHeightValue>(callback);
 }
 
 void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
@@ -783,7 +780,7 @@ CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 & stakeMo
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
     ForEachMasternode([&] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive(height))
+        if(!node.IsActive(height, *this))
             return true;
 
         CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
@@ -823,7 +820,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> authMN;
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> confirmMN;
     ForEachMasternode([&] (uint256 const & id, CMasternode node) {
-        if(!node.IsActive(pindexNew->nHeight))
+        if(!node.IsActive(pindexNew->nHeight, *this))
             return true;
 
         // Not in our list of MNs from last week, skip.
@@ -900,9 +897,17 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     auto node = GetMasternode(txId);
     // check if it was mn collateral and mn was resigned or banned
     if (node) {
-        auto state = node->GetState(height);
+        auto state = node->GetState(height, *this);
         return state == CMasternode::RESIGNED;
     }
+
+    if (auto mn = GetNewCollateral(txId)) {
+        auto node = GetMasternode(mn->masternodeID);
+        assert(node);
+        auto state = node->GetState(height, *this);
+        return state == CMasternode::RESIGNED;
+    }
+
     // check if it was token collateral and token already destroyed
     /// @todo token check for total supply/limit when implemented
     auto pair = GetTokenByCreationTx(txId);
@@ -1182,7 +1187,7 @@ std::map<CKeyID, CKey> AmISignerNow(int height, CAnchorData::CTeam const & team)
             continue;
         }
 
-        if (node->IsActive(height) && team.find(mnId.first) != team.end()) {
+        if (node->IsActive(height, *pcustomcsview) && team.find(mnId.first) != team.end()) {
             CKey masternodeKey;
             std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
             for (auto const & wallet : wallets) {

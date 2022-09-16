@@ -9,7 +9,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
 from decimal import Decimal, ROUND_DOWN
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import calendar
 import time
@@ -254,11 +254,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         takenLoanAmount += loanAmount
 
-        try:
-            self.nodes[0].withdrawfromvault(vaultId1, account, "900@DFI")
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the collateral must be in DFI" in errorString)
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].withdrawfromvault, vaultId1, account, "900@DFI")
 
         vault = self.nodes[0].getvault(vaultId1)
         self.nodes[0].withdrawfromvault(vaultId1, account, "100@BTC")
