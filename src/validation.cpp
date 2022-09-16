@@ -629,7 +629,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         pool.rebuildAccountsView(height, view);
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -2552,7 +2552,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2598,8 +2598,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
-            return state.Invalid(
+        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
+        if (block.stakeModifier != stakeModifier) {            return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
                             __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
@@ -2766,7 +2767,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2827,7 +2828,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -3051,6 +3052,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Tally negative interest across vaults
         ProcessNegativeInterest(pindex, cache);
+
+        // Masternode updates
+        ProcessMasternodeUpdates(pindex, cache, view, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3977,6 +3981,28 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
+    // Apply any pending masternode owner changes
+    cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+        if (value.blockHeight == static_cast<uint32_t>(pindex->nHeight)) {
+            auto node = cache.GetMasternode(value.masternodeID);
+            assert(node);
+            assert(key == node->collateralTx);
+            const auto& coin = view.AccessCoin({node->collateralTx, 1});
+            assert(!coin.IsSpent());
+            CTxDestination dest;
+            assert(ExtractDestination(coin.out.scriptPubKey, dest));
+            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+        }
+        return true;
+    });
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
