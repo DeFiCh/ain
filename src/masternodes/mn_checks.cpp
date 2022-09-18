@@ -4097,9 +4097,15 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
 
 std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& view) {
 
+    DCT_ID directPool{0};
     // For tokens to be traded get all pairs and pool IDs
     std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
     view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+        if ((obj.idTokenFrom == pool.idTokenA && obj.idTokenTo == pool.idTokenB)
+        || (obj.idTokenTo == pool.idTokenA && obj.idTokenFrom == pool.idTokenB)) {
+            directPool = id;
+        }
+
         if (pool.idTokenA == obj.idTokenFrom) {
             fromPoolsID.emplace(pool.idTokenB.v, id);
         } else if (pool.idTokenB == obj.idTokenFrom) {
@@ -4118,6 +4124,10 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
         return {};
     }
 
+    if (directPool != DCT_ID{0}) {
+        return {{directPool}};
+    }
+
     // Find intersection on key
     std::map<uint32_t, DCT_ID> commonPairs;
     set_intersection(fromPoolsID.begin(), fromPoolsID.end(), toPoolsID.begin(), toPoolsID.end(),
@@ -4129,7 +4139,6 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
     // Loop through all common pairs and record direct pool to pool swaps
     std::vector<std::vector<DCT_ID>> poolPaths;
     for (const auto& item : commonPairs) {
-
         // Loop through all source/intermediate pools matching common pairs
         const auto poolFromIDs = fromPoolsID.equal_range(item.first);
         for (auto fromID = poolFromIDs.first; fromID != poolFromIDs.second; ++fromID) {
@@ -4137,7 +4146,6 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
             // Loop through all destination pools matching common pairs
             const auto poolToIDs = toPoolsID.equal_range(item.first);
             for (auto toID = poolToIDs.first; toID != poolToIDs.second; ++toID) {
-
                 // Add to pool paths
                 poolPaths.push_back({fromID->second, toID->second});
             }
@@ -4533,8 +4541,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
 
         burnAmount = subCollateralAmount;
     } else {
-        // Postive interest: Loan + interest > collateral. 
-        // Negative interest: Loan - abs(interest) > collateral. 
+        // Postive interest: Loan + interest > collateral.
+        // Negative interest: Loan - abs(interest) > collateral.
         if (loanDUSD + subInterest > collateralDUSD) {
             subLoanAmount = collateralDUSD - subInterest;
             subCollateralAmount = collateralDUSD;
@@ -4544,7 +4552,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             subCollateralAmount = loanDUSD + subInterest;
         }
 
-        if (subLoanAmount > 0) {    
+        if (subLoanAmount > 0) {
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }
@@ -4575,9 +4583,9 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (!collateralsLoans)
         return std::move(collateralsLoans);
 
-    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable. 
+    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5 currently)
-    // can be tested for economical stability. Taking the safer approach for now. 
+    // can be tested for economical stability. Taking the safer approach for now.
     if (!IsVaultPriceValid(view, vaultId, height))
         return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
 
