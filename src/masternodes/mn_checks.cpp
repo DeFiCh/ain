@@ -3901,7 +3901,7 @@ public:
         if (!HasAuth(GetScriptForDestination(ownerDest)))
             return Res::Err("tx must have at least one input from the owner");
 
-        if (!node->IsActive(height))
+        if (!node->IsActive(height, mnview))
             return Res::Err("masternode <%s> is not active", obj.masternodeId.GetHex());
 
         if (node->mintedBlocks < 1)
