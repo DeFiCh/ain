@@ -577,5 +577,21 @@ class PoolPairCompositeTest(DefiTestFramework):
         assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided", self.nodes[0].sendrawtransaction, updated_rawtx)
         self.nodes[0].clearmempool()
 
+        # Test too many pools error message.
+        idDOGEDFI = list(self.nodes[0].gettoken("DOGE-DFI").keys())[0]
+        idDFIDUSD = list(self.nodes[0].gettoken("DUSD-DFI").keys())[0]
+        idDUSDUSDC = list(self.nodes[0].gettoken("DUSD-USDC").keys())[0]
+        idUSDCLTC = list(self.nodes[0].gettoken("LTC-USDC").keys())[0]
+
+        # Test four pool composite swap
+        assert_raises_rpc_error(-32600, 'Too many pool IDs provided, max 3 allowed, 4 provided', self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolDOGE,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolLTC,
+        }, [idDOGEDFI, idDFIDUSD, idDUSDUSDC, idUSDCLTC])
+
 if __name__ == '__main__':
     PoolPairCompositeTest().main()
