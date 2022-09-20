@@ -2491,6 +2491,54 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
+    if (const auto token = mnview.GetToken("DUSD")) {
+        CAmount totalDUSD{};
+        mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+            for (const auto& [tokenId, amount] : balances.balances) {
+                if (tokenId == token->first) {
+                    totalDUSD += amount;
+                }
+            }
+            return true;
+        });
+
+        mnview.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+            for (uint32_t i = 0; i < data.batchCount; ++i) {
+                if (const auto batch = mnview.GetAuctionBatch({vaultId, i}); batch && batch->loanAmount.nTokenId == token->first) {
+                    totalDUSD += batch->loanAmount.nValue - batch->loanInterest;
+                }
+            }
+            return true;
+        }, pindex->nHeight);
+
+        auto excessLoans = mnview.GetExcessLoans();
+
+        const CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
+        const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+        const auto attributes = mnview.GetAttributes();
+        auto minted = attributes->GetValue(mintedKey, CBalances{});
+        auto negativeBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+
+        totalDUSD = totalDUSD
+                    - excessLoans[CLoanView::ExcessLoanType::BatchRounding].balances[token->first]
+                    - excessLoans[CLoanView::ExcessLoanType::AuctionInterest].balances[token->first]
+                    + excessLoans[CLoanView::ExcessLoanType::DFIPayback].balances[token->first]
+                    + minted.balances[token->first]
+                    + negativeBalances.balances[token->first];
+
+        if (token->second->minted != totalDUSD) {
+            return state.Invalid(
+                    ValidationInvalidReason::CONSENSUS,
+                    error("%s: Block height %d mismatch DUSD minted %d DUSD loan amount %d",
+                          __func__,
+                          pindex->nHeight,
+                          GetDecimaleString(token->second->minted + excessLoans[CLoanView::ExcessLoanType::BatchRounding].balances[token->first] + excessLoans[CLoanView::ExcessLoanType::AuctionInterest].balances[token->first]),
+                          GetDecimaleString(totalDUSD + excessLoans[CLoanView::ExcessLoanType::DFIPayback].balances[token->first] + minted.balances[token->first] + negativeBalances.balances[token->first]),
+                          REJECT_INVALID,
+                          "token-balance-mismatch"));
+        }
+    }
+
     // Interrupt on hash or height requested. Invalidate the block.
     if (StopOrInterruptConnect(pindex, state))
         return false;
@@ -3399,16 +3447,31 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
 
             // Now, let's add the remaining amounts and store the batch.
+            CBalances totalLoanInBatches{};
             for (auto i = 0u; i < batches.size(); i++) {
                 auto& batch = batches[i];
+                totalLoanInBatches.Add(batch.loanAmount);
                 auto tokenId = batch.loanAmount.nTokenId;
                 auto interest = totalInterest.balances[tokenId];
                 if (interest > 0) {
                     auto balance = loanTokens->balances[tokenId];
                     auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
                     batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                    totalLoanInBatches.Sub({tokenId, batch.loanInterest});
                 }
                 cache.StoreAuctionBatch({vaultId, i}, batch);
+            }
+
+            // Check if more than loan amount was generated.
+            for (const auto& [tokenId, amount] : loanTokens->balances) {
+                if (totalLoanInBatches.balances.count(tokenId)) {
+                    const auto interest = totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
+                    if (totalLoanInBatches.balances[tokenId] > amount - interest) {
+                        auto excessLoans = cache.GetExcessLoans();
+                        excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::BatchRounding)].Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                        cache.SetExcessLoans(excessLoans);
+                    }
+                }
             }
 
             // All done. Ready to save the overall auction.
@@ -3494,6 +3557,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
+                auto excessLoans = cache.GetExcessLoans();
+                excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::AuctionInterest)].Add({batch->loanAmount.nTokenId, batch->loanInterest});
+                cache.SetExcessLoans(excessLoans);
                 if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
                 }

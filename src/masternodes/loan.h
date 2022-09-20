@@ -480,8 +480,17 @@ public:
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
+    [[nodiscard]] std::map<uint8_t, CBalances> GetExcessLoans() const;
+    bool SetExcessLoans(const std::map<uint8_t, CBalances>& excessLoans);
+
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
     [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(const DCT_ID& id) const = 0;
+
+    enum ExcessLoanType : uint8_t {
+        BatchRounding,
+        AuctionInterest,
+        DFIPayback,
+    };
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };
@@ -496,6 +505,7 @@ public:
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanInterestV2ByVault            { static constexpr uint8_t prefix() { return 0x1B; } };
     struct LoanInterestV3ByVault            { static constexpr uint8_t prefix() { return 0x1C; } };
+    struct ExcessLoanTokens                 { static constexpr uint8_t prefix() { return 0x1D; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

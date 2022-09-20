@@ -3607,6 +3607,10 @@ public:
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                         auto balances = attributes->GetValue(liveKey, CBalances{});
 
+                        auto excessLoans = mnview.GetExcessLoans();
+                        excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::DFIPayback)].Add({loanTokenId, subLoan});
+                        mnview.SetExcessLoans(excessLoans);
+
                         balances.Add(CTokenAmount{loanTokenId, subAmount});
                         balances.Add(CTokenAmount{paybackTokenId, penalty});
                         attributes->SetValue(liveKey, balances);
