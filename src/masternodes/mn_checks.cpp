@@ -3539,13 +3539,13 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
+                    res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
+                    if (!res)
+                        return res;
+
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
                         subLoan += subInterest;
-
-                    res = mnview.SubMintedTokens(loanTokenId, subLoan);
-                    if (!res)
-                        return res;
 
                     // Do not sub balance if negative interest fully negates the current loan amount
                     if (!(subInterest < 0 && std::abs(subInterest) >= currentLoanAmount)) {
