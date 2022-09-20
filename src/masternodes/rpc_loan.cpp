@@ -4,6 +4,8 @@
 
 extern UniValue tokenToJSON(CCustomCSView& view, DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
+extern UniValue AmountsToJSON(TAmounts const & diffs, AmountFormat format = AmountFormat::Symbol);
+extern std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol);
 
 UniValue setCollateralTokenToJSON(CCustomCSView& view, CLoanSetCollateralTokenImplementation const& collToken)
 {
@@ -1617,6 +1619,81 @@ UniValue paybackwithcollateral(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue loanamountdifferences(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"loanamountdifferences",
+               "Returns the differences between token minted and total loan amounts in vaults\n",
+               {},
+               RPCResult{
+                       "{...}     (object) JSON object with loan token information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("loanamountdifferences", "") +
+                       HelpExampleRpc("loanamountdifferences", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    const auto excessLoans = pcustomcsview->GetExcessLoans();
+
+    UniValue ret(UniValue::VARR);
+
+    for (const auto& [key, balances] : excessLoans) {
+        UniValue retObj(UniValue::VOBJ);
+        switch(key) {
+            case CLoanView::ExcessLoanType::BatchRounding: {
+                UniValue obj(UniValue::VARR);
+                for (auto const &[tokenId, amount]: balances.balances) {
+                    obj.push_back(tokenAmountString({tokenId, -amount}));
+                }
+                retObj.pushKV("BatchRounding", obj);
+                break;
+            }
+            case CLoanView::ExcessLoanType::AuctionInterest: {
+                UniValue obj(UniValue::VARR);
+                for (auto const &[tokenId, amount]: balances.balances) {
+                    obj.push_back(tokenAmountString({tokenId, -amount}));
+                }
+                retObj.pushKV("AuctionInterest", obj);
+                break;
+            }
+            case CLoanView::ExcessLoanType::DFIPayback: {
+                UniValue obj(UniValue::VARR);
+                for (auto const &[tokenId, amount]: balances.balances) {
+                    obj.push_back(tokenAmountString({tokenId, -amount}));
+                }
+                retObj.pushKV("DFIPayback", obj);
+                break;
+            }
+        }
+        ret.push_back(retObj);
+    }
+    
+    const CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
+    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    const auto attributes = pcustomcsview->GetAttributes();
+    const auto minted = attributes->GetValue(mintedKey, CBalances{});
+    const auto negativeBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+
+    {
+        UniValue retObj(UniValue::VOBJ);
+        retObj.pushKV("Futures", AmountsToJSON(minted.balances));
+        ret.push_back(retObj);
+    }
+
+    {
+        UniValue retObj(UniValue::VOBJ);
+        retObj.pushKV("NegativeInterest", AmountsToJSON(negativeBalances.balances));
+        ret.push_back(retObj);
+    }
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1639,6 +1716,7 @@ static const CRPCCommand commands[] =
     {"vault",       "paybackwithcollateral",     &paybackwithcollateral, {"vaultId"}},
     {"loan",        "getloaninfo",               &getloaninfo,           {}},
     {"loan",        "getinterest",               &getinterest,           {"id", "token"}},
+    {"loan",        "loanamountdifferences",     &loanamountdifferences, {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {
