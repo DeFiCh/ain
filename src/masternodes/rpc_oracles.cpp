@@ -890,21 +890,23 @@ namespace {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
 
+        if(!including_start) {
+            start++;
+        }
+
         UniValue result(UniValue::VARR);
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
             const auto& pairs = oracle.availablePairs;
-            if(start > pairs.size()-1)
-                return true;
-            const auto& startingPairIt = std::next(pairs.begin(), start);
-            if(!including_start){
-                setTokenCurrency.insert(std::next(pairs.begin(), start+1), pairs.end());
-                return true;
-            }
-            setTokenCurrency.insert(startingPairIt, pairs.end());
+            setTokenCurrency.insert(std::next(pairs.begin(), 0), pairs.end());
             return true;
         });
-        for (const auto& tokenCurrency : setTokenCurrency) {
+
+        if (start >= setTokenCurrency.size())
+            throw JSONRPCError(RPC_MISC_ERROR, "start index greater than number of prices available");
+
+        for(auto tokenCurrency : std::set<CTokenCurrencyPair>(std::next(setTokenCurrency.begin(), start), setTokenCurrency.end())) {
+            // auto tokenCurrency = *it;
             UniValue item{UniValue::VOBJ};
             const auto& token = tokenCurrency.first;
             const auto& currency = tokenCurrency.second;
