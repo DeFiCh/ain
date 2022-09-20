@@ -68,7 +68,6 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.setup_tokens(tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDFI = "DFI"
         symbolDOGE = "DOGE#" + self.get_id_token("DOGE")
         symbolTSLA = "TSLA#" + self.get_id_token("TSLA")
         symbolDUSD = "DUSD#" + self.get_id_token("DUSD")
