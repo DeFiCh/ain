@@ -292,7 +292,7 @@ class OraclesTest(DefiTestFramework):
         assert_equal(len(self.nodes[1].listprices(
             {"start": 1, "including_start": False, "limit": 2})), 2)
 
-        assert_raises_rpc_error(-8, 'start index greater than number of prices available',
+        assert_raises_rpc_error(-1, 'start index greater than number of prices available',
                                 self.nodes[1].listprices, {"start": 100, "including_start": False, "limit": 1})
 
         # === check get prices methods complex case ===
