@@ -3252,6 +3252,11 @@ public:
                 }
 
                 const auto subAmount = currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && tokenId == token->first) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3387,11 +3392,20 @@ public:
             }
 
             if (loanAmountChange > 0) {
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDAdd(mnview, {tokenId, loanAmountChange});
+                }
+
                 res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmountChange});
                 if (!res)
                     return res;
             } else {
                 const auto subAmount = currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3517,6 +3531,7 @@ public:
 
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
+        assert(attributes);
 
         for (const auto& [loanTokenId, paybackAmounts] : obj.loans)
         {
@@ -3661,6 +3676,14 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
+                    if (loanToken->symbol == "DUSD") {
+                        CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
+                        auto loanAttributeBalances = attributes->GetValue(loanKey, CBalances{});
+                        loanAttributeBalances.Sub({loanTokenId, subLoan});
+                        attributes->SetValue(loanKey, loanAttributeBalances);
+                        shouldSetVariable = true;
+                    }
+
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
                         subLoan += subInterest;
@@ -4548,8 +4571,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
             intermediateView.Flush();
 
+            const auto token = view.GetToken("DUSD");
+
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
+                if (token && dexfeeInAmount.nTokenId == token->first) {
+                    TrackDexFeeTokens(view, dexfeeInAmount);
+                }
                 res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
                 if (!res) {
                     return res;
@@ -4559,6 +4587,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // burn the dex out amount
             if (dexfeeOutAmount.nValue > 0) {
+                if (token && dexfeeOutAmount.nTokenId == token->first) {
+                    TrackDexFeeTokens(view, dexfeeOutAmount);
+                }
                 res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
                 if (!res) {
                     return res;
@@ -4782,6 +4813,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         }
 
         if (subLoanAmount > 0) {
+            TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }
