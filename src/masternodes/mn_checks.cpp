@@ -3652,6 +3652,10 @@ public:
                     subLoan = currentLoanAmount;
                 }
 
+                if (loanToken->symbol == "DUSD") {
+                    TrackDUSDSub(mnview, {loanTokenId, subLoan});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
                 if (!res)
                     return res;
@@ -3680,14 +3684,6 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
-                    if (loanToken->symbol == "DUSD") {
-                        CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
-                        auto loanAttributeBalances = attributes->GetValue(loanKey, CBalances{});
-                        loanAttributeBalances.Sub({loanTokenId, subLoan});
-                        attributes->SetValue(loanKey, loanAttributeBalances);
-                        shouldSetVariable = true;
-                    }
-
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
                         subLoan += subInterest;
