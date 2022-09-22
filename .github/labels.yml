@@ -1,8 +1,5 @@
 # Existing labels to be refactored or removed entirely.
 - color: ffffff
-  name: api-change
-  description:
-- color: ffffff
   name: bug
   description: Something isn't working
 - color: ffffff
@@ -47,27 +44,10 @@
   name: wontfix
   description: This will not be worked on
 
-# Needs
-- color: cc40d8
-  name: needs/kind
-  description: Needs kind label
-- color: cc40d8
-  name: needs/triage
-  description: Waiting for triage to be accepted
-
 # Kind
-- color: e7e9eb
-  name: kind/bug
-  description: Something isn't working
 - color: e7e9eb
   name: kind/feature
   description: New feature request
-- color: e7e9eb
-  name: kind/question
-  description: Generic question
-- color: e7e9eb
-  name: kind/chore
-  description: Non feature change
 - color: e7e9eb
   name: kind/fix
   description: Fix a bug
@@ -78,36 +58,35 @@
   name: kind/refactor
   description: Non feature refactor change
 - color: e7e9eb
-  name: kind/dependencies
-  description: Pull requests that update a dependency file
+  name: kind/chore
+  description: Non feature change
 
-# Area
+# Area (for PRs)
 - color: fbca04
   name: area/consensus
 - color: fbca04
-  name: area/database
-- color: fbca04
-  name: area/poolpairs
-- color: fbca04
-  name: area/oracles
-- color: fbca04
-  name: area/futures
-- color: fbca04
-  name: area/interchain-exchange
-- color: fbca04
-  name: area/governance
-- color: fbca04
-  name: area/operators
+  name: area/feature
 - color: fbca04
   name: area/optimisation
 - color: fbca04
-  name: area/tokens
-- color: fbca04
-  name: area/rpc
-- color: fbca04
   name: area/workflow
 
-# Triage
-- color: b1f488
-  name: triage/accepted
-  description: Triage has been accepted
+# Priority
+- color: f79489
+  name: P1
+- color: f8afa6
+  name: P2
+- color: fadcd9
+  name: P3
+- color: f9f1f0
+  name: P4
+
+# Effort
+- color: 34a0a4
+  name: E1
+- color: 52b69a
+  name: E2
+- color: 99d98c
+  name: E3
+- color: b5e48c
+  name: E4

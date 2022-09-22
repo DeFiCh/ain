@@ -1,44 +1,5 @@
 version: v1
 
-issue:
-  labels:
-    - prefix: triage
-      list: [ "accepted" ]
-      multiple: false
-      author_association:
-        collaborator: true
-        member: true
-        owner: true
-      needs:
-        comment: |
-          @$AUTHOR: Thanks for opening an issue, it is currently awaiting triage.
-
-          The triage/accepted label can be added by foundation members by writing /triage accepted in a comment.
-
-    - prefix: kind
-      list: [ "feature", "bug" ]
-      multiple: false
-      needs: true
-
-  chat_ops:
-    - cmd: /close
-      type: close
-      author_association:
-        author: true
-        collaborator: true
-        member: true
-        owner: true
-
-    - cmd: /cc
-      type: none
-
-    - cmd: /assign
-      type: assign
-      author_association:
-        collaborator: true
-        member: true
-        owner: true
-
 pull_request:
   labels:
     - prefix: kind
