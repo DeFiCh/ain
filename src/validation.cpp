@@ -2492,11 +2492,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTimeStart = GetTimeMicros();
 
     if (const auto token = mnview.GetToken("DUSD")) {
-        CAmount totalDUSD{};
+        CAmount loanDUSD{}, auctionDUSD{};
         mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
             for (const auto& [tokenId, amount] : balances.balances) {
                 if (tokenId == token->first) {
-                    totalDUSD += amount;
+                    loanDUSD += amount;
                 }
             }
             return true;
@@ -2505,7 +2505,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mnview.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
             for (uint32_t i = 0; i < data.batchCount; ++i) {
                 if (const auto batch = mnview.GetAuctionBatch({vaultId, i}); batch && batch->loanAmount.nTokenId == token->first) {
-                    totalDUSD += batch->loanAmount.nValue - batch->loanInterest;
+                    auctionDUSD += batch->loanAmount.nValue - batch->loanInterest;
                 }
             }
             return true;
@@ -2519,7 +2519,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto minted = attributes->GetValue(mintedKey, CBalances{});
         auto negativeBalances = attributes->GetValue(negativeInterestKey, CBalances{});
 
-        totalDUSD = totalDUSD
+        const auto totalDUSD = loanDUSD
+                    + auctionDUSD
                     - excessLoans[CLoanView::ExcessLoanType::BatchRounding].balances[token->first]
                     - excessLoans[CLoanView::ExcessLoanType::AuctionInterest].balances[token->first]
                     + excessLoans[CLoanView::ExcessLoanType::DFIPayback].balances[token->first]
@@ -2529,13 +2530,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (token->second->minted != totalDUSD) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
-                    error("%s: Block height %d mismatch DUSD minted %d DUSD loan amount %d",
+                    error("%s: Block height %d mismatch DUSD minted %s DUSD loan amount %s",
                           __func__,
                           pindex->nHeight,
-                          GetDecimaleString(token->second->minted + excessLoans[CLoanView::ExcessLoanType::BatchRounding].balances[token->first] + excessLoans[CLoanView::ExcessLoanType::AuctionInterest].balances[token->first]),
-                          GetDecimaleString(totalDUSD + excessLoans[CLoanView::ExcessLoanType::DFIPayback].balances[token->first] + minted.balances[token->first] + negativeBalances.balances[token->first]),
-                          REJECT_INVALID,
-                          "token-balance-mismatch"));
+                          GetDecimaleString(token->second->minted),
+                          GetDecimaleString(totalDUSD)),
+                    REJECT_INVALID,
+                    "token-balance-mismatch");
         }
     }
 
