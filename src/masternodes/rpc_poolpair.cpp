@@ -134,6 +134,13 @@ UniValue poolPathsToJSON(std::vector<std::vector<DCT_ID>> & poolPaths) {
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
+
+    if (metadataObj["tokenFrom"].getValStr() == "") {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenFrom is empty");
+    }
+    if (metadataObj["tokenTo"].getValStr() == "") {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenTo is empty");
+    }
     if (!metadataObj["from"].isNull()) {
         poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
     }
