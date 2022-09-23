@@ -56,6 +56,8 @@ enum EconomyKeys : uint8_t {
     NegativeIntCurrent = 'k',
     Loans              = 'l',
     DexFeeTokens       = 'm',
+    PaybackBurn        = 'n',
+    AuctionFee         = 'o',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -212,6 +214,8 @@ void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDexFeeTokens(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackPaybackBurn(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackAuctionFee(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,

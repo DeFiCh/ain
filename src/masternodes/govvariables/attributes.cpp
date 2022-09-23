@@ -243,7 +243,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
                 {EconomyKeys::Loans,              "loans"},
-                {EconomyKeys::DexFeeTokens,       "dexfeetokens"},
+                {EconomyKeys::DexFeeTokens,       "dex_fee_tokens"},
+                {EconomyKeys::PaybackBurn,        "payback_burn"},
+                {EconomyKeys::AuctionFee,         "auction_fee"},
             }
         },
         {
@@ -481,6 +483,14 @@ void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount) {
 
 void TrackDexFeeTokens(CCustomCSView& mnview, const CTokenAmount& amount) {
     TrackLiveBalance(mnview, amount, EconomyKeys::DexFeeTokens, true);
+}
+
+void TrackPaybackBurn(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::PaybackBurn, true);
+}
+
+void TrackAuctionFee(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::AuctionFee, true);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,

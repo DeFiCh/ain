@@ -3711,6 +3711,9 @@ public:
                     if (subInterest > 0)
                     {
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
+                        if (loanToken->symbol == "DUSD") {
+                            TrackPaybackBurn(mnview, {loanTokenId, subInterest});
+                        }
                         res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
                     }
                 }
