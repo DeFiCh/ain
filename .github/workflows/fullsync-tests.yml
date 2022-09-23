@@ -103,14 +103,19 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
     continue-on-error: true
     container:
-      image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
+      image : ubuntu
       options: --privileged
       env:
+        DATADIR : datadir-${{matrix.datadir.start}}
         STOP_BLOCK: ${{matrix.datadir.stop}}
         DEFID_BIN: ./defid
         DEFI_CLI_BIN: ./defi-cli
     timeout-minutes: 4320
     steps:
+    - name: Install Dependencies
+      run: apt-get update && apt-get install -y wget
+    - name: Download Snapshot
+      run: wget -c https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.datadir.start}}.tar.gz -O - | tar -xz -C $DATADIR
     - name: Download Binaries
       uses: actions/download-artifact@v3
       with:
