@@ -291,14 +291,6 @@ class PoolPairAsymmetricTest (DefiTestFramework):
         dex_out_fee = round(trunc(reserve_diff * fee_out * coin) / coin, 8)
         assert_equal(reserve_diff - Decimal(str(dex_out_fee)), swapped)
 
-        # Check DEx fee token amounts matches burn amount
-        burn_dex_tokens = self.nodes[0].getburninfo()['dexfeetokens']
-        if burn_dex_tokens:
-            for tokens in burn_dex_tokens:
-                if 'DUSD' in tokens:
-                    attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
-                    assert_equal(attributes['v0/live/economy/dexfeetokens'], [tokens])
-
         # Rewind
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
