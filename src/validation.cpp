@@ -4160,19 +4160,12 @@ void CChainState::ProcessDUSDStabilisationFee(const CBlockIndex* pindex, CCustom
     CDataStructureV0 futureBurnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
     CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
 
-    CAmount burnt{};
-    cache.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
-        if (owner == chainparams.GetConsensus().burnAddress && balance.nTokenId == tokenDUSD->first) {
-            burnt = balance.nValue;
-        }
-        return false;
-    }, BalanceKey{chainparams.GetConsensus().burnAddress, tokenDUSD->first});
-
+    const auto burnt = cache.GetBalance(chainparams.GetConsensus().burnAddress, tokenDUSD->first);
     const auto minted = tokenDUSD->second->minted;
     auto futureBurn = attributes->GetValue(futureBurnKey, CBalances{});
     auto loan = attributes->GetValue(loanKey, CBalances{});
 
-    const auto circulatingSupply = minted - burnt - futureBurn[tokenDUSD->first];
+    const auto circulatingSupply = minted - burnt.nValue - futureBurn[tokenDUSD->first];
     const auto algorithmicDUSD = circulatingSupply - loan[tokenDUSD->first];
 
     const auto ratio = DivideAmounts(algorithmicDUSD, circulatingSupply);
