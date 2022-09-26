@@ -481,18 +481,6 @@ void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount) {
     TrackLiveBalance(mnview, amount, EconomyKeys::Loans, false);
 }
 
-void TrackDexFeeTokens(CCustomCSView& mnview, const CTokenAmount& amount) {
-    TrackLiveBalance(mnview, amount, EconomyKeys::DexFeeTokens, true);
-}
-
-void TrackPaybackBurn(CCustomCSView& mnview, const CTokenAmount& amount) {
-    TrackLiveBalance(mnview, amount, EconomyKeys::PaybackBurn, true);
-}
-
-void TrackAuctionFee(CCustomCSView& mnview, const CTokenAmount& amount) {
-    TrackLiveBalance(mnview, amount, EconomyKeys::AuctionFee, true);
-}
-
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
                                 std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
 

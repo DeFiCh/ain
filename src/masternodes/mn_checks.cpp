@@ -3711,9 +3711,6 @@ public:
                     if (subInterest > 0)
                     {
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
-                        if (loanToken->symbol == "DUSD") {
-                            TrackPaybackBurn(mnview, {loanTokenId, subInterest});
-                        }
                         res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height);
                     }
                 }
@@ -4578,9 +4575,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
-                if (token && dexfeeInAmount.nTokenId == token->first) {
-                    TrackDexFeeTokens(view, dexfeeInAmount);
-                }
                 res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
                 if (!res) {
                     return res;
@@ -4590,9 +4584,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
             // burn the dex out amount
             if (dexfeeOutAmount.nValue > 0) {
-                if (token && dexfeeOutAmount.nTokenId == token->first) {
-                    TrackDexFeeTokens(view, dexfeeOutAmount);
-                }
                 res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeOutAmount);
                 if (!res) {
                     return res;

@@ -213,9 +213,6 @@ using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CT
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
-void TrackDexFeeTokens(CCustomCSView& mnview, const CTokenAmount& amount);
-void TrackPaybackBurn(CCustomCSView& mnview, const CTokenAmount& amount);
-void TrackAuctionFee(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,

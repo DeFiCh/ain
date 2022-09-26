@@ -3480,9 +3480,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-                    if (const auto token = view.GetToken("DUSD"); token && token->first == bidTokenAmount.nTokenId) {
-                        TrackAuctionFee(view, {bidTokenAmount.nTokenId, amountToBurn});
-                    }
                     SwapToDFIorDUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
                         chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
