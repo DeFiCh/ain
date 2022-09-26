@@ -243,9 +243,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
                 {EconomyKeys::Loans,              "loans"},
-                {EconomyKeys::DexFeeTokens,       "dex_fee_tokens"},
-                {EconomyKeys::PaybackBurn,        "payback_burn"},
-                {EconomyKeys::AuctionFee,         "auction_fee"},
             }
         },
         {

@@ -55,9 +55,6 @@ enum EconomyKeys : uint8_t {
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
     Loans              = 'l',
-    DexFeeTokens       = 'm',
-    PaybackBurn        = 'n',
-    AuctionFee         = 'o',
 };
 
 enum DFIPKeys : uint8_t  {
