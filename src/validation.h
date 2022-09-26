@@ -797,6 +797,8 @@ private:
     static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
 
     static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+
+    static void ProcessDUSDStabilisationFee(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.

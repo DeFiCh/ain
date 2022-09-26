@@ -164,6 +164,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"token_a_fee_direction",PoolKeys::TokenAFeeDir},
                 {"token_b_fee_pct",      PoolKeys::TokenBFeePCT},
                 {"token_b_fee_direction",PoolKeys::TokenBFeeDir},
+                {"auto_dusd_fee",        PoolKeys::AutoDUSDFee},
             }
         },
         {
@@ -216,6 +217,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {PoolKeys::TokenAFeeDir,      "token_a_fee_direction"},
                 {PoolKeys::TokenBFeePCT,      "token_b_fee_pct"},
                 {PoolKeys::TokenBFeeDir,      "token_b_fee_direction"},
+                {PoolKeys::AutoDUSDFee,       "auto_dusd_fee"},
             }
         },
         {
@@ -397,6 +399,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {PoolKeys::TokenAFeeDir,      VerifyFeeDirection},
                 {PoolKeys::TokenBFeePCT,      VerifyPct},
                 {PoolKeys::TokenBFeeDir,      VerifyFeeDirection},
+                {PoolKeys::AutoDUSDFee,       VerifyBool},
             }
         },
         {
@@ -1100,20 +1103,32 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Poolpairs:
                 switch (attrV0->key) {
+                    case PoolKeys::TokenAFeeDir:
+                    case PoolKeys::TokenBFeeDir:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
+                            return Res::Err("Cannot be set before FortCanningSpringHeight");
+                        }
+                        [[fallthrough]];
                     case PoolKeys::TokenAFeePCT:
                     case PoolKeys::TokenBFeePCT:
                         if (!view.GetPoolPair({attrV0->typeId})) {
                             return Res::Err("No such pool (%d)", attrV0->typeId);
                         }
                     break;
-                    case PoolKeys::TokenAFeeDir:
-                    case PoolKeys::TokenBFeeDir:
-                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
-                            return Res::Err("Cannot be set before FortCanningSpringHeight");
+                    case PoolKeys::AutoDUSDFee: {
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                            return Res::Err("Cannot be set before GrandCentralHeight");
                         }
-                        if (!view.GetPoolPair({attrV0->typeId})) {
+                        const auto pool = view.GetPoolPair({attrV0->typeId});
+                        if (!pool) {
                             return Res::Err("No such pool (%d)", attrV0->typeId);
                         }
+                        const auto tokenA = view.GetToken(pool->idTokenA);
+                        const auto tokenB = view.GetToken(pool->idTokenB);
+                        if (tokenA->symbol != "DUSD" && tokenB->symbol != "DUSD") {
+                            return Res::Err("Can only be set on pools with DUSD");
+                        }
+                    }
                     break;
                     default:
                         return Res::Err("Unsupported key");

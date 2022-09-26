@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -84,6 +84,9 @@ class GovsetTest (DefiTestFramework):
         }, [])
         self.nodes[0].generate(1)
         assert(len(self.nodes[0].listpoolpairs()) == 3)
+
+        # Store pool token ID
+        idGS = list(self.nodes[0].gettoken("GS").keys())[0]
 
         # set LP_SPLITS with absent pools id
         try:
@@ -865,6 +868,15 @@ class GovsetTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
         assert_equal(attributes['v0/params/dfip2206f/start_block'], f'{start_block}')
+
+        # Check GrandCentral errors
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/poolpairs/{idGS}/auto_dusd_fee':'true'}})
+
+        # Move to GrandCentral height
+        self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
+
+        # Check Auto DUSD errors
+        assert_raises_rpc_error(-32600, "Can only be set on pools with DUSD", self.nodes[0].setgov, {"ATTRIBUTES":{f'v0/poolpairs/{idGS}/auto_dusd_fee':'true'}})
 
 if __name__ == '__main__':
     GovsetTest ().main ()

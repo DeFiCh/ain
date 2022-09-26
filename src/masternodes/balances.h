@@ -131,6 +131,10 @@ struct CBalances
         return false;
     }
 
+    CAmount& operator[] (const DCT_ID id) {
+        return balances[id];
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

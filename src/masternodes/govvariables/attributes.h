@@ -97,6 +97,7 @@ enum PoolKeys : uint8_t {
     TokenBFeePCT = 'b',
     TokenAFeeDir = 'c',
     TokenBFeeDir = 'd',
+    AutoDUSDFee  = 'e',
 };
 
 struct CDataStructureV0 {

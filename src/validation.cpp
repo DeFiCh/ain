@@ -3076,6 +3076,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // proposal activations
         ProcessProposalEvents(pindex, cache, chainparams);
 
+        // Set DUSD stabilisation fee
+        ProcessDUSDStabilisationFee(pindex, cache, chainparams);
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -4126,6 +4129,74 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         return true;
     }, pindex->nHeight);
+}
+
+void CChainState::ProcessDUSDStabilisationFee(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
+    const auto tokenDUSD = cache.GetToken("DUSD");
+    if (!tokenDUSD) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+    std::set<uint32_t> autoPools;
+
+    cache.ForEachPoolId([&](const DCT_ID poolId) {
+        CDataStructureV0 autoKey{AttributeTypes::Poolpairs, poolId.v, PoolKeys::AutoDUSDFee};
+        if (attributes->GetValue(autoKey, false)) {
+            autoPools.insert(poolId.v);
+        }
+        return true;
+    });
+
+    if (autoPools.empty()) {
+        return;
+    }
+
+    CDataStructureV0 futureBurnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+    CDataStructureV0 loanKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::Loans};
+
+    CAmount burnt{};
+    cache.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+        if (owner == chainparams.GetConsensus().burnAddress && balance.nTokenId == tokenDUSD->first) {
+            burnt = balance.nValue;
+        }
+        return false;
+    }, BalanceKey{chainparams.GetConsensus().burnAddress, tokenDUSD->first});
+
+    const auto minted = tokenDUSD->second->minted;
+    auto futureBurn = attributes->GetValue(futureBurnKey, CBalances{});
+    auto loan = attributes->GetValue(loanKey, CBalances{});
+
+    const auto circulatingSupply = minted - burnt - futureBurn[tokenDUSD->first];
+    const auto algorithmicDUSD = circulatingSupply - loan[tokenDUSD->first];
+
+    const auto ratio = DivideAmounts(algorithmicDUSD, circulatingSupply);
+    const auto autoFee = static_cast<CAmount>(((std::pow(2, (static_cast<double>(ratio) / COIN * 100 - 30) / 10)) - 1) / 400 * COIN);
+
+    for (const auto poolId : autoPools) {
+        const auto pool = cache.GetPoolPair({poolId});
+        if (!pool) {
+            continue;
+        }
+
+        const auto tokenA = cache.GetToken(pool->idTokenA);
+        const auto tokenB = cache.GetToken(pool->idTokenB);
+
+        if (tokenA->symbol == "DUSD") {
+            CDataStructureV0 key{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenAFeePCT};
+            attributes->SetValue(key, autoFee);
+        } else if (tokenB->symbol == "DUSD") {
+            CDataStructureV0 key{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenBFeePCT};
+            attributes->SetValue(key, autoFee);
+        }
+    }
+
+    cache.SetVariable(*attributes);
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
