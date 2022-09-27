@@ -135,10 +135,10 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
 
-    if (metadataObj["tokenFrom"].getValStr() == "") {
+    if (metadataObj["tokenFrom"].getValStr().empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenFrom is empty");
     }
-    if (metadataObj["tokenTo"].getValStr() == "") {
+    if (metadataObj["tokenTo"].getValStr().empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenTo is empty");
     }
     if (!metadataObj["from"].isNull()) {
