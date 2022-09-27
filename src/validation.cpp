@@ -4788,6 +4788,24 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     return Res::Ok();
 }
 
+static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, uint8_t key, uint32_t id, int32_t multiplier) {
+    CDataStructureV0 attrKey{AttributeTypes::Live, ParamIDs::Economy, key};
+    auto balances = attributes.GetValue(attrKey, CBalances{});
+    for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
+        const auto& [tokenId, amount] = *it;
+        if (tokenId.v != id) {
+            continue;
+        }
+
+        CDataStructureV0 descendantKey{AttributeTypes::Token, tokenId.v, TokenKeys::Descendant};
+        auto descendantValues = attributes.GetValue(descendantKey, DescendantValue{});
+        balances.balances.erase(it);
+        balances.Add({{descendantValues.first}, CalculateNewAmount(multiplier, amount)});
+        break;
+    }
+    attributes.SetValue(attrKey, balances);
+}
+
 void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningCrunchHeight) {
         return;
@@ -4901,6 +4919,10 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Current, id, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Burned, id, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Minted, id, multiplier);
 
         CAmount totalBalance{0};
 
