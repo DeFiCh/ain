@@ -311,20 +311,24 @@ class PoolPairTest (DefiTestFramework):
         assert("Price is higher than indicated" in errorString)
 
     def setup_new_pool_BTC_LTC(self):
+
+        self.symbolBTC = "BTC"
+        self.symbolLTC = "LTC"
+
         self.nodes[0].createtoken({
-                "symbol": "BTC",
-                "name": "Bitcoin",
-                "collateralAddress": self.accountGN0
+                "symbol": self.symbolBTC,
+                "name": self.symbolBTC,
+                "collateralAddress": self.accountGN0,
+                "isDAT" : True
             })
         self.nodes[0].createtoken({
-                "symbol": "LTC",
-                "name": "Litecoin",
-                "collateralAddress": self.accountGN0
+                "symbol": self.symbolLTC,
+                "name": self.symbolLTC,
+                "collateralAddress": self.accountGN0,
+                "isDAT" : True
             })
         self.nodes[0].generate(1)
 
-        self.symbolBTC = "BTC#" + self.get_id_token("BTC")
-        self.symbolLTC = "LTC#" + self.get_id_token("LTC")
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
         self.idLTC = list(self.nodes[0].gettoken(self.symbolLTC).keys())[0]
 
@@ -528,6 +532,25 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(self.idBL)], round(dexinfee, 8))
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
+    def test_swap_to_self(self):
+
+        # Get and fund new address
+        address = self.nodes[0].getnewaddress()
+        self.nodes[0].accounttoaccount(self.accountGN0, {address: f"1@{self.symbolLTC}"})
+        self.nodes[0].generate(1)
+
+        # Swap to self
+        self.nodes[0].poolswap({
+            "from": address,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": 1,
+            "tokenTo": self.symbolBTC
+        })
+        self.nodes[0].generate(1)
+
+        # Check that LTC has gone and only BTC is present
+        assert_equal(self.nodes[0].getaccount(address), [f'0.00759157@{self.symbolBTC}'])
+
     def revert_to_initial_state(self):
         self.rollback_to(block=0, nodes=[0, 1, 2])
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
@@ -555,6 +578,7 @@ class PoolPairTest (DefiTestFramework):
         self.test_listaccounthistory_and_burninfo()
         self.update_comission_and_fee_to_1pct_pool1()
         self.update_comission_and_fee_to_1pct_pool2()
+        self.test_swap_to_self()
         self.revert_to_initial_state()
 
 if __name__ == '__main__':
