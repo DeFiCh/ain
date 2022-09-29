@@ -1730,7 +1730,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // Undo community balance increments
-    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
+    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
 
     CKeyID minterKey;
     std::optional<uint256> nodeId;
@@ -2065,7 +2065,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         CAmount foundationReward{0};
         if (height >= consensus.GrandCentralHeight)
         {
-            // no foundation reward check anymore
+            // no foundation utxo reward check anymore
         }
         else if (height >= consensus.EunosHeight)
         {
@@ -2126,6 +2126,23 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
                 else
                 {
+                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    {
+                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+
+                        auto attributes = mnview.GetAttributes();
+                        if (!attributes) {
+                            return Res::ErrDbg("attributes-not-found", "Critical error!");
+                        }
+                        if (!attributes->GetValue(enabledKey, false))
+                        {
+                            mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                            nonUtxoTotal += subsidy;
+
+                            continue;
+                        }
+                    }
+
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
                         LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
@@ -2164,7 +2181,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 }
 
 
-void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus)
 {
     CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
 
@@ -2190,6 +2207,22 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
                 }
                 else
                 {
+                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    {
+                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+
+                        auto attributes = mnview.GetAttributes();
+                        if (!attributes) {
+                            return;
+                        }
+                        if (!attributes->GetValue(enabledKey, false))
+                        {
+                            mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+
+                            continue;
+                        }
+                    }
+                    
                     mnview.SubCommunityBalance(kv.first, subsidy);
                 }
             }
@@ -4026,6 +4059,10 @@ void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSV
 }
 
 void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
     CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
 
     auto attributes = cache.GetAttributes();
@@ -4033,7 +4070,14 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         return;
     }
 
-    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight || !attributes->GetValue(enabledKey, false)) {
+    auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
+    if (!attributes->GetValue(enabledKey, false))
+    {
+        if (funds > 0) {
+            cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
+            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
+        }
+
         return;
     }
 
