@@ -35,19 +35,24 @@ setup_vars() {
   NODE_RESTARTS=0
 }
 
-echo "======== Sync Test Info ==========
-- Block range: ${START_BLOCK} - ${STOP_BLOCK}
-- Base snapshot: https://gcr.io/br-blockchains-dev/datadir-${START_BLOCK}
-- Reference logs:
-  - debug.log: $REF_LOG_PATH
-- Commands used:
- - $ACCOUNT_BALANCES_CMD
- - $LIST_ANCHORS_CMD
-- defid cmd: ${DEFI_CLI_CMD}
-- defi.conf:
-  $(cat "$CONF_FILE")
-----------------------------------
-"
+print_info() {
+  echo "======== Sync Test Info ==========
+  - Block range: ${START_BLOCK} - ${STOP_BLOCK}
+  - Base snapshot: https://gcr.io/br-blockchains-dev/datadir-${START_BLOCK}
+  - Reference logs:
+    - debug.log: $REF_LOG_PATH
+  - Commands used:
+   - $ACCOUNT_BALANCES_CMD
+   - $LIST_ANCHORS_CMD
+  - defid cmd: ${DEFI_CLI_CMD}
+  - defi.conf:
+    $(cat "$CONF_FILE")
+  ----------------------------------
+  "
+}
+
+print_info
+
 # Start defid
 start_node () {
   echo "Syncing to block height: $STOP_BLOCK"
