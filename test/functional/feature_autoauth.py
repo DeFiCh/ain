@@ -145,7 +145,7 @@ class TokensAutoAuthTest (DefiTestFramework):
             n0.createpoolpair({
                 "tokenA": "GOLD#1",
                 "tokenB": "SILVER",
-                "comission": 0.001,
+                "commission": 0.001,
                 "status": True,
                 "ownerAddress": poolOwner,
                 "pairSymbol": "GS"
@@ -159,7 +159,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         n0.createpoolpair({
             "tokenA": "GOLD#1",
             "tokenB": "SILVER",
-            "comission": 0.001,
+            "commission": 0.001,
             "status": True,
             "ownerAddress": poolOwner,
             "pairSymbol": "GS"

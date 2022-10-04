@@ -487,7 +487,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
 UniValue createpoolpair(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"createpoolpair",
+    RPCHelpMan help{"createpoolpair",
                "\nCreates (and submits to local node and network) a poolpair transaction with given metadata.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -541,7 +541,9 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                                           "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
                                                           "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
-    }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
@@ -550,30 +552,21 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
-    std::string tokenA, tokenB, pairSymbol;
-    CAmount commission = 0; // !!!
-    CScript ownerAddress;
-    CBalances rewards;
-    bool status = true; // default Active
     UniValue metadataObj = request.params[0].get_obj();
-    if (!metadataObj["tokenA"].isNull()) {
-        tokenA = metadataObj["tokenA"].getValStr();
-    }
-    if (!metadataObj["tokenB"].isNull()) {
-        tokenB = metadataObj["tokenB"].getValStr();
-    }
-    if (!metadataObj["commission"].isNull()) {
-        commission = AmountFromValue(metadataObj["commission"]);
-    }
-    if (!metadataObj["status"].isNull()) {
-        status = metadataObj["status"].getBool();
-    }
-    if (!metadataObj["ownerAddress"].isNull()) {
-        ownerAddress = DecodeScript(metadataObj["ownerAddress"].getValStr());
-    }
+    help.CheckMetadata(metadataObj);
+
+    std::string tokenA = metadataObj["tokenA"].getValStr();
+    std::string tokenB = metadataObj["tokenB"].getValStr();
+    CAmount commission = AmountFromValue(metadataObj["commission"]);
+    bool status = metadataObj["status"].getBool();
+    CScript ownerAddress = DecodeScript(metadataObj["ownerAddress"].getValStr());
+
+    std::string pairSymbol;
     if (!metadataObj["pairSymbol"].isNull()) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
     }
+
+    CBalances rewards;
     if (!metadataObj["customRewards"].isNull()) {
         rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
@@ -642,7 +635,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 UniValue updatepoolpair(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"updatepoolpair",
+    RPCHelpMan help{"updatepoolpair",
                "\nCreates (and submits to local node and network) a pool status update transaction.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the pool's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -681,7 +674,9 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                                                        "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
-    }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -696,6 +691,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     CScript ownerAddress;
     CBalances rewards;
     UniValue const & metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[1];
 
     std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
@@ -775,7 +771,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 UniValue poolswap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"poolswap",
+    RPCHelpMan help{"poolswap",
                "\nCreates (and submits to local node and network) a poolswap transaction with given metadata.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -826,7 +822,10 @@ UniValue poolswap(const JSONRPCRequest& request) {
                                                                             "\"maxPrice\":\"0.01\""
                                                                             "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                              },
-              }.Check(request);
+              };
+
+    help.Check(request);
+    help.CheckMetadata(request.params[0].get_obj());
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
@@ -876,7 +875,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 UniValue compositeswap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"compositeswap",
+    RPCHelpMan help{"compositeswap",
                "\nCreates (and submits to local node and network) a composite swap (swap between multiple poolpairs) transaction with given metadata.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -927,7 +926,10 @@ UniValue compositeswap(const JSONRPCRequest& request) {
                                                                             "\"maxPrice\":\"0.01\""
                                                                             "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                              },
-              }.Check(request);
+              };
+
+    help.Check(request);
+    help.CheckMetadata(request.params[0].get_obj());
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");

@@ -83,7 +83,7 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].createpoolpair({
             "tokenA": "PT",
             "tokenB": "GOLD#128",
-            "comission": 0.001,
+            "commission": 0.001,
             "status": True,
             "ownerAddress": collateral0,
             "pairSymbol": "PTGOLD"
@@ -95,7 +95,7 @@ class PoolPairTest (DefiTestFramework):
             self.nodes[0].createpoolpair({
             "tokenA": "PT",
             "tokenB": "GOLD#128",
-            "comission": 0.001,
+            "commission": 0.001,
             "status": True,
             "ownerAddress": collateral0,
             "pairSymbol": "PTGD"
@@ -108,7 +108,7 @@ class PoolPairTest (DefiTestFramework):
         trPP = self.nodes[0].createpoolpair({
             "tokenA": "DFI",
             "tokenB": "GOLD#128",
-            "comission": 0.001,
+            "commission": 0.001,
             "status": True,
             "ownerAddress": collateral0,
             "pairSymbol": "DFGLD"
@@ -130,7 +130,7 @@ class PoolPairTest (DefiTestFramework):
             self.nodes[2].createpoolpair({
             "tokenA": "DFI",
             "tokenB": "GOLD#128",
-            "comission": 0.001,
+            "commission": 0.001,
             "status": True,
             "ownerAddress": collateral0,
             "pairSymbol": "DFIGOLD"

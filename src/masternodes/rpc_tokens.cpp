@@ -7,7 +7,7 @@
 UniValue createtoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"createtoken",
+    RPCHelpMan help{"createtoken",
                "\nCreates (and submits to local node and network) a token creation transaction with given metadata.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -59,7 +59,9 @@ UniValue createtoken(const JSONRPCRequest& request) {
                                                        "\"collateralAddress\":\"address\"}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
-    }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create token while still in Initial Block Download");
@@ -74,6 +76,8 @@ UniValue createtoken(const JSONRPCRequest& request) {
     }
 
     const UniValue metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
+
     UniValue const & txInputs = request.params[1];
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
@@ -139,7 +143,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
 UniValue updatetoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"updatetoken",
+    RPCHelpMan help{"updatetoken",
                "\nCreates (and submits to local node and network) a transaction of token promotion to isDAT or demotion from isDAT. Collateral will be unlocked.\n"
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -161,14 +165,6 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                             "Token's 'Tradeable' property (bool, optional)"},
                            {"finalize", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                             "Lock token properties forever (bool, optional)"},
-                           // it is possible to transfer token's owner. but later
-//                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-//                            "Any valid destination for keeping collateral amount - used as token's owner auth"},
-                           // omitted for now, need to research/discuss
-//                           {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-//                            "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
-//                           {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-//                            "Token's total supply limit (optional, zero for now, unchecked)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -192,7 +188,9 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                        + HelpExampleRpc("updatetoken", "token '{\"isDAT\":true}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
-    }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -206,6 +204,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[2];
 
     CTokenImplementation tokenImpl;

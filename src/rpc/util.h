@@ -254,6 +254,30 @@ public:
         }
     }
 
+    inline void CheckMetadata(const UniValue& metadata) const {
+        if (metadata.type() != UniValue::VOBJ) {
+            throw std::runtime_error("metadata is not an object as expected");
+        }
+
+        std::map<std::string, UniValue> objMap;
+        metadata.getObjMap(objMap);
+
+        const auto metaArg = std::find_if(m_args.begin(), m_args.end(), [](RPCArg arg){ return arg.m_name == "metadata"; });
+        if (metaArg == m_args.end()) {
+            throw std::runtime_error("Could not find argument named metadata");
+        }
+
+        if (metaArg->m_type != RPCArg::Type::OBJ) {
+            throw std::runtime_error("metadata argument should be RPCArg::Type::OBJ");
+        }
+
+        for (const auto& arg : metaArg->m_inner) {
+            if (!arg.IsOptional() && (!objMap.count(arg.m_name) || objMap[arg.m_name].isNull())) {
+                throw std::runtime_error(strprintf("metadata argument '%s' missing or null", arg.m_name));
+            }
+        }
+    }
+
 private:
     const std::string m_name;
     const std::string m_description;

@@ -65,7 +65,7 @@ CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value)
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"setcollateraltoken",
+    RPCHelpMan help{"setcollateraltoken",
                 "Creates (and submits to local node and network) a set colleteral token transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -95,7 +95,9 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("setcollateraltoken", R"('{"token":"TSLA","factor":"150","fixedIntervalPriceId":"TSLA/USD"}')")
                         },
-     }.Check(request);
+     };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setcollateraltoken while still in Initial Block Download");
@@ -109,21 +111,14 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                            "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[1];
 
     std::string tokenSymbol;
     CLoanSetCollateralToken collToken;
 
-    if (!metaObj["token"].isNull())
-        tokenSymbol = trim_ws(metaObj["token"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"token\" must not be null");
-
-    if (!metaObj["factor"].isNull())
-        collToken.factor = AmountFromValue(metaObj["factor"]);
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
-
+    tokenSymbol = trim_ws(metaObj["token"].getValStr());
+    collToken.factor = AmountFromValue(metaObj["factor"]);
     collToken.fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
@@ -273,7 +268,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
 UniValue setloantoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"setloantoken",
+    RPCHelpMan help{"setloantoken",
                 "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -304,7 +299,8 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("setloantoken", R"('{"symbol":"TSLA","name":"TSLA stock token","fixedIntervalPriceId":"TSLA/USD","interest":"3"}')")
                         },
-     }.Check(request);
+    };
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setloantoken while still in Initial Block Download");
@@ -318,14 +314,11 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                            "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[1];
 
     CLoanSetLoanToken loanToken;
-
-    if (!metaObj["symbol"].isNull())
-        loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"symbol\" must not be null");
+    loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
 
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
@@ -383,7 +376,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 UniValue updateloantoken(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"updateloantoken",
+    RPCHelpMan help{"updateloantoken",
                 "Creates (and submits to local node and network) a transaction to update loan token metadata.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -416,7 +409,9 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         HelpExampleCli("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')") +
                         HelpExampleRpc("updateloantoken", R"("TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03})")
                         },
-     }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloantoken while still in Initial Block Download");
@@ -427,6 +422,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[2];
 
     std::optional<CLoanSetLoanTokenImplementation> loanToken;
@@ -1020,7 +1016,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
 UniValue takeloan(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"takeloan",
+    RPCHelpMan help{"takeloan",
                 "Creates (and submits to local node and network) a tx to mint loan token in desired amount based on defined loan.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -1049,7 +1045,9 @@ UniValue takeloan(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("takeloan", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amounts":"10@TSLA"}')")
                         },
-     }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot takeloan while still in Initial Block Download");
@@ -1063,22 +1061,17 @@ UniValue takeloan(const JSONRPCRequest& request) {
                            "{\"vaultId\",\"amounts\"}");
 
     UniValue metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
     UniValue const & txInputs = request.params[1];
 
     CLoanTakeLoanMessage takeLoan;
 
-    if (!metaObj["vaultId"].isNull())
-        takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
+    takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
 
     if (!metaObj["to"].isNull())
         takeLoan.to = DecodeScript(metaObj["to"].getValStr());
 
-    if (!metaObj["amounts"].isNull())
-        takeLoan.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+    takeLoan.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
 
     int targetHeight;
     CScript ownerAddress;
@@ -1126,7 +1119,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
 UniValue paybackloan(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"paybackloan",
+    RPCHelpMan help{"paybackloan",
                 "Creates (and submits to local node and network) a tx to return the loan in desired amount.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -1165,7 +1158,9 @@ UniValue paybackloan(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("paybackloan", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>", "amounts":"10@TSLA"}')")
                         },
-    }.Check(request);
+    };
+
+    help.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot paybackloan while still in Initial Block Download");
@@ -1178,13 +1173,9 @@ UniValue paybackloan(const JSONRPCRequest& request) {
                            "Invalid parameters, argument 1 must be non-null and expected as object at least with "
                            "{\"vaultId\",\"amounts\"}");
     UniValue metaObj = request.params[0].get_obj();
+    help.CheckMetadata(metaObj);
 
-    if (metaObj["vaultId"].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
     auto vaultId = uint256S(metaObj["vaultId"].getValStr());
-
-    if (metaObj["from"].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
     auto fromStr = metaObj["from"].getValStr();
 
     // Check amounts or/and loans
