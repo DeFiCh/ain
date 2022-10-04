@@ -17,6 +17,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -42,6 +43,16 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, CPropType prop);
+
+enum class UpdateMasternodeType : uint8_t
+{
+    None                   = 0x00,
+    OwnerAddress           = 0x01,
+    OperatorAddress        = 0x02,
+    SetRewardAddress       = 0x03,
+    RemRewardAddress       = 0x04
+};
 
 enum class UpdateMasternodeType : uint8_t
 {
@@ -241,13 +252,15 @@ public:
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     std::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
-    void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
+    void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback,
+        MNBlockTimeKey const & start = {uint256{}, std::numeric_limits<uint32_t>::max()});
 
     // Subnode block times
     void SetSubNodesBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const uint8_t id, const int64_t& time);
     std::vector<int64_t> GetSubNodesBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseSubNodesLastBlockTime(const uint256& nodeId, const uint32_t& blockHeight);
-    void ForEachSubNode(std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback, SubNodeBlockTimeKey const & start = {});
+    void ForEachSubNode(std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback,
+        SubNodeBlockTimeKey const & start = {uint256{}, uint8_t{}, std::numeric_limits<uint32_t>::max()});
 
     uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
 
@@ -399,6 +412,7 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CSettingsView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
@@ -427,8 +441,10 @@ class CCustomCSView
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
+                                        LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 private:
@@ -442,7 +458,7 @@ private:
 
 public:
     // Increase version when underlaying tables are changed
-    static constexpr const int DbVersion = 1;
+    static constexpr const int DbVersion = 2;
 
     CCustomCSView();
     explicit CCustomCSView(CStorageKV & st);

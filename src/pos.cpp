@@ -23,7 +23,7 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
         return error("%s: Can't extract minter key\n", __func__);
     }
 
-    if (pindexPrev->nHeight + 1 >= Params().GetConsensus().GreatWorldHeight) {
+    if (pindexPrev->nHeight + 1 >= Params().GetConsensus().GrandCentralHeight) {
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(key);
         if (!nodeId) {
             return error("%s: No master operator found with minter key\n", __func__);
@@ -147,6 +147,11 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
         return pindexLast->nBits;
 
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
+
+    // Lower difficulty fork for mock network testing
+    if (fMockNetwork) {
+        return nProofOfWorkLimit;
+    }
 
     int nHeight{pindexLast->nHeight + 1};
     bool newDifficultyAdjust{nHeight > params.EunosHeight};

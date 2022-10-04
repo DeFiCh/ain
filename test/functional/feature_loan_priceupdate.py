@@ -7,9 +7,9 @@
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import calendar
 import time
@@ -18,9 +18,10 @@ class PriceUpdateTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        self.FCH = 400
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
-            ]
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1', f'-fortcanninghillheight={self.FCH}']
+        ]
 
     def run_test(self):
         self.nodes[0].generate(300)
@@ -253,11 +254,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         takenLoanAmount += loanAmount
 
-        try:
-            self.nodes[0].withdrawfromvault(vaultId1, account, "900@DFI")
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("At least 50% of the collateral must be in DFI" in errorString)
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].withdrawfromvault, vaultId1, account, "900@DFI")
 
         vault = self.nodes[0].getvault(vaultId1)
         self.nodes[0].withdrawfromvault(vaultId1, account, "100@BTC")
@@ -330,8 +327,8 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         vaultBeforeUpdate = self.nodes[0].getvault(vaultId1, True)
         expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
-        realInteresAfterOneBlock = Decimal(vaultBeforeUpdate["interestAmounts"][0].split('@')[0])
-        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
+        realInterestAfterOneBlock = Decimal(vaultBeforeUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInterestAfterOneBlock, expectedInterestAfterOneBlock)
         # Let price update and check vault again
         self.nodes[0].generate(5)
 
@@ -343,6 +340,38 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
         vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
         expectedInterestAfterOneBlock = Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)
+        realInterestAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInterestAfterOneBlock, expectedInterestAfterOneBlock)
+
+        # Go after FCH for high precission interestPerBlock and interestPerBlockValue
+        self.nodes[0].generate(self.FCH - self.nodes[0].getblockcount())
+
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
+        assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+
+        # Check one block interest is added correctly
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
+        assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
+
+        # Go after FCH for high precission interestPerBlock and interestPerBlockValue
+        self.nodes[0].generate(self.FCH - self.nodes[0].getblockcount())
+
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        assert_equal(vaultAfterUpdate["collateralRatio"], vaultBeforeUpdate["nextCollateralRatio"])
+        assert_equal(vaultAfterUpdate["nextCollateralRatio"], 3213)
+        interestPerBlockTSLA = vaultAfterUpdate["interestsPerBlock"][0].split('@')[0]
+        amountInterestTSLA = vaultAfterUpdate["interestAmounts"][0].split('@')[0]
+        self.nodes[0].generate(1)
+
+        # Check one block interest is added correctly
+        vaultAfterUpdate = self.nodes[0].getvault(vaultId1, True)
+        expectedInterestAfterOneBlock = Decimal(Decimal(amountInterestTSLA) + Decimal(interestPerBlockTSLA)).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
         realInteresAfterOneBlock = Decimal(vaultAfterUpdate["interestAmounts"][0].split('@')[0])
         assert_equal(realInteresAfterOneBlock, expectedInterestAfterOneBlock)
 

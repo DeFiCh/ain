@@ -1901,7 +1901,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         // Fee burn
         if (value.category == uint8_t(CustomTxType::CreateMasternode)
         || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
+        || value.category == uint8_t(CustomTxType::Vault)
+        || value.category == uint8_t(CustomTxType::CreateCfp)
+        || value.category == uint8_t(CustomTxType::CreateVoc)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
             }
@@ -1909,7 +1911,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
         // withdraw burn
         if (value.category == uint8_t(CustomTxType::PaybackLoan)
-        || value.category == uint8_t(CustomTxType::PaybackLoanV2)) {
+        || value.category == uint8_t(CustomTxType::PaybackLoanV2)
+        || value.category == uint8_t(CustomTxType::PaybackWithCollateral)) {
             for (const auto& [id, amount] : value.diff) {
                 paybackFee.Add({id, amount});
             }

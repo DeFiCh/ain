@@ -16,13 +16,6 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1'],
                            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
 
-    def rollback(self, count):
-        block = self.nodes[1].getblockhash(count)
-        self.nodes[1].invalidateblock(block)
-        self.nodes[1].clearmempool()
-        assert_equal(len(self.nodes[1].getrawmempool()), 0)
-        assert_equal(self.nodes[1].getblockcount(), count - 1)
-
     def run_test(self):
         self.nodes[0].generate(101)
         self.sync_blocks()
@@ -69,7 +62,7 @@ class TestRestoreUTXOs(DefiTestFramework):
 
         # Set up for rollback tests
         disconnect_nodes(self.nodes[0], 1)
-        block = self.nodes[1].getblockcount() + 1
+        block = self.nodes[1].getblockcount()
         node1_utxos = len(self.nodes[1].listunspent())
 
         # Test rollbacks
@@ -79,7 +72,7 @@ class TestRestoreUTXOs(DefiTestFramework):
                 self.nodes[1].generate(1)
                 self.nodes[1].accounttoaccount(node1_source, {node1_source: "1@BTC"})
                 self.nodes[1].generate(1)
-            self.rollback(block)
+            self.rollback_to(block, nodes=[1])
             assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
 
 if __name__ == '__main__':

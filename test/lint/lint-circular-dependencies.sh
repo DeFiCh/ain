@@ -37,6 +37,8 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/anchors -> masternodes/masternodes -> net_processing -> masternodes/anchors"
     "masternodes/anchors -> spv/spv_wrapper -> masternodes/anchors"
     "masternodes/anchors -> validation -> masternodes/anchors"
+    "masternodes/govvariables/loan_splits -> masternodes/masternodes -> validation -> masternodes/govvariables/loan_splits"
+    "masternodes/govvariables/lp_splits -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_splits"
     "masternodes/govvariables/attributes -> masternodes/gv -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/masternodes -> masternodes/govvariables/attributes"
     "masternodes/govvariables/attributes -> masternodes/masternodes -> masternodes/poolpairs -> masternodes/govvariables/attributes"

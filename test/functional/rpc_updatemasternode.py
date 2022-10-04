@@ -16,8 +16,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-greatworldheight=110'],
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-greatworldheight=110'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=110'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=110'],
         ]
 
     def skip_test_if_missing_module(self):
@@ -132,7 +132,7 @@ class TestForcedRewardAddress(DefiTestFramework):
 
         # Test call before for height
         operator_address = self.nodes[0].getnewaddress("", "legacy")
-        assert_raises_rpc_error(-32600, "called before GreatWorldHeight height".format(mn_id), self.nodes[0].updatemasternode, mn_id, {'operatorAddress':operator_address})
+        assert_raises_rpc_error(-32600, "called before GrandCentral height".format(mn_id), self.nodes[0].updatemasternode, mn_id, {'operatorAddress':operator_address})
 
         self.nodes[0].generate(4)
 
@@ -194,7 +194,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(fra_amount, 0)
 
         self.stop_node(1)
-        self.restart_node(0, ['-gen', '-masternode_operator='+operator_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-greatworldheight=1'])
+
+        self.restart_node(0, ['-gen', '-masternode_operator='+operator_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=1'])
 
         # Mine blocks
         self.nodes[0].generate(300)
@@ -208,7 +209,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         # CLI Reward address for test -rewardaddress
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
 
-        self.restart_node(0, ['-gen', '-masternode_operator='+operator_address, '-rewardaddress='+cli_reward_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-greatworldheight=1'])
+        self.restart_node(0, ['-gen', '-masternode_operator='+operator_address, '-rewardaddress='+cli_reward_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=1'])
 
         cra_unspent = self.list_unspent_tx(self.nodes[0], cli_reward_address)
         cra_amount = self.unspent_amount(self.nodes[0], cli_reward_address)

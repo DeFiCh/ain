@@ -77,7 +77,7 @@ using namespace boost::multi_index;
 class CSpvWrapper
 {
 private:
-    std::shared_ptr<CDBWrapper> db;
+    std::unique_ptr<CDBWrapper> db;
     std::unique_ptr<CDBBatch> batch;
 
     BRPeerManager *manager = nullptr;
@@ -94,6 +94,7 @@ protected:
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     virtual ~CSpvWrapper();
+
     void Load();
 
     virtual void Connect();
@@ -105,13 +106,10 @@ public:
 
     BRWallet * GetWallet();
 
-    bool IsInitialSync() const;
     virtual uint32_t GetLastBlockHeight() const;
     virtual uint32_t GetEstimatedBlockHeight() const;
-    uint8_t GetPKHashPrefix() const;
-    uint8_t GetP2SHPrefix() const;
 
-    std::vector<BRTransaction *> GetWalletTxs() const;
+    uint8_t GetP2SHPrefix() const;
 
     bool SendRawTx(TBytes rawtx, std::promise<int> * promise = nullptr);
 
@@ -133,11 +131,8 @@ public:
     void OnBlockNotify(const UInt256& blockHash);
     void OnTxNotify(const UInt256& txHash);
 
-    // Get time stamp of Bitcoin TX
-    uint32_t ReadTxTimestamp(uint256 const & hash);
-
-    // Get block height of Bitcoin TX
-    uint32_t ReadTxBlockHeight(uint256 const & hash);
+    // Get time stamp and height of Bitcoin TX
+    std::pair<uint32_t, uint32_t> ReadTxHeightTime(uint256 const & hash);
 
     // Bitcoin networking calls
     UniValue GetPeers();
@@ -204,6 +199,7 @@ private:
         {
             // ShutdownRequested replaces interruption_point
             if (ShutdownRequested()) break;
+
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
             {
@@ -233,6 +229,7 @@ private:
         {
             // ShutdownRequested replaces interruption_point
             if (ShutdownRequested()) break;
+
             std::pair<char, Key> key;
             if (pcursor->GetKey(key) && key.first == prefix)
             {
@@ -261,7 +258,7 @@ public:
     CFakeSpvWrapper();
 
     void Connect() override;
-    void Disconnect() override;
+    void Disconnect() override; 
     bool IsConnected() const override;
     void CancelPendingTxs() override;
 

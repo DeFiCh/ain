@@ -101,7 +101,7 @@ static void _ctx_init()
 int BRSecp256k1ModAdd(UInt256 *a, const UInt256 *b)
 {
     std::call_once(_ctx_once, _ctx_init);
-    return secp256k1_ec_privkey_tweak_add(_ctx, (unsigned char *)a, (const unsigned char *)b);
+    return secp256k1_ec_seckey_tweak_add(_ctx, (unsigned char *)a, (const unsigned char *)b);
 }
 
 // multiplies 256bit big endian ints a and b (mod secp256k1 order) and stores the result in a
@@ -109,7 +109,7 @@ int BRSecp256k1ModAdd(UInt256 *a, const UInt256 *b)
 int BRSecp256k1ModMul(UInt256 *a, const UInt256 *b)
 {
     std::call_once(_ctx_once, _ctx_init);
-    return secp256k1_ec_privkey_tweak_mul(_ctx, (unsigned char *)a, (const unsigned char *)b);
+    return secp256k1_ec_seckey_tweak_mul(_ctx, (unsigned char *)a, (const unsigned char *)b);
 }
 
 // multiplies secp256k1 generator by 256bit big endian int i and stores the result in p

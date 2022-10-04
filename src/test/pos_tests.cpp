@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(check_stake_modifier)
 
     // Check stake modifier calculated on owner address after fork
     auto blockTip = *::ChainActive().Tip();
-    blockTip.nHeight = Params().GetConsensus().GreatWorldHeight;
+    blockTip.nHeight = Params().GetConsensus().GrandCentralHeight;
     const auto newModifierBlock = FinalizeBlock(
             Block(blockTip.GetBlockHash(), blockTip.nHeight, blockTip.mintedBlocks),
             newMinterKey,

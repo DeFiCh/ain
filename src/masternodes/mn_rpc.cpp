@@ -936,6 +936,13 @@ static UniValue clearmempool(const JSONRPCRequest& request)
         auto locked_chain = pwallet->chain().lock();
         LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
+        const auto& byHash = pwallet->mapWallet.get<ByHash>();
+        for (const auto &wtx : byHash) {
+            if (wtx.GetDepthInMainChain(*locked_chain) == 0 && !wtx.IsCoinBase()) {
+                vtxid.push_back(wtx.GetHash());
+            }
+        }
+
         std::vector<uint256> vHashOut;
         if (pwallet->ZapSelectTx(vtxid, vHashOut) != DBErrors::LOAD_OK) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Could not delete mempool transactions from wallet");

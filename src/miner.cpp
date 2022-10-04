@@ -278,7 +278,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        coinbaseTx.vout.resize(2);
+        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        if (nHeight < consensus.GrandCentralHeight) {
+            coinbaseTx.vout.resize(2);
+            // Community payment always expected
+            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].nValue = foundationValue;
+        }
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
@@ -287,12 +293,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        // Community payment always expected
-        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
@@ -338,7 +340,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        const CKeyID key = nHeight >= consensus.GreatWorldHeight ? nodePtr->ownerAuthAddress : myIDs->first;
+        const CKeyID key = nHeight >= consensus.GrandCentralHeight ? nodePtr->ownerAuthAddress : myIDs->first;
         pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
     }
 
@@ -776,7 +778,8 @@ namespace pos {
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        const CKeyID key = blockHeight >= chainparams.GetConsensus().GreatWorldHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
+        const CKeyID key = blockHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
+
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, key);
 
         // Set search time if null or last block has changed
@@ -812,7 +815,7 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                        LogPrintf("MakeStake: kernel found\n");
 
                         found = true;
                         break;

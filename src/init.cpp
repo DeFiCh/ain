@@ -502,7 +502,10 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningroadheight", "Fort Canning Road fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningcrunchheight", "Fort Canning Crunch fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningspringheight", "Fort Canning Spring fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-greatworldheight", "Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanninggreatworldheight", "Fort Canning Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-greatworldheight", "Alias for Fort Canning Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-simulatemainnet", "Configure the regtest network to mainnet target timespan and spacing ", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -622,6 +625,7 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcstats", strprintf("Log RPC stats. (default: %u)", DEFAULT_RPC_STATS), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -796,6 +800,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
             LoadExternalBlockFile(chainparams, file);
+            if (ShutdownRequested()) {
+                LogPrintf("Shutdown requested. Exit %s\n", __func__);
+                return;
+            }
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -1319,10 +1327,10 @@ bool AppInitLockDataDirectory()
     return true;
 }
 
-void SetupAnchorSPVDatabases(bool resync) {
+void SetupAnchorSPVDatabases(bool resync, int64_t customCache) {
     // Close and open database
     panchors.reset();
-    panchors = std::make_unique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+    panchors = std::make_unique<CAnchorIndex>(customCache, false, gArgs.GetBoolArg("-spv", true) && resync);
 
     // load anchors after spv due to spv (and spv height) not set before (no last height yet)
     if (gArgs.GetBoolArg("-spv", true)) {
@@ -1333,9 +1341,9 @@ void SetupAnchorSPVDatabases(bool resync) {
         if (Params().NetworkIDString() == "regtest") {
             spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
         } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(false, customCache, false, resync);
         } else {
-            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+            spv::pspv = std::make_unique<spv::CSpvWrapper>(true, customCache, false, resync);
         }
     }
 }
@@ -1763,7 +1771,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
-                        strLoadError = _("Account database is unsuitable").translated;
+                        strLoadError = _("Account database is unsuitable. Reindex required.").translated;
                         break;
                     }
                 }
@@ -1958,11 +1966,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
         panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
-        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
+        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState), nCustomCacheSize);
 
         // Check if DB version changed
         if (spv::pspv && SPV_DB_VERSION != spv::pspv->GetDBVersion()) {
-            SetupAnchorSPVDatabases(true);
+            SetupAnchorSPVDatabases(true, nCustomCacheSize);
             assert(spv::pspv->SetDBVersion() == SPV_DB_VERSION);
             LogPrintf("Cleared anchor and SPV dasebase. SPV DB version set to %d\n", SPV_DB_VERSION);
         }
@@ -2171,7 +2179,39 @@ bool AppInitMain(InitInterfaces& interfaces)
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
 
-    // ********************************************************* Step XX: start spv
+    // ********************************************************* Step XX.a: create mocknet MN
+    // MN: 0000000000000000000000000000000000000000000000000000000000000000
+    // Owner/Operator Address: df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc
+    // Owner/Operator Privkey: L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6
+
+    if (fMockNetwork && HasWallets()) {
+
+        // Import privkey
+        const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
+        const auto pubkey = key.GetPubKey();
+        const auto dest = WitnessV0KeyHash(PKHash{pubkey});
+        const auto keyID = pubkey.GetID();
+        const auto time{std::time(nullptr)};
+
+        auto pwallet = GetWallets()[0];
+        pwallet->SetAddressBook(dest, "", "receive");
+        pwallet->ImportPrivKeys({{keyID, key}}, time);
+
+        // Create masternode
+        CMasternode node;
+        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+        node.ownerType = WitV0KeyHashType;
+        node.ownerAuthAddress = keyID;
+        node.operatorType = WitV0KeyHashType;
+        node.operatorAuthAddress = keyID;
+        node.version = CMasternode::VERSION0;
+        pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
+        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+            pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+        }
+    }
+
+    // ********************************************************* Step XX.b: start spv
     if (spv::pspv)
     {
         spv::pspv->Connect();
@@ -2189,7 +2229,12 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         std::set<std::string> operatorsSet;
         bool atLeastOneRunningOperator = false;
-        auto const operators = gArgs.GetArgs("-masternode_operator");
+        auto operators = gArgs.GetArgs("-masternode_operator");
+
+        if (fMockNetwork) {
+            auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
+            operators.push_back(mocknet_operator);
+        }
 
         std::vector<pos::ThreadStaker::Args> stakersParams;
         for (auto const & op : operators) {
