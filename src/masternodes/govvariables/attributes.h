@@ -217,8 +217,10 @@ enum FeeDirValues : uint8_t {
 
 using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits    = std::map<uint32_t, int32_t>;
+using Deprecated1     = std::pair<uint32_t, int32_t>; // If you can repurpose then please do
+using Deprecated2     = std::pair<uint32_t, std::string>; // If you can repurpose then please do
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, CSplitValues, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, Deprecated1, Deprecated2, CFeeDir, CDexBalances, CSplitValues>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
