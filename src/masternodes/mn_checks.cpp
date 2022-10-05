@@ -4297,6 +4297,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
+        auto forward = swapAmount.nTokenId == pool->idTokenA;
+
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight) && lastSwap) {
+            if ((forward && pool->idTokenB != obj.idTokenTo) || (!forward && pool->idTokenA != obj.idTokenTo)) {
+                return Res::Err("Final swap output is not same as idTokenTo");
+            }
+        }
+
         if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
             return Res::Err("Pool currently disabled due to locked token");
         }
@@ -4309,7 +4317,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
         auto& balances = dexBalances[currentID];
-        auto forward = swapAmount.nTokenId == pool->idTokenA;
 
         auto& totalTokenA = forward ? balances.totalTokenA : balances.totalTokenB;
         auto& totalTokenB = forward ? balances.totalTokenB : balances.totalTokenA;
