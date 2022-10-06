@@ -427,6 +427,29 @@ class PoolPairCompositeTest(DefiTestFramework):
         # Check result uses composite swap
         result = self.nodes[0].getcustomtx(tx)
         assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
+        
+        self.nodes[0].accounttoaccount(collateral, {source: "20@" + symbolUSDC})
+        self.nodes[0].generate(1)
+
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolUSDC,
+            "amountFrom": "10",
+            "to": destination,
+            "tokenTo": symbolDOGE
+        })
+
+        metadata = self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex']
+        updated_metadata = metadata.replace(hex(int(idDOGE))[2] + "00" + hex(int(idDOGE))[3], hex(int(idLTC))[2] + "00" + hex(int(idLTC))[3])
+        rawtx = self.nodes[0].getrawtransaction(tx)
+        updated_rawtx = rawtx.replace(metadata, updated_metadata)
+
+        self.nodes[0].clearmempool()
+        tx = self.nodes[0].sendrawtransaction(rawtx)
+        self.nodes[0].generate(1)
+        
+        print(self.nodes[0].getaccounthistory(destination, self.nodes[0].getblockcount(), 1))
+        print(self.nodes[0].getcustomtx(tx))
 
         # Wipe mempool
         self.nodes[0].clearmempool()
