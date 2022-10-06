@@ -675,10 +675,10 @@ Res CCustomTxVisitor::CheckCustomTx() const
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::CheckProposalTx(uint8_t type) const
+Res CCustomTxVisitor::CheckProposalTx(uint8_t type, uint8_t options) const
 {
     auto propType = static_cast<CPropType>(type);
-    if (tx.vout[0].nValue != GetPropsCreationFee(height, propType) || tx.vout[0].nTokenId != DCT_ID{0})
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, mnview, propType, options) || tx.vout[0].nTokenId != DCT_ID{0})
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
@@ -3855,7 +3855,7 @@ public:
                 return Res::Err("unsupported proposal type");
         }
 
-        res = CheckProposalTx(obj.type);
+        res = CheckProposalTx(obj.type, obj.options);
         if (!res)
             return res;
 

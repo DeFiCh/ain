@@ -41,7 +41,7 @@ class CCustomTxVisitor
         Res HasCollateralAuth(const uint256& collateralTx) const;
         Res HasFoundationAuth() const;
         Res CheckMasternodeCreationTx() const;
-        Res CheckProposalTx(uint8_t type) const;
+        Res CheckProposalTx(uint8_t type, uint8_t options) const;
         Res CheckTokenCreationTx() const;
         Res CheckCustomTx() const;
         Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;

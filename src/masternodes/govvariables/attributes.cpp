@@ -126,7 +126,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
 const std::map<std::string, uint8_t>& ATTRIBUTES::allowedGovernanceIDs() {
     static const std::map<std::string, uint8_t> params{
             {"global",    GovernanceIDs::Global},
-            {"cfp",       GovernanceIDs::CFP},
+            {"proposals", GovernanceIDs::Proposals},
     };
     return params;
 }
@@ -134,7 +134,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedGovernanceIDs() {
 const std::map<uint8_t, std::string>& ATTRIBUTES::displayGovernanceIDs() {
     static const std::map<uint8_t, std::string> params{
             {GovernanceIDs::Global,    "global"},
-            {GovernanceIDs::CFP,       "cfp"},
+            {GovernanceIDs::Proposals, "proposals"},
     };
     return params;
 }
@@ -181,7 +181,16 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         {
             AttributeTypes::Governance, {
                 {"enabled",                     GovernanceKeys::Enabled},
-                {"payout",                      GovernanceKeys::CFPPayout},
+                {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
+                {"cfp_fee",                     GovernanceKeys::CFPFee},
+                {"cfp_emergency_fee",           GovernanceKeys::CFPEmergencyFee},
+                {"cfp_emergency_period",        GovernanceKeys::CFPEmergencyPeriod},
+                {"cfp_majority",                GovernanceKeys::CFPMajority},
+                {"voc_fee",                     GovernanceKeys::VOCFee},
+                {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
+                {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
+                {"voc_majority",                GovernanceKeys::VOCMajority},
+                {"proposal_minimum_vote",       GovernanceKeys::PropMinVote},
             }
         },
     };
@@ -246,8 +255,17 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,       "enabled"},
-                {GovernanceKeys::CFPPayout,     "payout"},
+                {GovernanceKeys::Enabled,           "enabled"},
+                {GovernanceKeys::CFPPayout,         "cfp_automatic_payout"},
+                {GovernanceKeys::CFPFee,            "cfp_fee"},
+                {GovernanceKeys::CFPEmergencyFee,   "cfp_emergency_fee"},
+                {GovernanceKeys::CFPEmergencyPeriod,"cfp_emergency_period"},
+                {GovernanceKeys::CFPMajority,       "cfp_majority"},
+                {GovernanceKeys::VOCFee,            "voc_fee"},
+                {GovernanceKeys::VOCEmergencyFee,   "voc_emergency_fee"},
+                {GovernanceKeys::VOCEmergencyPeriod,"voc_emergency_period"},
+                {GovernanceKeys::VOCMajority,       "voc_majority"},
+                {GovernanceKeys::PropMinVote,       "proposal_minimum_vote"},
             }
         },
     };
@@ -268,6 +286,14 @@ static ResVal<int32_t> VerifyPositiveInt32(const std::string& str) {
         return Res::Err("Value must be a positive integer");
     }
     return {int32, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyPositiveInteger(const std::string& str) {
+    int32_t int32;
+    if (!ParseInt32(str, &int32)) {
+        return Res::Err("Value must be an integer");
+    }
+    return {static_cast<uint32_t>(int32), Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
@@ -422,8 +448,17 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,         VerifyBool},
-                {GovernanceKeys::CFPPayout,       VerifyBool},
+                {GovernanceKeys::Enabled,               VerifyBool},
+                {GovernanceKeys::CFPPayout,             VerifyBool},
+                {GovernanceKeys::CFPFee,                VerifyPositiveFloat},
+                {GovernanceKeys::CFPEmergencyFee,       VerifyPositiveFloat},
+                {GovernanceKeys::CFPEmergencyPeriod,    VerifyPositiveInteger},
+                {GovernanceKeys::CFPMajority,           VerifyPositiveInteger},
+                {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
+                {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
+                {GovernanceKeys::VOCEmergencyPeriod,    VerifyPositiveInteger},
+                {GovernanceKeys::VOCMajority,           VerifyPositiveInteger},
+                {GovernanceKeys::PropMinVote,           VerifyPositiveInteger},
             }
         },
     };
@@ -595,9 +630,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             if (typeId == GovernanceIDs::Global) {
                 if (typeKey != GovernanceKeys::Enabled)
                     return Res::Err("Unsupported key for Governance global section - {%d}", typeKey);
-            } else if (typeId == GovernanceIDs::CFP) {
-                if (typeKey != GovernanceKeys::CFPPayout)
-                    return Res::Err("Unsupported key for Governance CFP section - {%d}", typeKey);
+            } else if (typeId == GovernanceIDs::Proposals) {
+                if (typeKey != GovernanceKeys::CFPPayout && typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPEmergencyFee
+                    && typeKey != GovernanceKeys::CFPEmergencyPeriod && typeKey != GovernanceKeys::CFPMajority && typeKey != GovernanceKeys::VOCFee
+                    && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCMajority
+                    && typeKey != GovernanceKeys::PropMinVote)
+                    return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             }
         }
 
@@ -871,10 +909,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
 
             if (const auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
+            } else if (const auto number = std::get_if<int32_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
+            } else if (const auto number = std::get_if<uint32_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if (attrV0->type == AttributeTypes::Param &&
+                if ((attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F) &&
-                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
+                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto decimalStr = GetDecimaleString(*amount);

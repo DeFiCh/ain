@@ -2222,7 +2222,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                             continue;
                         }
                     }
-                    
+
                     mnview.SubCommunityBalance(kv.first, subsidy);
                 }
             }
@@ -4116,21 +4116,26 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }, CMnVotePerCycle{propId, prop.cycle});
 
-        if (lround(voters * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
+        CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::PropMinVote};
+
+        if (lround(voters * 10000.f / activeMasternodes.size()) <= attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting)) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
 
         uint32_t majorityThreshold{};
+        CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+        CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
         switch(prop.type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold);
                 break;
             case CPropType::BlockRewardReallocation:
                 majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold);
                 break;
         }
 
@@ -4146,7 +4151,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             cache.UpdatePropCycle(propId, prop.cycle + 1);
         }
 
-        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPPayout};
+        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPPayout};
 
         if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);

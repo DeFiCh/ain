@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <masternodes/masternodes.h>
 #include <masternodes/proposals.h>
 
 std::string CPropTypeToString(const CPropType status)
@@ -40,13 +41,22 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     CPropObject prop{msg};
     prop.creationHeight = height;
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
-    WriteBy<ByStatus>(key, uint8_t(1));
+    WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
 
-    auto votingPeriod = GetVotingPeriod();
-    for (uint8_t i = 1; i <= prop.nCycles; ++i) {
-        height += (height % votingPeriod) + votingPeriod;
-        auto keyPair = std::make_pair(height, propId);
-        WriteBy<ByCycle>(keyPair, i);
+    uint32_t emergencyPeriod;
+    if (((prop.options & CPropOption::Emergency) == CPropOption::Emergency) && (emergencyPeriod = GetEmergencyPeriodFromAttributes(prop.type)))
+    {
+        height += emergencyPeriod;
+        WriteBy<ByCycle>(std::make_pair(height, propId), static_cast<uint8_t>(1));
+    }
+    else
+    {
+        auto votingPeriod = GetVotingPeriod();
+        for (uint8_t i = 1; i <= prop.nCycles; ++i) {
+            height += (height % votingPeriod) + votingPeriod;
+            auto keyPair = std::make_pair(height, propId);
+            WriteBy<ByCycle>(keyPair, i);
+        }
     }
     prop.finalHeight = height;
     WriteBy<ByType>(propId, prop);

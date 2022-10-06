@@ -1,5 +1,6 @@
 
 #include <masternodes/mn_rpc.h>
+#include <masternodes/govvariables/attributes.h>
 
 #include <functional>
 
@@ -20,6 +21,14 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("totalCycles", int(prop.nCycles));
     ret.pushKV("finalizeAfter", int64_t(prop.finalHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
+    if (prop.options)
+    {
+        UniValue opt = UniValue(UniValue::VARR);
+        if ((prop.options & CPropOption::Emergency) == CPropOption::Emergency)
+            opt.push_back("emergency");
+
+        ret.pushKV("options", opt);
+    }
     return ret;
 }
 
@@ -44,8 +53,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
                "\nCreates a Community Fund Proposal" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "data in json-form, containing cfp data",
+                    {"data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "data in json-form, containing cfp data",
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of community fund request"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field of community fund request"},
@@ -53,18 +61,19 @@ UniValue creategovcfp(const JSONRPCRequest& request)
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
+                            {"emergency", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Is this emergency CFP"},
                         },
-                       },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                                  {
                                          {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
                                          {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                  },
-                                },
+                            },
                         },
-                       },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -86,6 +95,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     CAmount amount;
     int cycles = 1;
     std::string title, context, contexthash, addressStr;
+    bool emergency = false;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -104,8 +114,19 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     if (!data["contexthash"].isNull())
         contexthash = data["contexthash"].get_str();
 
+    if (!data["emergency"].isNull())
+    {
+        emergency = data["emergency"].get_bool();
+        cycles = 1;
+    }
+
     if (!data["cycles"].isNull())
-        cycles = data["cycles"].get_int();
+    {
+        if (emergency)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "cycles not available in emergency CFPs");
+        else
+            cycles = data["cycles"].get_int();
+    }
 
     if (!data["amount"].isNull()) {
         amount = AmountFromValue(data["amount"]);
@@ -133,6 +154,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     pm.title = title;
     pm.context = context;
     pm.contexthash = contexthash;
+    pm.options = (emergency ? CPropOption::Emergency : 0);
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -150,7 +172,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     std::set<CScript> auths{pm.address};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
-    CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));
+    CAmount cfpFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), pm.options);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -179,18 +201,23 @@ UniValue creategovvoc(const JSONRPCRequest& request)
                "\nCreates a Vote of Confidence" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of vote of confidence"},
-                       {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field for vote of confidence"},
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                    {"data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "data in json-form, containing voc data",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
+                            {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of vote of confidence"},
+                            {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field for vote of confidence"},
+                            {"emergency", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Is this emergency VOC"},
                         },
-                       },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -207,10 +234,29 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+    RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
 
-    const auto title = request.params[0].get_str();
-    const auto context = request.params[1].get_str();
+    std::string title, context;
+    bool emergency = false;
+
+    const UniValue& data = request.params[0].get_obj();
+
+    if (!data["title"].isNull()) {
+        title = data["title"].get_str();
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "<title> is required");
+    }
+
+    if (!data["context"].isNull()) {
+        context = data["context"].get_str();
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
+    }
+
+    if (!data["emergency"].isNull())
+    {
+        emergency = data["emergency"].get_bool();
+    }
 
     CCreatePropMessage pm;
     pm.type = CPropType::VoteOfConfidence;
@@ -218,6 +264,8 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     pm.nCycles = VOC_CYCLES;
     pm.title = title;
     pm.context = context;
+    pm.options = 0;
+    pm.options = (emergency ? CPropOption::Emergency : 0);
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -233,10 +281,10 @@ UniValue creategovvoc(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[2]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
-    CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));
-    rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
+    CAmount vocFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), pm.options);
+    rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
 
     CCoinControl coinControl;
 
@@ -489,17 +537,27 @@ UniValue getgovproposal(const JSONRPCRequest& request)
 
     uint32_t majorityThreshold = 0, votes = 0;
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
-    auto valid = allVotes > Params().GetConsensus().props.minVoting;
+    CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+    CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+    CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::PropMinVote};
+
+    auto attributes = view.GetAttributes();
+    if (!attributes)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
+
+    auto minVotes = attributes->GetValue(minVoting, static_cast<int64_t>(Params().GetConsensus().props.minVoting));
+    auto valid = allVotes > minVotes;
+
     if (valid) {
         switch(prop->type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = Params().GetConsensus().props.cfp.majorityThreshold;
+                majorityThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.majorityThreshold);
                 break;
             case CPropType::BlockRewardReallocation:
                 majorityThreshold = Params().GetConsensus().props.brp.majorityThreshold;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = Params().GetConsensus().props.voc.majorityThreshold;
+                majorityThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.majorityThreshold);
                 break;
         }
         votes = lround(voteYes * 10000.f / voters);
@@ -514,6 +572,15 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
 
+    if (prop->options)
+    {
+        UniValue opt = UniValue(UniValue::VARR);
+        if ((prop->options & CPropOption::Emergency) == CPropOption::Emergency)
+            opt.push_back("emergency");
+
+        ret.pushKV("options", opt);
+    }
+
     if (valid && votes >= majorityThreshold) {
         ret.pushKV("status", "Approved");
     } else {
@@ -523,7 +590,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     if (valid) {
         ret.pushKV("approval", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
     } else {
-        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, Params().GetConsensus().props.minVoting / 100, Params().GetConsensus().props.minVoting % 100));
+        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, minVotes / 100, minVotes % 100));
     }
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;
@@ -610,7 +677,7 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"proposals",   "creategovcfp",          &creategovcfp,          {"data", "inputs"} },
-    {"proposals",   "creategovvoc",          &creategovvoc,          {"title", "inputs"} },
+    {"proposals",   "creategovvoc",          &creategovvoc,          {"data", "inputs"} },
     {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
     {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode"} },
     {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },

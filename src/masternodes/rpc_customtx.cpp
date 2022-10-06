@@ -501,6 +501,14 @@ public:
         }
         rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+        if (obj.options)
+        {
+            UniValue opt = UniValue(UniValue::VARR);
+            if ((obj.options & CPropOption::Emergency) == CPropOption::Emergency)
+                opt.push_back("emergency");
+
+            rpcInfo.pushKV("options", opt);
+        }
     }
 
     void operator()(const CPropVoteMessage& obj) const {

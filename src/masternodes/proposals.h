@@ -24,6 +24,10 @@ enum CPropType : uint8_t {
     VoteOfConfidence        = 0x03,
 };
 
+enum CPropOption : uint8_t {
+    Emergency   = 0x01,
+};
+
 enum CPropStatusType : uint8_t {
     Voting    = 0x01,
     Rejected  = 0x02,
@@ -48,6 +52,7 @@ struct CCreatePropMessage {
     std::string title;
     std::string context;
     std::string contexthash;
+    uint8_t options;
 
     ADD_SERIALIZE_METHODS;
 
@@ -61,6 +66,7 @@ struct CCreatePropMessage {
         READWRITE(title);
         READWRITE(context);
         READWRITE(contexthash);
+        READWRITE(options);
     }
 };
 
@@ -136,6 +142,9 @@ public:
 
     Res SetVotingPeriod(uint32_t votingPeriod);
     uint32_t GetVotingPeriod();
+
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const uint8_t) const = 0;
+
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
     struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };
