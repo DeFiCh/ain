@@ -427,9 +427,10 @@ class PoolPairCompositeTest(DefiTestFramework):
         # Check result uses composite swap
         result = self.nodes[0].getcustomtx(tx)
         assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
-        
+
         # Test that final output currency is same as tokenTo
-        self.nodes[0].accounttoaccount(collateral, {source: "100@" + symbolTSLA})
+        self.nodes[0].accounttoaccount(
+            collateral, {source: "100@" + symbolTSLA})
         self.nodes[0].generate(1)
 
         tx = self.nodes[0].compositeswap({
@@ -440,16 +441,19 @@ class PoolPairCompositeTest(DefiTestFramework):
             "tokenTo": symbolLTC
         })
 
-        metadata = self.nodes[0].getrawtransaction(tx, 1)['vout'][0]['scriptPubKey']['hex']
+        metadata = self.nodes[0].getrawtransaction(
+            tx, 1)['vout'][0]['scriptPubKey']['hex']
         rawtx = self.nodes[0].getrawtransaction(tx)
 
-        updated_metadata = metadata.replace(hex(int(idLTC))[2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
+        updated_metadata = metadata.replace(hex(int(idLTC))[
+                                            2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
         updated_rawtx = rawtx.replace(metadata, updated_metadata)
 
         self.nodes[0].clearmempool()
-        
+
         signed_raw = self.nodes[0].signrawtransactionwithwallet(updated_rawtx)
-        assert_raises_rpc_error(-26, "Final swap output is not same as idTokenTo", self.nodes[0].sendrawtransaction, signed_raw['hex'])
+        assert_raises_rpc_error(-26, "Final swap output is not same as idTokenTo",
+                                self.nodes[0].sendrawtransaction, signed_raw['hex'])
 
         # Wipe mempool
         self.nodes[0].clearmempool()
