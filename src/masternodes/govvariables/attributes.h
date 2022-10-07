@@ -198,7 +198,8 @@ struct CDexTokenInfo {
 enum FeeDirValues : uint8_t {
     Both,
     In,
-    Out
+    Out,
+    InStabilityFee
 };
 
 using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;

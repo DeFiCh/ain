@@ -4182,10 +4182,14 @@ void CChainState::ProcessDUSDStabilisationFee(const CBlockIndex* pindex, CCustom
 
         if (tokenA->symbol == "DUSD") {
             CDataStructureV0 key{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenAFeePCT};
+            CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenAFeeDir};
             attributes->SetValue(key, autoFee);
+            attributes->SetValue(dirAKey, CFeeDir{FeeDirValues::InStabilityFee});
         } else if (tokenB->symbol == "DUSD") {
             CDataStructureV0 key{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenBFeePCT};
+            CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, poolId, PoolKeys::TokenBFeeDir};
             attributes->SetValue(key, autoFee);
+            attributes->SetValue(dirBKey, CFeeDir{FeeDirValues::InStabilityFee});
         }
     }
 

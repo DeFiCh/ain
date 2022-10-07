@@ -954,6 +954,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(key, "in");
                 } else if (result->feeDir == FeeDirValues::Out) {
                     ret.pushKV(key, "out");
+                } else if (result->feeDir == FeeDirValues::InStabilityFee) {
+                    ret.pushKV(key, "inStabilityFee");
                 }
             }
         } catch (const std::out_of_range&) {

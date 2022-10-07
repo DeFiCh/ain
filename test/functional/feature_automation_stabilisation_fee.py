@@ -245,6 +245,7 @@ class AutomationStabilisationFeeTest(DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes[f'v0/poolpairs/{self.idDD}/auto_dusd_fee'], 'true')
         assert_equal(attributes[f'v0/poolpairs/{self.idDD}/token_a_fee_pct'], auto_fee)
+        assert_equal(attributes[f'v0/poolpairs/{self.idDD}/token_a_fee_direction'], 'inStabilityFee')
 
 if __name__ == '__main__':
     AutomationStabilisationFeeTest().main()
