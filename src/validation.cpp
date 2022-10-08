@@ -2511,19 +2511,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return true;
         }, pindex->nHeight);
 
-        auto excessLoans = mnview.GetExcessLoans();
-
         const CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
         const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+        const CDataStructureV0 batchRoundingKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::BatchRounding};
+        const CDataStructureV0 auctionInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::AuctionInterest};
+        const CDataStructureV0 dfiPaybackKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFINoInterest};
+
         const auto attributes = mnview.GetAttributes();
         auto minted = attributes->GetValue(mintedKey, CBalances{});
         auto negativeBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+        auto batchRoundingBalances = attributes->GetValue(batchRoundingKey, CBalances{});
+        auto auctionInterestBalances = attributes->GetValue(auctionInterestKey, CBalances{});
+        auto dfiPaybackBalances = attributes->GetValue(dfiPaybackKey, CBalances{});
 
         const auto totalDUSD = loanDUSD
                     + auctionDUSD
-                    - excessLoans[CLoanView::ExcessLoanType::BatchRounding].balances[token->first]
-                    - excessLoans[CLoanView::ExcessLoanType::AuctionInterest].balances[token->first]
-                    + excessLoans[CLoanView::ExcessLoanType::DFIPayback].balances[token->first]
+                    - batchRoundingBalances.balances[token->first]
+                    - auctionInterestBalances.balances[token->first]
+                    + dfiPaybackBalances.balances[token->first]
                     + minted.balances[token->first]
                     + negativeBalances.balances[token->first];
 
@@ -3464,15 +3469,19 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
 
             // Check if more than loan amount was generated.
+            CBalances balances;
             for (const auto& [tokenId, amount] : loanTokens->balances) {
                 if (totalLoanInBatches.balances.count(tokenId)) {
                     const auto interest = totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
                     if (totalLoanInBatches.balances[tokenId] > amount - interest) {
-                        auto excessLoans = cache.GetExcessLoans();
-                        excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::BatchRounding)].Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
-                        cache.SetExcessLoans(excessLoans);
+                        balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
                     }
                 }
+            }
+
+            // Only store to attributes if there has been a rounding error.
+            if (!balances.balances.empty()) {
+                TrackLiveBalances(cache, balances, EconomyKeys::BatchRounding);
             }
 
             // All done. Ready to save the overall auction.
@@ -3501,6 +3510,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         auto vault = view.GetVault(vaultId);
         assert(vault);
 
+        CBalances balances;
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch({vaultId, i});
             assert(batch);
@@ -3558,9 +3568,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
-                auto excessLoans = cache.GetExcessLoans();
-                excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::AuctionInterest)].Add({batch->loanAmount.nTokenId, batch->loanInterest});
-                cache.SetExcessLoans(excessLoans);
+                balances.Add({batch->loanAmount.nTokenId, batch->loanInterest});
                 if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
                 }
@@ -3570,6 +3578,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
                 }
             }
+        }
+
+        // Only store to attributes if there has been a rounding error.
+        if (!balances.balances.empty()) {
+            TrackLiveBalances(view, balances, EconomyKeys::AuctionInterest);
         }
 
         vault->isUnderLiquidation = false;

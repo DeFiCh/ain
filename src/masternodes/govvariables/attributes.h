@@ -48,6 +48,9 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
+    BatchRounding      = 'l', // Extra added to loan amounts on auction creation due to round errors.
+    AuctionInterest    = 'm', // Amount added to loan amounts after auction with no bids.
+    PaybackDFINoInterest = 'n', // Same as PaybackDFITokens but without interest.
 };
 
 enum DFIPKeys : uint8_t  {
@@ -196,6 +199,7 @@ using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
 
 enum GovVarsFilter {
     All,

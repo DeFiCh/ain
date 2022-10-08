@@ -3606,13 +3606,13 @@ public:
                     {
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                         auto balances = attributes->GetValue(liveKey, CBalances{});
+                        balances.Add({loanTokenId, subAmount});
+                        balances.Add({paybackTokenId, penalty});
+                        attributes->SetValue(liveKey, balances);
 
-                        auto excessLoans = mnview.GetExcessLoans();
-                        excessLoans[static_cast<uint8_t>(CLoanView::ExcessLoanType::DFIPayback)].Add({loanTokenId, subLoan});
-                        mnview.SetExcessLoans(excessLoans);
-
-                        balances.Add(CTokenAmount{loanTokenId, subAmount});
-                        balances.Add(CTokenAmount{paybackTokenId, penalty});
+                        liveKey.key = EconomyKeys::PaybackDFINoInterest;
+                        balances = attributes->GetValue(liveKey, CBalances{});
+                        balances.Add({loanTokenId, subLoan});
                         attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);

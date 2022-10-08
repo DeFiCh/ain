@@ -301,18 +301,6 @@ void CLoanView::WriteInterestRate(const std::pair<CVaultId, DCT_ID>& pair, const
     }
 }
 
-std::map<uint8_t, CBalances> CLoanView::GetExcessLoans() const {
-    std::map<uint8_t, CBalances> excessLoans;
-    if (Read(ExcessLoanTokens::prefix(), excessLoans)) {
-        return excessLoans;
-    }
-    return {};
-}
-
-bool CLoanView::SetExcessLoans(const std::map<uint8_t, CBalances>& excessLoans) {
-    return Write(ExcessLoanTokens::prefix(), excessLoans);
-}
-
 Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, const DCT_ID id, const CAmount tokenInterest, const CAmount loanIncreased)
 {
     const auto scheme = GetLoanScheme(loanSchemeID);
