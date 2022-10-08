@@ -437,6 +437,7 @@ void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const u
         storedBalances.balances[tokenID] += amount;
     }
     attributes->SetValue(liveKey, storedBalances);
+    mnview.SetVariable(*attributes);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
