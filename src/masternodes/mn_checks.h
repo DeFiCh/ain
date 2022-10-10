@@ -84,7 +84,7 @@ enum class CustomTxType : uint8_t
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
-    BurnToken             = 'W',
+    BurnToken             = 'f',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
     //poolpair
@@ -131,7 +131,7 @@ enum class CustomTxType : uint8_t
     UpdateVault            = 'v',
     DepositToVault         = 'S',
     WithdrawFromVault      = 'J',
-    PaybackWithCollateral  = 'f',
+    PaybackWithCollateral  = 'W',
     TakeLoan               = 'X',
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
