@@ -2491,60 +2491,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
-    if (const auto token = mnview.GetToken("DUSD")) {
-        CAmount loanDUSD{}, auctionDUSD{};
-        mnview.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
-            for (const auto& [tokenId, amount] : balances.balances) {
-                if (tokenId == token->first) {
-                    loanDUSD += amount;
-                }
-            }
-            return true;
-        });
-
-        mnview.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
-            for (uint32_t i = 0; i < data.batchCount; ++i) {
-                if (const auto batch = mnview.GetAuctionBatch({vaultId, i}); batch && batch->loanAmount.nTokenId == token->first) {
-                    auctionDUSD += batch->loanAmount.nValue - batch->loanInterest;
-                }
-            }
-            return true;
-        }, pindex->nHeight);
-
-        const CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
-        const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
-        const CDataStructureV0 batchRoundingKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::BatchRounding};
-        const CDataStructureV0 auctionInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::AuctionInterest};
-        const CDataStructureV0 dfiPaybackKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFINoInterest};
-
-        const auto attributes = mnview.GetAttributes();
-        auto minted = attributes->GetValue(mintedKey, CBalances{});
-        auto negativeBalances = attributes->GetValue(negativeInterestKey, CBalances{});
-        auto batchRoundingBalances = attributes->GetValue(batchRoundingKey, CBalances{});
-        auto auctionInterestBalances = attributes->GetValue(auctionInterestKey, CBalances{});
-        auto dfiPaybackBalances = attributes->GetValue(dfiPaybackKey, CBalances{});
-
-        const auto totalDUSD = loanDUSD
-                    + auctionDUSD
-                    - batchRoundingBalances.balances[token->first]
-                    - auctionInterestBalances.balances[token->first]
-                    + dfiPaybackBalances.balances[token->first]
-                    + minted.balances[token->first]
-                    + negativeBalances.balances[token->first];
-
-        if (token->second->minted != totalDUSD) {
-            return state.Invalid(
-                    ValidationInvalidReason::CONSENSUS,
-                    error("%s: Block height %d mismatch DUSD minted %s DUSD loan amount %s",
-                          __func__,
-                          pindex->nHeight,
-                          GetDecimaleString(token->second->minted),
-                          GetDecimaleString(totalDUSD)),
-                    REJECT_INVALID,
-                    "token-balance-mismatch");
-        }
-    }
-
     // Interrupt on hash or height requested. Invalidate the block.
     if (StopOrInterruptConnect(pindex, state))
         return false;
