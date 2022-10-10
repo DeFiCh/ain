@@ -4572,6 +4572,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     {
         res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
         if (!res) return res;
+    } else {
+        TrackNegativeInterest(view, {dUsdToken->first, std::abs(burnAmount)});
     }
 
     // Guard against liquidation
