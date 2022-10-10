@@ -26,7 +26,6 @@
 #include <script/descriptor.h>
 #include <streams.h>
 #include <sync.h>
-#include <txdb.h>
 #include <txmempool.h>
 #include <undo.h>
 #include <util/strencodings.h>
@@ -34,15 +33,12 @@
 #include <util/validation.h>
 #include <validation.h>
 #include <validationinterface.h>
-#include <versionbitsinfo.h>
 #include <warnings.h>
 
 #include <assert.h>
 #include <stdint.h>
 
 #include <univalue.h>
-
-#include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 #include <condition_variable>
 #include <memory>
@@ -163,12 +159,20 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             CAmount burnt{0};
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (blockindex->nHeight < Params().GetConsensus().GrandCentralHeight
+                && kv.first == CommunityAccountType::CommunityDevFunds) {
+                    continue;
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
-                if (kv.first == CommunityAccountType::AnchorReward) {
-                    nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
-                } else {
-                    burnt += subsidy; // Everything else goes into burnt
+                switch(kv.first) {
+                    case CommunityAccountType::AnchorReward:
+                    case CommunityAccountType::CommunityDevFunds:
+                        nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
+                    break;
+                    default:
+                        burnt += subsidy; // Everything else goes into burnt
                 }
             }
 
@@ -1049,7 +1053,7 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     ::ChainstateActive().ForceFlushStateToDisk();
 
     CCoinsView* coins_view = WITH_LOCK(cs_main, return &ChainstateActive().CoinsDB());
-    if (GetUTXOStats(coins_view, stats)) {
+    if (GetUTXOStats(coins_view, stats, RpcInterruptionPoint)) {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
         ret.pushKV("transactions", (int64_t)stats.nTransactions);
@@ -1338,7 +1342,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
     BuriedForkDescPushBack(softforks, "fortcanningcrunch", consensusParams.FortCanningCrunchHeight);
     BuriedForkDescPushBack(softforks, "fortcanningspring", consensusParams.FortCanningSpringHeight);
-    BuriedForkDescPushBack(softforks, "greatworld", consensusParams.GreatWorldHeight);
+    BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.FortCanningGreatWorldHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
+    BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
@@ -2047,7 +2053,7 @@ bool FindScriptPubKey(std::atomic<int>& scan_progress, const std::atomic<bool>& 
         Coin coin;
         if (!cursor->GetKey(key) || !cursor->GetValue(coin)) return false;
         if (++count % 8192 == 0) {
-            boost::this_thread::interruption_point();
+            RpcInterruptionPoint();
             if (should_abort) {
                 // allow to abort the scan via the abort reference
                 return false;

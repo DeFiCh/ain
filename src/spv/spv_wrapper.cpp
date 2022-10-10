@@ -200,7 +200,7 @@ static void SetCheckpoints()
 }
 
 CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool fWipe)
-    : db(new CDBWrapper(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
+    : db(std::make_unique<CDBWrapper>(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
 {
     SetCheckpoints();
 
@@ -354,12 +354,6 @@ bool CSpvWrapper::Rescan(int height)
     return true;
 }
 
-// we cant return the whole params itself due to conflicts in include files
-uint8_t CSpvWrapper::GetPKHashPrefix() const
-{
-    return BRPeerManagerChainParams(manager)->base58_p2pkh;
-}
-
 uint8_t CSpvWrapper::GetP2SHPrefix() const
 {
     return BRPeerManagerChainParams(manager)->base58_p2sh;
@@ -368,11 +362,6 @@ uint8_t CSpvWrapper::GetP2SHPrefix() const
 BRWallet * CSpvWrapper::GetWallet()
 {
     return wallet;
-}
-
-bool CSpvWrapper::IsInitialSync() const
-{
-    return initialSync;
 }
 
 uint32_t CSpvWrapper::GetLastBlockHeight() const
@@ -391,17 +380,6 @@ void CSpvWrapper::OnBalanceChanged(uint64_t balance)
     LogPrint(BCLog::SPV, "balance changed: %lu\n", balance);
 }
 
-std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
-{
-    std::vector<BRTransaction *> txs;
-    txs.resize(BRWalletTransactions(wallet, nullptr, 0));
-    size_t count = BRWalletTransactions(wallet, txs.data(), txs.size());
-
-    LogPrint(BCLog::SPV, "wallet txs count: %lu\n", count);
-
-    return txs;
-}
-
 void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 {
     /// @attention called under spv manager lock!!!
@@ -415,7 +393,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
         LogPrint(BCLog::SPV, "IsAnchorTx(): %s\n", txHash.ToString());
 
         LOCK(cs_main);
-        if (ValidateAnchor(anchor) && panchors->AddToAnchorPending(anchor, txHash, tx->blockHeight)) {
+        if (ValidateAnchor(anchor) && panchors->AddToAnchorPending({anchor, txHash, tx->blockHeight})) {
             LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
         }
     }
@@ -440,7 +418,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             if (panchors->GetPendingByBtcTx(txHash, oldPending))
             {
                 LogPrint(BCLog::SPV, "updating anchor pending %s\n", txHash.ToString());
-                if (panchors->AddToAnchorPending(oldPending.anchor, txHash, blockHeight, true)) {
+                if (panchors->AddToAnchorPending({oldPending.anchor, txHash, blockHeight})) {
                     LogPrint(BCLog::ANCHORING, "Anchor pending added/updated %s\n", txHash.ToString());
                 }
             }
@@ -583,27 +561,15 @@ void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t 
     panchors->WriteBlock(blockHeight, blockHash);
 }
 
-uint32_t CSpvWrapper::ReadTxTimestamp(uint256 const & hash)
+std::pair<uint32_t, uint32_t> CSpvWrapper::ReadTxHeightTime(uint256 const & hash)
 {
     std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
     db_tx_rec txrec;
     if (db->Read(key, txrec)) {
-        return txrec.second.second;
+        return txrec.second;
     }
 
-    return 0;
-}
-
-uint32_t CSpvWrapper::ReadTxBlockHeight(uint256 const & hash)
-{
-    std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
-    db_tx_rec txrec;
-    if (db->Read(key, txrec)) {
-        return txrec.second.first;
-    }
-
-    // If not found return the default value of an unconfirmed TX.
-    return std::numeric_limits<int32_t>::max();
+    return {std::numeric_limits<int32_t>::max(), 0};
 }
 
 void CSpvWrapper::EraseTx(uint256 const & hash)
@@ -814,7 +780,7 @@ UniValue CSpvWrapper::ListReceived(int nMinDepth, std::string address)
     {
         int32_t confirmations{0};
         const auto txHash = to_uint256(txid->txHash);
-        const auto blockHeight = ReadTxBlockHeight(txHash);
+        const auto [blockHeight, blocktime] = ReadTxHeightTime(txHash);
 
         if (blockHeight != std::numeric_limits<int32_t>::max())
         {
@@ -897,7 +863,7 @@ UniValue CSpvWrapper::GetHTLCReceived(const std::string& addr)
     {
         uint256 txid = to_uint256(txInfo.first->txHash);
         uint64_t confirmations{0};
-        uint32_t blockHeight = ReadTxBlockHeight(txid);
+        auto [blockHeight, blocktime] = ReadTxHeightTime(txid);
 
         if (blockHeight != std::numeric_limits<int32_t>::max())
         {
@@ -915,11 +881,11 @@ UniValue CSpvWrapper::GetHTLCReceived(const std::string& addr)
         uint256 spent;
         if (BRWalletTxSpent(wallet, txInfo.first, output, spent))
         {
-            blockHeight = ReadTxBlockHeight(spent);
+            const auto [spentHeight, spentTime] = ReadTxHeightTime(spent);
             confirmations = 0;
-            if (blockHeight != std::numeric_limits<int32_t>::max())
+            if (spentHeight != std::numeric_limits<int32_t>::max())
             {
-                confirmations = spv::pspv->GetLastBlockHeight() - blockHeight + 1;
+                confirmations = spv::pspv->GetLastBlockHeight() - spentHeight + 1;
             }
 
             UniValue spentItem(UniValue::VOBJ);
@@ -1278,7 +1244,7 @@ std::pair<std::string, std::string> CSpvWrapper::CreateHTLCTransaction(CWallet* 
         {
             // Skip outputs without enough confirms to meet contract requirements
             if (!seller) {
-                uint32_t blockHeight = ReadTxBlockHeight(to_uint256(output.first->txHash));
+                auto [blockHeight, blocktime] = ReadTxHeightTime(to_uint256(output.first->txHash));
                 uint64_t confirmations = blockHeight != std::numeric_limits<int32_t>::max() ? spv::pspv->GetLastBlockHeight() - blockHeight + 1 : 0;
                 if (confirmations < script.first.locktime) {
                     continue;

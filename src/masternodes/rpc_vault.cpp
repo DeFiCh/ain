@@ -114,6 +114,9 @@ namespace {
         auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
 
+        const auto scheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        assert(scheme);
+
         if (vaultState == VaultState::InLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
@@ -132,10 +135,8 @@ namespace {
 
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
-        LogPrint(BCLog::LOAN,"%s():\n", __func__);
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
 
-        if (rate) {
+        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -153,45 +154,54 @@ namespace {
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
         UniValue interestsPerBlockBalances{UniValue::VARR};
+        std::map<DCT_ID, CInterestAmount> interestsPerBlockHighPrecission;
+        CInterestAmount interestsPerBlockValueHighPrecision;
+        TAmounts interestsPerBlock{};
+        CAmount totalInterestsPerBlock{0};
 
-        if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
+        if (const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
-            CAmount totalInterestsPerBlock{0};
-            TAmounts interestsPerBlock{};
 
-            for (const auto& loan : loanTokens->balances) {
-                auto token = pcustomcsview->GetLoanTokenByID(loan.first);
+            for (const auto& [tokenId, amount] : loanTokens->balances) {
+                auto token = pcustomcsview->GetLoanTokenByID(tokenId);
                 if (!token) continue;
-                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first, height);
+                auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
                 if (!rate) continue;
-                LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
-                auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
-                    auto price = priceFeed.val->priceRecord[0];
-                    totalInterests += MultiplyAmounts(price, totalInterest);
-                    if (verbose) {
-                        auto interestPerBlock = rate->interestPerBlock.GetLow64();
-                        interestsPerBlock.insert({loan.first, interestPerBlock});
-                        totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                auto value = amount + totalInterest;
+                if (value > 0) {
+                    if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                        auto price = priceFeed.val->priceRecord[0];
+                        if (const auto interestCalculation = MultiplyAmounts(price, totalInterest)) {
+                            totalInterests += interestCalculation;
+                        }
+                        if (verbose) {
+                            if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
+                                interestsPerBlockValueHighPrecision = InterestAddition(interestsPerBlockValueHighPrecision, {rate->interestPerBlock.negative, static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                            } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                                interestsPerBlockValueHighPrecision.amount += static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                            } else {
+                                const auto interestPerBlock = rate->interestPerBlock.amount.GetLow64();
+                                interestsPerBlock.insert({tokenId, interestPerBlock});
+                                totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                            }
+                        }
                     }
-                }
 
-                totalBalances.insert({loan.first, value});
-                interestBalances.insert({loan.first, totalInterest});
-                if (pcustomcsview->AreTokensLocked({loan.first.v})){
+                    totalBalances.insert({tokenId, value});
+                    interestBalances.insert({tokenId, totalInterest});
+                }
+                if (pcustomcsview->AreTokensLocked({tokenId.v})){
                     isVaultTokenLocked = true;
                 }
             }
             interestValue = ValueFromAmount(totalInterests);
             loanBalances = AmountsToJSON(totalBalances);
             interestAmounts = AmountsToJSON(interestBalances);
-            if (verbose) {
-                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
-                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
-            }
         }
 
         result.pushKV("vaultId", vaultId.GetHex());
@@ -208,6 +218,8 @@ namespace {
             ratioValue = -1;
             collateralRatio = -1;
             totalInterestsPerBlockValue = -1;
+            interestsPerBlockValueHighPrecision.negative = true; // Not really an invalid amount as it could actually be -1
+            interestsPerBlockValueHighPrecision.amount = 1;
         }
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
@@ -216,12 +228,29 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
-            if (rate) {
+            if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
-            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            if (height >= Params().GetConsensus().FortCanningHillHeight) {
+                if(isVaultTokenLocked){
+                    result.pushKV("interestPerBlockValue", -1);
+                } else {
+                    result.pushKV("interestPerBlockValue", GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
+                    for (const auto& [id, interestPerBlock] : interestsPerBlockHighPrecission) {
+                        auto tokenId = id;
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+                        auto token = pcustomcsview->GetToken(tokenId);
+                        assert(token);
+                        auto tokenSymbol = token->CreateSymbolKey(tokenId);
+                        interestsPerBlockBalances.push_back(amountStr.append("@").append(tokenSymbol));
+                    }
+                }
+            } else {
+                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
+                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
+                result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            }
             result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
@@ -1832,6 +1861,154 @@ UniValue estimatevault(const JSONRPCRequest& request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+
+UniValue getstoredinterest(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getstoredinterest",
+        "Returns the stored interest for the specified vault and token.\n",
+        {
+            {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "One of the keys may be specified (id/symbol/creationTx)"},
+        },
+        RPCResult{
+            "{\n"
+            "  \"interestToHeight\" : n.nnnnnnnn,        (amount) Interest stored to the point of the hight value\n"
+            "  \"interestPerBlock\" : n.nnnnnnnn,        (amount) Interest per block\n"
+            "  \"height\" : n,                           (amount) Height stored interest last updated\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("getstoredinterest", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf DUSD)") +
+            HelpExampleRpc("getstoredinterest", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf, DUSD)")
+        },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    const auto vaultId = ParseHashV(request.params[0], "vaultId");
+    if (const auto vault = pcustomcsview->GetVault(vaultId); !vault) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Vault not found");
+    }
+
+    DCT_ID tokenId{};
+    if (const auto token = pcustomcsview->GetTokenGuessId(request.params[1].getValStr(), tokenId); !token) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
+    }
+
+    const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, ::ChainActive().Height());
+    if (!interestRate) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, "No stored interest for this token found in the vault.");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+
+    ret.pushKV("interestToHeight", GetInterestPerBlockHighPrecisionString(interestRate->interestToHeight));
+    ret.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(interestRate->interestPerBlock));
+    ret.pushKV("height", static_cast<uint64_t>(interestRate->height));
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
+UniValue logstoredinterests(const JSONRPCRequest& request) {
+    RPCHelpMan{"logstoredinterests",
+               "Logs all stored interests.\n",
+               {
+
+                },
+               RPCResult{
+                       "[\"vaultId\": {\n"
+                       "  \"token\" : n,                            Token ID\n"
+                       "  \"amount\" : n,                           (amount) Token Amount\n"
+                       "  \"interestHeight\" : n,                   Height stored interest last updated\n"
+                       "  \"interestToHeight\" : n.nnnnnnnn,        Interest stored to the point of the hight value\n"
+                       "  \"interestPerBlock\" : n.nnnnnnnn,        nterest per block\n"
+                       "}] \n"
+               },
+               RPCExamples{
+                       HelpExampleCli("logstoredinterests", "") +
+                       HelpExampleRpc("logstoredinterests", "")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    auto height = ::ChainActive().Height();
+    using VaultInfo = std::tuple<DCT_ID,CAmount,CInterestRateV3>;
+    std::map<std::string, std::vector<VaultInfo>> items;
+
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& vaultData) {
+        auto vaultTokens = pcustomcsview->GetLoanTokens(vaultId);
+        if (!vaultTokens) return true;
+
+        std::vector<VaultInfo> infoItems;
+
+        for (const auto &[tokenId, tokenAmount]: vaultTokens->balances) {
+            const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
+            if (interestRate) {
+                infoItems.push_back({tokenId, tokenAmount, *interestRate});
+            }
+        }
+        items[vaultId.ToString()] = infoItems;
+        return true;
+        });
+
+    UniValue ret(UniValue::VARR);
+    for (const auto &[vaultId, infoItems]: items) {
+        UniValue v(UniValue::VOBJ);
+        v.pushKV("vaultId", vaultId);
+        UniValue vItems(UniValue::VARR);
+        for (const auto& [tokenId, amount, rate] : infoItems) {
+            UniValue i(UniValue::VOBJ);
+            i.pushKV("token", tokenId.ToString());
+            i.pushKV("amount", ValueFromAmount(amount));
+            i.pushKV("interestHeight", static_cast<uint64_t>(rate.height));
+            i.pushKV("interestToHeight", GetInterestPerBlockHighPrecisionString(rate.interestToHeight));
+            i.pushKV("interestPerBlock", GetInterestPerBlockHighPrecisionString(rate.interestPerBlock));
+            vItems.push_back(i);
+        }
+        v.pushKV("items", vItems);
+        ret.push_back(v);
+    }
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
+
+UniValue getloantokens(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getloantokens",
+               "Returns loan tokens stored in a vault.\n",
+               {
+                       {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id"},
+               },
+               RPCResult{
+                       "[ n.nnnnnnn@Symbol, ...]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getloantokens", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)") +
+                       HelpExampleRpc("getloantokens", R"(5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf)")
+               },
+    }.Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) return *res;
+
+    LOCK(cs_main);
+
+    const auto vaultId = ParseHashV(request.params[0], "vaultId");
+    const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId);
+    if (!loanTokens) {
+        return UniValue::VARR;
+    }
+
+    const auto ret = AmountsToJSON(loanTokens->balances);
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1850,6 +2027,9 @@ static const CRPCCommand commands[] =
     {"vault",        "estimateloan",              &estimateloan,          {"vaultId", "tokens", "targetRatio"}},
     {"vault",        "estimatecollateral",        &estimatecollateral,    {"loanAmounts", "targetRatio", "tokens"}},
     {"vault",        "estimatevault",             &estimatevault,         {"collateralAmounts", "loanAmounts"}},
+    {"hidden",       "getstoredinterest",         &getstoredinterest,     {"vaultId", "token"}},
+    {"hidden",       "logstoredinterests",        &logstoredinterests,    {}},
+    {"hidden",       "getloantokens",             &getloantokens,         {"vaultId"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {

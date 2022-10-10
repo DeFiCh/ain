@@ -1,0 +1,131 @@
+name: Full Sync Tests
+on:
+  pull_request:
+    branches:
+      - master
+    types: [labeled, opened, reopened, synchronize]
+
+jobs:
+  build-binaries:
+    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
+    runs-on: [self-hosted, linux, x64,server-2]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Build Node
+      run: ./make.sh build
+    - name: Upload Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: defibins
+        path: |
+         src/defid
+         src/defi-cli
+    - name: Archive Binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: defibins
+        path: |
+          src/defid
+          src/defi-cli
+    - name: Archive Shell Commands
+      uses: actions/upload-artifact@v3
+      with:
+        name: sync
+        path: |
+          ci/parallel_sync/sync_then_diff.sh
+
+  sync:
+    strategy:
+      matrix:
+        datadir:
+         - start: 450000
+           stop: 500000
+         - start: 500000
+           stop: 550000
+         - start: 550000
+           stop: 600000
+         - start: 600000
+           stop: 650000
+         - start: 650000
+           stop: 700000
+         - start: 700000
+           stop: 750000
+         - start: 750000
+           stop: 800000
+         - start: 800000
+           stop: 850000
+         - start: 850000
+           stop: 900000
+         - start: 900000
+           stop: 950000
+         - start: 950000
+           stop: 1000000
+         - start: 1000000
+           stop: 1050000
+         - start: 1050000
+           stop: 1100000
+         - start: 1100000
+           stop: 1150000
+         - start: 1150000
+           stop: 1200000
+         - start: 1200000
+           stop: 1250000
+         - start: 1250000
+           stop: 1300000
+         - start: 1300000
+           stop: 1350000
+         - start: 1350000
+           stop: 1400000
+         - start: 1400000
+           stop: 1450000
+         - start: 1450000
+           stop: 1500000
+         - start: 1500000
+           stop: 1550000
+         - start: 1550000
+           stop: 1600000
+         - start: 1600000
+           stop: 1650000
+         - start: 1650000
+           stop: 1700000
+         - start: 1700000
+           stop: 1750000
+         - start: 1750000
+           stop: 1800000
+         - start: 1800000
+           stop: 1850000
+         - start: 1850000
+           stop: 1900000
+    runs-on: [self-hosted, linux, x64]
+    needs: build-binaries
+    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
+    continue-on-error: true
+    container:
+      image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
+      options: --privileged
+      env:
+        STOP_BLOCK: ${{matrix.datadir.stop}}
+        DEFID_BIN: ./defid
+        DEFI_CLI_BIN: ./defi-cli
+    timeout-minutes: 4320
+    steps:
+    - name: Download Binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: defibins
+    - name: Download Shell Commands
+      uses: actions/download-artifact@v3
+      with:
+        name: sync
+    - name: Set Permissions
+      run: |
+        chmod 777 defid
+        chmod 777 defi-cli
+        chmod 777 sync_then_diff.sh
+    - name: Sync and Diff
+      run: ./sync_then_diff.sh
+    - name: Show Debug Log
+      run: cat $DATADIR/debug.log
+      if: ${{ failure() ||  success() }}

@@ -97,7 +97,9 @@ struct Params {
     int FortCanningRoadHeight;
     int FortCanningCrunchHeight;
     int FortCanningSpringHeight;
-    int GreatWorldHeight;
+    int FortCanningGreatWorldHeight;
+    int FortCanningEpilogueHeight;
+    int GrandCentralHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
@@ -200,6 +202,16 @@ struct Params {
     SpvParams spv;
 
     CAmount vaultCreationFee;
+
+    struct CPropsParams {
+        struct CPropsSpecs {
+            CAmount fee;
+            uint32_t majorityThreshold;
+        } cfp, brp, voc;
+        int votingPeriod;
+        uint32_t minVoting;
+    };
+    CPropsParams props;
 
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
