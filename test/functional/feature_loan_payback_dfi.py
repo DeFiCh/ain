@@ -146,7 +146,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': "1@DFI"
         })
 
-        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: governance, locks, oracles, params, poolpairs, token,',
+        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: consortium, governance, locks, oracles, params, poolpairs, token,',
                                 self.nodes[0].setgov, {"ATTRIBUTES":{'v0/live/economy/dfi_payback_tokens':'1'}})
 
         # Disable loan payback

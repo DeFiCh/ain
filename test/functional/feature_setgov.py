@@ -444,7 +444,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Unsupported version", self.nodes[0].setgov, {"ATTRIBUTES":{'1/token/15/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: consortium, locks, oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: consortium, governance, locks, oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_collateral, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: members, mint_limit,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
@@ -787,11 +787,11 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
         assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'not_a_bool'}})
         assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'not_a_bool'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                                                                                                                 "ownerAddress":"' + owner +'", \
                                                                                                                                                                 "backingId":"blablabla", \
                                                                                                                                                                 "mintLimit":10.00000000}}'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GreatWorld", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'1000000000'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'1000000000'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/params/dfip2206a/dusd_loan_burn':'true'}})
         self.nodes[0].generate(1)

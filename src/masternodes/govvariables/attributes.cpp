@@ -1282,7 +1282,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Governance:
                 if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
-                    return Res::Err("Cannot be set before GreatWorld");
+                    return Res::Err("Cannot be set before GrandCentral");
                 }
             break;
 
