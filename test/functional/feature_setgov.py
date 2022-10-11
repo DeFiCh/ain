@@ -875,7 +875,7 @@ class GovsetTest (DefiTestFramework):
         # Move to GreatWorld
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
 
-        assert_raises_rpc_error(-5, "recipient () does not refer to any valid address", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
+        assert_raises_rpc_error(-5, "Invalid ownerAddress in consortium member data", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                                                                                                                         "ownerAddress":"", \
                                                                                                                                                                         "backingId":"blablabla", \
                                                                                                                                                                         "mintLimit":10.00000000}}'}})
