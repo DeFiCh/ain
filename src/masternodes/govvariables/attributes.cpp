@@ -393,10 +393,15 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         member.status = 0;
 
         member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
-        if (!value["ownerAddress"].isNull())
-            member.ownerAddress = DecodeScript(value["ownerAddress"].getValStr());
-        else
+        if (!value["ownerAddress"].isNull()) {
+            const auto dest = DecodeDestination(value["ownerAddress"].getValStr());
+            if (!IsValidDestination(dest)) {
+                return Res::Err("Invalid ownerAddress in consortium member data");
+            }
+            member.ownerAddress = GetScriptForDestination(dest);
+        } else {
             return Res::Err("Empty ownerAddress in consortium member data!");
+        }
 
         member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
         if (!AmountFromValue(value["mintLimit"], member.mintLimit)) {
@@ -959,8 +964,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 if ((attrV0->type == AttributeTypes::Param &&
                         ((attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
                             (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))) ||
-                    (attrV0->type == AttributeTypes::Consortium &&
-                        (attrV0->type == Consortium && attrV0->key == ConsortiumKeys::MintLimit))) {
+                    (attrV0->type == Consortium && attrV0->key == ConsortiumKeys::MintLimit)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto decimalStr = GetDecimaleString(*amount);
@@ -1177,13 +1181,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
                     case ConsortiumKeys::Members:
-                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
-                            return Res::Err("Cannot be set before GrandCentral");
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
-                            return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
-                        break;
                     case ConsortiumKeys::MintLimit:
                         if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                             return Res::Err("Cannot be set before GrandCentral");

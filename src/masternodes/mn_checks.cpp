@@ -1237,6 +1237,11 @@ public:
     Res operator()(const CMintTokensMessage& obj) const {
         // check auth and increase balance of token's owner
         for (const auto& [tokenId, amount] : obj.balances) {
+            if (Params().NetworkIDString() == CBaseChainParams::MAIN &&
+                height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+                mnview.GetLoanTokenByID(tokenId)) {
+                return Res::Err("Loan tokens cannot be minted");
+            }
 
             auto token = mnview.GetToken(tokenId);
             if (!token)

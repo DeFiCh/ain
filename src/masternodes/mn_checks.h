@@ -326,7 +326,7 @@ struct CBurnTokensMessage {
 
     CBalances amounts;
     CScript from;
-    uint8_t burnType;
+    BurnType burnType;
     std::variant<CScript> context;
 
     ADD_SERIALIZE_METHODS;
@@ -334,7 +334,7 @@ struct CBurnTokensMessage {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(amounts);
         READWRITE(from);
-        READWRITE(burnType);
+        READWRITE(static_cast<uint8_t>(burnType));
         READWRITE(context);
     }
 };

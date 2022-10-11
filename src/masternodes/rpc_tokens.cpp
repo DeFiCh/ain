@@ -813,13 +813,6 @@ UniValue burntokens(const JSONRPCRequest& request) {
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    for (auto const & kv : burnedTokens.amounts.balances) {
-        auto token = pcustomcsview->GetToken(kv.first);
-        if (!token) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
-        }
-    }
-
     std::set<CScript> auths{burnedTokens.from};
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);

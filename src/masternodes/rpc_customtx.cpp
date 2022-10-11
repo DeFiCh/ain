@@ -126,7 +126,7 @@ public:
                 type = "TokenBurn";
                 break;
             default:
-                type = "TokenBurn";
+                type = "Unexpected";
         }
         rpcInfo.pushKV("type", type);
 

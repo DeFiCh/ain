@@ -258,11 +258,6 @@ using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
                          CFeeDir, CDexBalances, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
-using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits    = std::map<uint32_t, int32_t>;
-using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue  = std::pair<uint32_t, std::string>;
-using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
