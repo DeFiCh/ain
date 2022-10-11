@@ -678,7 +678,8 @@ Res CCustomTxVisitor::CheckCustomTx() const
 Res CCustomTxVisitor::CheckProposalTx(uint8_t type, uint8_t options) const
 {
     auto propType = static_cast<CPropType>(type);
-    if (tx.vout[0].nValue != GetPropsCreationFee(height, mnview, propType, options) || tx.vout[0].nTokenId != DCT_ID{0})
+    auto propOptions = static_cast<CPropOption>(options);
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, mnview, propType, propOptions) || tx.vout[0].nTokenId != DCT_ID{0})
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
@@ -3835,9 +3836,6 @@ public:
             case CPropType::CommunityFundProposal:
                 if (!HasAuth(obj.address))
                     return Res::Err("tx must have at least one input from proposal account");
-
-                if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-                    return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
                 break;
 
             case CPropType::VoteOfConfidence:
@@ -3847,7 +3845,7 @@ public:
                 if (!obj.address.empty())
                     return Res::Err("vote of confidence address should be empty");
 
-                if (obj.nCycles != VOC_CYCLES)
+                if (!(obj.options & CPropOption::Emergency) && obj.nCycles != VOC_CYCLES)
                     return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
                 break;
 
@@ -3879,6 +3877,9 @@ public:
 
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+
+        if ((obj.options & CPropOption::Emergency) && obj.nCycles != 1)
+            return Res::Err("emergency proposal cycles must be 1");
 
         return mnview.CreateProp(tx.GetHash(), height, obj);
     }

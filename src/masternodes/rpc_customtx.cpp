@@ -504,7 +504,7 @@ public:
         if (obj.options)
         {
             UniValue opt = UniValue(UniValue::VARR);
-            if ((obj.options & CPropOption::Emergency) == CPropOption::Emergency)
+            if (obj.options & CPropOption::Emergency)
                 opt.push_back("emergency");
 
             rpcInfo.pushKV("options", opt);

@@ -76,19 +76,10 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
-CAmount GetPropsCreationFee(int, const CCustomCSView& view, CPropType prop, uint8_t options)
+CAmount GetPropsCreationFee(int, const CCustomCSView& view, CPropType prop, CPropOption options)
 {
     auto attributes = view.GetAttributes();
-    if (!attributes) {
-        switch(prop) {
-            case CPropType::CommunityFundProposal:
-                return Params().GetConsensus().props.cfp.fee;
-            case CPropType::BlockRewardReallocation:
-                return Params().GetConsensus().props.brp.fee;
-            case CPropType::VoteOfConfidence:
-                return Params().GetConsensus().props.voc.fee;
-        }
-    }
+    assert(attributes);
 
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
     CDataStructureV0 CFPEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyFee};
@@ -1291,15 +1282,17 @@ void CCustomCSView::SetVaultHistoryStore() {
     }
 }
 
-uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const uint8_t prop) const
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
 {
     if (const auto attributes = GetAttributes()) {
         CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyPeriod};
         CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
 
-        switch(prop) {
+        switch(type) {
             case CPropType::CommunityFundProposal:
                 return attributes->GetValue(CFPKey, uint32_t{0});
+            case CPropType::BlockRewardReallocation:
+                return 0;
             case CPropType::VoteOfConfidence:
                 return attributes->GetValue(VOCKey, uint32_t{0});
         }

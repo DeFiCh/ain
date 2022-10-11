@@ -143,8 +143,7 @@ public:
     Res SetVotingPeriod(uint32_t votingPeriod);
     uint32_t GetVotingPeriod();
 
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const uint8_t) const = 0;
-
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
     struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };

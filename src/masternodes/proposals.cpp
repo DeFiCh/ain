@@ -3,8 +3,8 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/proposals.h>
+#include <masternodes/masternodes.h>
 
 std::string CPropTypeToString(const CPropType status)
 {
@@ -44,7 +44,7 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
 
     uint32_t emergencyPeriod;
-    if (((prop.options & CPropOption::Emergency) == CPropOption::Emergency) && (emergencyPeriod = GetEmergencyPeriodFromAttributes(prop.type)))
+    if ((prop.options & CPropOption::Emergency) && (emergencyPeriod = GetEmergencyPeriodFromAttributes(static_cast<CPropType>(prop.type))))
     {
         height += emergencyPeriod;
         WriteBy<ByCycle>(std::make_pair(height, propId), static_cast<uint8_t>(1));

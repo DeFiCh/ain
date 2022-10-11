@@ -24,7 +24,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     if (prop.options)
     {
         UniValue opt = UniValue(UniValue::VARR);
-        if ((prop.options & CPropOption::Emergency) == CPropOption::Emergency)
+        if (prop.options & CPropOption::Emergency)
             opt.push_back("emergency");
 
         ret.pushKV("options", opt);
@@ -115,18 +115,10 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         contexthash = data["contexthash"].get_str();
 
     if (!data["emergency"].isNull())
-    {
         emergency = data["emergency"].get_bool();
-        cycles = 1;
-    }
 
-    if (!data["cycles"].isNull())
-    {
-        if (emergency)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "cycles not available in emergency CFPs");
-        else
+    if (!emergency && !data["cycles"].isNull())
             cycles = data["cycles"].get_int();
-    }
 
     if (!data["amount"].isNull()) {
         amount = AmountFromValue(data["amount"]);
@@ -172,7 +164,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     std::set<CScript> auths{pm.address};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
-    CAmount cfpFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), pm.options);
+    CAmount cfpFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), static_cast<CPropOption>(pm.options));
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -261,10 +253,9 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     CCreatePropMessage pm;
     pm.type = CPropType::VoteOfConfidence;
     pm.nAmount = 0;
-    pm.nCycles = VOC_CYCLES;
+    pm.nCycles = (emergency ? 1 : VOC_CYCLES);
     pm.title = title;
     pm.context = context;
-    pm.options = 0;
     pm.options = (emergency ? CPropOption::Emergency : 0);
 
     // encode
@@ -283,7 +274,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
-    CAmount vocFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), pm.options);
+    CAmount vocFee = GetPropsCreationFee(targetHeight, *pcustomcsview, static_cast<CPropType>(pm.type), static_cast<CPropOption>(pm.options));
     rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -545,7 +536,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     if (!attributes)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
 
-    auto minVotes = attributes->GetValue(minVoting, static_cast<int64_t>(Params().GetConsensus().props.minVoting));
+    auto minVotes = attributes->GetValue(minVoting, Params().GetConsensus().props.minVoting);
     auto valid = allVotes > minVotes;
 
     if (valid) {
@@ -575,7 +566,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     if (prop->options)
     {
         UniValue opt = UniValue(UniValue::VARR);
-        if ((prop->options & CPropOption::Emergency) == CPropOption::Emergency)
+        if (prop->options & CPropOption::Emergency)
             opt.push_back("emergency");
 
         ret.pushKV("options", opt);

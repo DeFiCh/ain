@@ -43,7 +43,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetPropsCreationFee(int height, const CCustomCSView& view, CPropType prop, uint8_t options);
+CAmount GetPropsCreationFee(int height, const CCustomCSView& view, CPropType prop, CPropOption options);
 
 enum class UpdateMasternodeType : uint8_t
 {
@@ -499,7 +499,7 @@ public:
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
 
-    uint32_t GetEmergencyPeriodFromAttributes(const uint8_t prop) const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

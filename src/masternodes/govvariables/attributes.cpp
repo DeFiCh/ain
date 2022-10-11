@@ -288,12 +288,12 @@ static ResVal<int32_t> VerifyPositiveInt32(const std::string& str) {
     return {int32, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyPositiveInteger(const std::string& str) {
-    int32_t int32;
-    if (!ParseInt32(str, &int32)) {
+static ResVal<CAttributeValue> VerifyUInt32(const std::string& str) {
+    uint32_t uint32;
+    if (!ParseUInt32(str, &uint32)) {
         return Res::Err("Value must be an integer");
     }
-    return {static_cast<uint32_t>(int32), Res::Ok()};
+    return {uint32, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
@@ -452,13 +452,13 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::CFPPayout,             VerifyBool},
                 {GovernanceKeys::CFPFee,                VerifyPositiveFloat},
                 {GovernanceKeys::CFPEmergencyFee,       VerifyPositiveFloat},
-                {GovernanceKeys::CFPEmergencyPeriod,    VerifyPositiveInteger},
-                {GovernanceKeys::CFPMajority,           VerifyPositiveInteger},
+                {GovernanceKeys::CFPEmergencyPeriod,    VerifyUInt32},
+                {GovernanceKeys::CFPMajority,           VerifyUInt32},
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
-                {GovernanceKeys::VOCEmergencyPeriod,    VerifyPositiveInteger},
-                {GovernanceKeys::VOCMajority,           VerifyPositiveInteger},
-                {GovernanceKeys::PropMinVote,           VerifyPositiveInteger},
+                {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
+                {GovernanceKeys::VOCMajority,           VerifyUInt32},
+                {GovernanceKeys::PropMinVote,           VerifyUInt32},
             }
         },
     };
