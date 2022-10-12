@@ -32,6 +32,9 @@
 - color: ffffff
   name: wip
   description:
+- color: 00ff00
+  name: ready-for-review
+  description: PR is open to public review
 
 # GitHub generic useful labels
 - color: c4d471
