@@ -140,9 +140,12 @@ class ChainGornmentTest(DefiTestFramework):
         # Try and vote with non-staked MN
         assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
 
+        # voting period
+        votingPeriod = 70
+
         # Calculate cycle
-        cycle1 = creationHeight + (creationHeight % 70) + 70
-        finalHeight = cycle1 + (cycle1 % 70) + 70
+        cycle1 = creationHeight + (creationHeight % votingPeriod) + votingPeriod
+        finalHeight = cycle1 + (cycle1 % votingPeriod) + votingPeriod
 
         # Check proposal and votes
         result = self.nodes[0].listgovproposals()
@@ -303,8 +306,8 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Calculate cycle
-        cycle1 = creationHeight + (creationHeight % 70) + 70
-        finalHeight = cycle1 + (cycle1 % 70) + 70
+        cycle1 = creationHeight + (creationHeight % votingPeriod) + votingPeriod
+        finalHeight = cycle1 + (cycle1 % votingPeriod) + votingPeriod
 
         # Check proposal and votes
         result = self.nodes[0].listgovproposals("cfp","voting")
