@@ -1045,12 +1045,17 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         ratio.insert(data.ratio);
                         return true;
                     });
-                    Require(!ratio.empty(), "Set loan scheme before setting collateral factor.");
 
-                    const auto factor = std::get_if<CAmount>(&attribute.second);
-                    Require(factor, "Unexpected type");
-
-                    Require(*factor < *ratio.begin() * CENT, "Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                    // No loan schemes, fall back to 100% limit
+                    if (ratio.empty()) {
+                        if (const auto amount = std::get_if<CAmount>(&attribute.second); amount && *amount > COIN) {
+                            return Res::Err("Percentage exceeds 100%%");
+                        }
+                    } else {
+                        const auto factor = std::get_if<CAmount>(&attribute.second);
+                        Require(factor, "Unexpected type");
+                        Require(*factor < *ratio.begin() * CENT, "Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                    }
                 }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
