@@ -32,7 +32,7 @@ class LoanPaybackWithCollateralTest (DefiTestFramework):
             '-fortcanningcrunchheight=1',
             '-fortcanninggreatworldheight=1',
             '-fortcanningepilogueheight=1',
-            '-jellyfish_regtest=1',
+            '-regtest-skip-loan-collateral-validation=1',
             '-simulatemainnet=1'
             ]]
 

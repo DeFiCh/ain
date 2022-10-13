@@ -40,7 +40,7 @@ class GetStoredInterestTest(DefiTestFramework):
             '-fortcanningcrunchheight=1',
             '-fortcanningspringheight=1',
             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
-            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+            '-regtest-skip-loan-collateral-validation=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
     # Utils

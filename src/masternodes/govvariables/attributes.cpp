@@ -1269,7 +1269,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
             } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
                 if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
                     // Skip on JellyFish
-                    if (gArgs.GetBoolArg("-jellyfish_regtest", false)) {
+                    if (gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {
                         continue;
                     }
 

@@ -15,7 +15,7 @@ class SmartContractTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-jellyfish_regtest=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1010', '-subsidytest=1', '-txindex=1', '-regtest-skip-loan-collateral-validation=1']]
 
     def run_test(self):
         self.nodes[0].generate(1000)
