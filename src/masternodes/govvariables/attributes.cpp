@@ -164,6 +164,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
             AttributeTypes::Consortium, {
                 {"members",             ConsortiumKeys::Members},
                 {"mint_limit",          ConsortiumKeys::MintLimit},
+                {"daily_mint_limit",    ConsortiumKeys::DailyMintLimit},
             }
         },
         {
@@ -222,6 +223,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::Members,     "members"},
                 {ConsortiumKeys::MintLimit,   "mint_limit"},
+                {ConsortiumKeys::DailyMintLimit,"daily_mint_limit"},
             }
         },
         {
@@ -404,8 +406,12 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         }
 
         member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
-        if (!AmountFromValue(value["mintLimit"], member.mintLimit)) {
+        if (!AmountFromValue(value["mintLimit"], member.mintLimit) || !member.mintLimit) {
             return Res::Err("Mint limit is an invalid amount");
+        }
+
+        if (!AmountFromValue(value["dailyMintLimit"], member.dailyMintLimit) || !member.dailyMintLimit) {
+            return Res::Err("Daily mint limit is an invalid amount");
         }
 
         if (!value["status"].isNull())
@@ -459,7 +465,8 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::Members,          VerifyConsortiumMember},
-                {ConsortiumKeys::MintLimit,        VerifyInt64},
+                {ConsortiumKeys::MintLimit,        VerifyPositiveFloat},
+                {ConsortiumKeys::DailyMintLimit,   VerifyPositiveFloat},
             }
         },
         {
@@ -961,10 +968,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             if (const auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if ((attrV0->type == AttributeTypes::Param &&
-                        ((attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
-                            (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))) ||
-                    (attrV0->type == Consortium && attrV0->key == ConsortiumKeys::MintLimit)) {
+                if (attrV0->type == AttributeTypes::Param &&
+                   (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
+                   (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto decimalStr = GetDecimaleString(*amount);
@@ -1011,6 +1017,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     elem.pushKV("ownerAddress", ScriptToString(member.ownerAddress));
                     elem.pushKV("backingId", member.backingId);
                     elem.pushKV("mintLimit", ValueFromAmount(member.mintLimit));
+                    elem.pushKV("dailyMintLimit", ValueFromAmount(member.dailyMintLimit));
                     elem.pushKV("status", member.status);
                     result.pushKV(id, elem);
                 }
@@ -1037,6 +1044,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                         auto tokenKey = KeyBuilder(key, token.first.v);
                         auto memberKey = KeyBuilder(tokenKey, member.first);
                         ret.pushKV(KeyBuilder(memberKey, "minted"), ValueFromAmount(minted));
+                        ret.pushKV(KeyBuilder(memberKey, "daily_minted"), KeyBuilder(member.second.dailyMinted.first, ValueFromAmount(member.second.dailyMinted.second).getValStr()));
                         ret.pushKV(KeyBuilder(memberKey, "burnt"), ValueFromAmount(burnt));
                         ret.pushKV(KeyBuilder(memberKey, "supply"), ValueFromAmount(minted - burnt));
                     }
@@ -1182,6 +1190,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 switch (attrV0->key) {
                     case ConsortiumKeys::Members:
                     case ConsortiumKeys::MintLimit:
+                    case ConsortiumKeys::DailyMintLimit:
                         if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                             return Res::Err("Cannot be set before GrandCentral");
                         }

@@ -73,24 +73,31 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"01":{"name":"test", \
                                                                                                   "ownerAddress":"' + account2 + '", \
                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                                  "mintLimit":10.00000000}, \
+                                                                                                  "mintLimit":10.00000000, \
+                                                                                                  "dailyMintLimit":10.00000000}, \
                                                                                             "02":{"name":"test123", \
                                                                                                   "ownerAddress":"' + account3 + '", \
                                                                                                   "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
+                                                                                                  "dailyMintLimit":4.00000000, \
                                                                                                   "mintLimit":4.00000000}}'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '1000000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '10'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # Verify mint_limit set
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes['v0/consortium/' + idBTC + '/mint_limit'], '10')
 
         assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"03":{"name":"test", \
                                                                                                                                                                 "ownerAddress":"' + account2 +'", \
                                                                                                                                                                 "backingId":"7cb2f6954291d81d2270c9a6a52442b3f8c637b1ec793c731cb5f5a8f7fb9b9d", \
+                                                                                                                                                                "dailyMintLimit":10.00000000, \
                                                                                                                                                                 "mintLimit":10.00000000}}'}})
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
-        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '1000000000')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"dailyMintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"dailyMintLimit":4.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '10')
 
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
 
@@ -107,17 +114,18 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : '{"01":{"name":"test", \
                                                                                                    "ownerAddress":"' + account2 +'", \
                                                                                                    "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
+                                                                                                   "dailyMintLimit":5.00000000, \
                                                                                                    "mintLimit":5.00000000}}'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '600000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '6'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"status":0}}')
-        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '1000000000')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"dailyMintLimit":10.00000000,"status":0},"02":{"name":"test123","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"dailyMintLimit":4.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '10')
 
-        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":0}}')
-        assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit'], '600000000')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0}}')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit'], '6')
 
         self.nodes[2].minttokens(["2@" + symbolDOGE])
         self.nodes[2].generate(1)
@@ -133,9 +141,11 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('2.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/01/daily_minted'], '144/1.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/2/01/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('2.00000000'))
 
@@ -159,9 +169,11 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/01/daily_minted'], '144/1.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/2/01/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('1.00000000'))
 
@@ -189,9 +201,11 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/01/daily_minted'], '144/1.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/2/01/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('0.50000000'))
 
@@ -213,9 +227,11 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('1.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/01/daily_minted'], '144/1.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/2/01/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('0.50000000'))
 
@@ -223,12 +239,13 @@ class ConsortiumTest (DefiTestFramework):
                                                                                                    "ownerAddress":"' + account2 +'", \
                                                                                                    "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
                                                                                                    "mintLimit":5.00000000, \
+                                                                                                   "dailyMintLimit":5.00000000, \
                                                                                                    "status":1}}'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"status":1}}')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"test","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":1}}')
         assert_equal(self.nodes[0].getburninfo(), {'address': 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG', 'amount': Decimal('0E-8'), 'tokens': [], 'consortiumtokens': ['2.00000000@DOGE'], 'feeburn': Decimal('2.00000000'), 'auctionburn': Decimal('0E-8'), 'paybackburn': [], 'dexfeetokens': [], 'dfipaybackfee': Decimal('0E-8'), 'dfipaybacktokens': [], 'paybackfees': [], 'paybacktokens': [], 'emissionburn': Decimal('4846.59000000'), 'dfip2203': [], 'dfip2206f': []})
 
         assert_raises_rpc_error(-32600, "Cannot mint token, not an active member of consortium for DOGE!", self.nodes[2].minttokens, ["1@" + symbolDOGE])
@@ -262,12 +279,15 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium/2/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium/2/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/minted'], Decimal('7.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/01/daily_minted'], '144/7.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/burnt'], Decimal('6.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/01/supply'], Decimal('1.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/2/01/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('0.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/minted'], Decimal('2.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/02/daily_minted'], '144/2.00000000')
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/supply'], Decimal('2.00000000'))
 
@@ -277,14 +297,37 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"02":{"name":"test123", \
                                                                                                   "ownerAddress":"' + account3 + '", \
                                                                                                   "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
+                                                                                                  "dailyMintLimit":4.00000000, \
                                                                                                   "mintLimit":6.00000000}}'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '2000000000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '20'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.nodes[3].minttokens(["2@" + symbolBTC])
         self.nodes[3].generate(1)
         self.sync_blocks()
+
+        # Check minted and daily minted increased
+        attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attribs['v0/live/economy/consortium_members/1/02/minted'], Decimal('4.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/02/daily_minted'], '144/4.00000000')
+
+        # Test daily limit
+        assert_raises_rpc_error(-32600, "You will exceed your daily mint limit for " + symbolBTC + " token by minting this amount", self.nodes[3].minttokens, ["2@" + symbolBTC])
+
+        # Move to next day, day is 144 blocks on regtest.
+        self.nodes[0].generate(288 - self.nodes[0].getblockcount())
+        self.sync_blocks()
+
+        # Mint more tokens
+        self.nodes[3].minttokens(["2@" + symbolBTC])
+        self.nodes[3].generate(1)
+        self.sync_blocks()
+
+        # Check minted increased and daily minted reset
+        attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attribs['v0/live/economy/consortium_members/1/02/minted'], Decimal('6.00000000'))
+        assert_equal(attribs['v0/live/economy/consortium_members/1/02/daily_minted'], '288/2.00000000')
 
 if __name__ == '__main__':
     ConsortiumTest().main()

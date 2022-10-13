@@ -97,6 +97,7 @@ enum TokenKeys : uint8_t  {
 enum ConsortiumKeys : uint8_t  {
     Members               = 'a',
     MintLimit             = 'b',
+    DailyMintLimit        = 'c',
 };
 
 enum PoolKeys : uint8_t {
@@ -220,6 +221,7 @@ struct CConsortiumMember
     CScript ownerAddress;
     std::string backingId;
     CAmount mintLimit;
+    CAmount dailyMintLimit;
     uint8_t status;
 
     ADD_SERIALIZE_METHODS;
@@ -230,6 +232,7 @@ struct CConsortiumMember
         READWRITE(ownerAddress);
         READWRITE(backingId);
         READWRITE(mintLimit);
+        READWRITE(dailyMintLimit);
         READWRITE(status);
     }
 };
@@ -248,12 +251,25 @@ struct CConsortiumMinted
     }
 };
 
+struct CConsortiumDailyMinted : public CConsortiumMinted
+{
+    std::pair<uint32_t, CAmount> dailyMinted;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CConsortiumMinted, *this);
+        READWRITE(dailyMinted);
+    }
+};
+
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
-using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumMinted>>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
 using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,

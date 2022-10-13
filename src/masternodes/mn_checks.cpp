@@ -1277,8 +1277,23 @@ public:
                             return (std::move(add));
                         membersBalances[tokenId][key].minted = add;
 
+                        const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+                        if (dailyInterval == membersBalances[tokenId][key].dailyMinted.first) {
+                            add = SafeAdd(membersBalances[tokenId][key].dailyMinted.second, amount);
+                            if (!add)
+                                return (std::move(add));
+                            membersBalances[tokenId][key].dailyMinted.second = add;
+                        } else {
+                            membersBalances[tokenId][key].dailyMinted.first = dailyInterval;
+                            membersBalances[tokenId][key].dailyMinted.second = amount;
+                        }
+
                         if (membersBalances[tokenId][key].minted > member.mintLimit)
                             return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", token->symbol);
+
+                        if (membersBalances[tokenId][key].dailyMinted.second > member.dailyMintLimit) {
+                            return Res::Err("You will exceed your daily mint limit for %s token by minting this amount", token->symbol);
+                        }
 
                         *mintable.val = member.ownerAddress;
                         mintable.ok = true;
