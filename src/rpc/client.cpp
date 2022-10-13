@@ -177,6 +177,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createmasternode", 2, "inputs" },
     { "resignmasternode", 1, "inputs" },
     { "updatemasternode", 2, "inputs" },
+    { "updatemasternode", 1, "values" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},
@@ -344,6 +345,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setmockcheckpoint", 0, "height" },
     { "logaccountbalances", 0, "logfile" },
     { "logaccountbalances", 1, "rpcresult" },
+
+    { "creategovcfp", 0, "data" },
+    { "creategovcfp", 1, "inputs" },
+    { "creategovvoc", 1, "inputs" },
+    { "votegov", 3, "inputs" },
 };
 // clang-format on
 
