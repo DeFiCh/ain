@@ -2979,17 +2979,25 @@ public:
         }
 
         // Calculate DFI and DUSD value separately
-        uint64_t totalCollateralsDUSD = 0;
-        uint64_t totalCollateralsDFI = 0;
+        CAmount totalCollateralsDUSD = 0;
+        CAmount totalCollateralsDFI = 0;
+        CAmount factorDUSD = 0;
+        CAmount factorDFI = 0;
 
         for (auto& col : collateralsLoans.collaterals){
-            if (col.nTokenId == DCT_ID{0} )
-                totalCollateralsDFI += col.nValue;
+            auto token = mnview.GetCollateralTokenFromAttributes(col.nTokenId);
 
-            if(tokenDUSD && col.nTokenId == tokenDUSD->first)
+            if (col.nTokenId == DCT_ID{0} ){
+                totalCollateralsDFI += col.nValue;
+                factorDFI = token->factor;
+            }
+
+            if(tokenDUSD && col.nTokenId == tokenDUSD->first){
                 totalCollateralsDUSD += col.nValue;
+                factorDUSD = token->factor;
+            }
         }
-        auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
+        auto totalCollaterals = MultiplyAmounts(totalCollateralsDUSD, factorDUSD) + MultiplyAmounts(totalCollateralsDFI, factorDFI);
 
         // Height checks
         auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
@@ -2998,7 +3006,7 @@ public:
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
 
         // Condition checks
-        auto isDFILessThanHalfOfTotalCollateral = totalCollateralsDFI < collateralsLoans.totalCollaterals / 2;
+        auto isDFILessThanHalfOfTotalCollateral = arith_uint256(totalCollateralsDFI) < arith_uint256(collateralsLoans.totalCollaterals) / 2;
         auto isDFIAndDUSDLessThanHalfOfRequiredCollateral = arith_uint256(totalCollaterals) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
         auto isDFILessThanHalfOfRequiredCollateral = arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
 
