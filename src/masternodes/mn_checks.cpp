@@ -4494,12 +4494,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         auto forward = swapAmount.nTokenId == pool->idTokenA;
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight) && lastSwap) {
-            if ((forward && pool->idTokenB != obj.idTokenTo) || (!forward && pool->idTokenA != obj.idTokenTo)) {
-                return Res::Err("Final swap output is not same as idTokenTo");
-            }
-        }
-
         if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
             return Res::Err("Pool currently disabled due to locked token");
         }
@@ -4595,6 +4589,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             return poolResult;
         }
     }
+
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+            if (swapAmountResult.nTokenId != obj.idTokenTo) {
+                return Res::Err("Final swap output is not same as idTokenTo");
+            }
+        }
 
     // Reject if price paid post-swap above max price provided
     if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
