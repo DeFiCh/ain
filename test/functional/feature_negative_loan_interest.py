@@ -17,7 +17,7 @@ class NegativeInterestTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1','-regtest-skip-loan-collateral-validation=1', '-simulatemainnet=1', '-negativeinterest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningcrunchheight=1', '-fortcanninggreatworldheight=1', '-fortcanningepilogueheight=1','-jellyfish_regtest=1', '-simulatemainnet=1', '-negativeinterest=1']]
 
     def run_test(self):
         # Create tokens for tests

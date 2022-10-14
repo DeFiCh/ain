@@ -20,7 +20,7 @@ class PoolPairTest (DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FCH_HEIGHT), '-fortcanningroadheight='+str(self.FCR_HEIGHT),'-simulatemainnet', '-regtest-skip-loan-collateral-validation=1']
+                ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight='+str(self.FCH_HEIGHT), '-fortcanningroadheight='+str(self.FCR_HEIGHT),'-simulatemainnet', '-jellyfish_regtest=1']
             ]
 
     def create_tokens(self):

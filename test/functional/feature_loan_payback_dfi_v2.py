@@ -21,7 +21,7 @@ class PaybackDFILoanTest (DefiTestFramework):
         self.FINISHED_SETUP_BLOCK = 0
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-walletbroadcast=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-regtest-skip-loan-collateral-validation=1' ],
+            ['-walletbroadcast=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-eunosheight=50','-fortcanningheight=50', '-fortcanninghillheight=50', f'-fortcanningroadheight={self.FCR_HEIGHT}', '-simulatemainnet', '-txindex=1', '-jellyfish_regtest=1' ],
         ]
         self.symbolDFI = "DFI"
         self.symbolBTC = "BTC"

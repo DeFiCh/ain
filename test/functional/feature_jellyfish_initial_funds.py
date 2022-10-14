@@ -15,8 +15,8 @@ class JellyfishInitialFundsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        # pass -regtest-skip-loan-collateral-validation=1 option to enable regtest params required for jellyfish test containers
-        self.extra_args = [['-regtest-skip-loan-collateral-validation=1']]
+        # pass -jellyfish_regtest=1 option to enable regtest params required for jellyfish test containers
+        self.extra_args = [['-jellyfish_regtest=1']]
 
     def run_test(self):
         node = self.nodes[0]

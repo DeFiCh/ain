@@ -45,7 +45,7 @@ class DUSDLoanTests(DefiTestFramework):
             f'-fortcanningroadheight={self.fortcanningroadheight}',
             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
             f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
-            '-regtest-skip-loan-collateral-validation=1', '-txindex=1', '-simulatemainnet=1']
+            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
     def takeloan_withdraw(self, vaultId, amount, type='takeloan'):

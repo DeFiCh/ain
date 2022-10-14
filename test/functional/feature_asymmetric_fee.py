@@ -16,7 +16,7 @@ class PoolPairAsymmetricTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningspringheight=150', '-regtest-skip-loan-collateral-validation=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-fortcanningheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningspringheight=150', '-jellyfish_regtest=1']]
 
     def run_test(self):
 

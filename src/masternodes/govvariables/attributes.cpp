@@ -1268,8 +1268,9 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
                 if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
-                    // Skip on JellyFish
-                    if (gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {
+                    // Skip on if skip collateral check is passed
+                    if (Params().NetworkIDString() == CBaseChainParams::REGTEST &&
+                        gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {
                         continue;
                     }
 

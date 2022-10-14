@@ -760,7 +760,7 @@ public:
     explicit CRegTestParams() {
         strNetworkID = "regtest";
         bool isJellyfish = false;
-        isJellyfish = gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false);
+        isJellyfish = gArgs.GetBoolArg("-jellyfish_regtest", false);
         consensus.nSubsidyHalvingInterval = (isJellyfish) ? 210000 : 150;
         consensus.baseBlockSubsidy = (isJellyfish) ? 100 * COIN : 50 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
