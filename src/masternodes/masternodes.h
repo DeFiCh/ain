@@ -500,6 +500,8 @@ public:
     void SetVaultHistoryStore();
 
     uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    uint32_t GetMajorityFromAttributes(const CPropType& type) const override;
+    uint32_t GetVotingPeriodFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

@@ -4131,9 +4131,6 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             case CPropType::CommunityFundProposal:
                 majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold);
                 break;
-            case CPropType::BlockRewardReallocation:
-                majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
-                break;
             case CPropType::VoteOfConfidence:
                 majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold);
                 break;

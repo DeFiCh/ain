@@ -90,8 +90,6 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, CPropType prop, CPro
     switch(prop) {
         case CPropType::CommunityFundProposal:
             return attributes->GetValue(emergency ? CFPEmergencyKey : CFPKey, Params().GetConsensus().props.cfp.fee);
-        case CPropType::BlockRewardReallocation:
-            return Params().GetConsensus().props.brp.fee;
         case CPropType::VoteOfConfidence:
             return attributes->GetValue(emergency ? VOCEmergencyKey : VOCKey, Params().GetConsensus().props.voc.fee);
     }
@@ -1291,12 +1289,37 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) 
         switch(type) {
             case CPropType::CommunityFundProposal:
                 return attributes->GetValue(CFPKey, uint32_t{0});
-            case CPropType::BlockRewardReallocation:
-                return 0;
             case CPropType::VoteOfConfidence:
                 return attributes->GetValue(VOCKey, uint32_t{0});
         }
     }
 
     return 0;
+}
+
+uint32_t CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+{
+    if (const auto attributes = GetAttributes()) {
+        CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+        CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
+        switch(type) {
+            case CPropType::CommunityFundProposal:
+                return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold);
+            case CPropType::VoteOfConfidence:
+                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold);
+        }
+    }
+
+    return 0;
+}
+
+uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
+
+    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
 }

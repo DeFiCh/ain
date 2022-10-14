@@ -19,7 +19,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
     ret.pushKV("nextCycle", int(prop.cycle));
     ret.pushKV("totalCycles", int(prop.nCycles));
-    ret.pushKV("finalizeAfter", int64_t(prop.finalHeight));
+    ret.pushKV("finalizeAfter", static_cast<int32_t>(prop.finalHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
     if (prop.options)
     {
@@ -544,9 +544,6 @@ UniValue getgovproposal(const JSONRPCRequest& request)
             case CPropType::CommunityFundProposal:
                 majorityThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.majorityThreshold);
                 break;
-            case CPropType::BlockRewardReallocation:
-                majorityThreshold = Params().GetConsensus().props.brp.majorityThreshold;
-                break;
             case CPropType::VoteOfConfidence:
                 majorityThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.majorityThreshold);
                 break;
@@ -565,11 +562,14 @@ UniValue getgovproposal(const JSONRPCRequest& request)
 
     if (prop->options)
     {
-        UniValue opt = UniValue(UniValue::VARR);
-        if (prop->options & CPropOption::Emergency)
-            opt.push_back("emergency");
-
-        ret.pushKV("options", opt);
+        UniValue array = UniValue(UniValue::VARR);
+        uint8_t opt=1;
+        while (opt <= prop->options)
+        {
+            if (prop->options & opt) array.push_back(CPropOptionToString(static_cast<CPropOption>(opt)));
+            opt <<= 1;
+        }
+        ret.pushKV("options", array);
     }
 
     if (valid && votes >= majorityThreshold) {
@@ -603,7 +603,7 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                "\nReturns information about proposals.\n",
                {
                         {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "cfp/brp/voc/all (default = all)"},
+                                    "cfp/voc/all (default = all)"},
                         {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                     "voting/rejected/completed/all (default = all)"},
                },
@@ -623,12 +623,10 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         auto str = request.params[0].get_str();
         if (str == "cfp") {
             type = uint8_t(CPropType::CommunityFundProposal);
-        } else if (str == "brp") {
-            type = uint8_t(CPropType::BlockRewardReallocation);
         } else if (str == "voc") {
             type = uint8_t(CPropType::VoteOfConfidence);
         } else if (str != "all") {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/brp/voc/all");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/voc/all");
         }
     }
 

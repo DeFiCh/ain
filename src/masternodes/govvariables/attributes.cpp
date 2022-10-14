@@ -191,6 +191,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
                 {"voc_majority",                GovernanceKeys::VOCMajority},
                 {"proposal_minimum_vote",       GovernanceKeys::PropMinVote},
+                {"voting_period",               GovernanceKeys::VotingPeriod},
             }
         },
     };
@@ -266,6 +267,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {GovernanceKeys::VOCEmergencyPeriod,"voc_emergency_period"},
                 {GovernanceKeys::VOCMajority,       "voc_majority"},
                 {GovernanceKeys::PropMinVote,       "proposal_minimum_vote"},
+                {GovernanceKeys::VotingPeriod,      "voting_period"},
             }
         },
     };
@@ -459,6 +461,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
                 {GovernanceKeys::VOCMajority,           VerifyUInt32},
                 {GovernanceKeys::PropMinVote,           VerifyUInt32},
+                {GovernanceKeys::VotingPeriod,          VerifyUInt32},
             }
         },
     };
@@ -634,7 +637,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (typeKey != GovernanceKeys::CFPPayout && typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPEmergencyFee
                     && typeKey != GovernanceKeys::CFPEmergencyPeriod && typeKey != GovernanceKeys::CFPMajority && typeKey != GovernanceKeys::VOCFee
                     && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCMajority
-                    && typeKey != GovernanceKeys::PropMinVote)
+                    && typeKey != GovernanceKeys::PropMinVote && typeKey != GovernanceKeys::VotingPeriod)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             }
         }

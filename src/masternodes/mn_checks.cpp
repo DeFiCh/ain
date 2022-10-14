@@ -3881,7 +3881,7 @@ public:
         if ((obj.options & CPropOption::Emergency) && obj.nCycles != 1)
             return Res::Err("emergency proposal cycles must be 1");
 
-        return mnview.CreateProp(tx.GetHash(), height, obj);
+        return mnview.CreateProp(tx.GetHash(), height, obj, tx.vout[0].nValue);
     }
 
     Res operator()(const CPropVoteMessage& obj) const

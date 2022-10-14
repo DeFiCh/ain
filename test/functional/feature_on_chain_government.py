@@ -268,6 +268,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/governance/proposals/cfp_automatic_payout':'false',
             'v0/governance/proposals/cfp_fee':'2.00000000',
+            'v0/governance/proposals/voting_period':'100',
         }})
 
         self.nodes[0].generate(1)
@@ -306,6 +307,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Calculate cycle
+        votingPeriod = 100
         cycle1 = creationHeight + (creationHeight % votingPeriod) + votingPeriod
         finalHeight = cycle1 + (cycle1 % votingPeriod) + votingPeriod
 
@@ -373,7 +375,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
 
         # proposal fails, CommunityDevelopmentFunds is not charged
-        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("18.91457187"))
+        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("18.60096827"))
 
         # not votes on 2nd cycle makes proposal to rejected
         result = self.nodes[0].listgovproposals()[0]
@@ -442,7 +444,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         assert_equal(self.nodes[1].getaccount(address), ['150.00000000@DFI'])
-        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal - Decimal("50") + Decimal("18.91457187"))
+        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal - Decimal("50") + Decimal("18.60096827"))
 
         # No proposals pending
         assert_equal(self.nodes[0].listgovproposals("all", "voting"), [])

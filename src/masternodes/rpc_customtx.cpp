@@ -491,10 +491,11 @@ public:
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
         auto finalHeight = height;
+        bool emergency = obj.options & CPropOption::Emergency;
         if (auto prop = mnview.GetProp(propId)) {
             finalHeight = prop->finalHeight;
         } else {
-            auto votingPeriod = mnview.GetVotingPeriod();
+            auto votingPeriod = (emergency ? mnview.GetEmergencyPeriodFromAttributes(type) : mnview.GetVotingPeriodFromAttributes());
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 finalHeight += (finalHeight % votingPeriod) + votingPeriod;
             }
