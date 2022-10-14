@@ -4297,7 +4297,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
         }
 
-
         if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
             return Res::Err("Pool currently disabled due to locked token");
         }
