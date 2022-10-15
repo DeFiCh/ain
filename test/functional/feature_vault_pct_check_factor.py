@@ -29,7 +29,7 @@ class DUSDFactorPctTests(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.fortcanningepilogueheight = 1000
+        self.grandcentralheight = 1000
         self.extra_args = [
             ['-txnotokens=0',
             '-amkheight=1',
@@ -38,11 +38,12 @@ class DUSDFactorPctTests(DefiTestFramework):
             '-fortcanningheight=1',
             '-fortcanningmuseumheight=1',
             '-fortcanningparkheight=1',
-            f'-fortcanninghillheight=1',
-            f'-fortcanningcrunchheight=1',
-            f'-fortcanningroadheight=1',
-            f'-fortcanninggreatworldheight=1',
-            f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
+            '-fortcanninghillheight=1',
+            '-fortcanningcrunchheight=1',
+            '-fortcanningroadheight=1',
+            '-fortcanninggreatworldheight=1',
+            '-fortcanningepilogueheight=1',
+            f'-grandcentralheight={self.grandcentralheight}',
             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
 
@@ -82,12 +83,12 @@ class DUSDFactorPctTests(DefiTestFramework):
         assert_equal(vault["collateralAmounts"], amounts)
         return vaultId
 
-    def goto_fce_height(self):
+    def goto_gc_height(self):
         blockHeight = self.nodes[0].getblockcount()
-        if self.fortcanningepilogueheight > blockHeight:
-            self.nodes[0].generate((self.fortcanningepilogueheight - blockHeight) + 2)
+        if self.grandcentralheight > blockHeight:
+            self.nodes[0].generate((self.grandcentralheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["fortcanningepilogue"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["grandcentral"]["active"], True)
 
 
     def create_tokens(self):
@@ -221,7 +222,7 @@ class DUSDFactorPctTests(DefiTestFramework):
     def post_FCE_DFI_minimum_check_takeloan(self):
         block_height = self.nodes[0].getblockcount()
 
-        self.goto_fce_height()
+        self.goto_gc_height()
 
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.iddUSD}/loan_collateral_factor': '1.2'}})
         self.nodes[0].generate(1)
