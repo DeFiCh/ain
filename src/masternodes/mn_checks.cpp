@@ -3004,13 +3004,19 @@ public:
                 factorDUSD = token->factor;
             }
         }
-        auto totalCollaterals = MultiplyAmounts(totalCollateralsDUSD, factorDUSD) + MultiplyAmounts(totalCollateralsDFI, factorDFI);
 
         // Height checks
         auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
-        auto isPreFCH = static_cast<int>(height) < consensus.FortCanningHillHeight;
+        auto isPreFCH  = static_cast<int>(height) <  consensus.FortCanningHillHeight;
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
+        auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
+
+        if(isPostGC){
+            totalCollateralsDUSD = MultiplyAmounts(totalCollateralsDUSD, factorDUSD);
+            totalCollateralsDFI  = MultiplyAmounts(totalCollateralsDFI, factorDFI);
+        }
+        auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
         // Condition checks
         auto isDFILessThanHalfOfTotalCollateral = arith_uint256(totalCollateralsDFI) < arith_uint256(collateralsLoans.totalCollaterals) / 2;
