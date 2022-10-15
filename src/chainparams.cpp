@@ -137,12 +137,8 @@ public:
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
-<<<<<<< HEAD
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
-||||||| parent of df640538fe (Add Grand Central fork)
-=======
         consensus.GrandCentralHeight = std::numeric_limits<int>::max();
->>>>>>> df640538fe (Add Grand Central fork)
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
