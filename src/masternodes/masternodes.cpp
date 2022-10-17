@@ -61,7 +61,7 @@ CAmount GetMnCollateralAmount(int height)
     }
 }
 
-CAmount GetMnCreationFee(int)
+CAmount GetMnCreationFee()
 {
     return Params().GetConsensus().mn.creationFee;
 }
@@ -805,7 +805,7 @@ enum AnchorTeams {
 void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlockIndex *pindexNew)
 {
     std::set<uint256> masternodeIDs;
-    const int blockSample = 7 * Params().GetConsensus().blocksPerDay(); // One week
+    const int blockSample = 7 * Params().GetConsensus().blocksPerDay(pindexNew->nHeight); // One week
 
     {
         LOCK(cs_main);

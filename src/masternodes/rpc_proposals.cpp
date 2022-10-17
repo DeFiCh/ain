@@ -526,12 +526,12 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, Params().GetConsensus().props.minVoting / 100, Params().GetConsensus().props.minVoting % 100));
     }
 
-    auto target = Params().GetConsensus().pos.nTargetSpacing;
+    auto target = Params().GetConsensus().pos.nTargetSpacingV2;
     auto blocks = prop->finalHeight - targetHeight;
 
-    if (blocks > Params().GetConsensus().blocksPerDay()) {
+    if (blocks > Params().GetConsensus().blocksPerDay(targetHeight)) {
         ret.pushKV("ends", strprintf("%d days", blocks * target / 60 / 60 / 24));
-    } else if (blocks > Params().GetConsensus().blocksPerDay() / 24) {
+    } else if (blocks > Params().GetConsensus().blocksPerDay(targetHeight) / 24) {
         ret.pushKV("ends", strprintf("%d hours", blocks * target / 60 / 60));
     } else {
         ret.pushKV("ends", strprintf("%d minutes", blocks * target / 60));

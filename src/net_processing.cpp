@@ -580,7 +580,8 @@ static bool TipMayBeStale(const Consensus::Params &consensusParams) EXCLUSIVE_LO
     if (g_last_tip_update == 0) {
         g_last_tip_update = GetTime();
     }
-    return g_last_tip_update < GetTime() - consensusParams.pos.nTargetSpacing * 3 && mapBlocksInFlight.empty();
+    // Bitcoin sets * 3 blocks here, so 30 minutes, we will set stale after 30 blocks, so 5 minutes.
+    return g_last_tip_update < GetTime() - consensusParams.pos.nTargetSpacingV2 * 30 && mapBlocksInFlight.empty();
 }
 
 static bool CanDirectFetch(const Consensus::Params &consensusParams) EXCLUSIVE_LOCKS_REQUIRED(cs_main)

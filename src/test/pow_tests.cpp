@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
     pindexLast.nHeight = 46367;
     pindexLast.nTime = 1269211443;  // Block #46367
     pindexLast.nBits = 0x1c387f6f;
-    BOOST_CHECK_EQUAL(pos::CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, chainParams->GetConsensus().pos), 0x1d00e1fdU);
+    BOOST_CHECK_EQUAL(pos::CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, chainParams->GetConsensus()), 0x1d00e1fdU);
 }
 
 BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)

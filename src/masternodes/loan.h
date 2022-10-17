@@ -359,8 +359,7 @@ CAmount CeilInterest(const base_uint<128>& value, uint32_t height);
 std::string GetInterestPerBlockHighPrecisionString(const CInterestAmount& value);
 std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CInterestAmount& value);
 
-base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
-CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
+CInterestAmount InterestPerBlockCalculationV3(const CAmount amount, const CAmount tokenInterest, const CAmount schemeInterest, const int height);
 
 class CLoanTakeLoanMessage
 {

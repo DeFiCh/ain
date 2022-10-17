@@ -40,7 +40,7 @@ class CVaultHistoryStorage;
 int GetMnActivationDelay(int height);
 int GetMnResignDelay(int height);
 CAmount GetTokenCollateralAmount();
-CAmount GetMnCreationFee(int height);
+CAmount GetMnCreationFee();
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetPropsCreationFee(int height, CPropType prop);
@@ -445,7 +445,7 @@ private:
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
 public:
     // Increase version when underlaying tables are changed
-    static constexpr const int DbVersion = 2;
+    static constexpr const int DbVersion = 1;
 
     CCustomCSView();
     explicit CCustomCSView(CStorageKV & st);

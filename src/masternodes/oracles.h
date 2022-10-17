@@ -157,7 +157,7 @@ public:
     CAmount GetPriceDeviation() const;
 
     Res SetIntervalBlock(const uint32_t blockInterval);
-    uint32_t GetIntervalBlock() const;
+    uint32_t GetIntervalBlock(const int height) const;
 
     [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
     [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;

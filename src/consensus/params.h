@@ -126,7 +126,9 @@ struct Params {
         uint256 diffLimit;
         int64_t nTargetTimespan;
         int64_t nTargetTimespanV2;
+        int64_t nTargetTimespanV3;
         int64_t nTargetSpacing;
+        int64_t nTargetSpacingV2;
         int64_t nStakeMinAge;
         int64_t nStakeMaxAge;
         bool fAllowMinDifficultyBlocks;
@@ -134,25 +136,35 @@ struct Params {
 
         int64_t DifficultyAdjustmentInterval() const { return nTargetTimespan / nTargetSpacing; }
         int64_t DifficultyAdjustmentIntervalV2() const { return nTargetTimespanV2 / nTargetSpacing; }
+        int64_t DifficultyAdjustmentIntervalV3() const { return nTargetTimespanV3 / nTargetSpacingV2; }
 
         arith_uint256 interestAtoms = arith_uint256{10000000000000000ull};
         bool allowMintingWithoutPeers;
     };
     PoS pos;
 
-    uint32_t blocksPerDay() const {
-        static const uint32_t blocks = 60 * 60 * 24 / pos.nTargetSpacing;
-        return blocks;
+    [[nodiscard]] uint32_t blocksPerDay(const int height) const {
+        if (height >= GrandCentralHeight) {
+            return 60 * 60 * 24 / pos.nTargetSpacingV2;
+        }
+
+        return 60 * 60 * 24 / pos.nTargetSpacing;
     }
 
-    uint32_t blocksCollateralizationRatioCalculation() const {
-        static const uint32_t blocks = 15 * 60 / pos.nTargetSpacing;
-        return blocks;
+    [[nodiscard]] uint32_t blocksCollateralizationRatioCalculation(const int height) const {
+        if (height >= GrandCentralHeight) {
+            return 15 * 60 / pos.nTargetSpacingV2;
+        }
+
+        return 15 * 60 / pos.nTargetSpacing;
     }
 
-    uint32_t blocksCollateralAuction() const {
-        static const uint32_t blocks = 6 * 60 * 60 / pos.nTargetSpacing;
-        return blocks;
+    [[nodiscard]] uint32_t blocksCollateralAuction(const int height) const {
+        if (height >= GrandCentralHeight) {
+            return 6 * 60 * 60 / pos.nTargetSpacingV2;
+        }
+
+        return 6 * 60 * 60 / pos.nTargetSpacing;
     }
 
     /**

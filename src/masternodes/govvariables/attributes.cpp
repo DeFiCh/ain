@@ -1375,7 +1375,7 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     return Res::Err("Auto lock. No loan token with id (%d)", split);
                 }
 
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay(height) / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
                     if (!var) {

@@ -1335,7 +1335,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
              totalVaults = 0, totalAuctions = 0, totalLoanSchemes = 0,
              totalCollateralTokens = 0, totalLoanTokens = 0;
 
-    auto fixedIntervalBlock = view.GetIntervalBlock();
+    auto fixedIntervalBlock = view.GetIntervalBlock(height);
     auto priceDeviation = view.GetPriceDeviation();
     auto defaultScheme = view.GetDefaultLoanScheme();
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);

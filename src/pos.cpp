@@ -114,21 +114,28 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
     return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState, pindexPrev->nHeight + 1);
 }
 
-unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust)
+unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params& params)
 {
-    if (params.fNoRetargeting)
+    if (params.pos.fNoRetargeting)
         return pindexLast->nBits;
+
+    bool newDifficultyAdjust{pindexLast->nHeight + 1 > params.EunosHeight};
+    bool grandCentralFork{pindexLast->nHeight + 1 > params.GrandCentralHeight};
 
     // Limit adjustment step
     int64_t nActualTimespan = pindexLast->GetBlockTime() - nFirstBlockTime;
-    const auto& nTargetTimespan = newDifficultyAdjust ? params.nTargetTimespanV2 : params.nTargetTimespan;
+    const auto& nTargetTimespan = newDifficultyAdjust ? grandCentralFork ?
+            params.pos.nTargetTimespanV3 :
+            params.pos.nTargetTimespanV2 :
+            params.pos.nTargetTimespan;
+
     if (nActualTimespan < nTargetTimespan/4)
         nActualTimespan = nTargetTimespan/4;
     if (nActualTimespan > nTargetTimespan*4)
         nActualTimespan = nTargetTimespan*4;
 
     // Retarget
-    const arith_uint256 bnDiffLimit = UintToArith256(params.diffLimit);
+    const arith_uint256 bnDiffLimit = UintToArith256(params.pos.diffLimit);
     arith_uint256 bnNew;
     bnNew.SetCompact(pindexLast->nBits);
     bnNew *= nActualTimespan;
@@ -155,14 +162,23 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
 
     int nHeight{pindexLast->nHeight + 1};
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
+    bool grandCentralFork{nHeight > params.GrandCentralHeight};
 
     // Restore previous difficulty adjust on testnet after FC
     if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
         newDifficultyAdjust = false;
+        grandCentralFork = false;
     }
 
-    const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
-    bool skipChange = newDifficultyAdjust ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
+    const auto interval = newDifficultyAdjust ? grandCentralFork ?
+            params.pos.DifficultyAdjustmentIntervalV3() :
+            params.pos.DifficultyAdjustmentIntervalV2() :
+            params.pos.DifficultyAdjustmentInterval();
+
+    bool skipChange = newDifficultyAdjust ? grandCentralFork ?
+            (nHeight - params.GrandCentralHeight) % interval != 0 :
+            (nHeight - params.EunosHeight) % interval != 0 :
+            nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
     if (skipChange)
@@ -193,7 +209,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     const CBlockIndex* pindexFirst = pindexLast->GetAncestor(nHeightFirst);
     assert(pindexFirst);
 
-    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
+    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params);
 }
 
 std::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {

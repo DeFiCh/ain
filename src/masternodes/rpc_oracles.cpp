@@ -536,7 +536,7 @@ bool diffInHour(int64_t time1, int64_t time2) {
 }
 
 std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
-    auto fixedBlocks = mnview.GetIntervalBlock();
+    auto fixedBlocks = mnview.GetIntervalBlock(currentHeight);
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
     return {activePriceBlock, nextPriceBlock};

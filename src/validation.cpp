@@ -2336,11 +2336,11 @@ void CChainState::ProcessEunosEvents(const CBlockIndex* pindex, CCustomCSView& c
 }
 
 template<typename GovVar>
-static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
+static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, const int nHeight) {
     if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
     {
         CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
-        subsidy *= Params().GetConsensus().blocksPerDay();
+        subsidy *= Params().GetConsensus().blocksPerDay(nHeight);
         // Change daily LP reward if it has changed
         auto var = cache.GetVariable(GovVar::TypeName());
         if (var) {
@@ -3378,7 +3378,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation(pindex->nHeight) == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
@@ -3471,7 +3471,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // All done. Ready to save the overall auction.
             cache.StoreAuction(vaultId, CAuctionData{
                                             uint32_t(batches.size()),
-                                            pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                            pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(pindex->nHeight),
                                             cache.GetLoanLiquidationPenalty()
             });
 
@@ -3968,7 +3968,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
-    auto blockInterval = cache.GetIntervalBlock();
+    auto blockInterval = cache.GetIntervalBlock(pindex->nHeight);
     if (pindex->nHeight % blockInterval != 0) {
         return;
     }
@@ -4745,7 +4745,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
-            newInterestRatePerBlock = InterestPerBlockCalculationV3(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            newInterestRatePerBlock = InterestPerBlockCalculationV3(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate, height);
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 

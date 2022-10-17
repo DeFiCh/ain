@@ -207,26 +207,26 @@ std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId& vaultI
 
 // Precision 64bit
 template<typename T>
-inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+inline T InterestPerBlockCalculationV1(const CAmount amount, const CAmount tokenInterest, const CAmount schemeInterest, const int height)
 {
     const auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay(height);
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 // Precision 128bit
-inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+inline base_uint<128> InterestPerBlockCalculationV2(const CAmount amount, const CAmount tokenInterest, const CAmount schemeInterest, const int height)
 {
     const auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay(height);
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
 // Precision 128bit with negative interest
-CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+CInterestAmount InterestPerBlockCalculationV3(const CAmount amount, const CAmount tokenInterest, const CAmount schemeInterest, const int height)
 {
     const auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay(height);
     return {netInterest < 0 && amount > 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
 }
 
@@ -326,18 +326,18 @@ Res CLoanView::IncreaseInterest(const uint32_t height, const CVaultId& vaultId, 
         ReadBy<LoanTokenAmount>(vaultId, amounts);
 
         // Use argument token interest as update from Gov var TX will not be applied to GetLoanTokenByID at this point in time.
-        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], tokenInterest, scheme->rate);
+        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], tokenInterest, scheme->rate, height);
 
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
+        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate, height)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
-        interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
+        interestPerBlock += std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate, height));
         rate.interestPerBlock = {false, interestPerBlock};
     } else {
-        rate.interestPerBlock.amount += InterestPerBlockCalculationV1<CAmount>(loanIncreased, token->interest, scheme->rate);
+        rate.interestPerBlock.amount += InterestPerBlockCalculationV1<CAmount>(loanIncreased, token->interest, scheme->rate, height);
     }
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);
@@ -376,17 +376,17 @@ Res CLoanView::DecreaseInterest(const uint32_t height, const CVaultId& vaultId, 
     if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningGreatWorldHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate);
+        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate, height);
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
+        rate.interestPerBlock = {false, InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate, height)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
-        CAmount newInterestPerBlock = std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate));
+        CAmount newInterestPerBlock = std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate, height));
         rate.interestPerBlock = {false ,std::max(CAmount{0}, interestPerBlock - newInterestPerBlock)};
     } else {
-        auto interestPerBlock = InterestPerBlockCalculationV1<CAmount>(loanDecreased, token->interest, scheme->rate);
+        auto interestPerBlock = InterestPerBlockCalculationV1<CAmount>(loanDecreased, token->interest, scheme->rate, height);
         rate.interestPerBlock = rate.interestPerBlock.amount < interestPerBlock ? CInterestAmount{false, 0}
                               : CInterestAmount{false, rate.interestPerBlock.amount - interestPerBlock};
     }
@@ -409,7 +409,7 @@ void CLoanView::ResetInterest(const uint32_t height, const CVaultId& vaultId, co
 
     const CInterestRateV3 rate{
             height,
-            InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate),
+            InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate, height),
             {false, 0}
     };
 

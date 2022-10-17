@@ -208,7 +208,7 @@ Res COracleView::SetIntervalBlock(const uint32_t blockInterval)
     return Res::Ok();
 }
 
-uint32_t COracleView::GetIntervalBlock() const
+uint32_t COracleView::GetIntervalBlock(const int height) const
 {
     uint32_t blockInterval;
     if (Read(FixedIntervalBlockKey::prefix(), blockInterval)) {
@@ -216,5 +216,9 @@ uint32_t COracleView::GetIntervalBlock() const
     }
 
     // Default
+    if (height >= Params().GetConsensus().GrandCentralHeight) {
+        return 60 * 60 / Params().GetConsensus().pos.nTargetSpacingV2;
+    }
+
     return 60 * 60 / Params().GetConsensus().pos.nTargetSpacing;
 }
