@@ -95,9 +95,6 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 
 namespace {
 BlockManager g_blockman;
-
-// Store subsidy at each reduction
-std::map<uint32_t, CAmount> subsidyReductions;
 } // anon namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -1140,16 +1137,17 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
         if (nHeight >= consensusParams.EunosHeight)
         {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
-
-            // See if we already have this reduction calculated and return if found.
-            if (subsidyReductions.find(reductions) != subsidyReductions.end())
-            {
-                return subsidyReductions[reductions];
+            auto eunosBlocks = nHeight - consensusParams.EunosHeight;
+            uint32_t grandCentralReductions{};
+            if (nHeight >= consensusParams.GrandCentralHeight) {
+                eunosBlocks -= nHeight - consensusParams.GrandCentralHeight;
+                grandCentralReductions = (nHeight - consensusParams.GrandCentralHeight) / consensusParams.emissionReductionPeriodV2;
             }
 
-            CAmount reductionAmount;
-            for (size_t i = reductions; i > 0; --i)
+            const auto eunosReductions = eunosBlocks / consensusParams.emissionReductionPeriod;
+
+            CAmount reductionAmount{};
+            for (auto i = eunosReductions + grandCentralReductions; i > 0; --i)
             {
                 reductionAmount = (nSubsidy * consensusParams.emissionReductionAmount) / 100000;
                 if (!reductionAmount) {
@@ -1160,8 +1158,9 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
                 nSubsidy -= reductionAmount;
             }
 
-            // Store subsidy.
-            subsidyReductions[reductions] = nSubsidy;
+            if (nHeight >= consensusParams.GrandCentralHeight) {
+                nSubsidy /= consensusParams.pos.nTargetSpacing / consensusParams.pos.nTargetSpacingV2;
+            }
         }
 
         return nSubsidy;

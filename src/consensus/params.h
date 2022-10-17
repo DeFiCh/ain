@@ -54,6 +54,7 @@ struct Params {
     CAmount baseBlockSubsidy;
     CAmount newBaseBlockSubsidy;
     uint32_t emissionReductionPeriod;
+    uint32_t emissionReductionPeriodV2;
     uint32_t emissionReductionAmount;
     CScript foundationShareScript;
     uint32_t foundationShare;

@@ -113,6 +113,7 @@ public:
         consensus.baseBlockSubsidy = 200 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000; // 405.04 DFI
         consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionPeriodV2 = 98070; // Two weeks
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 0;
@@ -365,6 +366,7 @@ public:
         consensus.baseBlockSubsidy = 200 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
         consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionPeriodV2 = 98070; // Two weeks
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 0;
@@ -572,6 +574,7 @@ public:
         consensus.baseBlockSubsidy = 200 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
         consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionPeriodV2 = 98070; // Two weeks
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 0;
@@ -771,6 +774,7 @@ public:
         consensus.baseBlockSubsidy = (isJellyfish) ? 100 * COIN : 50 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
         consensus.emissionReductionPeriod = (isJellyfish) ? 32690 : 150;
+        consensus.emissionReductionPeriodV2 = (isJellyfish) ? 98070 : 150;
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
