@@ -137,8 +137,7 @@ public:
         consensus.FortCanningCrunchHeight = 1936000; // June 2, 2022.
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
-        consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -194,15 +193,6 @@ public:
 
         consensus.vaultCreationFee = 2 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
-        consensus.props.voc.fee = 50 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 500 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
-        consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
-
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
@@ -220,7 +210,6 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -388,7 +377,6 @@ public:
         consensus.FortCanningSpringHeight = 1086000;
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -444,15 +432,6 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
-        consensus.props.voc.fee = 50 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 500 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
-        consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
-
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -470,7 +449,6 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -593,7 +571,6 @@ public:
         consensus.FortCanningSpringHeight = std::numeric_limits<int>::max();
         consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
         consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -647,15 +624,6 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 1 * COIN;
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
-        consensus.props.voc.fee = 5 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 10 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
-        consensus.props.votingPeriod = 100; // tally votes every 1K blocks
-
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -673,7 +641,6 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -790,7 +757,6 @@ public:
         consensus.FortCanningSpringHeight = 10000000;
         consensus.FortCanningGreatWorldHeight = 10000000;
         consensus.FortCanningEpilogueHeight = 10000000;
-        consensus.GrandCentralHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -842,15 +808,6 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
 
-        consensus.props.cfp.fee = 1 * COIN;
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
-        consensus.props.voc.fee = 5 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 10 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
-        consensus.props.votingPeriod = 70; // tally votes every 70 blocks
-
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
@@ -870,7 +827,6 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
@@ -1026,7 +982,6 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
-    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

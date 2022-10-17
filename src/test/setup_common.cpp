@@ -208,7 +208,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         tip = ::ChainActive().Tip();
 
         auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(tip->nHeight, *pcustomcsview))
+        if (!nodePtr || !nodePtr->IsActive(tip->nHeight))
             throw std::runtime_error(std::string(__func__) + ": nodePtr does not exist");
 
         mintedBlocks = nodePtr->mintedBlocks;

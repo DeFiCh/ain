@@ -629,7 +629,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         pool.rebuildAccountsView(height, view);
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -1422,8 +1422,7 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     Coin coin;
     for(size_t i = 0; i < tx.vin.size(); ++i)
     {
-        if (inputs.GetCoin(tx.vin[i].prevout, coin)
-        && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
+        if (inputs.GetCoin(tx.vin[i].prevout, coin) && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
         {
             return false;
         }
@@ -1730,7 +1729,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // Undo community balance increments
-    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
+    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
     CKeyID minterKey;
     std::optional<uint256> nodeId;
@@ -1811,7 +1810,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 // Check for burn outputs
                 if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
                 {
-                    eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
+                    eraseBurnEntries.push_back({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
                 }
             }
         }
@@ -2063,11 +2062,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (height >= consensus.AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.GrandCentralHeight)
-        {
-            // no foundation utxo reward check anymore
-        }
-        else if (height >= consensus.EunosHeight)
+        if (height >= consensus.EunosHeight)
         {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
         }
@@ -2106,12 +2101,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             CAmount subsidy;
             for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
-                if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < consensus.GrandCentralHeight) {
-                        continue;
-                    }
-                }
-
                 subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 Res res = Res::Ok();
@@ -2126,23 +2115,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
-                    {
-                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
-
-                        auto attributes = mnview.GetAttributes();
-                        if (!attributes) {
-                            return Res::ErrDbg("attributes-not-found", "Critical error!");
-                        }
-                        if (!attributes->GetValue(enabledKey, false))
-                        {
-                            mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-                            nonUtxoTotal += subsidy;
-
-                            continue;
-                        }
-                    }
-
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
                         LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
@@ -2181,7 +2153,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 }
 
 
-void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus)
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
 {
     CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
 
@@ -2191,12 +2163,6 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
         {
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
-                if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < Params().GetConsensus().GrandCentralHeight) {
-                        continue;
-                    }
-                }
-
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Loan and Options balances from Unallocated
@@ -2207,22 +2173,6 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
-                    {
-                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
-
-                        auto attributes = mnview.GetAttributes();
-                        if (!attributes) {
-                            return;
-                        }
-                        if (!attributes->GetValue(enabledKey, false))
-                        {
-                            mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-
-                            continue;
-                        }
-                    }
-                    
                     mnview.SubCommunityBalance(kv.first, subsidy);
                 }
             }
@@ -2602,7 +2552,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2648,9 +2598,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
-        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
-        if (block.stakeModifier != stakeModifier) {            return state.Invalid(
+        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
+            return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
                             __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
@@ -2817,7 +2766,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2878,7 +2827,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2938,7 +2887,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
-                writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
+                writeBurnEntries.push_back({{Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
             }
         }
@@ -3102,12 +3051,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Tally negative interest across vaults
         ProcessNegativeInterest(pindex, cache);
-
-        // Masternode updates
-        ProcessMasternodeUpdates(pindex, cache, view, chainparams);
-
-        // proposal activations
-        ProcessProposalEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -4034,132 +3977,6 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
-}
-
-void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
-        return;
-    }
-
-    // Apply any pending masternode owner changes
-    cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
-        if (value.blockHeight == static_cast<uint32_t>(pindex->nHeight)) {
-            auto node = cache.GetMasternode(value.masternodeID);
-            assert(node);
-            assert(key == node->collateralTx);
-            const auto& coin = view.AccessCoin({node->collateralTx, 1});
-            assert(!coin.IsSpent());
-            CTxDestination dest;
-            assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
-            cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
-        }
-        return true;
-    });
-}
-
-void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
-        return;
-    }
-
-    CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
-
-    auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
-
-    auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
-    if (!attributes->GetValue(enabledKey, false))
-    {
-        if (funds > 0) {
-            cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
-            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
-        }
-
-        return;
-    }
-
-    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
-    if (balance.nValue > 0) {
-        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
-        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
-    }
-
-    std::set<uint256> activeMasternodes;
-    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
-
-        if (activeMasternodes.empty()) {
-            cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
-                if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
-                    activeMasternodes.insert(mnId);
-                }
-                return true;
-            });
-            if (activeMasternodes.empty()) {
-                return false;
-            }
-        }
-
-        uint32_t voteYes = 0, voters = 0;
-        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
-            if (pId != propId || cycle != prop.cycle) {
-                return false;
-            }
-            if (activeMasternodes.count(mnId)) {
-                ++voters;
-                if (vote == CPropVoteType::VoteYes) {
-                    ++voteYes;
-                }
-            }
-            return true;
-        }, CMnVotePerCycle{propId, prop.cycle});
-
-        if (lround(voters * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
-            return true;
-        }
-
-        uint32_t majorityThreshold{};
-        switch(prop.type) {
-            case CPropType::CommunityFundProposal:
-                majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
-                break;
-            case CPropType::BlockRewardReallocation:
-                majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
-                break;
-            case CPropType::VoteOfConfidence:
-                majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
-                break;
-        }
-
-        if (lround(voteYes * 10000.f / voters) <= majorityThreshold) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
-            return true;
-        }
-
-        if (prop.nCycles == prop.cycle) {
-            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
-        } else {
-            assert(prop.nCycles > prop.cycle);
-            cache.UpdatePropCycle(propId, prop.cycle + 1);
-        }
-
-        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPPayout};
-
-        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
-            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
-            if (res) {
-                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
-                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
-            } else {
-                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
-            }
-        }
-
-        return true;
-    }, pindex->nHeight);
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {

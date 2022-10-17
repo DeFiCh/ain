@@ -58,7 +58,6 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
-        {"governance",  AttributeTypes::Governance},
     };
     return types;
 }
@@ -71,7 +70,6 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
-        {AttributeTypes::Governance,"governance"},
     };
     return types;
 }
@@ -123,22 +121,6 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
     return params;
 }
 
-const std::map<std::string, uint8_t>& ATTRIBUTES::allowedGovernanceIDs() {
-    static const std::map<std::string, uint8_t> params{
-            {"global",    GovernanceIDs::Global},
-            {"cfp",       GovernanceIDs::CFP},
-    };
-    return params;
-}
-
-const std::map<uint8_t, std::string>& ATTRIBUTES::displayGovernanceIDs() {
-    static const std::map<uint8_t, std::string> params{
-            {GovernanceIDs::Global,    "global"},
-            {GovernanceIDs::CFP,       "cfp"},
-    };
-    return params;
-}
-
 const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
@@ -178,12 +160,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"start_block",                 DFIPKeys::StartBlock},
             }
         },
-        {
-            AttributeTypes::Governance, {
-                {"enabled",                     GovernanceKeys::Enabled},
-                {"payout",                      GovernanceKeys::CFPPayout},
-            }
-        },
     };
     return keys;
 }
@@ -220,14 +196,14 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,                      "active"},
-                {DFIPKeys::Premium,                     "premium"},
-                {DFIPKeys::MinSwap,                     "minswap"},
-                {DFIPKeys::RewardPct,                   "reward_pct"},
-                {DFIPKeys::BlockPeriod,                 "block_period"},
-                {DFIPKeys::DUSDInterestBurn,            "dusd_interest_burn"},
-                {DFIPKeys::DUSDLoanBurn,                "dusd_loan_burn"},
-                {DFIPKeys::StartBlock,                  "start_block"},
+                {DFIPKeys::Active,                  "active"},
+                {DFIPKeys::Premium,                 "premium"},
+                {DFIPKeys::MinSwap,                 "minswap"},
+                {DFIPKeys::RewardPct,               "reward_pct"},
+                {DFIPKeys::BlockPeriod,             "block_period"},
+                {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
+                {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
+                {DFIPKeys::StartBlock,              "start_block"},
             }
         },
         {
@@ -242,12 +218,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
-            }
-        },
-        {
-            AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,       "enabled"},
-                {GovernanceKeys::CFPPayout,     "payout"},
             }
         },
     };
@@ -400,14 +370,14 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,                          VerifyBool},
-                {DFIPKeys::Premium,                         VerifyPct},
-                {DFIPKeys::MinSwap,                         VerifyPositiveFloat},
-                {DFIPKeys::RewardPct,                       VerifyPct},
-                {DFIPKeys::BlockPeriod,                     VerifyInt64},
-                {DFIPKeys::DUSDInterestBurn,                VerifyBool},
-                {DFIPKeys::DUSDLoanBurn,                    VerifyBool},
-                {DFIPKeys::StartBlock,                      VerifyInt64},
+                {DFIPKeys::Active,                  VerifyBool},
+                {DFIPKeys::Premium,                 VerifyPct},
+                {DFIPKeys::MinSwap,                 VerifyPositiveFloat},
+                {DFIPKeys::RewardPct,               VerifyPct},
+                {DFIPKeys::BlockPeriod,             VerifyInt64},
+                {DFIPKeys::DUSDInterestBurn,  VerifyBool},
+                {DFIPKeys::DUSDLoanBurn,      VerifyBool},
+                {DFIPKeys::StartBlock,              VerifyInt64},
             }
         },
         {
@@ -418,12 +388,6 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Oracles, {
                 {OracleIDs::Splits,          VerifySplit},
-            }
-        },
-        {
-            AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,         VerifyBool},
-                {GovernanceKeys::CFPPayout,       VerifyBool},
             }
         },
     };
@@ -517,12 +481,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return ::ShowError("oracles", allowedOracleIDs());
         }
         typeId = id->second;
-    } else if (type == AttributeTypes::Governance) {
-        auto id = allowedGovernanceIDs().find(keys[2]);
-        if (id == allowedGovernanceIDs().end()) {
-            return ::ShowError("governance", allowedGovernanceIDs());
-        }
-        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -588,16 +546,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
-            } else {
-                    return Res::Err("Unsupported Param ID");
-            }
-        } else if (type == AttributeTypes::Governance) {
-            if (typeId == GovernanceIDs::Global) {
-                if (typeKey != GovernanceKeys::Enabled)
-                    return Res::Err("Unsupported key for Governance global section - {%d}", typeKey);
-            } else if (typeId == GovernanceIDs::CFP) {
-                if (typeKey != GovernanceKeys::CFPPayout)
-                    return Res::Err("Unsupported key for Governance CFP section - {%d}", typeKey);
+            }  else {
+                return Res::Err("Unsupported Param ID");
             }
         }
 
@@ -846,8 +796,6 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayParamsIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Oracles) {
                 id = displayOracleIDs().at(attrV0->typeId);
-            } else if (attrV0->type == AttributeTypes::Governance) {
-                id = displayGovernanceIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1130,12 +1078,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 }
                 if (!view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
                     return Res::Err("No loan token with id (%d)", attrV0->key);
-                }
-            break;
-
-            case AttributeTypes::Governance:
-                if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
-                    return Res::Err("Cannot be set before GreatWorld");
                 }
             break;
 

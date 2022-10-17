@@ -3,12 +3,12 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
+UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     auto currentHeight = ChainActive().Height();
     if (!verbose) {
-        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
+        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
     }
     else {
         UniValue obj(UniValue::VOBJ);
@@ -30,8 +30,8 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
-        obj.pushKV("collateralTx", node.collateralTx.GetHex());
-        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
+        obj.pushKV("banTx", node.banTx.GetHex());
+        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight)));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
         obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
@@ -48,7 +48,7 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
         uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
-        if (node.IsActive(currentHeight, view)) {
+        if (node.IsActive(currentHeight)) {
             // Get block times with next block as height
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
 
@@ -247,7 +247,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     std::string const nodeIdStr = request.params[0].getValStr();
     uint256 const nodeId = uint256S(nodeIdStr);
-    CTxDestination ownerDest, collateralDest;
+    CTxDestination ownerDest;
     int targetHeight;
     {
         LOCK(cs_main);
@@ -259,13 +259,6 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
-        if (!nodePtr->collateralTx.IsNull()) {
-            const auto& coin = ::ChainstateActive().CoinsTip().AccessCoin({nodePtr->collateralTx, 1});
-            if (coin.IsSpent() || !ExtractDestination(coin.out.scriptPubKey, collateralDest)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode collateral not available");
-            }
-        }
-
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -274,9 +267,6 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{GetScriptForDestination(ownerDest)};
-    if (collateralDest.index() != 0) {
-        auths.insert(GetScriptForDestination(collateralDest));
-    }
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1]);
 
     // Return change to owner address
@@ -304,6 +294,10 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue updatemasternode(const JSONRPCRequest& request)
 {
+    // Temporarily disabled for 2.2
+    throw JSONRPCError(RPC_INVALID_REQUEST,
+                           "updatemasternode is disabled for Fort Canning");
+
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatemasternode",
@@ -312,13 +306,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                    {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
-                   {"values", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                       {
-                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode owner address, requires masternode collateral fee (P2PKH or P2WPKH)"},
-                            {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The new masternode operator address (P2PKH or P2WPKH)"},
-                            {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Masternode`s new reward address, empty \"\" to remove reward address."},
-                       },
-                   },
+                   {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The new masternode operator auth address (P2PKH only, unique)"},
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                        {
                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -345,10 +333,23 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VOBJ, UniValue::VARR }, true);
+    bool forkCanning;
+    {
+        LOCK(cs_main);
+        forkCanning = ::ChainActive().Tip()->nHeight >= Params().GetConsensus().FortCanningHeight;
+    }
 
-    const std::string nodeIdStr = request.params[0].getValStr();
-    const uint256 nodeId = uint256S(nodeIdStr);
+    if (!forkCanning) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "updatemasternode cannot be called before Fortcanning hard fork");
+    }
+
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+    if (request.params[0].isNull() || request.params[1].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 2 must be non-null");
+    }
+
+    std::string const nodeIdStr = request.params[0].getValStr();
+    uint256 const nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest;
     int targetHeight;
     {
@@ -362,40 +363,19 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         targetHeight = ::ChainActive().Height() + 1;
     }
 
-    CTxDestination newOwnerDest, operatorDest, rewardDest;
+    std::string operatorAddress = request.params[1].getValStr();
+    CTxDestination operatorDest = DecodeDestination(operatorAddress);
 
-    UniValue metaObj = request.params[1].get_obj();
-    if (!metaObj["ownerAddress"].isNull()) {
-        newOwnerDest = DecodeDestination(metaObj["ownerAddress"].getValStr());
-        if (newOwnerDest.index() != PKHashType && newOwnerDest.index() != WitV0KeyHashType) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "ownerAddress (" + metaObj["ownerAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
-        }
-    }
-
-    if (!metaObj["operatorAddress"].isNull()) {
-        operatorDest = DecodeDestination(metaObj["operatorAddress"].getValStr());
-        if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + metaObj["operatorAddress"].getValStr() + ") does not refer to a P2PKH or P2WPKH address");
-        }
-    }
-
-    std::string rewardAddress;
-    if (!metaObj["rewardAddress"].isNull()) {
-        rewardAddress = metaObj["rewardAddress"].getValStr();
-        if (!rewardAddress.empty()) {
-            rewardDest = DecodeDestination(rewardAddress);
-            if (rewardDest.index() != PKHashType && rewardDest.index() != WitV0KeyHashType) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
-            }
-        }
+    // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
+    if (operatorDest.index() != PKHashType && operatorDest.index() != WitV0KeyHashType) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    const CScript ownerScript = !metaObj["ownerAddress"].isNull() ? GetScriptForDestination(newOwnerDest) : GetScriptForDestination(ownerDest);
-    std::set<CScript> auths{ownerScript};
+    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
 
     // Return change to owner address
@@ -404,44 +384,17 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    CUpdateMasterNodeMessage msg{nodeId};
-
-    if (!metaObj["ownerAddress"].isNull()) {
-        msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress), std::pair<char, std::vector<unsigned char>>());
-    }
-
-    if (!metaObj["operatorAddress"].isNull()) {
-        const CKeyID keyID = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
-        msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress), std::make_pair(static_cast<char>(operatorDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
-    }
-
-    if (!metaObj["rewardAddress"].isNull()) {
-        if (rewardAddress.empty()) {
-            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress), std::pair<char, std::vector<unsigned char>>());
-        } else {
-            const CKeyID keyID = rewardDest.index() == PKHashType ? CKeyID(std::get<PKHash>(rewardDest)) : CKeyID(std::get<WitnessV0KeyHash>(rewardDest));
-            msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress), std::make_pair(static_cast<char>(rewardDest.index()), std::vector<unsigned char>(keyID.begin(), keyID.end())));
-        }
-    }
+    CKeyID const operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateMasternode)
-             << msg;
+             << nodeId
+             << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    rawTx.vout.emplace_back(0, scriptMeta);
-
-    // Add new owner collateral
-    if (!metaObj["ownerAddress"].isNull()) {
-        if (const auto node = pcustomcsview->GetMasternode(nodeId)) {
-            rawTx.vin.emplace_back(node->collateralTx.IsNull() ? nodeId : node->collateralTx, 1);
-            rawTx.vout.emplace_back(GetMnCollateralAmount(targetHeight), ownerScript);
-        } else {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("masternode %s does not exists", nodeIdStr));
-        }
-    }
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
@@ -520,7 +473,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
             including_start = true;
             return (true);
         }
-        ret.pushKVs(mnToJSON(*pcustomcsview, nodeId, node, verbose, mnIds, pwallet));
+        ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
         limit--;
         return limit != 0;
     }, start);
@@ -553,7 +506,7 @@ UniValue getmasternode(const JSONRPCRequest& request)
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
     auto node = pcustomcsview->GetMasternode(id);
     if (node) {
-        auto res = mnToJSON(*pcustomcsview, id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
+        auto res = mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
         return GetRPCResultCache().Set(request, res);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
@@ -857,7 +810,7 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
-    {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "values", "inputs"}},
+    //{"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress", "inputs"}},
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},

@@ -793,10 +793,6 @@ private:
     static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 
     static void ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache);
-
-    static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
-
-    static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
@@ -867,7 +863,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 }
 
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
-void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus);
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height);
 
 inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t percentage)
 {

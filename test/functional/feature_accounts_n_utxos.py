@@ -92,7 +92,6 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         self.nodes[0].accounttoaccount(accountGold,
                                        {toGold: "100@" + symbolGOLD}, [])
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:1])
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], 100)
@@ -104,7 +103,6 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         self.nodes[1].accounttoaccount(accountSilver,
                                        {toSilver: "100@" + symbolSILVER}, [])
         self.nodes[1].generate(1)
-        self.sync_blocks(self.nodes[0:1])
 
         assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
         assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], 100)

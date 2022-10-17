@@ -116,13 +116,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nHeight = pindexPrev->nHeight + 1;
     // in fact, this may be redundant cause it was checked upthere in the miner
     std::optional<std::pair<CKeyID, uint256>> myIDs;
-    std::optional<CMasternode> nodePtr;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)
             return nullptr;
-        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview))
+        auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight))
             return nullptr;
     }
 
@@ -277,13 +276,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        if (nHeight < consensus.GrandCentralHeight) {
-            coinbaseTx.vout.resize(2);
-            // Community payment always expected
-            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-            coinbaseTx.vout[1].nValue = foundationValue;
-        }
+        coinbaseTx.vout.resize(2);
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
@@ -292,8 +285,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
+        // Community payment always expected
+        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
@@ -339,8 +336,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        const CKeyID key = nHeight >= consensus.GrandCentralHeight ? nodePtr->ownerAuthAddress : myIDs->first;
-        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
+        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -731,7 +727,6 @@ namespace pos {
         int64_t blockHeight;
         std::vector<int64_t> subNodesBlockTime;
         uint16_t timelock;
-        std::optional<CMasternode> nodePtr;
 
         {
             LOCK(cs_main);
@@ -742,8 +737,8 @@ namespace pos {
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
-            nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1, *pcustomcsview))
+            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->nHeight + 1))
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -777,8 +772,7 @@ namespace pos {
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        const CKeyID key = blockHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
-        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, key);
+        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
