@@ -1141,10 +1141,14 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
             uint32_t grandCentralReductions{};
             if (nHeight >= consensusParams.GrandCentralHeight) {
                 eunosBlocks -= nHeight - consensusParams.GrandCentralHeight;
-                grandCentralReductions = (nHeight - consensusParams.GrandCentralHeight) / consensusParams.emissionReductionPeriodV2;
             }
 
             const auto eunosReductions = eunosBlocks / consensusParams.emissionReductionPeriod;
+
+            if (nHeight >= consensusParams.GrandCentralHeight) {
+                const auto eunosRemainder = eunosBlocks % consensusParams.emissionReductionPeriod;
+                grandCentralReductions = ((nHeight - consensusParams.GrandCentralHeight) + (eunosRemainder * (consensusParams.pos.nTargetSpacing / consensusParams.pos.nTargetSpacingV2))) / consensusParams.emissionReductionPeriodV2;
+            }
 
             CAmount reductionAmount{};
             for (auto i = eunosReductions + grandCentralReductions; i > 0; --i)
