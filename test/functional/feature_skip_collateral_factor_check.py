@@ -8,7 +8,6 @@
 from test_framework.test_framework import DefiTestFramework
 
 
-
 class SkipCollateralFactorTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -19,7 +18,6 @@ class SkipCollateralFactorTest (DefiTestFramework):
     def run_test(self):
         # Generate chain
         self.nodes[0].generate(120)
-
 
         # Create loan tokens
         self.symbolDUSD = "DUSD"
