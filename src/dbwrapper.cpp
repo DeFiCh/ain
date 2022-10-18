@@ -131,13 +131,19 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
     options = GetOptions(nCacheSize);
     options.create_if_missing = true;
 
-    if (gArgs.IsArgSet("-skipverifychecksumsdb")) {
+    auto leveldbchecksum = gArgs.GetArg("-leveldbchecksum", "auto");
+    if(leveldbchecksum == "false"){
         // set to true by default for all versions above 1.16 of LevelDB in GetOptions()
         options.paranoid_checks = false;
     }
-    else {
+    else if (leveldbchecksum == "true") {
         readoptions.verify_checksums = true;
         iteroptions.verify_checksums = true;
+    }
+    else if (leveldbchecksum == "auto"){
+        auto isMN = gArgs.IsArgSet("-masternode_operator");
+        readoptions.verify_checksums = isMN;
+        iteroptions.verify_checksums = isMN;
     }
 
     if (fMemory) {

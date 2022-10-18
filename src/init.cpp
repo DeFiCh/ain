@@ -393,7 +393,7 @@ void SetupServerArgs()
     std::vector<std::string> hidden_args = {
         "-dbcrashratio",
         "-forcecompactdb",
-        "-skipverifychecksumsdb",
+        "-leveldbchecksum=<auto|true|false>",
         "-interrupt-block=<hash|height>",
         "-stop-block=<hash|height>",
         "-mocknet",
@@ -2184,7 +2184,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         std::set<std::string> operatorsSet;
         bool atLeastOneRunningOperator = false;
-        auto operators = gArgs.GetArgs("-masternode_operator");
+        auto isMN = gArgs.IsArgSet("-masternode_operator");
 
         if (fMockNetwork) {
             auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
