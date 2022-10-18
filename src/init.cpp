@@ -2184,7 +2184,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         std::set<std::string> operatorsSet;
         bool atLeastOneRunningOperator = false;
-        auto isMN = gArgs.IsArgSet("-masternode_operator");
+        auto operators = gArgs.GetArgs("-masternode_operator");
 
         if (fMockNetwork) {
             auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
