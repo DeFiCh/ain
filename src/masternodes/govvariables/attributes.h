@@ -85,8 +85,7 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor      = 'j',
     LoanMintingEnabled        = 'k',
     LoanMintingInterest       = 'l',
-    SplitValues               = 'm',
-    Epitaph                   = 'o',
+    Migration                 = 'm',
     LoanPaybackCollateral     = 'p',
 };
 

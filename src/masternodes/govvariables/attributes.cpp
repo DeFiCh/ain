@@ -205,8 +205,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanMintingEnabled,        "loan_minting_enabled"},
                 {TokenKeys::LoanMintingInterest,       "loan_minting_interest"},
                 {TokenKeys::DFIP2203Enabled,           "dfip2203"},
-                {TokenKeys::SplitValues,               "split_values"},
-                {TokenKeys::Epitaph,                   "epitaph"},
+                {TokenKeys::Migration,                 "migration"},
             }
         },
         {
@@ -766,8 +765,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                 if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
                             (attrV0->type == AttributeTypes::Token &&
-                             (attrV0->key == TokenKeys::SplitValues ||
-                              attrV0->key == TokenKeys::Epitaph))) {
+                             (attrV0->key == TokenKeys::Migration))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
                         const auto splitValue = std::get_if<OracleSplits>(&value);
@@ -818,8 +816,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::LoanMintingEnabled,
     TokenKeys::LoanMintingInterest,
     TokenKeys::FixedIntervalPriceId,
-    TokenKeys::SplitValues,
-    TokenKeys::Epitaph,
+    TokenKeys::Migration,
 };
 
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
@@ -1036,8 +1033,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such loan token (%d)", attrV0->typeId);
                         }
                     break;
-                    case TokenKeys::SplitValues:
-                    case TokenKeys::Epitaph:
+                    case TokenKeys::Migration:
                     break;
                     default:
                         return Res::Err("Unsupported key");

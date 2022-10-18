@@ -361,8 +361,8 @@ class TokenSplitTest(DefiTestFramework):
             assert_equal(result[f'v0/token/{token_id}/loan_minting_enabled'], 'true')
             assert_equal(result[f'v0/token/{token_id}/loan_minting_interest'], '0')
         assert(f'v0/oracles/splits/{self.nodes[0].getblockcount()}' not in result)
-        assert_equal(result[f'v0/token/{token_idv1}/split_values'], f'{token_idv1}/{multiplier}/{token_id}/{self.nodes[0].getblockcount()}')
-        assert_equal(result[f'v0/token/{token_id}/split_values'], f'{token_idv1}/{multiplier}/{token_id}/{self.nodes[0].getblockcount()}')
+        assert_equal(result[f'v0/token/{token_idv1}/migration'], f'{token_idv1}/{multiplier}/{token_id}/{self.nodes[0].getblockcount()}')
+        assert_equal(result[f'v0/token/{token_id}/migration'], f'{token_idv1}/{multiplier}/{token_id}/{self.nodes[0].getblockcount()}')
         assert_equal(result[f'v0/locks/token/{token_id}'], 'true')
 
         # Check new token
