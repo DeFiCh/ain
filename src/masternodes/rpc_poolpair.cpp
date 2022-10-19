@@ -1127,6 +1127,9 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                     errorMsg += '"' + poolSwap.errors[i].first + "\":\"" +  poolSwap.errors[i].second + '"' + (i + 1 < poolSwap.errors.size() ? "," : "");
                 }
                 errorMsg += ')';
+            } else {
+                // simple swaps use res.msg
+                errorMsg += " Details: " + res.msg;
             }
             throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
         }
