@@ -399,13 +399,7 @@ void SetupServerArgs()
         "-mocknet",
         "-mocknet-blocktime=<secs>",
         "-mocknet-key=<pubkey>",
-        "-checkpoints-file",
-        // GUI args. These will be overwritten by SetupUIArgs for the GUI
-        "-choosedatadir",
-        "-lang=<lang>",
-        "-min",
-        "-resetguisettings",
-        "-splash"
+        "-checkpoints-file"
     };
 
     gArgs.AddArg("-version", "Print version and exit", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);

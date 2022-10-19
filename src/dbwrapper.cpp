@@ -140,7 +140,9 @@ CDBWrapper::CDBWrapper(const fs::path& path, size_t nCacheSize, bool fMemory, bo
         readoptions.verify_checksums = true;
         iteroptions.verify_checksums = true;
     }
-    else if (leveldbchecksum == "auto"){
+    else {
+        if (leveldbchecksum != "auto")
+            LogPrint(BCLog::LEVELDB, "leveldbchecksum value not in 'true|false|value'. Falling back to default value 'auto'\n");
         auto isMN = gArgs.IsArgSet("-masternode_operator");
         readoptions.verify_checksums = isMN;
         iteroptions.verify_checksums = isMN;
