@@ -21,9 +21,10 @@
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp)
+                                 bool _spendsCoinbase, int64_t _sigOpsCost,
+                                 LockPoints lp, uint32_t customTxExpiration)
     : tx(_tx), nFee(_nFee), nTxWeight(GetTransactionWeight(*tx)), nUsageSize(RecursiveDynamicUsage(tx)), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
+    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), customTxExpiration(customTxExpiration)
 {
     nCountWithDescendants = 1;
     nSizeWithDescendants = GetTxSize();
@@ -961,6 +962,23 @@ int CTxMemPool::Expire(int64_t time) {
     while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
         toremove.insert(mapTx.project<0>(it));
         it++;
+    }
+    setEntries stage;
+    for (txiter removeit : toremove) {
+        CalculateDescendants(removeit, stage);
+    }
+    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
+    return stage.size();
+}
+
+uint32_t CTxMemPool::ExpireByHeight(const uint32_t blockHeight) {
+    AssertLockHeld(cs);
+    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    setEntries toremove;
+    for (; it != mapTx.get<entry_time>().end(); ++it) {
+        if (blockHeight >= it->GetCustomTxExpiration()) {
+            toremove.insert(mapTx.project<0>(it));
+        }
     }
     setEntries stage;
     for (txiter removeit : toremove) {
