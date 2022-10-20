@@ -3910,7 +3910,7 @@ public:
             return Res::Err("masternode <%s> is not active", obj.masternodeId.GetHex());
 
         if (node->mintedBlocks < 1)
-            return Res::Err("masternode <%s> does not mine at least one block", obj.masternodeId.GetHex());
+            return Res::Err("masternode <%s> did not mint at least one block", obj.masternodeId.GetHex());
 
         switch (obj.vote) {
         case CPropVoteType::VoteNo:
