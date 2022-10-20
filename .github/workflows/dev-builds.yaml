@@ -11,6 +11,7 @@ on:
       - t/*
       - e/*
       - v*
+      - epic/*
       - "[0-9]+.[0-9]+.x"
   pull_request:
     branches:
@@ -19,6 +20,7 @@ on:
       - t/*
       - e/*
       - v*
+      - epic/*
       - "[0-9]+.[0-9]+.x"
 
 env:
