@@ -4342,9 +4342,17 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
 
 std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& view) {
 
+    std::vector<std::vector<DCT_ID>> poolPaths;
+
     // For tokens to be traded get all pairs and pool IDs
     std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
     view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+        if ((obj.idTokenFrom == pool.idTokenA && obj.idTokenTo == pool.idTokenB)
+        || (obj.idTokenTo == pool.idTokenA && obj.idTokenFrom == pool.idTokenB)) {
+            // Push poolId when direct path
+            poolPaths.push_back({{id}});
+        }
+
         if (pool.idTokenA == obj.idTokenFrom) {
             fromPoolsID.emplace(pool.idTokenB.v, id);
         } else if (pool.idTokenB == obj.idTokenFrom) {
@@ -4372,9 +4380,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
                      });
 
     // Loop through all common pairs and record direct pool to pool swaps
-    std::vector<std::vector<DCT_ID>> poolPaths;
     for (const auto& item : commonPairs) {
-
         // Loop through all source/intermediate pools matching common pairs
         const auto poolFromIDs = fromPoolsID.equal_range(item.first);
         for (auto fromID = poolFromIDs.first; fromID != poolFromIDs.second; ++fromID) {
@@ -4382,7 +4388,6 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
             // Loop through all destination pools matching common pairs
             const auto poolToIDs = toPoolsID.equal_range(item.first);
             for (auto toID = poolToIDs.first; toID != poolToIDs.second; ++toID) {
-
                 // Add to pool paths
                 poolPaths.push_back({fromID->second, toID->second});
             }

@@ -302,6 +302,7 @@ BASE_SCRIPTS = [
     'feature_burn_address.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
+    'feature_testpoolswap.py',
     'feature_update_mn.py',
     'feature_block_reward.py',
     'feature_negative_interest.py',
