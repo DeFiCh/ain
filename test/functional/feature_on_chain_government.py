@@ -138,7 +138,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Try and vote with non-staked MN
-        assert_raises_rpc_error(None, "did not mint at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
+        assert_raises_rpc_error(None, "does not mine at least one block", self.nodes[3].votegov, tx, mn3, "neutral")
 
         # Calculate cycle
         cycle1 = 103 + (103 % 70) + 70

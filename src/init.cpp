@@ -391,16 +391,12 @@ void SetupServerArgs()
 
     // Hidden Options
     std::vector<std::string> hidden_args = {
-        "-dbcrashratio",
-        "-forcecompactdb",
-        "-leveldbchecksum=<auto|true|false>",
-        "-interrupt-block=<hash|height>",
-        "-stop-block=<hash|height>",
-        "-mocknet",
-        "-mocknet-blocktime=<secs>",
-        "-mocknet-key=<pubkey>",
-        "-checkpoints-file"
-    };
+        "-dbcrashratio", "-forcecompactdb",
+        "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
+        "-checkpoints-file",
+        // GUI args. These will be overwritten by SetupUIArgs for the GUI
+        "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-splash"};
 
     gArgs.AddArg("-version", "Print version and exit", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #if HAVE_SYSTEM
