@@ -21,9 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-greatworldheight=1300', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-greatworldheight=1300', '-subsidytest=1']]
-
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
     def run_test(self):
         self.setup_tokens()
@@ -873,7 +872,7 @@ class GovsetTest (DefiTestFramework):
         assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
         assert_equal(attributes['v0/params/dfip2206f/start_block'], f'{start_block}')
 
-        # Move to GreatWorld
+        # Move to GrandCentral
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
 
         assert_raises_rpc_error(-5, "Invalid ownerAddress in consortium member data", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
@@ -902,5 +901,11 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", "ownerAddress":"' + owner +'", "backingId":"blablabla", "mintLimit":10.00000000, "dailyMintLimit":1.00000000, "status":2}}'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'-1'}})
 
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
+                                                                            "ownerAddress":"' + owner +'", \
+                                                                            "backingId":"blablabla", \
+                                                                            "mintLimit":10.00000000, \
+                                                                            "dailyMintLimit": 1.0000000}}'}})
+        self.nodes[0].generate(1)
 if __name__ == '__main__':
     GovsetTest ().main ()
