@@ -602,7 +602,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     }
 
     const auto symbolLength = targetHeight >= Params().GetConsensus().GrandCentralHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
-    if(pairSymbol.length() > symbolLength){
+    if (pairSymbol.length() > symbolLength) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
     }
 
