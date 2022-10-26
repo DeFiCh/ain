@@ -688,22 +688,27 @@ UniValue minttokens(const JSONRPCRequest& request) {
             }
 
             if (token->IsDAT()) {
+                auto found{false};
                 auto attributes = pcustomcsview->GetAttributes();
-                if (attributes) {
-                    CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::Members};
-                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
 
-                    auto found{false};
-                    for (auto const& member : members) {
-                        if (IsMineCached(*pwallet, member.second.ownerAddress)) {
-                            auths.insert(member.second.ownerAddress);
-                            found = true;
+                if (attributes) {
+                    CDataStructureV0 enableKey{AttributeTypes::Consortium, ConsortiumIDs::Config, ConsortiumKeys::Enable};
+                    if (attributes->GetValue(enableKey, false))
+                    {
+                        CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::Members};
+                        auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                        for (auto const& member : members) {
+                            if (IsMineCached(*pwallet, member.second.ownerAddress)) {
+                                auths.insert(member.second.ownerAddress);
+                                found = true;
+                            }
                         }
                     }
+                }
 
-                    if (!found) {
-                        needFoundersAuth = true;
-                    }
+                if (!found) {
+                    needFoundersAuth = true;
                 }
             }
             // Get token owner auth if present

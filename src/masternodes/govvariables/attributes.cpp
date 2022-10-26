@@ -141,6 +141,20 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayGovernanceIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t>& ATTRIBUTES::allowedConsortiumIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"config",    ConsortiumIDs::Config},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string>& ATTRIBUTES::displayConsortiumIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {ConsortiumIDs::Config,    "config"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
@@ -162,6 +176,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         },
         {
             AttributeTypes::Consortium, {
+                {"enable",              ConsortiumKeys::Enable},
                 {"members",             ConsortiumKeys::Members},
                 {"mint_limit",          ConsortiumKeys::MintLimit},
                 {"daily_mint_limit",    ConsortiumKeys::DailyMintLimit},
@@ -221,8 +236,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::Members,     "members"},
-                {ConsortiumKeys::MintLimit,   "mint_limit"},
+                {ConsortiumKeys::Enable,        "enable"},
+                {ConsortiumKeys::Members,       "members"},
+                {ConsortiumKeys::MintLimit,     "mint_limit"},
                 {ConsortiumKeys::DailyMintLimit,"daily_mint_limit"},
             }
         },
@@ -464,6 +480,7 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Consortium, {
+                {ConsortiumKeys::Enable,           VerifyBool},
                 {ConsortiumKeys::Members,          VerifyConsortiumMember},
                 {ConsortiumKeys::MintLimit,        VerifyPositiveFloat},
                 {ConsortiumKeys::DailyMintLimit,   VerifyPositiveFloat},
@@ -602,6 +619,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return ::ShowError("governance", allowedGovernanceIDs());
         }
         typeId = id->second;
+    } else if (type == AttributeTypes::Consortium && allowedConsortiumIDs().find(keys[2]) != allowedConsortiumIDs().end()) {
+        auto id = allowedConsortiumIDs().find(keys[2]);
+        if (id == allowedConsortiumIDs().end()) {
+            return ::ShowError("consortium", allowedConsortiumIDs());
+        }
+        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -677,6 +700,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             } else if (typeId == GovernanceIDs::CFP) {
                 if (typeKey != GovernanceKeys::CFPPayout)
                     return Res::Err("Unsupported key for Governance CFP section - {%d}", typeKey);
+            }
+        } else if (type == AttributeTypes::Consortium) {
+            if (typeId != ConsortiumIDs::Config && typeKey == ConsortiumKeys::Enable) {
+                    return Res::Err("Unsupported key for Consortium token section");
             }
         }
 
@@ -1188,16 +1215,21 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
+                    case ConsortiumKeys::Enable:
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                        {
+                            return Res::Err("Cannot be set before GrandCentral");
+                        }
+                    break;
                     case ConsortiumKeys::Members:
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:
-                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
                             return Res::Err("Cannot be set before GrandCentral");
-                        }
-                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
+
+                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
                             return Res::Err("No such token (%d)", attrV0->typeId);
-                        }
-                        break;
+                    break;
                     default:
                         return Res::Err("Unsupported key");
                 }

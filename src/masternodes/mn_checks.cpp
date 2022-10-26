@@ -1251,80 +1251,86 @@ public:
             if (!mintable)
                 return std::move(mintable);
 
+
             if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight) && token->IsDAT() && !HasFoundationAuth())
             {
-                mintable.ok = false;
-
                 auto attributes = mnview.GetAttributes();
-                if (!attributes)
-                return Res::Err("Cannot read from attributes gov variable!");
+                assert(attributes);
 
-                CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
-                const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-
-                CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
-                auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
-
-                for (auto const& [key, member] : members)
+                CDataStructureV0 enableKey{AttributeTypes::Consortium, ConsortiumIDs::Config, ConsortiumKeys::Enable};
+                if (attributes->GetValue(enableKey, false))
                 {
-                    if (HasAuth(member.ownerAddress))
+                    mintable.ok = false;
+
+                    CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
+                    const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                    CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
+                    auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+
+                    for (auto const& [key, member] : members)
                     {
-                        if (member.status != CConsortiumMember::Status::Active)
-                            return Res::Err("Cannot mint token, not an active member of consortium for %s!", token->symbol);
+                        if (HasAuth(member.ownerAddress))
+                        {
+                            if (member.status != CConsortiumMember::Status::Active)
+                                return Res::Err("Cannot mint token, not an active member of consortium for %s!", token->symbol);
 
-                        auto add = SafeAdd(membersBalances[tokenId][key].minted, amount);
-                        if (!add)
-                            return (std::move(add));
-                        membersBalances[tokenId][key].minted = add;
-
-                        const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
-                        if (dailyInterval == membersBalances[tokenId][key].dailyMinted.first) {
-                            add = SafeAdd(membersBalances[tokenId][key].dailyMinted.second, amount);
+                            auto add = SafeAdd(membersBalances[tokenId][key].minted, amount);
                             if (!add)
                                 return (std::move(add));
-                            membersBalances[tokenId][key].dailyMinted.second = add;
-                        } else {
-                            membersBalances[tokenId][key].dailyMinted.first = dailyInterval;
-                            membersBalances[tokenId][key].dailyMinted.second = amount;
+                            membersBalances[tokenId][key].minted = add;
+
+                            const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+                            if (dailyInterval == membersBalances[tokenId][key].dailyMinted.first) {
+                                add = SafeAdd(membersBalances[tokenId][key].dailyMinted.second, amount);
+                                if (!add)
+                                    return (std::move(add));
+                                membersBalances[tokenId][key].dailyMinted.second = add;
+                            } else {
+                                membersBalances[tokenId][key].dailyMinted.first = dailyInterval;
+                                membersBalances[tokenId][key].dailyMinted.second = amount;
+                            }
+
+                            if (membersBalances[tokenId][key].minted > member.mintLimit)
+                                return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", token->symbol);
+
+                            if (membersBalances[tokenId][key].dailyMinted.second > member.dailyMintLimit) {
+                                return Res::Err("You will exceed your daily mint limit for %s token by minting this amount", token->symbol);
+                            }
+
+                            *mintable.val = member.ownerAddress;
+                            mintable.ok = true;
+                            break;
                         }
-
-                        if (membersBalances[tokenId][key].minted > member.mintLimit)
-                            return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", token->symbol);
-
-                        if (membersBalances[tokenId][key].dailyMinted.second > member.dailyMintLimit) {
-                            return Res::Err("You will exceed your daily mint limit for %s token by minting this amount", token->symbol);
-                        }
-
-                        *mintable.val = member.ownerAddress;
-                        mintable.ok = true;
-                        break;
                     }
+
+                    if (!mintable)
+                        return Res::Err("You are not a foundation or consortium member and cannot mint this token!");
+
+                    CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
+                    const auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
+
+                    CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+                    auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
+
+                    auto add = SafeAdd(globalBalances[tokenId].minted, amount);
+                    if (!add)
+                        return (std::move(add));
+
+                    globalBalances[tokenId].minted = add;
+
+                    if (globalBalances[tokenId].minted > maxLimit)
+                        return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", token->symbol);
+
+                    attributes->SetValue(consortiumMintedKey, globalBalances);
+                    attributes->SetValue(membersMintedKey, membersBalances);
+
+                    auto saved = mnview.SetVariable(*attributes);
+                    if (!saved)
+                        return saved;
                 }
-
-                if (!mintable)
-                    return Res::Err("You are not a foundation or consortium member and cannot mint this token!");
-
-                CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
-                const auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
-
-                CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-                auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
-
-                auto add = SafeAdd(globalBalances[tokenId].minted, amount);
-                if (!add)
-                    return (std::move(add));
-
-                globalBalances[tokenId].minted = add;
-
-                if (globalBalances[tokenId].minted > maxLimit)
-                    return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", token->symbol);
-
-                attributes->SetValue(consortiumMintedKey, globalBalances);
-                attributes->SetValue(membersMintedKey, membersBalances);
-
-                auto saved = mnview.SetVariable(*attributes);
-                if (!saved)
-                    return saved;
+                else
+                    return Res::Err("You are not a foundation member and cannot mint this token!");
             }
 
             auto minted = mnview.AddMintedTokens(tokenId, amount);

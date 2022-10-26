@@ -445,7 +445,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: consortium, governance, locks, oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_collateral, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: daily_mint_limit, members, mint_limit,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: daily_mint_limit, enable, members, mint_limit,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
@@ -791,6 +791,7 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                                                 "backingId":"blablabla", \
                                                                                                                                                                 "mintLimit":10.00000000, \
                                                                                                                                                                 "dailyMintLimit": 1.0000000}}'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/config/enable':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'1000000000'}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'true', 'v0/params/dfip2206a/dusd_loan_burn':'true'}})
@@ -875,6 +876,7 @@ class GovsetTest (DefiTestFramework):
         # Move to GrandCentral
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
 
+        assert_raises_rpc_error(-5, "Unsupported key for Consortium token section", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/1/enable':'true'}})
         assert_raises_rpc_error(-5, "Invalid ownerAddress in consortium member data", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                                                                                                                         "ownerAddress":"", \
                                                                                                                                                                         "backingId":"blablabla", \

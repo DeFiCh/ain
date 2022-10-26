@@ -15,14 +15,14 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live      = 'l',
-    Oracles   = 'o',
-    Param     = 'a',
-    Token     = 't',
-    Poolpairs = 'p',
-    Locks     = 'L',
-    Consortium = 'c',
-    Governance= 'g'
+    Live        = 'l',
+    Oracles     = 'o',
+    Param       = 'a',
+    Token       = 't',
+    Poolpairs   = 'p',
+    Locks       = 'L',
+    Consortium  = 'c',
+    Governance  = 'g'
 };
 
 enum ParamIDs : uint8_t  {
@@ -41,6 +41,10 @@ enum OracleIDs : uint8_t  {
 enum GovernanceIDs : uint8_t  {
     Global    = 'a',
     CFP       = 'b',
+};
+
+enum ConsortiumIDs : uint8_t  {
+    Config    = 'a',
 };
 
 enum EconomyKeys : uint8_t {
@@ -95,9 +99,10 @@ enum TokenKeys : uint8_t  {
 };
 
 enum ConsortiumKeys : uint8_t  {
-    Members               = 'a',
-    MintLimit             = 'b',
-    DailyMintLimit        = 'c',
+    Enable                = 'a',
+    Members               = 'b',
+    MintLimit             = 'c',
+    DailyMintLimit        = 'd',
 };
 
 enum PoolKeys : uint8_t {
@@ -384,6 +389,7 @@ public:
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::string>& displayGovernanceIDs();
+    static const std::map<uint8_t, std::string>& displayConsortiumIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -404,6 +410,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<std::string, uint8_t>& allowedGovernanceIDs();
+    static const std::map<std::string, uint8_t>& allowedConsortiumIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
