@@ -135,6 +135,7 @@ DEFI_CORE_H = \
   cuckoocache.h \
   flatfile.h \
   flushablestorage.h \
+  featuremanager.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -373,6 +374,7 @@ libdefi_server_a_SOURCES = \
   interfaces/chain.cpp \
   init.cpp \
   dbwrapper.cpp \
+  featuremanager.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \

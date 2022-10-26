@@ -105,7 +105,7 @@ static leveldb::Options GetOptions(size_t nCacheSize)
         v++;
         return v;
     };
-    
+
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
     options.write_buffer_size = ceil_power_of_two(std::min(static_cast<size_t>(64)
