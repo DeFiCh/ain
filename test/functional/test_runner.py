@@ -244,6 +244,7 @@ BASE_SCRIPTS = [
     'wallet_listsinceblock.py',
     'p2p_leak.py',
     'feature_higher_collateral_factor.py',
+    'feature_skip_collateral_factor_check.py',
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
