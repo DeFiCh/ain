@@ -68,8 +68,9 @@ enum DFIPKeys : uint8_t  {
 };
 
 enum GovernanceKeys : uint8_t  {
-    Enabled     = 'a',
-    CFPPayout   = 'b',
+    Enabled                 = 'a',
+    CFPPayout               = 'b',
+    CFPFeeRedistribution    = 'c',
 };
 
 enum TokenKeys : uint8_t  {

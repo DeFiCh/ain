@@ -182,6 +182,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
             AttributeTypes::Governance, {
                 {"enabled",                     GovernanceKeys::Enabled},
                 {"payout",                      GovernanceKeys::CFPPayout},
+                {"fee_redistribution",          GovernanceKeys::CFPFeeRedistribution},
             }
         },
     };
@@ -246,8 +247,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,       "enabled"},
-                {GovernanceKeys::CFPPayout,     "payout"},
+                {GovernanceKeys::Enabled,               "enabled"},
+                {GovernanceKeys::CFPPayout,             "payout"},
+                {GovernanceKeys::CFPFeeRedistribution,  "fee_redistribution"},
             }
         },
     };
@@ -422,8 +424,9 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Governance, {
-                {GovernanceKeys::Enabled,         VerifyBool},
-                {GovernanceKeys::CFPPayout,       VerifyBool},
+                {GovernanceKeys::Enabled,               VerifyBool},
+                {GovernanceKeys::CFPPayout,             VerifyBool},
+                {GovernanceKeys::CFPFeeRedistribution,  VerifyBool},
             }
         },
     };
@@ -596,7 +599,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (typeKey != GovernanceKeys::Enabled)
                     return Res::Err("Unsupported key for Governance global section - {%d}", typeKey);
             } else if (typeId == GovernanceIDs::CFP) {
-                if (typeKey != GovernanceKeys::CFPPayout)
+                if (typeKey != GovernanceKeys::CFPPayout
+                 && typeKey != GovernanceKeys::CFPFeeRedistribution)
                     return Res::Err("Unsupported key for Governance CFP section - {%d}", typeKey);
             }
         }
