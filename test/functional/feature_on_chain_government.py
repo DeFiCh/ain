@@ -58,13 +58,8 @@ class ChainGornmentTest(DefiTestFramework):
         # grand central
         assert_equal(self.nodes[0].getblockcount(), 101)
 
-        # Check community dev fund present
-        result = self.nodes[0].listcommunitybalances()
-        assert_equal(result['CommunityDevelopmentFunds'], Decimal('19.88746400'))
-        result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
-        assert_equal(result['nonutxo'][0]['CommunityDevelopmentFunds'], Decimal('19.88746400'))
-
         # Check foundation output no longer in coinbase TX
+        result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         raw_tx = self.nodes[0].getrawtransaction(result['tx'][0], 1)
         assert_equal(len(raw_tx['vout']), 2)
         assert_equal(raw_tx['vout'][0]['value'], Decimal('134.99983200'))
@@ -81,6 +76,12 @@ class ChainGornmentTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # Check community dev fund present
+        result = self.nodes[0].listcommunitybalances()
+        assert_equal(result['CommunityDevelopmentFunds'], 2 * Decimal('19.88746400'))
+        result = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        assert_equal(result['nonutxo'][0]['CommunityDevelopmentFunds'], Decimal('19.88746400'))
 
         # Check errors
         assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})

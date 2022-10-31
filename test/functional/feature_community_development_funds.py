@@ -34,47 +34,91 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         foundation = node1.getbalances()
         foundationBalance = foundation['mine']['trusted']
         before_hardfork = foundationBalance + foundation['mine']['immature']
-        balanceLessFee = foundationBalance - Decimal("0.0010000")
+        balanceLessFee = foundationBalance - Decimal("0.00092720")
         node1.utxostoaccount({'2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS': str(balanceLessFee) + "@0"})
+        assert_equal(node1.getbalances()['mine']['trusted'], 0)
+
         self.sync_mempools()
         node0.generate(1)
         self.sync_all()
         self.stop_node(2)
 
-        node1.generate(1)
+        assert_equal(node1.getbalances()['mine']['trusted'], Decimal("19.887464"))
+        assert_equal(node1.getbalances()['mine']['immature'], foundation['mine']['immature'])
+
+        # GrandCnetral hardfork height
+        node0.generate(1)
         self.sync_all(self.nodes[:2])
+
+        assert_equal(node1.getbalances()['mine']['trusted'], 2 * Decimal("19.887464"))
+        assert_equal(node1.getbalances()['mine']['immature'], foundation['mine']['immature'] - Decimal("19.887464"))
+
+        # check that funds are not trasfered yet before governance is activated
+        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]), balanceLessFee + Decimal("19.887464"))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
         # activate on-chain governance
         node0.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
         node0.generate(1)
         self.sync_all(self.nodes[:2])
 
-        # foundation = node1.getbalances()
-        foundationBalance = foundation['mine']['trusted']
-        after_hardfork = foundationBalance + foundation['mine']['immature']
+        # check that funds are not trasfered yet before governance is activated
+        assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + 2*Decimal("19.887464"))
 
-        # no change
-        assert_equal(before_hardfork, after_hardfork)
+        foundation1 = node1.getbalances()
+        foundationBalance1 = foundation1['mine']['trusted']
+        after_hardfork = foundationBalance1 + foundation1['mine']['immature']
+
+        # no change in total sum, after
+        assert_equal(before_hardfork + Decimal("19.887464"), after_hardfork + foundationBalance)
+
+        # activate on-chain governance
+        node0.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'false'}})
+        node0.generate(1)
+        self.sync_all(self.nodes[:2])
+
+        # check that funds are not trasfered yet before governance is activated
+        assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]), balanceLessFee + 3*Decimal("19.887464"))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
         # foundation coins are locked
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + 2*Decimal("19.887464"))
-        node0.generate(1)
+        node0.generate(2)
         self.sync_all(self.nodes[:2])
 
         print ("Reverting...")
         self.start_node(2)
-        node2.generate(4)
+
+        # GrandCnetral hardfork height
+        node2.generate(1)
+
+        node2.generate(5)
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
-        node1.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
-        node1.generate(1)
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
+        assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
+        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
+
+        node0.setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        node0.generate(1)
         self.sync_blocks()
 
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(5 * 19.887464)))
-        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(5 * 19.887464)))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+        assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
+
+        node0.generate(93)
+
+        foundation = node1.getbalances()
+        assert_equal(foundation['mine']['trusted'], Decimal('2008.63386400'))
+
+        node0.generate(1)
+
+        foundation = node1.getbalances()
+        assert_equal(foundation['mine']['trusted'], Decimal('2008.633864000'))
 
 if __name__ == '__main__':
     CommunityDevelopmentFunds().main ()
