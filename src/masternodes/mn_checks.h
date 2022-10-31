@@ -5,6 +5,7 @@
 #ifndef DEFI_MASTERNODES_MN_CHECKS_H
 #define DEFI_MASTERNODES_MN_CHECKS_H
 
+#include "masternodes/govvariables/attributes.h"
 #include <consensus/params.h>
 #include <masternodes/masternodes.h>
 #include <consensus/tx_check.h>
