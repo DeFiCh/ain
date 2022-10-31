@@ -213,6 +213,7 @@ BASE_SCRIPTS = [
     'p2p_invalid_block.py',
     'p2p_invalid_messages.py',
     'p2p_invalid_tx.py',
+    'feature_foundation_migration.py',
     'feature_assumevalid.py',
     'example_test.py',
     'feature_jellyfish_initial_funds.py',

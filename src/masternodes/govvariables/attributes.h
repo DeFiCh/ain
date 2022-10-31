@@ -30,6 +30,7 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Foundation = 'i',
 };
 
 enum OracleIDs : uint8_t  {
@@ -59,6 +60,7 @@ enum DFIPKeys : uint8_t  {
     DUSDInterestBurn        = 'g',
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+    Members                 = 'k',
 };
 
 enum TokenKeys : uint8_t  {
@@ -193,7 +195,7 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 

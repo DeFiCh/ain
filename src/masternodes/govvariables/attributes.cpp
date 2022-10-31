@@ -82,6 +82,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // Note: DFIP2206F is currently in beta testing
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
+        {"foundation",  ParamIDs::Foundation},
     };
     return params;
 }
@@ -103,6 +104,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+        {ParamIDs::Foundation,  "foundation"},
     };
     return params;
 }
@@ -158,6 +160,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_interest_burn",          DFIPKeys::DUSDInterestBurn},
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
+                {"members",                     DFIPKeys::Members},
             }
         },
     };
@@ -204,6 +207,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
                 {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
+                {DFIPKeys::Members,                 "members"},
             }
         },
         {
@@ -304,6 +308,50 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     return {splits, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyMember(const std::string& str) {
+    // Support UniValue array
+    UniValue array(UniValue::VARR);
+    if (!array.read(str)) {
+        return Res::Err("Not a valid array of addresses");
+    }
+
+    std::set<std::string> addresses;
+    std::set<CScript> members;
+    bool removal{};
+
+    for (size_t i = 0; i < array.size(); ++i) {
+        auto member = array[i].getValStr();
+        if (member.empty()) {
+            return Res::Err("Invalid address provided");
+        }
+
+        CTxDestination dest;
+        if (member[0] == '-') {
+            removal = true;
+            dest = DecodeDestination(member.erase(0, 1));
+            addresses.insert(array[i].getValStr());
+        } else if (member[0] == '+') {
+            dest = DecodeDestination(member.erase(0, 1));
+            addresses.insert(member);
+        } else {
+            dest = DecodeDestination(member);
+            addresses.insert(member);
+        }
+
+        if (!IsValidDestination(dest)) {
+            return Res::Err("Invalid address provided");
+        }
+
+        members.insert(GetScriptForDestination(dest));
+    }
+
+    if (removal) {
+        return {addresses, Res::Ok()};
+    }
+
+    return {members, Res::Ok()};
+}
+
 static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
     const auto value = KeyBreaker(str);
     if (value.size() != 2) {
@@ -378,6 +426,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::DUSDInterestBurn,  VerifyBool},
                 {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
+                {DFIPKeys::Members,                 VerifyMember},
             }
         },
         {
@@ -545,6 +594,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (typeKey != DFIPKeys::DUSDInterestBurn &&
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
+                }
+            } else if (typeId == ParamIDs::Foundation)  {
+                if (typeKey != DFIPKeys::Members) {
+                    return Res::Err("Unsupported type for Foundation {%d}", typeKey);
                 }
             }  else {
                 return Res::Err("Unsupported Param ID");
@@ -734,6 +787,24 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 
                         SetValue(attribute, *splitValue);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation && attrV0->key == DFIPKeys::Members) {
+                        const auto members = std::get_if<std::set<CScript>>(&value);
+                        if (members) {
+                            auto existingMembers = GetValue(attribute, std::set<CScript>{});
+
+                            for (const auto &member : *members) {
+                                if (existingMembers.count(member)) {
+                                    return Res::Err("Member to add already present");
+                                }
+                                existingMembers.insert(member);
+                            }
+
+                            SetValue(attribute, existingMembers);
+                        } else {
+                            SetValue(attribute, value);
+                        }
+
+                        return Res::Ok();
                     } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
                         interestTokens.insert(attrV0->typeId);
                     }
@@ -883,6 +954,21 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 } else if (result->feeDir == FeeDirValues::Out) {
                     ret.pushKV(key, "out");
                 }
+            } else if (const auto members = std::get_if<std::set<CScript>>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &member : *members) {
+                    CTxDestination dest;
+                    if (ExtractDestination(member, dest)) {
+                        array.push_back(EncodeDestination(dest));
+                    }
+                }
+                ret.pushKV(key, array.write());
+            } else if (const auto strMembers = std::get_if<std::set<std::string>>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &member : *strMembers) {
+                    array.push_back(member);
+                }
+                ret.pushKV(key, array.write());
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -1052,7 +1138,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
+                if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");
                     }

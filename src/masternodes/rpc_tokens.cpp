@@ -278,7 +278,13 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     }
     else
     { // post-bayfront auth
-        bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+        const auto attributes = pcustomcsview->GetAttributes();
+        assert(attributes);
+        const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        bool isFoundersToken = !databaseMembers.empty() ?
+                               databaseMembers.find(owner) != databaseMembers.end() :
+                               Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+
         if (isFoundersToken) { // need any founder's auth
             rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths /*auths*/, true /*needFoundersAuth*/, optAuthTx, txInputs);
         }
