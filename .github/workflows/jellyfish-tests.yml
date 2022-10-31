@@ -2,9 +2,12 @@ name: Jellyfish Tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - epic/*
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - epic/*
 
 jobs:
   test:
