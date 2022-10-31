@@ -131,7 +131,8 @@ static const bool DEFAULT_PERSIST_MEMPOOL = false;
 static const bool DEFAULT_FEEFILTER = true;
 /** Default for using live dex in attributes */
 static const bool DEFAULT_DEXSTATS = false;
-
+/** Default for tracking amount negated by negative interest in attributes */
+static const bool DEFAULT_NEGATIVE_INTEREST = false;
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
@@ -791,7 +792,11 @@ private:
 
     static void ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 
+    static void ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache);
+
     static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
+
+    static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
@@ -862,7 +867,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 }
 
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
-void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height);
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus);
 
 inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t percentage)
 {

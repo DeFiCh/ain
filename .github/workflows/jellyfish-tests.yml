@@ -2,9 +2,13 @@ name: Jellyfish Tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - epic/*
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - epic/*
 
 jobs:
   test:
@@ -46,7 +50,6 @@ jobs:
           docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
 
       - name: Run tests
-        continue-on-error: true
         run: |
           npm ci
           npm run all:build

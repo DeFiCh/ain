@@ -21,6 +21,7 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
+    Governance= 'g'
 };
 
 enum ParamIDs : uint8_t  {
@@ -36,16 +37,23 @@ enum OracleIDs : uint8_t  {
     Splits    = 'a',
 };
 
+enum GovernanceIDs : uint8_t  {
+    Global    = 'a',
+    CFP       = 'b',
+};
+
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
+    PaybackDFITokens   = 'a',
+    PaybackTokens      = 'b',
+    DFIP2203Current    = 'c',
+    DFIP2203Burned     = 'd',
+    DFIP2203Minted     = 'e',
+    DFIP2206FCurrent   = 'f',
+    DFIP2206FBurned    = 'g',
+    DFIP2206FMinted    = 'h',
+    DexTokens          = 'i',
+    NegativeInt        = 'j',
+    NegativeIntCurrent = 'k',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -54,27 +62,33 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
+    DUSDInterestBurn        = 'g',
+    DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
 };
 
+enum GovernanceKeys : uint8_t  {
+    Enabled     = 'a',
+    CFPPayout   = 'b',
+};
+
 enum TokenKeys : uint8_t  {
-    PaybackDFI            = 'a',
-    PaybackDFIFeePCT      = 'b',
-    LoanPayback           = 'c',
-    LoanPaybackFeePCT     = 'd',
-    DexInFeePct           = 'e',
-    DexOutFeePct          = 'f',
-    DFIP2203Enabled       = 'g',
-    FixedIntervalPriceId  = 'h',
-    LoanCollateralEnabled = 'i',
-    LoanCollateralFactor  = 'j',
-    LoanMintingEnabled    = 'k',
-    LoanMintingInterest   = 'l',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
+    PaybackDFI                = 'a',
+    PaybackDFIFeePCT          = 'b',
+    LoanPayback               = 'c',
+    LoanPaybackFeePCT         = 'd',
+    DexInFeePct               = 'e',
+    DexOutFeePct              = 'f',
+    DFIP2203Enabled           = 'g',
+    FixedIntervalPriceId      = 'h',
+    LoanCollateralEnabled     = 'i',
+    LoanCollateralFactor      = 'j',
+    LoanMintingEnabled        = 'k',
+    LoanMintingInterest       = 'l',
+    Ascendant                 = 'm',
+    Descendant                = 'n',
+    Epitaph                   = 'o',
+    LoanPaybackCollateral     = 'p',
 };
 
 enum PoolKeys : uint8_t {
@@ -85,7 +99,7 @@ enum PoolKeys : uint8_t {
 };
 
 struct CDataStructureV0 {
-    uint8_t type;
+    uint8_t  type;
     uint32_t typeId;
     uint32_t key;
     uint32_t keyId;
@@ -185,12 +199,14 @@ enum FeeDirValues : uint8_t {
     Out
 };
 
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, int32_t>;
+using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using AscendantValue  = std::pair<uint32_t, std::string>;
+using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,
@@ -298,6 +314,7 @@ public:
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
+    static const std::map<uint8_t, std::string>& displayGovernanceIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -317,6 +334,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
+    static const std::map<std::string, uint8_t>& allowedGovernanceIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

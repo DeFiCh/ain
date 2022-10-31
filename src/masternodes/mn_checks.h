@@ -20,7 +20,47 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
-class CCustomTxVisitor;
+class CCustomTxVisitor
+{
+    protected:
+        uint32_t height;
+        CCustomCSView& mnview;
+        const CTransaction& tx;
+        const CCoinsViewCache& coins;
+        const Consensus::Params& consensus;
+
+    public:
+        CCustomTxVisitor(const CTransaction& tx,
+            uint32_t height,
+            const CCoinsViewCache& coins,
+            CCustomCSView& mnview,
+            const Consensus::Params& consensus);
+
+    protected:
+        bool HasAuth(const CScript& auth) const;
+        Res HasCollateralAuth(const uint256& collateralTx) const;
+        Res HasFoundationAuth() const;
+        Res CheckMasternodeCreationTx() const;
+        Res CheckProposalTx(uint8_t type) const;
+        Res CheckTokenCreationTx() const;
+        Res CheckCustomTx() const;
+        Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;
+        DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
+        CPoolPair GetBTCDFIPoolPair() const;
+        CAmount CalculateTakerFee(CAmount amount) const;
+        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
+        Res EraseEmptyBalances(TAmounts& balances) const;
+        Res SetShares(const CScript& owner, const TAmounts& balances) const;
+        Res DelShares(const CScript& owner, const TAmounts& balances) const;
+        void CalculateOwnerRewards(const CScript& owner) const;
+        Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalancesSetShares(const CAccounts& accounts) const;
+        Res SubBalancesDelShares(const CAccounts& accounts) const;
+        Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
+        bool IsTokensMigratedToGovVar() const;
+        Res IsOnChainGovernanceEnabled() const;
+};
 class CVaultHistoryView;
 class CHistoryWriters;
 class CHistoryErasers;
@@ -46,10 +86,6 @@ enum class CustomTxType : uint8_t
     MintToken             = 'M',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
-    // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
     //poolpair
     CreatePoolPair        = 'p',
     UpdatePoolPair        = 'u',
@@ -94,6 +130,7 @@ enum class CustomTxType : uint8_t
     UpdateVault            = 'v',
     DepositToVault         = 'S',
     WithdrawFromVault      = 'J',
+    PaybackWithCollateral  = 'W',
     TakeLoan               = 'X',
     PaybackLoan            = 'H',
     PaybackLoanV2          = 'k',
@@ -102,6 +139,10 @@ enum class CustomTxType : uint8_t
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
     TokenSplit             = 'P',
+    // On-Chain-Gov
+    CreateCfp              = 'z',
+    Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
+    CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
 };
 
 enum class MetadataVersion : uint8_t {
@@ -157,6 +198,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateVault:
         case CustomTxType::DepositToVault:
         case CustomTxType::WithdrawFromVault:
+        case CustomTxType::PaybackWithCollateral:
         case CustomTxType::TakeLoan:
         case CustomTxType::PaybackLoan:
         case CustomTxType::PaybackLoanV2:
@@ -165,6 +207,9 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::Vote:
+        case CustomTxType::CreateVoc:
         case CustomTxType::None:
             return type;
     }
@@ -347,22 +392,27 @@ using CCustomTxMessage = std::variant<
     CUpdateVaultMessage,
     CDepositToVaultMessage,
     CWithdrawFromVaultMessage,
+    CPaybackWithCollateralMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType, uint8_t version);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t* customTxExpiration = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
 bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
+bool IsPaybackWithCollateral(CCustomCSView& mnview, const std::map<DCT_ID, CBalances>& loans);
+Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CVaultId& vaultId, uint32_t height, uint64_t time);
 Res SwapToDFIorDUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height, bool forceLoanSwap = false);
 Res storeGovVars(const CGovernanceHeightMessage& obj, CCustomCSView& view);
 

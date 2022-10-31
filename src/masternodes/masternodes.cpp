@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
@@ -73,6 +74,19 @@ CAmount GetTokenCollateralAmount()
 CAmount GetTokenCreationFee(int)
 {
     return Params().GetConsensus().token.creationFee;
+}
+
+CAmount GetPropsCreationFee(int, CPropType prop)
+{
+    switch(prop) {
+        case CPropType::CommunityFundProposal:
+            return Params().GetConsensus().props.cfp.fee;
+        case CPropType::BlockRewardReallocation:
+            return Params().GetConsensus().props.brp.fee;
+        case CPropType::VoteOfConfidence:
+            return Params().GetConsensus().props.voc.fee;
+    }
+    return -1;
 }
 
 CMasternode::CMasternode()

@@ -17,6 +17,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -42,6 +43,16 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, CPropType prop);
+
+enum class UpdateMasternodeType : uint8_t
+{
+    None                   = 0x00,
+    OwnerAddress           = 0x01,
+    OperatorAddress        = 0x02,
+    SetRewardAddress       = 0x03,
+    RemRewardAddress       = 0x04
+};
 
 enum class UpdateMasternodeType : uint8_t
 {
@@ -401,6 +412,7 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CSettingsView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
@@ -431,7 +443,8 @@ class CCustomCSView
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 private:
@@ -445,7 +458,7 @@ private:
 
 public:
     // Increase version when underlaying tables are changed
-    static constexpr const int DbVersion = 1;
+    static constexpr const int DbVersion = 2;
 
     CCustomCSView();
     explicit CCustomCSView(CStorageKV & st);

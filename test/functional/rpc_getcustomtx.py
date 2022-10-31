@@ -17,9 +17,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-greatworldheight=189']] # Will not find historical TXs
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189'], # Wallet TXs
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-eunospayaheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189', '-txindex=1'], # Transaction index
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-eunosheight=120', '-fortcanningheight=120', '-fortcanninghillheight=122', '-grandcentralheight=189']] # Will not find historical TXs
 
     def check_result(self, result):
         # Get block hash and height

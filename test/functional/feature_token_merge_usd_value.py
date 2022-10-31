@@ -4,10 +4,10 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-"""Test token split"""
+"""Test token merge"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_greater_than_or_equal
+from test_framework.util import assert_equal, assert_greater_than_or_equal, almost_equal
 
 from decimal import Decimal
 import time
@@ -16,16 +16,12 @@ import random
 def truncate(str, decimal):
     return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
 
-def almost_equal(x, y, threshold=0.0001):
-  return abs(x-y) < threshold
-
-class TokenSplitUSDValueTest(DefiTestFramework):
+class TokenMergeUSDValueTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.FCC_HEIGHT = 300
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight={self.FCC_HEIGHT}', '-jellyfish_regtest=1', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=1', '-greatworldheight=1',  '-jellyfish_regtest=1', '-subsidytest=1']]
 
     def setup_oracles(self):
         # Symbols
@@ -142,29 +138,23 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
         self.add_total_account_to_liquidity_pool()
 
-    def gotoFCC(self):
-        height = self.nodes[0].getblockcount()
-        if height < self.FCC_HEIGHT:
-            self.nodes[0].generate((self.FCC_HEIGHT - height) + 2)
-
     def setup(self):
         self.nodes[0].generate(101)
         self.setup_oracles()
         self.setup_tokens()
         self.setup_accounts()
         self.setup_pools()
-        self.gotoFCC()
 
     # /20 split
     def oracle_split(self):
         oracle_prices = [
             {"currency": "USD", "tokenAmount": f"1@{self.symbolDUSD}"},
-            {"currency": "USD", "tokenAmount": f"0.05@{self.symbolT1}"},
+            {"currency": "USD", "tokenAmount": f"0.2@{self.symbolT1}"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
-    def split(self, tokenId, keepLocked=False, oracleSplit=False, multiplier=2):
+    def merge(self, tokenId, keepLocked=False, oracleSplit=False, multiplier=2):
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{tokenId}':'true'}})
         self.nodes[0].generate(1)
 
@@ -173,7 +163,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
         # Token split
         splitHeight = self.nodes[0].getblockcount() + 2
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/{multiplier}'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(splitHeight)}':f'{tokenId}/-{multiplier}'}})
         self.nodes[0].generate(2)
 
         self.idT1old = tokenId
@@ -241,10 +231,10 @@ class TokenSplitUSDValueTest(DefiTestFramework):
                 amountStr = amountSplit[0]
         return amountStr
 
-    def compare_usd_account_value_on_split(self, revert=False):
+    def compare_usd_account_value_on_merge(self, revert=False):
         revertHeight = self.nodes[0].getblockcount()
         value_accounts_pre_split = self.accounts_usd_values()
-        self.split(self.idT1, oracleSplit=True, multiplier=20)
+        self.merge(self.idT1, oracleSplit=True, multiplier=20)
         value_accounts_post_split = self.accounts_usd_values()
         # TODO fail
         self.compare_value_list(value_accounts_pre_split, value_accounts_post_split)
@@ -290,7 +280,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         revertHeight = self.nodes[0].getblockcount()
         self.setup_vaults(collateralSplit=False)
         vault_values_pre_split = self.get_vaults_usd_values()
-        self.split(self.idT1, oracleSplit=True, multiplier=20)
+        self.merge(self.idT1, oracleSplit=True, multiplier=20)
         self.nodes[0].generate(40)
         vault_values_post_split = self.get_vaults_usd_values()
         self.compare_vaults_list(vault_values_pre_split,vault_values_post_split)
@@ -301,7 +291,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
     def test_values_non_zero_with_token_locked(self):
         self.setup_vaults()
-        self.split(self.idT1, keepLocked=True)
+        self.merge(self.idT1, keepLocked=True)
         vaults_values = self.get_vaults_usd_values()
         for vault in vaults_values:
             assert_equal(vault["state"], "frozen")
@@ -310,18 +300,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_equal(vault["interestValue"], -1)
             assert_equal(vault["informativeRatio"], -1)
             assert_equal(vault["collateralRatio"], -1)
-        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": False, "verbose": True})
-        for vault in vaults_values:
-            assert_equal(vault["state"], "frozen")
-            assert_equal(vault["collateralValue"], -1)
-            assert_equal(vault["loanValue"], -1)
-            assert_equal(vault["interestValue"], -1)
-            assert_equal(vault["informativeRatio"], -1)
-            assert_equal(vault["collateralRatio"], -1)
-        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
-        for vault in vaults_values:
-            assert_greater_than_or_equal(vault["collateralValue"], 0)
-            assert_greater_than_or_equal(vault["loanValue"], 0)
 
     def test_values_after_token_unlock(self):
         # Unlock token
@@ -338,11 +316,10 @@ class TokenSplitUSDValueTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
-        assert_equal(1,1) # Make linter happy for now
-        self.compare_usd_account_value_on_split(revert=True)
+        self.compare_usd_account_value_on_merge(revert=True)
         self.compare_usd_vaults_values_on_split(revert=True)
         self.test_values_non_zero_with_token_locked()
         self.test_values_after_token_unlock()
 
 if __name__ == '__main__':
-    TokenSplitUSDValueTest().main()
+    TokenMergeUSDValueTest().main()
