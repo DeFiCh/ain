@@ -51,8 +51,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         # Vote on proposal
         self.nodes[0].votegov(propId, self.mn0, vote)
         self.nodes[0].generate(1)
+        self.sync_blocks()
         self.nodes[1].votegov(propId, self.mn1, vote)
         self.nodes[1].generate(1)
+        self.sync_blocks()
         self.nodes[2].votegov(propId, self.mn2, vote)
         self.nodes[2].generate(1)
         self.sync_blocks()
