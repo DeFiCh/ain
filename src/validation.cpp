@@ -2222,7 +2222,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                             continue;
                         }
                     }
-                    
+
                     mnview.SubCommunityBalance(kv.first, subsidy);
                 }
             }
@@ -4076,13 +4076,14 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        uint32_t voteYes = 0, voters = 0;
+        uint32_t voteYes = 0;
+        std::set<uint256> voters{};
         cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
             if (pId != propId || cycle != prop.cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
-                ++voters;
+                voters.insert(mnId);
                 if (vote == CPropVoteType::VoteYes) {
                     ++voteYes;
                 }
@@ -4090,7 +4091,51 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }, CMnVotePerCycle{propId, prop.cycle});
 
-        if (lround(voters * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
+        // Redistributes CFP fee among voting masternodes
+        CDataStructureV0 feeRedistributionKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPFeeRedistribution};
+        if (prop.type == CPropType::CommunityFundProposal && voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
+            auto proposalFee = GetPropsCreationFee(pindex->nHeight, prop);
+            // return half fee among voting masternodes, the rest is burned at creation
+            auto feeBack = proposalFee / 2;
+            auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
+            for (const auto mnId : voters) {
+                auto const mn = cache.GetMasternode(mnId);
+                assert(mn);
+
+                CScript scriptPubKey;
+                if (mn->rewardAddressType != 0) {
+                    scriptPubKey = GetScriptForDestination(mn->rewardAddressType == PKHashType ?
+                        CTxDestination(PKHash(mn->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(mn->rewardAddress))
+                    );
+                } else {
+                    scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
+                        CTxDestination(PKHash(mn->ownerAuthAddress)) :
+                        CTxDestination(WitnessV0KeyHash(mn->ownerAuthAddress))
+                    );
+                }
+
+                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::CFPFeeRedistribution), &subWriters);
+
+                auto res = subView.AddBalance(scriptPubKey, {DCT_ID{0}, amountPerVoter});
+                if (!res) {
+                    LogPrintf("CFP fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
+                }
+                subView.Flush();
+            }
+
+            // Burn leftover sats.
+            auto burnAmount = feeBack - MultiplyAmounts(amountPerVoter, voters.size() * COIN);
+            if (burnAmount > 0) {
+                auto res = cache.AddBalance(Params().GetConsensus().burnAddress, {{0}, burnAmount});
+                if (!res) {
+                    LogPrintf("Burn of CFP fee redistribution leftover failed. Amount: %d\n", burnAmount);
+                }
+            }
+        }
+
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
@@ -4108,7 +4153,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
                 break;
         }
 
-        if (lround(voteYes * 10000.f / voters) <= majorityThreshold) {
+        if (lround(voteYes * 10000.f / voters.size()) <= majorityThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
@@ -4121,7 +4166,6 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         }
 
         CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPPayout};
-
         if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {

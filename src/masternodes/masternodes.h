@@ -42,7 +42,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetPropsCreationFee(int height, CPropType prop);
+CAmount GetPropsCreationFee(int height, const CCreatePropMessage& msg);
 
 constexpr uint8_t SUBNODE_COUNT{4};
 

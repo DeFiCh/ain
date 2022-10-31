@@ -123,7 +123,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('1.00000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('0.50000000'))
 
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")
@@ -229,7 +229,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check burn fee increment
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('6.00000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('3.00000000'))
 
         # Cast votes
         self.nodes[0].votegov(tx, mn0, "yes")
@@ -275,7 +275,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('7.00000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('3.50000000'))
 
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")

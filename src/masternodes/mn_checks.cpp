@@ -32,65 +32,66 @@ constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50
 std::string ToString(CustomTxType type) {
     switch (type)
     {
-        case CustomTxType::CreateMasternode:    return "CreateMasternode";
-        case CustomTxType::ResignMasternode:    return "ResignMasternode";
-        case CustomTxType::SetForcedRewardAddress: return "SetForcedRewardAddress";
-        case CustomTxType::RemForcedRewardAddress: return "RemForcedRewardAddress";
-        case CustomTxType::UpdateMasternode:    return "UpdateMasternode";
-        case CustomTxType::CreateToken:         return "CreateToken";
-        case CustomTxType::UpdateToken:         return "UpdateToken";
-        case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
-        case CustomTxType::MintToken:           return "MintToken";
-        case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
-        case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
-        case CustomTxType::PoolSwap:            return "PoolSwap";
-        case CustomTxType::PoolSwapV2:          return "PoolSwap";
-        case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
-        case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
-        case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
-        case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
-        case CustomTxType::AccountToAccount:    return "AccountToAccount";
+        case CustomTxType::CreateMasternode:        return "CreateMasternode";
+        case CustomTxType::ResignMasternode:        return "ResignMasternode";
+        case CustomTxType::SetForcedRewardAddress:  return "SetForcedRewardAddress";
+        case CustomTxType::RemForcedRewardAddress:  return "RemForcedRewardAddress";
+        case CustomTxType::UpdateMasternode:        return "UpdateMasternode";
+        case CustomTxType::CreateToken:             return "CreateToken";
+        case CustomTxType::UpdateToken:             return "UpdateToken";
+        case CustomTxType::UpdateTokenAny:          return "UpdateTokenAny";
+        case CustomTxType::MintToken:               return "MintToken";
+        case CustomTxType::CreatePoolPair:          return "CreatePoolPair";
+        case CustomTxType::UpdatePoolPair:          return "UpdatePoolPair";
+        case CustomTxType::PoolSwap:                return "PoolSwap";
+        case CustomTxType::PoolSwapV2:              return "PoolSwap";
+        case CustomTxType::AddPoolLiquidity:        return "AddPoolLiquidity";
+        case CustomTxType::RemovePoolLiquidity:     return "RemovePoolLiquidity";
+        case CustomTxType::UtxosToAccount:          return "UtxosToAccount";
+        case CustomTxType::AccountToUtxos:          return "AccountToUtxos";
+        case CustomTxType::AccountToAccount:        return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
-        case CustomTxType::SmartContract:       return "SmartContract";
-        case CustomTxType::FutureSwap:          return "DFIP2203";
-        case CustomTxType::SetGovVariable:      return "SetGovVariable";
-        case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
-        case CustomTxType::AppointOracle:       return "AppointOracle";
-        case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
-        case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
-        case CustomTxType::SetOracleData:       return "SetOracleData";
-        case CustomTxType::AutoAuthPrep:        return "AutoAuth";
-        case CustomTxType::ICXCreateOrder:      return "ICXCreateOrder";
-        case CustomTxType::ICXMakeOffer:        return "ICXMakeOffer";
-        case CustomTxType::ICXSubmitDFCHTLC:    return "ICXSubmitDFCHTLC";
-        case CustomTxType::ICXSubmitEXTHTLC:    return "ICXSubmitEXTHTLC";
-        case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
-        case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
-        case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
-        case CustomTxType::SetLoanCollateralToken: return "SetLoanCollateralToken";
-        case CustomTxType::SetLoanToken:        return "SetLoanToken";
-        case CustomTxType::UpdateLoanToken:     return "UpdateLoanToken";
-        case CustomTxType::LoanScheme:          return "LoanScheme";
-        case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
-        case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
-        case CustomTxType::Vault:               return "Vault";
-        case CustomTxType::CloseVault:          return "CloseVault";
-        case CustomTxType::UpdateVault:         return "UpdateVault";
-        case CustomTxType::DepositToVault:      return "DepositToVault";
-        case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
-        case CustomTxType::PaybackWithCollateral: return "PaybackWithCollateral";
-        case CustomTxType::TakeLoan:            return "TakeLoan";
-        case CustomTxType::PaybackLoan:         return "PaybackLoan";
-        case CustomTxType::PaybackLoanV2:       return "PaybackLoan";
-        case CustomTxType::AuctionBid:          return "AuctionBid";
-        case CustomTxType::FutureSwapExecution: return "FutureSwapExecution";
-        case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
-        case CustomTxType::TokenSplit:          return "TokenSplit";
-        case CustomTxType::Reject:              return "Reject";
-        case CustomTxType::CreateCfp:           return "CreateCfp";
-        case CustomTxType::CreateVoc:           return "CreateVoc";
-        case CustomTxType::Vote:                return "Vote";
-        case CustomTxType::None:                return "None";
+        case CustomTxType::SmartContract:           return "SmartContract";
+        case CustomTxType::FutureSwap:              return "DFIP2203";
+        case CustomTxType::SetGovVariable:          return "SetGovVariable";
+        case CustomTxType::SetGovVariableHeight:    return "SetGovVariableHeight";
+        case CustomTxType::AppointOracle:           return "AppointOracle";
+        case CustomTxType::RemoveOracleAppoint:     return "RemoveOracleAppoint";
+        case CustomTxType::UpdateOracleAppoint:     return "UpdateOracleAppoint";
+        case CustomTxType::SetOracleData:           return "SetOracleData";
+        case CustomTxType::AutoAuthPrep:            return "AutoAuth";
+        case CustomTxType::ICXCreateOrder:          return "ICXCreateOrder";
+        case CustomTxType::ICXMakeOffer:            return "ICXMakeOffer";
+        case CustomTxType::ICXSubmitDFCHTLC:        return "ICXSubmitDFCHTLC";
+        case CustomTxType::ICXSubmitEXTHTLC:        return "ICXSubmitEXTHTLC";
+        case CustomTxType::ICXClaimDFCHTLC:         return "ICXClaimDFCHTLC";
+        case CustomTxType::ICXCloseOrder:           return "ICXCloseOrder";
+        case CustomTxType::ICXCloseOffer:           return "ICXCloseOffer";
+        case CustomTxType::SetLoanCollateralToken:  return "SetLoanCollateralToken";
+        case CustomTxType::SetLoanToken:            return "SetLoanToken";
+        case CustomTxType::UpdateLoanToken:         return "UpdateLoanToken";
+        case CustomTxType::LoanScheme:              return "LoanScheme";
+        case CustomTxType::DefaultLoanScheme:       return "DefaultLoanScheme";
+        case CustomTxType::DestroyLoanScheme:       return "DestroyLoanScheme";
+        case CustomTxType::Vault:                   return "Vault";
+        case CustomTxType::CloseVault:              return "CloseVault";
+        case CustomTxType::UpdateVault:             return "UpdateVault";
+        case CustomTxType::DepositToVault:          return "DepositToVault";
+        case CustomTxType::WithdrawFromVault:       return "WithdrawFromVault";
+        case CustomTxType::PaybackWithCollateral:   return "PaybackWithCollateral";
+        case CustomTxType::TakeLoan:                return "TakeLoan";
+        case CustomTxType::PaybackLoan:             return "PaybackLoan";
+        case CustomTxType::PaybackLoanV2:           return "PaybackLoan";
+        case CustomTxType::AuctionBid:              return "AuctionBid";
+        case CustomTxType::FutureSwapExecution:     return "FutureSwapExecution";
+        case CustomTxType::FutureSwapRefund:        return "FutureSwapRefund";
+        case CustomTxType::TokenSplit:              return "TokenSplit";
+        case CustomTxType::Reject:                  return "Reject";
+        case CustomTxType::CreateCfp:               return "CreateCfp";
+        case CustomTxType::CFPFeeRedistribution:    return "CFPFeeRedistribution";
+        case CustomTxType::CreateVoc:               return "CreateVoc";
+        case CustomTxType::Vote:                    return "Vote";
+        case CustomTxType::None:                    return "None";
     }
     return "None";
 }
@@ -698,10 +699,9 @@ Res CCustomTxVisitor::CheckCustomTx() const
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::CheckProposalTx(uint8_t type) const
+Res CCustomTxVisitor::CheckProposalTx(const CCreatePropMessage& msg) const
 {
-    auto propType = static_cast<CPropType>(type);
-    if (tx.vout[0].nValue != GetPropsCreationFee(height, propType) || tx.vout[0].nTokenId != DCT_ID{0})
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, msg) || tx.vout[0].nTokenId != DCT_ID{0})
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
@@ -3786,7 +3786,7 @@ public:
                 return Res::Err("unsupported proposal type");
         }
 
-        res = CheckProposalTx(obj.type);
+        res = CheckProposalTx(obj);
         if (!res)
             return res;
 
@@ -4027,12 +4027,20 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         // Track burn fee
         if (txType == CustomTxType::CreateToken
         || txType == CustomTxType::CreateMasternode
-        || txType == CustomTxType::CreateCfp
         || txType == CustomTxType::CreateVoc) {
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }
         }
+
+        if (txType == CustomTxType::CreateCfp) {
+            // burn half of creation fee, the rest is distributed among voting masternodes
+            auto burnFee = tx.vout[0].nValue / 2;
+            if (writers) {
+                writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
+            }
+        }
+
         if (txType == CustomTxType::Vault) {
             // burn the half, the rest is returned on close vault
             auto burnFee = tx.vout[0].nValue / 2;

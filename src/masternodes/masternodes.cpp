@@ -75,11 +75,15 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
-CAmount GetPropsCreationFee(int, CPropType prop)
+CAmount GetPropsCreationFee(int, const CCreatePropMessage& msg)
 {
-    switch(prop) {
+    auto type = static_cast<CPropType>(msg.type);
+    switch(type) {
         case CPropType::CommunityFundProposal:
-            return Params().GetConsensus().props.cfp.fee;
+        {
+            auto fee = msg.nAmount / 100;
+            return fee < Params().GetConsensus().props.cfp.fee ? Params().GetConsensus().props.cfp.fee : fee;
+        }
         case CPropType::BlockRewardReallocation:
             return Params().GetConsensus().props.brp.fee;
         case CPropType::VoteOfConfidence:

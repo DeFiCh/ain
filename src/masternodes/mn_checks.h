@@ -41,7 +41,7 @@ class CCustomTxVisitor
         Res HasCollateralAuth(const uint256& collateralTx) const;
         Res HasFoundationAuth() const;
         Res CheckMasternodeCreationTx() const;
-        Res CheckProposalTx(uint8_t type) const;
+        Res CheckProposalTx(const CCreatePropMessage& msg) const;
         Res CheckTokenCreationTx() const;
         Res CheckCustomTx() const;
         Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;
@@ -78,48 +78,48 @@ enum class CustomTxType : uint8_t
     Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode      = 'C',
-    ResignMasternode      = 'R',
-    UpdateMasternode      = 'm',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    UpdateMasternode       = 'm',
     SetForcedRewardAddress = 'F',
     RemForcedRewardAddress = 'f',
     // custom tokens:
-    CreateToken           = 'T',
-    MintToken             = 'M',
-    UpdateToken           = 'N', // previous type, only DAT flag triggers
-    UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
+    CreateToken            = 'T',
+    MintToken              = 'M',
+    UpdateToken            = 'N', // previous type, only DAT flag triggers
+    UpdateTokenAny         = 'n', // new type of token's update with any flags/fields possible
     //poolpair
-    CreatePoolPair        = 'p',
-    UpdatePoolPair        = 'u',
-    PoolSwap              = 's',
-    PoolSwapV2            = 'i',
-    AddPoolLiquidity      = 'l',
-    RemovePoolLiquidity   = 'r',
+    CreatePoolPair         = 'p',
+    UpdatePoolPair         = 'u',
+    PoolSwap               = 's',
+    PoolSwapV2             = 'i',
+    AddPoolLiquidity       = 'l',
+    RemovePoolLiquidity    = 'r',
     // accounts
-    UtxosToAccount        = 'U',
-    AccountToUtxos        = 'b',
-    AccountToAccount      = 'B',
-    AnyAccountsToAccounts = 'a',
-    SmartContract         = 'K',
-    FutureSwap            = 'Q',
+    UtxosToAccount         = 'U',
+    AccountToUtxos         = 'b',
+    AccountToAccount       = 'B',
+    AnyAccountsToAccounts  = 'a',
+    SmartContract          = 'K',
+    FutureSwap             = 'Q',
     //set governance variable
-    SetGovVariable        = 'G',
-    SetGovVariableHeight  = 'j',
+    SetGovVariable         = 'G',
+    SetGovVariableHeight   = 'j',
     // Auto auth TX
-    AutoAuthPrep          = 'A',
+    AutoAuthPrep           = 'A',
     // oracles
-    AppointOracle         = 'o',
-    RemoveOracleAppoint   = 'h',
-    UpdateOracleAppoint   = 't',
-    SetOracleData         = 'y',
+    AppointOracle          = 'o',
+    RemoveOracleAppoint    = 'h',
+    UpdateOracleAppoint    = 't',
+    SetOracleData          = 'y',
     // ICX
-    ICXCreateOrder      = '1',
-    ICXMakeOffer        = '2',
-    ICXSubmitDFCHTLC    = '3',
-    ICXSubmitEXTHTLC    = '4',
-    ICXClaimDFCHTLC     = '5',
-    ICXCloseOrder       = '6',
-    ICXCloseOffer       = '7',
+    ICXCreateOrder         = '1',
+    ICXMakeOffer           = '2',
+    ICXSubmitDFCHTLC       = '3',
+    ICXSubmitEXTHTLC       = '4',
+    ICXClaimDFCHTLC        = '5',
+    ICXCloseOrder          = '6',
+    ICXCloseOffer          = '7',
     // Loans
     SetLoanCollateralToken = 'c',
     SetLoanToken           = 'g',
@@ -145,6 +145,7 @@ enum class CustomTxType : uint8_t
     CreateCfp              = 'z',
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
+    CFPFeeRedistribution   = 'Y'
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -206,6 +207,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
         case CustomTxType::CreateCfp:
+        case CustomTxType::CFPFeeRedistribution:
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::None:
