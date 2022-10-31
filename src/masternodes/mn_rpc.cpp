@@ -277,8 +277,10 @@ std::optional<CScript> AmIFounder(CWallet* const pwallet) {
     auto members = Params().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
-    if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
-        members = databaseMembers;
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
     }
 
     for (auto const & script : members) {
@@ -358,8 +360,10 @@ static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwal
     auto members = Params().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
     assert(attributes);
-    if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
-        members = databaseMembers;
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
     }
 
     for (auto const & founderScript : members) {

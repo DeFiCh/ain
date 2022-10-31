@@ -30,6 +30,7 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Feature   = 'h',
     Foundation = 'i',
 };
 
@@ -61,6 +62,7 @@ enum DFIPKeys : uint8_t  {
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
     Members                 = 'k',
+    GovFoundation           = 'l',
 };
 
 enum TokenKeys : uint8_t  {

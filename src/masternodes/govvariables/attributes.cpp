@@ -82,6 +82,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // Note: DFIP2206F is currently in beta testing
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
+        {"feature",     ParamIDs::Feature},
         {"foundation",  ParamIDs::Foundation},
     };
     return params;
@@ -104,6 +105,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+        {ParamIDs::Feature,     "feature"},
         {ParamIDs::Foundation,  "foundation"},
     };
     return params;
@@ -161,6 +163,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
                 {"members",                     DFIPKeys::Members},
+                {"gov-foundation",              DFIPKeys::GovFoundation},
             }
         },
     };
@@ -208,6 +211,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
                 {DFIPKeys::Members,                 "members"},
+                {DFIPKeys::GovFoundation,           "gov-foundation"},
             }
         },
         {
@@ -427,6 +431,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
                 {DFIPKeys::Members,                 VerifyMember},
+                {DFIPKeys::GovFoundation,           VerifyBool},
             }
         },
         {
@@ -598,6 +603,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             } else if (typeId == ParamIDs::Foundation)  {
                 if (typeKey != DFIPKeys::Members) {
                     return Res::Err("Unsupported type for Foundation {%d}", typeKey);
+                }
+            } else if (typeId == ParamIDs::Feature) {
+                if (typeKey != DFIPKeys::GovFoundation) {
+                    return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             }  else {
                 return Res::Err("Unsupported Param ID");
@@ -1138,7 +1147,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
+                if (attrV0->typeId == ParamIDs::Feature) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
                     }

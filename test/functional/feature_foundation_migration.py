@@ -30,7 +30,9 @@ class FoundationMemberTest(DefiTestFramework):
 
         # Change address before fork
         assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/gov-foundation':'true'}})
 
+        # Generate blocks on other node so both nodes have available UTXOs
         self.nodes[1].generate(self.grand_central - self.nodes[0].getblockcount())
         self.sync_blocks()
 
@@ -45,6 +47,10 @@ class FoundationMemberTest(DefiTestFramework):
 
         # Add nonsense address
         assert_raises_rpc_error(-5, "Invalid address provided", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["NOTANADDRESS"]'}})
+
+        # Enable foundation address in attributes
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-foundation':'true'}})
+        self.nodes[0].generate(1)
 
         # Remove address
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/foundation/members':f'["-{address}"]'}})
@@ -87,9 +93,25 @@ class FoundationMemberTest(DefiTestFramework):
 
         # Move to fork height and check changes
         self.nodes[1].generate(5)
+        self.sync_blocks()
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/params/foundation/members'], '["bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny","bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu","2N3kCSytvetmJybdZbqV5wK3Zzekg9SiSe2","msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7"]')
         assert_equal(attributes['v0/params/dfip2203/active'], 'false')
+
+        # Check disabling feature restores original usage. Node 0 fails here.
+        assert_raises_rpc_error(-5, "Need foundation member authorization", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
+        self.nodes[1].setgov({"ATTRIBUTES":{'v0/params/feature/gov-foundation':'false'}})
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # Can now add to Gov attributes again. Adding removing address allowed
+        # while feature disabled,but addresses will not be used for auth.
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
+        self.nodes[0].generate(1)
+
+        # Check address still present
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(attributes['v0/params/foundation/members'], '["bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny","bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu","2N3kCSytvetmJybdZbqV5wK3Zzekg9SiSe2","msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7","mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU"]')
 
 if __name__ == '__main__':
     FoundationMemberTest().main()
