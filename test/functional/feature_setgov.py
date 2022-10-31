@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -865,6 +865,41 @@ class GovsetTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
         assert_equal(attributes['v0/params/dfip2206f/start_block'], f'{start_block}')
+
+        # Move to GrandCentral fork
+        self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/locks/token/4'], 'true')
+        assert_equal(result['v0/params/dfip2206f/active'], 'false')
+        assert_equal(result['v0/token/4/fixed_interval_price_id'], 'TSLA/USD')
+        assert_equal(result['v0/oracles/splits/4000'], '4/50')
+        assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'out')
+
+        self.nodes[0].unsetgov({'ATTRIBUTES': ['v0/locks/token/4', 'v0/params/dfip2206f/active', 'v0/token/4/fixed_interval_price_id', 'v0/oracles/splits/4000', 'v0/poolpairs/3/token_a_fee_direction']})
+        self.nodes[0].generate(1)
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert 'v0/locks/token/4' not in attributes
+        assert 'v0/params/dfip2206f/active' not in attributes
+        assert 'v0/token/4/fixed_interval_price_id' not in attributes
+        assert 'v0/oracles/splits/4000' not in attributes
+        assert 'v0/poolpairs/3/token_a_fee_direction' not in attributes
+
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0.07000000'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')})
+
+        self.nodes[0].unsetgov({'ORACLE_DEVIATION':'', 'LP_SPLITS':['1', '2']})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0E-8'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'3': Decimal('0.10000000')})
 
 if __name__ == '__main__':
     GovsetTest ().main ()
