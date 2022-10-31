@@ -484,6 +484,35 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
+    void operator()(const CCreatePropMessage& obj) const {
+        auto propId = tx.GetHash();
+        rpcInfo.pushKV("proposalId", propId.GetHex());
+        auto type = static_cast<CPropType>(obj.type);
+        rpcInfo.pushKV("type", CPropTypeToString(type));
+        rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("context", obj.context);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
+        rpcInfo.pushKV("cycles", int(obj.nCycles));
+        auto finalHeight = height;
+        if (auto prop = mnview.GetProp(propId)) {
+            finalHeight = prop->finalHeight;
+        } else {
+            auto votingPeriod = mnview.GetVotingPeriod();
+            for (uint8_t i = 1; i <= obj.nCycles; ++i) {
+                finalHeight += (finalHeight % votingPeriod) + votingPeriod;
+            }
+        }
+        rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
+        rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+    }
+
+    void operator()(const CPropVoteMessage& obj) const {
+        rpcInfo.pushKV("proposalId", obj.propId.GetHex());
+        rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
+        auto vote = static_cast<CPropVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CPropVoteToString(vote));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

@@ -21,6 +21,7 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
+    Governance= 'g'
 };
 
 enum ParamIDs : uint8_t  {
@@ -34,6 +35,11 @@ enum ParamIDs : uint8_t  {
 
 enum OracleIDs : uint8_t  {
     Splits    = 'a',
+};
+
+enum GovernanceIDs : uint8_t  {
+    Global    = 'a',
+    CFP       = 'b',
 };
 
 enum EconomyKeys : uint8_t {
@@ -59,6 +65,11 @@ enum DFIPKeys : uint8_t  {
     DUSDInterestBurn        = 'g',
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+};
+
+enum GovernanceKeys : uint8_t  {
+    Enabled     = 'a',
+    CFPPayout   = 'b',
 };
 
 enum TokenKeys : uint8_t  {
@@ -303,6 +314,7 @@ public:
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
+    static const std::map<uint8_t, std::string>& displayGovernanceIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -322,6 +334,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
+    static const std::map<std::string, uint8_t>& allowedGovernanceIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

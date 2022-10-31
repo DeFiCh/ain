@@ -344,6 +344,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setmockcheckpoint", 0, "height" },
     { "logaccountbalances", 0, "logfile" },
     { "logaccountbalances", 1, "rpcresult" },
+
+    { "creategovcfp", 0, "data" },
+    { "creategovcfp", 1, "inputs" },
+    { "creategovvoc", 1, "inputs" },
+    { "votegov", 3, "inputs" },
 };
 // clang-format on
 

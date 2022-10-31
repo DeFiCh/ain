@@ -276,7 +276,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     if (nHeight >= consensus.EunosHeight)
     {
-        coinbaseTx.vout.resize(2);
+        auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        if (nHeight < consensus.GrandCentralHeight) {
+            coinbaseTx.vout.resize(2);
+            // Community payment always expected
+            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].nValue = foundationValue;
+        }
 
         // Explicitly set miner reward
         if (nHeight >= consensus.FortCanningHeight) {
@@ -285,12 +291,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        // Community payment always expected
-        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
