@@ -1767,6 +1767,13 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member");
 
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
+        if (!attributes->GetValue(key, false)) {
+            return Res::Err("Unset Gov variables not currently enabled in attributes.");
+        }
+
         for(const auto& gov : obj.govs) {
             auto var = mnview.GetVariable(gov.first);
             if (!var)
