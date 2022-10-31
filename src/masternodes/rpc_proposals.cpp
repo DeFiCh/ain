@@ -150,7 +150,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     std::set<CScript> auths{pm.address};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
-    CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));
+    CAmount cfpFee = GetPropsCreationFee(targetHeight, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -235,7 +235,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[2]);
 
-    CAmount cfpFee = GetPropsCreationFee(targetHeight, static_cast<CPropType>(pm.type));
+    CAmount cfpFee = GetPropsCreationFee(targetHeight, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
 
     CCoinControl coinControl;
