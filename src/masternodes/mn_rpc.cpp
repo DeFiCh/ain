@@ -274,7 +274,14 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
 }
 
 std::optional<CScript> AmIFounder(CWallet* const pwallet) {
-    for(auto const & script : Params().GetConsensus().foundationMembers) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = pcustomcsview->GetAttributes();
+    assert(attributes);
+    if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+        members = databaseMembers;
+    }
+
+    for (auto const & script : members) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
     }
@@ -348,7 +355,14 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
 }
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
-    for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = pcustomcsview->GetAttributes();
+    assert(attributes);
+    if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+        members = databaseMembers;
+    }
+
+    for (auto const & founderScript : members) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
             if (ExtractDestination(founderScript, destination)) {
