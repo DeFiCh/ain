@@ -161,6 +161,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
                 {"gov-unset",                   DFIPKeys::GovUnset},
+                {"gov-foundation",              DFIPKeys::GovFoundation},
+                {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
+                {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
+                {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
             }
         },
     };
@@ -208,6 +212,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
                 {DFIPKeys::GovUnset,                "gov-unset"},
+                {DFIPKeys::GovFoundation,           "gov-foundation"},
+                {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
+                {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
+                {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
             }
         },
         {
@@ -383,6 +391,10 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
                 {DFIPKeys::GovUnset,                VerifyBool},
+                {DFIPKeys::GovFoundation,           VerifyBool},
+                {DFIPKeys::MNSetRewardAddress,      VerifyBool},
+                {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
+                {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
             }
         },
         {
@@ -552,7 +564,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Feature) {
-                if (typeKey != DFIPKeys::GovUnset) {
+                if (typeKey != DFIPKeys::GovUnset &&
+                    typeKey != DFIPKeys::GovFoundation &&
+                    typeKey != DFIPKeys::MNSetRewardAddress &&
+                    typeKey != DFIPKeys::MNSetOperatorAddress &&
+                    typeKey != DFIPKeys::MNSetOwnerAddress) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             }  else {

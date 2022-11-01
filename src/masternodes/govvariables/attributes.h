@@ -61,6 +61,10 @@ enum DFIPKeys : uint8_t  {
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
     GovUnset                = 'j',
+    GovFoundation           = 'k',
+    MNSetRewardAddress      = 'l',
+    MNSetOperatorAddress    = 'm',
+    MNSetOwnerAddress       = 'n',
 };
 
 enum TokenKeys : uint8_t  {
