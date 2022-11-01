@@ -16,8 +16,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=110'],
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-grandcentralheight=110'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanninghillheight=1', '-grandcentralheight=110'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanninghillheight=1', '-grandcentralheight=110'],
         ]
 
     def skip_test_if_missing_module(self):
@@ -133,7 +133,9 @@ class TestForcedRewardAddress(DefiTestFramework):
         # Test call before for height
         operator_address = self.nodes[0].getnewaddress("", "legacy")
         assert_raises_rpc_error(-32600, "called before GrandCentral height".format(mn_id), self.nodes[0].updatemasternode, mn_id, {'operatorAddress':operator_address})
-
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/mn-setowneraddress':'true'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/mn-setoperatoraddress':'true'}})
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/mn-setrewardaddress':'true'}})
         self.nodes[0].generate(4)
 
         # Test call before masternode active
@@ -141,6 +143,15 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Masternode {} is not in 'ENABLED' state".format(mn_id), self.nodes[0].updatemasternode, mn_id, {'operatorAddress':operator_address})
 
         self.nodes[0].generate(5)
+
+        # Test calls before enablement
+        assert_raises_rpc_error(-32600, "Updating masternode operator address not currently enabled in attributes.", self.nodes[0].updatemasternode, mn_id, {'operatorAddress':mn_owner})
+        assert_raises_rpc_error(-32600, "Updating masternode owner address not currently enabled in attributes.", self.nodes[0].updatemasternode, mn_id, {'ownerAddress':mn_owner})
+        assert_raises_rpc_error(-32600, "Updating masternode reward address not currently enabled in attributes.", self.nodes[0].updatemasternode, mn_id, {'rewardAddress':mn_owner})
+
+        # Enable all new features
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/mn-setowneraddress':'true','v0/params/feature/mn-setoperatoraddress':'true','v0/params/feature/mn-setrewardaddress':'true'}})
+        self.nodes[0].generate(1)
 
         assert_raises_rpc_error(-32600, "Masternode with that operator address already exists", self.nodes[0].updatemasternode, mn_id, {'operatorAddress':mn_owner})
 

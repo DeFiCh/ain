@@ -985,6 +985,10 @@ public:
         bool ownerType{}, operatorType{}, rewardType{};
         for (const auto& item : obj.updates) {
             if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOwnerAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode owner address not currently enabled in attributes.");
+                }
                 if (ownerType) {
                     return Res::Err("Multiple owner updates provided");
                 }
@@ -1042,6 +1046,10 @@ public:
 
                 mnview.UpdateMasternodeCollateral(obj.mnId, *node, tx.GetHash(), height);
             } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOperatorAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode operator address not currently enabled in attributes.");
+                }
                 if (operatorType) {
                     return Res::Err("Multiple operator updates provided");
                 }
@@ -1057,6 +1065,10 @@ public:
                 }
                 mnview.UpdateMasternodeOperator(obj.mnId, *node, item.second.first, keyID, height);
             } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
                 if (rewardType) {
                     return Res::Err("Multiple reward address updates provided");
                 }
@@ -1069,6 +1081,10 @@ public:
                 const auto keyID = CKeyID(uint160(item.second.second));
                 mnview.SetForcedRewardAddress(obj.mnId, *node, item.second.first, keyID, height);
             } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
                 if (rewardType) {
                     return Res::Err("Multiple reward address updates provided");
                 }
