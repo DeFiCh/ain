@@ -1167,6 +1167,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
                     }
+                } else if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
                 } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");

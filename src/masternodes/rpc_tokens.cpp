@@ -280,7 +280,10 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     { // post-bayfront auth
         const auto attributes = pcustomcsview->GetAttributes();
         assert(attributes);
-        const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        }
         bool isFoundersToken = !databaseMembers.empty() ?
                                databaseMembers.find(owner) != databaseMembers.end() :
                                Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
