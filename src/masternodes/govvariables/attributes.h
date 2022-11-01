@@ -21,6 +21,7 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
+    Consortium  = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -37,6 +38,10 @@ enum OracleIDs : uint8_t  {
     Splits    = 'a',
 };
 
+enum ConsortiumIDs : uint8_t  {
+    Config    = 'a',
+};
+
 enum EconomyKeys : uint8_t {
     PaybackDFITokens   = 'a',
     PaybackTokens      = 'b',
@@ -49,6 +54,8 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
+    ConsortiumMinted        = 'l',
+    ConsortiumMembersMinted = 'm',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -84,6 +91,13 @@ enum TokenKeys : uint8_t  {
     Descendant                = 'n',
     Epitaph                   = 'o',
     LoanPaybackCollateral     = 'p',
+};
+
+enum ConsortiumKeys : uint8_t  {
+    Enable                = 'a',
+    Members               = 'b',
+    MintLimit             = 'c',
+    DailyMintLimit        = 'd',
 };
 
 enum PoolKeys : uint8_t {
@@ -194,12 +208,72 @@ enum FeeDirValues : uint8_t {
     Out
 };
 
-using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits    = std::map<uint32_t, int32_t>;
+struct CConsortiumMember
+{
+    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
+    enum Status : uint8_t
+    {
+        Active = 0,
+        Disabled = 0x01,
+    };
+
+    std::string name;
+    CScript ownerAddress;
+    std::string backingId;
+    CAmount mintLimit;
+    CAmount dailyMintLimit;
+    uint8_t status;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(name);
+        READWRITE(ownerAddress);
+        READWRITE(backingId);
+        READWRITE(mintLimit);
+        READWRITE(dailyMintLimit);
+        READWRITE(status);
+    }
+};
+
+struct CConsortiumMinted
+{
+    CAmount minted;
+    CAmount burnt;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(minted);
+        READWRITE(burnt);
+    }
+};
+
+struct CConsortiumDailyMinted : public CConsortiumMinted
+{
+    std::pair<uint32_t, CAmount> dailyMinted;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CConsortiumMinted, *this);
+        READWRITE(dailyMinted);
+    }
+};
+
+using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue  = std::pair<uint32_t, std::string>;
-using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using AscendantValue = std::pair<uint32_t, std::string>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
+using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
+using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
+                         CFeeDir, CDexBalances, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
@@ -309,6 +383,7 @@ public:
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
+    static const std::map<uint8_t, std::string>& displayConsortiumIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -328,6 +403,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
+    static const std::map<std::string, uint8_t>& allowedConsortiumIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

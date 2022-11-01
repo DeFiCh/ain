@@ -141,6 +141,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
         case CustomTxType::MintToken:               return CMintTokensMessage{};
+        case CustomTxType::BurnToken:               return CBurnTokensMessage{};
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
@@ -612,6 +613,11 @@ public:
         return !res ? res : serialize(obj);
     }
 
+        Res operator()(CBurnTokensMessage& obj) const {
+        auto res = isPostGrandCentralFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CCustomTxMessageNone&) const {
         return Res::Ok();
     }
@@ -781,7 +787,8 @@ public:
             if (!token.IsDAT()) {
                 return Res::Err("tx must have at least one input from token owner");
             } else if (!HasFoundationAuth()) { // Is a DAT, check founders auth
-                return Res::Err("token is DAT and tx not from foundation member");
+                if (height < static_cast<uint32_t>(consensus.GrandCentralHeight))
+                    return Res::Err("token is DAT and tx not from foundation member");
             }
         }
 
@@ -1108,36 +1115,190 @@ public:
 
     Res operator()(const CMintTokensMessage& obj) const {
         // check auth and increase balance of token's owner
-        for (const auto& kv : obj.balances) {
-            const DCT_ID& tokenId = kv.first;
-
-            if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+        for (const auto& [tokenId, amount] : obj.balances) {
+            if (Params().NetworkIDString() == CBaseChainParams::MAIN &&
+                height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
                 mnview.GetLoanTokenByID(tokenId)) {
                 return Res::Err("Loan tokens cannot be minted");
             }
 
             auto token = mnview.GetToken(tokenId);
-            if (!token) {
+            if (!token)
                 return Res::Err("token %s does not exist!", tokenId.ToString());
-            }
 
             auto mintable = MintableToken(tokenId, *token);
-            if (!mintable) {
+            if (!mintable)
                 return std::move(mintable);
+
+
+            if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight) && token->IsDAT() && !HasFoundationAuth())
+            {
+                auto attributes = mnview.GetAttributes();
+                assert(attributes);
+
+                CDataStructureV0 enableKey{AttributeTypes::Consortium, ConsortiumIDs::Config, ConsortiumKeys::Enable};
+                if (attributes->GetValue(enableKey, false))
+                {
+                    mintable.ok = false;
+
+                    CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
+                    const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+
+                    CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
+                    auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+
+                    for (auto const& [key, member] : members)
+                    {
+                        if (HasAuth(member.ownerAddress))
+                        {
+                            if (member.status != CConsortiumMember::Status::Active)
+                                return Res::Err("Cannot mint token, not an active member of consortium for %s!", token->symbol);
+
+                            auto add = SafeAdd(membersBalances[tokenId][key].minted, amount);
+                            if (!add)
+                                return (std::move(add));
+                            membersBalances[tokenId][key].minted = add;
+
+                            const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+                            if (dailyInterval == membersBalances[tokenId][key].dailyMinted.first) {
+                                add = SafeAdd(membersBalances[tokenId][key].dailyMinted.second, amount);
+                                if (!add)
+                                    return (std::move(add));
+                                membersBalances[tokenId][key].dailyMinted.second = add;
+                            } else {
+                                membersBalances[tokenId][key].dailyMinted.first = dailyInterval;
+                                membersBalances[tokenId][key].dailyMinted.second = amount;
+                            }
+
+                            if (membersBalances[tokenId][key].minted > member.mintLimit)
+                                return Res::Err("You will exceed your maximum mint limit for %s token by minting this amount!", token->symbol);
+
+                            if (membersBalances[tokenId][key].dailyMinted.second > member.dailyMintLimit) {
+                                return Res::Err("You will exceed your daily mint limit for %s token by minting this amount", token->symbol);
+                            }
+
+                            *mintable.val = member.ownerAddress;
+                            mintable.ok = true;
+                            break;
+                        }
+                    }
+
+                    if (!mintable)
+                        return Res::Err("You are not a foundation or consortium member and cannot mint this token!");
+
+                    CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
+                    const auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
+
+                    CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+                    auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
+
+                    auto add = SafeAdd(globalBalances[tokenId].minted, amount);
+                    if (!add)
+                        return (std::move(add));
+
+                    globalBalances[tokenId].minted = add;
+
+                    if (globalBalances[tokenId].minted > maxLimit)
+                        return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", token->symbol);
+
+                    attributes->SetValue(consortiumMintedKey, globalBalances);
+                    attributes->SetValue(membersMintedKey, membersBalances);
+
+                    auto saved = mnview.SetVariable(*attributes);
+                    if (!saved)
+                        return saved;
+                }
+                else
+                    return Res::Err("You are not a foundation member and cannot mint this token!");
             }
 
-            auto minted = mnview.AddMintedTokens(tokenId, kv.second);
-            if (!minted) {
+            auto minted = mnview.AddMintedTokens(tokenId, amount);
+            if (!minted)
                 return minted;
-            }
 
             CalculateOwnerRewards(*mintable.val);
-            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, kv.second});
-            if (!res) {
+            auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, amount});
+            if (!res)
                 return res;
-            }
         }
+
         return Res::Ok();
+    }
+
+    Res operator()(const CBurnTokensMessage& obj) const {
+        if (obj.amounts.balances.empty()) {
+            return Res::Err("tx must have balances to burn");
+        }
+
+        for (const auto& [tokenId, amount] : obj.amounts.balances)
+        {
+            // check auth
+            if (!HasAuth(obj.from))
+                return Res::Err("tx must have at least one input from account owner");
+
+            auto subMinted = mnview.SubMintedTokens(tokenId, amount);
+            if (!subMinted)
+                return subMinted;
+
+            if (obj.burnType != CBurnTokensMessage::BurnType::TokenBurn)
+                return Res::Err("Currently only burn type 0 - TokenBurn is supported!");
+
+            CScript ownerAddress;
+
+            if (auto address = std::get_if<CScript>(&obj.context); address && !address->empty())
+                ownerAddress = *address;
+            else ownerAddress = obj.from;
+
+            auto attributes = mnview.GetAttributes();
+            if (!attributes)
+                return Res::Err("Cannot read from attributes gov variable!");
+
+            CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::Members};
+            const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+            CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
+            auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+            CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+            auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
+
+            bool setVariable = false;
+            for (auto const& tmp : members)
+                if (tmp.second.ownerAddress == ownerAddress)
+                {
+                    auto add = SafeAdd(membersBalances[tokenId][tmp.first].burnt, amount);
+                    if (!add)
+                        return (std::move(add));
+
+                    membersBalances[tokenId][tmp.first].burnt = add;
+
+                    add = SafeAdd(globalBalances[tokenId].burnt, amount);
+                    if (!add)
+                        return (std::move(add));
+
+                    globalBalances[tokenId].burnt = add;
+
+                    setVariable = true;
+                    break;
+                }
+
+            if (setVariable)
+            {
+                attributes->SetValue(membersMintedKey, membersBalances);
+                attributes->SetValue(consortiumMintedKey, globalBalances);
+
+                auto saved = mnview.SetVariable(*attributes);
+                if (!saved)
+                    return saved;
+            }
+
+            CalculateOwnerRewards(obj.from);
+
+            auto res = TransferTokenBalance(tokenId, amount, obj.from, consensus.burnAddress);
+            if (!res)
+                return res;
+        }
+
+        return Res::Ok();
+
     }
 
     Res operator()(const CCreatePoolPairMessage& obj) const {
