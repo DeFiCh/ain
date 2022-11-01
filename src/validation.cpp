@@ -4053,9 +4053,9 @@ void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView&
 }
 
 static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attributes, const uint32_t id, std::string& newSuffix) {
-    CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
-    if (attributes.CheckKey(ascendantKey)) {
-        const auto& [previousID, str] = attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
+    CDataStructureV0 splitValuesKey{AttributeTypes::Token, id, TokenKeys::Migration};
+    if (attributes.CheckKey(splitValuesKey)) {
+        const auto& [previousID, multiplier, newID, height] = attributes.GetValue(splitValuesKey, CSplitValues{std::numeric_limits<uint32_t>::max(), 0, 0, 0});
         auto previousToken = view.GetToken(DCT_ID{previousID});
         if (!previousToken) {
             return Res::Err("Previous token %d not found\n", id);
@@ -4757,11 +4757,10 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             attributes->EraseKey(key);
         }
 
-        CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
-
-        CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+        CDataStructureV0 splitValueKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Migration};
+        attributes->SetValue(splitValueKey, CSplitValues{oldTokenId.v, multiplier, newTokenId.v, static_cast<uint32_t>(pindex->nHeight)});
+        splitValueKey.typeId = oldTokenId.v;
+        attributes->SetValue(splitValueKey, CSplitValues{oldTokenId.v, multiplier, newTokenId.v, static_cast<uint32_t>(pindex->nHeight)});
 
         CAmount totalBalance{0};
 

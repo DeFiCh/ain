@@ -74,9 +74,7 @@ enum TokenKeys : uint8_t  {
     LoanCollateralFactor      = 'j',
     LoanMintingEnabled        = 'k',
     LoanMintingInterest       = 'l',
-    Ascendant                 = 'm',
-    Descendant                = 'n',
-    Epitaph                   = 'o',
+    Migration                 = 'm',
     LoanPaybackCollateral     = 'p',
 };
 
@@ -182,6 +180,23 @@ struct CDexTokenInfo {
     }
 };
 
+struct CSplitValues {
+    uint32_t oldTokenId;
+    int32_t multiplier;
+    uint32_t newTokenId;
+    uint32_t height;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(oldTokenId);
+        READWRITE(multiplier);
+        READWRITE(newTokenId);
+        READWRITE(height);
+    }
+};
+
 enum FeeDirValues : uint8_t {
     Both,
     In,
@@ -190,10 +205,10 @@ enum FeeDirValues : uint8_t {
 
 using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits    = std::map<uint32_t, int32_t>;
-using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue  = std::pair<uint32_t, std::string>;
+using Deprecated1     = std::pair<uint32_t, int32_t>; // If you can repurpose then please do
+using Deprecated2     = std::pair<uint32_t, std::string>; // If you can repurpose then please do
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, Deprecated1, Deprecated2, CFeeDir, CDexBalances, CSplitValues>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 

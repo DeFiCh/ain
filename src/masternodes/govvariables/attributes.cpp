@@ -181,9 +181,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {TokenKeys::LoanMintingEnabled,        "loan_minting_enabled"},
                 {TokenKeys::LoanMintingInterest,       "loan_minting_interest"},
                 {TokenKeys::DFIP2203Enabled,           "dfip2203"},
-                {TokenKeys::Ascendant,                 "ascendant"},
-                {TokenKeys::Descendant,                "descendant"},
-                {TokenKeys::Epitaph,                   "epitaph"},
+                {TokenKeys::Migration,                 "migration"},
             }
         },
         {
@@ -717,9 +715,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                 if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
                             (attrV0->type == AttributeTypes::Token &&
-                             (attrV0->key == TokenKeys::Ascendant ||
-                              attrV0->key == TokenKeys::Descendant ||
-                              attrV0->key == TokenKeys::Epitaph))) {
+                             (attrV0->key == TokenKeys::Migration))) {
                         return Res::Err("Attribute cannot be set externally");
                     } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
                         const auto splitValue = std::get_if<OracleSplits>(&value);
@@ -770,9 +766,7 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::LoanMintingEnabled,
     TokenKeys::LoanMintingInterest,
     TokenKeys::FixedIntervalPriceId,
-    TokenKeys::Ascendant,
-    TokenKeys::Descendant,
-    TokenKeys::Epitaph,
+    TokenKeys::Migration,
 };
 
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
@@ -869,10 +863,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     keyValue += KeyBuilder(it->first, it->second);
                 }
                 ret.pushKV(key, keyValue);
-            } else if (const auto& descendantPair = std::get_if<DescendantValue>(&attribute.second)) {
-                ret.pushKV(key, KeyBuilder(descendantPair->first, descendantPair->second));
-            } else if (const auto& ascendantPair = std::get_if<AscendantValue>(&attribute.second)) {
-                ret.pushKV(key, KeyBuilder(ascendantPair->first, ascendantPair->second));
+            } else if (const auto& splitValue = std::get_if<CSplitValues>(&attribute.second)) {
+                const auto& [oldTokenId, multiplier, newTokenId, height] = *splitValue;
+                ret.pushKV(key, KeyBuilder(oldTokenId, multiplier, newTokenId, height));
             } else if (const auto currencyPair = std::get_if<CTokenCurrencyPair>(&attribute.second)) {
                 ret.pushKV(key, currencyPair->first + '/' + currencyPair->second);
             } else if (const auto result = std::get_if<CFeeDir>(&attribute.second)) {
@@ -988,9 +981,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such loan token (%d)", attrV0->typeId);
                         }
                     break;
-                    case TokenKeys::Ascendant:
-                    case TokenKeys::Descendant:
-                    case TokenKeys::Epitaph:
+                    case TokenKeys::Migration:
                     break;
                     default:
                         return Res::Err("Unsupported key");
