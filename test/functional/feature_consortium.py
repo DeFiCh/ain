@@ -73,7 +73,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
         assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/config/enable' : 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/consortium_enabled' : 'true'}})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -416,7 +416,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/burnt'], Decimal('0.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/supply'], Decimal('6.00000000'))
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/config/enable' : 'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/consortium_enabled' : 'false'}})
 
         self.nodes[0].generate(1)
         self.sync_blocks()

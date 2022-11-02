@@ -41,6 +41,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateToken:         return "UpdateToken";
         case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
         case CustomTxType::MintToken:           return "MintToken";
+        case CustomTxType::BurnToken:           return "BurnToken";
         case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
         case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
         case CustomTxType::PoolSwap:            return "PoolSwap";
@@ -1136,7 +1137,7 @@ public:
                 auto attributes = mnview.GetAttributes();
                 assert(attributes);
 
-                CDataStructureV0 enableKey{AttributeTypes::Consortium, ConsortiumIDs::Config, ConsortiumKeys::Enable};
+                CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
                 if (attributes->GetValue(enableKey, false))
                 {
                     mintable.ok = false;

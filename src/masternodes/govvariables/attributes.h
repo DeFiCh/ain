@@ -38,10 +38,6 @@ enum OracleIDs : uint8_t  {
     Splits    = 'a',
 };
 
-enum ConsortiumIDs : uint8_t  {
-    Config    = 'a',
-};
-
 enum EconomyKeys : uint8_t {
     PaybackDFITokens   = 'a',
     PaybackTokens      = 'b',
@@ -72,6 +68,7 @@ enum DFIPKeys : uint8_t  {
     MNSetRewardAddress      = 'l',
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
+    ConsortiumEnabled       = 'p',
 };
 
 enum TokenKeys : uint8_t  {
@@ -94,10 +91,9 @@ enum TokenKeys : uint8_t  {
 };
 
 enum ConsortiumKeys : uint8_t  {
-    Enable                = 'a',
-    Members               = 'b',
-    MintLimit             = 'c',
-    DailyMintLimit        = 'd',
+    Members               = 'a',
+    MintLimit             = 'b',
+    DailyMintLimit        = 'c',
 };
 
 enum PoolKeys : uint8_t {

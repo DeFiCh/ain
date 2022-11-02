@@ -125,20 +125,6 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
     return params;
 }
 
-const std::map<std::string, uint8_t>& ATTRIBUTES::allowedConsortiumIDs() {
-    static const std::map<std::string, uint8_t> params{
-            {"config",    ConsortiumIDs::Config},
-    };
-    return params;
-}
-
-const std::map<uint8_t, std::string>& ATTRIBUTES::displayConsortiumIDs() {
-    static const std::map<uint8_t, std::string> params{
-            {ConsortiumIDs::Config,    "config"},
-    };
-    return params;
-}
-
 const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
@@ -160,7 +146,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         },
         {
             AttributeTypes::Consortium, {
-                {"enable",              ConsortiumKeys::Enable},
                 {"members",             ConsortiumKeys::Members},
                 {"mint_limit",          ConsortiumKeys::MintLimit},
                 {"daily_mint_limit",    ConsortiumKeys::DailyMintLimit},
@@ -189,6 +174,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
+                {"consortium_enabled",          DFIPKeys::ConsortiumEnabled},
             }
         },
     };
@@ -219,7 +205,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::Enable,        "enable"},
                 {ConsortiumKeys::Members,       "members"},
                 {ConsortiumKeys::MintLimit,     "mint_limit"},
                 {ConsortiumKeys::DailyMintLimit,"daily_mint_limit"},
@@ -248,6 +233,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
+                {DFIPKeys::ConsortiumEnabled,       "consortium_enabled"},
             }
         },
         {
@@ -462,7 +448,6 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::Enable,           VerifyBool},
                 {ConsortiumKeys::Members,          VerifyConsortiumMember},
                 {ConsortiumKeys::MintLimit,        VerifyPositiveFloat},
                 {ConsortiumKeys::DailyMintLimit,   VerifyPositiveFloat},
@@ -491,6 +476,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MNSetRewardAddress,      VerifyBool},
                 {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
+                {DFIPKeys::ConsortiumEnabled,       VerifyBool},
             }
         },
         {
@@ -594,12 +580,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
             return ::ShowError("oracles", allowedOracleIDs());
         }
         typeId = id->second;
-    } else if (type == AttributeTypes::Consortium && allowedConsortiumIDs().find(keys[2]) != allowedConsortiumIDs().end()) {
-        auto id = allowedConsortiumIDs().find(keys[2]);
-        if (id == allowedConsortiumIDs().end()) {
-            return ::ShowError("consortium", allowedConsortiumIDs());
-        }
-        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -670,16 +650,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     typeKey != DFIPKeys::GovFoundation &&
                     typeKey != DFIPKeys::MNSetRewardAddress &&
                     typeKey != DFIPKeys::MNSetOperatorAddress &&
-                    typeKey != DFIPKeys::MNSetOwnerAddress) {
+                    typeKey != DFIPKeys::MNSetOwnerAddress &&
+                    typeKey != DFIPKeys::ConsortiumEnabled) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else {
                 return Res::Err("Unsupported Param ID");
-            }
-        }
-        else if (type == AttributeTypes::Consortium) {
-            if (typeId != ConsortiumIDs::Config && typeKey == ConsortiumKeys::Enable) {
-                    return Res::Err("Unsupported key for Consortium token section");
             }
         }
 
@@ -1189,12 +1165,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
-                    case ConsortiumKeys::Enable:
-                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
-                        {
-                            return Res::Err("Cannot be set before GrandCentral");
-                        }
-                    break;
                     case ConsortiumKeys::Members:
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:
