@@ -32,9 +32,6 @@ class CommissionFixTest(DefiTestFramework):
         # Set up pool after fork
         self.setup_test_pool_fork()
 
-        # Test pool commission after fork
-        self.pool_commission_fork()
-
     def setup_test_tokens(self):
         # Generate chain
         self.nodes[0].generate(101)
@@ -149,9 +146,6 @@ class CommissionFixTest(DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        # Save block for revert
-        revert_block = self.nodes[0].getblockcount() + 1
-
         # Add pool liquidity
         self.nodes[0].addpoolliquidity({
             commission_address: [f'100@{self.symbolGOOGL}', f'100@{self.symbolDUSD}']
@@ -174,130 +168,15 @@ class CommissionFixTest(DefiTestFramework):
         })
         self.nodes[0].generate(2)
 
-        # Commission missing
+        # Check commission is present
+        commission_found = False
         for result in self.nodes[0].listaccounthistory(commission_address):
-            assert(result['type'] != 'Commission')
+            if 'Commission' in result['type']:
+                commission_found = True
+        assert(commission_found)
 
         # Show Commission with low depth
         result = self.nodes[0].listaccounthistory(commission_address, {'depth': 1})
-        assert_equal(result[0]['type'], 'Commission')
-
-        # Test accounttoaccount temp fix
-        self.nodes[0].accounttoaccount(commission_address, {
-            commission_address: self.nodes[0].getaccount(commission_address)
-        })
-        self.nodes[0].generate(1)
-
-        # Execute pool swap
-        self.nodes[0].poolswap({
-            "from": self.address,
-            "tokenFrom": self.symbolGOOGL,
-            "amountFrom": 1,
-            "to": self.address,
-            "tokenTo": self.symbolDUSD
-        })
-        self.nodes[0].generate(2)
-
-        # Show Commission
-        result = self.nodes[0].listaccounthistory(commission_address)
-        assert_equal(result[0]['type'], 'Commission')
-
-        # Revert to before add liqudity
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(revert_block))
-        self.nodes[0].clearmempool()
-
-        # Check pool empty
-        result = self.nodes[0].getpoolpair(self.symbolGD)
-        assert_equal(result[f'{self.idGD}']['reserveA'], Decimal('0'))
-
-        # Move to fork
-        self.nodes[0].generate(self.grand_central - self.nodes[0].getblockcount())
-
-        # Add pool liquidity
-        self.nodes[0].addpoolliquidity({
-            commission_address: [f'100@{self.symbolGOOGL}', f'100@{self.symbolDUSD}']
-        }, commission_address)
-        self.nodes[0].generate(1)
-
-        # Add liquidity twice for valid GetShare, possible bug?
-        self.nodes[0].addpoolliquidity({
-            commission_address: [f'100@{self.symbolGOOGL}', f'100@{self.symbolDUSD}']
-        }, commission_address)
-        self.nodes[0].generate(1)
-
-        # Execute pool swap
-        self.nodes[0].poolswap({
-            "from": self.address,
-            "tokenFrom": self.symbolGOOGL,
-            "amountFrom": 1,
-            "to": self.address,
-            "tokenTo": self.symbolDUSD
-        })
-        self.nodes[0].generate(2)
-
-        # Show Commission
-        result = self.nodes[0].listaccounthistory(commission_address)
-        assert_equal(result[0]['type'], 'Commission')
-
-    def pool_commission_fork(self):
-
-        # Set up commission address
-        commission_address = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].sendtoaddress(commission_address, 1)
-        self.nodes[0].accounttoaccount(self.address, {
-            commission_address: [f'1000@{self.symbolTSLA}', f'1000@{self.symbolDUSD}']
-        })
-        self.nodes[0].generate(1)
-
-        # Add pool liquidity
-        self.nodes[0].addpoolliquidity({
-            commission_address: [f'100@{self.symbolTSLA}', f'100@{self.symbolDUSD}']
-        }, commission_address)
-        self.nodes[0].generate(1)
-
-        # Add liquidity twice for valid GetShare, possible bug?
-        self.nodes[0].addpoolliquidity({
-            commission_address: [f'100@{self.symbolTSLA}', f'100@{self.symbolDUSD}']
-        }, commission_address)
-        self.nodes[0].generate(1)
-
-        # Execute pool swap
-        self.nodes[0].poolswap({
-            "from": self.address,
-            "tokenFrom": self.symbolTSLA,
-            "amountFrom": 1,
-            "to": self.address,
-            "tokenTo": self.symbolDUSD
-        })
-        self.nodes[0].generate(2)
-
-        # Show Commission
-        result = self.nodes[0].listaccounthistory(commission_address)
-        assert_equal(result[0]['type'], 'Commission')
-
-        # Token split
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}':f'{self.idTSLA}/2'}})
-        self.nodes[0].generate(2)
-
-        # Swap old for new values
-        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
-
-        # Unlock token
-        self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idTSLA}':'false'}})
-        self.nodes[0].generate(1)
-
-        # Execute pool swap
-        self.nodes[0].poolswap({
-            "from": self.address,
-            "tokenFrom": self.symbolTSLA,
-            "amountFrom": 1,
-            "to": self.address,
-            "tokenTo": self.symbolDUSD
-        })
-        self.nodes[0].generate(2)
-
-        # Show Commission
-        result = self.nodes[0].listaccounthistory(commission_address)
         assert_equal(result[0]['type'], 'Commission')
 
 if __name__ == '__main__':
