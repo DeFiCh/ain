@@ -84,6 +84,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // Note: DFIP2206F is currently in beta testing
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
+        {"feature",     ParamIDs::Feature},
     };
     return params;
 }
@@ -105,6 +106,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+        {ParamIDs::Feature,     "feature"},
     };
     return params;
 }
@@ -176,6 +178,11 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_interest_burn",          DFIPKeys::DUSDInterestBurn},
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
+                {"gov-unset",                   DFIPKeys::GovUnset},
+                {"gov-foundation",              DFIPKeys::GovFoundation},
+                {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
+                {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
+                {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
             }
         },
         {
@@ -221,14 +228,19 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,                      "active"},
-                {DFIPKeys::Premium,                     "premium"},
-                {DFIPKeys::MinSwap,                     "minswap"},
-                {DFIPKeys::RewardPct,                   "reward_pct"},
-                {DFIPKeys::BlockPeriod,                 "block_period"},
-                {DFIPKeys::DUSDInterestBurn,            "dusd_interest_burn"},
-                {DFIPKeys::DUSDLoanBurn,                "dusd_loan_burn"},
-                {DFIPKeys::StartBlock,                  "start_block"},
+                {DFIPKeys::Active,                  "active"},
+                {DFIPKeys::Premium,                 "premium"},
+                {DFIPKeys::MinSwap,                 "minswap"},
+                {DFIPKeys::RewardPct,               "reward_pct"},
+                {DFIPKeys::BlockPeriod,             "block_period"},
+                {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
+                {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
+                {DFIPKeys::StartBlock,              "start_block"},
+                {DFIPKeys::GovUnset,                "gov-unset"},
+                {DFIPKeys::GovFoundation,           "gov-foundation"},
+                {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
+                {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
+                {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
             }
         },
         {
@@ -402,14 +414,19 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Param, {
-                {DFIPKeys::Active,                          VerifyBool},
-                {DFIPKeys::Premium,                         VerifyPct},
-                {DFIPKeys::MinSwap,                         VerifyPositiveFloat},
-                {DFIPKeys::RewardPct,                       VerifyPct},
-                {DFIPKeys::BlockPeriod,                     VerifyInt64},
-                {DFIPKeys::DUSDInterestBurn,                VerifyBool},
-                {DFIPKeys::DUSDLoanBurn,                    VerifyBool},
-                {DFIPKeys::StartBlock,                      VerifyInt64},
+                {DFIPKeys::Active,                  VerifyBool},
+                {DFIPKeys::Premium,                 VerifyPct},
+                {DFIPKeys::MinSwap,                 VerifyPositiveFloat},
+                {DFIPKeys::RewardPct,               VerifyPct},
+                {DFIPKeys::BlockPeriod,             VerifyInt64},
+                {DFIPKeys::DUSDInterestBurn,        VerifyBool},
+                {DFIPKeys::DUSDLoanBurn,            VerifyBool},
+                {DFIPKeys::StartBlock,              VerifyInt64},
+                {DFIPKeys::GovUnset,                VerifyBool},
+                {DFIPKeys::GovFoundation,           VerifyBool},
+                {DFIPKeys::MNSetRewardAddress,      VerifyBool},
+                {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
+                {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
             }
         },
         {
@@ -591,7 +608,16 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
-            } else {
+
+            } else if (typeId == ParamIDs::Feature) {
+                if (typeKey != DFIPKeys::GovUnset &&
+                    typeKey != DFIPKeys::GovFoundation &&
+                    typeKey != DFIPKeys::MNSetRewardAddress &&
+                    typeKey != DFIPKeys::MNSetOperatorAddress &&
+                    typeKey != DFIPKeys::MNSetOwnerAddress) {
+                    return Res::Err("Unsupported type for Feature {%d}", typeKey);
+                }
+            }  else {
                     return Res::Err("Unsupported Param ID");
             }
         } else if (type == AttributeTypes::Governance) {
@@ -602,6 +628,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                 if (typeKey != GovernanceKeys::CFPPayout
                  && typeKey != GovernanceKeys::CFPFeeRedistribution)
                     return Res::Err("Unsupported key for Governance CFP section - {%d}", typeKey);
+
+            } else {
+                return Res::Err("Unsupported Governance ID");
+
             }
         }
 
@@ -1108,7 +1138,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
+                if (attrV0->typeId == ParamIDs::Feature) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");
                     }

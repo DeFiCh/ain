@@ -31,6 +31,7 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Feature   = 'h',
 };
 
 enum OracleIDs : uint8_t  {
@@ -65,6 +66,11 @@ enum DFIPKeys : uint8_t  {
     DUSDInterestBurn        = 'g',
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+    GovUnset                = 'j',
+    GovFoundation           = 'k',
+    MNSetRewardAddress      = 'l',
+    MNSetOperatorAddress    = 'm',
+    MNSetOwnerAddress       = 'n',
 };
 
 enum GovernanceKeys : uint8_t  {
