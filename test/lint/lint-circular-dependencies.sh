@@ -61,6 +61,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/loan -> masternodes/masternodes -> masternodes/loan"
     "masternodes/masternodes -> masternodes/mn_checks -> masternodes/masternodes"
     "masternodes/masternodes -> masternodes/oracles -> masternodes/masternodes"
+    "masternodes/masternodes -> masternodes/proposals -> masternodes/masternodes"
     "masternodes/masternodes -> masternodes/vaulthistory -> masternodes/masternodes"
     "masternodes/masternodes -> net_processing -> masternodes/masternodes"
     "masternodes/masternodes -> validation -> masternodes/masternodes"

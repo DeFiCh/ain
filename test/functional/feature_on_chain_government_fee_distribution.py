@@ -76,27 +76,27 @@ class CFPFeeDistributionTest(DefiTestFramework):
         mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
         account0 = self.nodes[0].getaccount(mn0['ownerAuthAddress'])
         assert_equal(account0[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn0['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn0['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         mn1 = self.nodes[0].getmasternode(self.mn1)[self.mn1]
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         # Fee should be redistributed to reward address
         mn2 = self.nodes[0].getmasternode(self.mn2)[self.mn2]
         account2 = self.nodes[0].getaccount(mn2['ownerAuthAddress'])
         assert_equal(account2[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         # mn3 did not vote on proposal
         mn3 = self.nodes[0].getmasternode(self.mn3)[self.mn3]
         account3 = self.nodes[0].getaccount(mn3['ownerAuthAddress'])
         assert_equal(account3, [])
-        history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(history, [])
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
@@ -125,11 +125,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
         self.nodes[0].generate(1)
 
         # activate fee redistribution
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
         self.nodes[0].generate(1)
 
         self.sync_blocks()
@@ -140,11 +140,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.test_cfp_fee_distribution(amount=50, expectedFee=1, vote="yes")
         self.test_cfp_fee_distribution(amount=100, expectedFee=1, vote="yes")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="no")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="neutral")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes", cycles=1)
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes", cycles=3)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="no")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="neutral")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes", cycles=1)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes", cycles=3)
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()

@@ -208,7 +208,7 @@ struct Params {
             CAmount fee;
             uint32_t majorityThreshold;
         } cfp, brp, voc;
-        int votingPeriod;
+        uint32_t votingPeriod;
         uint32_t minVoting;
     };
     CPropsParams props;

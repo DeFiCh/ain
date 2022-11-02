@@ -20,8 +20,11 @@ constexpr const uint16_t MAX_PROP_CONTEXT_SIZE = 512;
 
 enum CPropType : uint8_t {
     CommunityFundProposal   = 0x01,
-    BlockRewardReallocation = 0x02,
-    VoteOfConfidence        = 0x03,
+    VoteOfConfidence        = 0x02,
+};
+
+enum CPropOption : uint8_t {
+    Emergency   = 0x01,
 };
 
 enum CPropStatusType : uint8_t {
@@ -37,6 +40,7 @@ enum CPropVoteType : uint8_t {
 };
 
 std::string CPropTypeToString(const CPropType status);
+std::string CPropOptionToString(const CPropOption option);
 std::string CPropVoteToString(const CPropVoteType status);
 std::string CPropStatusToString(const CPropStatusType status);
 
@@ -48,6 +52,7 @@ struct CCreatePropMessage {
     std::string title;
     std::string context;
     std::string contexthash;
+    uint8_t options;
 
     ADD_SERIALIZE_METHODS;
 
@@ -61,6 +66,7 @@ struct CCreatePropMessage {
         READWRITE(title);
         READWRITE(context);
         READWRITE(contexthash);
+        READWRITE(options);
     }
 };
 
@@ -87,6 +93,12 @@ struct CPropObject : public CCreatePropMessage {
     uint32_t creationHeight{};
     uint32_t finalHeight{};
 
+    uint32_t votingPeriod;
+    uint32_t majority;
+    uint32_t minVoters;
+    CAmount fee;
+
+
     // memory only
     CPropStatusType status{};
     uint8_t cycle{};
@@ -99,6 +111,10 @@ struct CPropObject : public CCreatePropMessage {
         READWRITEAS(CCreatePropMessage, *this);
         READWRITE(creationHeight);
         READWRITE(finalHeight);
+        READWRITE(votingPeriod);
+        READWRITE(majority);
+        READWRITE(minVoters);
+        READWRITE(fee);
     }
 };
 
@@ -123,7 +139,7 @@ class CPropsView : public virtual CStorageView
 {
 public:
 
-    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop);
+    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop, const CAmount fee);
     std::optional<CPropObject> GetProp(const CPropId& propId);
     Res UpdatePropCycle(const CPropId& propId, uint8_t cycle);
     Res UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status);
@@ -134,8 +150,10 @@ public:
     void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
     void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
 
-    Res SetVotingPeriod(uint32_t votingPeriod);
-    uint32_t GetVotingPeriod();
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
+    virtual uint32_t GetMajorityFromAttributes(const CPropType& type) const = 0;
+    virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
+    virtual uint32_t GetMinVotersFromAttributes() const = 0;
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
     struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };
