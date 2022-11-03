@@ -125,7 +125,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('0.50000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('5.00000000'))
 
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")
@@ -234,7 +234,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check burn fee increment
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('3.00000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('7.50000000'))
 
         # Cast votes
         self.nodes[0].votegov(tx, mn0, "yes")
@@ -269,7 +269,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/governance/proposals/cfp_automatic_payout':'false',
-            'v0/governance/proposals/cfp_fee':'2.00000000',
+            'v0/governance/proposals/cfp_fee':'0.25',
             'v0/governance/proposals/voting_period':'100',
         }})
 
@@ -294,7 +294,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('4.00000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('13.75000000'))
 
         # cannot vote by non owning masternode
         assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[0].votegov, tx, mn1, "yes")
@@ -394,7 +394,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/governance/proposals/cfp_automatic_payout':'true',
             'v0/governance/proposals/cfp_emergency_period': f'{emergencyPeriod}',
-            'v0/governance/proposals/cfp_emergency_fee':'5.00000000',
+            'v0/governance/proposals/cfp_emergency_fee':'0.50000000',
             'v0/governance/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/governance/proposals/voc_emergency_fee':'20.00000000',
             'v0/governance/proposals/voc_majority':'4999'
@@ -410,7 +410,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('6.50000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('26.25000000'))
 
         # Check proposal
         finalHeight = self.nodes[0].getblockcount() + emergencyPeriod
@@ -461,7 +461,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check burn fee increment
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('16.50000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('36.25000000'))
 
         # Cast votes
         self.nodes[0].votegov(tx, mn0, "yes")

@@ -23,7 +23,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
         ]
 
-    def test_cfp_fee_distribution(self, amount, expectedFee, vote, cycles=2):
+    def test_cfp_fee_distribution(self, amount, expectedFee, vote, cycles=2, increaseFee = False):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -47,6 +47,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         # Check fee burn
         # Half should be burned, the rest distributed among voting masternodes
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal(expectedFee / 2))
+
+        # increase the fee in the middle of CFP and check that refund to MNs didn't change
+        if (increaseFee) :
+            self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'0.05'}})
+            self.nodes[0].generate(1)
 
         # Vote on proposal
         self.nodes[0].votegov(propId, self.mn0, vote)
@@ -138,13 +143,17 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.setup()
 
-        self.test_cfp_fee_distribution(amount=50, expectedFee=1, vote="yes")
-        self.test_cfp_fee_distribution(amount=100, expectedFee=1, vote="yes")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="no")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="neutral")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes", cycles=1)
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=1, vote="yes", cycles=3)
+        self.test_cfp_fee_distribution(amount=50, expectedFee=10, vote="yes")
+        self.test_cfp_fee_distribution(amount=100, expectedFee=10, vote="yes")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="no")
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="neutral", increaseFee=True)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'2%'}})
+        self.nodes[0].generate(1)
+
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, vote="yes", cycles=1)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, vote="yes", cycles=3)
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()

@@ -194,7 +194,7 @@ public:
 
         consensus.vaultCreationFee = 2 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
@@ -442,7 +442,7 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
@@ -643,7 +643,7 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
@@ -836,7 +836,7 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
 
-        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority

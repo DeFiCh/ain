@@ -88,9 +88,11 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMes
     CDataStructureV0 VOCEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
     bool emergency = (options & CPropOption::Emergency);
 
+    CAmount cfpFee;
     switch(type) {
         case CPropType::CommunityFundProposal:
-            return attributes->GetValue(emergency ? CFPEmergencyKey : CFPKey, Params().GetConsensus().props.cfp.fee);
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(emergency ? CFPEmergencyKey : CFPKey, Params().GetConsensus().props.cfp.fee));
+            return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
         case CPropType::VoteOfConfidence:
             return attributes->GetValue(emergency ? VOCEmergencyKey : VOCKey, Params().GetConsensus().props.voc.fee);
     }

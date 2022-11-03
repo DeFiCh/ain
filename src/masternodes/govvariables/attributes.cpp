@@ -339,7 +339,16 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
-    auto resVal = VerifyPositiveFloat(str);
+    std::string val = str;
+    if (val.size() > 0 && val.back() == '%')
+    {
+        val.pop_back();
+        if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
+        else if (val.size() > 1) val.insert(0, "0.");
+        else val.insert(0, "0.0");
+        std::cout << val << std::endl;
+    }
+    auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
         return resVal;
     }
@@ -457,7 +466,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MNSetRewardAddress,      VerifyBool},
                 {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
-                {DFIPKeys::GovernanceEnabled,        VerifyBool},
+                {DFIPKeys::GovernanceEnabled,       VerifyBool},
 
             }
         },
@@ -475,8 +484,8 @@ const std::map<uint8_t, std::map<uint8_t,
             AttributeTypes::Governance, {
                 {GovernanceKeys::FeeRedistribution,     VerifyBool},
                 {GovernanceKeys::CFPPayout,             VerifyBool},
-                {GovernanceKeys::CFPFee,                VerifyPositiveFloat},
-                {GovernanceKeys::CFPEmergencyFee,       VerifyPositiveFloat},
+                {GovernanceKeys::CFPFee,                VerifyPct},
+                {GovernanceKeys::CFPEmergencyFee,       VerifyPct},
                 {GovernanceKeys::CFPEmergencyPeriod,    VerifyUInt32},
                 {GovernanceKeys::CFPMajority,           VerifyUInt32},
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
