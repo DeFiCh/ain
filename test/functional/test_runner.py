@@ -293,6 +293,7 @@ BASE_SCRIPTS = [
     'feature_listaccounts_pagination.py',
     'feature_on_chain_government.py',
     'feature_on_chain_government_fee_distribution.py',
+    'feature_on_chain_government_govvar_update.py',
     'rpc_help.py',
     'feature_help.py',
     'feature_shutdown.py',
