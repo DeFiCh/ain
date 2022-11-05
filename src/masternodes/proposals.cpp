@@ -57,7 +57,6 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
 
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
-
     if (emergency)
     {
         height += prop.votingPeriod;
@@ -65,8 +64,9 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     }
     else
     {
+        height = height + (prop.votingPeriod - height % prop.votingPeriod);
         for (uint8_t i = 1; i <= prop.nCycles; ++i) {
-            height += (height % prop.votingPeriod) + prop.votingPeriod;
+            height += prop.votingPeriod;
             auto keyPair = std::make_pair(height, propId);
             WriteBy<ByCycle>(keyPair, i);
         }
