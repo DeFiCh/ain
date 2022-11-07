@@ -82,6 +82,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // Note: DFIP2206F is currently in beta testing
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
+        {"feature",     ParamIDs::Feature},
     };
     return params;
 }
@@ -103,6 +104,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+        {ParamIDs::Feature,     "feature"},
     };
     return params;
 }
@@ -158,6 +160,11 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_interest_burn",          DFIPKeys::DUSDInterestBurn},
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
+                {"gov-unset",                   DFIPKeys::GovUnset},
+                {"gov-foundation",              DFIPKeys::GovFoundation},
+                {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
+                {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
+                {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
             }
         },
     };
@@ -204,6 +211,11 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
                 {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
+                {DFIPKeys::GovUnset,                "gov-unset"},
+                {DFIPKeys::GovFoundation,           "gov-foundation"},
+                {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
+                {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
+                {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
             }
         },
         {
@@ -378,6 +390,11 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::DUSDInterestBurn,  VerifyBool},
                 {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
+                {DFIPKeys::GovUnset,                VerifyBool},
+                {DFIPKeys::GovFoundation,           VerifyBool},
+                {DFIPKeys::MNSetRewardAddress,      VerifyBool},
+                {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
+                {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
             }
         },
         {
@@ -425,7 +442,7 @@ void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
     mnview.SetVariable(*attributes);
 }
 
-Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
+Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
                                 std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
 
     if (key.size() > 128) {
@@ -437,7 +454,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Empty version");
     }
 
-    if (value.empty()) {
+    if (value && value->empty()) {
         return Res::Err("Empty value");
     }
 
@@ -546,6 +563,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
+            } else if (typeId == ParamIDs::Feature) {
+                if (typeKey != DFIPKeys::GovUnset &&
+                    typeKey != DFIPKeys::GovFoundation &&
+                    typeKey != DFIPKeys::MNSetRewardAddress &&
+                    typeKey != DFIPKeys::MNSetOperatorAddress &&
+                    typeKey != DFIPKeys::MNSetOwnerAddress) {
+                    return Res::Err("Unsupported type for Feature {%d}", typeKey);
+                }
             }  else {
                 return Res::Err("Unsupported Param ID");
             }
@@ -569,9 +594,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
     }
 
+    if (!value) {
+        return applyVariable(attrV0, {});
+    }
+
     try {
         if (auto parser = parseValue().at(type).at(typeKey)) {
-            auto attribValue = parser(value);
+            auto attribValue = parser(*value);
             if (!attribValue) {
                 return std::move(attribValue);
             }
@@ -580,6 +609,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     } catch (const std::out_of_range&) {
     }
     return Res::Err("No parse function {%d, %d}", type, typeKey);
+}
+
+bool ATTRIBUTES::IsEmpty() const
+{
+    return attributes.empty();
 }
 
 Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID)
@@ -1052,7 +1086,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
+                if (attrV0->typeId == ParamIDs::Feature) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");
                     }
@@ -1210,6 +1248,12 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                 }
             } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
                 if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
+                    // Skip on if skip collateral check is passed
+                    if (Params().NetworkIDString() == CBaseChainParams::REGTEST &&
+                        gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {
+                        continue;
+                    }
+
                     std::set<CAmount> ratio;
                     mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
                         ratio.insert(data.ratio);
@@ -1341,6 +1385,51 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     SetValue(lockKey, true);
                 }
             }
+        }
+    }
+    return Res::Ok();
+}
+
+Res ATTRIBUTES::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const & keys)
+{
+    for (const auto& key : keys) {
+        auto res = ProcessVariable(key, {},
+            [&](const CAttributeType& attribute, const CAttributeValue&) {
+                auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+                if (!attrV0) {
+                    return Res::Ok();
+                }
+                if (attrV0->type == AttributeTypes::Live) {
+                    return Res::Err("Live attribute cannot be deleted");
+                }
+                if (!EraseKey(attribute)) {
+                    return Res::Err("Attribute {%d} not exists", attrV0->type);
+                }
+                if (attrV0->type == AttributeTypes::Poolpairs) {
+                    auto poolId = DCT_ID{attrV0->typeId};
+                    auto pool = mnview.GetPoolPair(poolId);
+                    if (!pool) {
+                        return Res::Err("No such pool (%d)", poolId.v);
+                    }
+                    auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                                                pool->idTokenA : pool->idTokenB;
+
+                    return mnview.EraseDexFeePct(poolId, tokenId);
+                } else if (attrV0->type == AttributeTypes::Token) {
+                    if (attrV0->key == TokenKeys::DexInFeePct
+                    ||  attrV0->key == TokenKeys::DexOutFeePct) {
+                        DCT_ID tokenA{attrV0->typeId}, tokenB{~0u};
+                        if (attrV0->key == TokenKeys::DexOutFeePct) {
+                            std::swap(tokenA, tokenB);
+                        }
+                        return mnview.EraseDexFeePct(tokenA, tokenB);
+                    }
+                }
+                return Res::Ok();
+            }
+        );
+        if (!res) {
+            return res;
         }
     }
 

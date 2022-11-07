@@ -87,6 +87,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
         case CustomTxType::TokenSplit:          return "TokenSplit";
         case CustomTxType::Reject:              return "Reject";
+        case CustomTxType::UnsetGovVariable:    return "UnsetGovVariable";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -186,6 +187,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:              return CCustomTxMessageNone{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -259,6 +261,13 @@ class CCustomMetadataParseVisitor
     Res isPostFortCanningEpilogueFork() const {
         if(static_cast<int>(height) < consensus.FortCanningEpilogueHeight) {
             return Res::Err("called before FortCanningEpilogue height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostGrandCentralFork() const {
+        if(static_cast<int>(height) < consensus.GrandCentralHeight) {
+            return Res::Err("called before GrandCentral height");
         }
         return Res::Ok();
     }
@@ -602,6 +611,11 @@ public:
 
     Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CGovernanceUnsetMessage& obj) const {
+        auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1744,6 +1758,33 @@ public:
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CGovernanceUnsetMessage& obj) const {
+        //check foundation auth
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member");
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
+        if (!attributes->GetValue(key, false)) {
+            return Res::Err("Unset Gov variables not currently enabled in attributes.");
+        }
+
+        for(const auto& gov : obj.govs) {
+            auto var = mnview.GetVariable(gov.first);
+            if (!var)
+                return Res::Err("'%s': variable does not registered", gov.first);
+
+            auto res = var->Erase(mnview, height, gov.second);
+            if (!res)
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+
+            if (!(res = mnview.SetVariable(*var)))
+                return Res::Err("%s: %s", var->GetName(), res.msg);
         }
         return Res::Ok();
     }
@@ -4101,9 +4142,17 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view, bool testOnly
 
 std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& view) {
 
+    std::vector<std::vector<DCT_ID>> poolPaths;
+
     // For tokens to be traded get all pairs and pool IDs
     std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
     view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+        if ((obj.idTokenFrom == pool.idTokenA && obj.idTokenTo == pool.idTokenB)
+        || (obj.idTokenTo == pool.idTokenA && obj.idTokenFrom == pool.idTokenB)) {
+            // Push poolId when direct path
+            poolPaths.push_back({{id}});
+        }
+
         if (pool.idTokenA == obj.idTokenFrom) {
             fromPoolsID.emplace(pool.idTokenB.v, id);
         } else if (pool.idTokenB == obj.idTokenFrom) {
@@ -4131,9 +4180,7 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
                      });
 
     // Loop through all common pairs and record direct pool to pool swaps
-    std::vector<std::vector<DCT_ID>> poolPaths;
     for (const auto& item : commonPairs) {
-
         // Loop through all source/intermediate pools matching common pairs
         const auto poolFromIDs = fromPoolsID.equal_range(item.first);
         for (auto fromID = poolFromIDs.first; fromID != poolFromIDs.second; ++fromID) {
@@ -4141,7 +4188,6 @@ std::vector<std::vector<DCT_ID>> CPoolSwap::CalculatePoolPaths(CCustomCSView& vi
             // Loop through all destination pools matching common pairs
             const auto poolToIDs = toPoolsID.equal_range(item.first);
             for (auto toID = poolToIDs.first; toID != poolToIDs.second; ++toID) {
-
                 // Add to pool paths
                 poolPaths.push_back({fromID->second, toID->second});
             }
@@ -4537,8 +4583,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
 
         burnAmount = subCollateralAmount;
     } else {
-        // Postive interest: Loan + interest > collateral. 
-        // Negative interest: Loan - abs(interest) > collateral. 
+        // Postive interest: Loan + interest > collateral.
+        // Negative interest: Loan - abs(interest) > collateral.
         if (loanDUSD + subInterest > collateralDUSD) {
             subLoanAmount = collateralDUSD - subInterest;
             subCollateralAmount = collateralDUSD;
@@ -4548,7 +4594,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
             subCollateralAmount = loanDUSD + subInterest;
         }
 
-        if (subLoanAmount > 0) {    
+        if (subLoanAmount > 0) {
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }
@@ -4567,6 +4613,8 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     {
         res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
         if (!res) return res;
+    } else {
+        TrackNegativeInterest(view, {dUsdToken->first, std::abs(burnAmount)});
     }
 
     // Guard against liquidation
@@ -4579,9 +4627,9 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
     if (!collateralsLoans)
         return std::move(collateralsLoans);
 
-    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable. 
+    // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5 currently)
-    // can be tested for economical stability. Taking the safer approach for now. 
+    // can be tested for economical stability. Taking the safer approach for now.
     if (!IsVaultPriceValid(view, vaultId, height))
         return Res::Err("Cannot payback vault with non-DUSD assets while any of the asset's price is invalid");
 
