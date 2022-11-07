@@ -17,10 +17,12 @@ public:
         return TypeName();
     }
 
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
+    Res Erase(CCustomCSView &mnview, uint32_t height, std::vector<std::string> const &) override;
 
     static constexpr char const * TypeName() { return "ORACLE_DEVIATION"; }
     static GovVariable * Create() { return new ORACLE_DEVIATION(); }
@@ -32,7 +34,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(deviation);
     }
-    CAmount deviation;
+
+    GvOptional<CAmount> deviation;
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_ORACLE_DEVIATION_H
