@@ -134,6 +134,13 @@ UniValue poolPathsToJSON(std::vector<std::vector<DCT_ID>> & poolPaths) {
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
+
+    if (metadataObj["tokenFrom"].getValStr().empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenFrom is empty");
+    }
+    if (metadataObj["tokenTo"].getValStr().empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenTo is empty");
+    }
     if (!metadataObj["from"].isNull()) {
         poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
     }
@@ -1127,6 +1134,9 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                     errorMsg += '"' + poolSwap.errors[i].first + "\":\"" +  poolSwap.errors[i].second + '"' + (i + 1 < poolSwap.errors.size() ? "," : "");
                 }
                 errorMsg += ')';
+            } else {
+                // simple swaps use res.msg
+                errorMsg += " Details: " + res.msg;
             }
             throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
         }
