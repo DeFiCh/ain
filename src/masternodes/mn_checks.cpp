@@ -91,6 +91,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::CFPFeeRedistribution:    return "CFPFeeRedistribution";
         case CustomTxType::CreateVoc:               return "CreateVoc";
         case CustomTxType::Vote:                    return "Vote";
+        case CustomTxType::UnsetGovVariable:    return "UnsetGovVariable";
         case CustomTxType::None:                    return "None";
     }
     return "None";
@@ -194,6 +195,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:              return CCustomTxMessageNone{};
         case CustomTxType::CFPFeeRedistribution:    return CCustomTxMessageNone{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -626,6 +628,11 @@ public:
     }
 
     Res operator()(CPropVoteMessage& obj) const {
+        auto res = isPostGrandCentralFork();
+        return !res ? res : serialize(obj);
+    }
+    
+    Res operator()(CGovernanceUnsetMessage& obj) const {
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
@@ -1802,6 +1809,33 @@ public:
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CGovernanceUnsetMessage& obj) const {
+        //check foundation auth
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member");
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
+        if (!attributes->GetValue(key, false)) {
+            return Res::Err("Unset Gov variables not currently enabled in attributes.");
+        }
+
+        for(const auto& gov : obj.govs) {
+            auto var = mnview.GetVariable(gov.first);
+            if (!var)
+                return Res::Err("'%s': variable does not registered", gov.first);
+
+            auto res = var->Erase(mnview, height, gov.second);
+            if (!res)
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+
+            if (!(res = mnview.SetVariable(*var)))
+                return Res::Err("%s: %s", var->GetName(), res.msg);
         }
         return Res::Ok();
     }

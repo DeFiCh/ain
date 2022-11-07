@@ -146,6 +146,7 @@ enum class CustomTxType : uint8_t
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     CFPFeeRedistribution   = 'Y'
+    UnsetGovVariable       = 'Z',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -210,6 +211,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::CFPFeeRedistribution:
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
+        case CustomTxType::UnsetGovVariable:
         case CustomTxType::None:
             return type;
     }
@@ -375,6 +377,16 @@ struct CGovernanceHeightMessage {
     uint32_t startHeight;
 };
 
+struct CGovernanceUnsetMessage {
+    std::map<std::string, std::vector<std::string>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(govs);
+    }
+};
+
 struct CCustomTxMessageNone {};
 
 using CCustomTxMessage = std::variant<
@@ -401,6 +413,7 @@ using CCustomTxMessage = std::variant<
     CSmartContractMessage,
     CFutureSwapMessage,
     CGovernanceMessage,
+    CGovernanceUnsetMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,

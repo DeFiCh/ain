@@ -16,15 +16,12 @@ setup_vars() {
   TMP_LOG=debug-tmp-$STOP_BLOCK.log
   BASE_PATH=https://storage.googleapis.com
   BUCKET=team-drop
-  REF_LOG_DIR=master-logs-full
   REF_LOG=debug-$STOP_BLOCK.log
   REF_LOG_PATH=$BASE_PATH/$BUCKET/$REF_LOG_DIR/$REF_LOG
 
   # Commands
-  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange"
+  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange -spv"
   DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
-  ACCOUNT_BALANCES_CMD="$DEFI_CLI_CMD logaccountbalances"
-  LIST_ANCHORS_CMD="$DEFI_CLI_CMD spv_listanchors"
   FETCH="wget -q"
   GREP="grep"
 
@@ -33,6 +30,19 @@ setup_vars() {
   MAX_ATTEMPTS=10
   MAX_NODE_RESTARTS=5
   NODE_RESTARTS=0
+}
+
+create_log_file () {
+    echo "Output log to $TMP_LOG file"
+    {
+    $GREP "AccountChange:" $DEBUG_FILE | cut -d" " -f2-
+    $DEFI_CLI_CMD logaccountbalances
+    $DEFI_CLI_CMD spv_listanchors
+    $DEFI_CLI_CMD logstoredinterests
+    $DEFI_CLI_CMD listvaults '{"verbose": true}' '{"limit":1000000}'
+    $DEFI_CLI_CMD listtokens '{"limit":1000000}'
+    $DEFI_CLI_CMD getburninfo
+    } >> $TMP_LOG
 }
 
 # Start defid
@@ -74,9 +84,7 @@ main() {
   done
 
   # Create temporary log file
-  $GREP "AccountChange:" $DEBUG_FILE | cut -d" " -f2- > $TMP_LOG
-  $ACCOUNT_BALANCES_CMD >> $TMP_LOG
-  $LIST_ANCHORS_CMD >> $TMP_LOG
+  create_log_file
 
   $DEFI_CLI_CMD stop
   # Download reference log file

@@ -17,10 +17,12 @@ public:
         return TypeName();
     }
 
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
+    Res Erase(CCustomCSView &mnview, uint32_t height, std::vector<std::string> const &) override;
 
     static constexpr char const * TypeName() { return "LOAN_LIQUIDATION_PENALTY"; }
     static GovVariable * Create() { return new LOAN_LIQUIDATION_PENALTY(); }
@@ -32,7 +34,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(penalty);
     }
-    CAmount penalty;
+
+    GvOptional<CAmount> penalty;
 };
 
 #endif // DEFI_MASTERNODES_GOVVARIABLES_LOAN_LIQUIDATION_PENALTY_H
