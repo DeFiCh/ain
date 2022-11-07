@@ -230,6 +230,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
+                {EconomyKeys::Loans,              "loans"},
             }
         },
     };
@@ -429,17 +430,33 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
     return Res::Err(error);
 }
 
+static void TrackLiveBalance(CCustomCSView& mnview, const CTokenAmount& amount, const EconomyKeys dataKey, const bool add) {
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    CDataStructureV0 key{AttributeTypes::Live, ParamIDs::Economy, dataKey};
+    auto balances = attributes->GetValue(key, CBalances{});
+    if (add) {
+        balances.Add(amount);
+    } else {
+        balances.Sub(amount);
+    }
+    attributes->SetValue(key, balances);
+    mnview.SetVariable(*attributes);
+}
+
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
     if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
         return;
     }
-    auto attributes = mnview.GetAttributes();
-    assert(attributes);
-    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
-    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
-    negativeInterestBalances.Add(amount);
-    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
-    mnview.SetVariable(*attributes);
+    TrackLiveBalance(mnview, amount, EconomyKeys::NegativeInt, true);
+}
+
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::Loans, true);
+}
+
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::Loans, false);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,

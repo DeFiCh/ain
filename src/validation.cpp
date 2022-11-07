@@ -3365,6 +3365,10 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // Remove loan from the vault
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
 
+                if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDSub(cache, {tokenId, tokenValue});
+                }
+
                 // Remove interest from the vault
                 cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue,
                     subInterest < 0 || (!subInterest && rate->interestPerBlock.negative) ? std::numeric_limits<CAmount>::max() : subInterest);
@@ -3494,6 +3498,12 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
+
+                // When tracking loan amounts remove interest.
+                if (const auto token = view.GetToken("DUSD"); token && token->first == batch->loanAmount.nTokenId) {
+                    TrackDUSDAdd(view, {batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest});
+                }
+
                 if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
                 }
