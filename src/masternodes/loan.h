@@ -478,6 +478,7 @@ public:
     void ForEachLoanTokenAmount(std::function<bool (const CVaultId&,  const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
+    Res EraseLoanLiquidationPenalty();
     CAmount GetLoanLiquidationPenalty();
 
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
