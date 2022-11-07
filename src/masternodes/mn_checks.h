@@ -46,7 +46,7 @@ enum class CustomTxType : uint8_t
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
-    BurnToken             = 'E',
+    BurnToken             = 'O',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
     //poolpair
