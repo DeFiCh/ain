@@ -566,6 +566,96 @@ UniValue setgov(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue unsetgov(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"unsetgov",
+               "\nUnset special 'governance' variables:: ATTRIBUTES, ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               {
+                    {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
+                        {
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Variable's name is the key."},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("unsetgov", "'{\"LP_SPLITS\": [\"2\",\"3\"]'")
+                       + HelpExampleRpc("unsetgov", "'{\"ICX_TAKERFEE_PER_BTC\"}'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    std::map<std::string, std::vector<std::string>> govs;
+    if (request.params.size() > 0 && request.params[0].isObject()) {
+        for (const std::string& name : request.params[0].getKeys()) {
+            auto gv = GovVariable::Create(name);
+            if (!gv) {
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+            }
+            auto& keys = govs[name];
+            const auto& value = request.params[0][name];
+            if (value.isArray()) {
+                for (const auto& key : value.getValues()) {
+                    keys.push_back(key.get_str());
+                }
+            }
+        }
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UnsetGovVariable)
+             << govs;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue const & txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue setgovheight(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
@@ -962,6 +1052,7 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
+    {"blockchain",  "unsetgov",              &unsetgov,              {"variables", "inputs"}},
     {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "listgovs",              &listgovs,              {"prefix"}},

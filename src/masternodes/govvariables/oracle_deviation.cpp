@@ -8,6 +8,10 @@
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
+bool ORACLE_DEVIATION::IsEmpty() const
+{
+    return !deviation.has_value();
+}
 
 Res ORACLE_DEVIATION::Import(const UniValue & val)
 {
@@ -17,7 +21,7 @@ Res ORACLE_DEVIATION::Import(const UniValue & val)
 
 UniValue ORACLE_DEVIATION::Export() const
 {
-    return ValueFromAmount(deviation);
+    return ValueFromAmount(deviation.value_or(0));
 }
 
 Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
@@ -33,5 +37,11 @@ Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
 
 Res ORACLE_DEVIATION::Apply(CCustomCSView & mnview, uint32_t height)
 {
-    return mnview.SetPriceDeviation(deviation);
+    return mnview.SetPriceDeviation(deviation.value_or(0));
+}
+
+Res ORACLE_DEVIATION::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const &)
+{
+    deviation.reset();
+    return mnview.ErasePriceDeviation();
 }
