@@ -91,6 +91,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ProposalFeeRedistribution:return "ProposalFeeRedistribution";
         case CustomTxType::CreateVoc:               return "CreateVoc";
         case CustomTxType::Vote:                    return "Vote";
+        case CustomTxType::UnsetGovVariable:    return "UnsetGovVariable";
         case CustomTxType::None:                    return "None";
     }
     return "None";
@@ -187,14 +188,15 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
-        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
-        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
-        case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:              return CCustomTxMessageNone{};
-        case CustomTxType::ProposalFeeRedistribution:return CCustomTxMessageNone{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
+        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
+        case CustomTxType::Vote:                    return CPropVoteMessage{};
+        case CustomTxType::ProposalFeeRedistribution:return CCustomTxMessageNone{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -626,6 +628,11 @@ public:
     }
 
     Res operator()(CPropVoteMessage& obj) const {
+        auto res = isPostGrandCentralFork();
+        return !res ? res : serialize(obj);
+    }
+    
+    Res operator()(CGovernanceUnsetMessage& obj) const {
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
@@ -1802,6 +1809,33 @@ public:
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CGovernanceUnsetMessage& obj) const {
+        //check foundation auth
+        if (!HasFoundationAuth())
+            return Res::Err("tx not from foundation member");
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
+        if (!attributes->GetValue(key, false)) {
+            return Res::Err("Unset Gov variables not currently enabled in attributes.");
+        }
+
+        for(const auto& gov : obj.govs) {
+            auto var = mnview.GetVariable(gov.first);
+            if (!var)
+                return Res::Err("'%s': variable does not registered", gov.first);
+
+            auto res = var->Erase(mnview, height, gov.second);
+            if (!res)
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+
+            if (!(res = mnview.SetVariable(*var)))
+                return Res::Err("%s: %s", var->GetName(), res.msg);
         }
         return Res::Ok();
     }
@@ -3824,7 +3858,7 @@ public:
 
         auto prop = mnview.GetProp(obj.propId);
         if (!prop)
-            return Res::Err("proposal <%s> does not exists", obj.propId.GetHex());
+            return Res::Err("proposal <%s> does not exist", obj.propId.GetHex());
 
         if (prop->status != CPropStatusType::Voting)
             return Res::Err("proposal <%s> is not in voting period", obj.propId.GetHex());
