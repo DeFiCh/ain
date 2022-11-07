@@ -82,6 +82,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // Note: DFIP2206F is currently in beta testing
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
+        {"feature",     ParamIDs::Feature},
     };
     return params;
 }
@@ -103,6 +104,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::DFIP2206F,   "dfip2206f"},
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
+        {ParamIDs::Feature,     "feature"},
     };
     return params;
 }
@@ -125,18 +127,19 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
             AttributeTypes::Token, {
-                {"payback_dfi",             TokenKeys::PaybackDFI},
-                {"payback_dfi_fee_pct",     TokenKeys::PaybackDFIFeePCT},
-                {"loan_payback",            TokenKeys::LoanPayback},
-                {"loan_payback_fee_pct",    TokenKeys::LoanPaybackFeePCT},
-                {"dex_in_fee_pct",          TokenKeys::DexInFeePct},
-                {"dex_out_fee_pct",         TokenKeys::DexOutFeePct},
-                {"dfip2203",                TokenKeys::DFIP2203Enabled},
-                {"fixed_interval_price_id", TokenKeys::FixedIntervalPriceId},
-                {"loan_collateral_enabled", TokenKeys::LoanCollateralEnabled},
-                {"loan_collateral_factor",  TokenKeys::LoanCollateralFactor},
-                {"loan_minting_enabled",    TokenKeys::LoanMintingEnabled},
-                {"loan_minting_interest",   TokenKeys::LoanMintingInterest},
+                {"payback_dfi",                  TokenKeys::PaybackDFI},
+                {"payback_dfi_fee_pct",          TokenKeys::PaybackDFIFeePCT},
+                {"loan_payback",                 TokenKeys::LoanPayback},
+                {"loan_payback_fee_pct",         TokenKeys::LoanPaybackFeePCT},
+                {"loan_payback_collateral",      TokenKeys::LoanPaybackCollateral},
+                {"dex_in_fee_pct",               TokenKeys::DexInFeePct},
+                {"dex_out_fee_pct",              TokenKeys::DexOutFeePct},
+                {"dfip2203",                     TokenKeys::DFIP2203Enabled},
+                {"fixed_interval_price_id",      TokenKeys::FixedIntervalPriceId},
+                {"loan_collateral_enabled",      TokenKeys::LoanCollateralEnabled},
+                {"loan_collateral_factor",       TokenKeys::LoanCollateralFactor},
+                {"loan_minting_enabled",         TokenKeys::LoanMintingEnabled},
+                {"loan_minting_interest",        TokenKeys::LoanMintingInterest},
             }
         },
         {
@@ -157,6 +160,11 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"dusd_interest_burn",          DFIPKeys::DUSDInterestBurn},
                 {"dusd_loan_burn",              DFIPKeys::DUSDLoanBurn},
                 {"start_block",                 DFIPKeys::StartBlock},
+                {"gov-unset",                   DFIPKeys::GovUnset},
+                {"gov-foundation",              DFIPKeys::GovFoundation},
+                {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
+                {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
+                {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
             }
         },
     };
@@ -167,21 +175,22 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
     static const std::map<uint8_t, std::map<uint8_t, std::string>> keys{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,            "payback_dfi"},
-                {TokenKeys::PaybackDFIFeePCT,      "payback_dfi_fee_pct"},
-                {TokenKeys::LoanPayback,           "loan_payback"},
-                {TokenKeys::LoanPaybackFeePCT,     "loan_payback_fee_pct"},
-                {TokenKeys::DexInFeePct,           "dex_in_fee_pct"},
-                {TokenKeys::DexOutFeePct,          "dex_out_fee_pct"},
-                {TokenKeys::FixedIntervalPriceId,  "fixed_interval_price_id"},
-                {TokenKeys::LoanCollateralEnabled, "loan_collateral_enabled"},
-                {TokenKeys::LoanCollateralFactor,  "loan_collateral_factor"},
-                {TokenKeys::LoanMintingEnabled,    "loan_minting_enabled"},
-                {TokenKeys::LoanMintingInterest,   "loan_minting_interest"},
-                {TokenKeys::DFIP2203Enabled,       "dfip2203"},
-                {TokenKeys::Ascendant,             "ascendant"},
-                {TokenKeys::Descendant,            "descendant"},
-                {TokenKeys::Epitaph,               "epitaph"},
+                {TokenKeys::PaybackDFI,                "payback_dfi"},
+                {TokenKeys::PaybackDFIFeePCT,          "payback_dfi_fee_pct"},
+                {TokenKeys::LoanPayback,               "loan_payback"},
+                {TokenKeys::LoanPaybackFeePCT,         "loan_payback_fee_pct"},
+                {TokenKeys::LoanPaybackCollateral,     "loan_payback_collateral"},
+                {TokenKeys::DexInFeePct,               "dex_in_fee_pct"},
+                {TokenKeys::DexOutFeePct,              "dex_out_fee_pct"},
+                {TokenKeys::FixedIntervalPriceId,      "fixed_interval_price_id"},
+                {TokenKeys::LoanCollateralEnabled,     "loan_collateral_enabled"},
+                {TokenKeys::LoanCollateralFactor,      "loan_collateral_factor"},
+                {TokenKeys::LoanMintingEnabled,        "loan_minting_enabled"},
+                {TokenKeys::LoanMintingInterest,       "loan_minting_interest"},
+                {TokenKeys::DFIP2203Enabled,           "dfip2203"},
+                {TokenKeys::Ascendant,                 "ascendant"},
+                {TokenKeys::Descendant,                "descendant"},
+                {TokenKeys::Epitaph,                   "epitaph"},
             }
         },
         {
@@ -202,6 +211,11 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::DUSDInterestBurn,        "dusd_interest_burn"},
                 {DFIPKeys::DUSDLoanBurn,            "dusd_loan_burn"},
                 {DFIPKeys::StartBlock,              "start_block"},
+                {DFIPKeys::GovUnset,                "gov-unset"},
+                {DFIPKeys::GovFoundation,           "gov-foundation"},
+                {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
+                {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
+                {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
             }
         },
         {
@@ -214,6 +228,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FCurrent,   "dfip2206f_current"},
                 {EconomyKeys::DFIP2206FBurned,    "dfip2206f_burned"},
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
+                {EconomyKeys::NegativeInt,        "negative_interest"},
+                {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
             }
         },
     };
@@ -341,18 +357,19 @@ const std::map<uint8_t, std::map<uint8_t,
         std::function<ResVal<CAttributeValue>(const std::string&)>>> parsers{
         {
             AttributeTypes::Token, {
-                {TokenKeys::PaybackDFI,            VerifyBool},
-                {TokenKeys::PaybackDFIFeePCT,      VerifyPct},
-                {TokenKeys::LoanPayback,           VerifyBool},
-                {TokenKeys::LoanPaybackFeePCT,     VerifyPct},
-                {TokenKeys::DexInFeePct,           VerifyPct},
-                {TokenKeys::DexOutFeePct,          VerifyPct},
-                {TokenKeys::FixedIntervalPriceId,  VerifyCurrencyPair},
-                {TokenKeys::LoanCollateralEnabled, VerifyBool},
-                {TokenKeys::LoanCollateralFactor,  VerifyPct},
-                {TokenKeys::LoanMintingEnabled,    VerifyBool},
-                {TokenKeys::LoanMintingInterest,   VerifyFloat},
-                {TokenKeys::DFIP2203Enabled,       VerifyBool},
+                {TokenKeys::PaybackDFI,                VerifyBool},
+                {TokenKeys::PaybackDFIFeePCT,          VerifyPct},
+                {TokenKeys::LoanPayback,               VerifyBool},
+                {TokenKeys::LoanPaybackFeePCT,         VerifyPct},
+                {TokenKeys::LoanPaybackCollateral,     VerifyBool},
+                {TokenKeys::DexInFeePct,               VerifyPct},
+                {TokenKeys::DexOutFeePct,              VerifyPct},
+                {TokenKeys::FixedIntervalPriceId,      VerifyCurrencyPair},
+                {TokenKeys::LoanCollateralEnabled,     VerifyBool},
+                {TokenKeys::LoanCollateralFactor,      VerifyPositiveFloat},
+                {TokenKeys::LoanMintingEnabled,        VerifyBool},
+                {TokenKeys::LoanMintingInterest,       VerifyFloat},
+                {TokenKeys::DFIP2203Enabled,           VerifyBool},
             }
         },
         {
@@ -373,6 +390,11 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::DUSDInterestBurn,  VerifyBool},
                 {DFIPKeys::DUSDLoanBurn,      VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
+                {DFIPKeys::GovUnset,                VerifyBool},
+                {DFIPKeys::GovFoundation,           VerifyBool},
+                {DFIPKeys::MNSetRewardAddress,      VerifyBool},
+                {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
+                {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
             }
         },
         {
@@ -407,7 +429,20 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
     return Res::Err(error);
 }
 
-Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value,
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestBalances.Add(amount);
+    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+    mnview.SetVariable(*attributes);
+}
+
+Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
                                 std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
 
     if (key.size() > 128) {
@@ -419,7 +454,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         return Res::Err("Empty version");
     }
 
-    if (value.empty()) {
+    if (value && value->empty()) {
         return Res::Err("Empty value");
     }
 
@@ -528,6 +563,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
+            } else if (typeId == ParamIDs::Feature) {
+                if (typeKey != DFIPKeys::GovUnset &&
+                    typeKey != DFIPKeys::GovFoundation &&
+                    typeKey != DFIPKeys::MNSetRewardAddress &&
+                    typeKey != DFIPKeys::MNSetOperatorAddress &&
+                    typeKey != DFIPKeys::MNSetOwnerAddress) {
+                    return Res::Err("Unsupported type for Feature {%d}", typeKey);
+                }
             }  else {
                 return Res::Err("Unsupported Param ID");
             }
@@ -551,9 +594,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
         }
     }
 
+    if (!value) {
+        return applyVariable(attrV0, {});
+    }
+
     try {
         if (auto parser = parseValue().at(type).at(typeKey)) {
-            auto attribValue = parser(value);
+            auto attribValue = parser(*value);
             if (!attribValue) {
                 return std::move(attribValue);
             }
@@ -562,6 +609,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::string& value
     } catch (const std::out_of_range&) {
     }
     return Res::Err("No parse function {%d, %d}", type, typeKey);
+}
+
+bool ATTRIBUTES::IsEmpty() const
+{
+    return attributes.empty();
 }
 
 Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID)
@@ -890,6 +942,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
         switch (attrV0->type) {
             case AttributeTypes::Token:
                 switch (attrV0->key) {
+                    case TokenKeys::LoanPaybackCollateral:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            return Res::Err("Cannot be set before FortCanningEpilogue");
+                        }
+
+                        [[fallthrough]];
                     case TokenKeys::PaybackDFI:
                     case TokenKeys::PaybackDFIFeePCT:
                         if (!view.GetLoanTokenByID({attrV0->typeId})) {
@@ -917,6 +975,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                             return Res::Err("No such token (%d)", attrV0->typeId);
                         }
                     break;
+                    case TokenKeys::LoanCollateralFactor:
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningEpilogueHeight) {
+                            const auto amount = std::get_if<CAmount>(&value);
+                            if (amount && *amount > COIN) {
+                                return Res::Err("Percentage exceeds 100%%");
+                            }
+                        }
+                        [[fallthrough]];
                     case TokenKeys::LoanMintingInterest:
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningGreatWorldHeight) {
                             const auto amount = std::get_if<CAmount>(&value);
@@ -926,7 +992,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         }
                         [[fallthrough]];
                     case TokenKeys::LoanCollateralEnabled:
-                    case TokenKeys::LoanCollateralFactor:
                     case TokenKeys::LoanMintingEnabled: {
                         if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
                             return Res::Err("Cannot be set before FortCanningCrunch");
@@ -1021,7 +1086,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
+                if (attrV0->typeId == ParamIDs::Feature) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");
                     }
@@ -1177,6 +1246,34 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         mnview.IncreaseInterest(height, vaultId, vault->schemeId, {attrV0->typeId}, *tokenInterest, 0);
                     }
                 }
+            } else if (attrV0->key == TokenKeys::LoanCollateralFactor) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningEpilogueHeight)) {
+                    // Skip on if skip collateral check is passed
+                    if (Params().NetworkIDString() == CBaseChainParams::REGTEST &&
+                        gArgs.GetBoolArg("-regtest-skip-loan-collateral-validation", false)) {
+                        continue;
+                    }
+
+                    std::set<CAmount> ratio;
+                    mnview.ForEachLoanScheme([&ratio](const std::string &identifier, const CLoanSchemeData &data) {
+                        ratio.insert(data.ratio);
+                        return true;
+                    });
+                    // No loan schemes, fall back to 100% limit
+                    if (ratio.empty()) {
+                        if (const auto amount = std::get_if<CAmount>(&attribute.second); amount && *amount > COIN) {
+                            return Res::Err("Percentage exceeds 100%%");
+                        }
+                    } else {
+                        const auto factor = std::get_if<CAmount>(&attribute.second);
+                        if (!factor) {
+                            return Res::Err("Unexpected type");
+                        }
+                        if (*factor >= *ratio.begin() * CENT) {
+                            return Res::Err("Factor cannot be more than or equal to the lowest scheme rate of %d\n", GetDecimaleString(*ratio.begin() * CENT));
+                        }
+                    }
+                }
             }
         } else if (attrV0->type == AttributeTypes::Param) {
             if (attrV0->typeId == ParamIDs::DFIP2203) {
@@ -1288,6 +1385,51 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     SetValue(lockKey, true);
                 }
             }
+        }
+    }
+    return Res::Ok();
+}
+
+Res ATTRIBUTES::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const & keys)
+{
+    for (const auto& key : keys) {
+        auto res = ProcessVariable(key, {},
+            [&](const CAttributeType& attribute, const CAttributeValue&) {
+                auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+                if (!attrV0) {
+                    return Res::Ok();
+                }
+                if (attrV0->type == AttributeTypes::Live) {
+                    return Res::Err("Live attribute cannot be deleted");
+                }
+                if (!EraseKey(attribute)) {
+                    return Res::Err("Attribute {%d} not exists", attrV0->type);
+                }
+                if (attrV0->type == AttributeTypes::Poolpairs) {
+                    auto poolId = DCT_ID{attrV0->typeId};
+                    auto pool = mnview.GetPoolPair(poolId);
+                    if (!pool) {
+                        return Res::Err("No such pool (%d)", poolId.v);
+                    }
+                    auto tokenId = attrV0->key == PoolKeys::TokenAFeePCT ?
+                                                pool->idTokenA : pool->idTokenB;
+
+                    return mnview.EraseDexFeePct(poolId, tokenId);
+                } else if (attrV0->type == AttributeTypes::Token) {
+                    if (attrV0->key == TokenKeys::DexInFeePct
+                    ||  attrV0->key == TokenKeys::DexOutFeePct) {
+                        DCT_ID tokenA{attrV0->typeId}, tokenB{~0u};
+                        if (attrV0->key == TokenKeys::DexOutFeePct) {
+                            std::swap(tokenA, tokenB);
+                        }
+                        return mnview.EraseDexFeePct(tokenA, tokenB);
+                    }
+                }
+                return Res::Ok();
+            }
+        );
+        if (!res) {
+            return res;
         }
     }
 

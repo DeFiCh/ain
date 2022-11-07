@@ -239,6 +239,16 @@ public:
         }
     }
 
+    void operator()(const CGovernanceUnsetMessage& obj) const {
+        for (const auto& gov : obj.govs) {
+            UniValue keys(UniValue::VARR);
+            for (const auto& key : gov.second)
+                keys.push_back(key);
+
+            rpcInfo.pushKV(gov.first, keys);
+        }
+    }
+
     void operator()(const CGovernanceHeightMessage& obj) const {
         rpcInfo.pushKV(obj.govVar->GetName(), obj.govVar->Export());
         rpcInfo.pushKV("startHeight", static_cast<uint64_t>(obj.startHeight));
@@ -418,6 +428,10 @@ public:
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("to", ScriptToString(obj.to));
         rpcInfo.pushKV("amount", obj.amount.ToString());
+    }
+
+    void operator()(const CPaybackWithCollateralMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
     }
 
     void operator()(const CLoanTakeLoanMessage& obj) const {

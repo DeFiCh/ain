@@ -28,11 +28,31 @@ class GetStoredInterestTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.fortcanninggreatworldheight = 700
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1',
-             '-fortcanningmuseumheight=1', '-fortcanningspringheight=1', '-fortcanninghillheight=1',
-             '-fortcanningcrunchheight=1', f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}', '-jellyfish_regtest=1',
-             '-txindex=1', '-simulatemainnet=1']
+            ['-txnotokens=0',
+            '-amkheight=1',
+            '-bayfrontheight=1',
+            '-eunosheight=1',
+            '-fortcanningheight=1',
+            '-fortcanningmuseumheight=1',
+            '-fortcanningparkheight=1',
+            '-fortcanninghillheight=1',
+            '-fortcanningroadheight=1',
+            '-fortcanningcrunchheight=1',
+            '-fortcanningspringheight=1',
+            f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
+            '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
         ]
+
+    # Utils
+    def rollback_to(self, block):
+        node = self.nodes[0]
+        current_height = node.getblockcount()
+        if current_height == block:
+            return
+        blockhash = node.getblockhash(block + 1)
+        node.invalidateblock(blockhash)
+        node.clearmempool()
+        assert_equal(block, node.getblockcount())
 
     def new_vault(self, loan_scheme, deposit=10):
         vaultId = self.nodes[0].createvault(self.account0, loan_scheme)

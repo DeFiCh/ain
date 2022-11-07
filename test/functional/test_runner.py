@@ -179,6 +179,7 @@ BASE_SCRIPTS = [
     'feature_loan_listauctions.py',
     'feature_loan_auctions.py',
     'feature_loan_dusd_as_collateral.py',
+    'feature_loan_payback_with_collateral.py',
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
@@ -242,6 +243,8 @@ BASE_SCRIPTS = [
     'rpc_named_arguments.py',
     'wallet_listsinceblock.py',
     'p2p_leak.py',
+    'feature_higher_collateral_factor.py',
+    'feature_skip_collateral_factor_check.py',
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
@@ -296,10 +299,12 @@ BASE_SCRIPTS = [
     'feature_burn_address.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
+    'feature_testpoolswap.py',
     'feature_update_mn.py',
     'feature_block_reward.py',
     'feature_negative_interest.py',
     'rpc_getstoredinterest.py',
+    'feature_dusd_loans.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]

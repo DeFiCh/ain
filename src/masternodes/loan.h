@@ -413,6 +413,18 @@ public:
     }
 };
 
+struct CPaybackWithCollateralMessage {
+    CVaultId vaultId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+    }
+};
+
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
@@ -466,6 +478,7 @@ public:
     void ForEachLoanTokenAmount(std::function<bool (const CVaultId&,  const CBalances&)> callback);
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
+    Res EraseLoanLiquidationPenalty();
     CAmount GetLoanLiquidationPenalty();
 
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID& id) const = 0;
