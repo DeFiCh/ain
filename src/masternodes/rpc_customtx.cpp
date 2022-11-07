@@ -509,8 +509,9 @@ public:
             finalHeight = prop->finalHeight;
         } else {
             auto votingPeriod = (emergency ? mnview.GetEmergencyPeriodFromAttributes(type) : mnview.GetVotingPeriodFromAttributes());
+            finalHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
-                finalHeight += (finalHeight % votingPeriod) + votingPeriod;
+                finalHeight += votingPeriod;
             }
         }
         rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
