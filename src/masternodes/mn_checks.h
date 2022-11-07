@@ -145,7 +145,7 @@ enum class CustomTxType : uint8_t
     CreateCfp              = 'z',
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
-    CFPFeeRedistribution   = 'Y'
+    CFPFeeRedistribution   = 'Y',
     UnsetGovVariable       = 'Z',
 };
 
