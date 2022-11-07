@@ -3824,7 +3824,7 @@ public:
 
         auto prop = mnview.GetProp(obj.propId);
         if (!prop)
-            return Res::Err("proposal <%s> does not exists", obj.propId.GetHex());
+            return Res::Err("proposal <%s> does not exist", obj.propId.GetHex());
 
         if (prop->status != CPropStatusType::Voting)
             return Res::Err("proposal <%s> is not in voting period", obj.propId.GetHex());
