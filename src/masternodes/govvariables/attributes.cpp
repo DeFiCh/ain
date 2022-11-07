@@ -346,7 +346,6 @@ static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
         if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
         else if (val.size() > 1) val.insert(0, "0.");
         else val.insert(0, "0.0");
-        std::cout << val << std::endl;
     }
     auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
