@@ -528,6 +528,14 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(self.idBL)], round(dexinfee, 8))
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
+    def test_testpoolswap_errors(self):
+        assert_raises_rpc_error(-8, "tokenFrom is empty", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0.1, "tokenFrom": "", "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+        assert_raises_rpc_error(-8, "tokenTo is empty", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0.1, "tokenFrom": self.symbolBTC, "tokenTo": "", "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+        assert_raises_rpc_error(-32600, "Input amount should be positive", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0, "tokenFrom": self.symbolLTC, "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+
     def revert_to_initial_state(self):
         self.rollback_to(block=0, nodes=[0, 1, 2])
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
@@ -555,6 +563,7 @@ class PoolPairTest (DefiTestFramework):
         self.test_listaccounthistory_and_burninfo()
         self.update_comission_and_fee_to_1pct_pool1()
         self.update_comission_and_fee_to_1pct_pool2()
+        self.test_testpoolswap_errors()
         self.revert_to_initial_state()
 
 if __name__ == '__main__':
