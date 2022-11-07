@@ -23,7 +23,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=51', '-eunosheight=80', '-fortcanningheight=82', '-fortcanninghillheight=84', '-fortcanningroadheight=86', '-fortcanningcrunchheight=88', '-fortcanningspringheight=90', '-fortcanninggreatworldheight=94', '-grandcentralheight=101'],
         ]
 
-    def test_cfp_fee_distribution(self, amount, expectedFee, vote, cycles=2):
+    def test_cfp_fee_distribution(self, amount, expectedFee, vote, cycles=2, increaseFee = False):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -47,6 +47,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         # Check fee burn
         # Half should be burned, the rest distributed among voting masternodes
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal(expectedFee / 2))
+
+        # increase the fee in the middle of CFP and check that refund to MNs didn't change
+        if (increaseFee) :
+            self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'0.05'}})
+            self.nodes[0].generate(1)
 
         # Vote on proposal
         self.nodes[0].votegov(propId, self.mn0, vote)
@@ -76,27 +81,27 @@ class CFPFeeDistributionTest(DefiTestFramework):
         mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
         account0 = self.nodes[0].getaccount(mn0['ownerAuthAddress'])
         assert_equal(account0[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn0['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn0['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         mn1 = self.nodes[0].getmasternode(self.mn1)[self.mn1]
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn1['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         # Fee should be redistributed to reward address
         mn2 = self.nodes[0].getmasternode(self.mn2)[self.mn2]
         account2 = self.nodes[0].getaccount(mn2['ownerAuthAddress'])
         assert_equal(account2[0], expectedAmount)
-        history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn2['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(account0[0], history[0]['amounts'][0])
 
         # mn3 did not vote on proposal
         mn3 = self.nodes[0].getmasternode(self.mn3)[self.mn3]
         account3 = self.nodes[0].getaccount(mn3['ownerAuthAddress'])
         assert_equal(account3, [])
-        history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "CFPFeeRedistribution"})
+        history = self.nodes[0].listaccounthistory(mn3['ownerAuthAddress'], {"txtype": "ProposalFeeRedistribution"})
         assert_equal(history, [])
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
@@ -125,11 +130,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/global/enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
         self.nodes[0].generate(1)
 
         # activate fee redistribution
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/cfp/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
         self.nodes[0].generate(1)
 
         self.sync_blocks()
@@ -138,13 +143,17 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.setup()
 
-        self.test_cfp_fee_distribution(amount=50, expectedFee=1, vote="yes")
-        self.test_cfp_fee_distribution(amount=100, expectedFee=1, vote="yes")
+        self.test_cfp_fee_distribution(amount=50, expectedFee=10, vote="yes")
+        self.test_cfp_fee_distribution(amount=100, expectedFee=10, vote="yes")
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes")
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="no")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="neutral")
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes", cycles=1)
-        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="yes", cycles=3)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="neutral", increaseFee=True)
+
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'2%'}})
+        self.nodes[0].generate(1)
+
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, vote="yes", cycles=1)
+        self.test_cfp_fee_distribution(amount=1000, expectedFee=20, vote="yes", cycles=3)
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()

@@ -194,12 +194,10 @@ public:
 
         consensus.vaultCreationFee = 2 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 500 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
         consensus.props.minVoting = 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
 
@@ -444,12 +442,10 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 500 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
         consensus.props.minVoting = 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
 
@@ -647,12 +643,10 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
-        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 10 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
         consensus.props.minVoting = 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 100; // tally votes every 1K blocks
 
@@ -842,12 +836,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
 
-        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.fee = COIN / 100; // 1%
         consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
         consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.brp.fee = 10 * COIN;
-        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
         consensus.props.minVoting = 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70; // tally votes every 70 blocks
 

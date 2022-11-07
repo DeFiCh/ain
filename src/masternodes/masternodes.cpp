@@ -75,19 +75,26 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
-CAmount GetPropsCreationFee(int, const CCreatePropMessage& msg)
+CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMessage& msg)
 {
     auto type = static_cast<CPropType>(msg.type);
+    auto options = static_cast<CPropOption>(msg.options);
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
+    CDataStructureV0 CFPEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyFee};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
+    CDataStructureV0 VOCEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
+    bool emergency = (options & CPropOption::Emergency);
+
+    CAmount cfpFee;
     switch(type) {
         case CPropType::CommunityFundProposal:
-        {
-            auto fee = msg.nAmount / 100;
-            return fee < Params().GetConsensus().props.cfp.fee ? Params().GetConsensus().props.cfp.fee : fee;
-        }
-        case CPropType::BlockRewardReallocation:
-            return Params().GetConsensus().props.brp.fee;
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(emergency ? CFPEmergencyKey : CFPKey, Params().GetConsensus().props.cfp.fee));
+            return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
         case CPropType::VoteOfConfidence:
-            return Params().GetConsensus().props.voc.fee;
+            return attributes->GetValue(emergency ? VOCEmergencyKey : VOCKey, Params().GetConsensus().props.voc.fee);
     }
     return -1;
 }
@@ -1270,4 +1277,59 @@ void CCustomCSView::SetVaultHistoryStore() {
         vauHistoryStore.reset();
         vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
     }
+}
+
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
+{
+    if (const auto attributes = GetAttributes()) {
+        CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyPeriod};
+        CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
+
+        switch(type) {
+            case CPropType::CommunityFundProposal:
+                return attributes->GetValue(CFPKey, uint32_t{0});
+            case CPropType::VoteOfConfidence:
+                return attributes->GetValue(VOCKey, uint32_t{0});
+        }
+    }
+
+    return 0;
+}
+
+uint32_t CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+{
+    if (const auto attributes = GetAttributes()) {
+        CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+        CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
+        switch(type) {
+            case CPropType::CommunityFundProposal:
+                return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold);
+            case CPropType::VoteOfConfidence:
+                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold);
+        }
+    }
+
+    return 0;
+}
+
+uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
+
+    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
+}
+
+uint32_t CCustomCSView::GetMinVotersFromAttributes() const
+{
+    if (const auto attributes = GetAttributes()) {
+        CDataStructureV0 MinVotersKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+
+        return attributes->GetValue(MinVotersKey, Params().GetConsensus().props.minVoting);
+    }
+
+    return 0;
 }

@@ -40,7 +40,7 @@ enum OracleIDs : uint8_t  {
 
 enum GovernanceIDs : uint8_t  {
     Global    = 'a',
-    CFP       = 'b',
+    Proposals = 'b',
 };
 
 enum EconomyKeys : uint8_t {
@@ -71,12 +71,22 @@ enum DFIPKeys : uint8_t  {
     MNSetRewardAddress      = 'l',
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
+    GovernanceEnabled       = 'o',
 };
 
 enum GovernanceKeys : uint8_t  {
-    Enabled                 = 'a',
+    FeeRedistribution       = 'a',
     CFPPayout               = 'b',
-    CFPFeeRedistribution    = 'c',
+    CFPFee                  = 'c',
+    CFPEmergencyFee         = 'd',
+    CFPEmergencyPeriod      = 'e',
+    CFPMajority             = 'f',
+    VOCFee                  = 'g',
+    VOCEmergencyFee         = 'h',
+    VOCEmergencyPeriod      = 'i',
+    VOCMajority             = 'j',
+    MinVoters               = 'k',
+    VotingPeriod            = 'l',
 };
 
 enum TokenKeys : uint8_t  {
@@ -211,7 +221,7 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, int32_t, uint32_t>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 

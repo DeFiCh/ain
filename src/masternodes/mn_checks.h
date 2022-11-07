@@ -145,7 +145,7 @@ enum class CustomTxType : uint8_t
     CreateCfp              = 'z',
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
-    CFPFeeRedistribution   = 'Y',
+    ProposalFeeRedistribution = 'Y',
     UnsetGovVariable       = 'Z',
 };
 
@@ -208,7 +208,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
         case CustomTxType::CreateCfp:
-        case CustomTxType::CFPFeeRedistribution:
+        case CustomTxType::ProposalFeeRedistribution:
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:

@@ -2128,7 +2128,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 {
                     if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
                     {
-                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
                         auto attributes = mnview.GetAttributes();
                         if (!attributes) {
@@ -2209,7 +2209,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                 {
                     if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
                     {
-                        CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
                         auto attributes = mnview.GetAttributes();
                         if (!attributes) {
@@ -4037,7 +4037,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         return;
     }
 
-    CDataStructureV0 enabledKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = cache.GetAttributes();
     if (!attributes) {
@@ -4063,6 +4063,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
     std::set<uint256> activeMasternodes;
     cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
+        if (prop.status != CPropStatusType::Voting) return false;
 
         if (activeMasternodes.empty()) {
             cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
@@ -4091,12 +4092,11 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }, CMnVotePerCycle{propId, prop.cycle});
 
-        // Redistributes CFP fee among voting masternodes
-        CDataStructureV0 feeRedistributionKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPFeeRedistribution};
-        if (prop.type == CPropType::CommunityFundProposal && voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
-            auto proposalFee = GetPropsCreationFee(pindex->nHeight, prop);
+        // Redistributes fee among voting masternodes
+        CDataStructureV0 feeRedistributionKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeRedistribution};
+        if (voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
             // return half fee among voting masternodes, the rest is burned at creation
-            auto feeBack = proposalFee / 2;
+            auto feeBack = prop.fee / 2;
             auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
             for (const auto mnId : voters) {
                 auto const mn = cache.GetMasternode(mnId);
@@ -4116,11 +4116,11 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
                 }
 
                 CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
-                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::CFPFeeRedistribution), &subWriters);
+                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::ProposalFeeRedistribution), &subWriters);
 
                 auto res = subView.AddBalance(scriptPubKey, {DCT_ID{0}, amountPerVoter});
                 if (!res) {
-                    LogPrintf("CFP fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
+                    LogPrintf("Proposal fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
                 }
                 subView.Flush();
             }
@@ -4130,26 +4130,28 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             if (burnAmount > 0) {
                 auto res = cache.AddBalance(Params().GetConsensus().burnAddress, {{0}, burnAmount});
                 if (!res) {
-                    LogPrintf("Burn of CFP fee redistribution leftover failed. Amount: %d\n", burnAmount);
+                    LogPrintf("Burn of proposal fee redistribution leftover failed. Amount: %d\n", burnAmount);
                 }
             }
         }
 
-        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= chainparams.GetConsensus().props.minVoting) {
+        CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting)) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
 
         uint32_t majorityThreshold{};
+        CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+        CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
         switch(prop.type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
-                break;
-            case CPropType::BlockRewardReallocation:
-                majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold);
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold);
                 break;
         }
 
@@ -4165,7 +4167,8 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             cache.UpdatePropCycle(propId, prop.cycle + 1);
         }
 
-        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::CFP, GovernanceKeys::CFPPayout};
+        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPPayout};
+
         if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
             if (res) {

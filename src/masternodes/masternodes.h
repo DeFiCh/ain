@@ -42,7 +42,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetPropsCreationFee(int height, const CCreatePropMessage& msg);
+CAmount GetPropsCreationFee(int height, const CCustomCSView& view, const CCreatePropMessage& msg);
 
 constexpr uint8_t SUBNODE_COUNT{4};
 
@@ -467,6 +467,11 @@ public:
     CVaultHistoryStorage* GetVaultHistoryStore();
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
+
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    uint32_t GetMajorityFromAttributes(const CPropType& type) const override;
+    uint32_t GetVotingPeriodFromAttributes() const override;
+    uint32_t GetMinVotersFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

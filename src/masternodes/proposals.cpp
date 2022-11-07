@@ -4,13 +4,21 @@
 
 #include <chainparams.h>
 #include <masternodes/proposals.h>
+#include <masternodes/masternodes.h>
 
 std::string CPropTypeToString(const CPropType status)
 {
     switch(status) {
-    case CPropType::CommunityFundProposal:  return "CommunityFundProposal";
-    case CPropType::BlockRewardReallocation:return "BlockRewardReallocation";
-    case CPropType::VoteOfConfidence:       return "VoteOfConfidence";
+        case CPropType::CommunityFundProposal:  return "CommunityFundProposal";
+        case CPropType::VoteOfConfidence:       return "VoteOfConfidence";
+    }
+    return "Unknown";
+}
+
+std::string CPropOptionToString(const CPropOption option)
+{
+    switch(option) {
+        case CPropOption::Emergency:  return "Emergency";
     }
     return "Unknown";
 }
@@ -18,9 +26,9 @@ std::string CPropTypeToString(const CPropType status)
 std::string CPropStatusToString(const CPropStatusType status)
 {
     switch(status) {
-    case CPropStatusType::Voting:    return "Voting";
-    case CPropStatusType::Rejected:  return "Rejected";
-    case CPropStatusType::Completed: return "Completed";
+        case CPropStatusType::Voting:    return "Voting";
+        case CPropStatusType::Rejected:  return "Rejected";
+        case CPropStatusType::Completed: return "Completed";
     }
     return "Unknown";
 }
@@ -35,18 +43,33 @@ std::string CPropVoteToString(const CPropVoteType vote)
     return "Unknown";
 }
 
-Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg)
+Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg, const CAmount fee)
 {
     CPropObject prop{msg};
-    prop.creationHeight = height;
-    auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
-    WriteBy<ByStatus>(key, uint8_t(1));
+    bool emergency = prop.options & CPropOption::Emergency;
+    auto type = static_cast<CPropType>(prop.type);
 
-    auto votingPeriod = GetVotingPeriod();
-    for (uint8_t i = 1; i <= prop.nCycles; ++i) {
-        height += (height % votingPeriod) + votingPeriod;
-        auto keyPair = std::make_pair(height, propId);
-        WriteBy<ByCycle>(keyPair, i);
+    prop.creationHeight = height;
+    prop.votingPeriod = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
+    prop.majority = GetMajorityFromAttributes(type);
+    prop.minVoters = GetMinVotersFromAttributes();
+    prop.fee = fee;
+
+    auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
+    WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
+    if (emergency)
+    {
+        height += prop.votingPeriod;
+        WriteBy<ByCycle>(std::make_pair(height, propId), static_cast<uint8_t>(1));
+    }
+    else
+    {
+        height = height + (prop.votingPeriod - height % prop.votingPeriod);
+        for (uint8_t i = 1; i <= prop.nCycles; ++i) {
+            height += prop.votingPeriod;
+            auto keyPair = std::make_pair(height, propId);
+            WriteBy<ByCycle>(keyPair, i);
+        }
     }
     prop.finalHeight = height;
     WriteBy<ByType>(propId, prop);
@@ -173,19 +196,4 @@ void CPropsView::ForEachCycleProp(std::function<bool(CPropId const &, CPropObjec
         assert(prop);
         return callback(key.second, *prop);
     }, std::make_pair(height, uint256{}));
-}
-
-Res CPropsView::SetVotingPeriod(uint32_t votingPeriod)
-{
-    Write(ByVoting::prefix(), votingPeriod);
-    return Res::Ok();
-}
-
-uint32_t CPropsView::GetVotingPeriod()
-{
-    uint32_t votingPeriod;
-    if (Read(ByVoting::prefix(), votingPeriod)) {
-        return votingPeriod;
-    }
-    return Params().GetConsensus().props.votingPeriod;
 }

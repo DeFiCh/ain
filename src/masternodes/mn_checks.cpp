@@ -88,7 +88,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::TokenSplit:              return "TokenSplit";
         case CustomTxType::Reject:                  return "Reject";
         case CustomTxType::CreateCfp:               return "CreateCfp";
-        case CustomTxType::CFPFeeRedistribution:    return "CFPFeeRedistribution";
+        case CustomTxType::ProposalFeeRedistribution:return "ProposalFeeRedistribution";
         case CustomTxType::CreateVoc:               return "CreateVoc";
         case CustomTxType::Vote:                    return "Vote";
         case CustomTxType::UnsetGovVariable:    return "UnsetGovVariable";
@@ -188,15 +188,15 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoan:             return CLoanPaybackLoanMessage{};
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
-        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
-        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
-        case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:              return CCustomTxMessageNone{};
-        case CustomTxType::CFPFeeRedistribution:    return CCustomTxMessageNone{};
-        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::Reject:                  return CCustomTxMessageNone{};
+        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
+        case CustomTxType::Vote:                    return CPropVoteMessage{};
+        case CustomTxType::ProposalFeeRedistribution:return CCustomTxMessageNone{};
+        case CustomTxType::UnsetGovVariable:        return CGovernanceUnsetMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -709,7 +709,7 @@ Res CCustomTxVisitor::CheckCustomTx() const
 
 Res CCustomTxVisitor::CheckProposalTx(const CCreatePropMessage& msg) const
 {
-    if (tx.vout[0].nValue != GetPropsCreationFee(height, msg) || tx.vout[0].nTokenId != DCT_ID{0})
+    if (tx.vout[0].nValue != GetPropsCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0})
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
@@ -940,14 +940,14 @@ bool CCustomTxVisitor::IsTokensMigratedToGovVar() const
 
 Res CCustomTxVisitor::IsOnChainGovernanceEnabled() const
 {
-    CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::Global, GovernanceKeys::Enabled};
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = mnview.GetAttributes();
     if (!attributes) {
         return Res::Err("Attributes unavailable");
     }
 
-    if (!attributes->GetValue(payoutKey, false)) {
+    if (!attributes->GetValue(enabledKey, false)) {
         return Res::Err("Cannot create tx, on-chain governance is not enabled");
     }
 
@@ -3801,9 +3801,6 @@ public:
             case CPropType::CommunityFundProposal:
                 if (!HasAuth(obj.address))
                     return Res::Err("tx must have at least one input from proposal account");
-
-                if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
-                    return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
                 break;
 
             case CPropType::VoteOfConfidence:
@@ -3813,7 +3810,7 @@ public:
                 if (!obj.address.empty())
                     return Res::Err("vote of confidence address should be empty");
 
-                if (obj.nCycles != VOC_CYCLES)
+                if (!(obj.options & CPropOption::Emergency) && obj.nCycles != VOC_CYCLES)
                     return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
                 break;
 
@@ -3846,7 +3843,10 @@ public:
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
-        return mnview.CreateProp(tx.GetHash(), height, obj);
+        if ((obj.options & CPropOption::Emergency) && obj.nCycles != 1)
+            return Res::Err("emergency proposal cycles must be 1");
+
+        return mnview.CreateProp(tx.GetHash(), height, obj, tx.vout[0].nValue);
     }
 
     Res operator()(const CPropVoteMessage& obj) const
@@ -4061,14 +4061,13 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken
-        || txType == CustomTxType::CreateMasternode
-        || txType == CustomTxType::CreateVoc) {
+        || txType == CustomTxType::CreateMasternode) {
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }
         }
 
-        if (txType == CustomTxType::CreateCfp) {
+        if (txType == CustomTxType::CreateCfp || txType == CustomTxType::CreateVoc) {
             // burn half of creation fee, the rest is distributed among voting masternodes
             auto burnFee = tx.vout[0].nValue / 2;
             if (writers) {
