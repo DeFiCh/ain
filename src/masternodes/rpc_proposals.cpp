@@ -57,7 +57,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of community fund request"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field of community fund request"},
-                            {"contexthash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The hash of the content which context field point to of community fund request"},
+                            {"contextHash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The hash of the content which context field point to of community fund request"},
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
@@ -111,8 +111,8 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["contexthash"].isNull())
-        contexthash = data["contexthash"].get_str();
+    if (!data["contextHash"].isNull())
+        contexthash = data["contextHash"].get_str();
 
     if (!data["emergency"].isNull())
         emergency = data["emergency"].get_bool();
@@ -197,6 +197,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of vote of confidence"},
                             {"context", RPCArg::Type::STR, RPCArg::Optional::NO, "The context field for vote of confidence"},
+                            {"contextHash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The hash of the content which context field point to of vote of confidence request"},
                             {"emergency", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Is this emergency VOC"},
                         },
                     },
@@ -228,7 +229,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
 
-    std::string title, context;
+    std::string title, context, contexthash;
     bool emergency = false;
 
     const UniValue& data = request.params[0].get_obj();
@@ -245,6 +246,9 @@ UniValue creategovvoc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
+    if (!data["contextHash"].isNull())
+        contexthash = data["contextHash"].get_str();
+
     if (!data["emergency"].isNull())
     {
         emergency = data["emergency"].get_bool();
@@ -256,6 +260,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     pm.nCycles = (emergency ? 1 : VOC_CYCLES);
     pm.title = title;
     pm.context = context;
+    pm.contexthash = contexthash;
     pm.options = (emergency ? CPropOption::Emergency : 0);
 
     // encode
