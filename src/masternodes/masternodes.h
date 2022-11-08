@@ -410,7 +410,7 @@ private:
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
 public:
     // Increase version when underlaying tables are changed
-    static constexpr const int DbVersion = 2;
+    static constexpr const int DbVersion = 1;
 
     CCustomCSView();
     explicit CCustomCSView(CStorageKV & st);

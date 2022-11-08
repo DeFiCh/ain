@@ -1728,7 +1728,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 if (!fReset && !fReindexChainState) {
                     if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
-                        strLoadError = _("Account database is unsuitable. Reindex required.").translated;
+                        strLoadError = _("Account database is unsuitable").translated;
                         break;
                     }
                 }
