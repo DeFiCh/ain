@@ -26,9 +26,9 @@ class PoolPairTest (DefiTestFramework):
         # node0: main (Foundation)
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-dexstats']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-dexstats']]
 
     def setup(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -533,6 +533,9 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
     def test_swap_to_self(self):
+
+        # Move to fork
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Get and fund new address
         address = self.nodes[0].getnewaddress()
