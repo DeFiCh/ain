@@ -3541,7 +3541,7 @@ public:
                 if (paybackTokenId == loanTokenId)
                 {
                     // If interest was negative remove it from sub amount
-                    if (subInterest < 0)
+                    if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
                         subLoan += subInterest;
 
                     res = mnview.SubMintedTokens(loanTokenId, subLoan);
