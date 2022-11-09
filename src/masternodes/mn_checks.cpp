@@ -1236,10 +1236,6 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > MAX_POOL_SWAPS) {
-            return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, obj.poolIDs.size()));
-        }
-
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
@@ -4219,6 +4215,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     if (obj.amountFrom <= 0) {
         return Res::Err("Input amount should be positive");
+    }
+
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
+        return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
     }
 
     // Single swap if no pool IDs provided
