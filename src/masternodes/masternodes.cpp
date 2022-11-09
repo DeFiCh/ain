@@ -93,7 +93,10 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMes
             cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
             return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
         case CPropType::VoteOfConfidence:
-            return attributes->GetValue(emergency ? VOCEmergencyKey : VOCKey, Params().GetConsensus().props.voc.fee);
+            if (emergency)
+                return attributes->GetValue(VOCEmergencyKey, 10000);
+            else
+                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
     }
     return -1;
 }
@@ -1284,7 +1287,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) 
 
     if (const auto attributes = GetAttributes()) {
         CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
-        return attributes->GetValue(VOCKey, uint32_t{0});
+        return attributes->GetValue(VOCKey, uint32_t{8640});
     }
 
     return 0;
