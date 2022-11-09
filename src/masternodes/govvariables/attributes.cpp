@@ -1174,7 +1174,28 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
-                    case ConsortiumKeys::Members:
+                    case ConsortiumKeys::Members: {
+                        const auto members = std::get_if<CConsortiumMembers>(&value);
+                        if (!members) {
+                            return Res::Err("Unexpected value");
+                        }
+
+                        CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, attrV0->typeId, ConsortiumKeys::MintLimit};
+                        const auto maxLimit = GetValue(maxLimitKey, CAmount{0});
+
+                        CDataStructureV0 dailyLimitKey{AttributeTypes::Consortium, attrV0->typeId, ConsortiumKeys::DailyMintLimit};
+                        const auto dailyLimit = GetValue(dailyLimitKey, CAmount{0});
+
+                        for (const auto& [id, member] : *members) {
+                            if (member.mintLimit > maxLimit) {
+                                return Res::Err("Mint limit higher than global mint limit");
+                            }
+
+                            if (member.dailyMintLimit > dailyLimit) {
+                                return Res::Err("Daily mint limit higher than daily global mint limit");
+                            }
+                        }
+                    }
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:
                         if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
