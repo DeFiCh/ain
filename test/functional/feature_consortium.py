@@ -93,13 +93,14 @@ class ConsortiumTest (DefiTestFramework):
                                                                                             "dailyMintLimit":4.00000000, \
                                                                                             "mintLimit":4.00000000}}'}})
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '10'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '10', 'v0/consortium/' + idBTC + '/daily_mint_limit' : '10'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Verify mint_limit set
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(attributes['v0/consortium/' + idBTC + '/mint_limit'], '10')
+        assert_equal(attributes['v0/consortium/' + idBTC + '/daily_mint_limit'], '10')
 
         assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : '{"03":{"name":"test", \
                                                                                                                                                                 "ownerAddress":"' + account2 +'", \
@@ -133,7 +134,7 @@ class ConsortiumTest (DefiTestFramework):
                                                                                                    "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
                                                                                                    "dailyMintLimit":5.00000000, \
                                                                                                    "mintLimit":5.00000000}}'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '6'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '6', 'v0/consortium/' + idDOGE + '/daily_mint_limit' : '6'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -143,6 +144,7 @@ class ConsortiumTest (DefiTestFramework):
 
         assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"account2DOGE","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0},"02":{"name":"account1DOGE","ownerAddress":"' + account1 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0}}')
         assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit'], '6')
+        assert_equal(attribs['v0/consortium/' + idDOGE + '/daily_mint_limit'], '6')
 
         self.nodes[2].minttokens(["2@" + symbolDOGE])
         self.nodes[2].generate(1)
@@ -318,6 +320,14 @@ class ConsortiumTest (DefiTestFramework):
                                                                                                   "dailyMintLimit":4.00000000, \
                                                                                                   "mintLimit":6.00000000}}'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '20'}})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Test global daily limit
+        assert_raises_rpc_error(-32600, "You will exceed global daily maximum consortium mint limit for " + symbolBTC + " token by minting this amount.", self.nodes[3].minttokens, ["2@" + symbolBTC])
+
+        # Increase global daily limit
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/daily_mint_limit' : '12'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 

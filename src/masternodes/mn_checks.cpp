@@ -1155,6 +1155,8 @@ public:
                     CDataStructureV0 membersMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
                     auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
 
+                    const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
+
                     for (auto const& [key, member] : members)
                     {
                         if (HasAuth(member.ownerAddress))
@@ -1167,7 +1169,6 @@ public:
                                 return (std::move(add));
                             membersBalances[tokenId][key].minted = add;
 
-                            const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
                             if (dailyInterval == membersBalances[tokenId][key].dailyMinted.first) {
                                 add = SafeAdd(membersBalances[tokenId][key].dailyMinted.second, amount);
                                 if (!add)
@@ -1197,6 +1198,9 @@ public:
                     CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
                     const auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
 
+                    CDataStructureV0 dailyLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::DailyMintLimit};
+                    const auto dailyLimit = attributes->GetValue(dailyLimitKey, CAmount{0});
+
                     CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
                     auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
 
@@ -1208,6 +1212,16 @@ public:
 
                     if (globalBalances[tokenId].minted > maxLimit)
                         return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", token->symbol);
+
+                    CAmount totalDaily{};
+                    for (const auto& [key, value] : membersBalances[tokenId]) {
+                        if (value.dailyMinted.first == dailyInterval) {
+                            totalDaily += value.dailyMinted.second;
+                        }
+                    }
+
+                    if (totalDaily > dailyLimit)
+                        return Res::Err("You will exceed global daily maximum consortium mint limit for %s token by minting this amount.", token->symbol);
 
                     attributes->SetValue(consortiumMintedKey, globalBalances);
                     attributes->SetValue(membersMintedKey, membersBalances);
