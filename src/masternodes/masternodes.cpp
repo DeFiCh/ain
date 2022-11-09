@@ -94,7 +94,7 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMes
             return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
         case CPropType::VoteOfConfidence:
             if (emergency)
-                return attributes->GetValue(VOCEmergencyKey, 10000);
+                return attributes->GetValue(VOCEmergencyKey, 10000 * COIN);
             else
                 return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
     }
