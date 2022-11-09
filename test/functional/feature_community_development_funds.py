@@ -111,11 +111,13 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(7 * 19.887464)))
 
         node0.generate(93)
+        self.sync_blocks()
 
         foundation = node1.getbalances()
         assert_equal(foundation['mine']['trusted'], Decimal('2008.63386400'))
 
         node0.generate(1)
+        self.sync_blocks()
 
         foundation = node1.getbalances()
         assert_equal(foundation['mine']['trusted'], Decimal('2008.633864000'))
