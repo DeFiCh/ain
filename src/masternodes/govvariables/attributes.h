@@ -78,15 +78,13 @@ enum GovernanceKeys : uint8_t  {
     FeeRedistribution       = 'a',
     CFPPayout               = 'b',
     CFPFee                  = 'c',
-    CFPEmergencyFee         = 'd',
-    CFPEmergencyPeriod      = 'e',
-    CFPMajority             = 'f',
-    VOCFee                  = 'g',
-    VOCEmergencyFee         = 'h',
-    VOCEmergencyPeriod      = 'i',
-    VOCMajority             = 'j',
-    MinVoters               = 'k',
-    VotingPeriod            = 'l',
+    CFPMajority             = 'd',
+    VOCFee                  = 'e',
+    VOCEmergencyFee         = 'f',
+    VOCEmergencyPeriod      = 'g',
+    VOCMajority             = 'h',
+    MinVoters               = 'i',
+    VotingPeriod            = 'j',
 };
 
 enum TokenKeys : uint8_t  {

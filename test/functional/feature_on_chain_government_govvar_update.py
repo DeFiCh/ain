@@ -404,7 +404,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 
-    def test_cfp_update_cfp_emergency_period(self):
+    def test_cfp_update_voc_emergency_period(self):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -413,12 +413,12 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "payoutAddress": address, "emergency": True})
+        propId = self.nodes[0].creategovvoc({"title": title, "context": context, "amount": amount, "payoutAddress": address, "emergency": True})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Set longer emergency period
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_emergency_period': str(EMERGENCY_PERIOD * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
         self.nodes[0].generate(1)
 
         # Move to next cycle
@@ -431,7 +431,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 
-    def test_cfp_update_cfp_emergency_fee(self):
+    def test_cfp_update_voc_emergency_fee(self):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -440,7 +440,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
         amount = 100
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": amount, "payoutAddress": address, "emergency": True})
+        propId = self.nodes[0].creategovvoc({"title": title, "context": context, "amount": amount, "payoutAddress": address})
 
         # Fund addresses
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
@@ -449,7 +449,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_emergency_fee': str(EMERGENCY_FEE * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
@@ -464,7 +464,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check that fee set at creation is used for redistribution
-        fee = 10
+        fee = 5
         numVoters = 2
         expectedAmount = '{}@DFI'.format(Decimal(fee / 2 / numVoters).quantize(Decimal('1E-8'), rounding=ROUND_DOWN))
 
@@ -533,14 +533,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_update_voting_period()
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/governance/proposals/cfp_emergency_period': str(EMERGENCY_PERIOD),
-            'v0/governance/proposals/cfp_emergency_fee': str(EMERGENCY_FEE),
+            'v0/governance/proposals/voc_emergency_period': str(EMERGENCY_PERIOD),
+            'v0/governance/proposals/voc_emergency_fee': str(EMERGENCY_FEE),
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.test_cfp_update_cfp_emergency_period()
-        self.test_cfp_update_cfp_emergency_fee()
+        self.test_cfp_update_voc_emergency_period()
+        self.test_cfp_update_voc_emergency_fee()
 
 if __name__ == '__main__':
     CFPFeeDistributionTest().main ()

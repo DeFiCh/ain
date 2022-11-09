@@ -61,7 +61,6 @@ UniValue creategovcfp(const JSONRPCRequest& request)
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
-                            {"emergency", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Is this emergency CFP"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -95,7 +94,6 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     CAmount amount;
     int cycles = 1;
     std::string title, context, contexthash, addressStr;
-    bool emergency = false;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -114,11 +112,8 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     if (!data["contextHash"].isNull())
         contexthash = data["contextHash"].get_str();
 
-    if (!data["emergency"].isNull())
-        emergency = data["emergency"].get_bool();
-
-    if (!emergency && !data["cycles"].isNull())
-            cycles = data["cycles"].get_int();
+    if (!data["cycles"].isNull())
+        cycles = data["cycles"].get_int();
 
     if (!data["amount"].isNull()) {
         amount = AmountFromValue(data["amount"]);
@@ -146,7 +141,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     pm.title = title;
     pm.context = context;
     pm.contexthash = contexthash;
-    pm.options = (emergency ? CPropOption::Emergency : 0);
+    pm.options = 0;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

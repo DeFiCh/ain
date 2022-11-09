@@ -83,7 +83,6 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMes
     assert(attributes);
 
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
-    CDataStructureV0 CFPEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyFee};
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
     CDataStructureV0 VOCEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
     bool emergency = (options & CPropOption::Emergency);
@@ -91,7 +90,7 @@ CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMes
     CAmount cfpFee;
     switch(type) {
         case CPropType::CommunityFundProposal:
-            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(emergency ? CFPEmergencyKey : CFPKey, Params().GetConsensus().props.cfp.fee));
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
             return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
         case CPropType::VoteOfConfidence:
             return attributes->GetValue(emergency ? VOCEmergencyKey : VOCKey, Params().GetConsensus().props.voc.fee);
@@ -1281,16 +1280,11 @@ void CCustomCSView::SetVaultHistoryStore() {
 
 uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
 {
-    if (const auto attributes = GetAttributes()) {
-        CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPEmergencyPeriod};
-        CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
+    if (type != CPropType::VoteOfConfidence) return 0;
 
-        switch(type) {
-            case CPropType::CommunityFundProposal:
-                return attributes->GetValue(CFPKey, uint32_t{0});
-            case CPropType::VoteOfConfidence:
-                return attributes->GetValue(VOCKey, uint32_t{0});
-        }
+    if (const auto attributes = GetAttributes()) {
+        CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
+        return attributes->GetValue(VOCKey, uint32_t{0});
     }
 
     return 0;

@@ -192,8 +192,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"fee_redistribution",          GovernanceKeys::FeeRedistribution},
                 {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
                 {"cfp_fee",                     GovernanceKeys::CFPFee},
-                {"cfp_emergency_fee",           GovernanceKeys::CFPEmergencyFee},
-                {"cfp_emergency_period",        GovernanceKeys::CFPEmergencyPeriod},
                 {"cfp_majority",                GovernanceKeys::CFPMajority},
                 {"voc_fee",                     GovernanceKeys::VOCFee},
                 {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
@@ -275,8 +273,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {GovernanceKeys::FeeRedistribution,     "fee_redistribution"},
                 {GovernanceKeys::CFPPayout,             "cfp_automatic_payout"},
                 {GovernanceKeys::CFPFee,                "cfp_fee"},
-                {GovernanceKeys::CFPEmergencyFee,       "cfp_emergency_fee"},
-                {GovernanceKeys::CFPEmergencyPeriod,    "cfp_emergency_period"},
                 {GovernanceKeys::CFPMajority,           "cfp_majority"},
                 {GovernanceKeys::VOCFee,                "voc_fee"},
                 {GovernanceKeys::VOCEmergencyFee,       "voc_emergency_fee"},
@@ -485,8 +481,6 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::FeeRedistribution,     VerifyBool},
                 {GovernanceKeys::CFPPayout,             VerifyBool},
                 {GovernanceKeys::CFPFee,                VerifyPct},
-                {GovernanceKeys::CFPEmergencyFee,       VerifyPct},
-                {GovernanceKeys::CFPEmergencyPeriod,    VerifyUInt32},
                 {GovernanceKeys::CFPMajority,           VerifyPct},
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
@@ -673,10 +667,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
             }
         } else if (type == AttributeTypes::Governance) {
             if (typeId == GovernanceIDs::Proposals) {
-                if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::CFPPayout && typeKey != GovernanceKeys::CFPFee
-                    && typeKey != GovernanceKeys::CFPEmergencyFee && typeKey != GovernanceKeys::CFPEmergencyPeriod && typeKey != GovernanceKeys::CFPMajority
-                    && typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyPeriod
-                    && typeKey != GovernanceKeys::VOCMajority && typeKey != GovernanceKeys::MinVoters && typeKey != GovernanceKeys::VotingPeriod)
+                if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::CFPPayout
+                    && typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPMajority
+                    && typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCMajority
+                    && typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee
+                    && typeKey != GovernanceKeys::MinVoters && typeKey != GovernanceKeys::VotingPeriod)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             } else {
                 return Res::Err("Unsupported Governance ID");

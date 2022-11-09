@@ -84,8 +84,8 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result['nonutxo'][0]['CommunityDevelopmentFunds'], Decimal('19.88746400'))
 
         # Check errors
-        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})
-        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 3", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 0, "payoutAddress": address})
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 100", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 101, "payoutAddress": address})
+        assert_raises_rpc_error(-32600, "proposal cycles can be between 1 and 100", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 0, "payoutAddress": address})
 
         # Check burn empty
         assert_equal(self.nodes[0].getburninfo()['feeburn'], 0)
@@ -389,71 +389,18 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
 
         emergencyPeriod = 25
-        title = 'Emergency CFP'
+        title = 'Emergency VOC'
 
         self.nodes[0].setgov({"ATTRIBUTES":{
             'v0/governance/proposals/cfp_automatic_payout':'true',
-            'v0/governance/proposals/cfp_emergency_period': f'{emergencyPeriod}',
-            'v0/governance/proposals/cfp_emergency_fee':'0.50000000',
             'v0/governance/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/governance/proposals/voc_emergency_fee':'20.00000000',
             'v0/governance/proposals/voc_majority':'0.4999'
         }})
-
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        # Create CFP
-        tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 50, "payoutAddress": address, "emergency": True})
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        # Check fee burn
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('26.25000000'))
-
-        # Check proposal
-        finalHeight = self.nodes[0].getblockcount() + emergencyPeriod
-        result = self.nodes[0].listgovproposals("cfp","voting")
-        assert_equal(result[0]["proposalId"], tx)
-        assert_equal(result[0]["title"], title)
-        assert_equal(result[0]["context"], context)
-        assert_equal(result[0]["type"], "CommunityFundProposal")
-        assert_equal(result[0]["options"], ["emergency"])
-        assert_equal(result[0]["status"], "Voting")
-        assert_equal(result[0]["amount"], Decimal("50"))
-        assert_equal(result[0]["nextCycle"], 1)
-        assert_equal(result[0]["totalCycles"], 1)
-        assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["finalizeAfter"], finalHeight)
-
-        # Vote on proposal
-        self.nodes[0].votegov(tx, mn0, "yes")
-        self.nodes[0].generate(1)
-        self.nodes[1].votegov(tx, mn1, "no")
-        self.nodes[1].generate(1)
-        self.nodes[2].votegov(tx, mn2, "yes")
-        self.nodes[2].generate(1)
-        self.sync_blocks()
-
-        # Move to just before final height
-        self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
-        bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
-        assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
-
-        # Move to final height
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        assert_equal(self.nodes[1].getaccount(address), ['150.00000000@DFI'])
-        assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal - Decimal("50") + Decimal("19.23346268"))
-
-        # No proposals pending
-        assert_equal(self.nodes[0].listgovproposals("all", "voting"), [])
-        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
-
-        # Test Vote of Confidence
+        # Test emergency Vote of Confidence
         title = "Create vote of confidence custom fee custom majority"
         context = "Test context"
         tx = self.nodes[0].creategovvoc({"title": title, "context": context, "emergency": True})
@@ -461,7 +408,7 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check burn fee increment
-        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('36.25000000'))
+        assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('23.750000000'))
 
         # Cast votes
         self.nodes[0].votegov(tx, mn0, "yes")
@@ -491,7 +438,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["ends"], "3 hours")
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 0)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
 
 if __name__ == '__main__':
