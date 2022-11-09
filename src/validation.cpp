@@ -4137,7 +4137,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
 
-        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting)) {
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
@@ -4148,10 +4148,10 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         switch(prop.type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold);
+                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold) / 10000;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold);
+                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold) / 10000;
                 break;
         }
 

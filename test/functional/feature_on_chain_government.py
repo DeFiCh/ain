@@ -397,7 +397,7 @@ class ChainGornmentTest(DefiTestFramework):
             'v0/governance/proposals/cfp_emergency_fee':'0.50000000',
             'v0/governance/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/governance/proposals/voc_emergency_fee':'20.00000000',
-            'v0/governance/proposals/voc_majority':'4999'
+            'v0/governance/proposals/voc_majority':'0.4999'
         }})
 
         self.nodes[0].generate(1)

@@ -344,6 +344,7 @@ static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     {
         val.pop_back();
         if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
+        else if (val == "100") val = "1";
         else if (val.size() > 1) val.insert(0, "0.");
         else val.insert(0, "0.0");
     }
@@ -486,12 +487,12 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::CFPFee,                VerifyPct},
                 {GovernanceKeys::CFPEmergencyFee,       VerifyPct},
                 {GovernanceKeys::CFPEmergencyPeriod,    VerifyUInt32},
-                {GovernanceKeys::CFPMajority,           VerifyUInt32},
+                {GovernanceKeys::CFPMajority,           VerifyPct},
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
-                {GovernanceKeys::VOCMajority,           VerifyUInt32},
-                {GovernanceKeys::MinVoters,             VerifyUInt32},
+                {GovernanceKeys::VOCMajority,           VerifyPct},
+                {GovernanceKeys::MinVoters,             VerifyPct},
                 {GovernanceKeys::VotingPeriod,          VerifyUInt32},
             }
         },

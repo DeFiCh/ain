@@ -541,16 +541,16 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     if (!attributes)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
 
-    auto minVotes = attributes->GetValue(minVoting, Params().GetConsensus().props.minVoting);
+    auto minVotes = attributes->GetValue(minVoting, Params().GetConsensus().props.minVoting) / 10000;
     auto valid = allVotes > minVotes;
 
     if (valid) {
         switch(prop->type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.majorityThreshold);
+                majorityThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.majorityThreshold);
+                majorityThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
                 break;
         }
         votes = lround(voteYes * 10000.f / voters);

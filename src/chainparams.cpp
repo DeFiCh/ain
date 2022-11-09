@@ -195,10 +195,10 @@ public:
         consensus.vaultCreationFee = 2 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.cfp.majorityThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.voc.majorityThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.minVoting = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
@@ -443,10 +443,10 @@ public:
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.cfp.majorityThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 50 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.voc.majorityThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.minVoting = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
@@ -644,10 +644,10 @@ public:
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.cfp.majorityThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.voc.majorityThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.minVoting = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 100; // tally votes every 1K blocks
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
@@ -837,10 +837,10 @@ public:
         consensus.spv.minConfirmations = 6;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
-        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.cfp.majorityThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
-        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
-        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.voc.majorityThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.minVoting = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70; // tally votes every 70 blocks
 
         consensus.vaultCreationFee = 1 * COIN;

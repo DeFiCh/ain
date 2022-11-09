@@ -136,7 +136,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/proposal_minimum_vote':'8000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/proposal_minimum_vote':'0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -200,7 +200,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_majority':'8000'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_majority':'0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
