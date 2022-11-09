@@ -906,7 +906,6 @@ namespace {
             throw JSONRPCError(RPC_MISC_ERROR, "start index greater than number of prices available");
 
         for(auto tokenCurrency : std::set<CTokenCurrencyPair>(std::next(setTokenCurrency.begin(), start), setTokenCurrency.end())) {
-            // auto tokenCurrency = *it;
             UniValue item{UniValue::VOBJ};
             const auto& token = tokenCurrency.first;
             const auto& currency = tokenCurrency.second;
