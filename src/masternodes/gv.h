@@ -13,6 +13,25 @@
 class ATTRIBUTES;
 class CCustomCSView;
 
+template<typename T>
+class GvOptional : public std::optional<T>
+{
+public:
+    using std::optional<T>::optional;
+    using std::optional<T>::operator bool;
+
+    template<typename Stream>
+    inline void Serialize(Stream& s) const {
+        assert(this->has_value());
+        ::Serialize(s, this->value());
+    }
+
+    template<typename Stream>
+    inline void Unserialize(Stream& s) {
+        ::Unserialize(s, *this ? this->value() : this->emplace());
+    }
+};
+
 class GovVariable
 {
 public:
@@ -23,11 +42,13 @@ public:
 
     virtual std::string GetName() const = 0;
 
+    virtual bool IsEmpty() const = 0;
     virtual Res Import(UniValue const &) = 0;
     virtual UniValue Export() const = 0;
     /// @todo it looks like Validate+Apply may be redundant. refactor for one?
     virtual Res Validate(CCustomCSView const &) const = 0;
     virtual Res Apply(CCustomCSView &, uint32_t) = 0;
+    virtual Res Erase(CCustomCSView &, uint32_t, std::vector<std::string> const &) = 0;
 
     virtual void Serialize(CVectorWriter& s) const = 0;
     virtual void Unserialize(VectorReader& s) = 0;
