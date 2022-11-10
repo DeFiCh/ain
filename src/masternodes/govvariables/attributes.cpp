@@ -1175,6 +1175,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
                     case ConsortiumKeys::Members: {
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                            return Res::Err("Cannot be set before GrandCentral");
+
+                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+
                         const auto members = std::get_if<CConsortiumMembers>(&value);
                         if (!members) {
                             return Res::Err("Unexpected value");
@@ -1195,6 +1201,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                                 return Res::Err("Daily mint limit higher than daily global mint limit");
                             }
                         }
+                        break;
                     }
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:

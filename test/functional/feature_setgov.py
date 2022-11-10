@@ -906,6 +906,9 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", "ownerAddress":"' + owner +'", "backingId":"blablabla", "mintLimit":10.00000000, "dailyMintLimit":1.00000000, "status":2}}'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'-1'}})
 
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/mint_limit' : '10', 'v0/consortium/4/daily_mint_limit' : '1'}})
+        self.nodes[0].generate(1)
+
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                             "ownerAddress":"' + owner +'", \
                                                                             "backingId":"blablabla", \
