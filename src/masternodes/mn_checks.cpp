@@ -3843,8 +3843,15 @@ public:
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
 
-        if ((obj.options & CPropOption::Emergency) && obj.nCycles != 1)
-            return Res::Err("emergency proposal cycles must be 1");
+        if ((obj.options & CPropOption::Emergency)) {
+            if (obj.nCycles != 1) {
+                return Res::Err("emergency proposal cycles must be 1");
+            }
+
+            if (static_cast<CPropType>(obj.type) != CPropType::VoteOfConfidence) {
+                return Res::Err("only vote of confidence allowed with emergency option");
+            }
+        }
 
         return mnview.CreateProp(tx.GetHash(), height, obj, tx.vout[0].nValue);
     }

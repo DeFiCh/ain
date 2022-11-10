@@ -1283,8 +1283,6 @@ void CCustomCSView::SetVaultHistoryStore() {
 
 uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
 {
-    if (type != CPropType::VoteOfConfidence) return 0;
-
     if (const auto attributes = GetAttributes()) {
         CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
         return attributes->GetValue(VOCKey, uint32_t{8640});
