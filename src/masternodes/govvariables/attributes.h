@@ -207,6 +207,7 @@ enum FeeDirValues : uint8_t {
 struct CConsortiumMember
 {
     static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
+    static const uint16_t MIN_CONSORTIUM_MEMBERS_STRING_LENGTH = 3;
     enum Status : uint8_t
     {
         Active = 0,

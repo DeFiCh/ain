@@ -379,6 +379,10 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
         member.status = 0;
 
         member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
+        if (member.name.size() < CConsortiumMember::MIN_CONSORTIUM_MEMBERS_STRING_LENGTH) {
+            return Res::Err(strprintf("Member name too short, must be more than %d chars long", CConsortiumMember::MIN_CONSORTIUM_MEMBERS_STRING_LENGTH));
+        }
+
         if (!value["ownerAddress"].isNull()) {
             const auto dest = DecodeDestination(value["ownerAddress"].getValStr());
             if (!IsValidDestination(dest)) {

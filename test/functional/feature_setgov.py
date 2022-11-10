@@ -884,6 +884,10 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                                                         "ownerAddress":"", \
                                                                                                                                                                         "backingId":"blablabla", \
                                                                                                                                                                         "mintLimit":10.00000000}}'}})
+        assert_raises_rpc_error(-5, "Member name too short, must be more than 3 chars long", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"12", \
+                                                                                                                                                                        "ownerAddress":"' + owner +'", \
+                                                                                                                                                                        "backingId":"blablabla", \
+                                                                                                                                                                        "mintLimit":10.00000000}}'}})
         assert_raises_rpc_error(-5, "Mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
                                                                                                                                            "ownerAddress":"' + owner +'", \
                                                                                                                                            "backingId":"blablabla", \
