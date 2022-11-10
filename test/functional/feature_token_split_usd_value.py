@@ -318,6 +318,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_equal(vault["interestValue"], -1)
             assert_equal(vault["informativeRatio"], -1)
             assert_equal(vault["collateralRatio"], -1)
+
         vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
         for vault in vaults_values:
             assert_greater_than_or_equal(vault["collateralValue"], 0)
@@ -327,7 +328,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
         # Unlock token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT1}':'false'}})
         self.nodes[0].generate(1)
-        vaults_values = self.get_vaults_usd_values()
+        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
         for vault in vaults_values:
             assert_equal(vault["state"], "active")
             assert_greater_than_or_equal(vault["collateralValue"], 0)
@@ -335,6 +336,8 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_greater_than_or_equal(vault["interestValue"], 0)
             assert_greater_than_or_equal(vault["informativeRatio"], 0)
             assert_greater_than_or_equal(vault["collateralRatio"], 0)
+            assert_greater_than_or_equal(vault["interestPerBlock"][0].split('@')[0], 0)
+            assert_greater_than_or_equal(vault["interestPerBlockValue"], 0)
 
     def run_test(self):
         self.setup()

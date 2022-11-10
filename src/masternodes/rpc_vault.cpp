@@ -135,9 +135,8 @@ namespace {
         auto blockTime = ::ChainActive().Tip()->GetBlockTime();
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
         LogPrint(BCLog::LOAN,"%s():\n", __func__);
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
 
-        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+        if (auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice, skipLockedCheck)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -249,8 +248,12 @@ namespace {
                 interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
                 totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
             }
-            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
-            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            if (!isVaultTokenLocked){
+                // IPB can only be calculated when tokens are not locked.
+                // Value during split period is hard to predict with the current|next price
+                result.pushKV("interestsPerBlock", interestsPerBlockBalances);
+                result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            }
         }
         return result;
     }
