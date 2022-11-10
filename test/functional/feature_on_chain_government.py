@@ -190,9 +190,24 @@ class ChainGornmentTest(DefiTestFramework):
         bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
         assert_equal(self.nodes[1].getaccount(address), [])
 
+        ## Check first cycle length
+        result = self.nodes[0].listgovproposals()
+        assert_equal(result[0]['nextCycle'], 1)
+
         # Move to cycle payout
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        result = self.nodes[0].listgovproposals()
+        blockcount = self.nodes[0].getblockcount()
+
+        # Actually moved to next cycle at cycle1
+        assert_equal(result[0]['nextCycle'], 2)
+        assert_equal(blockcount, cycle1)
+
+        # First cycle should last for at least a votingPeriod
+        assert(cycle1 - creationHeight >= votingPeriod)
+
         # CommunityDevelopmentFunds is charged by proposal
         assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464") - Decimal(100))
 
