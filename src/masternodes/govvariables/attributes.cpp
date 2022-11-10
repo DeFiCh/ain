@@ -148,7 +148,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
             AttributeTypes::Consortium, {
                 {"members",             ConsortiumKeys::Members},
                 {"mint_limit",          ConsortiumKeys::MintLimit},
-                {"daily_mint_limit",    ConsortiumKeys::DailyMintLimit},
+                {"mint_limit_daily",    ConsortiumKeys::DailyMintLimit},
             }
         },
         {
@@ -174,7 +174,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
-                {"consortium_enabled",          DFIPKeys::ConsortiumEnabled},
+                {"consortium",                  DFIPKeys::ConsortiumEnabled},
             }
         },
     };
@@ -207,7 +207,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::Members,       "members"},
                 {ConsortiumKeys::MintLimit,     "mint_limit"},
-                {ConsortiumKeys::DailyMintLimit,"daily_mint_limit"},
+                {ConsortiumKeys::DailyMintLimit,"mint_limit_daily"},
             }
         },
         {
@@ -233,7 +233,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
-                {DFIPKeys::ConsortiumEnabled,       "consortium_enabled"},
+                {DFIPKeys::ConsortiumEnabled,       "consortium"},
             }
         },
         {
