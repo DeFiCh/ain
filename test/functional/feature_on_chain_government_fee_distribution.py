@@ -50,7 +50,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # increase the fee in the middle of CFP and check that refund to MNs didn't change
         if (increaseFee) :
-            self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'0.05'}})
+            self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'0.05'}})
             self.nodes[0].generate(1)
 
         # Vote on proposal
@@ -130,11 +130,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
         self.nodes[0].generate(1)
 
         # activate fee redistribution
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
         self.nodes[0].generate(1)
 
         self.sync_blocks()
@@ -149,7 +149,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="no")
         self.test_cfp_fee_distribution(amount=1000, expectedFee=10, vote="neutral", increaseFee=True)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'2%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'2%'}})
         self.nodes[0].generate(1)
 
         self.test_cfp_fee_distribution(amount=1000, expectedFee=20, vote="yes", cycles=1)

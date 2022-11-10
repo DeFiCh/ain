@@ -68,7 +68,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Activate payout on second cycle
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_automatic_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_automatic_payout':'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -136,7 +136,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/proposal_minimum_vote':'0.8'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/quorum':'0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -200,7 +200,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_majority':'0.8'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -265,7 +265,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         account1 = self.nodes[0].getaccount(mn1['ownerAuthAddress'])
         assert_equal(account1, [])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -324,8 +324,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_fee':'50%'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'50%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -384,7 +384,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/voting_period': '200'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voting_period': '200'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -418,7 +418,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Set longer emergency period
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
         self.nodes[0].generate(1)
 
         # Move to next cycle
@@ -449,8 +449,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Set higher fee
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution': 'true'}})
         self.nodes[0].generate(1)
 
         self.nodes[0].votegov(propId, self.mn0, "yes")
@@ -514,8 +514,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # activate on-chain governance
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/params/feature/governance_enabled':'true',
-            'v0/governance/proposals/voting_period': str(VOTING_PERIOD),
+            'v0/params/feature/gov':'true',
+            'v0/gov/proposals/voting_period': str(VOTING_PERIOD),
         }})
         self.nodes[0].generate(1)
 
@@ -533,8 +533,8 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.test_cfp_update_voting_period()
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/governance/proposals/voc_emergency_period': str(EMERGENCY_PERIOD),
-            'v0/governance/proposals/voc_emergency_fee': str(EMERGENCY_FEE),
+            'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD),
+            'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE),
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()

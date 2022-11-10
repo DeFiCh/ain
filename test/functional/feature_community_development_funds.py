@@ -58,7 +58,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
         # activate on-chain governance
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
+        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
         node0.generate(1)
         self.sync_all(self.nodes[:2])
 
@@ -74,7 +74,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(before_hardfork + Decimal("19.887464"), after_hardfork + foundationBalance)
 
         # activate on-chain governance
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'false'}})
+        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'false'}})
         node0.generate(1)
         self.sync_all(self.nodes[:2])
 
@@ -101,7 +101,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node1.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
         assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], 0)
 
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
+        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
         node0.generate(1)
         self.sync_blocks()
 

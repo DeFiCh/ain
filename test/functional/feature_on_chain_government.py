@@ -73,7 +73,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_raises_rpc_error(-32600, "Cannot create tx, on-chain governance is not enabled", self.nodes[0].creategovcfp, {"title": "test", "context": context, "amount": 100, "cycles": 4, "payoutAddress": address})
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/governance_enabled':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -106,8 +106,8 @@ class ChainGornmentTest(DefiTestFramework):
             errorString = e.error['message']
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/fee_redistribution':'true'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/governance/proposals/cfp_automatic_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_automatic_payout':'true'}})
 
         # Create CFP
         tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
@@ -268,9 +268,9 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 1)
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/governance/proposals/cfp_automatic_payout':'false',
-            'v0/governance/proposals/cfp_fee':'0.25',
-            'v0/governance/proposals/voting_period':'100',
+            'v0/gov/proposals/cfp_automatic_payout':'false',
+            'v0/gov/proposals/cfp_fee':'0.25',
+            'v0/gov/proposals/voting_period':'100',
         }})
 
         self.nodes[0].generate(1)
@@ -392,10 +392,10 @@ class ChainGornmentTest(DefiTestFramework):
         title = 'Emergency VOC'
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/governance/proposals/cfp_automatic_payout':'true',
-            'v0/governance/proposals/voc_emergency_period': f'{emergencyPeriod}',
-            'v0/governance/proposals/voc_emergency_fee':'20.00000000',
-            'v0/governance/proposals/voc_majority':'0.4999'
+            'v0/gov/proposals/cfp_automatic_payout':'true',
+            'v0/gov/proposals/voc_emergency_period': f'{emergencyPeriod}',
+            'v0/gov/proposals/voc_emergency_fee':'20.00000000',
+            'v0/gov/proposals/voc_required_votes':'0.4999'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()

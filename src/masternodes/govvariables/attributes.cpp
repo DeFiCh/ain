@@ -58,7 +58,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
-        {"governance",  AttributeTypes::Governance},
+        {"gov",  AttributeTypes::Governance},
     };
     return types;
 }
@@ -71,7 +71,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
-        {AttributeTypes::Governance,"governance"},
+        {AttributeTypes::Governance,"gov"},
     };
     return types;
 }
@@ -183,7 +183,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
-                {"governance_enabled",          DFIPKeys::GovernanceEnabled},
+                {"gov",                         DFIPKeys::GovernanceEnabled},
 
             }
         },
@@ -192,12 +192,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"fee_redistribution",          GovernanceKeys::FeeRedistribution},
                 {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
                 {"cfp_fee",                     GovernanceKeys::CFPFee},
-                {"cfp_majority",                GovernanceKeys::CFPMajority},
+                {"cfp_required_votes",                GovernanceKeys::CFPMajority},
                 {"voc_fee",                     GovernanceKeys::VOCFee},
                 {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
                 {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
-                {"voc_majority",                GovernanceKeys::VOCMajority},
-                {"proposal_minimum_vote",       GovernanceKeys::MinVoters},
+                {"voc_required_votes",                GovernanceKeys::VOCMajority},
+                {"quorum",       GovernanceKeys::MinVoters},
                 {"voting_period",               GovernanceKeys::VotingPeriod},
             }
         },
@@ -250,7 +250,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
-                {DFIPKeys::GovernanceEnabled,       "governance_enabled"},
+                {DFIPKeys::GovernanceEnabled,       "gov"},
 
             }
         },
@@ -273,12 +273,12 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {GovernanceKeys::FeeRedistribution,     "fee_redistribution"},
                 {GovernanceKeys::CFPPayout,             "cfp_automatic_payout"},
                 {GovernanceKeys::CFPFee,                "cfp_fee"},
-                {GovernanceKeys::CFPMajority,           "cfp_majority"},
+                {GovernanceKeys::CFPMajority,           "cfp_required_votes"},
                 {GovernanceKeys::VOCFee,                "voc_fee"},
                 {GovernanceKeys::VOCEmergencyFee,       "voc_emergency_fee"},
                 {GovernanceKeys::VOCEmergencyPeriod,    "voc_emergency_period"},
-                {GovernanceKeys::VOCMajority,           "voc_majority"},
-                {GovernanceKeys::MinVoters,             "proposal_minimum_vote"},
+                {GovernanceKeys::VOCMajority,           "voc_required_votes"},
+                {GovernanceKeys::MinVoters,             "quorum"},
                 {GovernanceKeys::VotingPeriod,          "voting_period"},
             }
         },
