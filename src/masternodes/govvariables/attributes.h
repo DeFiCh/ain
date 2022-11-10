@@ -85,6 +85,7 @@ enum GovernanceKeys : uint8_t  {
     VOCMajority             = 'h',
     MinVoters               = 'i',
     VotingPeriod            = 'j',
+    VOCEmergencyQuorum      = 'k',
 };
 
 enum TokenKeys : uint8_t  {

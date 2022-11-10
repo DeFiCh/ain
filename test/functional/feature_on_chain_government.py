@@ -15,6 +15,7 @@ from test_framework.util import (
 from decimal import Decimal
 
 
+
 class ChainGornmentTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -440,6 +441,41 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 0)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
+
+        # Test emergency quorum
+        self.nodes[0].setgov({"ATTRIBUTES":{
+            'v0/gov/proposals/voc_emergency_quorum':'80%'
+        }})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        tx = self.nodes[0].creategovvoc({"title": "Create vote of confidence custom fee custom majority", "context": "test context", "emergency": True})
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Cast votes
+        self.nodes[0].votegov(tx, mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[1].votegov(tx, mn1, "no")
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        self.nodes[3].votegov(tx, mn3, "yes")
+        self.nodes[3].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].generate(votingPeriod)
+        self.sync_blocks()
+
+        # Check results, proposal should be rejected as only 75% of masternodes voted
+        result = self.nodes[0].getgovproposal(tx)
+        assert_equal(result["status"], "Rejected")
+
+        assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 0)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
 if __name__ == '__main__':
     ChainGornmentTest().main ()

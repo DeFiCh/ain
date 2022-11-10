@@ -196,6 +196,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"voc_fee",                     GovernanceKeys::VOCFee},
                 {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
                 {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
+                {"voc_emergency_quorum",        GovernanceKeys::VOCEmergencyQuorum},
                 {"voc_required_votes",          GovernanceKeys::VOCMajority},
                 {"quorum",                      GovernanceKeys::MinVoters},
                 {"voting_period",               GovernanceKeys::VotingPeriod},
@@ -277,6 +278,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {GovernanceKeys::VOCFee,                "voc_fee"},
                 {GovernanceKeys::VOCEmergencyFee,       "voc_emergency_fee"},
                 {GovernanceKeys::VOCEmergencyPeriod,    "voc_emergency_period"},
+                {GovernanceKeys::VOCEmergencyQuorum,    "voc_emergency_quorum"},
                 {GovernanceKeys::VOCMajority,           "voc_required_votes"},
                 {GovernanceKeys::MinVoters,             "quorum"},
                 {GovernanceKeys::VotingPeriod,          "voting_period"},
@@ -485,6 +487,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
                 {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
+                {GovernanceKeys::VOCEmergencyQuorum,    VerifyPct},
                 {GovernanceKeys::VOCMajority,           VerifyPct},
                 {GovernanceKeys::MinVoters,             VerifyPct},
                 {GovernanceKeys::VotingPeriod,          VerifyUInt32},
@@ -671,7 +674,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     && typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPMajority
                     && typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCMajority
                     && typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee
-                    && typeKey != GovernanceKeys::MinVoters && typeKey != GovernanceKeys::VotingPeriod)
+                    && typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::MinVoters
+                    && typeKey != GovernanceKeys::VotingPeriod)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             } else {
                 return Res::Err("Unsupported Governance ID");

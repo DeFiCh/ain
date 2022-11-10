@@ -4136,8 +4136,17 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         }
 
         CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+        CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
-        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000) {
+        bool emergency = prop.options & CPropOption::Emergency;
+        uint64_t quorum;
+        if (prop.type == CPropType::VoteOfConfidence && emergency) {
+            quorum = attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
+        } else {
+            quorum = attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000;
+        }
+
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
