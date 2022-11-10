@@ -190,7 +190,7 @@ class ChainGornmentTest(DefiTestFramework):
         bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
         assert_equal(self.nodes[1].getaccount(address), [])
 
-        ## Check first cycle length
+        # Check first cycle length
         result = self.nodes[0].listgovproposals()
         assert_equal(result[0]['nextCycle'], 1)
 
