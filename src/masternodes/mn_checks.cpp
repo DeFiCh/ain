@@ -931,6 +931,28 @@ public:
             node.version = CMasternode::VERSION0;
         }
 
+        bool duplicate{};
+        mnview.ForEachNewCollateral([&](const uint256& key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
+            const auto& value = valueKey.get();
+            if (height > value.blockHeight) {
+                return true;
+            }
+            const auto& coin = coins.AccessCoin({key, 1});
+            assert(!coin.IsSpent());
+            CTxDestination pendingDest;
+            assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
+            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest)) : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+                duplicate = true;
+                return false;
+            }
+            return true;
+        });
+
+        if (duplicate) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending");
+        }
+
         res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res) {
@@ -1021,7 +1043,7 @@ public:
 
                 const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
-                    return Res::Err("Masternode with that owner address already exists");
+                    return Res::Err("Masternode with collateral address as operator or owner already exists");
                 }
 
                 bool duplicate{};

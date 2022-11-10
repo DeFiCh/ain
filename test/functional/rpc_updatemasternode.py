@@ -276,7 +276,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         )
 
         # Test update of owner address with existing address
-        assert_raises_rpc_error(-32600, "Masternode with that owner address already exists", self.nodes[0].updatemasternode, mn_id, {'ownerAddress':mn_owner})
+        assert_raises_rpc_error(-32600, "Masternode with collateral address as operator or owner already exists", self.nodes[0].updatemasternode, mn_id, {'ownerAddress':mn_owner})
 
         # Set up input / output tests
         not_collateral = self.nodes[0].getnewaddress("", "legacy")
@@ -369,9 +369,14 @@ class TestForcedRewardAddress(DefiTestFramework):
         new_mn6_owner = self.nodes[0].getnewaddress("", "legacy")
 
         # Try updating two nodes to the same address
-        self.nodes[0].updatemasternode(mn1, {'ownerAddress':new_mn1_owner})
+        self.nodes[0].updatemasternode(mn1, {'ownerAddress':new_mn1_owner, 'operatorAddress':new_mn1_owner})
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600, "Masternode exist with that owner address pending already", self.nodes[0].updatemasternode, mn2, {'ownerAddress':new_mn1_owner})
+
+        # Make sure we cannot update another MN with the pending address
+        assert_raises_rpc_error(-32600, "Masternode with collateral address as operator or owner already exists", self.nodes[0].updatemasternode, mn2, {'ownerAddress':new_mn1_owner})
+
+        # Try and create new MN with pending address
+        assert_raises_rpc_error(-32600, "Masternode exist with that owner address pending", self.nodes[0].createmasternode, new_mn1_owner)
 
         # Test updating several MNs owners in the same block
         self.nodes[0].updatemasternode(mn2, {'ownerAddress':new_mn2_owner})
@@ -414,6 +419,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         result = self.nodes[0].listmasternodes()
         assert_equal(result[mn1]['state'], 'ENABLED')
         assert_equal(result[mn1]['ownerAuthAddress'], new_mn1_owner)
+        assert_equal(result[mn1]['operatorAuthAddress'], new_mn1_owner)
         assert_equal(result[mn2]['state'], 'ENABLED')
         assert_equal(result[mn2]['ownerAuthAddress'], new_mn2_owner)
         assert_equal(result[mn3]['state'], 'ENABLED')
