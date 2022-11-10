@@ -631,7 +631,7 @@ public:
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
-    
+
     Res operator()(CGovernanceUnsetMessage& obj) const {
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
@@ -4075,8 +4075,13 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         }
 
         if (txType == CustomTxType::CreateCfp || txType == CustomTxType::CreateVoc) {
-            // burn half of creation fee, the rest is distributed among voting masternodes
-            auto burnFee = tx.vout[0].nValue / 2;
+            // burn fee_burn_pct of creation fee, the rest is distributed among voting masternodes
+            CDataStructureV0 burnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+
+            auto attributes = view.GetAttributes();
+            assert(attributes);
+
+            auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
             }

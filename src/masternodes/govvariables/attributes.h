@@ -76,16 +76,17 @@ enum DFIPKeys : uint8_t  {
 
 enum GovernanceKeys : uint8_t  {
     FeeRedistribution       = 'a',
-    CFPPayout               = 'b',
-    CFPFee                  = 'c',
-    CFPMajority             = 'd',
-    VOCFee                  = 'e',
-    VOCEmergencyFee         = 'f',
-    VOCEmergencyPeriod      = 'g',
-    VOCMajority             = 'h',
-    MinVoters               = 'i',
-    VotingPeriod            = 'j',
-    VOCEmergencyQuorum      = 'k',
+    FeeBurnPct              = 'b',
+    CFPPayout               = 'c',
+    CFPFee                  = 'd',
+    CFPMajority             = 'e',
+    VOCFee                  = 'f',
+    VOCEmergencyFee         = 'g',
+    VOCEmergencyPeriod      = 'h',
+    VOCMajority             = 'i',
+    MinVoters               = 'j',
+    VotingPeriod            = 'k',
+    VOCEmergencyQuorum      = 'l',
 };
 
 enum TokenKeys : uint8_t  {

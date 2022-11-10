@@ -873,6 +873,10 @@ class GovsetTest (DefiTestFramework):
         # Move to GrandCentral fork
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
 
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'2'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'101%'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'101%'}})
+
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result['v0/locks/token/4'], 'true')
         assert_equal(result['v0/params/dfip2206f/active'], 'false')
