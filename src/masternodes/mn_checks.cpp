@@ -983,8 +983,9 @@ public:
         assert(attributes);
 
         bool ownerType{}, operatorType{}, rewardType{};
-        for (const auto& item : obj.updates) {
-            if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+        for (const auto& [type, addressPair] : obj.updates) {
+            const auto& [addressType, rawAddress] = addressPair;
+            if (type == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                 CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOwnerAddress};
                 if (!attributes->GetValue(key, false)) {
                     return Res::Err("Updating masternode owner address not currently enabled in attributes.");
@@ -1045,7 +1046,7 @@ public:
                 }
 
                 mnview.UpdateMasternodeCollateral(obj.mnId, *node, tx.GetHash(), height);
-            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
                 CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOperatorAddress};
                 if (!attributes->GetValue(key, false)) {
                     return Res::Err("Updating masternode operator address not currently enabled in attributes.");
@@ -1055,16 +1056,16 @@ public:
                 }
                 operatorType = true;
 
-                if (item.second.first != 1 && item.second.first != 4) {
+                if (addressType != 1 && addressType != 4) {
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(item.second.second));
+                const auto keyID = CKeyID(uint160(rawAddress));
                 if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
                     return Res::Err("Masternode with that operator address already exists");
                 }
-                mnview.UpdateMasternodeOperator(obj.mnId, *node, item.second.first, keyID, height);
-            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                mnview.UpdateMasternodeOperator(obj.mnId, *node, addressType, keyID, height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
                 CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
                 if (!attributes->GetValue(key, false)) {
                     return Res::Err("Updating masternode reward address not currently enabled in attributes.");
@@ -1074,13 +1075,13 @@ public:
                 }
                 rewardType = true;
 
-                if (item.second.first != 1 && item.second.first != 4) {
+                if (addressType != 1 && addressType != 4) {
                     return Res::Err("Reward address must be P2PKH or P2WPKH type");
                 }
 
-                const auto keyID = CKeyID(uint160(item.second.second));
-                mnview.SetForcedRewardAddress(obj.mnId, *node, item.second.first, keyID, height);
-            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                const auto keyID = CKeyID(uint160(rawAddress));
+                mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
                 if (!attributes->GetValue(key, false)) {
                     return Res::Err("Updating masternode reward address not currently enabled in attributes.");
