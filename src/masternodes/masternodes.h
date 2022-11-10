@@ -231,7 +231,10 @@ public:
     void UpdateMasternodeOwner(uint256 const & nodeId, CMasternode& node, const char ownerType, const CKeyID& ownerAuthAddress);
     void UpdateMasternodeCollateral(uint256 const & nodeId, CMasternode& node, const uint256& newCollateralTx, const int height);
     [[nodiscard]] std::optional<MNNewOwnerHeightValue> GetNewCollateral(const uint256& txid) const;
+    [[nodiscard]] std::optional<uint32_t> GetPendingHeight(const CKeyID &ownerAuthAddress) const;
     void ForEachNewCollateral(std::function<bool(const uint256&, CLazySerialize<MNNewOwnerHeightValue>)> callback);
+    void ForEachPendingHeight(std::function<bool(const CKeyID &ownerAuthAddress, const uint32_t &height)> callback);
+    void ErasePendingHeight(const CKeyID &ownerAuthAddress);
 
     // Get blocktimes for non-subnode and subnode with fork logic
     std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
@@ -257,6 +260,7 @@ public:
     struct Operator { static constexpr uint8_t prefix() { return 'o'; } };
     struct Owner    { static constexpr uint8_t prefix() { return 'w'; } };
     struct NewCollateral { static constexpr uint8_t prefix() { return 's'; } };
+    struct PendingHeight { static constexpr uint8_t prefix() { return 'E'; } };
 
     // For storing last staked block time
     struct Staker   { static constexpr uint8_t prefix() { return 'X'; } };
@@ -404,7 +408,7 @@ class CCustomCSView
     void CheckPrefixes()
     {
         CheckPrefix<
-            CMasternodesView        ::  ID, NewCollateral, Operator, Owner, Staker, SubNode, Timelock,
+            CMasternodesView        ::  ID, NewCollateral, PendingHeight, Operator, Owner, Staker, SubNode, Timelock,
             CLastHeightView         ::  Height,
             CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
             CFoundationsDebtView    ::  Debt,

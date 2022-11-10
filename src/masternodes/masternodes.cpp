@@ -110,6 +110,10 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView& mnv
         }
     }
 
+    if (const auto pendingHeight = mnview.GetPendingHeight(ownerAuthAddress)) {
+        return State::TRANSFERRING;
+    }
+
     if (resignHeight == -1 || height < resignHeight) { // enabled or pre-enabled
         // Special case for genesis block
         int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
@@ -341,6 +345,9 @@ void CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, CMasternod
     node.rewardAddressType = rewardAddressType;
     node.rewardAddress = rewardAddress;
     WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
 }
 
 void CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, CMasternode& node, int height)
@@ -348,6 +355,21 @@ void CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, CMasternod
     node.rewardAddressType = 0;
     node.rewardAddress.SetNull();
     WriteBy<ID>(nodeId, node);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+}
+
+std::optional<uint32_t> CMasternodesView::GetPendingHeight(const CKeyID &ownerAuthAddress) const {
+    return ReadBy<PendingHeight, uint32_t>(ownerAuthAddress);
+}
+
+void CMasternodesView::ForEachPendingHeight(std::function<bool(const CKeyID &ownerAuthAddress, const uint32_t &height)> callback) {
+    ForEach<PendingHeight, CKeyID, uint32_t>(callback);
+}
+
+void CMasternodesView::ErasePendingHeight(const CKeyID &ownerAuthAddress) {
+    EraseBy<PendingHeight>(ownerAuthAddress);
 }
 
 void CMasternodesView::UpdateMasternodeOperator(uint256 const & nodeId, CMasternode& node, const char operatorType, const CKeyID& operatorAuthAddress, int height)
@@ -361,6 +383,9 @@ void CMasternodesView::UpdateMasternodeOperator(uint256 const & nodeId, CMastern
     // Overwrite and create new record
     WriteBy<ID>(nodeId, node);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
+
+    // Pending change
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
 }
 
 void CMasternodesView::UpdateMasternodeOwner(uint256 const & nodeId, CMasternode& node, const char ownerType, const CKeyID& ownerAuthAddress)

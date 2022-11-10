@@ -169,6 +169,15 @@ class TestForcedRewardAddress(DefiTestFramework):
 
         assert_equal(self.nodes[1].listmasternodes()[mn_id]["operatorAuthAddress"], operator_address)
 
+        # Check we are in TRANSFERRING state
+        result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'TRANSFERRING')
+
+        # Move forward and check state
+        self.nodes[0].generate(10)
+        result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'ENABLED')
+
         # Set forced address
         forced_reward_address = self.nodes[0].getnewaddress("", "legacy")
         assert_raises_rpc_error(-8,
@@ -184,20 +193,35 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.nodes[0].generate(1)
 
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'TRANSFERRING')
         assert_equal(result['rewardAddress'], forced_reward_address)
         assert_equal(result['ownerAuthAddress'], mn_owner)
         assert_equal(result['operatorAuthAddress'], operator_address)
 
+        # Move forward and check state
+        self.nodes[0].generate(10)
+        result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'ENABLED')
+
+        # Remvoe reward address
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress':''})
         self.nodes[0].generate(1)
 
+        # Check state and reward address
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'TRANSFERRING')
         assert_equal(result['rewardAddress'], '')
         assert_equal(result['ownerAuthAddress'], mn_owner)
         assert_equal(result['operatorAuthAddress'], operator_address)
 
+        # Move forward and check state
+        self.nodes[0].generate(10)
+        result = self.nodes[0].getmasternode(mn_id)[mn_id]
+        assert_equal(result['state'], 'ENABLED')
+
+        # Set reward address
         self.nodes[0].updatemasternode(mn_id, {'rewardAddress':forced_reward_address})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(11)
 
         fra_amount = self.unspent_amount(self.nodes[0], forced_reward_address)
         fra_unspent = self.list_unspent_tx(self.nodes[0], forced_reward_address)
@@ -236,7 +260,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         new_operator_address = self.nodes[0].getnewaddress("", "legacy")
         new_reward_address = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].updatemasternode(mn_id, {'operatorAddress':new_operator_address,'rewardAddress':new_reward_address})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(11)
 
         # Check results
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
@@ -245,11 +269,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result['operatorAuthAddress'], new_operator_address)
 
         # Test empty argument
-        try:
-            self.nodes[0].updatemasternode(mn_id, {})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("No update arguments provided" in errorString)
+        assert_raises_rpc_error(-32600, "No update arguments provided", self.nodes[0].updatemasternode, mn_id, {})
 
         # Test unknown update type
         while True:
@@ -263,11 +283,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         updated_tx = unknown_rawtx.replace('01030114', '01ff0114')
         self.nodes[0].signrawtransactionwithwallet(updated_tx)
 
-        try:
-            self.nodes[0].sendrawtransaction(updated_tx)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Unknown update type provided" in errorString)
+        assert_raises_rpc_error(-26, "Unknown update type provided", self.nodes[0].sendrawtransaction, updated_tx)
 
         # Test incorrect owner address
         assert_raises_rpc_error(-8,

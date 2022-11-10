@@ -4003,6 +4003,18 @@ void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSV
         }
         return true;
     });
+
+    std::set<CKeyID> pendingToErase;
+    cache.ForEachPendingHeight([&](const CKeyID &ownerAuthAddress, const uint32_t &height) {
+        if (height == static_cast<uint32_t>(pindex->nHeight)) {
+            pendingToErase.insert(ownerAuthAddress);
+        }
+        return true;
+    });
+
+    for (const auto &keyID : pendingToErase) {
+        cache.ErasePendingHeight(keyID);
+    }
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
