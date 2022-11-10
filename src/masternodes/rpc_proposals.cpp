@@ -354,7 +354,7 @@ UniValue votegov(const JSONRPCRequest& request)
 
         auto prop = view.GetProp(propId);
         if (!prop) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exists", propId.GetHex()));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
         }
         if (prop->status != CPropStatusType::Voting) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
@@ -488,7 +488,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
 
     auto prop = view.GetProp(propId);
     if (!prop) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exists", propId.GetHex()));
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
     }
     if (prop->status != CPropStatusType::Voting) {
         return propToJSON(propId, *prop);
