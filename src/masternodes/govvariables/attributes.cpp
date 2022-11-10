@@ -58,7 +58,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
-        {"gov",  AttributeTypes::Governance},
+        {"gov",         AttributeTypes::Governance},
     };
     return types;
 }
@@ -192,12 +192,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"fee_redistribution",          GovernanceKeys::FeeRedistribution},
                 {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
                 {"cfp_fee",                     GovernanceKeys::CFPFee},
-                {"cfp_required_votes",                GovernanceKeys::CFPMajority},
+                {"cfp_required_votes",          GovernanceKeys::CFPMajority},
                 {"voc_fee",                     GovernanceKeys::VOCFee},
                 {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
                 {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
-                {"voc_required_votes",                GovernanceKeys::VOCMajority},
-                {"quorum",       GovernanceKeys::MinVoters},
+                {"voc_required_votes",          GovernanceKeys::VOCMajority},
+                {"quorum",                      GovernanceKeys::MinVoters},
                 {"voting_period",               GovernanceKeys::VotingPeriod},
             }
         },
