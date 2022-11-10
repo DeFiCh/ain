@@ -30,6 +30,7 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Feature   = 'h',
 };
 
 enum OracleIDs : uint8_t  {
@@ -37,15 +38,17 @@ enum OracleIDs : uint8_t  {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens  = 'a',
-    PaybackTokens     = 'b',
-    DFIP2203Current   = 'c',
-    DFIP2203Burned    = 'd',
-    DFIP2203Minted    = 'e',
-    DFIP2206FCurrent  = 'f',
-    DFIP2206FBurned   = 'g',
-    DFIP2206FMinted   = 'h',
-    DexTokens         = 'i',
+    PaybackDFITokens   = 'a',
+    PaybackTokens      = 'b',
+    DFIP2203Current    = 'c',
+    DFIP2203Burned     = 'd',
+    DFIP2203Minted     = 'e',
+    DFIP2206FCurrent   = 'f',
+    DFIP2206FBurned    = 'g',
+    DFIP2206FMinted    = 'h',
+    DexTokens          = 'i',
+    NegativeInt        = 'j',
+    NegativeIntCurrent = 'k',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -54,27 +57,33 @@ enum DFIPKeys : uint8_t  {
     MinSwap                 = 'c',
     RewardPct               = 'd',
     BlockPeriod             = 'e',
-    DUSDInterestBurn  = 'g',
-    DUSDLoanBurn      = 'h',
+    DUSDInterestBurn        = 'g',
+    DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+    GovUnset                = 'j',
+    GovFoundation           = 'k',
+    MNSetRewardAddress      = 'l',
+    MNSetOperatorAddress    = 'm',
+    MNSetOwnerAddress       = 'n',
 };
 
 enum TokenKeys : uint8_t  {
-    PaybackDFI            = 'a',
-    PaybackDFIFeePCT      = 'b',
-    LoanPayback           = 'c',
-    LoanPaybackFeePCT     = 'd',
-    DexInFeePct           = 'e',
-    DexOutFeePct          = 'f',
-    DFIP2203Enabled       = 'g',
-    FixedIntervalPriceId  = 'h',
-    LoanCollateralEnabled = 'i',
-    LoanCollateralFactor  = 'j',
-    LoanMintingEnabled    = 'k',
-    LoanMintingInterest   = 'l',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
+    PaybackDFI                = 'a',
+    PaybackDFIFeePCT          = 'b',
+    LoanPayback               = 'c',
+    LoanPaybackFeePCT         = 'd',
+    DexInFeePct               = 'e',
+    DexOutFeePct              = 'f',
+    DFIP2203Enabled           = 'g',
+    FixedIntervalPriceId      = 'h',
+    LoanCollateralEnabled     = 'i',
+    LoanCollateralFactor      = 'j',
+    LoanMintingEnabled        = 'k',
+    LoanMintingInterest       = 'l',
+    Ascendant                 = 'm',
+    Descendant                = 'n',
+    Epitaph                   = 'o',
+    LoanPaybackCollateral     = 'p',
 };
 
 enum PoolKeys : uint8_t {
@@ -85,7 +94,7 @@ enum PoolKeys : uint8_t {
 };
 
 struct CDataStructureV0 {
-    uint8_t type;
+    uint8_t  type;
     uint32_t typeId;
     uint32_t key;
     uint32_t keyId;
@@ -185,12 +194,14 @@ enum FeeDirValues : uint8_t {
     Out
 };
 
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, int32_t>;
+using CDexBalances    = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using AscendantValue  = std::pair<uint32_t, std::string>;
+using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+
+void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,
@@ -210,12 +221,14 @@ public:
         return TypeName();
     }
 
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
 
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
+    Res Erase(CCustomCSView& mnview, uint32_t height, std::vector<std::string> const &) override;
 
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
@@ -253,10 +266,13 @@ public:
     }
 
     template<typename K>
-    void EraseKey(const K& key) {
+    bool EraseKey(const K& key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
-        changed.insert(key);
-        attributes.erase(key);
+        if (attributes.erase(key)) {
+            changed.insert(key);
+            return true;
+        }
+        return false;
     }
 
     template<typename K>
@@ -321,7 +337,7 @@ private:
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
+    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };

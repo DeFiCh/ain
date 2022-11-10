@@ -286,15 +286,6 @@ class TokenSplitMechanismTest(DefiTestFramework):
         tokenSymbol = token[str(tokenId)]["symbol"].split('/')[0]
         return tokenSymbol
 
-    def revert(self, block, revertTokeIds=False):
-        blockhash = self.nodes[0].getblockhash(block)
-        self.nodes[0].invalidateblock(blockhash)
-        self.nodes[0].clearmempool()
-        if revertTokeIds:
-            self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
-            self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
-            self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
-
     # Returns a list of pool token ids in which token is present
     def getTokenPools(self, tokenId):
         tokenSymbol = self.getTokenSymbolFromId(tokenId)
@@ -331,7 +322,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
             assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
             assert(f'v0/poolpairs/{poolId}/token_b_fee_pct' in result)
 
-        splitHeight = self.split(tokenId)
+        splitHeight = self.split(tokenId) - 2
         self.nodes[0].generate(1)
 
         new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
@@ -356,7 +347,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
         if not revert:
             return new_token_id
         else:
-            self.revert(splitHeight)
+            self.rollback_to(splitHeight)
             result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
             for poolId in pools:
                 assert(f'v0/poolpairs/{poolId}/token_a_fee_pct' in result)
@@ -369,7 +360,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
             assert(f'v0/token/{new_token_id}/dex_in_fee_pct' not in result)
             assert(f'v0/token/{new_token_id}/dex_out_fee_pct' not in result)
 
-            self.revert(revert_block)
+            self.rollback_to(revert_block)
             result = self.nodes[0].listgovs()[8][0]['ATTRIBUTES']
             for new_pool_id in new_pools:
                 assert(f'v0/poolpairs/{new_pool_id}/token_a_fee_pct' not in result)
@@ -416,7 +407,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
         amountTokenBeforeAcc3 = self.getAmountFromAccount(self.account3, tokenSymbol)
         amountTokenB_BeforeAcc3 = self.getAmountFromAccount(self.account3, tokenBSymbol)
 
-        self.revert(revertHeight)
+        self.rollback_to(revertHeight)
 
         self.split(tokenId)
         new_token_id = list(self.nodes[0].gettoken(tokenSymbol).keys())[0]
@@ -445,7 +436,7 @@ class TokenSplitMechanismTest(DefiTestFramework):
         assert(((Decimal(amountTokenBeforeAcc3)*2) - Decimal(amountTokenAfterAcc3)).copy_abs() <= Decimal(0.00001)*Decimal(amountTokenBeforeAcc3))
 
         if revert:
-            self.revert(revertHeight)
+            self.rollback_to(revertHeight)
         return new_token_id
 
     def run_test(self):
@@ -470,7 +461,11 @@ class TokenSplitMechanismTest(DefiTestFramework):
         self.idT2 = self.check_attributes_on_split(self.idT2, revert=False)
         self.idT3 = self.check_attributes_on_split(self.idT3, revert=False)
 
-        self.revert(initialStateBlock, revertTokeIds=True)
+        self.rollback_to(initialStateBlock)
+        # Update token ids
+        self.idT1 = list(self.nodes[0].gettoken(self.symbolT1).keys())[0]
+        self.idT2 = list(self.nodes[0].gettoken(self.symbolT2).keys())[0]
+        self.idT3 = list(self.nodes[0].gettoken(self.symbolT3).keys())[0]
         self.gotoFCC()
 
         self.check_amounts_on_split(self.idT1_DUSD, self.idT1, revert=True)

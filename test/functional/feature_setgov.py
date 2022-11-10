@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-fortcanninghillheight=1110', '-fortcanningroadheight=1150', '-fortcanningcrunchheight=1200', '-fortcanningspringheight=1250', '-grandcentralheight=1300', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -445,7 +445,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Empty value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/15/payback_dfi':''}})
         assert_raises_rpc_error(-5, "Incorrect key for <type>. Object of ['<version>/<type>/ID/<key>','value'] expected", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, "Unrecognised type argument provided, valid types are: locks, oracles, params, poolpairs, token,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/unrecognised/5/payback_dfi':'true'}})
-        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
+        assert_raises_rpc_error(-5, "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_collateral, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/unrecognised':'true'}})
         assert_raises_rpc_error(-5, "Value must be an integer", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/not_a_number/payback_dfi':'true'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'not_a_number'}})
         assert_raises_rpc_error(-5, 'Boolean value must be either "true" or "false"', self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/payback_dfi':'unrecognised'}})
@@ -670,7 +670,7 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_enabled':'true'}})
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_enabled':'true'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'-1'}})
-        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000001'}})
+        assert_raises_rpc_error(-32600, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1.00000001'}})
         assert_raises_rpc_error(-5, "Amount must be a positive value", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'not_a_number'}})
         assert_raises_rpc_error(-32600, "No such token (127)", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/127/loan_collateral_factor':'1'}})
         assert_raises_rpc_error(-32600, "Fixed interval price currency pair must be set first", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/token/5/loan_collateral_factor':'1'}})
@@ -865,6 +865,53 @@ class GovsetTest (DefiTestFramework):
         attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attributes['v0/params/dfip2203/start_block'], f'{start_block}')
         assert_equal(attributes['v0/params/dfip2206f/start_block'], f'{start_block}')
+
+        # Check errors before fork
+        assert_raises_rpc_error(-32600, "called before GrandCentral height", self.nodes[0].unsetgov, {'ATTRIBUTES': ['v0/locks/token/4', 'v0/params/dfip2206f/active', 'v0/token/4/fixed_interval_price_id', 'v0/oracles/splits/4000', 'v0/poolpairs/3/token_a_fee_direction']})
+        assert_raises_rpc_error(-32600, "Cannot be set before GrandCentralHeight", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/gov-unset':'true'}})
+
+        # Move to GrandCentral fork
+        self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
+
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert_equal(result['v0/locks/token/4'], 'true')
+        assert_equal(result['v0/params/dfip2206f/active'], 'false')
+        assert_equal(result['v0/token/4/fixed_interval_price_id'], 'TSLA/USD')
+        assert_equal(result['v0/oracles/splits/4000'], '4/50')
+        assert_equal(result['v0/poolpairs/3/token_a_fee_direction'], 'out')
+
+        # Check unset does not work as it is not enabled in attributes
+        assert_raises_rpc_error(-32600, "Unset Gov variables not currently enabled in attributes.", self.nodes[0].unsetgov, {'ATTRIBUTES': ['v0/locks/token/4', 'v0/params/dfip2206f/active', 'v0/token/4/fixed_interval_price_id', 'v0/oracles/splits/4000', 'v0/poolpairs/3/token_a_fee_direction']})
+
+        # Enable unset Gov variables in attributes
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-unset':'true'}})
+        self.nodes[0].generate(1)
+
+        # Unset Gov variables
+        self.nodes[0].unsetgov({'ATTRIBUTES': ['v0/locks/token/4', 'v0/params/dfip2206f/active', 'v0/token/4/fixed_interval_price_id', 'v0/oracles/splits/4000', 'v0/poolpairs/3/token_a_fee_direction']})
+        self.nodes[0].generate(1)
+
+        attributes = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        assert 'v0/locks/token/4' not in attributes
+        assert 'v0/params/dfip2206f/active' not in attributes
+        assert 'v0/token/4/fixed_interval_price_id' not in attributes
+        assert 'v0/oracles/splits/4000' not in attributes
+        assert 'v0/poolpairs/3/token_a_fee_direction' not in attributes
+
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0.07000000'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')})
+
+        self.nodes[0].unsetgov({'ORACLE_DEVIATION':'', 'LP_SPLITS':['1', '2']})
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ORACLE_DEVIATION')
+        assert_equal(result['ORACLE_DEVIATION'], Decimal('0E-8'))
+
+        result = self.nodes[0].getgov('LP_SPLITS')
+        assert_equal(result['LP_SPLITS'], {'3': Decimal('0.10000000')})
 
 if __name__ == '__main__':
     GovsetTest ().main ()
