@@ -250,6 +250,7 @@ BASE_SCRIPTS = [
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
+    'rpc_updatemasternode.py',
     'rpc_uptime.py',
     'feature_longterm_lockin.py',
     'wallet_resendwallettransactions.py',

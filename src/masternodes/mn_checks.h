@@ -42,8 +42,6 @@ enum class CustomTxType : uint8_t
     CreateMasternode      = 'C',
     ResignMasternode      = 'R',
     UpdateMasternode      = 'm',
-    SetForcedRewardAddress = 'F',
-    RemForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
@@ -114,8 +112,6 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
-        case CustomTxType::SetForcedRewardAddress:
-        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
@@ -224,45 +220,15 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
-struct CSetForcedRewardAddressMessage {
-    uint256 nodeId;
-    char rewardAddressType;
-    CKeyID rewardAddress;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-        READWRITE(rewardAddressType);
-        READWRITE(rewardAddress);
-    }
-};
-
-struct CRemForcedRewardAddressMessage {
-    uint256 nodeId;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-    }
-};
-
 struct CUpdateMasterNodeMessage {
     uint256 mnId;
-    char operatorType;
-    CKeyID operatorAuthAddress;
+    std::vector<std::pair<uint8_t, std::pair<char, std::vector<unsigned char>>>> updates;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(mnId);
-        READWRITE(operatorType);
-        READWRITE(operatorAuthAddress);
+        READWRITE(updates);
     }
 };
 
@@ -349,8 +315,6 @@ using CCustomTxMessage = std::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
-    CSetForcedRewardAddressMessage,
-    CRemForcedRewardAddressMessage,
     CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
@@ -404,7 +368,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
