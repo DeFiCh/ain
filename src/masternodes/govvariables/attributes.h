@@ -32,6 +32,8 @@ enum ParamIDs : uint8_t  {
     DFIP2206A = 'f',
     DFIP2206F = 'g',
     Feature   = 'h',
+    Auction   = 'i',
+    Foundation = 'j',
 };
 
 enum OracleIDs : uint8_t  {
@@ -55,6 +57,10 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
+    BatchRoundingExcess = 'l', // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'm', // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokensPrincipal = 'n', // Same as PaybackDFITokens but without interest.
+    Loans              = 'o',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -72,6 +78,7 @@ enum DFIPKeys : uint8_t  {
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
     GovernanceEnabled       = 'o',
+    Members                 = 'p',
 };
 
 enum GovernanceKeys : uint8_t  {
@@ -221,9 +228,13 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, int32_t, uint32_t>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, int32_t, uint32_t, std::set<CScript>, std::set<std::string>>;
+
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,

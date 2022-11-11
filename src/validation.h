@@ -795,6 +795,10 @@ private:
     static void ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache);
 
     static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+
+    static void ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams);
+
+    static void ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
