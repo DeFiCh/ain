@@ -4855,6 +4855,42 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             }
         }
         view.SetVariable(*attributes);
+
+        // Migrate stored unlock
+        if (pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight) {
+            bool updateStoredVar{};
+            auto storedGovVars = view.GetStoredVariablesRange(pindex->nHeight, std::numeric_limits<uint32_t>::max());
+            for (const auto& [varHeight, var] : storedGovVars) {
+                if (var->GetName() != "ATTRIBUTES") {
+                    continue;
+                }
+                updateStoredVar = false;
+
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(var); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToUpdate;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Locks && attrV0->typeId == ParamIDs::TokenID && attrV0->key == oldTokenId.v) {
+                                keysToUpdate.push_back(*attrV0);
+                                updateStoredVar = true;
+                            }
+                        }
+                    }
+                    for (auto& key : keysToUpdate) {
+                        const auto value = attrVar->GetValue(key, false);
+                        attrVar->EraseKey(key);
+                        key.key = newTokenId.v;
+                        attrVar->SetValue(key, value);
+                    }
+                }
+
+                if (updateStoredVar) {
+                    view.SetStoredVariables({var}, varHeight);
+                }
+            }
+        }
+
         view.Flush();
         if (auto accountHistory = view.GetAccountHistoryStore()) {
             accountHistory->Flush();

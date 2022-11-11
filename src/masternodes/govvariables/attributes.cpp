@@ -1376,9 +1376,9 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     CGovernanceHeightMessage lock;
                     lock.startHeight = startHeight;
                     lock.govVar = govVar;
-                    const auto res = storeGovVars(lock, mnview);
+                    auto res = storeGovVars(lock, mnview);
                     if (!res) {
-                        return Res::Err("Cannot be set at or below current height");
+                        return res;
                     }
                 } else {
                     // Less than a day's worth of blocks, apply instant lock
