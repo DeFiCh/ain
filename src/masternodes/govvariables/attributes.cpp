@@ -58,6 +58,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"params",      AttributeTypes::Param},
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
+        {"gov",         AttributeTypes::Governance},
         {"consortium",  AttributeTypes::Consortium},
     };
     return types;
@@ -71,6 +72,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Param,     "params"},
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
+        {AttributeTypes::Governance,"gov"},
         {AttributeTypes::Consortium,"consortium"}
     };
     return types;
@@ -128,6 +130,20 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayOracleIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t>& ATTRIBUTES::allowedGovernanceIDs() {
+    static const std::map<std::string, uint8_t> params{
+            {"proposals", GovernanceIDs::Proposals},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string>& ATTRIBUTES::displayGovernanceIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {GovernanceIDs::Proposals, "proposals"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {
@@ -149,7 +165,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
         },
         {
             AttributeTypes::Consortium, {
-                {"members",             ConsortiumKeys::Members},
+                {"members",             ConsortiumKeys::MemberValues},
                 {"mint_limit",          ConsortiumKeys::MintLimit},
                 {"mint_limit_daily",    ConsortiumKeys::DailyMintLimit},
             }
@@ -177,8 +193,25 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
+                {"gov",                         DFIPKeys::GovernanceEnabled},
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
+            }
+        },
+        {
+            AttributeTypes::Governance, {
+                {"fee_redistribution",          GovernanceKeys::FeeRedistribution},
+                {"fee_burn_pct",                GovernanceKeys::FeeBurnPct},
+                {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
+                {"cfp_fee",                     GovernanceKeys::CFPFee},
+                {"cfp_required_votes",          GovernanceKeys::CFPMajority},
+                {"voc_fee",                     GovernanceKeys::VOCFee},
+                {"voc_emergency_fee",           GovernanceKeys::VOCEmergencyFee},
+                {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
+                {"voc_emergency_quorum",        GovernanceKeys::VOCEmergencyQuorum},
+                {"voc_required_votes",          GovernanceKeys::VOCMajority},
+                {"quorum",                      GovernanceKeys::MinVoters},
+                {"voting_period",               GovernanceKeys::VotingPeriod},
             }
         },
     };
@@ -209,7 +242,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::Members,       "members"},
+                {ConsortiumKeys::MemberValues,       "members"},
                 {ConsortiumKeys::MintLimit,     "mint_limit"},
                 {ConsortiumKeys::DailyMintLimit,"mint_limit_daily"},
             }
@@ -237,6 +270,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
+                {DFIPKeys::GovernanceEnabled,       "gov"},
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
             }
@@ -261,6 +295,22 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::Loans,              "loans"},
             }
         },
+        {
+            AttributeTypes::Governance, {
+                {GovernanceKeys::FeeRedistribution,     "fee_redistribution"},
+                {GovernanceKeys::FeeBurnPct,            "fee_burn_pct"},
+                {GovernanceKeys::CFPPayout,             "cfp_automatic_payout"},
+                {GovernanceKeys::CFPFee,                "cfp_fee"},
+                {GovernanceKeys::CFPMajority,           "cfp_required_votes"},
+                {GovernanceKeys::VOCFee,                "voc_fee"},
+                {GovernanceKeys::VOCEmergencyFee,       "voc_emergency_fee"},
+                {GovernanceKeys::VOCEmergencyPeriod,    "voc_emergency_period"},
+                {GovernanceKeys::VOCEmergencyQuorum,    "voc_emergency_quorum"},
+                {GovernanceKeys::VOCMajority,           "voc_required_votes"},
+                {GovernanceKeys::MinVoters,             "quorum"},
+                {GovernanceKeys::VotingPeriod,          "voting_period"},
+            }
+        },
     };
     return keys;
 }
@@ -279,6 +329,14 @@ static ResVal<int32_t> VerifyPositiveInt32(const std::string& str) {
         return Res::Err("Value must be a positive integer");
     }
     return {int32, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyUInt32(const std::string& str) {
+    uint32_t uint32;
+    if (!ParseUInt32(str, &uint32)) {
+        return Res::Err("Value must be an integer");
+    }
+    return {uint32, Res::Ok()};
 }
 
 static ResVal<CAttributeValue> VerifyInt64(const std::string& str) {
@@ -306,7 +364,16 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
 }
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
-    auto resVal = VerifyPositiveFloat(str);
+    std::string val = str;
+    if (val.size() > 0 && val.back() == '%')
+    {
+        val.pop_back();
+        if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
+        else if (val == "100") val = "1";
+        else if (val.size() > 1) val.insert(0, "0.");
+        else val.insert(0, "0.0");
+    }
+    auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
         return resVal;
     }
@@ -505,7 +572,7 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::Members,          VerifyConsortiumMember},
+                {ConsortiumKeys::MemberValues,          VerifyConsortiumMember},
                 {ConsortiumKeys::MintLimit,        VerifyFloat},
                 {ConsortiumKeys::DailyMintLimit,   VerifyFloat},
             }
@@ -525,14 +592,15 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MinSwap,                 VerifyPositiveFloat},
                 {DFIPKeys::RewardPct,               VerifyPct},
                 {DFIPKeys::BlockPeriod,             VerifyInt64},
-                {DFIPKeys::DUSDInterestBurn,  VerifyBool},
-                {DFIPKeys::DUSDLoanBurn,      VerifyBool},
+                {DFIPKeys::DUSDInterestBurn,        VerifyBool},
+                {DFIPKeys::DUSDLoanBurn,            VerifyBool},
                 {DFIPKeys::StartBlock,              VerifyInt64},
                 {DFIPKeys::GovUnset,                VerifyBool},
                 {DFIPKeys::GovFoundation,           VerifyBool},
                 {DFIPKeys::MNSetRewardAddress,      VerifyBool},
                 {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
+                {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::Members,                 VerifyMember},
             }
@@ -545,6 +613,22 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Oracles, {
                 {OracleIDs::Splits,          VerifySplit},
+            }
+        },
+        {
+            AttributeTypes::Governance, {
+                {GovernanceKeys::FeeRedistribution,     VerifyBool},
+                {GovernanceKeys::FeeBurnPct,            VerifyPct},
+                {GovernanceKeys::CFPPayout,             VerifyBool},
+                {GovernanceKeys::CFPFee,                VerifyPct},
+                {GovernanceKeys::CFPMajority,           VerifyPct},
+                {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
+                {GovernanceKeys::VOCEmergencyFee,       VerifyPositiveFloat},
+                {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
+                {GovernanceKeys::VOCEmergencyQuorum,    VerifyPct},
+                {GovernanceKeys::VOCMajority,           VerifyPct},
+                {GovernanceKeys::MinVoters,             VerifyPct},
+                {GovernanceKeys::VotingPeriod,          VerifyUInt32},
             }
         },
     };
@@ -666,6 +750,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
             return ::ShowError("oracles", allowedOracleIDs());
         }
         typeId = id->second;
+    } else if (type == AttributeTypes::Governance) {
+        auto id = allowedGovernanceIDs().find(keys[2]);
+        if (id == allowedGovernanceIDs().end()) {
+            return ::ShowError("governance", allowedGovernanceIDs());
+        }
+        typeId = id->second;
     } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
@@ -731,12 +821,14 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
                 }
+
             } else if (typeId == ParamIDs::Feature) {
                 if (typeKey != DFIPKeys::GovUnset &&
                     typeKey != DFIPKeys::GovFoundation &&
                     typeKey != DFIPKeys::MNSetRewardAddress &&
                     typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress &&
+                    typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
@@ -745,7 +837,20 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     return Res::Err("Unsupported type for Foundation {%d}", typeKey);
                 }
             }  else {
-                return Res::Err("Unsupported Param ID");
+                    return Res::Err("Unsupported Param ID");
+            }
+        } else if (type == AttributeTypes::Governance) {
+            if (typeId == GovernanceIDs::Proposals) {
+                if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::FeeBurnPct
+                    && typeKey != GovernanceKeys::CFPPayout && typeKey != GovernanceKeys::CFPFee
+                    && typeKey != GovernanceKeys::CFPMajority && typeKey != GovernanceKeys::VOCFee
+                    && typeKey != GovernanceKeys::VOCMajority && typeKey != GovernanceKeys::VOCEmergencyPeriod
+                    && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyQuorum
+                    && typeKey != GovernanceKeys::MinVoters && typeKey != GovernanceKeys::VotingPeriod)
+                    return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
+            } else {
+                return Res::Err("Unsupported Governance ID");
+
             }
         }
 
@@ -973,7 +1078,7 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         }
                         SetValue(newAttr, value);
                         return Res::Ok();
-                    } else if (attrV0->type == AttributeTypes::Consortium && attrV0->key == ConsortiumKeys::Members) {
+                    } else if (attrV0->type == AttributeTypes::Consortium && attrV0->key == ConsortiumKeys::MemberValues) {
                         if (auto attrValue = std::get_if<CConsortiumMembers>(&value)) {
                             auto members = GetValue(*attrV0, CConsortiumMembers{});
 
@@ -1038,6 +1143,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayParamsIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Oracles) {
                 id = displayOracleIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::Governance) {
+                id = displayGovernanceIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1061,6 +1168,10 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
 
             if (const auto bool_val = std::get_if<bool>(&attribute.second)) {
                 ret.pushKV(key, *bool_val ? "true" : "false");
+            } else if (const auto number = std::get_if<int32_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
+            } else if (const auto number = std::get_if<uint32_t>(&attribute.second)) {
+                ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
                    (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
@@ -1297,7 +1408,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
 
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
-                    case ConsortiumKeys::Members: {
+                    case ConsortiumKeys::MemberValues: {
                         if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
                             return Res::Err("Cannot be set before GrandCentral");
 
@@ -1428,6 +1539,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 }
                 if (!view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
                     return Res::Err("No loan token with id (%d)", attrV0->key);
+                }
+            break;
+
+            case AttributeTypes::Governance:
+                if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                    return Res::Err("Cannot be set before GrandCentral");
                 }
             break;
 

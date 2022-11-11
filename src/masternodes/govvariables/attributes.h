@@ -21,7 +21,8 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
-    Consortium  = 'c',
+    Governance= 'g',
+    Consortium = 'c',
 };
 
 enum ParamIDs : uint8_t  {
@@ -38,6 +39,11 @@ enum ParamIDs : uint8_t  {
 
 enum OracleIDs : uint8_t  {
     Splits    = 'a',
+};
+
+enum GovernanceIDs : uint8_t  {
+    Global    = 'a',
+    Proposals = 'b',
 };
 
 enum EconomyKeys : uint8_t {
@@ -76,6 +82,22 @@ enum DFIPKeys : uint8_t  {
     MNSetOwnerAddress       = 'n',
     ConsortiumEnabled       = 'o',
     Members                 = 'p',
+    GovernanceEnabled       = 'q',
+};
+
+enum GovernanceKeys : uint8_t  {
+    FeeRedistribution       = 'a',
+    FeeBurnPct              = 'b',
+    CFPPayout               = 'c',
+    CFPFee                  = 'd',
+    CFPMajority             = 'e',
+    VOCFee                  = 'f',
+    VOCEmergencyFee         = 'g',
+    VOCEmergencyPeriod      = 'h',
+    VOCMajority             = 'i',
+    MinVoters               = 'j',
+    VotingPeriod            = 'k',
+    VOCEmergencyQuorum      = 'l',
 };
 
 enum TokenKeys : uint8_t  {
@@ -98,7 +120,7 @@ enum TokenKeys : uint8_t  {
 };
 
 enum ConsortiumKeys : uint8_t  {
-    Members               = 'a',
+    MemberValues          = 'a',
     MintLimit             = 'b',
     DailyMintLimit        = 'c',
 };
@@ -277,7 +299,9 @@ using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsort
 using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
-                         CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
+                         CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted,
+                         int32_t, uint32_t>;
+
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
@@ -396,6 +420,7 @@ public:
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
     static const std::map<uint8_t, std::string>& displayConsortiumIDs();
+    static const std::map<uint8_t, std::string>& displayGovernanceIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -416,6 +441,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
     static const std::map<std::string, uint8_t>& allowedConsortiumIDs();
+    static const std::map<std::string, uint8_t>& allowedGovernanceIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();

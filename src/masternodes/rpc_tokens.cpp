@@ -704,7 +704,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                     CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
                     if (attributes->GetValue(enableKey, false))
                     {
-                        CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::Members};
+                        CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::MemberValues};
                         auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
 
                         for (auto const& member : members) {
