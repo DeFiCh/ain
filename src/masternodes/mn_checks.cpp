@@ -1210,7 +1210,7 @@ public:
 
                     globalBalances[tokenId].minted = add;
 
-                    if (globalBalances[tokenId].minted > maxLimit)
+                    if (maxLimit != -1 * COIN && globalBalances[tokenId].minted > maxLimit)
                         return Res::Err("You will exceed global maximum consortium mint limit for %s token by minting this amount!", token->symbol);
 
                     CAmount totalDaily{};
@@ -1220,7 +1220,7 @@ public:
                         }
                     }
 
-                    if (totalDaily > dailyLimit)
+                    if (dailyLimit != -1 * COIN && totalDaily > dailyLimit)
                         return Res::Err("You will exceed global daily maximum consortium mint limit for %s token by minting this amount.", token->symbol);
 
                     attributes->SetValue(consortiumMintedKey, globalBalances);

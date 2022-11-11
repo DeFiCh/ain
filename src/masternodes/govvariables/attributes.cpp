@@ -453,8 +453,8 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::Members,          VerifyConsortiumMember},
-                {ConsortiumKeys::MintLimit,        VerifyPositiveFloat},
-                {ConsortiumKeys::DailyMintLimit,   VerifyPositiveFloat},
+                {ConsortiumKeys::MintLimit,        VerifyFloat},
+                {ConsortiumKeys::DailyMintLimit,   VerifyFloat},
             }
         },
         {
@@ -1197,11 +1197,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         const auto dailyLimit = GetValue(dailyLimitKey, CAmount{0});
 
                         for (const auto& [id, member] : *members) {
-                            if (member.mintLimit > maxLimit) {
+                            if (member.mintLimit > maxLimit && maxLimit != -1 * COIN) {
                                 return Res::Err("Mint limit higher than global mint limit");
                             }
 
-                            if (member.dailyMintLimit > dailyLimit) {
+                            if (member.dailyMintLimit > dailyLimit && dailyLimit != -1 * COIN) {
                                 return Res::Err("Daily mint limit higher than daily global mint limit");
                             }
                         }
