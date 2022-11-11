@@ -898,7 +898,7 @@ namespace {
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
             const auto& pairs = oracle.availablePairs;
-            setTokenCurrency.insert(std::next(pairs.begin(), 0), pairs.end());
+            setTokenCurrency.insert(pairs.begin(), pairs.end());
             return true;
         });
 
