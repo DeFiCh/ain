@@ -4394,6 +4394,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         }
     }
 
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+        if (swapAmountResult.nTokenId != obj.idTokenTo) {
+            return Res::Err("Final swap output is not same as idTokenTo");
+        }
+    }
+
     // Reject if price paid post-swap above max price provided
     if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight) && obj.maxPrice != POOLPRICE_MAX) {
         if (swapAmountResult.nValue != 0) {

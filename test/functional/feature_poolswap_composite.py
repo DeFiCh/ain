@@ -21,8 +21,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200'],
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
 
     def run_test(self):
 
@@ -427,6 +427,33 @@ class PoolPairCompositeTest(DefiTestFramework):
         # Check result uses composite swap
         result = self.nodes[0].getcustomtx(tx)
         assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
+
+        # Test that final output currency is same as tokenTo
+        self.nodes[0].accounttoaccount(
+            collateral, {source: "100@" + symbolTSLA})
+        self.nodes[0].generate(1)
+
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolTSLA,
+            "amountFrom": "10",
+            "to": destination,
+            "tokenTo": symbolLTC
+        })
+
+        metadata = self.nodes[0].getrawtransaction(
+            tx, 1)['vout'][0]['scriptPubKey']['hex']
+        rawtx = self.nodes[0].getrawtransaction(tx)
+
+        updated_metadata = metadata.replace(hex(int(idLTC))[
+                                            2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
+        updated_rawtx = rawtx.replace(metadata, updated_metadata)
+
+        self.nodes[0].clearmempool()
+
+        signed_raw = self.nodes[0].signrawtransactionwithwallet(updated_rawtx)
+        assert_raises_rpc_error(-26, "Final swap output is not same as idTokenTo",
+                                self.nodes[0].sendrawtransaction, signed_raw['hex'])
 
         # Wipe mempool
         self.nodes[0].clearmempool()
