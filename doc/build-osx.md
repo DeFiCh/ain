@@ -21,7 +21,7 @@ Then install [Homebrew](https://brew.sh).
 
 ## Dependencies
 ```shell
-brew install automake berkeley-db4 libtool boost miniupnpc openssl pkg-config protobuf python libevent qrencode
+brew install automake berkeley-db@4 libtool boost miniupnpc openssl pkg-config protobuf python libevent qrencode
 ```
 
 See [dependencies.md](dependencies.md) for a complete overview.
