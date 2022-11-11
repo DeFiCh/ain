@@ -336,7 +336,7 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_greater_than_or_equal(vault["interestValue"], 0)
             assert_greater_than_or_equal(vault["informativeRatio"], 0)
             assert_greater_than_or_equal(vault["collateralRatio"], 0)
-            assert_greater_than_or_equal(vault["interestPerBlock"][0].split('@')[0], 0)
+            assert_greater_than_or_equal(vault["interestsPerBlock"][0].split('@')[0], 0)
             assert_greater_than_or_equal(vault["interestPerBlockValue"], 0)
 
     def run_test(self):
