@@ -236,6 +236,16 @@ public:
         }
     }
 
+    void operator()(const CGovernanceUnsetMessage& obj) const {
+        for (const auto& gov : obj.govs) {
+            UniValue keys(UniValue::VARR);
+            for (const auto& key : gov.second)
+                keys.push_back(key);
+
+            rpcInfo.pushKV(gov.first, keys);
+        }
+    }
+
     void operator()(const CGovernanceHeightMessage& obj) const {
         rpcInfo.pushKV(obj.govVar->GetName(), obj.govVar->Export());
         rpcInfo.pushKV("startHeight", static_cast<uint64_t>(obj.startHeight));

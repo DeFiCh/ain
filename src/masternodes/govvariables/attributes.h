@@ -31,6 +31,7 @@ enum ParamIDs : uint8_t  {
     DFIP2206A = 'f',
     DFIP2206F = 'g',
     Feature   = 'h',
+    Foundation = 'i',
 };
 
 enum OracleIDs : uint8_t  {
@@ -65,6 +66,7 @@ enum DFIPKeys : uint8_t  {
     MNSetRewardAddress      = 'l',
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
+    Members                 = 'o',
 };
 
 enum TokenKeys : uint8_t  {
@@ -199,7 +201,7 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 
@@ -221,12 +223,14 @@ public:
         return TypeName();
     }
 
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
 
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
+    Res Erase(CCustomCSView& mnview, uint32_t height, std::vector<std::string> const &) override;
 
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
@@ -264,10 +268,13 @@ public:
     }
 
     template<typename K>
-    void EraseKey(const K& key) {
+    bool EraseKey(const K& key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
-        changed.insert(key);
-        attributes.erase(key);
+        if (attributes.erase(key)) {
+            changed.insert(key);
+            return true;
+        }
+        return false;
     }
 
     template<typename K>
@@ -332,7 +339,7 @@ private:
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
+    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };

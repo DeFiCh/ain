@@ -438,8 +438,8 @@ class CCustomCSView
         >();
     }
 private:
-    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
-    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck);
+    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck);
 
     std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
@@ -471,11 +471,11 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true);
+    ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true, bool skipLockedCheck = false);
 
-    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
+    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true, bool skipLockedCheck = false);
 
-    ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice);
+    ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck = false);
 
     [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const override;
     [[nodiscard]] std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const override;

@@ -134,6 +134,13 @@ UniValue poolPathsToJSON(std::vector<std::vector<DCT_ID>> & poolPaths) {
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
+
+    if (metadataObj["tokenFrom"].getValStr().empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenFrom is empty");
+    }
+    if (metadataObj["tokenTo"].getValStr().empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "tokenTo is empty");
+    }
     if (!metadataObj["from"].isNull()) {
         poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
     }
@@ -592,6 +599,11 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
 
         targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto symbolLength = targetHeight >= Params().GetConsensus().FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+    if(pairSymbol.length() > symbolLength){
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
     }
 
     CPoolPairMessage poolPairMsg;
@@ -1109,12 +1121,6 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
             for (const auto& id : poolArray.getValues()) {
                 poolIds.push_back(DCT_ID::FromString(id.getValStr()));
-            }
-
-            auto availablePaths = poolSwap.CalculatePoolPaths(mnview_dummy);
-
-            if (std::find(availablePaths.begin(), availablePaths.end(), poolIds) == availablePaths.end()) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, "Custom pool path is invalid.");
             }
         }
 

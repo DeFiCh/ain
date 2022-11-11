@@ -23,7 +23,8 @@ class CAccountsHistoryView;
 class CCustomTxVisitor;
 class CVaultHistoryView;
 class CHistoryWriters;
-class CHistoryErasers;
+
+constexpr uint8_t MAX_POOL_SWAPS = 3;
 
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
@@ -103,6 +104,7 @@ enum class CustomTxType : uint8_t
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
     TokenSplit             = 'P',
+    UnsetGovVariable       = 'Y',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -161,6 +163,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
+        case CustomTxType::UnsetGovVariable:
         case CustomTxType::None:
             return type;
     }
@@ -296,6 +299,16 @@ struct CGovernanceHeightMessage {
     uint32_t startHeight;
 };
 
+struct CGovernanceUnsetMessage {
+    std::map<std::string, std::vector<std::string>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(govs);
+    }
+};
+
 struct CCustomTxMessageNone {};
 
 using CCustomTxMessage = std::variant<
@@ -320,6 +333,7 @@ using CCustomTxMessage = std::variant<
     CSmartContractMessage,
     CFutureSwapMessage,
     CGovernanceMessage,
+    CGovernanceUnsetMessage,
     CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,

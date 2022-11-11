@@ -149,14 +149,16 @@ public:
 
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool skipLockedCheck = false);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
 
     Res SetPriceDeviation(const uint32_t deviation);
+    Res ErasePriceDeviation();
     CAmount GetPriceDeviation() const;
 
     Res SetIntervalBlock(const uint32_t blockInterval);
+    Res EraseIntervalBlock();
     uint32_t GetIntervalBlock() const;
 
     [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;

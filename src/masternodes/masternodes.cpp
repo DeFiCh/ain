@@ -975,9 +975,9 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
-    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
+    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice, skipLockedCheck);
     if (!priceResult)
         return priceResult;
 
@@ -990,18 +990,18 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
-                                                           int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                                           int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
     const auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
     if (!res)
         return std::move(res);
 
-    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
+    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
     if (!res)
         return std::move(res);
 
@@ -1011,12 +1011,14 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     return {result, Res::Ok()};
 }
 
-ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice)
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
 
-    auto priceFeed = GetFixedIntervalPrice(priceFeedId);
+    LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
+
+    auto priceFeed = GetFixedIntervalPrice(priceFeedId, skipLockedCheck);
     if (!priceFeed)
         return std::move(priceFeed);
 
@@ -1032,7 +1034,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
-                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
     const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
@@ -1055,7 +1057,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (totalAmount < 0) {
             totalAmount = 0;
         }
-        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
         if (!amountInCurrency)
             return amountInCurrency;
 
@@ -1071,7 +1073,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 }
 
 Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals,
-                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
+                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
 {
     for (const auto& col : collaterals.balances) {
         auto tokenId = col.first;
@@ -1081,7 +1083,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
 
-        auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
+        auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 
