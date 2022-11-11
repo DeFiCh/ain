@@ -3,25 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/balances.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/oracles.h>
-#include <masternodes/res.h>
 #include <masternodes/vaulthistory.h>
 
-#include <arith_uint256.h>
-#include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <logging.h>
-#include <masternodes/govvariables/oracle_block_interval.h>
-#include <primitives/block.h>
-#include <primitives/transaction.h>
 #include <txmempool.h>
-#include <streams.h>
 #include <validation.h>
 
 #include <algorithm>
