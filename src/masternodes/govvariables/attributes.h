@@ -50,6 +50,7 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
+    Loans              = 'l',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -204,6 +205,8 @@ using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,

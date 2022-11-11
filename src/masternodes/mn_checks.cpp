@@ -3360,6 +3360,11 @@ public:
                 }
 
                 const auto subAmount = currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && tokenId == token->first) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3495,11 +3500,20 @@ public:
             }
 
             if (loanAmountChange > 0) {
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDAdd(mnview, {tokenId, loanAmountChange});
+                }
+
                 res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmountChange});
                 if (!res)
                     return res;
             } else {
                 const auto subAmount = currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3625,6 +3639,7 @@ public:
 
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
+        assert(attributes);
 
         for (const auto& [loanTokenId, paybackAmounts] : obj.loans)
         {
@@ -3739,6 +3754,10 @@ public:
                 else if (currentLoanAmount - subLoan < 0)
                 {
                     subLoan = currentLoanAmount;
+                }
+
+                if (loanToken->symbol == "DUSD") {
+                    TrackDUSDSub(mnview, {loanTokenId, subLoan});
                 }
 
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
@@ -4569,6 +4588,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             }
             intermediateView.Flush();
 
+            const auto token = view.GetToken("DUSD");
+
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
                 res = view.AddBalance(Params().GetConsensus().burnAddress, dexfeeInAmount);
@@ -4809,6 +4830,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         }
 
         if (subLoanAmount > 0) {
+            TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }
