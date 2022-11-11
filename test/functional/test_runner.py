@@ -283,6 +283,7 @@ BASE_SCRIPTS = [
     'feature_loan.py',
     'feature_loan_low_interest.py',
     'feature_loan_estimatecollateral.py',
+    'feature_vault_pct_check_factor.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
