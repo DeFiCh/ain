@@ -123,12 +123,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[2].votegov(propId, self.mn2, "yes")
         self.nodes[2].generate(1)
         self.sync_blocks()
-        self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.nodes[3].generate(1)
-        self.sync_blocks()
 
-        # Move to next cycle
-        self.nodes[0].generate(VOTING_PERIOD * 2)
+        # Vote and move to next cycle
+        self.nodes[3].votegov(propId, self.mn3, "yes")
+        self.nodes[3].generate(VOTING_PERIOD * 2)
         self.sync_blocks()
 
         # First cycle should be approved
