@@ -280,7 +280,7 @@ class TokenLockTest(DefiTestFramework):
         assert_equal(result['informativeRatio'], -1)
         assert_equal(result['collateralRatio'], -1)
         assert_equal(result['interestPerBlockValue'], -1)
-        assert_equal(result['interestsPerBlock'], [])
+        assert_equal(result['interestsPerBlock'], -1)
 
         # Deposit to vault should fail
         assert_raises_rpc_error(-32600, "Fixed interval price currently disabled due to locked token", self.nodes[0].deposittovault, self.vault, self.address, f'100000@{self.symbolDUSD}')

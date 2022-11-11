@@ -3,18 +3,22 @@ on:
   pull_request:
     branches:
       - master
+      - epic/*
     types: [labeled, opened, reopened, synchronize]
 
 jobs:
   build-binaries:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
-    runs-on: [self-hosted, linux, x64,server-2]
+    runs-on: [self-hosted, linux, x64, server-2]
+    # runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+
     - name: Build Node
-      run: ./make.sh build
+      run: MAKE_CONF_ARGS="--disable-bench --disable-tests" ./make.sh build
+
     - name: Upload Binaries
       uses: actions/upload-artifact@v3
       with:
@@ -22,6 +26,7 @@ jobs:
         path: |
          src/defid
          src/defi-cli
+
     - name: Archive Binaries
       uses: actions/upload-artifact@v3
       with:
@@ -29,6 +34,7 @@ jobs:
         path: |
           src/defid
           src/defi-cli
+
     - name: Archive Shell Commands
       uses: actions/upload-artifact@v3
       with:
@@ -36,96 +42,86 @@ jobs:
         path: |
           ci/parallel_sync/sync_then_diff.sh
 
+  generate-matrix:
+      if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
+      runs-on: [self-hosted, linux, x64]
+
+      # Add "id-token" with the intended permissions.
+      permissions:
+        contents: 'read'
+        id-token: 'write'
+
+      outputs:
+        matrix: ${{ steps.set-matrix.outputs.matrix }}
+
+      steps:
+        - uses: actions/checkout@v3
+
+        - id: 'auth'
+          name: 'Authenticate to Google Cloud'
+          uses: 'google-github-actions/auth@v0'
+          with:
+            workload_identity_provider: 'projects/965426322273/locations/global/workloadIdentityPools/br-blockchains-pool/providers/br-blockchains-provider'
+            service_account: 'blockchain-dev-service@br-blockchains-dev.iam.gserviceaccount.com'
+
+        - name: 'Set up Cloud SDK'
+          uses: 'google-github-actions/setup-gcloud@v0'
+
+        - id: set-matrix
+          run: |
+            SNAPSHOTS=$(gsutil ls gs://team-drop/${{github.base_ref}}-datadir)
+            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n)
+            JSON=$(jq -n -c -M --arg blocks "$BLOCKS" '{blocks: ($blocks | split("\n") | .[] |= tonumber | to_entries | map({start: .value , stop: (.value + 50000)}))}')
+            echo "::set-output name=matrix::$JSON"
+
   sync:
-    strategy:
-      matrix:
-        datadir:
-         - start: 450000
-           stop: 500000
-         - start: 500000
-           stop: 550000
-         - start: 550000
-           stop: 600000
-         - start: 600000
-           stop: 650000
-         - start: 650000
-           stop: 700000
-         - start: 700000
-           stop: 750000
-         - start: 750000
-           stop: 800000
-         - start: 800000
-           stop: 850000
-         - start: 850000
-           stop: 900000
-         - start: 900000
-           stop: 950000
-         - start: 950000
-           stop: 1000000
-         - start: 1000000
-           stop: 1050000
-         - start: 1050000
-           stop: 1100000
-         - start: 1100000
-           stop: 1150000
-         - start: 1150000
-           stop: 1200000
-         - start: 1200000
-           stop: 1250000
-         - start: 1250000
-           stop: 1300000
-         - start: 1300000
-           stop: 1350000
-         - start: 1350000
-           stop: 1400000
-         - start: 1400000
-           stop: 1450000
-         - start: 1450000
-           stop: 1500000
-         - start: 1500000
-           stop: 1550000
-         - start: 1550000
-           stop: 1600000
-         - start: 1600000
-           stop: 1650000
-         - start: 1650000
-           stop: 1700000
-         - start: 1700000
-           stop: 1750000
-         - start: 1750000
-           stop: 1800000
-         - start: 1800000
-           stop: 1850000
-         - start: 1850000
-           stop: 1900000
     runs-on: [self-hosted, linux, x64]
-    needs: build-binaries
+    needs: [build-binaries, generate-matrix]
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
+
+    strategy:
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+
     continue-on-error: true
-    container:
-      image : gcr.io/br-blockchains-dev/datadir-${{matrix.datadir.start}}
-      options: --privileged
-      env:
-        STOP_BLOCK: ${{matrix.datadir.stop}}
-        DEFID_BIN: ./defid
-        DEFI_CLI_BIN: ./defi-cli
+    env:
+      DATADIR : datadir-${{matrix.blocks.start}}
+      STOP_BLOCK: ${{matrix.blocks.stop}}
+      DEFID_BIN: ./defid
+      DEFI_CLI_BIN: ./defi-cli
+      REF_LOG_DIR: ${{github.base_ref}}-datadir/log
     timeout-minutes: 4320
+
     steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Dependencies
+      run: sudo apt-get update && sudo apt-get install -y wget
+
+    - name: Download Snapshot
+      run: wget https://storage.googleapis.com/team-drop/${{github.base_ref}}-datadir/datadir-${{matrix.blocks.start}}.tar.gz
+
+    - name: Create datadir
+      run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz
+
     - name: Download Binaries
       uses: actions/download-artifact@v3
       with:
         name: defibins
+
     - name: Download Shell Commands
       uses: actions/download-artifact@v3
       with:
         name: sync
+
     - name: Set Permissions
       run: |
         chmod 777 defid
         chmod 777 defi-cli
         chmod 777 sync_then_diff.sh
+
     - name: Sync and Diff
       run: ./sync_then_diff.sh
+
     - name: Show Debug Log
       run: cat $DATADIR/debug.log
       if: ${{ failure() ||  success() }}

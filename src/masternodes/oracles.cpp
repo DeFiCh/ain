@@ -152,7 +152,7 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId, bool skipLockedCheck)
 {
     CFixedIntervalPrice fixedIntervalPrice;
     if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
@@ -172,7 +172,7 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         loanTokens.insert(secondID.v);
     }
 
-    if (AreTokensLocked(loanTokens)) {
+    if (AreTokensLocked(loanTokens) && !skipLockedCheck) {
         return Res::Err("Fixed interval price currently disabled due to locked token");
     }
 
@@ -191,6 +191,12 @@ Res COracleView::SetPriceDeviation(const uint32_t deviation)
     return Res::Ok();
 }
 
+Res COracleView::ErasePriceDeviation()
+{
+    Erase(PriceDeviation::prefix());
+    return Res::Ok();
+}
+
 CAmount COracleView::GetPriceDeviation() const
 {
     uint32_t deviation;
@@ -205,6 +211,12 @@ CAmount COracleView::GetPriceDeviation() const
 Res COracleView::SetIntervalBlock(const uint32_t blockInterval)
 {
     Write(FixedIntervalBlockKey::prefix(), blockInterval);
+    return Res::Ok();
+}
+
+Res COracleView::EraseIntervalBlock()
+{
+    Erase(FixedIntervalBlockKey::prefix());
     return Res::Ok();
 }
 

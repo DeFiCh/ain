@@ -30,6 +30,9 @@ enum ParamIDs : uint8_t  {
     Economy   = 'e',
     DFIP2206A = 'f',
     DFIP2206F = 'g',
+    Feature   = 'h',
+    Auction   = 'i',
+    Foundation = 'j',
 };
 
 enum OracleIDs : uint8_t  {
@@ -48,6 +51,10 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
+    BatchRoundingExcess = 'l', // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'm', // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokensPrincipal = 'n', // Same as PaybackDFITokens but without interest.
+    Loans              = 'o',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -59,6 +66,12 @@ enum DFIPKeys : uint8_t  {
     DUSDInterestBurn        = 'g',
     DUSDLoanBurn            = 'h',
     StartBlock              = 'i',
+    GovUnset                = 'j',
+    GovFoundation           = 'k',
+    MNSetRewardAddress      = 'l',
+    MNSetOperatorAddress    = 'm',
+    MNSetOwnerAddress       = 'n',
+    Members                 = 'o',
 };
 
 enum TokenKeys : uint8_t  {
@@ -193,9 +206,12 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,
@@ -215,12 +231,14 @@ public:
         return TypeName();
     }
 
+    bool IsEmpty() const override;
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
 
     Res Validate(CCustomCSView const& mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
+    Res Erase(CCustomCSView& mnview, uint32_t height, std::vector<std::string> const &) override;
 
     static constexpr char const * TypeName() { return "ATTRIBUTES"; }
     static GovVariable * Create() { return new ATTRIBUTES(); }
@@ -258,10 +276,13 @@ public:
     }
 
     template<typename K>
-    void EraseKey(const K& key) {
+    bool EraseKey(const K& key) {
         static_assert(std::is_convertible_v<K, CAttributeType>);
-        changed.insert(key);
-        attributes.erase(key);
+        if (attributes.erase(key)) {
+            changed.insert(key);
+            return true;
+        }
+        return false;
     }
 
     template<typename K>
@@ -326,7 +347,7 @@ private:
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, const std::string& value,
+    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
