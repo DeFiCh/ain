@@ -3788,13 +3788,13 @@ public:
 
                 if (paybackTokenId == loanTokenId)
                 {
+                    res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
+                    if (!res)
+                        return res;
+
                     // If interest was negative remove it from sub amount
                     if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
                         subLoan += subInterest;
-
-                    res = mnview.SubMintedTokens(loanTokenId, subLoan);
-                    if (!res)
-                        return res;
 
                     // Do not sub balance if negative interest fully negates the current loan amount
                     if (!(subInterest < 0 && std::abs(subInterest) >= currentLoanAmount)) {
@@ -3854,9 +3854,13 @@ public:
                     {
                         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                         auto balances = attributes->GetValue(liveKey, CBalances{});
+                        balances.Add({loanTokenId, subAmount});
+                        balances.Add({paybackTokenId, penalty});
+                        attributes->SetValue(liveKey, balances);
 
-                        balances.Add(CTokenAmount{loanTokenId, subAmount});
-                        balances.Add(CTokenAmount{paybackTokenId, penalty});
+                        liveKey.key = EconomyKeys::PaybackDFITokensPrincipal;
+                        balances = attributes->GetValue(liveKey, CBalances{});
+                        balances.Add({loanTokenId, subLoan});
                         attributes->SetValue(liveKey, balances);
 
                         LogPrint(BCLog::LOAN, "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan %lld (%lld %s), height - %d\n", paybackToken->symbol, subLoan + subInterest, subInToken, paybackToken->symbol, height);

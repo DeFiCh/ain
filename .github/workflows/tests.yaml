@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-18.04]
     env:
       BUILD_VERSION: latest # Computed
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
@@ -40,11 +40,11 @@ jobs:
     steps:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
     - name: Checkout pull request head commit
       if: github.event_name == 'pull_request'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
