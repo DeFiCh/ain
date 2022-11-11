@@ -468,7 +468,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
         account0 = self.nodes[0].getaccount(mn0['ownerAuthAddress'])
-        print("account0", account0)
         assert_equal(account0[0], expectedAmount)
 
         mn1 = self.nodes[0].getmasternode(self.mn1)[self.mn1]

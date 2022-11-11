@@ -4094,11 +4094,10 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         // Redistributes fee among voting masternodes
         CDataStructureV0 feeRedistributionKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeRedistribution};
-        CDataStructureV0 burnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
-        
+
         if (voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
             // return half fee among voting masternodes, the rest is burned at creation
-            auto feeBack = MultiplyAmounts(prop.fee, COIN - attributes->GetValue(burnPctKey, COIN / 2));
+            auto feeBack = prop.fee - prop.feeBurnAmount;
             auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
             for (const auto mnId : voters) {
                 auto const mn = cache.GetMasternode(mnId);

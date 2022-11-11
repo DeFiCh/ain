@@ -468,10 +468,11 @@ public:
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
 
-    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
-    uint32_t GetMajorityFromAttributes(const CPropType& type) const override;
     uint32_t GetVotingPeriodFromAttributes() const override;
-    uint32_t GetMinVotersFromAttributes() const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    CAmount GetMajorityFromAttributes(const CPropType& type) const override;
+    CAmount GetMinVotersFromAttributes() const override;
+    CAmount GetFeeBurnPctFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

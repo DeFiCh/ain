@@ -94,9 +94,10 @@ struct CPropObject : public CCreatePropMessage {
     uint32_t finalHeight{};
 
     uint32_t votingPeriod;
-    uint32_t majority;
-    uint32_t minVoters;
+    CAmount majority;
+    CAmount minVoters;
     CAmount fee;
+    CAmount feeBurnAmount;
 
 
     // memory only
@@ -115,6 +116,7 @@ struct CPropObject : public CCreatePropMessage {
         READWRITE(majority);
         READWRITE(minVoters);
         READWRITE(fee);
+        READWRITE(feeBurnAmount);
     }
 };
 
@@ -150,10 +152,11 @@ public:
     void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
     void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
 
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
-    virtual uint32_t GetMajorityFromAttributes(const CPropType& type) const = 0;
     virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
-    virtual uint32_t GetMinVotersFromAttributes() const = 0;
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
+    virtual CAmount GetMajorityFromAttributes(const CPropType& type) const = 0;
+    virtual CAmount GetMinVotersFromAttributes() const = 0;
+    virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
     struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };

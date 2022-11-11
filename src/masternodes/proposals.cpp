@@ -54,6 +54,7 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
     prop.majority = GetMajorityFromAttributes(type);
     prop.minVoters = GetMinVotersFromAttributes();
     prop.fee = fee;
+    prop.feeBurnAmount = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
