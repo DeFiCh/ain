@@ -1122,12 +1122,6 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             for (const auto& id : poolArray.getValues()) {
                 poolIds.push_back(DCT_ID::FromString(id.getValStr()));
             }
-
-            auto availablePaths = poolSwap.CalculatePoolPaths(mnview_dummy);
-
-            if (std::find(availablePaths.begin(), availablePaths.end(), poolIds) == availablePaths.end()) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, "Custom pool path is invalid.");
-            }
         }
 
         res = poolSwap.ExecuteSwap(mnview_dummy, poolIds, true);

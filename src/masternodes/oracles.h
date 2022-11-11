@@ -149,7 +149,7 @@ public:
 
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool skipLockedCheck = false);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
 

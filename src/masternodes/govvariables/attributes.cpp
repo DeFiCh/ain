@@ -83,6 +83,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",   ParamIDs::DFIP2206F},
         {"feature",     ParamIDs::Feature},
+        {"foundation",  ParamIDs::Foundation},
     };
     return params;
 }
@@ -105,6 +106,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
         {ParamIDs::Feature,     "feature"},
+        {ParamIDs::Foundation,  "foundation"},
     };
     return params;
 }
@@ -165,6 +167,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setrewardaddress",         DFIPKeys::MNSetRewardAddress},
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
+                {"members",                     DFIPKeys::Members},
             }
         },
     };
@@ -216,6 +219,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetRewardAddress,      "mn-setrewardaddress"},
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
+                {DFIPKeys::Members,                 "members"},
             }
         },
         {
@@ -230,6 +234,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
+                {EconomyKeys::Loans,              "loans"},
             }
         },
     };
@@ -316,6 +321,50 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     return {splits, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyMember(const std::string& str) {
+    // Support UniValue array
+    UniValue array(UniValue::VARR);
+    if (!array.read(str)) {
+        return Res::Err("Not a valid array of addresses");
+    }
+
+    std::set<std::string> addresses;
+    std::set<CScript> members;
+    bool removal{};
+
+    for (size_t i = 0; i < array.size(); ++i) {
+        auto member = array[i].getValStr();
+        if (member.empty()) {
+            return Res::Err("Invalid address provided");
+        }
+
+        CTxDestination dest;
+        if (member[0] == '-') {
+            removal = true;
+            dest = DecodeDestination(member.erase(0, 1));
+            addresses.insert(array[i].getValStr());
+        } else if (member[0] == '+') {
+            dest = DecodeDestination(member.erase(0, 1));
+            addresses.insert(member);
+        } else {
+            dest = DecodeDestination(member);
+            addresses.insert(member);
+        }
+
+        if (!IsValidDestination(dest)) {
+            return Res::Err("Invalid address provided");
+        }
+
+        members.insert(GetScriptForDestination(dest));
+    }
+
+    if (removal) {
+        return {addresses, Res::Ok()};
+    }
+
+    return {members, Res::Ok()};
+}
+
 static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string& str) {
     const auto value = KeyBreaker(str);
     if (value.size() != 2) {
@@ -395,6 +444,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MNSetRewardAddress,      VerifyBool},
                 {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
+                {DFIPKeys::Members,                 VerifyMember},
             }
         },
         {
@@ -429,17 +479,33 @@ static Res ShowError(const std::string& key, const std::map<std::string, uint8_t
     return Res::Err(error);
 }
 
+static void TrackLiveBalance(CCustomCSView& mnview, const CTokenAmount& amount, const EconomyKeys dataKey, const bool add) {
+    auto attributes = mnview.GetAttributes();
+    assert(attributes);
+    CDataStructureV0 key{AttributeTypes::Live, ParamIDs::Economy, dataKey};
+    auto balances = attributes->GetValue(key, CBalances{});
+    if (add) {
+        balances.Add(amount);
+    } else {
+        balances.Sub(amount);
+    }
+    attributes->SetValue(key, balances);
+    mnview.SetVariable(*attributes);
+}
+
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
     if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
         return;
     }
-    auto attributes = mnview.GetAttributes();
-    assert(attributes);
-    const CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
-    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
-    negativeInterestBalances.Add(amount);
-    attributes->SetValue(negativeInterestKey, negativeInterestBalances);
-    mnview.SetVariable(*attributes);
+    TrackLiveBalance(mnview, amount, EconomyKeys::NegativeInt, true);
+}
+
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::Loans, true);
+}
+
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount) {
+    TrackLiveBalance(mnview, amount, EconomyKeys::Loans, false);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
@@ -570,6 +636,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
+                }
+            } else if (typeId == ParamIDs::Foundation)  {
+                if (typeKey != DFIPKeys::Members) {
+                    return Res::Err("Unsupported type for Foundation {%d}", typeKey);
                 }
             }  else {
                 return Res::Err("Unsupported Param ID");
@@ -768,6 +838,24 @@ Res ATTRIBUTES::Import(const UniValue & val) {
 
                         SetValue(attribute, *splitValue);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation && attrV0->key == DFIPKeys::Members) {
+                        const auto members = std::get_if<std::set<CScript>>(&value);
+                        if (members) {
+                            auto existingMembers = GetValue(attribute, std::set<CScript>{});
+
+                            for (const auto &member : *members) {
+                                if (existingMembers.count(member)) {
+                                    return Res::Err("Member to add already present");
+                                }
+                                existingMembers.insert(member);
+                            }
+
+                            SetValue(attribute, existingMembers);
+                        } else {
+                            SetValue(attribute, value);
+                        }
+
+                        return Res::Ok();
                     } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
                         interestTokens.insert(attrV0->typeId);
                     }
@@ -917,6 +1005,21 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 } else if (result->feeDir == FeeDirValues::Out) {
                     ret.pushKV(key, "out");
                 }
+            } else if (const auto members = std::get_if<std::set<CScript>>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &member : *members) {
+                    CTxDestination dest;
+                    if (ExtractDestination(member, dest)) {
+                        array.push_back(EncodeDestination(dest));
+                    }
+                }
+                ret.pushKV(key, array.write());
+            } else if (const auto strMembers = std::get_if<std::set<std::string>>(&attribute.second)) {
+                UniValue array(UniValue::VARR);
+                for (const auto &member : *strMembers) {
+                    array.push_back(member);
+                }
+                ret.pushKV(key, array.write());
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
@@ -1086,7 +1189,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
             break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::Feature) {
+                if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+                } else if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
                     }
@@ -1376,9 +1483,9 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                     CGovernanceHeightMessage lock;
                     lock.startHeight = startHeight;
                     lock.govVar = govVar;
-                    const auto res = storeGovVars(lock, mnview);
+                    auto res = storeGovVars(lock, mnview);
                     if (!res) {
-                        return Res::Err("Cannot be set at or below current height");
+                        return res;
                     }
                 } else {
                     // Less than a day's worth of blocks, apply instant lock

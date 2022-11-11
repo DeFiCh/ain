@@ -3,25 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/balances.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/oracles.h>
-#include <masternodes/res.h>
 #include <masternodes/vaulthistory.h>
 
-#include <arith_uint256.h>
-#include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <logging.h>
-#include <masternodes/govvariables/oracle_block_interval.h>
-#include <primitives/block.h>
-#include <primitives/transaction.h>
 #include <txmempool.h>
-#include <streams.h>
 #include <validation.h>
 
 #include <algorithm>
@@ -34,8 +22,6 @@ std::string ToString(CustomTxType type) {
     {
         case CustomTxType::CreateMasternode:    return "CreateMasternode";
         case CustomTxType::ResignMasternode:    return "ResignMasternode";
-        case CustomTxType::SetForcedRewardAddress: return "SetForcedRewardAddress";
-        case CustomTxType::RemForcedRewardAddress: return "RemForcedRewardAddress";
         case CustomTxType::UpdateMasternode:    return "UpdateMasternode";
         case CustomTxType::CreateToken:         return "CreateToken";
         case CustomTxType::UpdateToken:         return "UpdateToken";
@@ -135,8 +121,6 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-        case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
-        case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
         case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
@@ -230,13 +214,6 @@ class CCustomMetadataParseVisitor
         return Res::Ok();
     }
 
-    Res isPostEunosPayaFork() const {
-        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
-            return Res::Err("called before EunosPaya height");
-        }
-        return Res::Ok();
-    }
-
     Res isPostFortCanningFork() const {
         if(static_cast<int>(height) < consensus.FortCanningHeight) {
             return Res::Err("called before FortCanning height");
@@ -299,27 +276,8 @@ public:
         return serialize(obj);
     }
 
-    Res operator()(CSetForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
-    }
-
-    Res operator()(CRemForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
-        return !res ? res : serialize(obj);
-    }
-
     Res operator()(CUpdateMasterNodeMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("updatemasternode is disabled for Fort Canning");
-
-        auto res = isPostFortCanningFork();
+        auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
 
@@ -661,9 +619,18 @@ public:
     }
 
     Res HasFoundationAuth() const {
+        auto members = consensus.foundationMembers;
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+                members = databaseMembers;
+            }
+        }
+
         for (const auto& input : tx.vin) {
             const Coin& coin = coins.AccessCoin(input.prevout);
-            if (!coin.IsSpent() && consensus.foundationMembers.count(coin.out.scriptPubKey) > 0) {
+            if (!coin.IsSpent() && members.count(coin.out.scriptPubKey) > 0) {
                 return Res::Ok();
             }
         }
@@ -961,6 +928,28 @@ public:
             node.version = CMasternode::VERSION0;
         }
 
+        bool duplicate{};
+        mnview.ForEachNewCollateral([&](const uint256& key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
+            const auto& value = valueKey.get();
+            if (height > value.blockHeight) {
+                return true;
+            }
+            const auto& coin = coins.AccessCoin({key, 1});
+            assert(!coin.IsSpent());
+            CTxDestination pendingDest;
+            assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
+            const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest)) : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+            if (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress) {
+                duplicate = true;
+                return false;
+            }
+            return true;
+        });
+
+        if (duplicate) {
+            return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending");
+        }
+
         res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res) {
@@ -976,46 +965,158 @@ public:
     }
 
     Res operator()(const CResignMasterNodeMessage& obj) const {
-        auto res = HasCollateralAuth(obj);
-        return !res ? res : mnview.ResignMasternode(obj, tx.GetHash(), height);
-    }
-
-    Res operator()(const CSetForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto const node = mnview.GetMasternode(obj.nodeId);
+        auto node = mnview.GetMasternode(obj);
         if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
+            return Res::Err("node %s does not exists", obj.ToString());
         }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
-    }
-
-    Res operator()(const CRemForcedRewardAddressMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("reward address change is disabled for Fort Canning");
-
-        auto const node = mnview.GetMasternode(obj.nodeId);
-        if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-        }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.RemForcedRewardAddress(obj.nodeId, height);
+        auto res = HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx);
+        return !res ? res : mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {
-        // Temporarily disabled for 2.2
-        return Res::Err("updatemasternode is disabled for Fort Canning");
+        if (obj.updates.empty()) {
+            return Res::Err("No update arguments provided");
+        }
 
-        auto res = HasCollateralAuth(obj.mnId);
-        return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
+        if (obj.updates.size() > 3) {
+            return Res::Err("Too many updates provided");
+        }
+
+        auto node = mnview.GetMasternode(obj.mnId);
+        if (!node) {
+            return Res::Err("masternode %s does not exists", obj.mnId.ToString());
+        }
+
+        const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+        const auto res = HasCollateralAuth(collateralTx);
+        if (!res) {
+            return res;
+        }
+
+        auto state = node->GetState(height, mnview);
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("Masternode %s is not in 'ENABLED' state", obj.mnId.ToString());
+        }
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+
+        bool ownerType{}, operatorType{}, rewardType{};
+        for (const auto& [type, addressPair] : obj.updates) {
+            const auto& [addressType, rawAddress] = addressPair;
+            if (type == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOwnerAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode owner address not currently enabled in attributes.");
+                }
+                if (ownerType) {
+                    return Res::Err("Multiple owner updates provided");
+                }
+                ownerType = true;
+                bool collateralFound{};
+                for (const auto& vin : tx.vin) {
+                    if (vin.prevout.hash == collateralTx && vin.prevout.n == 1) {
+                        collateralFound = true;
+                    }
+                }
+                if (!collateralFound) {
+                    return Res::Err("Missing previous collateral from transaction inputs");
+                }
+                if (tx.vout.size() == 1) {
+                    return Res::Err("Missing new collateral output");
+                }
+                if (!HasAuth(tx.vout[1].scriptPubKey)) {
+                    return Res::Err("Missing auth input for new masternode owner");
+                }
+
+                CTxDestination dest;
+                if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) || (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
+                    return Res::Err("Owner address must be P2PKH or P2WPKH type");
+                }
+
+                if (tx.vout[1].nValue != GetMnCollateralAmount(height)) {
+                    return Res::Err("Incorrect collateral amount");
+                }
+
+                const auto keyID = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+                if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
+                    return Res::Err("Masternode with collateral address as operator or owner already exists");
+                }
+
+                bool duplicate{};
+                mnview.ForEachNewCollateral([&](const uint256& key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
+                    const auto& value = valueKey.get();
+                    if (height > value.blockHeight) {
+                        return true;
+                    }
+                    const auto& coin = coins.AccessCoin({key, 1});
+                    assert(!coin.IsSpent());
+                    CTxDestination pendingDest;
+                    assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
+                    const CKeyID storedID = pendingDest.index() == PKHashType ? CKeyID(std::get<PKHash>(pendingDest)) : CKeyID(std::get<WitnessV0KeyHash>(pendingDest));
+                    if (storedID == keyID) {
+                        duplicate = true;
+                        return false;
+                    }
+                    return true;
+                });
+                if (duplicate) {
+                    return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending already");
+                }
+
+                mnview.UpdateMasternodeCollateral(obj.mnId, *node, tx.GetHash(), height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOperatorAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode operator address not currently enabled in attributes.");
+                }
+                if (operatorType) {
+                    return Res::Err("Multiple operator updates provided");
+                }
+                operatorType = true;
+
+                if (addressType != 1 && addressType != 4) {
+                    return Res::Err("Operator address must be P2PKH or P2WPKH type");
+                }
+
+                const auto keyID = CKeyID(uint160(rawAddress));
+                if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {
+                    return Res::Err("Masternode with that operator address already exists");
+                }
+                mnview.UpdateMasternodeOperator(obj.mnId, *node, addressType, keyID, height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
+                if (rewardType) {
+                    return Res::Err("Multiple reward address updates provided");
+                }
+                rewardType = true;
+
+                if (addressType != 1 && addressType != 4) {
+                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                }
+
+                const auto keyID = CKeyID(uint160(rawAddress));
+                mnview.SetForcedRewardAddress(obj.mnId, *node, addressType, keyID, height);
+            } else if (type == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
+                if (!attributes->GetValue(key, false)) {
+                    return Res::Err("Updating masternode reward address not currently enabled in attributes.");
+                }
+                if (rewardType) {
+                    return Res::Err("Multiple reward address updates provided");
+                }
+                rewardType = true;
+
+                mnview.RemForcedRewardAddress(obj.mnId, *node, height);
+            } else {
+                return Res::Err("Unknown update type provided");
+            }
+        }
+
+        return Res::Ok();
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {
@@ -1085,7 +1186,14 @@ public:
 
         // check auth, depends from token's "origins"
         const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
-        bool isFoundersToken = consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        }
+        bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0 : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         auto res = Res::Ok();
         if (isFoundersToken && !(res = HasFoundationAuth())) {
@@ -1246,10 +1354,6 @@ public:
         // check auth
         if (!HasAuth(obj.swapInfo.from)) {
             return Res::Err("tx must have at least one input from account owner");
-        }
-
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
-            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
@@ -1724,11 +1828,59 @@ public:
 
                 govVar->time = time;
 
-                // Validate as complete set. Check for future conflicts between key pairs.
-                if (!(res = govVar->Import(var->Export()))
-                    ||  !(res = govVar->Validate(mnview))
-                    ||  !(res = govVar->Apply(mnview, height)))
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                assert(newVar);
+
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+
+                if (!memberRemoval.empty()) {
+                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+
+                    for (auto &member : memberRemoval) {
+                        if (member.empty()) {
+                            return Res::Err("Invalid address provided");
+                        }
+
+                        if (member[0] == '-') {
+                            auto memberCopy{member};
+                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript removeMember = GetScriptForDestination(dest);
+                            if (!existingMembers.count(removeMember)) {
+                                return Res::Err("Member to remove not present");
+                            }
+                            existingMembers.erase(removeMember);
+                        } else {
+                            const auto dest = DecodeDestination(member);
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript addMember = GetScriptForDestination(dest);
+                            if (existingMembers.count(addMember)) {
+                                return Res::Err("Member to add already present");
+                            }
+                            existingMembers.insert(addMember);
+                        }
+                    }
+
+                    govVar->SetValue(key, existingMembers);
+
+                    // Remove this key and apply any other changes
+                    newVar->EraseKey(key);
+                    if (!(res = govVar->Import(newVar->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                } else {
+                    // Validate as complete set. Check for future conflicts between key pairs.
+                    if (!(res = govVar->Import(var->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
 
                 var = govVar;
             } else {
@@ -1803,8 +1955,7 @@ public:
         }
 
         // Validate GovVariables before storing
-        // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
-        if (height >= uint32_t(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+        if (obj.govVar->GetName() == "ATTRIBUTES") {
 
             auto govVar = mnview.GetAttributes();
             if (!govVar) {
@@ -1812,7 +1963,6 @@ public:
             }
 
             auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
-            storedGovVars.emplace_back(obj.startHeight, obj.govVar);
 
             Res res{};
             CCustomCSView govCache(mnview);
@@ -1824,6 +1974,30 @@ public:
                         return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
                     }
                 }
+            }
+
+            // After GW exclude TokenSplit if split will have already been performed by startHeight
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToErase;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits && attrV0->key < obj.startHeight) {
+                                keysToErase.push_back(*attrV0);
+                            }
+                        }
+                    }
+                    for (const auto& key : keysToErase) {
+                        attrVar->EraseKey(key);
+                    }
+                }
+            }
+
+            if (!(res = govVar->Import(obj.govVar->Export())) ||
+                !(res = govVar->Validate(govCache)) ||
+                !(res = govVar->Apply(govCache, obj.startHeight))) {
+                return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
             }
         } else {
             auto result = obj.govVar->Validate(mnview);
@@ -3186,6 +3360,11 @@ public:
                 }
 
                 const auto subAmount = currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && tokenId == token->first) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3321,11 +3500,20 @@ public:
             }
 
             if (loanAmountChange > 0) {
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDAdd(mnview, {tokenId, loanAmountChange});
+                }
+
                 res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmountChange});
                 if (!res)
                     return res;
             } else {
                 const auto subAmount = currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
+
+                if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDSub(mnview, {tokenId, subAmount});
+                }
+
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount});
                 if (!res) {
                     return res;
@@ -3451,6 +3639,7 @@ public:
 
         auto shouldSetVariable = false;
         auto attributes = mnview.GetAttributes();
+        assert(attributes);
 
         for (const auto& [loanTokenId, paybackAmounts] : obj.loans)
         {
@@ -3565,6 +3754,10 @@ public:
                 else if (currentLoanAmount - subLoan < 0)
                 {
                     subLoan = currentLoanAmount;
+                }
+
+                if (loanToken->symbol == "DUSD") {
+                    TrackDUSDSub(mnview, {loanTokenId, subLoan});
                 }
 
                 res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
@@ -3898,7 +4091,7 @@ void PopulateVaultHistoryData(CHistoryWriters* writers, CAccountsHistoryWriter& 
     }
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CHistoryWriters* writers) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint256* canSpend, uint32_t txn, CHistoryWriters* writers) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -3921,6 +4114,18 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
            PopulateVaultHistoryData(writers, view, txMessage, txType, height, txn, tx.GetHash());
         }
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn);
+
+        if (res && canSpend && txType == CustomTxType::UpdateMasternode) {
+            auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+            for (const auto& item : obj.updates) {
+                if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                    if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                        *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
@@ -4247,6 +4452,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         return Res::Err("Input amount should be positive");
     }
 
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
+        return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
+    }
+
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
     std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
@@ -4369,11 +4578,17 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                res = addView.AddBalance(lastSwap ? (obj.to.empty() ? obj.from : obj.to) : obj.from, swapAmountResult);
+            } else {
+                res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
+            }
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
+
+            const auto token = view.GetToken("DUSD");
 
             // burn the dex in amount
             if (dexfeeInAmount.nValue > 0) {
@@ -4615,6 +4830,7 @@ Res PaybackWithCollateral(CCustomCSView& view, const CVaultData& vault, const CV
         }
 
         if (subLoanAmount > 0) {
+            TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
             if (!res) return res;
         }

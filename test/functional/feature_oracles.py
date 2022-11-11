@@ -277,6 +277,24 @@ class OraclesTest(DefiTestFramework):
         # === but no valid prices in both oracles ===
         assert (len([x for x in self.nodes[1].listprices() if x['ok'] == True]) == 2)
 
+        # test listprices pagination functionality
+        pricelist = self.nodes[1].listprices(
+            {"start": 0, "including_start": False, "limit": 1})
+        assert_equal(len(pricelist), 1)
+        assert_equal(pricelist[0]["token"], "GOLD")
+
+        assert_equal(len(self.nodes[1].listprices(
+            {"start": 0, "including_start": True, "limit": 100})), 4)
+        assert_equal(len(self.nodes[1].listprices(
+            {"start": 0, "including_start": False, "limit": 100})), 3)
+        assert_equal(len(self.nodes[1].listprices(
+            {"start": 1, "including_start": True, "limit": 100})), 3)
+        assert_equal(len(self.nodes[1].listprices(
+            {"start": 1, "including_start": False, "limit": 2})), 2)
+
+        assert_raises_rpc_error(-1, 'start index greater than number of prices available',
+                                self.nodes[1].listprices, {"start": 100, "including_start": False, "limit": 1})
+
         # === check get prices methods complex case ===
 
         oracle1_prices = [{"currency": "USD", "tokenAmount": "11.5@PT"}, {"currency": "EUR", "tokenAmount": "5@GOLD"}]
