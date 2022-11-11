@@ -31,7 +31,8 @@ enum ParamIDs : uint8_t  {
     DFIP2206A = 'f',
     DFIP2206F = 'g',
     Feature   = 'h',
-    Foundation = 'i',
+    Auction   = 'i',
+    Foundation = 'j',
 };
 
 enum OracleIDs : uint8_t  {
@@ -50,7 +51,10 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
-    Loans              = 'l',
+    BatchRoundingExcess = 'l', // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'm', // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokensPrincipal = 'n', // Same as PaybackDFITokens but without interest.
+    Loans              = 'o',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -205,6 +209,7 @@ using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
 void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 

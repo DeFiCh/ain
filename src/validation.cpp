@@ -3410,16 +3410,35 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
 
             // Now, let's add the remaining amounts and store the batch.
+            CBalances totalLoanInBatches{};
             for (auto i = 0u; i < batches.size(); i++) {
                 auto& batch = batches[i];
+                totalLoanInBatches.Add(batch.loanAmount);
                 auto tokenId = batch.loanAmount.nTokenId;
                 auto interest = totalInterest.balances[tokenId];
                 if (interest > 0) {
                     auto balance = loanTokens->balances[tokenId];
                     auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
                     batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                    totalLoanInBatches.Sub({tokenId, batch.loanInterest});
                 }
                 cache.StoreAuctionBatch({vaultId, i}, batch);
+            }
+
+            // Check if more than loan amount was generated.
+            CBalances balances;
+            for (const auto& [tokenId, amount] : loanTokens->balances) {
+                if (totalLoanInBatches.balances.count(tokenId)) {
+                    const auto interest = totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
+                    if (totalLoanInBatches.balances[tokenId] > amount - interest) {
+                        balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                    }
+                }
+            }
+
+            // Only store to attributes if there has been a rounding error.
+            if (!balances.balances.empty()) {
+                TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
             }
 
             // All done. Ready to save the overall auction.
@@ -3448,6 +3467,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         auto vault = view.GetVault(vaultId);
         assert(vault);
 
+        CBalances balances;
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch({vaultId, i});
             assert(batch);
@@ -3505,6 +3525,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
+                balances.Add({batch->loanAmount.nTokenId, batch->loanInterest});
 
                 // When tracking loan amounts remove interest.
                 if (const auto token = view.GetToken("DUSD"); token && token->first == batch->loanAmount.nTokenId) {
@@ -3520,6 +3541,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
                 }
             }
+        }
+
+        // Only store to attributes if there has been a rounding error.
+        if (!balances.balances.empty()) {
+            TrackLiveBalances(view, balances, EconomyKeys::ConsolidatedInterest);
         }
 
         vault->isUnderLiquidation = false;
@@ -4754,6 +4780,21 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     return Res::Ok();
 }
 
+static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, const uint8_t key, const DCT_ID oldId, const DCT_ID newId, const int32_t multiplier, const uint8_t typeID = ParamIDs::Economy) {
+    CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
+    auto balances = attributes.GetValue(attrKey, CBalances{});
+    for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
+        const auto& [tokenId, amount] = *it;
+        if (tokenId != oldId) {
+            continue;
+        }
+        balances.balances.erase(it);
+        balances.Add({newId, CalculateNewAmount(multiplier, amount)});
+        break;
+    }
+    attributes.SetValue(attrKey, balances);
+}
+
 void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningCrunchHeight) {
         return;
@@ -4867,6 +4908,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::ConsolidatedInterest, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
 
         CAmount totalBalance{0};
 
