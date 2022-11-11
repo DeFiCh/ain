@@ -3651,7 +3651,7 @@ public:
                         balances.Add({paybackTokenId, penalty});
                         attributes->SetValue(liveKey, balances);
 
-                        liveKey.key = EconomyKeys::PaybackDFINoInterest;
+                        liveKey.key = EconomyKeys::PaybackDFITokensPrincipal;
                         balances = attributes->GetValue(liveKey, CBalances{});
                         balances.Add({loanTokenId, subLoan});
                         attributes->SetValue(liveKey, balances);

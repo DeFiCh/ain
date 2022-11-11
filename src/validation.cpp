@@ -3427,7 +3427,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
             // Only store to attributes if there has been a rounding error.
             if (!balances.balances.empty()) {
-                TrackLiveBalances(cache, balances, EconomyKeys::BatchRounding);
+                TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
             }
 
             // All done. Ready to save the overall auction.
@@ -3528,7 +3528,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
         // Only store to attributes if there has been a rounding error.
         if (!balances.balances.empty()) {
-            TrackLiveBalances(view, balances, EconomyKeys::AuctionInterest);
+            TrackLiveBalances(view, balances, EconomyKeys::ConsolidatedInterest);
         }
 
         vault->isUnderLiquidation = false;
@@ -4675,8 +4675,8 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     return Res::Ok();
 }
 
-static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, uint8_t key, DCT_ID oldId, DCT_ID newId, int32_t multiplier) {
-    CDataStructureV0 attrKey{AttributeTypes::Live, ParamIDs::Economy, key};
+static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, const uint8_t key, const DCT_ID oldId, const DCT_ID newId, const int32_t multiplier, const uint8_t typeID = ParamIDs::Economy) {
+    CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
     auto balances = attributes.GetValue(attrKey, CBalances{});
     for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
         const auto& [tokenId, amount] = *it;
@@ -4804,8 +4804,8 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::BatchRounding, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::AuctionInterest, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::ConsolidatedInterest, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
 
         CAmount totalBalance{0};
 

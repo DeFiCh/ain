@@ -105,6 +105,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::TokenID,     "token"},
         {ParamIDs::Economy,     "economy"},
         {ParamIDs::Feature,     "feature"},
+        {ParamIDs::Auction,     "auction"},
     };
     return params;
 }
@@ -221,7 +222,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
         {
             AttributeTypes::Live, {
                 {EconomyKeys::PaybackDFITokens,  "dfi_payback_tokens"},
-                {EconomyKeys::PaybackDFINoInterest,"dfi_payback_no_interest"},
+                {EconomyKeys::PaybackDFITokensPrincipal,"dfi_payback_tokens_principal"},
                 {EconomyKeys::DFIP2203Current,   "dfip2203_current"},
                 {EconomyKeys::DFIP2203Burned,    "dfip2203_burned"},
                 {EconomyKeys::DFIP2203Minted,    "dfip2203_minted"},
@@ -231,8 +232,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
-                {EconomyKeys::BatchRounding,      "batch_rounding"},
-                {EconomyKeys::AuctionInterest,    "auction_interest"},
+                {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
+                {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
             }
         },
     };
@@ -448,7 +449,7 @@ void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
 void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key) {
     auto attributes = mnview.GetAttributes();
     assert(attributes);
-    const CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, key};
+    const CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Auction, key};
     auto storedBalances = attributes->GetValue(liveKey, CBalances{});
     for (const auto& [tokenID, amount] : balances.balances) {
         storedBalances.balances[tokenID] += amount;

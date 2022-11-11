@@ -31,6 +31,7 @@ enum ParamIDs : uint8_t  {
     DFIP2206A = 'f',
     DFIP2206F = 'g',
     Feature   = 'h',
+    Auction   = 'i',
 };
 
 enum OracleIDs : uint8_t  {
@@ -49,9 +50,9 @@ enum EconomyKeys : uint8_t {
     DexTokens          = 'i',
     NegativeInt        = 'j',
     NegativeIntCurrent = 'k',
-    BatchRounding      = 'l', // Extra added to loan amounts on auction creation due to round errors.
-    AuctionInterest    = 'm', // Amount added to loan amounts after auction with no bids.
-    PaybackDFINoInterest = 'n', // Same as PaybackDFITokens but without interest.
+    BatchRoundingExcess = 'l', // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'm', // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokensPrincipal = 'n', // Same as PaybackDFITokens but without interest.
 };
 
 enum DFIPKeys : uint8_t  {
