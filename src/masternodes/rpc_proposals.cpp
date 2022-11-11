@@ -10,8 +10,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop.title);
     ret.pushKV("context", prop.context);
-    if (!prop.contexthash.empty())
-        ret.pushKV("contexthash", prop.contexthash);
+    ret.pushKV("contexthash", prop.contexthash);
     auto type = static_cast<CPropType>(prop.type);
     ret.pushKV("type", CPropTypeToString(type));
     auto status = static_cast<CPropStatusType>(prop.status);
