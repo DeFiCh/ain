@@ -23,7 +23,8 @@ class CAccountsHistoryView;
 class CCustomTxVisitor;
 class CVaultHistoryView;
 class CHistoryWriters;
-class CHistoryErasers;
+
+constexpr uint8_t MAX_POOL_SWAPS = 3;
 
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,

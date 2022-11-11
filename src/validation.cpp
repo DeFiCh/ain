@@ -3052,6 +3052,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // Tally negative interest across vaults
         ProcessNegativeInterest(pindex, cache);
 
+        // Migrate foundation members to attributes
+        ProcessGrandCentralEvents(pindex, cache, chainparams);
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -3907,6 +3910,20 @@ void CChainState::ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSVi
     }
 }
 
+void CChainState::ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    if (pindex->nHeight != chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+    attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
+    cache.SetVariable(*attributes);
+}
+
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
@@ -3968,8 +3985,48 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
-                    govCache.Flush();
+                auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                assert(newVar);
+
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+
+                if (!memberRemoval.empty()) {
+                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+
+                    for (auto &member : memberRemoval) {
+                        if (member.empty()) {
+                            continue;
+                        }
+
+                        if (member[0] == '-') {
+                            auto memberCopy{member};
+                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                            if (!IsValidDestination(dest)) {
+                                continue;
+                            }
+                            existingMembers.erase(GetScriptForDestination(dest));
+
+                        } else {
+                            const auto dest = DecodeDestination(member);
+                            if (!IsValidDestination(dest)) {
+                                continue;
+                            }
+                            existingMembers.insert(GetScriptForDestination(dest));
+                        }
+                    }
+
+                    govVar->SetValue(key, existingMembers);
+
+                    // Remove this key and apply any other changes
+                    newVar->EraseKey(key);
+                    if (govVar->Import(newVar->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                        govCache.Flush();
+                    }
+                } else {
+                    if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                        govCache.Flush();
+                    }
                 }
             } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
                 govCache.Flush();
@@ -4855,6 +4912,42 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             }
         }
         view.SetVariable(*attributes);
+
+        // Migrate stored unlock
+        if (pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight) {
+            bool updateStoredVar{};
+            auto storedGovVars = view.GetStoredVariablesRange(pindex->nHeight, std::numeric_limits<uint32_t>::max());
+            for (const auto& [varHeight, var] : storedGovVars) {
+                if (var->GetName() != "ATTRIBUTES") {
+                    continue;
+                }
+                updateStoredVar = false;
+
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(var); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToUpdate;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Locks && attrV0->typeId == ParamIDs::TokenID && attrV0->key == oldTokenId.v) {
+                                keysToUpdate.push_back(*attrV0);
+                                updateStoredVar = true;
+                            }
+                        }
+                    }
+                    for (auto& key : keysToUpdate) {
+                        const auto value = attrVar->GetValue(key, false);
+                        attrVar->EraseKey(key);
+                        key.key = newTokenId.v;
+                        attrVar->SetValue(key, value);
+                    }
+                }
+
+                if (updateStoredVar) {
+                    view.SetStoredVariables({var}, varHeight);
+                }
+            }
+        }
+
         view.Flush();
         if (auto accountHistory = view.GetAccountHistoryStore()) {
             accountHistory->Flush();

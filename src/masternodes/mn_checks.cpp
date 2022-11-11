@@ -3,25 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/balances.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/oracles.h>
-#include <masternodes/res.h>
 #include <masternodes/vaulthistory.h>
 
-#include <arith_uint256.h>
-#include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <logging.h>
-#include <masternodes/govvariables/oracle_block_interval.h>
-#include <primitives/block.h>
-#include <primitives/transaction.h>
 #include <txmempool.h>
-#include <streams.h>
 #include <validation.h>
 
 #include <algorithm>
@@ -226,13 +214,6 @@ class CCustomMetadataParseVisitor
     Res isPostEunosFork() const {
         if(static_cast<int>(height) < consensus.EunosHeight) {
             return Res::Err("called before Eunos height");
-        }
-        return Res::Ok();
-    }
-
-    Res isPostEunosPayaFork() const {
-        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
-            return Res::Err("called before EunosPaya height");
         }
         return Res::Ok();
     }
@@ -661,9 +642,18 @@ public:
     }
 
     Res HasFoundationAuth() const {
+        auto members = consensus.foundationMembers;
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+                members = databaseMembers;
+            }
+        }
+
         for (const auto& input : tx.vin) {
             const Coin& coin = coins.AccessCoin(input.prevout);
-            if (!coin.IsSpent() && consensus.foundationMembers.count(coin.out.scriptPubKey) > 0) {
+            if (!coin.IsSpent() && members.count(coin.out.scriptPubKey) > 0) {
                 return Res::Ok();
             }
         }
@@ -1085,7 +1075,14 @@ public:
 
         // check auth, depends from token's "origins"
         const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
-        bool isFoundersToken = consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        }
+        bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0 : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         auto res = Res::Ok();
         if (isFoundersToken && !(res = HasFoundationAuth())) {
@@ -1246,10 +1243,6 @@ public:
         // check auth
         if (!HasAuth(obj.swapInfo.from)) {
             return Res::Err("tx must have at least one input from account owner");
-        }
-
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
-            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
@@ -1724,11 +1717,59 @@ public:
 
                 govVar->time = time;
 
-                // Validate as complete set. Check for future conflicts between key pairs.
-                if (!(res = govVar->Import(var->Export()))
-                    ||  !(res = govVar->Validate(mnview))
-                    ||  !(res = govVar->Apply(mnview, height)))
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                assert(newVar);
+
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+
+                if (!memberRemoval.empty()) {
+                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+
+                    for (auto &member : memberRemoval) {
+                        if (member.empty()) {
+                            return Res::Err("Invalid address provided");
+                        }
+
+                        if (member[0] == '-') {
+                            auto memberCopy{member};
+                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript removeMember = GetScriptForDestination(dest);
+                            if (!existingMembers.count(removeMember)) {
+                                return Res::Err("Member to remove not present");
+                            }
+                            existingMembers.erase(removeMember);
+                        } else {
+                            const auto dest = DecodeDestination(member);
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript addMember = GetScriptForDestination(dest);
+                            if (existingMembers.count(addMember)) {
+                                return Res::Err("Member to add already present");
+                            }
+                            existingMembers.insert(addMember);
+                        }
+                    }
+
+                    govVar->SetValue(key, existingMembers);
+
+                    // Remove this key and apply any other changes
+                    newVar->EraseKey(key);
+                    if (!(res = govVar->Import(newVar->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                } else {
+                    // Validate as complete set. Check for future conflicts between key pairs.
+                    if (!(res = govVar->Import(var->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
 
                 var = govVar;
             } else {
@@ -1803,8 +1844,7 @@ public:
         }
 
         // Validate GovVariables before storing
-        // TODO remove GW check after fork height. No conflict expected as attrs should not been set by height before.
-        if (height >= uint32_t(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
+        if (obj.govVar->GetName() == "ATTRIBUTES") {
 
             auto govVar = mnview.GetAttributes();
             if (!govVar) {
@@ -1812,7 +1852,6 @@ public:
             }
 
             auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
-            storedGovVars.emplace_back(obj.startHeight, obj.govVar);
 
             Res res{};
             CCustomCSView govCache(mnview);
@@ -1824,6 +1863,30 @@ public:
                         return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
                     }
                 }
+            }
+
+            // After GW exclude TokenSplit if split will have already been performed by startHeight
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToErase;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits && attrV0->key < obj.startHeight) {
+                                keysToErase.push_back(*attrV0);
+                            }
+                        }
+                    }
+                    for (const auto& key : keysToErase) {
+                        attrVar->EraseKey(key);
+                    }
+                }
+            }
+
+            if (!(res = govVar->Import(obj.govVar->Export())) ||
+                !(res = govVar->Validate(govCache)) ||
+                !(res = govVar->Apply(govCache, obj.startHeight))) {
+                return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
             }
         } else {
             auto result = obj.govVar->Validate(mnview);
@@ -4245,6 +4308,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     if (obj.amountFrom <= 0) {
         return Res::Err("Input amount should be positive");
+    }
+
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
+        return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
     }
 
     // Single swap if no pool IDs provided
