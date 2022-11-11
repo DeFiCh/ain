@@ -21,8 +21,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200'],
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
 
     def run_test(self):
 
@@ -428,6 +428,33 @@ class PoolPairCompositeTest(DefiTestFramework):
         result = self.nodes[0].getcustomtx(tx)
         assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
 
+        # Test that final output currency is same as tokenTo
+        self.nodes[0].accounttoaccount(
+            collateral, {source: "100@" + symbolTSLA})
+        self.nodes[0].generate(1)
+
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolTSLA,
+            "amountFrom": "10",
+            "to": destination,
+            "tokenTo": symbolLTC
+        })
+
+        metadata = self.nodes[0].getrawtransaction(
+            tx, 1)['vout'][0]['scriptPubKey']['hex']
+        rawtx = self.nodes[0].getrawtransaction(tx)
+
+        updated_metadata = metadata.replace(hex(int(idLTC))[
+                                            2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
+        updated_rawtx = rawtx.replace(metadata, updated_metadata)
+
+        self.nodes[0].clearmempool()
+
+        signed_raw = self.nodes[0].signrawtransactionwithwallet(updated_rawtx)
+        assert_raises_rpc_error(-26, "Final swap output is not same as idTokenTo",
+                                self.nodes[0].sendrawtransaction, signed_raw['hex'])
+
         # Wipe mempool
         self.nodes[0].clearmempool()
 
@@ -464,6 +491,22 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided", self.nodes[0].sendrawtransaction, updated_rawtx)
         self.nodes[0].clearmempool()
+
+        # Test too many pools error message.
+        idDOGEDFI = list(self.nodes[0].gettoken("DOGE-DFI").keys())[0]
+        idDFIDUSD = list(self.nodes[0].gettoken("DUSD-DFI").keys())[0]
+        idDUSDUSDC = list(self.nodes[0].gettoken("DUSD-USDC").keys())[0]
+        idUSDCLTC = list(self.nodes[0].gettoken("LTC-USDC").keys())[0]
+
+        # Test four pool composite swap
+        assert_raises_rpc_error(-32600, 'Too many pool IDs provided, max 3 allowed, 4 provided', self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolDOGE,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolLTC,
+        }, [idDOGEDFI, idDFIDUSD, idDUSDUSDC, idUSDCLTC])
 
 if __name__ == '__main__':
     PoolPairCompositeTest().main()
