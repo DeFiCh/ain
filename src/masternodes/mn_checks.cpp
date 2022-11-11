@@ -4355,7 +4355,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
             intermediateView.Flush();
 
             auto& addView = lastSwap ? view : intermediateView;
-            res = addView.AddBalance(lastSwap ? (obj.to.empty() && height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight) ? obj.from : obj.to) : obj.from, swapAmountResult);
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+                res = addView.AddBalance(lastSwap ? (obj.to.empty() ? obj.from : obj.to) : obj.from, swapAmountResult);
+            } else {
+                res = addView.AddBalance(lastSwap ? obj.to : obj.from, swapAmountResult);
+            }
             if (!res) {
                 return res;
             }
