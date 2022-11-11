@@ -32,6 +32,8 @@ enum ParamIDs : uint8_t  {
     DFIP2206A = 'f',
     DFIP2206F = 'g',
     Feature   = 'h',
+    Auction   = 'i',
+    Foundation = 'j',
 };
 
 enum OracleIDs : uint8_t  {
@@ -52,6 +54,10 @@ enum EconomyKeys : uint8_t {
     NegativeIntCurrent = 'k',
     ConsortiumMinted        = 'l',
     ConsortiumMembersMinted = 'm',
+    BatchRoundingExcess = 'n', // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'o', // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokensPrincipal = 'p', // Same as PaybackDFITokens but without interest.
+    Loans              = 'q',
 };
 
 enum DFIPKeys : uint8_t  {
@@ -68,7 +74,8 @@ enum DFIPKeys : uint8_t  {
     MNSetRewardAddress      = 'l',
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
-    ConsortiumEnabled       = 'p',
+    ConsortiumEnabled       = 'o',
+    Members                 = 'p',
 };
 
 enum TokenKeys : uint8_t  {
@@ -270,9 +277,12 @@ using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsort
 using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue,
-                         CFeeDir, CDexBalances, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
+                         CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted>;
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
+void TrackDUSDAdd(CCustomCSView& mnview, const CTokenAmount& amount);
+void TrackDUSDSub(CCustomCSView& mnview, const CTokenAmount& amount);
 
 enum GovVarsFilter {
     All,
