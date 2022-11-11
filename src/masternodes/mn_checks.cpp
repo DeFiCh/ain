@@ -3,25 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/balances.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/oracles.h>
-#include <masternodes/res.h>
 #include <masternodes/vaulthistory.h>
 
-#include <arith_uint256.h>
-#include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <logging.h>
-#include <masternodes/govvariables/oracle_block_interval.h>
-#include <primitives/block.h>
-#include <primitives/transaction.h>
 #include <txmempool.h>
-#include <streams.h>
 #include <validation.h>
 
 #include <algorithm>
@@ -1246,10 +1234,6 @@ public:
         // check auth
         if (!HasAuth(obj.swapInfo.from)) {
             return Res::Err("tx must have at least one input from account owner");
-        }
-
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
-            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
@@ -3020,26 +3004,40 @@ public:
         }
 
         // Calculate DFI and DUSD value separately
-        uint64_t totalCollateralsDUSD = 0;
-        uint64_t totalCollateralsDFI = 0;
+        CAmount totalCollateralsDUSD = 0;
+        CAmount totalCollateralsDFI = 0;
+        CAmount factorDUSD = 0;
+        CAmount factorDFI = 0;
 
         for (auto& col : collateralsLoans.collaterals){
-            if (col.nTokenId == DCT_ID{0} )
-                totalCollateralsDFI += col.nValue;
+            auto token = mnview.GetCollateralTokenFromAttributes(col.nTokenId);
 
-            if(tokenDUSD && col.nTokenId == tokenDUSD->first)
+            if (col.nTokenId == DCT_ID{0} ){
+                totalCollateralsDFI += col.nValue;
+                factorDFI = token->factor;
+            }
+
+            if(tokenDUSD && col.nTokenId == tokenDUSD->first){
                 totalCollateralsDUSD += col.nValue;
+                factorDUSD = token->factor;
+            }
         }
-        auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
         // Height checks
         auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
-        auto isPreFCH = static_cast<int>(height) < consensus.FortCanningHillHeight;
+        auto isPreFCH  = static_cast<int>(height) <  consensus.FortCanningHillHeight;
         auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
         auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
+        auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
+
+        if(isPostGC){
+            totalCollateralsDUSD = MultiplyAmounts(totalCollateralsDUSD, factorDUSD);
+            totalCollateralsDFI  = MultiplyAmounts(totalCollateralsDFI, factorDFI);
+        }
+        auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
         // Condition checks
-        auto isDFILessThanHalfOfTotalCollateral = totalCollateralsDFI < collateralsLoans.totalCollaterals / 2;
+        auto isDFILessThanHalfOfTotalCollateral = arith_uint256(totalCollateralsDFI) < arith_uint256(collateralsLoans.totalCollaterals) / 2;
         auto isDFIAndDUSDLessThanHalfOfRequiredCollateral = arith_uint256(totalCollaterals) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
         auto isDFILessThanHalfOfRequiredCollateral = arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(collateralsLoans.totalLoans) * ratio / 2);
 
@@ -4233,6 +4231,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
         return Res::Err("Input amount should be positive");
     }
 
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
+        return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
+    }
+
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
     std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
@@ -4391,6 +4393,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
         if (!poolResult) {
             return poolResult;
+        }
+    }
+
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
+        if (swapAmountResult.nTokenId != obj.idTokenTo) {
+            return Res::Err("Final swap output is not same as idTokenTo");
         }
     }
 
