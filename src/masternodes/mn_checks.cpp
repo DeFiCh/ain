@@ -3,25 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/balances.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/oracles.h>
-#include <masternodes/res.h>
 #include <masternodes/vaulthistory.h>
 
-#include <arith_uint256.h>
-#include <chainparams.h>
-#include <consensus/tx_check.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <logging.h>
-#include <masternodes/govvariables/oracle_block_interval.h>
-#include <primitives/block.h>
-#include <primitives/transaction.h>
 #include <txmempool.h>
-#include <streams.h>
 #include <validation.h>
 
 #include <algorithm>
@@ -1246,10 +1234,6 @@ public:
         // check auth
         if (!HasAuth(obj.swapInfo.from)) {
             return Res::Err("tx must have at least one input from account owner");
-        }
-
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && obj.poolIDs.size() > 3) {
-            return Res::Err(strprintf("Too many pool IDs provided, max 3 allowed, %d provided", obj.poolIDs.size()));
         }
 
         return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
@@ -4245,6 +4229,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, boo
 
     if (obj.amountFrom <= 0) {
         return Res::Err("Input amount should be positive");
+    }
+
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
+        return Res::Err(strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
     }
 
     // Single swap if no pool IDs provided
