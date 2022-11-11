@@ -10,7 +10,7 @@ PATH=$PATH:~/.local/bin
 
 curl -fsSL -o- https://bootstrap.pypa.io/pip/3.5/get-pip.py | python3
 pip3 install codespell==1.15.0
-pip3 install flake8==3.5.0
+pip3 install flake8==4.0.1
 pip3 install vulture==0.29
 
 SHELLCHECK_VERSION=v0.7.1
