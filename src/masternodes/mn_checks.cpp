@@ -218,13 +218,6 @@ class CCustomMetadataParseVisitor
         return Res::Ok();
     }
 
-    Res isPostEunosPayaFork() const {
-        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
-            return Res::Err("called before EunosPaya height");
-        }
-        return Res::Ok();
-    }
-
     Res isPostFortCanningFork() const {
         if(static_cast<int>(height) < consensus.FortCanningHeight) {
             return Res::Err("called before FortCanning height");
@@ -649,9 +642,18 @@ public:
     }
 
     Res HasFoundationAuth() const {
+        auto members = consensus.foundationMembers;
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+                members = databaseMembers;
+            }
+        }
+
         for (const auto& input : tx.vin) {
             const Coin& coin = coins.AccessCoin(input.prevout);
-            if (!coin.IsSpent() && consensus.foundationMembers.count(coin.out.scriptPubKey) > 0) {
+            if (!coin.IsSpent() && members.count(coin.out.scriptPubKey) > 0) {
                 return Res::Ok();
             }
         }
@@ -1073,7 +1075,14 @@ public:
 
         // check auth, depends from token's "origins"
         const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
-        bool isFoundersToken = consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+
+        const auto attributes = mnview.GetAttributes();
+        assert(attributes);
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+            databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+        }
+        bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0 : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
         auto res = Res::Ok();
         if (isFoundersToken && !(res = HasFoundationAuth())) {
@@ -1708,11 +1717,59 @@ public:
 
                 govVar->time = time;
 
-                // Validate as complete set. Check for future conflicts between key pairs.
-                if (!(res = govVar->Import(var->Export()))
-                    ||  !(res = govVar->Validate(mnview))
-                    ||  !(res = govVar->Apply(mnview, height)))
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
+                auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                assert(newVar);
+
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+
+                if (!memberRemoval.empty()) {
+                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+
+                    for (auto &member : memberRemoval) {
+                        if (member.empty()) {
+                            return Res::Err("Invalid address provided");
+                        }
+
+                        if (member[0] == '-') {
+                            auto memberCopy{member};
+                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript removeMember = GetScriptForDestination(dest);
+                            if (!existingMembers.count(removeMember)) {
+                                return Res::Err("Member to remove not present");
+                            }
+                            existingMembers.erase(removeMember);
+                        } else {
+                            const auto dest = DecodeDestination(member);
+                            if (!IsValidDestination(dest)) {
+                                return Res::Err("Invalid address provided");
+                            }
+                            CScript addMember = GetScriptForDestination(dest);
+                            if (existingMembers.count(addMember)) {
+                                return Res::Err("Member to add already present");
+                            }
+                            existingMembers.insert(addMember);
+                        }
+                    }
+
+                    govVar->SetValue(key, existingMembers);
+
+                    // Remove this key and apply any other changes
+                    newVar->EraseKey(key);
+                    if (!(res = govVar->Import(newVar->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                } else {
+                    // Validate as complete set. Check for future conflicts between key pairs.
+                    if (!(res = govVar->Import(var->Export()))
+                        ||  !(res = govVar->Validate(mnview))
+                        ||  !(res = govVar->Apply(mnview, height)))
+                        return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
 
                 var = govVar;
             } else {
