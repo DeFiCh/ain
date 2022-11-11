@@ -253,6 +253,10 @@ namespace {
                 // Value during split period is hard to predict with the current|next price
                 result.pushKV("interestsPerBlock", interestsPerBlockBalances);
                 result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            } else {
+                result.pushKV("interestsPerBlock", -1);
+                result.pushKV("interestPerBlockValue", -1);
+
             }
         }
         return result;
