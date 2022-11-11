@@ -17,6 +17,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -42,6 +43,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, const CCustomCSView& view, const CCreatePropMessage& msg);
 
 enum class UpdateMasternodeType : uint8_t
 {
@@ -404,6 +406,7 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CSettingsView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
@@ -434,7 +437,8 @@ class CCustomCSView
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 private:
@@ -498,6 +502,12 @@ public:
     CVaultHistoryStorage* GetVaultHistoryStore();
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
+
+    uint32_t GetVotingPeriodFromAttributes() const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    CAmount GetMajorityFromAttributes(const CPropType& type) const override;
+    CAmount GetMinVotersFromAttributes() const override;
+    CAmount GetFeeBurnPctFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

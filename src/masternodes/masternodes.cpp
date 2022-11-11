@@ -76,6 +76,32 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
+CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMessage& msg)
+{
+    auto type = static_cast<CPropType>(msg.type);
+    auto options = static_cast<CPropOption>(msg.options);
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
+    CDataStructureV0 VOCEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
+    bool emergency = (options & CPropOption::Emergency);
+
+    CAmount cfpFee;
+    switch(type) {
+        case CPropType::CommunityFundProposal:
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
+            return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
+        case CPropType::VoteOfConfidence:
+            if (emergency)
+                return attributes->GetValue(VOCEmergencyKey, 10000 * COIN);
+            else
+                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
+    }
+    return -1;
+}
+
 CMasternode::CMasternode()
     : mintedBlocks(0)
     , ownerAuthAddress()
@@ -1285,4 +1311,59 @@ void CCustomCSView::SetVaultHistoryStore() {
         vauHistoryStore.reset();
         vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
     }
+}
+
+uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
+
+    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
+}
+
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
+    return attributes->GetValue(VOCKey, uint32_t{8640});
+}
+
+CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
+    switch(type) {
+        case CPropType::CommunityFundProposal:
+            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
+        case CPropType::VoteOfConfidence:
+            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
+    }
+}
+
+CAmount CCustomCSView::GetMinVotersFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 MinVotersKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+
+    return attributes->GetValue(MinVotersKey, Params().GetConsensus().props.minVoting);
+}
+
+CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+
+    return attributes->GetValue(feeBurnPctKey, COIN / 2);
 }

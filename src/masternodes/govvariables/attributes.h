@@ -21,6 +21,7 @@ enum AttributeTypes : uint8_t {
     Token     = 't',
     Poolpairs = 'p',
     Locks     = 'L',
+    Governance= 'g'
 };
 
 enum ParamIDs : uint8_t  {
@@ -37,6 +38,11 @@ enum ParamIDs : uint8_t  {
 
 enum OracleIDs : uint8_t  {
     Splits    = 'a',
+};
+
+enum GovernanceIDs : uint8_t  {
+    Global    = 'a',
+    Proposals = 'b',
 };
 
 enum EconomyKeys : uint8_t {
@@ -71,7 +77,23 @@ enum DFIPKeys : uint8_t  {
     MNSetRewardAddress      = 'l',
     MNSetOperatorAddress    = 'm',
     MNSetOwnerAddress       = 'n',
-    Members                 = 'o',
+    GovernanceEnabled       = 'o',
+    Members                 = 'p',
+};
+
+enum GovernanceKeys : uint8_t  {
+    FeeRedistribution       = 'a',
+    FeeBurnPct              = 'b',
+    CFPPayout               = 'c',
+    CFPFee                  = 'd',
+    CFPMajority             = 'e',
+    VOCFee                  = 'f',
+    VOCEmergencyFee         = 'g',
+    VOCEmergencyPeriod      = 'h',
+    VOCMajority             = 'i',
+    MinVoters               = 'j',
+    VotingPeriod            = 'k',
+    VOCEmergencyQuorum      = 'l',
 };
 
 enum TokenKeys : uint8_t  {
@@ -206,7 +228,8 @@ using OracleSplits    = std::map<uint32_t, int32_t>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue  = std::pair<uint32_t, std::string>;
 using CAttributeType  = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>>;
+using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, DescendantValue, AscendantValue, CFeeDir, CDexBalances, int32_t, uint32_t, std::set<CScript>, std::set<std::string>>;
+
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
 void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const uint8_t key);
@@ -324,6 +347,7 @@ public:
     static const std::map<uint8_t, std::string>& displayTypes();
     static const std::map<uint8_t, std::string>& displayParamsIDs();
     static const std::map<uint8_t, std::string>& displayOracleIDs();
+    static const std::map<uint8_t, std::string>& displayGovernanceIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>>& displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview, const uint32_t height, const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
@@ -343,6 +367,7 @@ private:
     static const std::map<std::string, uint8_t>& allowedParamIDs();
     static const std::map<std::string, uint8_t>& allowedLocksIDs();
     static const std::map<std::string, uint8_t>& allowedOracleIDs();
+    static const std::map<std::string, uint8_t>& allowedGovernanceIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>>& allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
