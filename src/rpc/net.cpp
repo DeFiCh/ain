@@ -518,16 +518,15 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
                {},
                RPCResult{
                        "{\n"
-                       " \"name\": DeFiChain                            (string) Node name\n"
-                       " \"version\": \"xxxxx\",                        (string) Node version string\n"
-                       " \"versionSuffix\": \"xxxxx\",                  (string) Version suffix\n"
-                       " \"numericVersion\": xxxxx,                     (number) Node numeric version\n"
-                       " \"fullVersion\": \"DefiChain:x.x.x-suffix\",   (string) Full node version string including name and full version including suffix\n"
-                       " \"userAgent\": \"/DefiChain:x.x.x/\",          (string) P2P user agent string (subversion string conforming to BIP-14)\n"
-                       " \"protoVersion\": \"xxxxx\",                   (number) Operating protocol version\n"
-                       " \"protoVersionMin\": \"xxxxx\",                (number) Minimum protocol that's supported by the node\n"
-                       " \"rpcVersion\": \"xxxxx\",                     (string) RPC version\n"
-                       " \"rpcVersionMin\": \"xxxxx\",                  (string) Minimum RPC version supported\n"
+                       " \"name\": DeFiChain                       (string) Node name\n"
+                       " \"version\": \"xxxxx\",                   (string) Node version string\n"
+                       " \"numericVersion\": xxxxx,                (number) Node numeric version\n"
+                       " \"fullVersion\": \"DefiChain:x.x.x\",     (string) Full node version string including name and version\n"
+                       " \"userAgent\": \"/DefiChain:x.x.x/\",     (string) P2P user agent string (subversion string conforming to BIP-14)\n"
+                       " \"protoVersion\": \"xxxxx\",              (number) Operating protocol version\n"
+                       " \"protoVersionMin\": \"xxxxx\",           (number) Minimum protocol that's supported by the node\n"
+                       " \"rpcVersion\": \"xxxxx\",                (string) RPC version\n"
+                       " \"rpcVersionMin\": \"xxxxx\",             (string) Minimum RPC version supported\n"
                        " \"spv\":\n"
                        " \"{\n"
                        "    \"btc\":\n"
@@ -556,11 +555,10 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     spvInfoObj.pushKV("btc", btcInfoObj);
 
     std::ostringstream strFullVersion;
-    strFullVersion << CLIENT_NAME << ":" << FormatVersionAndSuffix();
+    strFullVersion << CLIENT_NAME << ":" << FormatVersion(CLIENT_VERSION);
 
     nodeInfoObj.pushKV("name", CLIENT_NAME);
     nodeInfoObj.pushKV("version", FormatVersion(CLIENT_VERSION));
-    nodeInfoObj.pushKV("versionSuffix", FormatVersionSuffixTail());
     nodeInfoObj.pushKV("numericVersion", CLIENT_VERSION);
     nodeInfoObj.pushKV("fullVersion",strFullVersion.str());
     nodeInfoObj.pushKV("userAgent",strSubVersion);
