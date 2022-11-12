@@ -310,29 +310,12 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_equal(vault["interestValue"], -1)
             assert_equal(vault["informativeRatio"], -1)
             assert_equal(vault["collateralRatio"], -1)
-        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": False, "verbose": True})
-        for vault in vaults_values:
-            assert_equal(vault["state"], "frozen")
-            assert_equal(vault["collateralValue"], -1)
-            assert_equal(vault["loanValue"], -1)
-            assert_equal(vault["interestValue"], -1)
-            assert_equal(vault["informativeRatio"], -1)
-            assert_equal(vault["collateralRatio"], -1)
-            assert_equal(vault["interestsPerBlock"], -1)
-            assert_equal(vault["interestPerBlockValue"], -1)
-
-        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
-        for vault in vaults_values:
-            assert_greater_than_or_equal(vault["collateralValue"], 0)
-            assert_greater_than_or_equal(vault["loanValue"], 0)
-            assert_equal(vault["interestsPerBlock"], -1)
-            assert_equal(vault["interestPerBlockValue"], -1)
 
     def test_values_after_token_unlock(self):
         # Unlock token
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/locks/token/{self.idT1}':'false'}})
         self.nodes[0].generate(1)
-        vaults_values = self.nodes[0].listvaults({"skipLockedCheck": True, "verbose": True})
+        vaults_values = self.get_vaults_usd_values()
         for vault in vaults_values:
             assert_equal(vault["state"], "active")
             assert_greater_than_or_equal(vault["collateralValue"], 0)
@@ -340,8 +323,6 @@ class TokenSplitUSDValueTest(DefiTestFramework):
             assert_greater_than_or_equal(vault["interestValue"], 0)
             assert_greater_than_or_equal(vault["informativeRatio"], 0)
             assert_greater_than_or_equal(vault["collateralRatio"], 0)
-            assert_greater_than_or_equal(Decimal(vault["interestsPerBlock"][0].split('@')[0]), 0)
-            assert_greater_than_or_equal(Decimal(vault["interestPerBlockValue"]), 0)
 
     def run_test(self):
         self.setup()
