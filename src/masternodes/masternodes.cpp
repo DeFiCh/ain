@@ -76,6 +76,32 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
+CAmount GetPropsCreationFee(int, const CCustomCSView& view, const CCreatePropMessage& msg)
+{
+    auto type = static_cast<CPropType>(msg.type);
+    auto options = static_cast<CPropOption>(msg.options);
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
+    CDataStructureV0 VOCEmergencyKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyFee};
+    bool emergency = (options & CPropOption::Emergency);
+
+    CAmount cfpFee;
+    switch(type) {
+        case CPropType::CommunityFundProposal:
+            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
+            return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
+        case CPropType::VoteOfConfidence:
+            if (emergency)
+                return attributes->GetValue(VOCEmergencyKey, 10000 * COIN);
+            else
+                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
+    }
+    return -1;
+}
+
 CMasternode::CMasternode()
     : mintedBlocks(0)
     , ownerAuthAddress()
@@ -975,9 +1001,9 @@ CAmount CCollateralLoans::precisionRatio() const
     return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
 }
 
-ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
+ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
-    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice, skipLockedCheck);
+    auto priceResult = GetValidatedIntervalPrice(priceFeedId, useNextPrice, requireLivePrice);
     if (!priceResult)
         return priceResult;
 
@@ -990,18 +1016,18 @@ ResVal<CAmount> CCustomCSView::GetAmountInCurrency(CAmount amount, CTokenCurrenc
 }
 
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height,
-                                                           int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
+                                                           int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     const auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation)
         return Res::Err("Vault is under liquidation");
 
     CCollateralLoans result{};
-    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
+    auto res = PopulateLoansData(result, vaultId, height, blockTime, useNextPrice, requireLivePrice);
     if (!res)
         return std::move(res);
 
-    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice, skipLockedCheck);
+    res = PopulateCollateralData(result, vaultId, collaterals, height, blockTime, useNextPrice, requireLivePrice);
     if (!res)
         return std::move(res);
 
@@ -1011,14 +1037,12 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     return {result, Res::Ok()};
 }
 
-ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
+ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice)
 {
     auto tokenSymbol = priceFeedId.first;
     auto currency = priceFeedId.second;
 
-    LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, tokenSymbol); /* Continued */
-
-    auto priceFeed = GetFixedIntervalPrice(priceFeedId, skipLockedCheck);
+    auto priceFeed = GetFixedIntervalPrice(priceFeedId);
     if (!priceFeed)
         return std::move(priceFeed);
 
@@ -1034,7 +1058,7 @@ ResVal<CAmount> CCustomCSView::GetValidatedIntervalPrice(const CTokenCurrencyPai
 }
 
 Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height,
-                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
+                                     int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     const auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens)
@@ -1057,7 +1081,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
         if (totalAmount < 0) {
             totalAmount = 0;
         }
-        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
+        const auto amountInCurrency = GetAmountInCurrency(totalAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
             return amountInCurrency;
 
@@ -1073,7 +1097,7 @@ Res CCustomCSView::PopulateLoansData(CCollateralLoans& result, CVaultId const& v
 }
 
 Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals,
-                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck)
+                                          uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     for (const auto& col : collaterals.balances) {
         auto tokenId = col.first;
@@ -1083,7 +1107,7 @@ Res CCustomCSView::PopulateCollateralData(CCollateralLoans& result, CVaultId con
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
 
-        auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice, skipLockedCheck);
+        auto amountInCurrency = GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
         if (!amountInCurrency)
             return std::move(amountInCurrency);
 
@@ -1285,4 +1309,59 @@ void CCustomCSView::SetVaultHistoryStore() {
         vauHistoryStore.reset();
         vauHistoryStore = std::make_unique<CVaultHistoryStorage>(*pvaultHistoryDB);
     }
+}
+
+uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
+
+    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
+}
+
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
+    return attributes->GetValue(VOCKey, uint32_t{8640});
+}
+
+CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
+    switch(type) {
+        case CPropType::CommunityFundProposal:
+            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
+        case CPropType::VoteOfConfidence:
+            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
+    }
+}
+
+CAmount CCustomCSView::GetMinVotersFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 MinVotersKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+
+    return attributes->GetValue(MinVotersKey, Params().GetConsensus().props.minVoting);
+}
+
+CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const
+{
+    auto attributes = GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+
+    return attributes->GetValue(feeBurnPctKey, COIN / 2);
 }

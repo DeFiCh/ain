@@ -17,6 +17,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -42,6 +43,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, const CCustomCSView& view, const CCreatePropMessage& msg);
 
 enum class UpdateMasternodeType : uint8_t
 {
@@ -404,6 +406,7 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CSettingsView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
@@ -434,12 +437,13 @@ class CCustomCSView
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 private:
-    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck);
-    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck);
+    Res PopulateLoansData(CCollateralLoans& result, CVaultId const& vaultId, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
+    Res PopulateCollateralData(CCollateralLoans& result, CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice);
 
     std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
@@ -471,11 +475,11 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true, bool skipLockedCheck = false);
+    ResVal<CAmount> GetAmountInCurrency(CAmount amount, CTokenCurrencyPair priceFeedId, bool useNextPrice = false, bool requireLivePrice = true);
 
-    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true, bool skipLockedCheck = false);
+    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
 
-    ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice, bool skipLockedCheck = false);
+    ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair& priceFeedId, bool useNextPrice, bool requireLivePrice);
 
     [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const override;
     [[nodiscard]] std::optional<CTokenImpl> GetTokenGuessId(const std::string & str, DCT_ID & id) const override;
@@ -498,6 +502,12 @@ public:
     CVaultHistoryStorage* GetVaultHistoryStore();
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
+
+    uint32_t GetVotingPeriodFromAttributes() const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    CAmount GetMajorityFromAttributes(const CPropType& type) const override;
+    CAmount GetMinVotersFromAttributes() const override;
+    CAmount GetFeeBurnPctFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
