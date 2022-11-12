@@ -20,7 +20,47 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
-class CCustomTxVisitor;
+class CCustomTxVisitor
+{
+    protected:
+        uint32_t height;
+        CCustomCSView& mnview;
+        const CTransaction& tx;
+        const CCoinsViewCache& coins;
+        const Consensus::Params& consensus;
+
+    public:
+        CCustomTxVisitor(const CTransaction& tx,
+            uint32_t height,
+            const CCoinsViewCache& coins,
+            CCustomCSView& mnview,
+            const Consensus::Params& consensus);
+
+    protected:
+        bool HasAuth(const CScript& auth) const;
+        Res HasCollateralAuth(const uint256& collateralTx) const;
+        Res HasFoundationAuth() const;
+        Res CheckMasternodeCreationTx() const;
+        Res CheckProposalTx(const CCreatePropMessage& msg) const;
+        Res CheckTokenCreationTx() const;
+        Res CheckCustomTx() const;
+        Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;
+        DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
+        CPoolPair GetBTCDFIPoolPair() const;
+        CAmount CalculateTakerFee(CAmount amount) const;
+        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
+        Res EraseEmptyBalances(TAmounts& balances) const;
+        Res SetShares(const CScript& owner, const TAmounts& balances) const;
+        Res DelShares(const CScript& owner, const TAmounts& balances) const;
+        void CalculateOwnerRewards(const CScript& owner) const;
+        Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalancesSetShares(const CAccounts& accounts) const;
+        Res SubBalancesDelShares(const CAccounts& accounts) const;
+        Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
+        bool IsTokensMigratedToGovVar() const;
+        Res IsOnChainGovernanceEnabled() const;
+};
 class CVaultHistoryView;
 class CHistoryWriters;
 
@@ -39,50 +79,46 @@ enum class CustomTxType : uint8_t
     Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode      = 'C',
-    ResignMasternode      = 'R',
-    UpdateMasternode      = 'm',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    UpdateMasternode       = 'm',
     // custom tokens:
-    CreateToken           = 'T',
-    MintToken             = 'M',
-    UpdateToken           = 'N', // previous type, only DAT flag triggers
-    UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
-    // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
+    CreateToken            = 'T',
+    MintToken              = 'M',
+    UpdateToken            = 'N', // previous type, only DAT flag triggers
+    UpdateTokenAny         = 'n', // new type of token's update with any flags/fields possible
     //poolpair
-    CreatePoolPair        = 'p',
-    UpdatePoolPair        = 'u',
-    PoolSwap              = 's',
-    PoolSwapV2            = 'i',
-    AddPoolLiquidity      = 'l',
-    RemovePoolLiquidity   = 'r',
+    CreatePoolPair         = 'p',
+    UpdatePoolPair         = 'u',
+    PoolSwap               = 's',
+    PoolSwapV2             = 'i',
+    AddPoolLiquidity       = 'l',
+    RemovePoolLiquidity    = 'r',
     // accounts
-    UtxosToAccount        = 'U',
-    AccountToUtxos        = 'b',
-    AccountToAccount      = 'B',
-    AnyAccountsToAccounts = 'a',
-    SmartContract         = 'K',
-    FutureSwap            = 'Q',
+    UtxosToAccount         = 'U',
+    AccountToUtxos         = 'b',
+    AccountToAccount       = 'B',
+    AnyAccountsToAccounts  = 'a',
+    SmartContract          = 'K',
+    FutureSwap             = 'Q',
     //set governance variable
-    SetGovVariable        = 'G',
-    SetGovVariableHeight  = 'j',
+    SetGovVariable         = 'G',
+    SetGovVariableHeight   = 'j',
     // Auto auth TX
-    AutoAuthPrep          = 'A',
+    AutoAuthPrep           = 'A',
     // oracles
-    AppointOracle         = 'o',
-    RemoveOracleAppoint   = 'h',
-    UpdateOracleAppoint   = 't',
-    SetOracleData         = 'y',
+    AppointOracle          = 'o',
+    RemoveOracleAppoint    = 'h',
+    UpdateOracleAppoint    = 't',
+    SetOracleData          = 'y',
     // ICX
-    ICXCreateOrder      = '1',
-    ICXMakeOffer        = '2',
-    ICXSubmitDFCHTLC    = '3',
-    ICXSubmitEXTHTLC    = '4',
-    ICXClaimDFCHTLC     = '5',
-    ICXCloseOrder       = '6',
-    ICXCloseOffer       = '7',
+    ICXCreateOrder         = '1',
+    ICXMakeOffer           = '2',
+    ICXSubmitDFCHTLC       = '3',
+    ICXSubmitEXTHTLC       = '4',
+    ICXClaimDFCHTLC        = '5',
+    ICXCloseOrder          = '6',
+    ICXCloseOffer          = '7',
     // Loans
     SetLoanCollateralToken = 'c',
     SetLoanToken           = 'g',
@@ -104,7 +140,12 @@ enum class CustomTxType : uint8_t
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
     TokenSplit             = 'P',
-    UnsetGovVariable       = 'Y',
+    // On-Chain-Gov
+    CreateCfp              = 'z',
+    Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
+    CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
+    ProposalFeeRedistribution = 'Y',
+    UnsetGovVariable       = 'Z',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -163,6 +204,10 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::ProposalFeeRedistribution:
+        case CustomTxType::Vote:
+        case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
         case CustomTxType::None:
             return type;
@@ -361,7 +406,9 @@ using CCustomTxMessage = std::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

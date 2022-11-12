@@ -152,7 +152,7 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId, bool skipLockedCheck)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId)
 {
     CFixedIntervalPrice fixedIntervalPrice;
     if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
@@ -172,7 +172,7 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         loanTokens.insert(secondID.v);
     }
 
-    if (AreTokensLocked(loanTokens) && !skipLockedCheck) {
+    if (AreTokensLocked(loanTokens)) {
         return Res::Err("Fixed interval price currently disabled due to locked token");
     }
 
