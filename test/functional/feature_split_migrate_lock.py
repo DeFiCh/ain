@@ -16,14 +16,15 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-vaultindex=1', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', f'-fortcanningcrunchheight=200', f'-greatworldheight=200', '-subsidytest=1']]
+            ['-vaultindex=1', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-fortcanningheight=1', '-fortcanningmuseumheight=1', '-fortcanninghillheight=1', '-fortcanningroadheight=1', '-fortcanningcrunchheight=200', 
+            '-fortcanninggreatworldheight=200', '-grandcentralheight=200', '-subsidytest=1']]
 
     def run_test(self):
         self.setup_test_tokens()
         self.test_unlock_migration()
 
     def setup_test_tokens(self):
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(201)
 
         # Symbols
         self.symbolDFI = 'DFI'
