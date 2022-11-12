@@ -192,6 +192,7 @@ BASE_SCRIPTS = [
     'feature_masternode_operator.py',
     'feature_mine_cached.py',
     'feature_mempool_dakota.py',
+    'feature_consortium.py',
     'interface_http.py',
     'interface_http_cors.py',
     'interface_rpc.py',
