@@ -46,7 +46,6 @@ extern const std::string CLIENT_BUILD;
 
 std::string FormatVersion(int nVersion);
 std::string FormatVersionAndSuffix();
-std::string FormatVersionSuffixTail();
 std::string FormatUserAgentString(const std::string& name, int nClientVersion, const std::vector<std::string>& comments);
 
 #endif // WINDRES_PREPROC
