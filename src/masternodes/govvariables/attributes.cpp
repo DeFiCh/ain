@@ -59,6 +59,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedTypes() {
         {"poolpairs",   AttributeTypes::Poolpairs},
         {"token",       AttributeTypes::Token},
         {"gov",         AttributeTypes::Governance},
+        {"consortium",  AttributeTypes::Consortium},
     };
     return types;
 }
@@ -72,6 +73,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayTypes() {
         {AttributeTypes::Poolpairs, "poolpairs"},
         {AttributeTypes::Token,     "token"},
         {AttributeTypes::Governance,"gov"},
+        {AttributeTypes::Consortium,"consortium"}
     };
     return types;
 }
@@ -162,6 +164,13 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
             }
         },
         {
+            AttributeTypes::Consortium, {
+                {"members",             ConsortiumKeys::MemberValues},
+                {"mint_limit",          ConsortiumKeys::MintLimit},
+                {"mint_limit_daily",    ConsortiumKeys::DailyMintLimit},
+            }
+        },
+        {
             AttributeTypes::Poolpairs, {
                 {"token_a_fee_pct",      PoolKeys::TokenAFeePCT},
                 {"token_a_fee_direction",PoolKeys::TokenAFeeDir},
@@ -185,6 +194,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"mn-setoperatoraddress",       DFIPKeys::MNSetOperatorAddress},
                 {"mn-setowneraddress",          DFIPKeys::MNSetOwnerAddress},
                 {"gov",                         DFIPKeys::GovernanceEnabled},
+                {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
             }
         },
@@ -231,6 +241,13 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
             }
         },
         {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::MemberValues,       "members"},
+                {ConsortiumKeys::MintLimit,     "mint_limit"},
+                {ConsortiumKeys::DailyMintLimit,"mint_limit_daily"},
+            }
+        },
+        {
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      "token_a_fee_pct"},
                 {PoolKeys::TokenAFeeDir,      "token_a_fee_direction"},
@@ -254,6 +271,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::MNSetOperatorAddress,    "mn-setoperatoraddress"},
                 {DFIPKeys::MNSetOwnerAddress,       "mn-setowneraddress"},
                 {DFIPKeys::GovernanceEnabled,       "gov"},
+                {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
             }
         },
@@ -270,6 +288,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {EconomyKeys::DFIP2206FMinted,    "dfip2206f_minted"},
                 {EconomyKeys::NegativeInt,        "negative_interest"},
                 {EconomyKeys::NegativeIntCurrent, "negative_interest_current"},
+                {EconomyKeys::ConsortiumMinted,         "consortium"},
+                {EconomyKeys::ConsortiumMembersMinted,  "consortium_members"},
                 {EconomyKeys::BatchRoundingExcess, "batch_rounding_excess"},
                 {EconomyKeys::ConsolidatedInterest, "consolidated_interest"},
                 {EconomyKeys::Loans,              "loans"},
@@ -464,6 +484,64 @@ static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
+static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
+    UniValue values(UniValue::VOBJ);
+    CConsortiumMembers members;
+
+    if (!values.read(str))
+        return Res::Err("Not a valid consortium member object!");
+
+    for (const auto &key : values.getKeys())
+    {
+        UniValue value(values[key].get_obj());
+        CConsortiumMember member;
+
+        member.status = 0;
+
+        member.name = trim_all_ws(value["name"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
+        if (member.name.size() < CConsortiumMember::MIN_CONSORTIUM_MEMBERS_STRING_LENGTH) {
+            return Res::Err("Member name too short, must be at least %d chars long", int(CConsortiumMember::MIN_CONSORTIUM_MEMBERS_STRING_LENGTH));
+        }
+
+        if (!value["ownerAddress"].isNull()) {
+            const auto dest = DecodeDestination(value["ownerAddress"].getValStr());
+            if (!IsValidDestination(dest)) {
+                return Res::Err("Invalid ownerAddress in consortium member data");
+            }
+            member.ownerAddress = GetScriptForDestination(dest);
+        } else {
+            return Res::Err("Empty ownerAddress in consortium member data!");
+        }
+
+        member.backingId = trim_all_ws(value["backingId"].getValStr()).substr(0, CConsortiumMember::MAX_CONSORTIUM_MEMBERS_STRING_LENGTH);
+        if (!AmountFromValue(value["mintLimit"], member.mintLimit) || !member.mintLimit) {
+            return Res::Err("Mint limit is an invalid amount");
+        }
+
+        if (!AmountFromValue(value["dailyMintLimit"], member.dailyMintLimit) || !member.dailyMintLimit) {
+            return Res::Err("Daily mint limit is an invalid amount");
+        }
+
+        if (!value["status"].isNull())
+        {
+            uint32_t tmp;
+
+            if (ParseUInt32(value["status"].getValStr(), &tmp)) {
+                if (tmp > 1) {
+                    return Res::Err("Status can be either 0 or 1");
+                }
+                member.status = static_cast<uint8_t>(tmp);
+            } else {
+                return Res::Err("Status must be a positive number!");
+            }
+        }
+
+        members[key] = member;
+    }
+
+    return {members, Res::Ok()};
+}
+
 static inline void rtrim(std::string& s, unsigned char remove) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) {
         return ch != remove;
@@ -493,6 +571,13 @@ const std::map<uint8_t, std::map<uint8_t,
             }
         },
         {
+            AttributeTypes::Consortium, {
+                {ConsortiumKeys::MemberValues,          VerifyConsortiumMember},
+                {ConsortiumKeys::MintLimit,        VerifyFloat},
+                {ConsortiumKeys::DailyMintLimit,   VerifyFloat},
+            }
+        },
+        {
             AttributeTypes::Poolpairs, {
                 {PoolKeys::TokenAFeePCT,      VerifyPct},
                 {PoolKeys::TokenAFeeDir,      VerifyFeeDirection},
@@ -516,6 +601,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MNSetOperatorAddress,    VerifyBool},
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
+                {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::Members,                 VerifyMember},
             }
         },
@@ -742,7 +828,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     typeKey != DFIPKeys::MNSetRewardAddress &&
                     typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress &&
-                    typeKey != DFIPKeys::GovernanceEnabled) {
+                    typeKey != DFIPKeys::GovernanceEnabled &&
+                    typeKey != DFIPKeys::ConsortiumEnabled) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation)  {
@@ -991,6 +1078,23 @@ Res ATTRIBUTES::Import(const UniValue & val) {
                         }
                         SetValue(newAttr, value);
                         return Res::Ok();
+                    } else if (attrV0->type == AttributeTypes::Consortium && attrV0->key == ConsortiumKeys::MemberValues) {
+                        if (auto attrValue = std::get_if<CConsortiumMembers>(&value)) {
+                            auto members = GetValue(*attrV0, CConsortiumMembers{});
+
+                            for (auto const & member : *attrValue)
+                            {
+                                for (auto const & tmp : members)
+                                    if (tmp.first != member.first && tmp.second.ownerAddress == member.second.ownerAddress)
+                                        return Res::Err("Cannot add a member with an owner address of a existing consortium member!");
+
+                                members[member.first] = member.second;
+                            }
+                            SetValue(*attrV0, members);
+
+                            return Res::Ok();
+                        } else
+                            return Res::Err("Invalid member data");
                     }
                 }
                 SetValue(attribute, value);
@@ -1069,9 +1173,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto number = std::get_if<uint32_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if ((attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F) &&
-                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock))) {
+                if (attrV0->type == AttributeTypes::Param &&
+                   (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
+                   (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto decimalStr = GetDecimaleString(*amount);
@@ -1108,6 +1212,47 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "fee_burn_b"), ValueFromUint(dexTokenB.feeburn));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
+                }
+            } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
+                UniValue result(UniValue::VOBJ);
+                for (const auto& [id, member] : *members)
+                {
+                    UniValue elem(UniValue::VOBJ);
+                    elem.pushKV("name", member.name);
+                    elem.pushKV("ownerAddress", ScriptToString(member.ownerAddress));
+                    elem.pushKV("backingId", member.backingId);
+                    elem.pushKV("mintLimit", ValueFromAmount(member.mintLimit));
+                    elem.pushKV("dailyMintLimit", ValueFromAmount(member.dailyMintLimit));
+                    elem.pushKV("status", member.status);
+                    result.pushKV(id, elem);
+                }
+                ret.pushKV(key, result.write());
+            } else if (auto consortiumMinted = std::get_if<CConsortiumGlobalMinted>(&attribute.second)) {
+                for (const auto& token : *consortiumMinted)
+                {
+                    auto& minted = token.second.minted;
+                    auto& burnt = token.second.burnt;
+
+                    auto tokenKey = KeyBuilder(key, token.first.v);
+                    ret.pushKV(KeyBuilder(tokenKey, "minted"), ValueFromAmount(minted));
+                    ret.pushKV(KeyBuilder(tokenKey, "burnt"), ValueFromAmount(burnt));
+                    ret.pushKV(KeyBuilder(tokenKey, "supply"), ValueFromAmount(minted - burnt));
+                }
+            } else if (auto membersMinted = std::get_if<CConsortiumMembersMinted>(&attribute.second)) {
+                for (const auto& token : *membersMinted)
+                {
+                    for (const auto& member : token.second)
+                    {
+                        auto& minted = member.second.minted;
+                        auto& burnt = member.second.burnt;
+
+                        auto tokenKey = KeyBuilder(key, token.first.v);
+                        auto memberKey = KeyBuilder(tokenKey, member.first);
+                        ret.pushKV(KeyBuilder(memberKey, "minted"), ValueFromAmount(minted));
+                        ret.pushKV(KeyBuilder(memberKey, "daily_minted"), KeyBuilder(member.second.dailyMinted.first, ValueFromAmount(member.second.dailyMinted.second).getValStr()));
+                        ret.pushKV(KeyBuilder(memberKey, "burnt"), ValueFromAmount(burnt));
+                        ret.pushKV(KeyBuilder(memberKey, "supply"), ValueFromAmount(minted - burnt));
+                    }
                 }
             } else if (const auto splitValues = std::get_if<OracleSplits>(&attribute.second)) {
                 std::string keyValue;
@@ -1260,6 +1405,50 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                         return Res::Err("Unsupported key");
                 }
             break;
+
+            case AttributeTypes::Consortium:
+                switch (attrV0->key) {
+                    case ConsortiumKeys::MemberValues: {
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                            return Res::Err("Cannot be set before GrandCentral");
+
+                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+
+                        const auto members = std::get_if<CConsortiumMembers>(&value);
+                        if (!members) {
+                            return Res::Err("Unexpected value");
+                        }
+
+                        CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, attrV0->typeId, ConsortiumKeys::MintLimit};
+                        const auto maxLimit = GetValue(maxLimitKey, CAmount{0});
+
+                        CDataStructureV0 dailyLimitKey{AttributeTypes::Consortium, attrV0->typeId, ConsortiumKeys::DailyMintLimit};
+                        const auto dailyLimit = GetValue(dailyLimitKey, CAmount{0});
+
+                        for (const auto& [id, member] : *members) {
+                            if (member.mintLimit > maxLimit && maxLimit != -1 * COIN) {
+                                return Res::Err("Mint limit higher than global mint limit");
+                            }
+
+                            if (member.dailyMintLimit > dailyLimit && dailyLimit != -1 * COIN) {
+                                return Res::Err("Daily mint limit higher than daily global mint limit");
+                            }
+                        }
+                        break;
+                    }
+                    case ConsortiumKeys::MintLimit:
+                    case ConsortiumKeys::DailyMintLimit:
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight)
+                            return Res::Err("Cannot be set before GrandCentral");
+
+                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
+                            return Res::Err("No such token (%d)", attrV0->typeId);
+                    break;
+                    default:
+                        return Res::Err("Unsupported key");
+                }
+                break;
 
             case AttributeTypes::Oracles:
                 if (view.GetLastHeight() < Params().GetConsensus().FortCanningCrunchHeight) {
