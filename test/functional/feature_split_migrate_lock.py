@@ -16,7 +16,7 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-vaultindex=1', '-txnotokens=0', 
+            ['-vaultindex=1', '-txnotokens=0',
             '-amkheight=1',
             '-bayfrontheight=1',
             '-eunosheight=1',
