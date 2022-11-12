@@ -1344,6 +1344,8 @@ CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
         case CPropType::VoteOfConfidence:
             return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
     }
+
+    return 0;
 }
 
 CAmount CCustomCSView::GetMinVotersFromAttributes() const
