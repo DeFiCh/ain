@@ -315,7 +315,7 @@ using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
 using CAttributeValue = std::variant<bool, CAmount, CBalances, CTokenPayback, CTokenCurrencyPair, OracleSplits, Deprecated1, Deprecated2,
                          CFeeDir, CDexBalances, std::set<CScript>, std::set<std::string>, CConsortiumMembers, CConsortiumMembersMinted, CConsortiumGlobalMinted,
-                         int32_t, uint32_t>;
+                         int32_t, uint32_t, CSplitValues>;
 
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount);
