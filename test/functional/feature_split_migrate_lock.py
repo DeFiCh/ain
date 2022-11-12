@@ -17,14 +17,14 @@ class TokenSplitMigrateLockTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             ['-vaultindex=1', '-txnotokens=0', 
-            '-amkheight=1', 
-            '-bayfrontheight=1', 
-            '-eunosheight=1', 
-            '-fortcanningheight=1', 
-            '-fortcanningmuseumheight=1', 
+            '-amkheight=1',
+            '-bayfrontheight=1',
+            '-eunosheight=1',
+            '-fortcanningheight=1',
+            '-fortcanningmuseumheight=1',
             '-fortcanninghillheight=1',
-            '-fortcanningroadheight=1', 
-            '-fortcanningcrunchheight=200', 
+            '-fortcanningroadheight=1',
+            '-fortcanningcrunchheight=200',
             '-greatworldheight=200',
             '-grandcentralheight=200',
             '-subsidytest=1']]
