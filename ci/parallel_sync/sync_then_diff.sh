@@ -75,6 +75,9 @@ main() {
     CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
     if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
       ATTEMPTS=$((ATTEMPTS + 1))
+
+      # Handle odd case where node get stuck on previously invalidated block
+      $DEFI_CLI_CMD reconsiderblock $($DEFI_CLI_CMD getbestblockhash)
     else
       ATTEMPTS=0
     fi
