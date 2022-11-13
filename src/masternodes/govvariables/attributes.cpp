@@ -658,13 +658,16 @@ static void TrackLiveBalance(CCustomCSView& mnview, const CTokenAmount& amount, 
     assert(attributes);
     CDataStructureV0 key{AttributeTypes::Live, ParamIDs::Economy, dataKey};
     auto balances = attributes->GetValue(key, CBalances{});
+    Res res{};
     if (add) {
-        balances.Add(amount);
+        res = balances.Add(amount);
     } else {
-        balances.Sub(amount);
+        res = balances.Sub(amount);
     }
-    attributes->SetValue(key, balances);
-    mnview.SetVariable(*attributes);
+    if (res) {
+        attributes->SetValue(key, balances);
+        mnview.SetVariable(*attributes);
+    }
 }
 
 void TrackNegativeInterest(CCustomCSView& mnview, const CTokenAmount& amount) {
