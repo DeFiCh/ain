@@ -17,6 +17,7 @@
 #include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/vault.h>
@@ -31,6 +32,7 @@
 
 class CAccountHistoryStorage;
 class CBlockIndex;
+class CMasternodesView;
 class CTransaction;
 class CVaultHistoryStorage;
 
@@ -41,6 +43,16 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, const CCustomCSView& view, const CCreatePropMessage& msg);
+
+enum class UpdateMasternodeType : uint8_t
+{
+    None                   = 0x00,
+    OwnerAddress           = 0x01,
+    OperatorAddress        = 0x02,
+    SetRewardAddress       = 0x03,
+    RemRewardAddress       = 0x04
+};
 
 constexpr uint8_t SUBNODE_COUNT{4};
 
@@ -52,6 +64,7 @@ public:
         ENABLED,
         PRE_RESIGNED,
         RESIGNED,
+        TRANSFERRING,
         UNKNOWN // unreachable
     };
 
@@ -90,13 +103,13 @@ public:
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
-    uint256 banTx;
+    uint256 collateralTx;
 
     //! empty constructor
     CMasternode();
 
-    State GetState(int height) const;
-    bool IsActive(int height) const;
+    State GetState(int height, const CMasternodesView& mnview) const;
+    bool IsActive(int height, const CMasternodesView& mnview) const;
 
     static std::string GetHumanReadableState(State state);
     static std::string GetTimelockToString(TimeLock timelock);
@@ -117,7 +130,7 @@ public:
         READWRITE(version);
 
         READWRITE(resignTx);
-        READWRITE(banTx);
+        READWRITE(collateralTx);
 
         // Only available after FortCanning
         if (version > PRE_FORT_CANNING) {
@@ -176,12 +189,25 @@ struct SubNodeBlockTimeKey
     }
 };
 
+struct MNNewOwnerHeightValue
+{
+    uint32_t blockHeight;
+    uint256 masternodeID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(blockHeight);
+        READWRITE(masternodeID);
+    }
+};
+
 class CMasternodesView : public virtual CStorageView
 {
     std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
 
 public:
-//    CMasternodesView() = default;
 
     std::optional<CMasternode> GetMasternode(uint256 const & id) const;
     std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
@@ -198,10 +224,19 @@ public:
     std::set<std::pair<CKeyID, uint256>> GetOperatorsMulti() const;
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
-    Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-    Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
-    Res RemForcedRewardAddress(uint256 const & nodeId, int height);
-    Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
+    Res ResignMasternode(CMasternode& node, uint256 const & nodeId, uint256 const & txid, int height);
+
+    // Masternode updates
+    void SetForcedRewardAddress(uint256 const & nodeId, CMasternode& node, const char rewardAddressType, CKeyID const & rewardAddress, int height);
+    void RemForcedRewardAddress(uint256 const & nodeId, CMasternode& node, int height);
+    void UpdateMasternodeOperator(uint256 const & nodeId, CMasternode& node, const char operatorType, const CKeyID& operatorAuthAddress, int height);
+    void UpdateMasternodeOwner(uint256 const & nodeId, CMasternode& node, const char ownerType, const CKeyID& ownerAuthAddress);
+    void UpdateMasternodeCollateral(uint256 const & nodeId, CMasternode& node, const uint256& newCollateralTx, const int height);
+    [[nodiscard]] std::optional<MNNewOwnerHeightValue> GetNewCollateral(const uint256& txid) const;
+    [[nodiscard]] std::optional<uint32_t> GetPendingHeight(const CKeyID &ownerAuthAddress) const;
+    void ForEachNewCollateral(std::function<bool(const uint256&, CLazySerialize<MNNewOwnerHeightValue>)> callback);
+    void ForEachPendingHeight(std::function<bool(const CKeyID &ownerAuthAddress, const uint32_t &height)> callback);
+    void ErasePendingHeight(const CKeyID &ownerAuthAddress);
 
     // Get blocktimes for non-subnode and subnode with fork logic
     std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
@@ -226,6 +261,8 @@ public:
     struct ID       { static constexpr uint8_t prefix() { return 'M'; } };
     struct Operator { static constexpr uint8_t prefix() { return 'o'; } };
     struct Owner    { static constexpr uint8_t prefix() { return 'w'; } };
+    struct NewCollateral { static constexpr uint8_t prefix() { return 's'; } };
+    struct PendingHeight { static constexpr uint8_t prefix() { return 'E'; } };
 
     // For storing last staked block time
     struct Staker   { static constexpr uint8_t prefix() { return 'X'; } };
@@ -369,11 +406,12 @@ class CCustomCSView
         , public CLoanView
         , public CVaultView
         , public CSettingsView
+        , public CPropsView
 {
     void CheckPrefixes()
     {
         CheckPrefix<
-            CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
+            CMasternodesView        ::  ID, NewCollateral, PendingHeight, Operator, Owner, Staker, SubNode, Timelock,
             CLastHeightView         ::  Height,
             CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
             CFoundationsDebtView    ::  Debt,
@@ -399,7 +437,8 @@ class CCustomCSView
                                         DestroyLoanSchemeKey, LoanInterestByVault, LoanTokenAmount, LoanLiquidationPenalty, LoanInterestV2ByVault,
                                         LoanInterestV3ByVault,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
-            CSettingsView           ::  KVSettings
+            CSettingsView           ::  KVSettings,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
 private:
@@ -463,6 +502,12 @@ public:
     CVaultHistoryStorage* GetVaultHistoryStore();
     void SetAccountHistoryStore();
     void SetVaultHistoryStore();
+
+    uint32_t GetVotingPeriodFromAttributes() const override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
+    CAmount GetMajorityFromAttributes(const CPropType& type) const override;
+    CAmount GetMinVotersFromAttributes() const override;
+    CAmount GetFeeBurnPctFromAttributes() const override;
 
     struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };

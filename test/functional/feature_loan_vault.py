@@ -25,7 +25,7 @@ class VaultTest (DefiTestFramework):
         self.owner_addresses = []
         self.oracles = []
 
-    def move_to_gw_fork(self):
+    def move_to_fork(self):
         result = self.nodes[0].listcollateraltokens()
         assert_equal(result[0]['token'], 'DFI')
         assert_equal(result[0]['factor'], Decimal('1.00000000'))
@@ -736,14 +736,7 @@ class VaultTest (DefiTestFramework):
 
     def loan_and_collateral_token_to_govvar(self):
         # Move to hard fork
-        self.move_to_gw_fork()
-
-        # Invalidate fork block
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
-        assert_equal(len(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']), 0)
-
-        # Move to hard fork again
-        self.move_to_gw_fork()
+        self.move_to_fork()
 
         # Test setting collateral token partially
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true'}})
