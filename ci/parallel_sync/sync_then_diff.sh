@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: Resolve shellcheck errors
-
 export LC_ALL=C
 set -Eeuo pipefail
 
@@ -35,14 +33,14 @@ setup_vars() {
 create_log_file () {
     echo "Output log to $TMP_LOG file"
     {
-    $GREP "AccountChange:" $DEBUG_FILE | cut -d" " -f2-
+    $GREP "AccountChange:" "$DEBUG_FILE" | cut -d" " -f2-
     $DEFI_CLI_CMD logaccountbalances
     $DEFI_CLI_CMD spv_listanchors
     $DEFI_CLI_CMD logstoredinterests
     $DEFI_CLI_CMD listvaults '{"verbose": true}' '{"limit":1000000}'
     $DEFI_CLI_CMD listtokens '{"limit":1000000}'
     $DEFI_CLI_CMD getburninfo
-    } >> $TMP_LOG
+    } >> "$TMP_LOG"
 }
 
 # Start defid
@@ -92,10 +90,10 @@ main() {
   $DEFI_CLI_CMD stop
   # Download reference log file
   echo "Downloading reference log file : $REF_LOG_PATH"
-  $FETCH $REF_LOG_PATH
+  $FETCH "$REF_LOG_PATH"
 
   echo "diff $TMP_LOG $REF_LOG"
-  diff $TMP_LOG $REF_LOG
+  diff "$TMP_LOG" "$REF_LOG"
 }
 
 main "$@"
