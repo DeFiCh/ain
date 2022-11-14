@@ -459,7 +459,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Test emergency quorum
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/gov/proposals/voc_emergency_quorum':'80%'
+            'v0/gov/proposals/voc_emergency_quorum':'80.01%'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()
