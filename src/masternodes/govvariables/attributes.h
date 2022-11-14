@@ -83,12 +83,12 @@ enum DFIPKeys : uint8_t  {
     ConsortiumEnabled       = 'o',
     Members                 = 'p',
     GovernanceEnabled       = 'q',
+    CFPPayout               = 'r',
 };
 
 enum GovernanceKeys : uint8_t  {
     FeeRedistribution       = 'a',
     FeeBurnPct              = 'b',
-    CFPPayout               = 'c',
     CFPFee                  = 'd',
     CFPMajority             = 'e',
     VOCFee                  = 'f',
