@@ -130,25 +130,22 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
         };
         uint32_t firstHeight = 0;
         auto beginHeight = std::max(*height, begin);
-        auto reward = [&](RewardType type, CTokenAmount amount, uint32_t height) {
-            if (amount.nValue == 0) {
-                return;
+        view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
+            [&](RewardType type, CTokenAmount amount, uint32_t height) {
+                if (amount.nValue == 0) {
+                    return;
+                }
+                onReward(height, poolId, type, amount);
+                // prior Eunos account balance includes rewards
+                // thus we don't need to increment it by first one
+                if (!firstHeight) {
+                    firstHeight = height;
+                }
+                if (height >= eunosHeight || firstHeight != height) {
+                    mnview.AddBalance(owner, amount); // update owner liquidity
+                }
             }
-            onReward(height, poolId, type, amount);
-            // prior Eunos account balance includes rewards
-            // thus we don't need to increment it by first one
-            if (!firstHeight) {
-                firstHeight = height;
-            }
-            if (height >= eunosHeight || firstHeight != height) {
-                mnview.AddBalance(owner, amount); // update owner liquidity
-            }
-        };
-        if (end >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
-            view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end, reward);
-        } else {
-            view.CalculatePoolRewardsHistorical(poolId, onLiquidity, beginHeight, end, reward);
-        }
+        );
         return true;
     });
 }

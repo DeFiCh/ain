@@ -967,19 +967,14 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
             return GetBalance(owner, poolId).nValue;
         };
         auto beginHeight = std::max(*height, balanceHeight);
-        auto reward = [&](RewardType, CTokenAmount amount, uint32_t height) {
-            auto res = AddBalance(owner, amount);
-            if (!res) {
-                LogPrintf("Pool rewards: can't update balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, targetHeight);
+        CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetHeight,
+            [&](RewardType, CTokenAmount amount, uint32_t height) {
+                auto res = AddBalance(owner, amount);
+                if (!res) {
+                    LogPrintf("Pool rewards: can't update balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, targetHeight);
+                }
             }
-        };
-
-        if (targetHeight >= static_cast<uint32_t>(Params().GetConsensus().GrandCentralHeight)) {
-            CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetHeight, reward);
-        } else {
-            CalculatePoolRewardsHistorical(poolId, onLiquidity, beginHeight, targetHeight, reward);
-        }
-
+        );
         return true;
     });
 
