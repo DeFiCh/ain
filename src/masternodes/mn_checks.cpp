@@ -2182,7 +2182,7 @@ public:
         }
 
         // Validate GovVariables before storing
-        if (obj.govVar->GetName() == "ATTRIBUTES") {
+        if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && obj.govVar->GetName() == "ATTRIBUTES") {
 
             auto govVar = mnview.GetAttributes();
             if (!govVar) {
@@ -2195,10 +2195,8 @@ public:
             CCustomCSView govCache(mnview);
             for (const auto& [varHeight, var] : storedGovVars) {
                 if (var->GetName() == "ATTRIBUTES") {
-                    if (!(res = govVar->Import(var->Export())) ||
-                        !(res = govVar->Validate(govCache)) ||
-                        !(res = govVar->Apply(govCache, varHeight))) {
-                        return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
+                    if (res = govVar->Import(var->Export()); !res) {
+                        return Res::Err("%s: Failed to import stored vars: %s", obj.govVar->GetName(), res.msg);
                     }
                 }
             }
