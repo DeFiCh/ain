@@ -196,7 +196,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"gov",                         DFIPKeys::GovernanceEnabled},
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
-                {"cfp_automatic_payout",        DFIPKeys::CFPPayout},
+                {"gov-payout",                  DFIPKeys::CFPPayout},
             }
         },
         {
@@ -273,7 +273,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::GovernanceEnabled,       "gov"},
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
-                {DFIPKeys::CFPPayout,               "cfp_automatic_payout"},
+                {DFIPKeys::CFPPayout,               "gov-payout"},
             }
         },
         {
