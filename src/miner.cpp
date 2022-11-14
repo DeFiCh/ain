@@ -339,8 +339,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        const CKeyID key = nHeight >= consensus.GrandCentralHeight ? nodePtr->ownerAuthAddress : myIDs->first;
-        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
+        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
