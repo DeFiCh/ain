@@ -63,7 +63,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.sync_blocks()
 
         # Activate payout on second cycle
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_automatic_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
