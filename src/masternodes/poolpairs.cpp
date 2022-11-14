@@ -241,6 +241,106 @@ auto InitPoolVars(CPoolPairView & view, PoolHeightKey poolKey, uint32_t end) {
     return std::make_tuple(std::move(value), std::move(it), height);
 }
 
+void CPoolPairView::CalculatePoolRewardsHistorical(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
+    if (begin >= end) {
+        return;
+    }
+    constexpr const uint32_t PRECISION = 10000;
+    const auto newCalcHeight = uint32_t(Params().GetConsensus().BayfrontGardensHeight);
+
+    auto tokenIds = ReadBy<ByIDPair, ByPairKey>(poolId);
+    assert(tokenIds); // contract to verify pool data
+
+    PoolHeightKey poolKey = {poolId, begin};
+
+    CAmount poolReward = 0;
+    CAmount poolLoanReward = 0;
+    auto nextPoolReward = begin;
+    auto nextPoolLoanReward = begin;
+    auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
+    auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
+
+    CAmount totalLiquidity = 0;
+    auto nextTotalLiquidity = begin;
+    auto itTotalLiquidity = LowerBound<ByTotalLiquidity>(poolKey);
+
+    CBalances customRewards;
+    auto nextCustomRewards = begin;
+    auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
+
+    PoolSwapValue poolSwap{};
+    auto nextPoolSwap = UINT_MAX;
+    auto poolSwapHeight = UINT_MAX;
+    auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
+    if (itPoolSwap.Valid() && itPoolSwap.Key().poolID == poolId) {
+        nextPoolSwap = itPoolSwap.Key().height;
+    }
+
+    for (auto height = begin; height < end;) {
+        // find suitable pool liquidity
+        if (height == nextTotalLiquidity || totalLiquidity == 0) {
+            height = nextTotalLiquidity;
+            ReadValueMoveToNext(itTotalLiquidity, poolId, totalLiquidity, nextTotalLiquidity);
+            continue;
+        }
+        // adjust iterators to working height
+        while (height >= nextPoolReward) {
+            ReadValueMoveToNext(itPoolReward, poolId, poolReward, nextPoolReward);
+        }
+        while (height >= nextPoolLoanReward) {
+            ReadValueMoveToNext(itPoolLoanReward, poolId, poolLoanReward, nextPoolLoanReward);
+        }
+        while (height >= nextPoolSwap) {
+            poolSwapHeight = nextPoolSwap;
+            ReadValueMoveToNext(itPoolSwap, poolId, poolSwap, nextPoolSwap);
+        }
+        while (height >= nextCustomRewards) {
+            ReadValueMoveToNext(itCustomRewards, poolId, customRewards, nextCustomRewards);
+        }
+        const auto liquidity = onLiquidity();
+        // daily rewards
+        if (poolReward != 0) {
+            CAmount providerReward = 0;
+            if (height < newCalcHeight) { // old calculation
+                uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
+                providerReward = poolReward * liqWeight / PRECISION;
+            } else { // new calculation
+                providerReward = liquidityReward(poolReward, liquidity, totalLiquidity);
+            }
+            onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
+        }
+        if (poolLoanReward != 0) {
+            CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
+            onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
+        }
+        // commissions
+        if (poolSwapHeight == height && poolSwap.swapEvent) {
+            CAmount feeA, feeB;
+            if (height < newCalcHeight) {
+                uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
+                feeA = poolSwap.blockCommissionA * liqWeight / PRECISION;
+                feeB = poolSwap.blockCommissionB * liqWeight / PRECISION;
+            } else {
+                feeA = liquidityReward(poolSwap.blockCommissionA, liquidity, totalLiquidity);
+                feeB = liquidityReward(poolSwap.blockCommissionB, liquidity, totalLiquidity);
+            }
+            if (feeA) {
+                onReward(RewardType::Commission, {tokenIds->idTokenA, feeA}, height);
+            }
+            if (feeB) {
+                onReward(RewardType::Commission, {tokenIds->idTokenB, feeB}, height);
+            }
+        }
+        // custom rewards
+        for (const auto& reward : customRewards.balances) {
+            if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
+                onReward(RewardType::Pool, {reward.first, providerReward}, height);
+            }
+        }
+        ++height;
+    }
+}
+
 void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
     if (begin >= end) {
         return;
