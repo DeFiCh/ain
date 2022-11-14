@@ -1298,7 +1298,8 @@ public:
                 return std::move(mintable);
 
 
-            if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight) && token->IsDAT() && !HasFoundationAuth())
+            if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight) && token->IsDAT() &&
+                !HasFoundationAuth() && ::Params().NetworkIDString() != CBaseChainParams::REGTEST)
             {
                 auto attributes = mnview.GetAttributes();
                 assert(attributes);
