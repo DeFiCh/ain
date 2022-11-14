@@ -23,16 +23,6 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
         return error("%s: Can't extract minter key\n", __func__);
     }
 
-    if (pindexPrev->nHeight + 1 >= Params().GetConsensus().GrandCentralHeight) {
-        auto nodeId = pcustomcsview->GetMasternodeIdByOperator(key);
-        if (!nodeId) {
-            return error("%s: No master operator found with minter key\n", __func__);
-        }
-        auto nodePtr = pcustomcsview->GetMasternode(*nodeId);
-        assert(nodePtr);
-        key = nodePtr->ownerAuthAddress;
-    }
-
     return blockHeader.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
 }
 
