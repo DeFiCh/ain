@@ -365,18 +365,14 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     std::string val = str;
-    if (val.size() > 0 && val.back() == '%')
-    {
-        val.pop_back();
-        if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
-        else if (val == "100") val = "1";
-        else if (val.size() > 1) val.insert(0, "0.");
-        else val.insert(0, "0.0");
-    }
+    bool isPct = (val.size() > 0 && val.back() == '%');
+    if (isPct) val.pop_back();
     auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
         return resVal;
     }
+    auto value = std::get<CAmount>(*resVal.val);
+    if (isPct && value > 0) (*resVal.val).emplace<CAmount>(value / 100);
     if (std::get<CAmount>(*resVal.val) > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
