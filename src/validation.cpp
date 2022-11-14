@@ -4274,7 +4274,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             cache.UpdatePropCycle(propId, prop.cycle + 1);
         }
 
-        CDataStructureV0 payoutKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPPayout};
+        CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
 
         if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
             auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
