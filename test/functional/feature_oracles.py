@@ -130,7 +130,7 @@ class OraclesTest(DefiTestFramework):
         price_feeds1 = [{"currency": "USD", "token": "GOLD"}, {"currency": "USD", "token": "PT"}]
 
         # check that only founder can appoint oracles
-        assert_raises_rpc_error(-5, 'Need foundation member authorization',
+        assert_raises_rpc_error(-32600, 'tx not from foundation member',
                                 self.nodes[2].appointoracle, oracle_address1, price_feeds1, 10)
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
 
@@ -151,7 +151,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[0].removeoracle(oracle_id2)
 
         # check that only founder can remove oracles
-        assert_raises_rpc_error(-5, 'Need foundation member authorization',
+        assert_raises_rpc_error(-32600, 'tx not from foundation member',
                                 self.nodes[2].removeoracle, oracle_id1)
 
         self.synchronize(node=0)
@@ -238,7 +238,7 @@ class OraclesTest(DefiTestFramework):
         self.nodes[0].updateoracle(oracle_id1, oracle_address1, price_feeds1, 20)
 
         # check that only founder can appoint oracles
-        assert_raises_rpc_error(-5, 'Need foundation member authorization',
+        assert_raises_rpc_error(-32600, 'tx not from foundation member',
                                 self.nodes[2].updateoracle, oracle_id1, oracle_address1, price_feeds1, 10)
 
         self.synchronize(node=0)
