@@ -586,7 +586,7 @@ public:
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
-    
+
     Res operator()(CCreatePropMessage& obj) const {
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
@@ -776,7 +776,7 @@ ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplement
     if (token.IsPoolShare()) {
         return Res::Err("can't mint LPS token %s!", id.ToString());
     }
-    
+
     static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
     // may be different logic with LPS, so, dedicated check:
     if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
@@ -1297,9 +1297,13 @@ public:
             if (!mintable)
                 return std::move(mintable);
 
+            bool doConsortiumCheck = true;
+
+            if (::Params().NetworkIDString() == CBaseChainParams::REGTEST)
+                doConsortiumCheck = gArgs.GetBoolArg("-regtest-minttoken-simulate-mainnet", true);
 
             if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight) && token->IsDAT() &&
-                !HasFoundationAuth() && ::Params().NetworkIDString() != CBaseChainParams::REGTEST)
+                !HasFoundationAuth() && doConsortiumCheck)
             {
                 auto attributes = mnview.GetAttributes();
                 assert(attributes);
