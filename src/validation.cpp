@@ -5122,6 +5122,9 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
         MigrateV1Remnants(cache, *attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
         MigrateV1Remnants(cache, *attributes, EconomyKeys::ConsolidatedInterest, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
 
