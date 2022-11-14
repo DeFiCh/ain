@@ -108,7 +108,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert("proposal context cannot be more than 512 bytes" in errorString)
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/fee_redistribution':'true'}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_automatic_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/cfp_automatic_payout':'true'}})
 
         # Create CFP
         tx = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 100, "cycles": 2, "payoutAddress": address})
@@ -284,7 +284,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 1)
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/gov/proposals/cfp_automatic_payout':'false',
+            'v0/params/feature/cfp_automatic_payout':'false',
             'v0/gov/proposals/cfp_fee':'0.25',
             'v0/gov/proposals/voting_period':'100',
         }})
@@ -408,7 +408,7 @@ class ChainGornmentTest(DefiTestFramework):
         title = 'Emergency VOC'
 
         self.nodes[0].setgov({"ATTRIBUTES":{
-            'v0/gov/proposals/cfp_automatic_payout':'true',
+            'v0/params/feature/cfp_automatic_payout':'true',
             'v0/gov/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/gov/proposals/voc_emergency_fee':'20.00000000',
             'v0/gov/proposals/voc_required_votes':'0.4999'
