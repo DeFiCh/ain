@@ -2648,9 +2648,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        const CKeyID key = pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : nodePtr->operatorAuthAddress;
-        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, key);
-        if (block.stakeModifier != stakeModifier) {            return state.Invalid(
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress);
+        if (block.stakeModifier != stakeModifier) {
+            return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
                             __func__, block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
