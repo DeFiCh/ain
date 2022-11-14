@@ -20,7 +20,47 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
-class CCustomTxVisitor;
+class CCustomTxVisitor
+{
+    protected:
+        uint32_t height;
+        CCustomCSView& mnview;
+        const CTransaction& tx;
+        const CCoinsViewCache& coins;
+        const Consensus::Params& consensus;
+
+    public:
+        CCustomTxVisitor(const CTransaction& tx,
+            uint32_t height,
+            const CCoinsViewCache& coins,
+            CCustomCSView& mnview,
+            const Consensus::Params& consensus);
+
+    protected:
+        bool HasAuth(const CScript& auth) const;
+        Res HasCollateralAuth(const uint256& collateralTx) const;
+        Res HasFoundationAuth() const;
+        Res CheckMasternodeCreationTx() const;
+        Res CheckProposalTx(const CCreatePropMessage& msg) const;
+        Res CheckTokenCreationTx() const;
+        Res CheckCustomTx() const;
+        Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;
+        DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
+        CPoolPair GetBTCDFIPoolPair() const;
+        CAmount CalculateTakerFee(CAmount amount) const;
+        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
+        Res EraseEmptyBalances(TAmounts& balances) const;
+        Res SetShares(const CScript& owner, const TAmounts& balances) const;
+        Res DelShares(const CScript& owner, const TAmounts& balances) const;
+        void CalculateOwnerRewards(const CScript& owner) const;
+        Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalancesSetShares(const CAccounts& accounts) const;
+        Res SubBalancesDelShares(const CAccounts& accounts) const;
+        Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
+        bool IsTokensMigratedToGovVar() const;
+        Res IsOnChainGovernanceEnabled() const;
+};
 class CVaultHistoryView;
 class CHistoryWriters;
 
@@ -39,52 +79,47 @@ enum class CustomTxType : uint8_t
     Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode      = 'C',
-    ResignMasternode      = 'R',
-    UpdateMasternode      = 'm',
-    SetForcedRewardAddress = 'F',
-    RemForcedRewardAddress = 'f',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    UpdateMasternode       = 'm',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
+    BurnToken             = 'F',
     UpdateToken           = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
-    // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
     //poolpair
-    CreatePoolPair        = 'p',
-    UpdatePoolPair        = 'u',
-    PoolSwap              = 's',
-    PoolSwapV2            = 'i',
-    AddPoolLiquidity      = 'l',
-    RemovePoolLiquidity   = 'r',
+    CreatePoolPair         = 'p',
+    UpdatePoolPair         = 'u',
+    PoolSwap               = 's',
+    PoolSwapV2             = 'i',
+    AddPoolLiquidity       = 'l',
+    RemovePoolLiquidity    = 'r',
     // accounts
-    UtxosToAccount        = 'U',
-    AccountToUtxos        = 'b',
-    AccountToAccount      = 'B',
-    AnyAccountsToAccounts = 'a',
-    SmartContract         = 'K',
-    FutureSwap            = 'Q',
+    UtxosToAccount         = 'U',
+    AccountToUtxos         = 'b',
+    AccountToAccount       = 'B',
+    AnyAccountsToAccounts  = 'a',
+    SmartContract          = 'K',
+    FutureSwap             = 'Q',
     //set governance variable
-    SetGovVariable        = 'G',
-    SetGovVariableHeight  = 'j',
+    SetGovVariable         = 'G',
+    SetGovVariableHeight   = 'j',
     // Auto auth TX
-    AutoAuthPrep          = 'A',
+    AutoAuthPrep           = 'A',
     // oracles
-    AppointOracle         = 'o',
-    RemoveOracleAppoint   = 'h',
-    UpdateOracleAppoint   = 't',
-    SetOracleData         = 'y',
+    AppointOracle          = 'o',
+    RemoveOracleAppoint    = 'h',
+    UpdateOracleAppoint    = 't',
+    SetOracleData          = 'y',
     // ICX
-    ICXCreateOrder      = '1',
-    ICXMakeOffer        = '2',
-    ICXSubmitDFCHTLC    = '3',
-    ICXSubmitEXTHTLC    = '4',
-    ICXClaimDFCHTLC     = '5',
-    ICXCloseOrder       = '6',
-    ICXCloseOffer       = '7',
+    ICXCreateOrder         = '1',
+    ICXMakeOffer           = '2',
+    ICXSubmitDFCHTLC       = '3',
+    ICXSubmitEXTHTLC       = '4',
+    ICXClaimDFCHTLC        = '5',
+    ICXCloseOrder          = '6',
+    ICXCloseOffer          = '7',
     // Loans
     SetLoanCollateralToken = 'c',
     SetLoanToken           = 'g',
@@ -106,7 +141,12 @@ enum class CustomTxType : uint8_t
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
     TokenSplit             = 'P',
-    UnsetGovVariable       = 'Y',
+    // On-Chain-Gov
+    CreateCfp              = 'z',
+    Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
+    CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
+    ProposalFeeRedistribution = 'Y',
+    UnsetGovVariable       = 'Z',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -114,11 +154,10 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
-        case CustomTxType::SetForcedRewardAddress:
-        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
+        case CustomTxType::BurnToken:
         case CustomTxType::UpdateToken:
         case CustomTxType::UpdateTokenAny:
         case CustomTxType::CreatePoolPair:
@@ -167,6 +206,10 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
         case CustomTxType::Reject:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::ProposalFeeRedistribution:
+        case CustomTxType::Vote:
+        case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
         case CustomTxType::None:
             return type;
@@ -224,45 +267,15 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
-struct CSetForcedRewardAddressMessage {
-    uint256 nodeId;
-    char rewardAddressType;
-    CKeyID rewardAddress;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-        READWRITE(rewardAddressType);
-        READWRITE(rewardAddress);
-    }
-};
-
-struct CRemForcedRewardAddressMessage {
-    uint256 nodeId;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-    }
-};
-
 struct CUpdateMasterNodeMessage {
     uint256 mnId;
-    char operatorType;
-    CKeyID operatorAuthAddress;
+    std::vector<std::pair<uint8_t, std::pair<char, std::vector<unsigned char>>>> updates;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(mnId);
-        READWRITE(operatorType);
-        READWRITE(operatorAuthAddress);
+        READWRITE(updates);
     }
 };
 
@@ -310,6 +323,28 @@ struct CMintTokensMessage : public CBalances {
     }
 };
 
+struct CBurnTokensMessage {
+    enum BurnType : uint8_t
+    {
+        TokenBurn = 0,
+    };
+
+    CBalances amounts;
+    CScript from;
+    BurnType burnType;
+    std::variant<CScript> context;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(amounts);
+        READWRITE(from);
+        READWRITE(static_cast<uint8_t>(burnType));
+        READWRITE(context);
+    }
+};
+
+
 struct CCreatePoolPairMessage {
     CPoolPairMessage poolPair;
     std::string pairSymbol;
@@ -349,13 +384,12 @@ using CCustomTxMessage = std::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
-    CSetForcedRewardAddressMessage,
-    CRemForcedRewardAddressMessage,
     CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
     CMintTokensMessage,
+    CBurnTokensMessage,
     CCreatePoolPairMessage,
     CUpdatePoolPairMessage,
     CPoolSwapMessage,
@@ -397,14 +431,16 @@ using CCustomTxMessage = std::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256& txid);
 Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValue& results);
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint256* canSpend = nullptr, uint32_t txn = 0, CHistoryWriters* writers = nullptr);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time, uint32_t txn = 0);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);

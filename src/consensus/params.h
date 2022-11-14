@@ -203,6 +203,16 @@ struct Params {
 
     CAmount vaultCreationFee;
 
+    struct CPropsParams {
+        struct CPropsSpecs {
+            CAmount fee;
+            CAmount majorityThreshold;
+        } cfp, brp, voc;
+        uint32_t votingPeriod;
+        CAmount minVoting;
+    };
+    CPropsParams props;
+
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
 };

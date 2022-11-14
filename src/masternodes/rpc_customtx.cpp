@@ -57,6 +57,14 @@ class CCustomTxRpcVisitor
         rpcInfo.pushKV("availablePairs", availablePairs);
     }
 
+    UniValue tokenBalances(const CBalances& balances) const {
+        UniValue info(UniValue::VOBJ);
+        for (const auto& kv : balances.balances) {
+            info.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
+        }
+        return info;
+    }
+
 public:
     CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CCustomCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
@@ -74,24 +82,21 @@ public:
         rpcInfo.pushKV("id", obj.GetHex());
     }
 
-    void operator()(const CSetForcedRewardAddressMessage& obj) const {
-        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
-        rpcInfo.pushKV("rewardAddress", EncodeDestination(
-                obj.rewardAddressType == 1 ?
-                    CTxDestination(PKHash(obj.rewardAddress)) :
-                    CTxDestination(WitnessV0KeyHash(obj.rewardAddress)))
-        );
-    }
-
-    void operator()(const CRemForcedRewardAddressMessage& obj) const {
-        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
-    }
-
     void operator()(const CUpdateMasterNodeMessage& obj) const {
         rpcInfo.pushKV("id", obj.mnId.GetHex());
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
-                                                CTxDestination(PKHash(obj.operatorAuthAddress)) :
-                                                CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
+        for (const auto& item : obj.updates) {
+            if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
+                rpcInfo.pushKV("operatorAddress", EncodeDestination(item.second.first == PKHashType ?
+                                                                    CTxDestination(PKHash(item.second.second)) :
+                                                                    CTxDestination(WitnessV0KeyHash(item.second.second))));
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
+                rpcInfo.pushKV("rewardAddress", EncodeDestination(item.second.first == PKHashType ?
+                                                                  CTxDestination(PKHash(item.second.second)) :
+                                                                  CTxDestination(WitnessV0KeyHash(item.second.second))));
+            } else if (item.first == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
+                rpcInfo.pushKV("rewardAddress", "");
+            }
+        }
     }
 
     void operator()(const CCreateTokenMessage& obj) const {
@@ -108,14 +113,25 @@ public:
     }
 
     void operator()(const CMintTokensMessage& obj) const {
-        for (auto const & kv : obj.balances) {
-            if (auto token = mnview.GetToken(kv.first)) {
-                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
-                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
-                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
-                }
-            }
+        rpcInfo.pushKVs(tokenBalances(obj));
+    }
+
+    void operator()(const CBurnTokensMessage& obj) const {
+        rpcInfo.pushKVs(tokenBalances(obj.amounts));
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        std::string type;
+        switch (obj.burnType)
+        {
+            case CBurnTokensMessage::BurnType::TokenBurn:
+                type = "TokenBurn";
+                break;
+            default:
+                type = "Unexpected";
         }
+        rpcInfo.pushKV("type", type);
+
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+            rpcInfo.pushKV("context", ScriptToString(*addr));
     }
 
     void operator()(const CLiquidityMessage& obj) const {
@@ -492,6 +508,45 @@ public:
         rpcInfo.pushKV("index", int64_t(obj.index));
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
+    }
+
+    void operator()(const CCreatePropMessage& obj) const {
+        auto propId = tx.GetHash();
+        rpcInfo.pushKV("proposalId", propId.GetHex());
+        auto type = static_cast<CPropType>(obj.type);
+        rpcInfo.pushKV("type", CPropTypeToString(type));
+        rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("context", obj.context);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
+        rpcInfo.pushKV("cycles", int(obj.nCycles));
+        auto finalHeight = height;
+        bool emergency = obj.options & CPropOption::Emergency;
+        if (auto prop = mnview.GetProp(propId)) {
+            finalHeight = prop->finalHeight;
+        } else {
+            auto votingPeriod = (emergency ? mnview.GetEmergencyPeriodFromAttributes(type) : mnview.GetVotingPeriodFromAttributes());
+            finalHeight = height + (votingPeriod - height % votingPeriod);
+            for (uint8_t i = 1; i <= obj.nCycles; ++i) {
+                finalHeight += votingPeriod;
+            }
+        }
+        rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
+        rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+        if (obj.options)
+        {
+            UniValue opt = UniValue(UniValue::VARR);
+            if (obj.options & CPropOption::Emergency)
+                opt.push_back("emergency");
+
+            rpcInfo.pushKV("options", opt);
+        }
+    }
+
+    void operator()(const CPropVoteMessage& obj) const {
+        rpcInfo.pushKV("proposalId", obj.propId.GetHex());
+        rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
+        auto vote = static_cast<CPropVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CPropVoteToString(vote));
     }
 
     void operator()(const CCustomTxMessageNone&) const {
