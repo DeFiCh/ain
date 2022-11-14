@@ -127,5 +127,5 @@ jobs:
       if: ${{ failure() ||  success() }}
 
     - name: Show log file
-      run: cat $DATADIR/debug-tmp-$STOP_BLOCK.log
+      run: cat debug-tmp-$STOP_BLOCK.log
       if: ${{ failure() ||  success() }}
