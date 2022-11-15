@@ -2878,7 +2878,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
+            const auto applyCustomTxTime = GetTimeMicros();
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            std::vector<unsigned char> metadata;
+            LogPrint(BCLog::BENCH, "    - ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - applyCustomTxTime) * MILLI);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
