@@ -122,6 +122,10 @@ jobs:
     - name: Sync and Diff
       run: ./sync_then_diff.sh
 
-    - name: Show Debug Log
+    - name: Show debug.log
       run: cat $DATADIR/debug.log
+      if: ${{ failure() ||  success() }}
+
+    - name: Show log file
+      run: cat debug-tmp-$STOP_BLOCK.log
       if: ${{ failure() ||  success() }}
