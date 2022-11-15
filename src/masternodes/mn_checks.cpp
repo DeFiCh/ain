@@ -1315,11 +1315,11 @@ public:
                     return res;
             };
 
-            if (anybodyCanMint) 
-                return mintTokensInternal(tokenId, amount);
-
             if (!mintable) 
                 return std::move(mintable);
+
+            if (anybodyCanMint) 
+                return mintTokensInternal(tokenId, amount);
 
             if (height < static_cast<uint32_t>(consensus.GrandCentralHeight))
                 return mintTokensInternal(tokenId, amount);
@@ -1335,7 +1335,7 @@ public:
             CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
             const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
 
-            if (attributes->GetValue(enableKey, false) && !members.empty()) {
+            if (!attributes->GetValue(enableKey, false) || members.empty()) {
                 const Coin& auth = coins.AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
                 if (!HasAuth(auth.out.scriptPubKey)) 
                     return Res::Err("You are not a foundation member or token owner and cannot mint this token!");
