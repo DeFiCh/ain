@@ -1300,7 +1300,7 @@ public:
                 return Res::Err("token %s does not exist!", tokenId.ToString());
 
             // only on REGTEST and when flag is supplied
-            bool anybodyCanMint = Params().NetworkIDString() != CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
+            bool anybodyCanMint = (Params().NetworkIDString() != CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false));
 
             auto mintable = MintableToken(tokenId, *token, anybodyCanMint);
 
@@ -1313,20 +1313,19 @@ public:
                 auto res = mnview.AddBalance(*mintable.val, CTokenAmount{tokenId, amount});
                 if (!res)
                     return res;
+
+                return Res::Ok();
             };
 
-            if (!mintable) 
+            if (!mintable)
                 return std::move(mintable);
 
-            if (anybodyCanMint) 
-                return mintTokensInternal(tokenId, amount);
-
-            if (height < static_cast<uint32_t>(consensus.GrandCentralHeight))
-                return mintTokensInternal(tokenId, amount);
-
-            if (!token->IsDAT() || HasFoundationAuth())
-                return mintTokensInternal(tokenId, amount);
-
+            if (anybodyCanMint || height < static_cast<uint32_t>(consensus.GrandCentralHeight) || !token->IsDAT() || HasFoundationAuth())
+            {
+                auto res = mintTokensInternal(tokenId, amount);
+                if (!res) return res;
+                continue;
+            }
 
             auto attributes = mnview.GetAttributes();
             assert(attributes);
@@ -1337,10 +1336,12 @@ public:
 
             if (!attributes->GetValue(enableKey, false) || members.empty()) {
                 const Coin& auth = coins.AccessCoin(COutPoint(token->creationTx, 1)); // always n=1 output
-                if (!HasAuth(auth.out.scriptPubKey)) 
+                if (!HasAuth(auth.out.scriptPubKey))
                     return Res::Err("You are not a foundation member or token owner and cannot mint this token!");
 
-                return mintTokensInternal(tokenId, amount);
+                auto res = mintTokensInternal(tokenId, amount);
+                if (!res) return res;
+                continue;
             }
 
             mintable.ok = false;
@@ -1423,7 +1424,8 @@ public:
             if (!saved)
                 return saved;
 
-            return mintTokensInternal(tokenId, amount);
+            auto minted = mintTokensInternal(tokenId, amount);
+            if (!minted) return minted;
         }
 
         return Res::Ok();
