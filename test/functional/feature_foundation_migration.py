@@ -60,7 +60,7 @@ class FoundationMemberTest(DefiTestFramework):
         assert_equal(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']['v0/params/foundation/members'], '["bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny","bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu","msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7"]')
 
         # Try and add self back in without foundation auth
-        assert_raises_rpc_error(-5, "Need foundation member authorization", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
+        assert_raises_rpc_error(-32600, "tx not from foundation member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
 
         # Add address in from another node
         self.sync_blocks()
@@ -99,7 +99,7 @@ class FoundationMemberTest(DefiTestFramework):
         assert_equal(attributes['v0/params/dfip2203/active'], 'false')
 
         # Check disabling feature restores original usage. Node 0 fails here.
-        assert_raises_rpc_error(-5, "Need foundation member authorization", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
+        assert_raises_rpc_error(-32600, "tx not from foundation member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/foundation/members':f'["{address}"]'}})
         self.nodes[1].setgov({"ATTRIBUTES":{'v0/params/feature/gov-foundation':'false'}})
         self.nodes[1].generate(1)
         self.sync_blocks()

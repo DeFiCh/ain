@@ -43,6 +43,9 @@ class PoolPairTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
+        node2 = self.nodes[2].getnewaddress("", "legacy")
+        self.nodes[0].sendtoaddress(node2, 1)
+
         # 1 Creating DAT token
         self.nodes[0].createtoken({
             "symbol": "PT",
@@ -150,7 +153,7 @@ class PoolPairTest (DefiTestFramework):
         }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Need foundation member authorization" in errorString)
+        assert("tx not from foundation member" in errorString)
 
         # 9 Checking pool existence
         p0 = self.nodes[0].getpoolpair("PTGOLD")
