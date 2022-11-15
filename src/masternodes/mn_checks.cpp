@@ -783,18 +783,22 @@ ResVal<CScript> CCustomTxVisitor::MintableToken(DCT_ID id, const CTokenImplement
         return Res::Err("token %s is not mintable!", id.ToString());
     }
 
-    if (!anybodyCanMint) {
-        if (!HasAuth(auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
-            if (!token.IsDAT()) {
-                return Res::Err("tx must have at least one input from token owner");
-            } else if (!HasFoundationAuth()) { // Is a DAT, check founders auth
-                if (height < static_cast<uint32_t>(consensus.GrandCentralHeight))
-                    return Res::Err("token is DAT and tx not from foundation member");
-            }
+    ResVal<CScript> result = {auth.out.scriptPubKey, Res::Ok()};
+    if (anybodyCanMint || HasAuth(auth.out.scriptPubKey)) return result;
+
+    // Historic: in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
+    // The above is no longer true.
+
+    if (token.IsDAT()) {
+        // Is a DAT, check founders auth
+        if (height < static_cast<uint32_t>(consensus.GrandCentralHeight) && !HasFoundationAuth()) {
+            return Res::Err("token is DAT and tx not from foundation member");
         }
+    } else {
+        return Res::Err("tx must have at least one input from token owner");
     }
 
-    return {auth.out.scriptPubKey, Res::Ok()};
+    return result;
 }
 
 Res CCustomTxVisitor::EraseEmptyBalances(TAmounts& balances) const
