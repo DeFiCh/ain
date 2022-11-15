@@ -64,6 +64,7 @@ namespace BCLog {
         FUTURESWAP    = (1 << 27),
         TOKENSPLIT    = (1 << 28),
         RPCCACHE      = (1 << 29),
+        CUSTOMTXBENCH = (1 << 30),
         // Note: We're almost hitting 32 bit threshold.
         ALL           = ~(uint32_t)0,
     };
