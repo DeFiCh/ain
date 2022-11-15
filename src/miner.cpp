@@ -776,8 +776,7 @@ namespace pos {
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        const CKeyID key = blockHeight >= chainparams.GetConsensus().GrandCentralHeight ? nodePtr->ownerAuthAddress : args.minterKey.GetPubKey().GetID();
-        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, key);
+        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
