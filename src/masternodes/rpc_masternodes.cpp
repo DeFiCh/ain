@@ -544,6 +544,8 @@ UniValue getmasternode(const JSONRPCRequest& request)
                },
     }.Check(request);
 
+    SyncWithValidationInterfaceQueue();
+
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
     auto pwallet = GetWallet(request);
 
