@@ -264,8 +264,12 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     auto [customRewards, itCustomRewards, startCustomRewards] = InitPoolVars<ByCustomReward, CBalances>(*this, poolKey, end);
     auto nextCustomRewards = startCustomRewards;
 
-    auto [poolSwap, itPoolSwap, poolSwapHeight] = InitPoolVars<ByPoolSwap, PoolSwapValue>(*this, poolKey, end);
-    auto nextPoolSwap = poolSwapHeight;
+    auto poolSwapHeight = std::numeric_limits<uint32_t>::max();
+    auto nextPoolSwap = std::numeric_limits<uint32_t>::max();
+    auto [poolSwap, itPoolSwap, discard] = InitPoolVars<ByPoolSwap, PoolSwapValue>(*this, poolKey, end);
+    if (itPoolSwap.Valid() && itPoolSwap.Key().poolID == poolId) {
+        nextPoolSwap = itPoolSwap.Key().height;
+    }
 
     for (auto height = begin; height < end;) {
         // find suitable pool liquidity
