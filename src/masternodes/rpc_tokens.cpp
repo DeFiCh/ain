@@ -728,10 +728,6 @@ UniValue minttokens(const JSONRPCRequest& request) {
         }
     }
 
-    if (needFoundersAuth && !AmIFounder(pwallet)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation or consortium member authorization!");
-    }
-
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

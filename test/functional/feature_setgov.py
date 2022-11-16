@@ -919,9 +919,9 @@ class GovsetTest (DefiTestFramework):
                                                                             "dailyMintLimit": 1.0000000}}'}})
         self.nodes[0].generate(1)
 
-        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'2'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'1.23'}})
         assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'101%'}})
-        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'101%'}})
+        assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'101.66%'}})
 
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(result['v0/locks/token/4'], 'true')

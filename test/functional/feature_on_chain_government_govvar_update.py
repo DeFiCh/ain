@@ -43,16 +43,21 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
-        self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.nodes[2].votegov(propId, self.mn2, "yes")
-        self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
+        self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[2].votegov(propId, self.mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[3].votegov(propId, self.mn3, "yes")
+        self.nodes[3].generate(1)
+        self.sync_blocks(timeout=120)
 
         # No automatic payout before its activation via govvar
         account = self.nodes[0].getaccount(address)
@@ -60,24 +65,29 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Activate payout on second cycle
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_automatic_payout':'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov-payout':'true'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
-        self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.nodes[2].votegov(propId, self.mn2, "yes")
-        self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.sync_mempools()
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
+        self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[2].votegov(propId, self.mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[3].votegov(propId, self.mn3, "yes")
+        self.nodes[3].generate(1)
+        self.sync_blocks(timeout=120)
 
         # End proposal
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Automatic payout only for last cycle
         account = self.nodes[0].getaccount(address)
@@ -101,16 +111,23 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
+
+        # Vote during first cycle
+        self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+        self.nodes[2].votegov(propId, self.mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
 
         # Vote and move to next cycle
-        self.nodes[0].votegov(propId, self.mn0, "yes")
-        self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.nodes[2].votegov(propId, self.mn2, "yes")
         self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.sync_mempools()
-        self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.nodes[3].generate(VOTING_PERIOD * 2)
+        self.sync_blocks(timeout=120)
 
         # First cycle should be approved
         proposal = self.nodes[0].getgovproposal(propId)
@@ -122,11 +139,17 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[2].votegov(propId, self.mn2, "yes")
-        self.sync_mempools()
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
+
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Proposal should be rejected as only 75% of masternodes voted
         proposal = self.nodes[0].getgovproposal(propId)
@@ -150,16 +173,25 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[2].votegov(propId, self.mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[3].votegov(propId, self.mn3, "yes")
-        self.sync_mempools()
+        self.nodes[3].generate(1)
+        self.sync_blocks(timeout=120)
+
+        # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # First cycle should be approved
         proposal = self.nodes[0].getgovproposal(propId)
@@ -171,12 +203,20 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[2].votegov(propId, self.mn2, "yes")
+        self.nodes[2].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[3].votegov(propId, self.mn3, "no")
-        self.sync_mempools()
+        self.nodes[3].generate(1)
+        self.sync_blocks(timeout=120)
+
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Proposal should be rejected as only 75% of masternodes voted yes
         proposal = self.nodes[0].getgovproposal(propId)
@@ -200,14 +240,19 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
+        # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Fee should not be redistributed before activation
         mn0 = self.nodes[0].getmasternode(self.mn0)[self.mn0]
@@ -223,10 +268,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         fee = 10
         numVoters = 2
@@ -258,14 +307,19 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
+        # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Set higher fee
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_fee':'50%'}})
@@ -274,13 +328,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
         self.nodes[1].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Check that fee set at creation is used for redistribution
         fee = 10
@@ -312,14 +367,19 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
+        # Move to next cycle
         self.nodes[0].generate(VOTING_PERIOD * 2)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Set higher fee
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voting_period': '200'}})
@@ -327,10 +387,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
         self.nodes[0].generate(VOTING_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Voting period should is saved on creation
         proposal = self.nodes[0].getgovproposal(propId)
@@ -349,7 +413,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         # Create CFP
         propId = self.nodes[0].creategovvoc({"title": title, "context": context, "amount": amount, "payoutAddress": address, "emergency": True})
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Set longer emergency period
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_period': str(EMERGENCY_PERIOD * 2)}})
@@ -357,7 +421,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Move to next cycle
         self.nodes[0].generate(EMERGENCY_PERIOD)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Emergency voting period should is saved on creation
         proposal = self.nodes[0].getgovproposal(propId)
@@ -380,7 +444,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Set higher fee
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE * 2)}})
@@ -388,10 +452,14 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].votegov(propId, self.mn0, "yes")
+        self.nodes[0].generate(1)
+        self.sync_blocks(timeout=120)
         self.nodes[1].votegov(propId, self.mn1, "yes")
-        self.sync_mempools()
-        self.nodes[0].generate(EMERGENCY_PERIOD * 2)
-        self.sync_blocks()
+        self.nodes[1].generate(1)
+        self.sync_blocks(timeout=120)
+
+        self.nodes[0].generate(EMERGENCY_PERIOD)
+        self.sync_blocks(timeout=120)
 
         # Check that fee set at creation is used for redistribution
         fee = 5
@@ -422,24 +490,24 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Generate chain
         self.nodes[0].generate(100)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # Move to fork block
         self.nodes[1].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # grand central
         assert_equal(self.nodes[0].getblockcount(), 101)
 
         # Every masternode mine at least one block
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
         self.nodes[1].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
         self.nodes[2].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
         self.nodes[3].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         # activate on-chain governance
         self.nodes[0].setgov({"ATTRIBUTES":{
@@ -448,7 +516,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         }})
         self.nodes[0].generate(1)
 
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
     def run_test(self):
 
@@ -466,7 +534,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
             'v0/gov/proposals/voc_emergency_fee': str(EMERGENCY_FEE),
         }})
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks(timeout=120)
 
         self.test_cfp_update_voc_emergency_period()
         self.test_cfp_update_voc_emergency_fee()

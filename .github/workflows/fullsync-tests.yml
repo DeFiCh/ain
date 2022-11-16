@@ -70,7 +70,7 @@ jobs:
         - id: set-matrix
           run: |
             SNAPSHOTS=$(gsutil ls gs://team-drop/${{github.base_ref}}-datadir)
-            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n)
+            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n | head -n -1)
             JSON=$(jq -n -c -M --arg blocks "$BLOCKS" '{blocks: ($blocks | split("\n") | .[] |= tonumber | to_entries | map({start: .value , stop: (.value + 50000)}))}')
             echo "::set-output name=matrix::$JSON"
 
@@ -122,6 +122,10 @@ jobs:
     - name: Sync and Diff
       run: ./sync_then_diff.sh
 
-    - name: Show Debug Log
+    - name: Show debug.log
       run: cat $DATADIR/debug.log
+      if: ${{ failure() ||  success() }}
+
+    - name: Show log file
+      run: cat debug-tmp-$STOP_BLOCK.log
       if: ${{ failure() ||  success() }}

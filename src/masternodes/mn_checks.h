@@ -48,7 +48,7 @@ class CCustomTxVisitor
         DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
         CPoolPair GetBTCDFIPoolPair() const;
         CAmount CalculateTakerFee(CAmount amount) const;
-        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
+        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token, bool anybodyCanMint) const;
         Res EraseEmptyBalances(TAmounts& balances) const;
         Res SetShares(const CScript& owner, const TAmounts& balances) const;
         Res DelShares(const CScript& owner, const TAmounts& balances) const;

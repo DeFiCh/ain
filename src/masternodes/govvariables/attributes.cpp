@@ -196,13 +196,13 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"gov",                         DFIPKeys::GovernanceEnabled},
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
+                {"gov-payout",                  DFIPKeys::CFPPayout},
             }
         },
         {
             AttributeTypes::Governance, {
                 {"fee_redistribution",          GovernanceKeys::FeeRedistribution},
                 {"fee_burn_pct",                GovernanceKeys::FeeBurnPct},
-                {"cfp_automatic_payout",        GovernanceKeys::CFPPayout},
                 {"cfp_fee",                     GovernanceKeys::CFPFee},
                 {"cfp_required_votes",          GovernanceKeys::CFPMajority},
                 {"voc_fee",                     GovernanceKeys::VOCFee},
@@ -273,6 +273,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::GovernanceEnabled,       "gov"},
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
+                {DFIPKeys::CFPPayout,               "gov-payout"},
             }
         },
         {
@@ -299,7 +300,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
             AttributeTypes::Governance, {
                 {GovernanceKeys::FeeRedistribution,     "fee_redistribution"},
                 {GovernanceKeys::FeeBurnPct,            "fee_burn_pct"},
-                {GovernanceKeys::CFPPayout,             "cfp_automatic_payout"},
                 {GovernanceKeys::CFPFee,                "cfp_fee"},
                 {GovernanceKeys::CFPMajority,           "cfp_required_votes"},
                 {GovernanceKeys::VOCFee,                "voc_fee"},
@@ -365,18 +365,14 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
 
 static ResVal<CAttributeValue> VerifyPct(const std::string& str) {
     std::string val = str;
-    if (val.size() > 0 && val.back() == '%')
-    {
-        val.pop_back();
-        if (val.size() > 2 && val != "100") Res::Err("Percentage exceeds 100%%");
-        else if (val == "100") val = "1";
-        else if (val.size() > 1) val.insert(0, "0.");
-        else val.insert(0, "0.0");
-    }
+    bool isPct = (val.size() > 0 && val.back() == '%');
+    if (isPct) val.pop_back();
     auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
         return resVal;
     }
+    auto value = std::get<CAmount>(*resVal.val);
+    if (isPct && value > 0) (*resVal.val).emplace<CAmount>(value / 100);
     if (std::get<CAmount>(*resVal.val) > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
@@ -603,6 +599,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::Members,                 VerifyMember},
+                {DFIPKeys::CFPPayout,               VerifyBool},
             }
         },
         {
@@ -619,7 +616,6 @@ const std::map<uint8_t, std::map<uint8_t,
             AttributeTypes::Governance, {
                 {GovernanceKeys::FeeRedistribution,     VerifyBool},
                 {GovernanceKeys::FeeBurnPct,            VerifyPct},
-                {GovernanceKeys::CFPPayout,             VerifyBool},
                 {GovernanceKeys::CFPFee,                VerifyPct},
                 {GovernanceKeys::CFPMajority,           VerifyPct},
                 {GovernanceKeys::VOCFee,                VerifyPositiveFloat},
@@ -832,7 +828,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     typeKey != DFIPKeys::MNSetOperatorAddress &&
                     typeKey != DFIPKeys::MNSetOwnerAddress &&
                     typeKey != DFIPKeys::GovernanceEnabled &&
-                    typeKey != DFIPKeys::ConsortiumEnabled) {
+                    typeKey != DFIPKeys::ConsortiumEnabled &&
+                    typeKey != DFIPKeys::CFPPayout) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation)  {
@@ -845,7 +842,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
         } else if (type == AttributeTypes::Governance) {
             if (typeId == GovernanceIDs::Proposals) {
                 if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::FeeBurnPct
-                    && typeKey != GovernanceKeys::CFPPayout && typeKey != GovernanceKeys::CFPFee
+                    && typeKey != GovernanceKeys::CFPFee
                     && typeKey != GovernanceKeys::CFPMajority && typeKey != GovernanceKeys::VOCFee
                     && typeKey != GovernanceKeys::VOCMajority && typeKey != GovernanceKeys::VOCEmergencyPeriod
                     && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyQuorum
