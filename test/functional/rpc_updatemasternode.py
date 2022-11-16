@@ -327,16 +327,13 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.transfer_owner(mn_id)
 
         # Test resigning MN with transferred collateral
-        print('state before resignation', self.nodes[0].getmasternode(mn_id)[mn_id]['state'])
         self.nodes[0].resignmasternode(mn_id)
         self.nodes[0].generate(1)
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
         assert_equal(result['state'], 'PRE_RESIGNED')
 
         # Roll back resignation
-        print('before invalidate block', self.nodes[0].getblockcount(), self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
-        print('after invalidate block', self.nodes[0].getblockcount(), self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
         assert_equal(result['state'], 'ENABLED')
 
