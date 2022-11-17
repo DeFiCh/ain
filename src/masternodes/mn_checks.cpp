@@ -1286,13 +1286,13 @@ public:
     Res operator()(const CMintTokensMessage& obj) const {
         const auto isRegTest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
         const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
-        const auto forCanningCrunchHeight = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
+        const auto fortCanningCrunchHeight = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight = static_cast<uint32_t>(consensus.GrandCentralHeight);
 
         // check auth and increase balance of token's owner
         for (const auto& [tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN &&
-                height >= forCanningCrunchHeight &&
+                height >= fortCanningCrunchHeight &&
                 mnview.GetLoanTokenByID(tokenId)) {
                 return Res::Err("Loan tokens cannot be minted");
             }
