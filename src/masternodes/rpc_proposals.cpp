@@ -1,5 +1,3 @@
-
-#include "logging.h"
 #include <masternodes/mn_rpc.h>
 #include <masternodes/govvariables/attributes.h>
 
