@@ -2537,7 +2537,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
         LogPrint(BCLog::BENCH, "    - ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
     } else if (LogAcceptCategory(BCLog::CUSTOMTXBENCH)) {
         std::vector<unsigned char> metadata;
-        LogPrint(BCLog::CUSTOMTXBENCH, "ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
+        LogPrint(BCLog::CUSTOMTXBENCH, "Bench::ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
     }
 }
 
