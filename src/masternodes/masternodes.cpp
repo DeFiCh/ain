@@ -1348,14 +1348,14 @@ CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
     return 0;
 }
 
-CAmount CCustomCSView::GetMinVotersFromAttributes() const
+CAmount CCustomCSView::GetQuorumFromAttributes() const
 {
     auto attributes = GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 MinVotersKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+    CDataStructureV0 QuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
 
-    return attributes->GetValue(MinVotersKey, Params().GetConsensus().props.minVoting);
+    return attributes->GetValue(QuorumKey, Params().GetConsensus().props.quorum);
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const

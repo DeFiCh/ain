@@ -529,14 +529,14 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
     CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
     CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
-    CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+    CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
 
     auto attributes = view.GetAttributes();
     if (!attributes)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
 
-    auto minVotes = attributes->GetValue(minVoting, Params().GetConsensus().props.minVoting) / 10000;
-    auto valid = allVotes > minVotes;
+    auto quorum = attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
+    auto valid = allVotes > quorum;
 
     if (valid) {
         switch(prop->type) {
@@ -580,7 +580,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     if (valid) {
         ret.pushKV("approval", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
     } else {
-        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, minVotes / 100, minVotes % 100));
+        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 100, quorum % 100));
     }
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;

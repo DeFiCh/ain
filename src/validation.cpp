@@ -4246,7 +4246,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+        CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
         CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
         bool emergency = prop.options & CPropOption::Emergency;
@@ -4254,7 +4254,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         if (prop.type == CPropType::VoteOfConfidence && emergency) {
             quorum = attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
         } else {
-            quorum = attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000;
+            quorum = attributes->GetValue(quorumKey, chainparams.GetConsensus().props.quorum) / 10000;
         }
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {
