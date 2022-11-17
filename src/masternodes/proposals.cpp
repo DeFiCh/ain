@@ -72,7 +72,7 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
             WriteBy<ByCycle>(keyPair, i);
         }
     }
-    prop.finalHeight = height;
+    prop.proposalEndHeight = height;
     WriteBy<ByType>(propId, prop);
     return Res::Ok();
 }
@@ -143,8 +143,8 @@ Res CPropsView::UpdatePropStatus(const CPropId& propId, uint32_t height, CPropSt
         }
     }
 
-    if (p_prop->finalHeight != height) {
-        p_prop->finalHeight = height;
+    if (p_prop->proposalEndHeight != height) {
+        p_prop->proposalEndHeight = height;
         WriteBy<ByType>(propId, *p_prop);
     }
     return Res::Ok();

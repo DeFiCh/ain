@@ -148,7 +148,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Calculate cycle
         cycle1 = creationHeight + (votingPeriod - creationHeight % votingPeriod) + votingPeriod
-        finalHeight = cycle1 + votingPeriod
+        proposalEndHeight = cycle1 + votingPeriod
 
         # Check proposal and votes
         result = self.nodes[0].listgovproposals()
@@ -162,7 +162,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["endHeight"], finalHeight)
+        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(tx, mn0)
@@ -218,7 +218,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["currentCycle"], 2)
 
         # Move to just before final height
-        self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
+        self.nodes[0].generate(proposalEndHeight - self.nodes[0].getblockcount() - 1)
         bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
 
         # Move to final height
@@ -327,7 +327,7 @@ class ChainGornmentTest(DefiTestFramework):
         # Calculate cycle
         votingPeriod = 100
         cycle1 = creationHeight + (votingPeriod - creationHeight % votingPeriod) + votingPeriod
-        finalHeight = cycle1 + votingPeriod
+        proposalEndHeight = cycle1 + votingPeriod
 
         # Check proposal and votes
         result = self.nodes[0].listgovproposals("cfp","voting")
@@ -340,7 +340,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["endHeight"], finalHeight)
+        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(propId, mn0)
@@ -382,7 +382,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["currentCycle"], 2)
 
         # Move to just before final height
-        self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
+        self.nodes[0].generate(proposalEndHeight - self.nodes[0].getblockcount() - 1)
         bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
 
         # Move to final height

@@ -91,7 +91,7 @@ struct CPropObject : public CCreatePropMessage {
     explicit CPropObject(const CCreatePropMessage& other) : CCreatePropMessage(other) {}
 
     uint32_t creationHeight{};
-    uint32_t finalHeight{};
+    uint32_t proposalEndHeight{};
 
     uint32_t votingPeriod;
     CAmount majority;
@@ -111,7 +111,7 @@ struct CPropObject : public CCreatePropMessage {
     {
         READWRITEAS(CCreatePropMessage, *this);
         READWRITE(creationHeight);
-        READWRITE(finalHeight);
+        READWRITE(proposalEndHeight);
         READWRITE(votingPeriod);
         READWRITE(majority);
         READWRITE(minVoters);

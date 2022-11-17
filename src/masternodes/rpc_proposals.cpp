@@ -18,7 +18,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
     ret.pushKV("currentCycle", static_cast<int32_t>(prop.cycle));
     ret.pushKV("totalCycles", static_cast<int32_t>(prop.nCycles));
-    ret.pushKV("endHeight", static_cast<int32_t>(prop.finalHeight));
+    ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop.proposalEndHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
     if (prop.options)
     {
@@ -555,7 +555,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("title", prop->title);
     ret.pushKV("context", prop->context);
     if (!prop->contextHash.empty())
-        ret.pushKV("contexthash", prop->contextHash);
+        ret.pushKV("contextHash", prop->contextHash);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
 
@@ -584,7 +584,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     }
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;
-    auto blocks = prop->finalHeight - targetHeight;
+    auto blocks = prop->proposalEndHeight - targetHeight;
 
     if (blocks > Params().GetConsensus().blocksPerDay()) {
         ret.pushKV("ends", strprintf("%d days", blocks * target / 60 / 60 / 24));

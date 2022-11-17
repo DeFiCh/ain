@@ -519,18 +519,18 @@ public:
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
-        auto finalHeight = height;
+        auto proposalEndHeight = height;
         bool emergency = obj.options & CPropOption::Emergency;
         if (auto prop = mnview.GetProp(propId)) {
-            finalHeight = prop->finalHeight;
+            proposalEndHeight = prop->proposalEndHeight;
         } else {
             auto votingPeriod = (emergency ? mnview.GetEmergencyPeriodFromAttributes(type) : mnview.GetVotingPeriodFromAttributes());
-            finalHeight = height + (votingPeriod - height % votingPeriod);
+            proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
-                finalHeight += votingPeriod;
+                proposalEndHeight += votingPeriod;
             }
         }
-        rpcInfo.pushKV("endHeight", int64_t(finalHeight));
+        rpcInfo.pushKV("proposalEndHeight", int64_t(proposalEndHeight));
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options)
         {
