@@ -18,7 +18,7 @@ class TokensAutoAuthTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-regtest-minttoken-simulate-mainnet=1']]
 
     # Move all coins to new address and change address to test auto auth
     def clear_auth_utxos(self):

@@ -786,11 +786,11 @@ class GovsetTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot set block period while DFIP2203 is active", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2203/start_block':'0'}})
         assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_interest_burn':'not_a_bool'}})
         assert_raises_rpc_error(-5, "Boolean value must be either \"true\" or \"false\"", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/dfip2206a/dusd_loan_burn':'not_a_bool'}})
-        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                                                                                                                "ownerAddress":"' + owner +'", \
-                                                                                                                                                                "backingId":"blablabla", \
-                                                                                                                                                                "mintLimit":10.00000000, \
-                                                                                                                                                                "dailyMintLimit": 1.0000000}}'}})
+        assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                                                                                                                "ownerAddress": owner,
+                                                                                                                                                                "backingId":"blablabla",
+                                                                                                                                                                "mintLimit": "10.00000000",
+                                                                                                                                                                "dailyMintLimit": "1.0000000"}}}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/consortium':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'1000000000'}})
 
@@ -880,44 +880,50 @@ class GovsetTest (DefiTestFramework):
         # Move to GrandCentral
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
 
-        assert_raises_rpc_error(-5, "Invalid ownerAddress in consortium member data", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                                                                                                                        "ownerAddress":"", \
-                                                                                                                                                                        "backingId":"blablabla", \
-                                                                                                                                                                        "mintLimit":10.00000000}}'}})
-        assert_raises_rpc_error(-5, "Member name too short, must be at least 3 chars long", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"12", \
-                                                                                                                                                                        "ownerAddress":"' + owner +'", \
-                                                                                                                                                                        "backingId":"blablabla", \
-                                                                                                                                                                        "mintLimit":10.00000000}}'}})
-        assert_raises_rpc_error(-5, "Mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                                                                                           "ownerAddress":"' + owner +'", \
-                                                                                                                                           "backingId":"blablabla", \
-                                                                                                                                           "mintLimit":-10.00000000}}'}})
-        assert_raises_rpc_error(-5, "Daily mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                                                                                           "ownerAddress":"' + owner +'", \
-                                                                                                                                           "backingId":"blablabla", \
-                                                                                                                                           "mintLimit":10.00000000, \
-                                                                                                                                           "dailyMintLimit":-10.00000000}}'}})
-        assert_raises_rpc_error(-5, "Not a valid consortium member object", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test",} \
-                                                                                                                                                            "ownerAddress":"' + owner +'", \
-                                                                                                                                                            "backingId":"blablabla", \
-                                                                                                                                                            "mintLimit":10.00000000}}'}})
-        assert_raises_rpc_error(-5, "Status must be a positive number", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                                                                                                        "ownerAddress":"' + owner +'", \
-                                                                                                                                                        "backingId":"blablabla", \
-                                                                                                                                                        "mintLimit":10.00000000, \
-                                                                                                                                                        "dailyMintLimit":1.00000000, \
-                                                                                                                                                        "status":-1}}'}})
-        assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", "ownerAddress":"' + owner +'", "backingId":"blablabla", "mintLimit":10.00000000, "dailyMintLimit":1.00000000, "status":2}}'}})
+        assert_raises_rpc_error(-5, "Invalid ownerAddress in consortium member data", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                                                                                                                        "ownerAddress":"",
+                                                                                                                                                                        "backingId":"blablabla",
+                                                                                                                                                                        "mintLimit":10.00000000}}}})
+        assert_raises_rpc_error(-5, "Member name too short, must be at least 3 chars long", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"12",
+                                                                                                                                                                        "ownerAddress": owner,
+                                                                                                                                                                        "backingId":"blablabla",
+                                                                                                                                                                        "mintLimit":10.00000000}}}})
+        assert_raises_rpc_error(-5, "Mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                                                                                           "ownerAddress": owner,
+                                                                                                                                           "backingId":"blablabla",
+                                                                                                                                           "mintLimit":-10.00000000}}}})
+        assert_raises_rpc_error(-5, "Daily mint limit is an invalid amount", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                                                                                           "ownerAddress": owner,
+                                                                                                                                           "backingId":"blablabla",
+                                                                                                                                           "mintLimit":10.00000000,
+                                                                                                                                           "dailyMintLimit":-10.00000000}}}})
+        assert_raises_rpc_error(-5, "Status must be a positive number", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                                                                                                        "ownerAddress": owner,
+                                                                                                                                                        "backingId":"blablabla",
+                                                                                                                                                        "mintLimit":10.00000000,
+                                                                                                                                                        "dailyMintLimit":1.00000000,
+                                                                                                                                                        "status":-1}}}})
+        assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test", "ownerAddress": owner, "backingId":"blablabla", "mintLimit":10.00000000, "dailyMintLimit":1.00000000, "status":2}}}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/mint_limit' : '10', 'v0/consortium/4/mint_limit_daily' : '1'}})
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/members' : '{"01":{"name":"test", \
-                                                                            "ownerAddress":"' + owner +'", \
-                                                                            "backingId":"blablabla", \
-                                                                            "mintLimit":10.00000000, \
-                                                                            "dailyMintLimit": 1.0000000}}'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
+                                                                            "ownerAddress": owner,
+                                                                            "backingId":"blablabla",
+                                                                            "mintLimit": 10,
+                                                                            "dailyMintLimit": 1}}}})
         self.nodes[0].generate(1)
+
+        # Check result
+        result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
+        print(result['v0/consortium/4/members'])
+        assert_equal(result['v0/consortium/4/members'], {"01":{"name":"test",
+                                                               "ownerAddress": owner,
+                                                               "backingId":"blablabla",
+                                                               "mintLimit": Decimal('10.00000000'),
+                                                               "dailyMintLimit": Decimal('1.00000000'),
+                                                               "status": 0}})
 
         assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'1.23'}})
         assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'101%'}})
