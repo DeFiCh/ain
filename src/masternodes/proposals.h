@@ -95,7 +95,7 @@ struct CPropObject : public CCreatePropMessage {
 
     uint32_t votingPeriod;
     CAmount majority;
-    CAmount minVoters;
+    CAmount quorum;
     CAmount fee;
     CAmount feeBurnAmount;
 
@@ -114,7 +114,7 @@ struct CPropObject : public CCreatePropMessage {
         READWRITE(proposalEndHeight);
         READWRITE(votingPeriod);
         READWRITE(majority);
-        READWRITE(minVoters);
+        READWRITE(quorum);
         READWRITE(fee);
         READWRITE(feeBurnAmount);
     }
@@ -155,7 +155,7 @@ public:
     virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
     virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
     virtual CAmount GetMajorityFromAttributes(const CPropType& type) const = 0;
-    virtual CAmount GetMinVotersFromAttributes() const = 0;
+    virtual CAmount GetQuorumFromAttributes() const = 0;
     virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };

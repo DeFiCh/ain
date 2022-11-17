@@ -1090,9 +1090,6 @@ public:
                 if (tx.vout.size() == 1) {
                     return Res::Err("Missing new collateral output");
                 }
-                if (!HasAuth(tx.vout[1].scriptPubKey)) {
-                    return Res::Err("Missing auth input for new masternode owner");
-                }
 
                 CTxDestination dest;
                 if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) || (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {

@@ -95,7 +95,7 @@ enum GovernanceKeys : uint8_t  {
     VOCEmergencyFee         = 'g',
     VOCEmergencyPeriod      = 'h',
     VOCMajority             = 'i',
-    MinVoters               = 'j',
+    Quorum                  = 'j',
     VotingPeriod            = 'k',
     VOCEmergencyQuorum      = 'l',
 };
