@@ -112,11 +112,12 @@ class TestForcedRewardAddress(DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(105)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_blocks()
 
         num_mns = len(self.nodes[0].listmasternodes())
         mn_owner = self.nodes[0].getnewaddress("", "legacy")
         mn_owner2 = self.nodes[0].getnewaddress("", "legacy")
+        foreign_owner = self.nodes[1].getnewaddress("", "legacy")
 
         mn_id = self.nodes[0].createmasternode(mn_owner)
         mn_id2 = self.nodes[0].createmasternode(mn_owner2)
@@ -315,11 +316,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_raises_rpc_error(-26, "bad-txns-collateral-locked, tried to spend locked collateral for", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
 
-        # Test missing new owner auth
-        rawtx = self.nodes[0].createrawtransaction([{"txid":mn_id, "vout":1},{"txid":missing_auth_tx, "vout":missing_input_vout}], [{"data":missing_rawtx['vout'][0]['scriptPubKey']['hex'][4:]},{owner_address:10}])
-        signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
-        assert_raises_rpc_error(-26, "bad-txns-collateral-locked, tried to spend locked collateral for", self.nodes[0].sendrawtransaction, signed_rawtx['hex'])
-
         # Test transfer of owner
         self.transfer_owner(mn_id)
 
@@ -445,6 +441,15 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result[mn5]['ownerAuthAddress'], new_mn5_owner)
         assert_equal(result[mn6]['state'], 'ENABLED')
         assert_equal(result[mn6]['ownerAuthAddress'], new_mn6_owner)
+
+        # Update MN to address not owned in wallet
+        self.nodes[0].updatemasternode(mn1, {'ownerAddress':foreign_owner})
+        self.nodes[0].generate(21)
+
+        # Test new owner address
+        result = self.nodes[0].listmasternodes()
+        assert_equal(result[mn1]['state'], 'ENABLED')
+        assert_equal(result[mn1]['ownerAuthAddress'], foreign_owner)
 
 if __name__ == '__main__':
     TestForcedRewardAddress().main()

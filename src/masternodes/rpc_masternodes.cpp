@@ -394,8 +394,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    const CScript ownerScript = !metaObj["ownerAddress"].isNull() ? GetScriptForDestination(newOwnerDest) : GetScriptForDestination(ownerDest);
-    std::set<CScript> auths{ownerScript};
+    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
 
     // Return change to owner address
@@ -437,7 +436,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     if (!metaObj["ownerAddress"].isNull()) {
         if (const auto node = pcustomcsview->GetMasternode(nodeId)) {
             rawTx.vin.emplace_back(node->collateralTx.IsNull() ? nodeId : node->collateralTx, 1);
-            rawTx.vout.emplace_back(GetMnCollateralAmount(targetHeight), ownerScript);
+            rawTx.vout.emplace_back(GetMnCollateralAmount(targetHeight), GetScriptForDestination(newOwnerDest));
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("masternode %s does not exists", nodeIdStr));
         }
