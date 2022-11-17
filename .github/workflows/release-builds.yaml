@@ -41,7 +41,7 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
         path: ./contrib/dockerfiles/dockerhub
-        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu-clang.dockerfile
+        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
         repository: defi/defichain
         tags: latest,${{ env.BUILD_VERSION }}
 
