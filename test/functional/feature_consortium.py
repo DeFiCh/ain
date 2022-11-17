@@ -14,10 +14,10 @@ class ConsortiumTest (DefiTestFramework):
         self.num_nodes = 4
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=1', '-fortcanningheight=50', '-eunosheight=50', '-fortcanninghillheight=50', '-fortcanningparkheight=50', '-fortcanningroadheight=50', '-fortcanningcrunchheight=50', '-fortcanningspringheight=50', '-fortcanninggreatworldheight=250', '-grandcentralheight=254', '-regtest-minttoken-simulate-mainnet=1', '-txindex=1']]
 
     def run_test(self):
 
@@ -30,7 +30,14 @@ class ConsortiumTest (DefiTestFramework):
         account2 = self.nodes[2].get_genesis_keys().ownerAuthAddress
         account3 = self.nodes[3].get_genesis_keys().ownerAuthAddress
 
-        self.nodes[1].generate(150)
+        self.nodes[1].generate(20)
+        self.sync_blocks()
+
+        self.nodes[0].sendtoaddress(account1, 10)
+        self.nodes[0].sendtoaddress(account2, 10)
+        self.nodes[0].sendtoaddress(account3, 10)
+
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
         symbolBTC = "BTC"
@@ -43,16 +50,15 @@ class ConsortiumTest (DefiTestFramework):
             "collateralAddress": account0
         })
 
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         self.nodes[0].createtoken({
             "symbol": symbolDOGE,
             "name": "DOGE token",
             "isDAT": True,
-            "collateralAddress": account0
+            "collateralAddress": account3
         })
-
-        self.nodes[0].sendtoaddress(account1, 10)
-        self.nodes[0].sendtoaddress(account2, 10)
-        self.nodes[0].sendtoaddress(account3, 10)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -65,22 +71,26 @@ class ConsortiumTest (DefiTestFramework):
             'from': account0,
         })
 
-
         self.nodes[0].generate(254 - self.nodes[0].getblockcount())
         self.sync_blocks()
 
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolBTC])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[3].minttokens, ["1@" + symbolBTC])
+        # DAT owner can mint
+        self.nodes[3].minttokens(["1@" + symbolDOGE])
+        self.nodes[3].generate(1)
+        self.sync_blocks()
+
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolBTC])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolDOGE])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/consortium' : 'true'}})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolBTC])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[3].minttokens, ["1@" + symbolBTC])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolBTC])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolDOGE])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
         # Set global mint limits
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '10', 'v0/consortium/' + idBTC + '/mint_limit_daily' : '10'}})
@@ -130,7 +140,7 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/consortium/' + idBTC + '/members'], '{"01":{"name":"account2BTC","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":10.00000000,"dailyMintLimit":10.00000000,"status":0},"02":{"name":"account3BTC","ownerAddress":"' + account3 +'","backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5","mintLimit":4.00000000,"dailyMintLimit":4.00000000,"status":0}}')
         assert_equal(attribs['v0/consortium/' + idBTC + '/mint_limit'], '10')
 
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolDOGE])
 
         self.nodes[2].minttokens(["1@" + symbolBTC])
         self.nodes[2].generate(1)
@@ -169,6 +179,8 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"account2DOGE","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0},"02":{"name":"account1DOGE","ownerAddress":"' + account1 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0}}')
         assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit'], '6')
         assert_equal(attribs['v0/consortium/' + idDOGE + '/mint_limit_daily'], '6')
+
+        assert_raises_rpc_error(-32600, "You are not a foundation or consortium member and cannot mint this token", self.nodes[3].minttokens, ["1@" + symbolDOGE])
 
         self.nodes[2].minttokens(["2@" + symbolDOGE])
         self.nodes[2].generate(1)
@@ -290,7 +302,7 @@ class ConsortiumTest (DefiTestFramework):
 
         attribs = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
         assert_equal(attribs['v0/consortium/' + idDOGE + '/members'], '{"01":{"name":"account2DOGE","ownerAddress":"' + account2 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":1},"02":{"name":"account1DOGE","ownerAddress":"' + account1 +'","backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf","mintLimit":5.00000000,"dailyMintLimit":5.00000000,"status":0}}')
-        assert_equal(self.nodes[0].getburninfo(), {'address': 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG', 'amount': Decimal('0E-8'), 'tokens': [], 'consortiumtokens': ['2.00000000@DOGE'], 'feeburn': Decimal('2.00000000'), 'auctionburn': Decimal('0E-8'), 'paybackburn': [], 'dexfeetokens': [], 'dfipaybackfee': Decimal('0E-8'), 'dfipaybacktokens': [], 'paybackfees': [], 'paybacktokens': [], 'emissionburn': Decimal('4892.89500000'), 'dfip2203': [], 'dfip2206f': []})
+        assert_equal(self.nodes[0].getburninfo(), {'address': 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG', 'amount': Decimal('0E-8'), 'tokens': [], 'consortiumtokens': ['2.00000000@DOGE'], 'feeburn': Decimal('2.00000000'), 'auctionburn': Decimal('0E-8'), 'paybackburn': [], 'dexfeetokens': [], 'dfipaybackfee': Decimal('0E-8'), 'dfipaybacktokens': [], 'paybackfees': [], 'paybacktokens': [], 'emissionburn': Decimal('4908.33000000'), 'dfip2203': [], 'dfip2206f': []})
 
         assert_raises_rpc_error(-32600, "Cannot mint token, not an active member of consortium for DOGE!", self.nodes[2].minttokens, ["1@" + symbolDOGE])
 
@@ -455,13 +467,17 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolBTC])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[2].minttokens, ["1@" + symbolDOGE])
-        assert_raises_rpc_error(-5, "Need foundation or consortium member authorization", self.nodes[3].minttokens, ["1@" + symbolBTC])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolBTC])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[2].minttokens, ["1@" + symbolDOGE])
+        assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[3].minttokens, ["1@" + symbolBTC])
+
+        # DAT owner can mint again
+        self.nodes[3].minttokens(["1@" + symbolDOGE])
+        self.nodes[3].generate(1)
+        self.sync_blocks()
 
         # Test unlimited limit
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC +
-                             '/mint_limit': '-1', 'v0/consortium/' + idBTC + '/mint_limit_daily': '-1'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-1', 'v0/consortium/' + idBTC + '/mint_limit_daily': '-1'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
