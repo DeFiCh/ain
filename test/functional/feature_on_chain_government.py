@@ -382,6 +382,7 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(propId)
         assert_equal(result["status"], "Voting")
         assert_equal(result["currentCycle"], 2)
+        assert_equal(result["cycleEndHeight"], cycle2)
 
         # Move to just before final height
         self.nodes[0].generate(proposalEndHeight - self.nodes[0].getblockcount() - 1)
