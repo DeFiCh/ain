@@ -1284,10 +1284,15 @@ public:
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
+        const auto isRegTest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
+        const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
+        const auto forCanningCrunchHeight = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
+        const auto grandCentralHeight = static_cast<uint32_t>(consensus.GrandCentralHeight);
+
         // check auth and increase balance of token's owner
         for (const auto& [tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN &&
-                height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+                height >= forCanningCrunchHeight &&
                 mnview.GetLoanTokenByID(tokenId)) {
                 return Res::Err("Loan tokens cannot be minted");
             }
@@ -1296,9 +1301,7 @@ public:
             if (!token)
                 return Res::Err("token %s does not exist!", tokenId.ToString());
 
-            // only on REGTEST and when flag is not supplied
-            bool anybodyCanMint = (Params().NetworkIDString() == CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false));
-
+            bool anybodyCanMint = isRegTest && !isRegTestSimulateMainnet;
             auto mintable = MintableToken(tokenId, *token, anybodyCanMint);
 
             auto mintTokensInternal = [&](DCT_ID tokenId, CAmount amount) {
@@ -1317,7 +1320,7 @@ public:
             if (!mintable)
                 return std::move(mintable);
 
-            if (anybodyCanMint || height < static_cast<uint32_t>(consensus.GrandCentralHeight) || !token->IsDAT() || HasFoundationAuth())
+            if (anybodyCanMint || height < grandCentralHeight || !token->IsDAT() || HasFoundationAuth())
             {
                 auto res = mintTokensInternal(tokenId, amount);
                 if (!res) return res;
