@@ -493,7 +493,12 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         return propToJSON(propId, *prop);
     }
 
-    auto targetHeight = view.GetLastHeight() + 1;
+    int targetHeight;
+    if (prop->status == CPropStatusType::Voting) {
+        targetHeight = view.GetLastHeight() + 1;
+    } else {
+        targetHeight = prop->cycleEndHeight;
+    }
 
     std::set<uint256> activeMasternodes;
     view.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
@@ -577,11 +582,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         ret.pushKV("status", "Rejected");
     }
 
-    if (valid) {
-        ret.pushKV("approval", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
-    } else {
-        ret.pushKV("validity", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 100, quorum % 100));
-    }
+    ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
+    ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 100, quorum % 100));
 
     auto target = Params().GetConsensus().pos.nTargetSpacing;
     auto blocks = prop->proposalEndHeight - targetHeight;

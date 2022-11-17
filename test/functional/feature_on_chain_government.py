@@ -277,7 +277,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["context"], context)
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["status"], "Approved")
-        assert_equal(result["approval"], "75.00 of 66.67%")
+        assert_equal(result["votes"], "75.00 of 66.67%")
         assert_equal(result["ends"], "1 days")
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
@@ -378,6 +378,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.23346268"))
 
         # payout address
+        cycle2 = cycle1 + votingPeriod
         assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
         result = self.nodes[0].getgovproposal(propId)
         assert_equal(result["status"], "Voting")
@@ -453,7 +454,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["context"], context)
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["status"], "Approved")
-        assert_equal(result["approval"], "50.00 of 49.99%")
+        assert_equal(result["votes"], "50.00 of 49.99%")
         assert_equal(result["ends"], "3 hours")
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
