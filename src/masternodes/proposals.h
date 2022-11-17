@@ -103,6 +103,7 @@ struct CPropObject : public CCreatePropMessage {
     // memory only
     CPropStatusType status{};
     uint8_t cycle{};
+    uint32_t cycleEndHeight{};
 
     ADD_SERIALIZE_METHODS;
 

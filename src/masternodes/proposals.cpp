@@ -88,6 +88,7 @@ std::optional<CPropObject> CPropsView::GetProp(const CPropId& propId)
         if (auto cycle = ReadBy<ByStatus, uint8_t>(key)) {
             prop->cycle = *cycle;
             prop->status = status;
+            prop->cycleEndHeight = prop->creationHeight + (prop->votingPeriod - prop->creationHeight % prop->votingPeriod) + prop->votingPeriod;
             return true;
         }
         return false;

@@ -1,4 +1,5 @@
 
+#include "logging.h"
 #include <masternodes/mn_rpc.h>
 #include <masternodes/govvariables/attributes.h>
 
@@ -18,6 +19,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
     ret.pushKV("currentCycle", static_cast<int32_t>(prop.cycle));
     ret.pushKV("totalCycles", static_cast<int32_t>(prop.nCycles));
+    ret.pushKV("cycleEndHeight", static_cast<int32_t>(prop.cycleEndHeight));
     ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop.proposalEndHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
     if (prop.options)
