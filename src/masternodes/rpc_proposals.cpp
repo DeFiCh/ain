@@ -16,7 +16,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     auto status = static_cast<CPropStatusType>(prop.status);
     ret.pushKV("status", CPropStatusToString(status));
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
-    ret.pushKV("nextCycle", static_cast<int32_t>(prop.cycle));
+    ret.pushKV("currentCycle", static_cast<int32_t>(prop.cycle));
     ret.pushKV("totalCycles", static_cast<int32_t>(prop.nCycles));
     ret.pushKV("finalizeAfter", static_cast<int32_t>(prop.finalHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));

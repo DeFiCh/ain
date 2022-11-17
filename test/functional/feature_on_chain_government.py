@@ -159,7 +159,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["type"], "CommunityFundProposal")
         assert_equal(result[0]["status"], "Voting")
         assert_equal(result[0]["amount"], Decimal("100"))
-        assert_equal(result[0]["nextCycle"], 1)
+        assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
         assert_equal(result[0]["finalizeAfter"], finalHeight)
@@ -192,7 +192,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Check first cycle length
         result = self.nodes[0].listgovproposals()
-        assert_equal(result[0]['nextCycle'], 1)
+        assert_equal(result[0]['currentCycle'], 1)
 
         # Move to cycle payout
         self.nodes[0].generate(1)
@@ -202,7 +202,7 @@ class ChainGornmentTest(DefiTestFramework):
         blockcount = self.nodes[0].getblockcount()
 
         # Actually moved to next cycle at cycle1
-        assert_equal(result[0]['nextCycle'], 2)
+        assert_equal(result[0]['currentCycle'], 2)
         assert_equal(blockcount, cycle1)
 
         # First cycle should last for at least a votingPeriod
@@ -215,7 +215,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
         result = self.nodes[0].listgovproposals()[0]
         assert_equal(result["status"], "Voting")
-        assert_equal(result["nextCycle"], 2)
+        assert_equal(result["currentCycle"], 2)
 
         # Move to just before final height
         self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
@@ -337,7 +337,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["type"], "CommunityFundProposal")
         assert_equal(result[0]["status"], "Voting")
         assert_equal(result[0]["amount"], Decimal("50"))
-        assert_equal(result[0]["nextCycle"], 1)
+        assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
         assert_equal(result[0]["finalizeAfter"], finalHeight)
@@ -379,7 +379,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(self.nodes[1].getaccount(address), ['100.00000000@DFI'])
         result = self.nodes[0].getgovproposal(propId)
         assert_equal(result["status"], "Voting")
-        assert_equal(result["nextCycle"], 2)
+        assert_equal(result["currentCycle"], 2)
 
         # Move to just before final height
         self.nodes[0].generate(finalHeight - self.nodes[0].getblockcount() - 1)
