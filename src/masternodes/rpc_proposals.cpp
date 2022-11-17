@@ -10,7 +10,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop.title);
     ret.pushKV("context", prop.context);
-    ret.pushKV("contexthash", prop.contexthash);
+    ret.pushKV("currentHash", prop.currentHash);
     auto type = static_cast<CPropType>(prop.type);
     ret.pushKV("type", CPropTypeToString(type));
     auto status = static_cast<CPropStatusType>(prop.status);
@@ -92,7 +92,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
 
     CAmount amount;
     int cycles = 1;
-    std::string title, context, contexthash, addressStr;
+    std::string title, context, currentHash, addressStr;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -108,8 +108,8 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["contextHash"].isNull())
-        contexthash = data["contextHash"].get_str();
+    if (!data["currentHash"].isNull())
+        currentHash = data["currentHash"].get_str();
 
     if (!data["cycles"].isNull())
         cycles = data["cycles"].get_int();
@@ -139,7 +139,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
     pm.nCycles = cycles;
     pm.title = title;
     pm.context = context;
-    pm.contexthash = contexthash;
+    pm.currentHash = currentHash;
     pm.options = 0;
 
     // encode
@@ -223,7 +223,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
 
-    std::string title, context, contexthash;
+    std::string title, context, currentHash;
     bool emergency = false;
 
     const UniValue& data = request.params[0].get_obj();
@@ -240,8 +240,8 @@ UniValue creategovvoc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["contextHash"].isNull())
-        contexthash = data["contextHash"].get_str();
+    if (!data["currentHash"].isNull())
+        currentHash = data["currentHash"].get_str();
 
     if (!data["emergency"].isNull())
     {
@@ -254,7 +254,7 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     pm.nCycles = (emergency ? 1 : VOC_CYCLES);
     pm.title = title;
     pm.context = context;
-    pm.contexthash = contexthash;
+    pm.currentHash = currentHash;
     pm.options = (emergency ? CPropOption::Emergency : 0);
 
     // encode
@@ -554,8 +554,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop->title);
     ret.pushKV("context", prop->context);
-    if (!prop->contexthash.empty())
-        ret.pushKV("contexthash", prop->contexthash);
+    if (!prop->currentHash.empty())
+        ret.pushKV("contexthash", prop->currentHash);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
 
