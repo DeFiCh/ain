@@ -489,12 +489,8 @@ static bool VerifyToken(const CCustomCSView& view, const uint32_t id) {
     return view.GetToken(DCT_ID{id}).has_value();
 }
 
-static ResVal<CAttributeValue> VerifyConsortiumMember(const std::string& str) {
-    UniValue values(UniValue::VOBJ);
+static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue& values) {
     CConsortiumMembers members;
-
-    if (!values.read(str))
-        return Res::Err("Not a valid consortium member object!");
 
     for (const auto &key : values.getKeys())
     {
@@ -577,7 +573,6 @@ const std::map<uint8_t, std::map<uint8_t,
         },
         {
             AttributeTypes::Consortium, {
-                {ConsortiumKeys::MemberValues,          VerifyConsortiumMember},
                 {ConsortiumKeys::MintLimit,             VerifyPositiveOrMinusOneFloat},
                 {ConsortiumKeys::DailyMintLimit,        VerifyPositiveOrMinusOneFloat},
             }
@@ -702,7 +697,7 @@ void TrackLiveBalances(CCustomCSView& mnview, const CBalances& balances, const u
     mnview.SetVariable(*attributes);
 }
 
-Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::string> value,
+Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniValue> &value,
                                 std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable) {
 
     if (key.size() > 128) {
@@ -712,10 +707,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
     const auto keys = KeyBreaker(key);
     if (keys.empty() || keys[0].empty()) {
         return Res::Err("Empty version");
-    }
-
-    if (value && value->empty()) {
-        return Res::Err("Empty value");
     }
 
     const auto& iver = allowedVersions().find(keys[0]);
@@ -885,16 +876,33 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
         return applyVariable(attrV0, {});
     }
 
-    try {
-        if (auto parser = parseValue().at(type).at(typeKey)) {
-            auto attribValue = parser(*value);
-            if (!attribValue) {
-                return std::move(attribValue);
-            }
-            return applyVariable(attrV0, *attribValue.val);
+    // Tidy into new parseValue map for UniValue
+    if (attrV0.type == AttributeTypes::Consortium && attrV0.key == ConsortiumKeys::MemberValues) {
+        if (value && value->get_obj().empty()) {
+            return Res::Err("Empty value");
         }
-    } catch (const std::out_of_range&) {
+
+        auto attribValue = VerifyConsortiumMember(*value);
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
+    } else {
+        if (value && value->get_str().empty()) {
+            return Res::Err("Empty value");
+        }
+
+        try {
+            if (auto parser = parseValue().at(type).at(typeKey)) {
+                auto attribValue = parser(value->getValStr());
+                if (!attribValue) {
+                    return std::move(attribValue);
+                }
+                return applyVariable(attrV0, *attribValue.val);
+            }
+        } catch (const std::out_of_range&) {}
     }
+
     return Res::Err("No parse function {%d, %d}", type, typeKey);
 }
 
@@ -1031,9 +1039,9 @@ Res ATTRIBUTES::Import(const UniValue & val) {
     std::map<std::string, UniValue> objMap;
     val.getObjMap(objMap);
 
-    for (const auto& pair : objMap) {
+    for (const auto& [key, value] : objMap) {
         auto res = ProcessVariable(
-            pair.first, pair.second.get_str(),
+            key, value,
             [this](const CAttributeType& attribute, const CAttributeValue& value) {
                 if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
                     if (attrV0->type == AttributeTypes::Live ||
@@ -1235,7 +1243,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     elem.pushKV("status", member.status);
                     result.pushKV(id, elem);
                 }
-                ret.pushKV(key, result.write());
+                ret.pushKV(key, result);
             } else if (auto consortiumMinted = std::get_if<CConsortiumGlobalMinted>(&attribute.second)) {
                 for (const auto& token : *consortiumMinted)
                 {
