@@ -365,7 +365,7 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
 
 ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string& str) {
     CAmount amount = 0;
-    if (!ParseFixedPoint(str, 8, &amount) || !(amount > 0 || amount == -1 * COIN)) {
+    if (!ParseFixedPoint(str, 8, &amount) || !(amount >= 0 || amount == -1 * COIN)) {
         return Res::Err("Amount must be positive or -1");
     }
 
