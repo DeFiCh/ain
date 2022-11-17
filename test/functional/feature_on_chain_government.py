@@ -162,7 +162,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["finalizeAfter"], finalHeight)
+        assert_equal(result[0]["endHeight"], finalHeight)
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(tx, mn0)
@@ -340,7 +340,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
         assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["finalizeAfter"], finalHeight)
+        assert_equal(result[0]["endHeight"], finalHeight)
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(propId, mn0)

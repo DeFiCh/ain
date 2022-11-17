@@ -18,7 +18,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("amount", ValueFromAmount(prop.nAmount));
     ret.pushKV("currentCycle", static_cast<int32_t>(prop.cycle));
     ret.pushKV("totalCycles", static_cast<int32_t>(prop.nCycles));
-    ret.pushKV("finalizeAfter", static_cast<int32_t>(prop.finalHeight));
+    ret.pushKV("endHeight", static_cast<int32_t>(prop.finalHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
     if (prop.options)
     {

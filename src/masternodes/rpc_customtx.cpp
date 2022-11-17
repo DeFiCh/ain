@@ -530,7 +530,7 @@ public:
                 finalHeight += votingPeriod;
             }
         }
-        rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
+        rpcInfo.pushKV("endHeight", int64_t(finalHeight));
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options)
         {
