@@ -509,5 +509,11 @@ class ConsortiumTest (DefiTestFramework):
                                                                                             "dailyMintLimit":1.00000000, \
                                                                                             "mintLimit":1.00000000}}'}})
 
+        # Throw error for invalid values
+        assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
+        assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '0'}})
+
 if __name__ == '__main__':
     ConsortiumTest().main()
