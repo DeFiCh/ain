@@ -93,6 +93,8 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "You are not a foundation member or token owner and cannot mint this token", self.nodes[3].minttokens, ["1@" + symbolBTC])
 
         # Set global mint limits
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '0',
+                                             'v0/consortium/' + idBTC + '/mint_limit_daily': '0'}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '10', 'v0/consortium/' + idBTC + '/mint_limit_daily' : '10'}})
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -512,8 +514,6 @@ class ConsortiumTest (DefiTestFramework):
         # Throw error for invalid values
         assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
-        assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
-            "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '0'}})
 
 if __name__ == '__main__':
     ConsortiumTest().main()
