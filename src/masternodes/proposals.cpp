@@ -72,7 +72,7 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
             WriteBy<ByCycle>(keyPair, i);
         }
     }
-    prop.finalHeight = height;
+    prop.proposalEndHeight = height;
     WriteBy<ByType>(propId, prop);
     return Res::Ok();
 }
@@ -88,6 +88,7 @@ std::optional<CPropObject> CPropsView::GetProp(const CPropId& propId)
         if (auto cycle = ReadBy<ByStatus, uint8_t>(key)) {
             prop->cycle = *cycle;
             prop->status = status;
+            prop->cycleEndHeight = prop->creationHeight + (prop->votingPeriod - prop->creationHeight % prop->votingPeriod) + prop->votingPeriod * *cycle;
             return true;
         }
         return false;
@@ -143,8 +144,8 @@ Res CPropsView::UpdatePropStatus(const CPropId& propId, uint32_t height, CPropSt
         }
     }
 
-    if (p_prop->finalHeight != height) {
-        p_prop->finalHeight = height;
+    if (p_prop->proposalEndHeight != height) {
+        p_prop->proposalEndHeight = height;
         WriteBy<ByType>(propId, *p_prop);
     }
     return Res::Ok();
