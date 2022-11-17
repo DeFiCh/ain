@@ -51,7 +51,7 @@ struct CCreatePropMessage {
     uint8_t nCycles;
     std::string title;
     std::string context;
-    std::string contexthash;
+    std::string contextHash;
     uint8_t options;
 
     ADD_SERIALIZE_METHODS;
@@ -65,7 +65,7 @@ struct CCreatePropMessage {
         READWRITE(nCycles);
         READWRITE(title);
         READWRITE(context);
-        READWRITE(contexthash);
+        READWRITE(contextHash);
         READWRITE(options);
     }
 };
@@ -91,7 +91,7 @@ struct CPropObject : public CCreatePropMessage {
     explicit CPropObject(const CCreatePropMessage& other) : CCreatePropMessage(other) {}
 
     uint32_t creationHeight{};
-    uint32_t finalHeight{};
+    uint32_t proposalEndHeight{};
 
     uint32_t votingPeriod;
     CAmount majority;
@@ -103,6 +103,7 @@ struct CPropObject : public CCreatePropMessage {
     // memory only
     CPropStatusType status{};
     uint8_t cycle{};
+    uint32_t cycleEndHeight{};
 
     ADD_SERIALIZE_METHODS;
 
@@ -111,7 +112,7 @@ struct CPropObject : public CCreatePropMessage {
     {
         READWRITEAS(CCreatePropMessage, *this);
         READWRITE(creationHeight);
-        READWRITE(finalHeight);
+        READWRITE(proposalEndHeight);
         READWRITE(votingPeriod);
         READWRITE(majority);
         READWRITE(quorum);
