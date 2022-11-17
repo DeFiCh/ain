@@ -2,11 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <arith_uint256.h>
 #include <masternodes/poolpairs.h>
+
 #include <core_io.h>
-#include <primitives/transaction.h>
 #include <masternodes/govvariables/attributes.h>
+
+#include <tuple>
 
 struct PoolSwapValue {
     bool swapEvent;
@@ -201,22 +202,43 @@ inline CAmount liquidityReward(CAmount reward, CAmount liquidity, CAmount totalL
     return static_cast<CAmount>((arith_uint256(reward) * arith_uint256(liquidity) / arith_uint256(totalLiquidity)).GetLow64());
 }
 
+template<typename TIterator>
+bool MatchPoolId(TIterator & it, DCT_ID poolId) {
+    return it.Valid() && it.Key().poolID == poolId;
+}
+
 template<typename TIterator, typename ValueType>
 void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint32_t & height) {
 
-    if (it.Valid() && it.Key().poolID == poolId) {
+    if (MatchPoolId(it, poolId)) {
         value = it.Value();
         /// @Note we store keys in desc order so Prev is actually go in forward
         it.Prev();
-        if (it.Valid() && it.Key().poolID == poolId) {
-            height = it.Key().height;
-        } else {
-            height = UINT_MAX;
-        }
+        height = MatchPoolId(it, poolId) ? it.Key().height : UINT_MAX;
     } else {
-        value = {};
         height = UINT_MAX;
     }
+}
+
+template<typename By, typename Value>
+auto InitPoolVars(CPoolPairView & view, PoolHeightKey poolKey, uint32_t end) {
+
+    auto poolId = poolKey.poolID;
+    auto it = view.LowerBound<By>(poolKey);
+
+    auto height = poolKey.height;
+    static const uint32_t startHeight = Params().GetConsensus().GrandCentralHeight;
+    poolKey.height = std::max(height, startHeight);
+
+    while (!MatchPoolId(it, poolId) && poolKey.height < end) {
+        height = poolKey.height;
+        it.Seek(poolKey);
+        poolKey.height++;
+    }
+
+    Value value = MatchPoolId(it, poolId) ? it.Value() : Value{};
+
+    return std::make_tuple(std::move(value), std::move(it), height);
 }
 
 void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
@@ -231,25 +253,20 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
 
     PoolHeightKey poolKey = {poolId, begin};
 
-    CAmount poolReward = 0;
-    CAmount poolLoanReward = 0;
-    auto nextPoolReward = begin;
-    auto nextPoolLoanReward = begin;
-    auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
-    auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
+    auto [poolReward, itPoolReward, startPoolReward] = InitPoolVars<ByPoolReward, CAmount>(*this, poolKey, end);
+    auto nextPoolReward = startPoolReward;
 
-    CAmount totalLiquidity = 0;
-    auto nextTotalLiquidity = begin;
-    auto itTotalLiquidity = LowerBound<ByTotalLiquidity>(poolKey);
+    auto [poolLoanReward, itPoolLoanReward, startPoolLoanReward] = InitPoolVars<ByPoolLoanReward, CAmount>(*this, poolKey, end);
+    auto nextPoolLoanReward = startPoolLoanReward;
 
-    CBalances customRewards;
-    auto nextCustomRewards = begin;
-    auto itCustomRewards = LowerBound<ByCustomReward>(poolKey);
+    auto [totalLiquidity, itTotalLiquidity, nextTotalLiquidity] = InitPoolVars<ByTotalLiquidity, CAmount>(*this, poolKey, end);
 
-    PoolSwapValue poolSwap{};
-    auto nextPoolSwap = UINT_MAX;
-    auto poolSwapHeight = UINT_MAX;
-    auto itPoolSwap = LowerBound<ByPoolSwap>(poolKey);
+    auto [customRewards, itCustomRewards, startCustomRewards] = InitPoolVars<ByCustomReward, CBalances>(*this, poolKey, end);
+    auto nextCustomRewards = startCustomRewards;
+
+    auto poolSwapHeight = std::numeric_limits<uint32_t>::max();
+    auto nextPoolSwap = std::numeric_limits<uint32_t>::max();
+    auto [poolSwap, itPoolSwap, discard] = InitPoolVars<ByPoolSwap, PoolSwapValue>(*this, poolKey, end);
     if (itPoolSwap.Valid() && itPoolSwap.Key().poolID == poolId) {
         nextPoolSwap = itPoolSwap.Key().height;
     }
@@ -277,7 +294,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         }
         const auto liquidity = onLiquidity();
         // daily rewards
-        if (poolReward != 0) {
+        if (height >= startPoolReward && poolReward != 0) {
             CAmount providerReward = 0;
             if (height < newCalcHeight) { // old calculation
                 uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
@@ -287,7 +304,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
             onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
-        if (poolLoanReward != 0) {
+        if (height >= startPoolLoanReward && poolLoanReward != 0) {
             CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
             onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
         }
@@ -310,9 +327,11 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             }
         }
         // custom rewards
-        for (const auto& reward : customRewards.balances) {
-            if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(RewardType::Pool, {reward.first, providerReward}, height);
+        if (height >= startCustomRewards) {
+            for (const auto& reward : customRewards.balances) {
+                if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
+                    onReward(RewardType::Pool, {reward.first, providerReward}, height);
+                }
             }
         }
         ++height;
