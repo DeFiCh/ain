@@ -446,7 +446,7 @@ private:
     static const std::map<uint8_t, std::map<uint8_t,
             std::function<ResVal<CAttributeValue>(const std::string&)>>>& parseValue();
 
-    Res ProcessVariable(const std::string& key, std::optional<std::string> value,
+    Res ProcessVariable(const std::string& key, const std::optional<UniValue> &value,
                         std::function<Res(const CAttributeType&, const CAttributeValue&)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
