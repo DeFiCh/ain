@@ -559,10 +559,19 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop->title);
     ret.pushKV("context", prop->context);
-    if (!prop->contextHash.empty())
-        ret.pushKV("contextHash", prop->contextHash);
+    ret.pushKV("contextHash", prop->contextHash);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
+    if (valid && votes >= majorityThreshold) {
+        ret.pushKV("status", "Approved");
+    } else {
+        ret.pushKV("status", "Rejected");
+    }
+    ret.pushKV("currentCycle", static_cast<int32_t>(prop->cycle));
+    ret.pushKV("totalCycles", static_cast<int32_t>(prop->nCycles));
+    ret.pushKV("cycleEndHeight", static_cast<int32_t>(prop->cycleEndHeight));
+    ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop->proposalEndHeight));
+    ret.pushKV("payoutAddress", ScriptToString(prop->address));
 
     if (prop->options)
     {
@@ -576,25 +585,9 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         ret.pushKV("options", array);
     }
 
-    if (valid && votes >= majorityThreshold) {
-        ret.pushKV("status", "Approved");
-    } else {
-        ret.pushKV("status", "Rejected");
-    }
-
     ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
     ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 100, quorum % 100));
 
-    auto target = Params().GetConsensus().pos.nTargetSpacing;
-    auto blocks = prop->proposalEndHeight - targetHeight;
-
-    if (blocks > Params().GetConsensus().blocksPerDay()) {
-        ret.pushKV("ends", strprintf("%d days", blocks * target / 60 / 60 / 24));
-    } else if (blocks > Params().GetConsensus().blocksPerDay() / 24) {
-        ret.pushKV("ends", strprintf("%d hours", blocks * target / 60 / 60));
-    } else {
-        ret.pushKV("ends", strprintf("%d minutes", blocks * target / 60));
-    }
     return ret;
 }
 
