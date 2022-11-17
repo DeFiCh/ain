@@ -76,6 +76,7 @@ EXTENDED_SCRIPTS = [
     'wallet_hd.py',     # moved to ext due to heavy load for trevis
     'mempool_accept.py',# moved to ext due to heavy load for trevis
     'wallet_backup.py', # moved to ext due to heavy load for trevis
+    'feature_on_chain_government_govvar_update.py',
 ]
 
 BASE_SCRIPTS = [
@@ -113,6 +114,7 @@ BASE_SCRIPTS = [
     'feature_abortnode.py',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
+    'feature_stored_interest.py',
     'feature_fee_estimation.py',
     'feature_dip1.py',
     'feature_dfip8_communitybalances.py',
@@ -126,6 +128,8 @@ BASE_SCRIPTS = [
     'feature_token_split.py',
     'feature_token_split_mechanism.py',
     'feature_token_split_usd_value.py',
+    'feature_token_merge_usd_value.py',
+    'feature_token_merge.py',
     'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
     'feature_setgov.py',
@@ -136,6 +140,7 @@ BASE_SCRIPTS = [
     'interface_defi_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
+    'feature_migrate_v1_in_futures.py',
     'tool_wallet.py',
     'wallet_txn_clone.py',
     'wallet_txn_clone.py --segwit',
@@ -160,6 +165,7 @@ BASE_SCRIPTS = [
     'wallet_multiwallet.py --usecli',
     'wallet_createwallet.py',
     'wallet_createwallet.py --usecli',
+    'feature_negative_loan_interest.py',
     'wallet_watchonly.py',
     'wallet_watchonly.py --usecli',
     'feature_poolpair.py',
@@ -175,9 +181,12 @@ BASE_SCRIPTS = [
     'feature_loan_listauctions.py',
     'feature_loan_auctions.py',
     'feature_loan_dusd_as_collateral.py',
+    'feature_loan_payback_with_collateral.py',
     'feature_any_accounts_to_accounts.py',
+    'feature_community_development_funds.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
+    'feature_split_migrate_lock.py',
     'feature_poolswap_composite.py',
     'feature_poolswap_mechanism.py',
     'feature_poolswap_mainnet.py',
@@ -185,6 +194,7 @@ BASE_SCRIPTS = [
     'feature_masternode_operator.py',
     'feature_mine_cached.py',
     'feature_mempool_dakota.py',
+    'feature_consortium.py',
     'interface_http.py',
     'interface_http_cors.py',
     'interface_rpc.py',
@@ -208,6 +218,7 @@ BASE_SCRIPTS = [
     'p2p_invalid_block.py',
     'p2p_invalid_messages.py',
     'p2p_invalid_tx.py',
+    'feature_foundation_migration.py',
     'feature_assumevalid.py',
     'example_test.py',
     'feature_jellyfish_initial_funds.py',
@@ -238,9 +249,12 @@ BASE_SCRIPTS = [
     'rpc_named_arguments.py',
     'wallet_listsinceblock.py',
     'p2p_leak.py',
+    'feature_higher_collateral_factor.py',
+    'feature_skip_collateral_factor_check.py',
     'wallet_encryption.py',
     'feature_dersig.py',
     'feature_cltv.py',
+    'rpc_updatemasternode.py',
     'rpc_uptime.py',
     'feature_longterm_lockin.py',
     'wallet_resendwallettransactions.py',
@@ -276,6 +290,7 @@ BASE_SCRIPTS = [
     'feature_loan.py',
     'feature_loan_low_interest.py',
     'feature_loan_estimatecollateral.py',
+    'feature_vault_pct_check_factor.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
@@ -283,6 +298,8 @@ BASE_SCRIPTS = [
     'feature_account_mining.py',
     'feature_accounts_validation.py',
     'feature_listaccounts_pagination.py',
+    'feature_on_chain_government.py',
+    'feature_on_chain_government_fee_distribution.py',
     'rpc_help.py',
     'feature_help.py',
     'feature_shutdown.py',
@@ -292,8 +309,12 @@ BASE_SCRIPTS = [
     'feature_burn_address.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
+    'feature_testpoolswap.py',
     'feature_update_mn.py',
     'feature_block_reward.py',
+    'feature_negative_interest.py',
+    'rpc_getstoredinterest.py',
+    'feature_dusd_loans.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]

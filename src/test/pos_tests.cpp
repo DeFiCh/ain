@@ -24,7 +24,6 @@ std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height,
     auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey);
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
-
     pblock->mintedBlocks = mintedBlocks;
     pblock->deprecatedHeight = height;
 
@@ -33,17 +32,11 @@ std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height,
 
 std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint256& masternodeID, const CKey& minterKey, const uint256& prevStakeModifier)
 {
-    LOCK(cs_main); // For LookupBlockIndex
     static uint64_t time = Params().GenesisBlock().nTime;
-
     pblock->stakeModifier = pos::ComputeStakeModifier(prevStakeModifier, minterKey.GetPubKey().GetID());
-
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-
     pblock->nTime = time + 10;
-
     BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
-
     return pblock;
 }
 
@@ -79,7 +72,7 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
 BOOST_AUTO_TEST_CASE(check_stake_modifier)
 {
     uint256 masternodeID = testMasternodeKeys.begin()->first;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    auto pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
 
@@ -108,7 +101,7 @@ BOOST_AUTO_TEST_CASE(check_stake_modifier)
 BOOST_AUTO_TEST_CASE(check_header_signature)
 {
     uint256 masternodeID = testMasternodeKeys.begin()->first;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    auto pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
 
@@ -137,7 +130,7 @@ BOOST_AUTO_TEST_CASE(check_header_signature)
 BOOST_AUTO_TEST_CASE(contextual_check_pos)
 {
     uint256 masternodeID = testMasternodeKeys.begin()->first;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    auto pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
     CheckContextState ctxState;
@@ -158,7 +151,7 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
 BOOST_AUTO_TEST_CASE(sign_pos_block)
 {
     uint256 masternodeID = testMasternodeKeys.begin()->first;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    auto pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
 

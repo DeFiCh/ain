@@ -25,7 +25,7 @@ class VaultTest (DefiTestFramework):
         self.owner_addresses = []
         self.oracles = []
 
-    def move_to_gw_fork(self):
+    def move_to_fork(self):
         result = self.nodes[0].listcollateraltokens()
         assert_equal(result[0]['token'], 'DFI')
         assert_equal(result[0]['factor'], Decimal('1.00000000'))
@@ -451,13 +451,9 @@ class VaultTest (DefiTestFramework):
         assert_equal(acBTC, ['9.30000000@BTC'])
 
     def takeloan_breaking_50pctDFI_rule(self):
-        try:
-            self.nodes[0].takeloan({
-                    'vaultId': self.vaults[0],
-                    'amounts': "0.1@TSLA"})
-        except JSONRPCException as e:
-            error_str = e.error['message']
-        assert("At least 50% of the minimum required collateral must be in DFI when taking a loan" in error_str)
+        assert_raises_rpc_error(-32600, "At least 50% of the minimum required collateral must be in DFI", self.nodes[0].takeloan, {
+            'vaultId': self.vaults[0],
+            'amounts': "0.1@TSLA"})
 
     def takeloan_with_50pctDFI(self):
         self.nodes[0].deposittovault(self.vaults[0], self.accountDFI, '0.7@DFI')
@@ -740,14 +736,7 @@ class VaultTest (DefiTestFramework):
 
     def loan_and_collateral_token_to_govvar(self):
         # Move to hard fork
-        self.move_to_gw_fork()
-
-        # Invalidate fork block
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
-        assert_equal(len(self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']), 0)
-
-        # Move to hard fork again
-        self.move_to_gw_fork()
+        self.move_to_fork()
 
         # Test setting collateral token partially
         self.nodes[0].setgov({"ATTRIBUTES":{f'v0/token/{self.idETH}/fixed_interval_price_id':'ETH/USD', f'v0/token/{self.idETH}/loan_collateral_enabled':'true'}})

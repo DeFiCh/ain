@@ -159,12 +159,20 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             CAmount burnt{0};
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (blockindex->nHeight < Params().GetConsensus().GrandCentralHeight
+                && kv.first == CommunityAccountType::CommunityDevFunds) {
+                    continue;
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
-                if (kv.first == CommunityAccountType::AnchorReward) {
-                    nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
-                } else {
-                    burnt += subsidy; // Everything else goes into burnt
+                switch(kv.first) {
+                    case CommunityAccountType::AnchorReward:
+                    case CommunityAccountType::CommunityDevFunds:
+                        nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
+                    break;
+                    default:
+                        burnt += subsidy; // Everything else goes into burnt
                 }
             }
 
@@ -1334,7 +1342,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
     BuriedForkDescPushBack(softforks, "fortcanningcrunch", consensusParams.FortCanningCrunchHeight);
     BuriedForkDescPushBack(softforks, "fortcanningspring", consensusParams.FortCanningSpringHeight);
-    BuriedForkDescPushBack(softforks, "greatworld", consensusParams.GreatWorldHeight);
+    BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.FortCanningGreatWorldHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
+    BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

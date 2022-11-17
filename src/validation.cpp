@@ -629,7 +629,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         pool.rebuildAccountsView(height, view);
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -1422,7 +1422,8 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     Coin coin;
     for(size_t i = 0; i < tx.vin.size(); ++i)
     {
-        if (inputs.GetCoin(tx.vin[i].prevout, coin) && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
+        if (inputs.GetCoin(tx.vin[i].prevout, coin)
+        && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
         {
             return false;
         }
@@ -1729,7 +1730,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // Undo community balance increments
-    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
+    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight, Params().GetConsensus());
 
     CKeyID minterKey;
     std::optional<uint256> nodeId;
@@ -1810,7 +1811,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 // Check for burn outputs
                 if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
                 {
-                    eraseBurnEntries.push_back({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
+                    eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
                 }
             }
         }
@@ -1841,6 +1842,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         auto time = GetTimeMillis();
         LogPrintf("Interest rate reverting ...\n");
         mnview.RevertInterestRateToV1();
+        LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
+    }
+
+    // one time downgrade to revert CInterestRateV3 structure
+    if (pindex->nHeight == Params().GetConsensus().FortCanningGreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate reverting ...\n");
+        mnview.RevertInterestRateToV2();
         LogPrint(BCLog::BENCH, "    - Interest rate reverting took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -2054,7 +2063,11 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (height >= consensus.AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.EunosHeight)
+        if (height >= consensus.GrandCentralHeight)
+        {
+            // no foundation utxo reward check anymore
+        }
+        else if (height >= consensus.EunosHeight)
         {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
         }
@@ -2093,6 +2106,12 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             CAmount subsidy;
             for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < consensus.GrandCentralHeight) {
+                        continue;
+                    }
+                }
+
                 subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 Res res = Res::Ok();
@@ -2107,6 +2126,23 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
                 else
                 {
+                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    {
+                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+                        auto attributes = mnview.GetAttributes();
+                        if (!attributes) {
+                            return Res::ErrDbg("attributes-not-found", "Critical error!");
+                        }
+                        if (!attributes->GetValue(enabledKey, false))
+                        {
+                            mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                            nonUtxoTotal += subsidy;
+
+                            continue;
+                        }
+                    }
+
                     res = mnview.AddCommunityBalance(kv.first, subsidy);
                     if (res)
                         LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(kv.first), (CBalances{{{{0}, subsidy}}}.ToString()));
@@ -2145,7 +2181,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 }
 
 
-void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensus::Params& consensus)
 {
     CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
 
@@ -2155,6 +2191,12 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
         {
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < Params().GetConsensus().GrandCentralHeight) {
+                        continue;
+                    }
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Loan and Options balances from Unallocated
@@ -2165,6 +2207,22 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
                 }
                 else
                 {
+                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    {
+                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+                        auto attributes = mnview.GetAttributes();
+                        if (!attributes) {
+                            return;
+                        }
+                        if (!attributes->GetValue(enabledKey, false))
+                        {
+                            mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+
+                            continue;
+                        }
+                    }
+
                     mnview.SubCommunityBalance(kv.first, subsidy);
                 }
             }
@@ -2544,7 +2602,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CHistoryWriters writers{paccountHistoryDB.get(), nullptr, nullptr};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2561,6 +2619,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
         mnview.MigrateInterestRateToV2(mnview,(uint32_t)pindex->nHeight);
+        LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
+    }
+
+    if (pindex->nHeight == chainparams.GetConsensus().FortCanningGreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Interest rate migration ...\n");
+        mnview.MigrateInterestRateToV3(mnview, static_cast<uint32_t>(pindex->nHeight));
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
@@ -2583,7 +2648,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            __func__, nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
+        const auto stakeModifier = pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress);
+        if (block.stakeModifier != stakeModifier) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("%s: block's stake Modifier should be %d, got %d!",
@@ -2751,7 +2817,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2812,7 +2878,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, &writers);
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2872,7 +2938,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
-                writeBurnEntries.push_back({{Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), i},
+                writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
             }
         }
@@ -3033,6 +3099,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // DFI-to-DUSD swaps
         ProcessFuturesDUSD(pindex, cache, chainparams);
+
+        // Tally negative interest across vaults
+        ProcessNegativeInterest(pindex, cache);
+
+        // proposal activations
+        ProcessProposalEvents(pindex, cache, chainparams);
+
+        // Masternode updates
+        ProcessMasternodeUpdates(pindex, cache, view, chainparams);
+
+        // Migrate foundation members to attributes
+        ProcessGrandCentralEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3305,7 +3383,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
-        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
 
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
@@ -3334,21 +3411,45 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             // further. Note, however, it's added back so that it's accurate
             // for auction calculations.
             CBalances totalInterest;
-            for (auto& loan : loanTokens->balances) {
-                auto tokenId = loan.first;
-                auto tokenValue = loan.second;
+            for (auto it = loanTokens->balances.begin(); it != loanTokens->balances.end();) {
+                const auto &[tokenId, tokenValue] = *it;
+
                 auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
                 assert(rate);
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                auto subInterest = TotalInterest(*rate, pindex->nHeight);
-                totalInterest.Add({tokenId, subInterest});
 
-                // Remove the interests from the vault and the storage respectively
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                if (subInterest > 0) {
+                    totalInterest.Add({tokenId, subInterest});
+                }
+
+                // Remove loan from the vault
                 cache.SubLoanToken(vaultId, {tokenId, tokenValue});
-                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
-                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue, subInterest);
+
+                if (const auto token = cache.GetToken("DUSD"); token && token->first == tokenId) {
+                    TrackDUSDSub(cache, {tokenId, tokenValue});
+                }
+
+                // Remove interest from the vault
+                cache.DecreaseInterest(pindex->nHeight, vaultId, vault->schemeId, tokenId, tokenValue,
+                    subInterest < 0 || (!subInterest && rate->interestPerBlock.negative) ? std::numeric_limits<CAmount>::max() : subInterest);
+
                 // Putting this back in now for auction calculations.
-                loan.second += subInterest;
+                it->second += subInterest;
+
+                // If loan amount fully negated then remove it
+                if (it->second < 0) {
+
+                    TrackNegativeInterest(cache, {tokenId, tokenValue});
+
+                    it = loanTokens->balances.erase(it);
+                } else {
+
+                    if (subInterest < 0) {
+                        TrackNegativeInterest(cache, {tokenId, std::abs(subInterest)});
+                    }
+
+                    ++it;
+                }
             }
 
             // Remove the collaterals out of the vault.
@@ -3362,16 +3463,35 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
 
             // Now, let's add the remaining amounts and store the batch.
+            CBalances totalLoanInBatches{};
             for (auto i = 0u; i < batches.size(); i++) {
                 auto& batch = batches[i];
+                totalLoanInBatches.Add(batch.loanAmount);
                 auto tokenId = batch.loanAmount.nTokenId;
                 auto interest = totalInterest.balances[tokenId];
                 if (interest > 0) {
                     auto balance = loanTokens->balances[tokenId];
                     auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
                     batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                    totalLoanInBatches.Sub({tokenId, batch.loanInterest});
                 }
                 cache.StoreAuctionBatch({vaultId, i}, batch);
+            }
+
+            // Check if more than loan amount was generated.
+            CBalances balances;
+            for (const auto& [tokenId, amount] : loanTokens->balances) {
+                if (totalLoanInBatches.balances.count(tokenId)) {
+                    const auto interest = totalInterest.balances.count(tokenId) ? totalInterest.balances[tokenId] : 0;
+                    if (totalLoanInBatches.balances[tokenId] > amount - interest) {
+                        balances.Add({tokenId, totalLoanInBatches.balances[tokenId] - (amount - interest)});
+                    }
+                }
+            }
+
+            // Only store to attributes if there has been a rounding error.
+            if (!balances.balances.empty()) {
+                TrackLiveBalances(cache, balances, EconomyKeys::BatchRoundingExcess);
             }
 
             // All done. Ready to save the overall auction.
@@ -3400,6 +3520,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         auto vault = view.GetVault(vaultId);
         assert(vault);
 
+        CBalances balances;
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch({vaultId, i});
             assert(batch);
@@ -3457,13 +3578,27 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             } else {
                 // we should return loan including interest
                 view.AddLoanToken(vaultId, batch->loanAmount);
-                view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, batch->loanAmount.nValue);
+                balances.Add({batch->loanAmount.nTokenId, batch->loanInterest});
+
+                // When tracking loan amounts remove interest.
+                if (const auto token = view.GetToken("DUSD"); token && token->first == batch->loanAmount.nTokenId) {
+                    TrackDUSDAdd(view, {batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest});
+                }
+
+                if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.IncreaseInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, token->interest, batch->loanAmount.nValue);
+                }
                 for (const auto& col : batch->collaterals.balances) {
                     auto tokenId = col.first;
                     auto tokenAmount = col.second;
                     view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
                 }
             }
+        }
+
+        // Only store to attributes if there has been a rounding error.
+        if (!balances.balances.empty()) {
+            TrackLiveBalances(view, balances, EconomyKeys::ConsolidatedInterest);
         }
 
         vault->isUnderLiquidation = false;
@@ -3826,6 +3961,62 @@ void CChainState::ProcessFuturesDUSD(const CBlockIndex* pindex, CCustomCSView& c
     cache.SetVariable(*attributes);
 }
 
+void CChainState::ProcessNegativeInterest(const CBlockIndex* pindex, CCustomCSView& cache) {
+
+    if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    DCT_ID dusd{};
+    const auto token = cache.GetTokenGuessId("DUSD", dusd);
+    if (!token) {
+        return;
+    }
+
+    CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
+    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    negativeInterestKey.key = EconomyKeys::NegativeIntCurrent;
+
+    cache.ForEachLoanTokenAmount([&](const CVaultId& vaultId,  const CBalances& balances){
+        for (const auto& [tokenId, amount] : balances.balances) {
+            if (tokenId == dusd) {
+                const auto rate = cache.GetInterestRate(vaultId, tokenId, pindex->nHeight);
+                if (!rate) {
+                    continue;
+                }
+
+                const auto totalInterest = TotalInterest(*rate, pindex->nHeight);
+                if (totalInterest < 0) {
+                    negativeInterestBalances.Add({tokenId, amount > std::abs(totalInterest)  ? std::abs(totalInterest) : amount});
+                }
+            }
+        }
+        return true;
+    });
+
+    if (!negativeInterestBalances.balances.empty()) {
+        attributes->SetValue(negativeInterestKey, negativeInterestBalances);
+        cache.SetVariable(*attributes);
+    }
+}
+
+void CChainState::ProcessGrandCentralEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+
+    if (pindex->nHeight != chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+    attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
+    cache.SetVariable(*attributes);
+}
+
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
@@ -3887,8 +4078,48 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
-                    govCache.Flush();
+                auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+                assert(newVar);
+
+                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+
+                if (!memberRemoval.empty()) {
+                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+
+                    for (auto &member : memberRemoval) {
+                        if (member.empty()) {
+                            continue;
+                        }
+
+                        if (member[0] == '-') {
+                            auto memberCopy{member};
+                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                            if (!IsValidDestination(dest)) {
+                                continue;
+                            }
+                            existingMembers.erase(GetScriptForDestination(dest));
+
+                        } else {
+                            const auto dest = DecodeDestination(member);
+                            if (!IsValidDestination(dest)) {
+                                continue;
+                            }
+                            existingMembers.insert(GetScriptForDestination(dest));
+                        }
+                    }
+
+                    govVar->SetValue(key, existingMembers);
+
+                    // Remove this key and apply any other changes
+                    newVar->EraseKey(key);
+                    if (govVar->Import(newVar->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                        govCache.Flush();
+                    }
+                } else {
+                    if (govVar->Import(var->Export()) && govVar->Validate(govCache) && govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                        govCache.Flush();
+                    }
                 }
             } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
                 govCache.Flush();
@@ -3896,6 +4127,200 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+}
+
+void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+    auto attributes = cache.GetAttributes();
+    if (!attributes) {
+        return;
+    }
+
+    auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
+    if (!attributes->GetValue(enabledKey, false))
+    {
+        if (funds > 0) {
+            cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
+            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
+        }
+
+        return;
+    }
+
+    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    if (balance.nValue > 0) {
+        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+    }
+
+    std::set<uint256> activeMasternodes;
+    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
+        if (prop.status != CPropStatusType::Voting) return false;
+
+        if (activeMasternodes.empty()) {
+            cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+                if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
+                    activeMasternodes.insert(mnId);
+                }
+                return true;
+            });
+            if (activeMasternodes.empty()) {
+                return false;
+            }
+        }
+
+        uint32_t voteYes = 0;
+        std::set<uint256> voters{};
+        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+            if (pId != propId || cycle != prop.cycle) {
+                return false;
+            }
+            if (activeMasternodes.count(mnId)) {
+                voters.insert(mnId);
+                if (vote == CPropVoteType::VoteYes) {
+                    ++voteYes;
+                }
+            }
+            return true;
+        }, CMnVotePerCycle{propId, prop.cycle});
+
+        // Redistributes fee among voting masternodes
+        CDataStructureV0 feeRedistributionKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeRedistribution};
+
+        if (voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
+            // return half fee among voting masternodes, the rest is burned at creation
+            auto feeBack = prop.fee - prop.feeBurnAmount;
+            auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
+            for (const auto mnId : voters) {
+                auto const mn = cache.GetMasternode(mnId);
+                assert(mn);
+
+                CScript scriptPubKey;
+                if (mn->rewardAddressType != 0) {
+                    scriptPubKey = GetScriptForDestination(mn->rewardAddressType == PKHashType ?
+                        CTxDestination(PKHash(mn->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(mn->rewardAddress))
+                    );
+                } else {
+                    scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
+                        CTxDestination(PKHash(mn->ownerAuthAddress)) :
+                        CTxDestination(WitnessV0KeyHash(mn->ownerAuthAddress))
+                    );
+                }
+
+                CHistoryWriters subWriters{paccountHistoryDB.get(), nullptr, nullptr};
+                CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::ProposalFeeRedistribution), &subWriters);
+
+                auto res = subView.AddBalance(scriptPubKey, {DCT_ID{0}, amountPerVoter});
+                if (!res) {
+                    LogPrintf("Proposal fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
+                }
+                subView.Flush();
+            }
+
+            // Burn leftover sats.
+            auto burnAmount = feeBack - MultiplyAmounts(amountPerVoter, voters.size() * COIN);
+            if (burnAmount > 0) {
+                auto res = cache.AddBalance(Params().GetConsensus().burnAddress, {{0}, burnAmount});
+                if (!res) {
+                    LogPrintf("Burn of proposal fee redistribution leftover failed. Amount: %d\n", burnAmount);
+                }
+            }
+        }
+
+        CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+        CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
+
+        bool emergency = prop.options & CPropOption::Emergency;
+        uint64_t quorum;
+        if (prop.type == CPropType::VoteOfConfidence && emergency) {
+            quorum = attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
+        } else {
+            quorum = attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000;
+        }
+
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        uint32_t majorityThreshold{};
+        CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+        CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+
+        switch(prop.type) {
+            case CPropType::CommunityFundProposal:
+                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold) / 10000;
+                break;
+            case CPropType::VoteOfConfidence:
+                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold) / 10000;
+                break;
+        }
+
+        if (lround(voteYes * 10000.f / voters.size()) <= majorityThreshold) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        if (prop.nCycles == prop.cycle) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+        } else {
+            assert(prop.nCycles > prop.cycle);
+            cache.UpdatePropCycle(propId, prop.cycle + 1);
+        }
+
+        CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
+
+        if (prop.type == CPropType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
+            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
+            if (res) {
+                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+            } else {
+                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+            }
+        }
+
+        return true;
+    }, pindex->nHeight);
+}
+
+void CChainState::ProcessMasternodeUpdates(const CBlockIndex* pindex, CCustomCSView& cache, const CCoinsViewCache& view, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GrandCentralHeight) {
+        return;
+    }
+    // Apply any pending masternode owner changes
+    cache.ForEachNewCollateral([&](const uint256& key, const MNNewOwnerHeightValue& value){
+        if (value.blockHeight == static_cast<uint32_t>(pindex->nHeight)) {
+            auto node = cache.GetMasternode(value.masternodeID);
+            assert(node);
+            assert(key == node->collateralTx);
+            const auto& coin = view.AccessCoin({node->collateralTx, 1});
+            assert(!coin.IsSpent());
+            CTxDestination dest;
+            assert(ExtractDestination(coin.out.scriptPubKey, dest));
+            const CKeyID keyId = dest.index() == PKHashType ? CKeyID(std::get<PKHash>(dest)) : CKeyID(std::get<WitnessV0KeyHash>(dest));
+            cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
+        }
+        return true;
+    });
+
+    std::set<CKeyID> pendingToErase;
+    cache.ForEachPendingHeight([&](const CKeyID &ownerAuthAddress, const uint32_t &height) {
+        if (height == static_cast<uint32_t>(pindex->nHeight)) {
+            pendingToErase.insert(ownerAuthAddress);
+        }
+        return true;
+    });
+
+    for (const auto &keyID : pendingToErase) {
+        cache.ErasePendingHeight(keyID);
+    }
 }
 
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
@@ -4383,18 +4808,32 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     }
 
     CVaultId failedVault;
-    std::vector<std::tuple<CVaultId, CInterestRateV2, std::string>> loanInterestRates;
-    view.ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2& rate) {
-        if (tokenId == oldTokenId) {
-            const auto vaultData = view.GetVault(vaultId);
-            if (!vaultData) {
-                failedVault = vaultId;
-                return false;
+    std::vector<std::tuple<CVaultId, CInterestRateV3, std::string>> loanInterestRates;
+    if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
+        view.ForEachVaultInterestV3([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV3& rate) {
+            if (tokenId == oldTokenId) {
+                const auto vaultData = view.GetVault(vaultId);
+                if (!vaultData) {
+                    failedVault = vaultId;
+                    return false;
+                }
+                loanInterestRates.emplace_back(vaultId, rate, vaultData->schemeId);
             }
-            loanInterestRates.emplace_back(vaultId, rate, vaultData->schemeId);
-        }
-        return true;
-    });
+            return true;
+        });
+    } else {
+        view.ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2& rate) {
+            if (tokenId == oldTokenId) {
+                const auto vaultData = view.GetVault(vaultId);
+                if (!vaultData) {
+                    failedVault = vaultId;
+                    return false;
+                }
+                loanInterestRates.emplace_back(vaultId, ConvertInterestRateToV3(rate), vaultData->schemeId);
+            }
+            return true;
+        });
+    }
 
     if (failedVault != CVaultId{}) {
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
@@ -4456,18 +4895,18 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             return Res::Err("Failed to get loan scheme.");
         }
 
-        view.EraseInterestDirect(vaultId, oldTokenId);
+        view.EraseInterest(vaultId, oldTokenId, height);
         auto oldRateToHeight = rate.interestToHeight;
-        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight);
+        auto newRateToHeight = CalculateNewAmount(multiplier, rate.interestToHeight.amount);
 
-        rate.interestToHeight = newRateToHeight;
+        rate.interestToHeight.amount = newRateToHeight;
 
         auto oldInterestPerBlock = rate.interestPerBlock;
-        auto newInterestRatePerBlock = base_uint<128>(0);
+        CInterestAmount newInterestRatePerBlock{};
 
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
-            newInterestRatePerBlock = InterestPerBlockCalculationV2(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+            newInterestRatePerBlock = InterestPerBlockCalculationV3(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
@@ -4475,7 +4914,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Interest (%s: %s => %s, %s => %s)\n",
                 vaultId.ToString(),
                 GetInterestPerBlockHighPrecisionString(oldRateToHeight),
-                GetInterestPerBlockHighPrecisionString(newRateToHeight),
+                GetInterestPerBlockHighPrecisionString({oldRateToHeight.negative, newRateToHeight}),
                 GetInterestPerBlockHighPrecisionString(oldInterestPerBlock),
                 GetInterestPerBlockHighPrecisionString(newInterestRatePerBlock));
         }
@@ -4552,6 +4991,21 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
               oldTokenId.v, newTokenId.v, height, GetTimeMillis() - time);
 
     return Res::Ok();
+}
+
+static void MigrateV1Remnants(const CCustomCSView &cache, ATTRIBUTES &attributes, const uint8_t key, const DCT_ID oldId, const DCT_ID newId, const int32_t multiplier, const uint8_t typeID = ParamIDs::Economy) {
+    CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
+    auto balances = attributes.GetValue(attrKey, CBalances{});
+    for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
+        const auto& [tokenId, amount] = *it;
+        if (tokenId != oldId) {
+            continue;
+        }
+        balances.balances.erase(it);
+        balances.Add({newId, CalculateNewAmount(multiplier, amount)});
+        break;
+    }
+    attributes.SetValue(attrKey, balances);
 }
 
 void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams) {
@@ -4668,6 +5122,12 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
         attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
+        MigrateV1Remnants(cache, *attributes, EconomyKeys::ConsolidatedInterest, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
+
         CAmount totalBalance{0};
 
         res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
@@ -4760,6 +5220,42 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
             }
         }
         view.SetVariable(*attributes);
+
+        // Migrate stored unlock
+        if (pindex->nHeight >= chainparams.GetConsensus().GrandCentralHeight) {
+            bool updateStoredVar{};
+            auto storedGovVars = view.GetStoredVariablesRange(pindex->nHeight, std::numeric_limits<uint32_t>::max());
+            for (const auto& [varHeight, var] : storedGovVars) {
+                if (var->GetName() != "ATTRIBUTES") {
+                    continue;
+                }
+                updateStoredVar = false;
+
+                if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(var); attrVar) {
+                    const auto attrMap = attrVar->GetAttributesMap();
+                    std::vector<CDataStructureV0> keysToUpdate;
+                    for (const auto& [key, value] : attrMap) {
+                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
+                            if (attrV0->type == AttributeTypes::Locks && attrV0->typeId == ParamIDs::TokenID && attrV0->key == oldTokenId.v) {
+                                keysToUpdate.push_back(*attrV0);
+                                updateStoredVar = true;
+                            }
+                        }
+                    }
+                    for (auto& key : keysToUpdate) {
+                        const auto value = attrVar->GetValue(key, false);
+                        attrVar->EraseKey(key);
+                        key.key = newTokenId.v;
+                        attrVar->SetValue(key, value);
+                    }
+                }
+
+                if (updateStoredVar) {
+                    view.SetStoredVariables({var}, varHeight);
+                }
+            }
+        }
+
         view.Flush();
         if (auto accountHistory = view.GetAccountHistoryStore()) {
             accountHistory->Flush();

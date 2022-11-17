@@ -2,9 +2,12 @@ name: Jellyfish Tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - epic/*
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - epic/*
 
 jobs:
   test:
@@ -13,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          repository: DeFiCh/jellyfish
+          repository: JellyfishSDK/jellyfish
           ref: 'main'
 
       - uses: actions/checkout@v3
@@ -35,7 +38,7 @@ jobs:
         run: |
           cd defichain
           DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh git_version
-              
+
       - name: Build and package
         run: |
           echo ">>> BUILD VERSION <<<"
@@ -44,10 +47,9 @@ jobs:
           DOCKERFILE="x86_64-pc-linux-gnu-clang" TARGET="x86_64-pc-linux-gnu" ./make.sh docker-release-git
           docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
           docker build -t test-build-container -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .
-      
+
       - name: Run tests
-        continue-on-error: true
         run: |
           npm ci
-          npm run build
-          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run test:ci
+          npm run all:build
+          DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test

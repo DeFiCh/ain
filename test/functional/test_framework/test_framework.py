@@ -404,6 +404,25 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase', rescan=True)
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
+    # rollback one node (Default = node 0)
+    def _rollback_to(self, block, node=0):
+        node = self.nodes[node]
+        current_height = node.getblockcount()
+        if current_height == block:
+            return
+        blockhash = node.getblockhash(block + 1)
+        node.invalidateblock(blockhash)
+        node.clearmempool()
+
+    # rollback to block
+    # nodes param is a list of node numbers to roll back ([0, 1, 2, 3...] (Default -> None -> node 0)
+    def rollback_to(self, block, nodes=None):
+        if nodes is None:
+            self._rollback_to(block)
+        else:
+            for node in nodes:
+                self._rollback_to(block, node=node)
+
     def run_test(self):
         """Tests must override this method to define test logic"""
         raise NotImplementedError

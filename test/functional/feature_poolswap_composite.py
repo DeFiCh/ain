@@ -21,8 +21,8 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200'],
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-fortcanninghillheight=200']]
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200'],
+            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=106', '-bayfrontgardensheight=107', '-dakotaheight=108', '-eunosheight=109', '-fortcanningheight=110', '-grandcentralheight=170', '-fortcanninghillheight=200']]
 
     def run_test(self):
 
@@ -68,7 +68,6 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.setup_tokens(tokens)
         disconnect_nodes(self.nodes[0], 1)
 
-        symbolDFI = "DFI"
         symbolDOGE = "DOGE#" + self.get_id_token("DOGE")
         symbolTSLA = "TSLA#" + self.get_id_token("TSLA")
         symbolDUSD = "DUSD#" + self.get_id_token("DUSD")
@@ -244,115 +243,6 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
-        estimateCompositePathsRes = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": ltc_to_doge_from,
-            "to": destination,
-            "tokenTo": symbolDOGE,
-        }, "auto", True)
-
-        assert_equal(estimateCompositePathsRes['path'], 'auto')
-
-        poolLTC_USDC = list(self.nodes[0].getpoolpair("LTC-USDC").keys())[0]
-        poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
-        assert_equal(estimateCompositePathsRes['pools'], [poolLTC_USDC, poolDOGE_USDC])
-
-        testCPoolSwapRes = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": ltc_to_doge_from,
-            "to": destination,
-            "tokenTo": symbolDOGE,
-        }, "auto")
-
-        testCPoolSwapRes = str(testCPoolSwapRes).split("@", 2)
-
-        psTestAmount = testCPoolSwapRes[0]
-        psTestTokenId = testCPoolSwapRes[1]
-        assert_equal(psTestTokenId, idDOGE)
-
-        customPathPoolSwap = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": ltc_to_doge_from,
-            "to": destination,
-            "tokenTo": symbolDOGE,
-        }, [poolLTC_USDC, poolDOGE_USDC])
-
-        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
-
-        psTestAmount = customPathPoolSwap[0]
-        psTestTokenId = customPathPoolSwap[1]
-        assert_equal(psTestTokenId, idDOGE)
-
-        poolLTC_DFI = list(self.nodes[0].getpoolpair("LTC-DFI").keys())[0]
-        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
-        customPathPoolSwap = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": ltc_to_doge_from,
-            "to": destination,
-            "tokenTo": symbolDOGE,
-        }, [poolLTC_DFI, poolDOGE_DFI])
-
-        customPathPoolSwap = str(customPathPoolSwap).split("@", 2)
-
-        psTestTokenId = customPathPoolSwap[1]
-        assert_equal(psTestTokenId, idDOGE)
-
-        estimateCompositePathsResDirect = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": 1,
-            "to": destination,
-            "tokenTo": symbolDFI,
-        }, "direct", True)
-
-        estimateCompositePathsResAuto = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": 1,
-            "to": destination,
-            "tokenTo": symbolDFI,
-        }, "auto", True)
-
-        assert_equal(estimateCompositePathsResAuto['path'], "direct")
-        assert_equal(estimateCompositePathsResDirect, estimateCompositePathsResAuto)
-
-        estimateCompositePathsResComposite = self.nodes[0].testpoolswap({
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": 1,
-            "to": destination,
-            "tokenTo": symbolDFI,
-        }, "composite", True)
-
-        assert_equal(estimateCompositePathsResComposite['path'], "composite")
-
-        poolLTC_USDC = list(self.nodes[0].getpoolpair("LTC-USDC").keys())[0]
-        poolDOGE_USDC = list(self.nodes[0].getpoolpair("DOGE-USDC").keys())[0]
-        poolDOGE_DFI = list(self.nodes[0].getpoolpair("DOGE-DFI").keys())[0]
-        assert_equal(estimateCompositePathsResComposite['pools'], [poolLTC_USDC, poolDOGE_USDC, poolDOGE_DFI])
-
-        assert_raises_rpc_error(-32600, "Cannot find usable pool pair.", self.nodes[0].testpoolswap,
-        {
-            "from": source,
-            "tokenFrom": symbolDUSD,
-            "amountFrom": 100,
-            "to": destination,
-            "tokenTo": symbolDFI,
-        }, "composite")
-
-        assert_raises_rpc_error(-32600, "Custom pool path is invalid.", self.nodes[0].testpoolswap,
-        {
-            "from": source,
-            "tokenFrom": symbolLTC,
-            "amountFrom": ltc_to_doge_from,
-            "to": destination,
-            "tokenTo": symbolDOGE,
-        }, [poolLTC_DFI, "100"])
-
         self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
@@ -372,8 +262,6 @@ class PoolPairCompositeTest(DefiTestFramework):
         dest_balance = self.nodes[0].getaccount(destination, {}, True)
         assert_equal(dest_balance[idDOGE], doge_received * 2)
         assert_equal(len(dest_balance), 1)
-        # Check test swap correctness
-        assert_equal(Decimal(psTestAmount), dest_balance[idDOGE])
 
         # Set up addresses for swapping
         source = self.nodes[0].getnewaddress("", "legacy")
@@ -540,6 +428,33 @@ class PoolPairCompositeTest(DefiTestFramework):
         result = self.nodes[0].getcustomtx(tx)
         assert_equal(result['results']['compositeDex'], 'TSLA-DUSD/DUSD-USDC/LTC-USDC')
 
+        # Test that final output currency is same as tokenTo
+        self.nodes[0].accounttoaccount(
+            collateral, {source: "100@" + symbolTSLA})
+        self.nodes[0].generate(1)
+
+        tx = self.nodes[0].compositeswap({
+            "from": source,
+            "tokenFrom": symbolTSLA,
+            "amountFrom": "10",
+            "to": destination,
+            "tokenTo": symbolLTC
+        })
+
+        metadata = self.nodes[0].getrawtransaction(
+            tx, 1)['vout'][0]['scriptPubKey']['hex']
+        rawtx = self.nodes[0].getrawtransaction(tx)
+
+        updated_metadata = metadata.replace(hex(int(idLTC))[
+                                            2] + "00" + hex(int(idLTC))[3], hex(int(idTSLA))[2] + "00" + hex(int(idTSLA))[3])
+        updated_rawtx = rawtx.replace(metadata, updated_metadata)
+
+        self.nodes[0].clearmempool()
+
+        signed_raw = self.nodes[0].signrawtransactionwithwallet(updated_rawtx)
+        assert_raises_rpc_error(-26, "Final swap output is not same as idTokenTo",
+                                self.nodes[0].sendrawtransaction, signed_raw['hex'])
+
         # Wipe mempool
         self.nodes[0].clearmempool()
 
@@ -576,6 +491,22 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         assert_raises_rpc_error(-26, "Final swap pool should have idTokenTo, incorrect final pool ID provided", self.nodes[0].sendrawtransaction, updated_rawtx)
         self.nodes[0].clearmempool()
+
+        # Test too many pools error message.
+        idDOGEDFI = list(self.nodes[0].gettoken("DOGE-DFI").keys())[0]
+        idDFIDUSD = list(self.nodes[0].gettoken("DUSD-DFI").keys())[0]
+        idDUSDUSDC = list(self.nodes[0].gettoken("DUSD-USDC").keys())[0]
+        idUSDCLTC = list(self.nodes[0].gettoken("LTC-USDC").keys())[0]
+
+        # Test four pool composite swap
+        assert_raises_rpc_error(-32600, 'Too many pool IDs provided, max 3 allowed, 4 provided', self.nodes[0].testpoolswap,
+        {
+            "from": source,
+            "tokenFrom": symbolDOGE,
+            "amountFrom": 1,
+            "to": destination,
+            "tokenTo": symbolLTC,
+        }, [idDOGEDFI, idDFIDUSD, idDUSDUSDC, idUSDCLTC])
 
 if __name__ == '__main__':
     PoolPairCompositeTest().main()

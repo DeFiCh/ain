@@ -13,7 +13,6 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
-    connect_nodes_bi,
     disconnect_nodes,
     assert_raises_rpc_error,
 )
@@ -23,24 +22,17 @@ from math import trunc
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 4
+        self.num_nodes = 3
         # node0: main (Foundation)
-        # node3: revert create (all)
-        # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-acindex=1', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-dexstats'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-dexstats']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-acindex=1', '-dexstats'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-fortcanningheight=163', '-fortcanninghillheight=170', '-fortcanningroadheight=177', '-grandcentralheight=200', '-dexstats']]
 
     def setup(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
-
         self.setup_tokens()
-        # Stop node #3 for future revert
-        self.stop_node(3)
-
         self.symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         self.symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
         self.idGold = list(self.nodes[0].gettoken(self.symbolGOLD).keys())[0]
@@ -319,20 +311,24 @@ class PoolPairTest (DefiTestFramework):
         assert("Price is higher than indicated" in errorString)
 
     def setup_new_pool_BTC_LTC(self):
+
+        self.symbolBTC = "BTC"
+        self.symbolLTC = "LTC"
+
         self.nodes[0].createtoken({
-                "symbol": "BTC",
-                "name": "Bitcoin",
-                "collateralAddress": self.accountGN0
+                "symbol": self.symbolBTC,
+                "name": self.symbolBTC,
+                "collateralAddress": self.accountGN0,
+                "isDAT" : True
             })
         self.nodes[0].createtoken({
-                "symbol": "LTC",
-                "name": "Litecoin",
-                "collateralAddress": self.accountGN0
+                "symbol": self.symbolLTC,
+                "name": self.symbolLTC,
+                "collateralAddress": self.accountGN0,
+                "isDAT" : True
             })
         self.nodes[0].generate(1)
 
-        self.symbolBTC = "BTC#" + self.get_id_token("BTC")
-        self.symbolLTC = "LTC#" + self.get_id_token("LTC")
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
         self.idLTC = list(self.nodes[0].gettoken(self.symbolLTC).keys())[0]
 
@@ -536,15 +532,41 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_b'%(self.idBL)], round(dexinfee, 8))
         assert_equal(attributes['v0/live/economy/dex/%s/fee_burn_a'%(self.idBL)], Decimal(str(round(dexoutfee, 8))))
 
-    def revert_to_initial_state(self):
-        self.start_node(3)
-        self.nodes[3].generate(30)
+    def test_swap_to_self(self):
 
-        connect_nodes_bi(self.nodes, 0, 3)
-        connect_nodes_bi(self.nodes, 1, 3)
-        connect_nodes_bi(self.nodes, 2, 3)
-        self.sync_blocks()
+        # Move to fork
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Get and fund new address
+        address = self.nodes[0].getnewaddress()
+        self.nodes[0].accounttoaccount(self.accountGN0, {address: f"1@{self.symbolLTC}"})
+        self.nodes[0].generate(1)
+
+        # Swap to self
+        self.nodes[0].poolswap({
+            "from": address,
+            "tokenFrom": self.symbolLTC,
+            "amountFrom": 1,
+            "tokenTo": self.symbolBTC
+        })
+        self.nodes[0].generate(1)
+
+        # Check that LTC has gone and only BTC is present
+        assert_equal(self.nodes[0].getaccount(address), [f'0.00759157@{self.symbolBTC}'])
+
+    def test_testpoolswap_errors(self):
+        assert_raises_rpc_error(-8, "tokenFrom is empty", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0.1, "tokenFrom": "", "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+        assert_raises_rpc_error(-8, "tokenTo is empty", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0.1, "tokenFrom": self.symbolBTC, "tokenTo": "", "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+        assert_raises_rpc_error(-32600, "Input amount should be positive", self.nodes[0].testpoolswap, {
+                                "amountFrom": 0, "tokenFrom": self.symbolLTC, "tokenTo": self.symbolBTC, "from": self.accountGN0, "to": self.accountSN1, "maxPrice": 0.1})
+
+    def revert_to_initial_state(self):
+        self.rollback_to(block=0, nodes=[0, 1, 2])
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
+        assert_equal(len(self.nodes[1].listpoolpairs()), 0)
+        assert_equal(len(self.nodes[2].listpoolpairs()), 0)
 
 
     def run_test(self):
@@ -567,6 +589,8 @@ class PoolPairTest (DefiTestFramework):
         self.test_listaccounthistory_and_burninfo()
         self.update_comission_and_fee_to_1pct_pool1()
         self.update_comission_and_fee_to_1pct_pool2()
+        self.test_testpoolswap_errors()
+        self.test_swap_to_self()
         self.revert_to_initial_state()
 
 if __name__ == '__main__':
