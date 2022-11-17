@@ -2530,6 +2530,17 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState& state) 
     return false;
 }
 
+static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
+    // Only log once for one of the following categories. Log BENCH first for consistent formatting.
+    if (LogAcceptCategory(BCLog::BENCH)) {
+        std::vector<unsigned char> metadata;
+        LogPrint(BCLog::BENCH, "    - ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
+    } else if (LogAcceptCategory(BCLog::CUSTOMTXBENCH)) {
+        std::vector<unsigned char> metadata;
+        LogPrint(BCLog::CUSTOMTXBENCH, "Bench::ApplyCustomTx: %s Type: %s Time: %.2fms\n", tx.GetHash().ToString(), ToString(GuessCustomTxType(tx, metadata, false)), (GetTimeMicros() - start) * MILLI);
+    }
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2878,7 +2889,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             CHistoryWriters writers{paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get()};
+            const auto applyCustomTxTime = GetTimeMicros();
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, &writers);
+            LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -4233,7 +4246,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        CDataStructureV0 minVoting{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::MinVoters};
+        CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
         CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
         bool emergency = prop.options & CPropOption::Emergency;
@@ -4241,7 +4254,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         if (prop.type == CPropType::VoteOfConfidence && emergency) {
             quorum = attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
         } else {
-            quorum = attributes->GetValue(minVoting, chainparams.GetConsensus().props.minVoting) / 10000;
+            quorum = attributes->GetValue(quorumKey, chainparams.GetConsensus().props.quorum) / 10000;
         }
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {

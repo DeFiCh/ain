@@ -210,7 +210,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"voc_emergency_period",        GovernanceKeys::VOCEmergencyPeriod},
                 {"voc_emergency_quorum",        GovernanceKeys::VOCEmergencyQuorum},
                 {"voc_required_votes",          GovernanceKeys::VOCMajority},
-                {"quorum",                      GovernanceKeys::MinVoters},
+                {"quorum",                      GovernanceKeys::Quorum},
                 {"voting_period",               GovernanceKeys::VotingPeriod},
             }
         },
@@ -307,7 +307,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {GovernanceKeys::VOCEmergencyPeriod,    "voc_emergency_period"},
                 {GovernanceKeys::VOCEmergencyQuorum,    "voc_emergency_quorum"},
                 {GovernanceKeys::VOCMajority,           "voc_required_votes"},
-                {GovernanceKeys::MinVoters,             "quorum"},
+                {GovernanceKeys::Quorum,                "quorum"},
                 {GovernanceKeys::VotingPeriod,          "voting_period"},
             }
         },
@@ -360,6 +360,15 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
     if (!ParseFixedPoint(str, 8, &amount) || amount < 0) {
         return Res::Err("Amount must be a positive value");
     }
+    return {amount, Res::Ok()};
+}
+
+ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string& str) {
+    CAmount amount = 0;
+    if (!ParseFixedPoint(str, 8, &amount) || !(amount >= 0 || amount == -1 * COIN)) {
+        return Res::Err("Amount must be positive or -1");
+    }
+
     return {amount, Res::Ok()};
 }
 
@@ -569,8 +578,8 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::MemberValues,          VerifyConsortiumMember},
-                {ConsortiumKeys::MintLimit,        VerifyFloat},
-                {ConsortiumKeys::DailyMintLimit,   VerifyFloat},
+                {ConsortiumKeys::MintLimit,             VerifyPositiveOrMinusOneFloat},
+                {ConsortiumKeys::DailyMintLimit,        VerifyPositiveOrMinusOneFloat},
             }
         },
         {
@@ -623,7 +632,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {GovernanceKeys::VOCEmergencyPeriod,    VerifyUInt32},
                 {GovernanceKeys::VOCEmergencyQuorum,    VerifyPct},
                 {GovernanceKeys::VOCMajority,           VerifyPct},
-                {GovernanceKeys::MinVoters,             VerifyPct},
+                {GovernanceKeys::Quorum,                VerifyPct},
                 {GovernanceKeys::VotingPeriod,          VerifyUInt32},
             }
         },
@@ -846,7 +855,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, std::optional<std::strin
                     && typeKey != GovernanceKeys::CFPMajority && typeKey != GovernanceKeys::VOCFee
                     && typeKey != GovernanceKeys::VOCMajority && typeKey != GovernanceKeys::VOCEmergencyPeriod
                     && typeKey != GovernanceKeys::VOCEmergencyFee && typeKey != GovernanceKeys::VOCEmergencyQuorum
-                    && typeKey != GovernanceKeys::MinVoters && typeKey != GovernanceKeys::VotingPeriod)
+                    && typeKey != GovernanceKeys::Quorum && typeKey != GovernanceKeys::VotingPeriod)
                     return Res::Err("Unsupported key for Governance Proposal section - {%d}", typeKey);
             } else {
                 return Res::Err("Unsupported Governance ID");

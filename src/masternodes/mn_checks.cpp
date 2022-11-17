@@ -1090,9 +1090,6 @@ public:
                 if (tx.vout.size() == 1) {
                     return Res::Err("Missing new collateral output");
                 }
-                if (!HasAuth(tx.vout[1].scriptPubKey)) {
-                    return Res::Err("Missing auth input for new masternode owner");
-                }
 
                 CTxDestination dest;
                 if (!ExtractDestination(tx.vout[1].scriptPubKey, dest) || (dest.index() != PKHashType && dest.index() != WitV0KeyHashType)) {
@@ -1287,10 +1284,15 @@ public:
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
+        const auto isRegTest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
+        const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
+        const auto fortCanningCrunchHeight = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
+        const auto grandCentralHeight = static_cast<uint32_t>(consensus.GrandCentralHeight);
+
         // check auth and increase balance of token's owner
         for (const auto& [tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN &&
-                height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+                height >= fortCanningCrunchHeight &&
                 mnview.GetLoanTokenByID(tokenId)) {
                 return Res::Err("Loan tokens cannot be minted");
             }
@@ -1299,9 +1301,7 @@ public:
             if (!token)
                 return Res::Err("token %s does not exist!", tokenId.ToString());
 
-            // only on REGTEST and when flag is supplied
-            bool anybodyCanMint = (Params().NetworkIDString() != CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false));
-
+            bool anybodyCanMint = isRegTest && !isRegTestSimulateMainnet;
             auto mintable = MintableToken(tokenId, *token, anybodyCanMint);
 
             auto mintTokensInternal = [&](DCT_ID tokenId, CAmount amount) {
@@ -1320,7 +1320,7 @@ public:
             if (!mintable)
                 return std::move(mintable);
 
-            if (anybodyCanMint || height < static_cast<uint32_t>(consensus.GrandCentralHeight) || !token->IsDAT() || HasFoundationAuth())
+            if (anybodyCanMint || height < grandCentralHeight || !token->IsDAT() || HasFoundationAuth())
             {
                 auto res = mintTokensInternal(tokenId, amount);
                 if (!res) return res;
