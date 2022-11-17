@@ -127,6 +127,7 @@ BASE_SCRIPTS = [
     'feature_asymmetric_fee.py',
     'feature_token_split.py',
     'feature_token_split_mechanism.py',
+    'feature_commission_fix.py',
     'feature_token_split_usd_value.py',
     'feature_token_merge_usd_value.py',
     'feature_token_merge.py',
