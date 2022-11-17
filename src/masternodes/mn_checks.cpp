@@ -1296,8 +1296,8 @@ public:
             if (!token)
                 return Res::Err("token %s does not exist!", tokenId.ToString());
 
-            // only on REGTEST and when flag is supplied
-            bool anybodyCanMint = (Params().NetworkIDString() != CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false));
+            // only on REGTEST and when flag is not supplied
+            bool anybodyCanMint = (Params().NetworkIDString() == CBaseChainParams::REGTEST && !gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false));
 
             auto mintable = MintableToken(tokenId, *token, anybodyCanMint);
 
