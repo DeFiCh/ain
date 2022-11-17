@@ -581,6 +581,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("fee", ValueFromAmount(prop->fee));
     ret.pushKV("feeBurnAmount", ValueFromAmount(prop->feeBurnAmount));
 
+
     if (prop->options)
     {
         UniValue array = UniValue(UniValue::VARR);
@@ -595,6 +596,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
 
     ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
     ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, prop->quorum / 10000, prop->quorum % 10000));
+
 
     return ret;
 }

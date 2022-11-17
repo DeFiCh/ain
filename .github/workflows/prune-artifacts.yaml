@@ -11,12 +11,12 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
     - name: Prune artifacts
-      uses: c-hive/gha-remove-artifacts@24dc23384a1fa6a058b79c73727ae0cb2200ca4c
+      uses: c-hive/gha-remove-artifacts@v1
       with:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         age: '4 weeks'
