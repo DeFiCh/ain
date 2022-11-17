@@ -363,7 +363,7 @@ ResVal<CAttributeValue> VerifyPositiveFloat(const std::string& str) {
     return {amount, Res::Ok()};
 }
 
-ResVal<CAttributeValue> VerifyPositiveOrUnlimitedFloat(const std::string& str) {
+ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string& str) {
     CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount) || !(amount > 0 || amount == -1 * COIN)) {
         return Res::Err("Amount must be positive or -1");
@@ -578,8 +578,8 @@ const std::map<uint8_t, std::map<uint8_t,
         {
             AttributeTypes::Consortium, {
                 {ConsortiumKeys::MemberValues,          VerifyConsortiumMember},
-                {ConsortiumKeys::MintLimit,             VerifyPositiveOrUnlimitedFloat},
-                {ConsortiumKeys::DailyMintLimit,        VerifyPositiveOrUnlimitedFloat},
+                {ConsortiumKeys::MintLimit,             VerifyPositiveOrMinusOneFloat},
+                {ConsortiumKeys::DailyMintLimit,        VerifyPositiveOrMinusOneFloat},
             }
         },
         {
