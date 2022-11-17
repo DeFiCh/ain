@@ -417,13 +417,7 @@ static ResVal<CAttributeValue> VerifySplit(const std::string& str) {
     return {splits, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyMember(const std::string& str) {
-    // Support UniValue array
-    UniValue array(UniValue::VARR);
-    if (!array.read(str)) {
-        return Res::Err("Not a valid array of addresses");
-    }
-
+static ResVal<CAttributeValue> VerifyMember(const UniValue& array) {
     std::set<std::string> addresses;
     std::set<CScript> members;
     bool removal{};
@@ -602,7 +596,6 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::MNSetOwnerAddress,       VerifyBool},
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
-                {DFIPKeys::Members,                 VerifyMember},
                 {DFIPKeys::CFPPayout,               VerifyBool},
             }
         },
@@ -883,6 +876,16 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
         }
 
         auto attribValue = VerifyConsortiumMember(*value);
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue.val);
+    } else if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::Foundation && attrV0.key == DFIPKeys::Members) {
+        if (value && value->get_array().empty()) {
+            return Res::Err("Empty value");
+        }
+
+        auto attribValue = VerifyMember(*value);
         if (!attribValue) {
             return std::move(attribValue);
         }
@@ -1302,13 +1305,13 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                         array.push_back(EncodeDestination(dest));
                     }
                 }
-                ret.pushKV(key, array.write());
+                ret.pushKV(key, array);
             } else if (const auto strMembers = std::get_if<std::set<std::string>>(&attribute.second)) {
                 UniValue array(UniValue::VARR);
                 for (const auto &member : *strMembers) {
                     array.push_back(member);
                 }
-                ret.pushKV(key, array.write());
+                ret.pushKV(key, array);
             }
         } catch (const std::out_of_range&) {
             // Should not get here, that's mean maps are mismatched
