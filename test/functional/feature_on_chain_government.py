@@ -286,7 +286,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["cycleEndHeight"], cycle1)
         assert_equal(result["payoutAddress"], '')
         assert_equal(result["totalCycles"], 2)
-        assert_equal(result["votingPercent"], "100.00 of 1.00%")
+        assert_equal(result["votingPercent"], "100.00 of 100.00%")
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
@@ -473,7 +473,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["cycleEndHeight"], cycle1)
         assert_equal(result["payoutAddress"], '')
         assert_equal(result["totalCycles"], 1)
-        assert_equal(result["votingPercent"], "100.00 of 1.00%")
+        assert_equal(result["votingPercent"], "100.00 of 100.00%")
         assert_equal(result["options"], ["Emergency"])
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
 
