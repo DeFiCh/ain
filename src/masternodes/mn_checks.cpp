@@ -4247,8 +4247,8 @@ public:
         if (obj.context.size() > MAX_PROP_CONTEXT_SIZE)
             return Res::Err("proposal context cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
 
-        if (obj.currentHash.size() > MAX_PROP_CONTEXT_SIZE)
-            return Res::Err("proposal current hash cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
+        if (obj.contextHash.size() > MAX_PROP_CONTEXT_SIZE)
+            return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROP_CONTEXT_SIZE);
 
         if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
             return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
