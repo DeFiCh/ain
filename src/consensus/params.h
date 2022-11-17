@@ -209,7 +209,7 @@ struct Params {
             CAmount majorityThreshold;
         } cfp, brp, voc;
         uint32_t votingPeriod;
-        CAmount minVoting;
+        CAmount quorum;
     };
     CPropsParams props;
 
