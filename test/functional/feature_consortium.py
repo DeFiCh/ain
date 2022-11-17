@@ -114,37 +114,37 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attributes['v0/consortium/' + idBTC + '/mint_limit_daily'], '10')
 
         # Test setting member mint limit hight than global mint
-        assert_raises_rpc_error(-32600, "Mint limit higher than global mint limit", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC", \
-                                                                                            "ownerAddress": account2, \
-                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                            "dailyMintLimit":10.00000000, \
+        assert_raises_rpc_error(-32600, "Mint limit higher than global mint limit", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC",
+                                                                                            "ownerAddress": account2,
+                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                            "dailyMintLimit":10.00000000,
                                                                                             "mintLimit":11.00000000}}}})
 
         # Test setting member mint limit hight than global mint
-        assert_raises_rpc_error(-32600, "Daily mint limit higher than daily global mint limit", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC", \
-                                                                                            "ownerAddress": account2, \
-                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                            "dailyMintLimit":11.00000000, \
+        assert_raises_rpc_error(-32600, "Daily mint limit higher than daily global mint limit", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC",
+                                                                                            "ownerAddress": account2,
+                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                            "dailyMintLimit":11.00000000,
                                                                                             "mintLimit":10.00000000}}}})
 
         # Set consortium members
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC", \
-                                                                                            "ownerAddress": account2, \
-                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                            "dailyMintLimit":10.00000000, \
-                                                                                            "mintLimit":10.00000000}, \
-                                                                                      "02":{"name":"account3BTC", \
-                                                                                            "ownerAddress": account3, \
-                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
-                                                                                            "dailyMintLimit":4.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"01":{"name":"account2BTC",
+                                                                                            "ownerAddress": account2,
+                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                            "dailyMintLimit":10.00000000,
+                                                                                            "mintLimit":10.00000000},
+                                                                                      "02":{"name":"account3BTC",
+                                                                                            "ownerAddress": account3,
+                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5",
+                                                                                            "dailyMintLimit":4.00000000,
                                                                                             "mintLimit":4.00000000}}}})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"03":{"name":"test", \
-                                                                                                                                                                "ownerAddress": account2, \
-                                                                                                                                                                "backingId":"7cb2f6954291d81d2270c9a6a52442b3f8c637b1ec793c731cb5f5a8f7fb9b9d", \
-                                                                                                                                                                "dailyMintLimit":10.00000000, \
+        assert_raises_rpc_error(-32600, "Cannot add a member with an owner address of a existing consortium member", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"03":{"name":"test",
+                                                                                                                                                                "ownerAddress": account2,
+                                                                                                                                                                "backingId":"7cb2f6954291d81d2270c9a6a52442b3f8c637b1ec793c731cb5f5a8f7fb9b9d",
+                                                                                                                                                                "dailyMintLimit":10.00000000,
                                                                                                                                                                 "mintLimit":10.00000000}}}})
 
         attribs = self.nodes[2].getgov('ATTRIBUTES')['ATTRIBUTES']
@@ -169,15 +169,15 @@ class ConsortiumTest (DefiTestFramework):
         self.sync_blocks()
 
         # Create consortium members
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"01":{"name":"account2DOGE", \
-                                                                                                   "ownerAddress": account2, \
-                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                                   "dailyMintLimit":5.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"01":{"name":"account2DOGE",
+                                                                                                   "ownerAddress": account2,
+                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                                   "dailyMintLimit":5.00000000,
                                                                                                    "mintLimit":5.00000000}}}})
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"02":{"name":"account1DOGE", \
-                                                                                                   "ownerAddress": account1, \
-                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                                   "dailyMintLimit":5.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"02":{"name":"account1DOGE",
+                                                                                                   "ownerAddress": account1,
+                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                                   "dailyMintLimit":5.00000000,
                                                                                                    "mintLimit":5.00000000}}}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/mint_limit' : '6', 'v0/consortium/' + idDOGE + '/mint_limit_daily' : '6'}})
         self.nodes[0].generate(1)
@@ -302,11 +302,11 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/burnt'], Decimal('1.50000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/2/01/supply'], Decimal('0.50000000'))
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"01":{"name":"account2DOGE", \
-                                                                                                   "ownerAddress": account2, \
-                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                                   "mintLimit":5.00000000, \
-                                                                                                   "dailyMintLimit":5.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idDOGE + '/members' : {"01":{"name":"account2DOGE",
+                                                                                                   "ownerAddress": account2,
+                                                                                                   "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                                   "mintLimit":5.00000000,
+                                                                                                   "dailyMintLimit":5.00000000,
                                                                                                    "status":1}}}})
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -361,10 +361,10 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-32600, "You will exceed your maximum mint limit for " + symbolBTC + " token by minting this amount!", self.nodes[3].minttokens, ["2.00000001@" + symbolBTC])
         assert_raises_rpc_error(-32600, "You will exceed global maximum consortium mint limit for " + symbolBTC + " token by minting this amount!", self.nodes[3].minttokens, ["1.00000001@" + symbolBTC])
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"02":{"name":"account3BTC", \
-                                                                                                  "ownerAddress": account3, \
-                                                                                                  "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
-                                                                                                  "dailyMintLimit":4.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"02":{"name":"account3BTC",
+                                                                                                  "ownerAddress": account3,
+                                                                                                  "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5",
+                                                                                                  "dailyMintLimit":4.00000000,
                                                                                                   "mintLimit":6.00000000}}}})
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/mint_limit' : '20'}})
         self.nodes[0].generate(1)
@@ -404,10 +404,10 @@ class ConsortiumTest (DefiTestFramework):
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/minted'], Decimal('6.00000000'))
         assert_equal(attribs['v0/live/economy/consortium_members/1/02/daily_minted'], '288/2.00000000')
 
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"02":{"name":"account3BTC", \
-                                                                                            "ownerAddress": account3, \
-                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
-                                                                                            "dailyMintLimit":2.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/' + idBTC + '/members' : {"02":{"name":"account3BTC",
+                                                                                            "ownerAddress": account3,
+                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5",
+                                                                                            "dailyMintLimit":2.00000000,
                                                                                             "mintLimit":8.00000000}}}})
 
         self.nodes[0].generate(1)
@@ -496,28 +496,28 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Increase limit
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/members': {"01":{"name":"account2BTC", \
-                                                                                            "ownerAddress": account2, \
-                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                            "dailyMintLimit":100000.00000000, \
-                                                                                            "mintLimit":100000.00000000}, \
-                                                                                      "02":{"name":"account3BTC", \
-                                                                                            "ownerAddress": account3, \
-                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
-                                                                                            "dailyMintLimit":400000.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/members': {"01":{"name":"account2BTC",
+                                                                                            "ownerAddress": account2,
+                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                            "dailyMintLimit":100000.00000000,
+                                                                                            "mintLimit":100000.00000000},
+                                                                                      "02":{"name":"account3BTC",
+                                                                                            "ownerAddress": account3,
+                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5",
+                                                                                            "dailyMintLimit":400000.00000000,
                                                                                             "mintLimit":400000.00000000}}}})
         self.nodes[0].generate(1)
 
         # Decrease limit
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/members': {"01":{"name":"account2BTC", \
-                                                                                            "ownerAddress": account2, \
-                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf", \
-                                                                                            "dailyMintLimit":1.00000000, \
-                                                                                            "mintLimit":1.00000000}, \
-                                                                                      "02":{"name":"account3BTC", \
-                                                                                            "ownerAddress": account3, \
-                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5", \
-                                                                                            "dailyMintLimit":1.00000000, \
+        self.nodes[0].setgov({"ATTRIBUTES": {'v0/consortium/' + idBTC + '/members': {"01":{"name":"account2BTC",
+                                                                                            "ownerAddress": account2,
+                                                                                            "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                            "dailyMintLimit":1.00000000,
+                                                                                            "mintLimit":1.00000000},
+                                                                                      "02":{"name":"account3BTC",
+                                                                                            "ownerAddress": account3,
+                                                                                            "backingId":"6c67fe93cad3d6a4982469a9b6708cdde2364f183d3698d3745f86eeb8ba99d5",
+                                                                                            "dailyMintLimit":1.00000000,
                                                                                             "mintLimit":1.00000000}}}})
         self.nodes[0].generate(1)
 
