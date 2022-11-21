@@ -1348,14 +1348,19 @@ CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
     return 0;
 }
 
-CAmount CCustomCSView::GetQuorumFromAttributes() const
+CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType& type, bool emergency) const
 {
     auto attributes = GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 QuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
+    CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
+    CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
-    return attributes->GetValue(QuorumKey, Params().GetConsensus().props.quorum);
+    if (type == CPropType::VoteOfConfidence && emergency) {
+        return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
+    } else {
+        return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
+    }
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const

@@ -529,7 +529,7 @@ public:
         if (auto prop = mnview.GetProp(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
-            auto votingPeriod = (emergency ? mnview.GetEmergencyPeriodFromAttributes(type) : mnview.GetVotingPeriodFromAttributes());
+            auto votingPeriod = prop->votingPeriod;
             proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 proposalEndHeight += votingPeriod;

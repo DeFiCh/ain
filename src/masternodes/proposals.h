@@ -99,7 +99,6 @@ struct CPropObject : public CCreatePropMessage {
     CAmount fee;
     CAmount feeBurnAmount;
 
-
     // memory only
     CPropStatusType status{};
     uint8_t cycle{};
@@ -156,7 +155,7 @@ public:
     virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
     virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
     virtual CAmount GetMajorityFromAttributes(const CPropType& type) const = 0;
-    virtual CAmount GetQuorumFromAttributes() const = 0;
+    virtual CAmount GetQuorumFromAttributes(const CPropType& type, bool emergency = false) const = 0;
     virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
 
     struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
