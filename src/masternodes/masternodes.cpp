@@ -1330,7 +1330,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) 
     return attributes->GetValue(VOCKey, uint32_t{8640});
 }
 
-CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType& type) const
 {
     auto attributes = GetAttributes();
     assert(attributes);

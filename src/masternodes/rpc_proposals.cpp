@@ -631,6 +631,8 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                                     "cfp/voc/all (default = all)"},
                         {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                     "voting/rejected/completed/all (default = all)"},
+                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                    "cycle: 0 (show all cycles), cycle: N (show N cycle with N >= 1) (default = 0)"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with proposals information\n"
@@ -669,6 +671,14 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         }
     }
 
+    int cycle=0;
+    if (request.params.size() > 2) {
+        cycle = request.params[2].get_int();
+        if(cycle<0){
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cycle can't be a negative integer");
+        }
+    }
+
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
@@ -677,6 +687,9 @@ UniValue listgovproposals(const JSONRPCRequest& request)
             return false;
         }
         if (type && type != uint8_t(prop.type)) {
+            return true;
+        }
+        if(cycle != 0 && prop.cycle != cycle){
             return true;
         }
         ret.push_back(propToJSON(propId, prop, view));

@@ -505,7 +505,7 @@ public:
 
     uint32_t GetVotingPeriodFromAttributes() const override;
     uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const override;
-    CAmount GetMajorityFromAttributes(const CPropType& type) const override;
+    CAmount GetApprovalThresholdFromAttributes(const CPropType& type) const override;
     CAmount GetQuorumFromAttributes(const CPropType& type, bool emergency = false) const override;
     CAmount GetFeeBurnPctFromAttributes() const override;
 
