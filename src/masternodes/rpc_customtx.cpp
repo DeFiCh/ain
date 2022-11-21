@@ -195,6 +195,19 @@ public:
         rpcInfo.pushKV("source", obj.source.ToString());
         rpcInfo.pushKV("destination", std::to_string(obj.destination));
     }
+    
+
+    void operator()(const CLockDUSDMessage& obj) const {
+        CTxDestination dest;
+        if (ExtractDestination(obj.owner, dest)) {
+            rpcInfo.pushKV("owner", EncodeDestination(dest));
+        } else {
+            rpcInfo.pushKV("owner", "Invalid destination");
+        }
+
+        rpcInfo.pushKV("dusdIn", GetDecimaleString(obj.dusdIn));
+        rpcInfo.pushKV("lockTime", std::to_string(obj.lockTime));
+    }
 
     void operator()(const CCreatePoolPairMessage& obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());

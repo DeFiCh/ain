@@ -35,6 +35,7 @@ enum ParamIDs : uint8_t  {
     Feature   = 'h',
     Auction   = 'i',
     Foundation = 'j',
+    DFIP2211D = 'k',
 };
 
 enum OracleIDs : uint8_t  {
@@ -84,6 +85,8 @@ enum DFIPKeys : uint8_t  {
     Members                 = 'p',
     GovernanceEnabled       = 'q',
     CFPPayout               = 'r',
+    LOCK_12_Limit           = 's',
+    LOCK_24_Limit           = 't',
 };
 
 enum GovernanceKeys : uint8_t  {

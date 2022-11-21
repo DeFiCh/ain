@@ -88,6 +88,7 @@ const std::map<std::string, uint8_t>& ATTRIBUTES::allowedParamIDs() {
         {"dfip2206f",   ParamIDs::DFIP2206F},
         {"feature",     ParamIDs::Feature},
         {"foundation",  ParamIDs::Foundation},
+        {"dfip2211d",   ParamIDs::DFIP2211D},
     };
     return params;
 }
@@ -112,6 +113,7 @@ const std::map<uint8_t, std::string>& ATTRIBUTES::displayParamsIDs() {
         {ParamIDs::Feature,     "feature"},
         {ParamIDs::Auction,     "auction"},
         {ParamIDs::Foundation,  "foundation"},
+        {ParamIDs::DFIP2211D,   "dfip2211d"},
     };
     return params;
 }
@@ -197,6 +199,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
                 {"gov-payout",                  DFIPKeys::CFPPayout},
+                {"lock_12_limit",               DFIPKeys::LOCK_12_Limit},
+                {"lock_24_limit",               DFIPKeys::LOCK_24_Limit},
             }
         },
         {
@@ -274,6 +278,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
                 {DFIPKeys::CFPPayout,               "gov-payout"},
+                {DFIPKeys::LOCK_12_Limit,           "lock_12_limit"},
+                {DFIPKeys::LOCK_24_Limit,           "lock_24_limit"},
             }
         },
         {
@@ -597,6 +603,8 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::CFPPayout,               VerifyBool},
+                {DFIPKeys::LOCK_12_Limit,           VerifyInt64},
+                {DFIPKeys::LOCK_24_Limit,           VerifyInt64},
             }
         },
         {
@@ -812,6 +820,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
                 if (typeKey != DFIPKeys::DUSDInterestBurn &&
                     typeKey != DFIPKeys::DUSDLoanBurn) {
                     return Res::Err("Unsupported type for DFIP2206A {%d}", typeKey);
+                }
+
+            } else if (typeId == ParamIDs::DFIP2211D) {
+                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::LOCK_12_Limit &&
+                    typeKey != DFIPKeys::LOCK_24_Limit) {
+                    return Res::Err("Unsupported type for DFIP2211D {%d}", typeKey);
                 }
 
             } else if (typeId == ParamIDs::Feature) {

@@ -241,6 +241,22 @@ struct CFutureSwapMessage {
     }
 };
 
+
+struct CLockDUSDMessage {
+    CScript owner;
+    CAmount dusdIn{};
+    uint8_t lockTime{}; // in months
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(owner);
+        READWRITE(dusdIn);
+        READWRITE(lockTime);
+    }
+};
+
 inline CBalances SumAllTransfers(CAccounts const & to) {
     CBalances sum;
     for (const auto& kv : to) {

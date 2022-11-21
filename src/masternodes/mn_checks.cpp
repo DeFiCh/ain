@@ -40,6 +40,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SmartContract:           return "SmartContract";
         case CustomTxType::FutureSwap:              return "DFIP2203";
+        case CustomTxType::LockDUSD:                return "LockDUSD";
         case CustomTxType::SetGovVariable:          return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:    return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:           return "AppointOracle";
@@ -143,7 +144,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
-        case CustomTxType::FutureSwap:                return CFutureSwapMessage{};
+        case CustomTxType::FutureSwap:              return CFutureSwapMessage{};
+        case CustomTxType::LockDUSD:                return CLockDUSDMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -359,6 +361,11 @@ public:
 
     Res operator()(CFutureSwapMessage& obj) const {
         auto res = isPostFortCanningRoadFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLockDUSDMessage& obj) const {
+        auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
 
@@ -2035,6 +2042,101 @@ public:
         mnview.SetVariable(*attributes);
 
         return Res::Ok();
+    }
+
+    
+    Res operator()(const CLockDUSDMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        if (!HasAuth(obj.owner)) {
+            return Res::Err("Transaction must have at least one input from owner");
+        }
+
+        if (static_cast<int>(height) >= consensus.GrandCentralHeight) {
+            return Res::Err("LockDUSD only available after Grand Central");
+        }
+
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes) {
+            return Res::Err("Attributes unavailable");
+        }
+
+        const auto paramID = ParamIDs::DFIP2211D;
+
+        CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
+        CDataStructureV0 limit12Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_12_Limit};
+        CDataStructureV0 limit24Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_24_Limit};
+        if (!attributes->GetValue(activeKey, false) ||
+            !attributes->CheckKey(limit12Key) ||
+            !attributes->CheckKey(limit24Key)) {
+            return Res::Err("DFIP2211D not currently active");
+        }
+
+        if (obj.dusdIn <= 0) {
+            return Res::Err("Source amount must be more than zero");
+        }
+
+        //check locktime. must be 12 or 24
+        if(obj.lockTime != 12 || obj.lockTime != 24) {
+            return Res::Err("Can only lock for 12 or 24 months");
+        }
+        bool isLock1 = obj.lockTime == 12;
+        auto lockToken = mnview.GetToken(isLock1 ? "DUSDLOCK1" : "DUSDLOCK2");
+        if(!lockToken) {
+            return Res::Err("Could not find lock token");
+        }
+        
+        auto dusdToken = mnview.GetToken("DUSD");
+        if(!dusdToken) {
+            return Res::Err("Could not find dusd token");
+        }
+
+        const auto contractAddressValue = GetFutureSwapContractAddress(SMART_CONTRACT_DFIP2211D);
+        if (!contractAddressValue) {
+            return contractAddressValue;
+        }
+
+        auto limit = attributes->GetValue(isLock1 ? limit12Key : limit24Key, CAmount{0});
+        auto resultedMint= SafeAdd(lockToken->second->minted, obj.dusdIn);
+        if (!resultedMint)
+            return (std::move(resultedMint));
+
+        if(*resultedMint.val > limit) {
+            return Res::Err("Limit reached for this lock token");
+        }
+
+        //do we need CalculateOwnerRewards here?
+        res = mnview.SubBalance(obj.owner, CTokenAmount{dusdToken->first, obj.dusdIn});
+        if (!res)
+            return res;
+        
+        auto half= DivideAmounts(obj.dusdIn,CAmount{2});
+        //half DUSD are burned, that amount DUSDLOCK is minted
+        //remaining half + DUSDLOCK added to pool
+        //sub minted or burn?
+        res = mnview.SubMintedTokens(dusdToken->first, half);
+        if (!res)
+            return res;
+        
+        res = mnview.AddMintedTokens(lockToken->first, half);
+        if (!res)
+            return res;
+        
+        auto pair = mnview.GetPoolPair(lockToken->first,dusdToken->first);
+        if (!pair) {
+            return Res::Err("lock pool not found");
+        }
+        const auto& lpTokenID = pair->first;
+        auto& pool = pair->second;
+        res = pool.AddLiquidity(half, half, [&] /*onMint*/(CAmount liqAmount) {
+
+            CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
+            return AddBalanceSetShares(obj.owner, balance);
+        }, true);
+
+        return !res ? res : mnview.SetPoolPair(lpTokenID, height, pool);
     }
 
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {

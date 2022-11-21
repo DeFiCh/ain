@@ -2085,6 +2085,87 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
+//TODO: @coredevs: added it here since futureswap is here too, but not sure if this is the right place
+UniValue lockDUSD(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"lockdusd",
+               "\nCreates and submits to the network a request to lock DUSD" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
+                       {"dusdIn", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of dusd to send in"},
+                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "locktime in months can be 12 or 24"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000 12")
+                       + HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123 24")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    const auto dest = DecodeDestination(request.params[0].getValStr());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    CLockDUSDMessage msg{};
+    msg.owner = GetScriptForDestination(dest);
+    
+    msg.dusdIn = AmountFromValue(request.params[1]);
+    msg.lockTime = request.params[2].get_int();
+    
+    // Encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LockDUSD)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auth{msg.owner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auth, false, optAuthTx, request.params[3]);
+
+    // Set change address
+    CCoinControl coinControl;
+    coinControl.destChange = dest;
+
+    // Fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // Check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+
 UniValue futureswap(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
