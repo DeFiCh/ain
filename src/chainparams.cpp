@@ -290,9 +290,6 @@ public:
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("8defichainBurnAddressXXXXXXXdRQkSm", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
 
-        // Destination for unused emission
-        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("8Hw9iMi5u4qhfdb4ziod8gf7hHeMaexz8T", *this));
-
         genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
 
@@ -520,9 +517,6 @@ public:
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
 
-        // Destination for unused emission
-        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
-
         genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
@@ -720,9 +714,6 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
-
-        // Destination for unused emission
-        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
 
         genesis = CreateGenesisBlock(1585132338, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -925,9 +916,6 @@ public:
         // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
-
-        // Destination for unused emission
-        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ", *this)); // cUUj4d9tkgJGwGBF7VwFvCpcFMuEpC8tYbduaCDexKMx8A8ntL7C
 
         if (isJellyfish) {
             std::vector<CTxOut> initdist;

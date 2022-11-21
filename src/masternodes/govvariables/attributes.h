@@ -84,7 +84,6 @@ enum DFIPKeys : uint8_t  {
     Members                 = 'p',
     GovernanceEnabled       = 'q',
     CFPPayout               = 'r',
-    UnusedEmission          = 's',
 };
 
 enum GovernanceKeys : uint8_t  {
