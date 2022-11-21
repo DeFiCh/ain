@@ -4268,10 +4268,10 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
         switch(prop.type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold) / 10000;
+                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.approvalThreshold) / 10000;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold) / 10000;
+                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.approvalThreshold) / 10000;
                 break;
         }
 

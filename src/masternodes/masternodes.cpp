@@ -1340,9 +1340,9 @@ CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
 
     switch(type) {
         case CPropType::CommunityFundProposal:
-            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
+            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
         case CPropType::VoteOfConfidence:
-            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
+            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
     }
 
     return 0;

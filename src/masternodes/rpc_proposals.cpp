@@ -3,8 +3,27 @@
 
 #include <functional>
 
-UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
+UniValue propToJSON(CPropId const& propId, CPropObject const& prop, CCustomCSView const& view)
 {
+    CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
+    CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+    CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
+
+    auto attributes = view.GetAttributes();
+    if (!attributes)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
+    auto quorum = attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum); 
+
+    uint32_t approvalThreshold{0};
+    switch(prop.type) {
+        case CPropType::CommunityFundProposal:
+            approvalThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
+            break;
+        case CPropType::VoteOfConfidence:
+            approvalThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
+            break;
+    }
+
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop.title);
@@ -21,8 +40,8 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop.proposalEndHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop.address));
     ret.pushKV("votingPeriod", static_cast<int32_t>(prop.votingPeriod));
-    ret.pushKV("majority", strprintf("%d.%02d%%", prop.majority / 100, prop.majority % 100));
-    ret.pushKV("quorum", strprintf("%d.%02d%%", prop.quorum / 10000, prop.quorum % 10000));
+    ret.pushKV("approvalThreshold", strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100));
+    ret.pushKV("quorum", strprintf("%d.%02d%%", quorum / 10000, quorum % 10000));
     ret.pushKV("fee", ValueFromAmount(prop.fee));
     ret.pushKV("feeBurnAmount", ValueFromAmount(prop.feeBurnAmount));
     if (prop.options)
@@ -495,7 +514,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
     }
     if (prop->status != CPropStatusType::Voting) {
-        return propToJSON(propId, *prop);
+        return propToJSON(propId, *prop, view);
     }
 
     int targetHeight;
@@ -514,7 +533,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     });
 
     if (activeMasternodes.empty()) {
-        return propToJSON(propId, *prop);
+        return propToJSON(propId, *prop, view);
     }
 
     uint32_t voteYes = 0, voters = 0;
@@ -532,27 +551,29 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     }, CMnVotePerCycle{propId, prop->cycle});
 
     if (!voters) {
-        return propToJSON(propId, *prop);
+        return propToJSON(propId, *prop, view);
     }
 
-    uint32_t majorityThreshold = 0, votes = 0;
+    uint32_t approvalThreshold = 0, votes = 0;
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
     CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
     CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+    CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
 
     auto attributes = view.GetAttributes();
     if (!attributes)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Attributes access failure");
 
-    auto valid = allVotes > (prop->quorum / 10000.f);
+    auto quorum = attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum); 
+    auto valid = allVotes > (quorum / 10000.f);
 
     if (valid) {
         switch(prop->type) {
             case CPropType::CommunityFundProposal:
-                majorityThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
+                approvalThreshold = attributes->GetValue(cfpMajority, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
                 break;
             case CPropType::VoteOfConfidence:
-                majorityThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
+                approvalThreshold = attributes->GetValue(vocMajority, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
                 break;
         }
         votes = lround(voteYes * 10000.f / voters);
@@ -565,7 +586,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("contextHash", prop->contextHash);
     auto type = static_cast<CPropType>(prop->type);
     ret.pushKV("type", CPropTypeToString(type));
-    if (valid && votes >= majorityThreshold) {
+    if (valid && votes >= approvalThreshold) {
         ret.pushKV("status", "Approved");
     } else {
         ret.pushKV("status", "Rejected");
@@ -576,8 +597,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop->proposalEndHeight));
     ret.pushKV("payoutAddress", ScriptToString(prop->address));
     ret.pushKV("votingPeriod", static_cast<int32_t>(prop->votingPeriod));
-    ret.pushKV("majority", strprintf("%d.%02d%%", prop->majority / 100, prop->majority % 100));
-    ret.pushKV("quorum", strprintf("%d.%02d%%", prop->quorum / 10000, prop->quorum % 10000));
+    ret.pushKV("approvalThreshold", strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100));
+    ret.pushKV("quorum", strprintf("%d.%02d%%", quorum / 10000, quorum % 10000));
     ret.pushKV("fee", ValueFromAmount(prop->fee));
     ret.pushKV("feeBurnAmount", ValueFromAmount(prop->feeBurnAmount));
 
@@ -594,8 +615,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
         ret.pushKV("options", array);
     }
 
-    ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
-    ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, prop->quorum / 10000, prop->quorum % 10000));
+    ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, approvalThreshold / 100, approvalThreshold % 100));
+    ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 10000, quorum % 10000));
 
 
     return ret;
@@ -658,7 +679,7 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         if (type && type != uint8_t(prop.type)) {
             return true;
         }
-        ret.push_back(propToJSON(propId, prop));
+        ret.push_back(propToJSON(propId, prop, view));
         return true;
     }, status);
 
