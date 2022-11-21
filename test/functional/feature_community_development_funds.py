@@ -40,7 +40,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
 
         self.sync_mempools()
         node0.generate(1)
-        self.sync_all()
+        self.sync_blocks()
         self.stop_node(2)
 
         assert_equal(node1.getbalances()['mine']['trusted'], Decimal("19.887464"))
@@ -48,7 +48,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
 
         # GrandCnetral hardfork height
         node0.generate(1)
-        self.sync_all(self.nodes[:2])
+        self.sync_blocks(self.nodes[:2])
 
         assert_equal(node1.getbalances()['mine']['trusted'], 2 * Decimal("19.887464"))
         assert_equal(node1.getbalances()['mine']['immature'], foundation['mine']['immature'] - Decimal("19.887464"))
@@ -60,7 +60,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         # activate on-chain governance
         node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}})
         node0.generate(1)
-        self.sync_all(self.nodes[:2])
+        self.sync_blocks(self.nodes[:2])
 
         # check that funds are not trasfered yet before governance is activated
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
@@ -76,7 +76,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         # activate on-chain governance
         node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov':'false'}})
         node0.generate(1)
-        self.sync_all(self.nodes[:2])
+        self.sync_blocks(self.nodes[:2])
 
         # check that funds are not trasfered yet before governance is activated
         assert_equal(Decimal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS')[0].split('@')[0]), balanceLessFee + 3*Decimal("19.887464"))
@@ -84,7 +84,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
 
         # foundation coins are locked
         node0.generate(2)
-        self.sync_all(self.nodes[:2])
+        self.sync_blocks(self.nodes[:2])
 
         print ("Reverting...")
         self.start_node(2)
@@ -121,6 +121,17 @@ class CommunityDevelopmentFunds(DefiTestFramework):
 
         foundation = node1.getbalances()
         assert_equal(foundation['mine']['trusted'], Decimal('2008.633864000'))
+
+        # Check unused emission address
+        assert_equal(node0.getaccount('mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ'), [])
+
+        # Enable unused emission to address
+        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov-unusedemission':'true'}})
+        node0.generate(1)
+        self.sync_blocks(self.nodes[:2])
+
+        # Check unused balance now going to emission address
+        assert_equal(node0.getaccount('mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ'), ['46.24546710@DFI'])
 
 if __name__ == '__main__':
     CommunityDevelopmentFunds().main ()

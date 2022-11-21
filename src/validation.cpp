@@ -2118,7 +2118,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
                 // Loan below FC and Options are unused and all go to Unallocated (burnt) pot.
                 if ((height < consensus.FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    kv.first == CommunityAccountType::Options)
+                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                     if (res)
@@ -2126,18 +2126,40 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight && kv.first == CommunityAccountType::CommunityDevFunds)
+                    if (height >= consensus.GrandCentralHeight)
                     {
-                        CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+                        const auto attributes = mnview.GetAttributes();
+                        assert(attributes);
 
-                        auto attributes = mnview.GetAttributes();
-                        if (!attributes) {
-                            return Res::ErrDbg("attributes-not-found", "Critical error!");
-                        }
-                        if (!attributes->GetValue(enabledKey, false))
-                        {
-                            mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
-                            nonUtxoTotal += subsidy;
+                        if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
+
+                            if (!attributes->GetValue(enabledKey, false))
+                            {
+                                res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
+                                LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
+                                         tx.GetHash().ToString(), ScriptToString(consensus.foundationShareScript),
+                                         (CBalances{{{{0}, subsidy}}}.ToString()));
+                                nonUtxoTotal += subsidy;
+
+                                continue;
+                            }
+                        } else if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::Options) {
+                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::UnusedEmission};
+
+                            if (attributes->GetValue(enabledKey, false)) {
+                                res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
+                                if (res) {
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s addr=%s change=%s\n",
+                                             tx.GetHash().ToString(), ScriptToString(consensus.unusedEmission),
+                                             (CBalances{{{{0}, subsidy}}}.ToString()));
+                                }
+                            } else {
+                                // Previous behaviour was for Options and Unallocated to go to Unallocated
+                                res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                                if (res)
+                                    LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
+                            }
 
                             continue;
                         }
@@ -2966,7 +2988,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    // chek main coinbase
+    // check main coinbase
     Res res = ApplyGeneralCoinbaseTx(accountsView, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
