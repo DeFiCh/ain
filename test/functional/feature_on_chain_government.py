@@ -413,6 +413,10 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(listvotes), 3)
         listvotes = self.nodes[0].listgovvotes(propId, mn0, -1)
         assert_equal(len(listvotes), 2)
+        listvotes = self.nodes[0].listgovvotes(propId, mn0, 2)
+        assert_equal(len(listvotes), 1)
+        listvotes = self.nodes[0].listgovvotes(propId, 'all', 2)
+        assert_equal(len(listvotes), 1)
 
 
         # Move to just before final height
@@ -537,7 +541,6 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 0)
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
-
 
 if __name__ == '__main__':
     ChainGornmentTest().main ()
