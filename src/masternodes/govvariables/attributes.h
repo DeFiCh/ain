@@ -85,8 +85,9 @@ enum DFIPKeys : uint8_t  {
     Members                 = 'p',
     GovernanceEnabled       = 'q',
     CFPPayout               = 'r',
-    LOCK_12_Limit           = 's',
-    LOCK_24_Limit           = 't',
+    EmissionUnusedFund      = 's',
+    LOCK_12_Limit           = 't',
+    LOCK_24_Limit           = 'u',
 };
 
 enum GovernanceKeys : uint8_t  {

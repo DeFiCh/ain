@@ -199,6 +199,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
                 {"gov-payout",                  DFIPKeys::CFPPayout},
+                {"emission-unused-fund",        DFIPKeys::EmissionUnusedFund},
                 {"lock_12_limit",               DFIPKeys::LOCK_12_Limit},
                 {"lock_24_limit",               DFIPKeys::LOCK_24_Limit},
             }
@@ -278,6 +279,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
                 {DFIPKeys::CFPPayout,               "gov-payout"},
+                {DFIPKeys::EmissionUnusedFund,      "emission-unused-fund"},
                 {DFIPKeys::LOCK_12_Limit,           "lock_12_limit"},
                 {DFIPKeys::LOCK_24_Limit,           "lock_24_limit"},
             }
@@ -603,6 +605,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::CFPPayout,               VerifyBool},
+                {DFIPKeys::EmissionUnusedFund,      VerifyBool},
                 {DFIPKeys::LOCK_12_Limit,           VerifyInt64},
                 {DFIPKeys::LOCK_24_Limit,           VerifyInt64},
             }
@@ -836,7 +839,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
                     typeKey != DFIPKeys::MNSetOwnerAddress &&
                     typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled &&
-                    typeKey != DFIPKeys::CFPPayout) {
+                    typeKey != DFIPKeys::CFPPayout &&
+                    typeKey != DFIPKeys::EmissionUnusedFund) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation)  {
