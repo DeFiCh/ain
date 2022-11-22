@@ -411,11 +411,11 @@ UniValue votegov(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue listgovvotes(const JSONRPCRequest& request)
+UniValue listgovproposalvotes(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listgovvotes",
+    RPCHelpMan{"listgovproposalvotes",
                "\nReturns information about proposal votes.\n",
                {
                         {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
@@ -426,8 +426,8 @@ UniValue listgovvotes(const JSONRPCRequest& request)
                        "{id:{...},...}     (array) Json object with proposal vote information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listgovvotes", "txid")
-                       + HelpExampleRpc("listgovvotes", "txid")
+                       HelpExampleCli("listgovproposalvotes", "txid")
+                       + HelpExampleRpc("listgovproposalvotes", "txid")
                },
     }.Check(request);
 
@@ -686,7 +686,7 @@ static const CRPCCommand commands[] =
     {"proposals",   "creategovcfp",          &creategovcfp,          {"data", "inputs"} },
     {"proposals",   "creategovvoc",          &creategovvoc,          {"data", "inputs"} },
     {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
-    {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode", "cycle"} },
+    {"proposals",   "listgovproposalvotes",  &listgovproposalvotes,  {"proposalId", "masternode", "cycle"} },
     {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },
     {"proposals",   "listgovproposals",      &listgovproposals,      {"type", "status"} },
 };
