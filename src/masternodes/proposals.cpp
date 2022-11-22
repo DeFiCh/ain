@@ -51,8 +51,6 @@ Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreate
 
     prop.creationHeight = height;
     prop.votingPeriod = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
-    prop.majority = GetMajorityFromAttributes(type);
-    prop.quorum = GetQuorumFromAttributes();
     prop.fee = fee;
     prop.feeBurnAmount = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 

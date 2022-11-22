@@ -208,7 +208,7 @@ struct Params {
     struct CPropsParams {
         struct CPropsSpecs {
             CAmount fee;
-            CAmount majorityThreshold;
+            CAmount approvalThreshold;
         } cfp, brp, voc;
         uint32_t votingPeriod;
         CAmount quorum;

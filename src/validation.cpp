@@ -4270,36 +4270,19 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
-        CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
-
+        auto type = static_cast<CPropType>(prop.type);
         bool emergency = prop.options & CPropOption::Emergency;
-        uint64_t quorum;
-        if (prop.type == CPropType::VoteOfConfidence && emergency) {
-            quorum = attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
-        } else {
-            quorum = attributes->GetValue(quorumKey, chainparams.GetConsensus().props.quorum) / 10000;
-        }
+
+        auto quorum = cache.GetQuorumFromAttributes(type, emergency);
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
 
-        uint32_t majorityThreshold{};
-        CDataStructureV0 cfpMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
-        CDataStructureV0 vocMajority{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+        auto approvalThreshold = cache.GetApprovalThresholdFromAttributes(type) / 10000;
 
-        switch(prop.type) {
-            case CPropType::CommunityFundProposal:
-                majorityThreshold = attributes->GetValue(cfpMajority, chainparams.GetConsensus().props.cfp.majorityThreshold) / 10000;
-                break;
-            case CPropType::VoteOfConfidence:
-                majorityThreshold = attributes->GetValue(vocMajority, chainparams.GetConsensus().props.voc.majorityThreshold) / 10000;
-                break;
-        }
-
-        if (lround(voteYes * 10000.f / voters.size()) <= majorityThreshold) {
+        if (lround(voteYes * 10000.f / voters.size()) <= approvalThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }

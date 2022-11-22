@@ -1330,7 +1330,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType& type) 
     return attributes->GetValue(VOCKey, uint32_t{8640});
 }
 
-CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
+CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType& type) const
 {
     auto attributes = GetAttributes();
     assert(attributes);
@@ -1340,22 +1340,27 @@ CAmount CCustomCSView::GetMajorityFromAttributes(const CPropType& type) const
 
     switch(type) {
         case CPropType::CommunityFundProposal:
-            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.majorityThreshold) / 10000;
+            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
         case CPropType::VoteOfConfidence:
-            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.majorityThreshold) / 10000;
+            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
     }
 
     return 0;
 }
 
-CAmount CCustomCSView::GetQuorumFromAttributes() const
+CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType& type, bool emergency) const
 {
     auto attributes = GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 QuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
+    CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
+    CDataStructureV0 vocEmergencyQuorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
-    return attributes->GetValue(QuorumKey, Params().GetConsensus().props.quorum);
+    if (type == CPropType::VoteOfConfidence && emergency) {
+        return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
+    }
+
+    return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const
