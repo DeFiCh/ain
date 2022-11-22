@@ -164,6 +164,8 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["payoutAddress"], address)
         assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
         assert_equal(result[0]["cycleEndHeight"], cycle1)
+        assert_equal(result[0]["approvalThreshold"], "50.00%")
+        assert_equal(result[0]["quorum"], "1.00%")
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(tx, mn0)
@@ -286,7 +288,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["cycleEndHeight"], cycle1)
         assert_equal(result["payoutAddress"], '')
         assert_equal(result["totalCycles"], 2)
-        assert_equal(result["votingPercent"], "100.00 of 100.00%")
+        assert_equal(result["votingPercent"], "100.00 of 1.00%")
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
@@ -353,6 +355,8 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result[0]["payoutAddress"], address)
         assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
         assert_equal(result[0]["cycleEndHeight"], cycle1)
+        assert_equal(result[0]["approvalThreshold"], "50.00%")
+        assert_equal(result[0]["quorum"], "1.00%")
 
         # Check individual MN votes
         results = self.nodes[1].listgovvotes(propId, mn0)
@@ -425,7 +429,7 @@ class ChainGornmentTest(DefiTestFramework):
             'v0/params/feature/gov-payout':'true',
             'v0/gov/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/gov/proposals/voc_emergency_fee':'20.00000000',
-            'v0/gov/proposals/voc_required_votes':'0.4999'
+            'v0/gov/proposals/voc_required_votes':'49.99%'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -473,9 +477,11 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["cycleEndHeight"], cycle1)
         assert_equal(result["payoutAddress"], '')
         assert_equal(result["totalCycles"], 1)
-        assert_equal(result["votingPercent"], "100.00 of 100.00%")
+        assert_equal(result["votingPercent"], "100.00 of 10.00%")
         assert_equal(result["options"], ["Emergency"])
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
+        assert_equal(result["approvalThreshold"], "49.99%")
+        assert_equal(result["quorum"], "10.00%")
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 0)
