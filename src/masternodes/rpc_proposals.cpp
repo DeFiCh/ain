@@ -1,5 +1,3 @@
-#include "logging.h"
-#include "masternodes/proposals.h"
 #include <masternodes/mn_rpc.h>
 #include <masternodes/govvariables/attributes.h>
 
@@ -571,7 +569,6 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     auto quorum = view.GetQuorumFromAttributes(type, emergency);
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
     auto valid = allVotes > quorum;
-    LogPrintf("DIEGO: valid: %d, allVotes: %d, quorum: %d, approvalThreshold: %d \n", valid, allVotes, quorum, approvalThreshold);
 
     if (valid) {
         votes = lround(voteYes * 10000.f / voters);
