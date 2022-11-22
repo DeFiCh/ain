@@ -2145,7 +2145,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                                 continue;
                             }
                         } else if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::Options) {
-                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::UnusedEmission};
+                            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
                             if (attributes->GetValue(enabledKey, false)) {
                                 res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});

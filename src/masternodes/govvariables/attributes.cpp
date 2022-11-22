@@ -197,7 +197,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"consortium",                  DFIPKeys::ConsortiumEnabled},
                 {"members",                     DFIPKeys::Members},
                 {"gov-payout",                  DFIPKeys::CFPPayout},
-                {"gov-unusedemission",          DFIPKeys::UnusedEmission},
+                {"emission-unused-fund",        DFIPKeys::EmissionUnusedFund},
             }
         },
         {
@@ -275,7 +275,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::ConsortiumEnabled,       "consortium"},
                 {DFIPKeys::Members,                 "members"},
                 {DFIPKeys::CFPPayout,               "gov-payout"},
-                {DFIPKeys::UnusedEmission,          "gov-unusedemission"},
+                {DFIPKeys::EmissionUnusedFund,      "emission-unused-fund"},
             }
         },
         {
@@ -599,7 +599,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::GovernanceEnabled,       VerifyBool},
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::CFPPayout,               VerifyBool},
-                {DFIPKeys::UnusedEmission,          VerifyBool},
+                {DFIPKeys::EmissionUnusedFund,      VerifyBool},
             }
         },
         {
@@ -826,7 +826,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
                     typeKey != DFIPKeys::GovernanceEnabled &&
                     typeKey != DFIPKeys::ConsortiumEnabled &&
                     typeKey != DFIPKeys::CFPPayout &&
-                    typeKey != DFIPKeys::UnusedEmission) {
+                    typeKey != DFIPKeys::EmissionUnusedFund) {
                     return Res::Err("Unsupported type for Feature {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Foundation)  {

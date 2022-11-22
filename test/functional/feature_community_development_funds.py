@@ -126,7 +126,7 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         assert_equal(node0.getaccount('mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ'), [])
 
         # Enable unused emission to address
-        node0.setgov({"ATTRIBUTES":{'v0/params/feature/gov-unusedemission':'true'}})
+        node0.setgov({"ATTRIBUTES":{'v0/params/feature/emission-unused-fund':'true'}})
         node0.generate(1)
         self.sync_blocks(self.nodes[:2])
 
