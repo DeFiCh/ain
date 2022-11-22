@@ -355,7 +355,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "creategovcfp", 1, "inputs" },
     { "creategovvoc", 0, "data" },
     { "creategovvoc", 1, "inputs" },
-    { "listgovvotes", 2, "cycle" }
 };
 // clang-format on
 
