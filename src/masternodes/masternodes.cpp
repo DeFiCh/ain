@@ -1359,9 +1359,9 @@ CAmount CCustomCSView::GetQuorumFromAttributes(const CPropType& type, bool emerg
 
     if (type == CPropType::VoteOfConfidence && emergency) {
         return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
-    } else {
-        return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
     }
+
+    return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const

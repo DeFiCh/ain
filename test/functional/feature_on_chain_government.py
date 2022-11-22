@@ -399,6 +399,22 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(result["currentCycle"], 2)
         assert_equal(result["cycleEndHeight"], cycle2)
 
+        # vote cycle 2
+        self.nodes[0].votegov(propId, mn0, "no")
+        self.nodes[0].generate(1)
+
+        listvotes = self.nodes[0].listgovvotes(propId)
+        assert_equal(len(listvotes), 1)
+        listvotes = self.nodes[0].listgovvotes(propId, 'all', 0)
+        assert_equal(len(listvotes), 1)
+        listvotes = self.nodes[0].listgovvotes(propId, 'all', -1)
+        assert_equal(len(listvotes), 4)
+        listvotes = self.nodes[0].listgovvotes(propId, 'all', 1)
+        assert_equal(len(listvotes), 3)
+        listvotes = self.nodes[0].listgovvotes(propId, mn0, -1)
+        assert_equal(len(listvotes), 2)
+
+
         # Move to just before final height
         self.nodes[0].generate(proposalEndHeight - self.nodes[0].getblockcount() - 1)
         bal = self.nodes[0].listcommunitybalances()['CommunityDevelopmentFunds']
@@ -521,6 +537,7 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 0)
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
+
 
 if __name__ == '__main__':
     ChainGornmentTest().main ()

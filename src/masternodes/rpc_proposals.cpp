@@ -1,3 +1,5 @@
+#include "logging.h"
+#include "masternodes/proposals.h"
 #include <masternodes/mn_rpc.h>
 #include <masternodes/govvariables/attributes.h>
 
@@ -420,6 +422,7 @@ UniValue listgovvotes(const JSONRPCRequest& request)
                {
                         {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
                         {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
+                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"}
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with proposal vote information\n"
@@ -445,14 +448,39 @@ UniValue listgovvotes(const JSONRPCRequest& request)
             mnId = ParseHashV(str, "masternode");
         }
     }
-
-    UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
-    view.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & id, CPropVoteType vote) {
+    uint8_t cycle{1};
+    int8_t inputCycle{0};
+    if (request.params.size() > 2) {
+        inputCycle = request.params[2].get_int();
+    }
+    if (inputCycle==0){
+        auto prop = view.GetProp(propId);
+        if (!prop){
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
+        }
+        cycle = prop->cycle;
+    } else if (inputCycle > 0){
+        cycle = inputCycle;
+    } else if (inputCycle == -1){
+        cycle = 1;
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+    }
+
+    UniValue ret(UniValue::VARR);
+
+    view.ForEachPropVote([&](CPropId const & pId, uint8_t propCycle, uint256 const & id, CPropVoteType vote) {
+
         if (pId != propId) {
             return false;
         }
+
+        if(inputCycle != -1 && cycle != propCycle){
+            return false;
+        }
+
         if (isMine) {
             auto node = view.GetMasternode(id);
             if (!node) {
@@ -461,13 +489,13 @@ UniValue listgovvotes(const JSONRPCRequest& request)
             auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                                   : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
             if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
-                ret.push_back(propVoteToJSON(propId, cycle, id, vote));
+                ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
             }
         } else if (mnId.IsNull() || mnId == id) {
-            ret.push_back(propVoteToJSON(propId, cycle, id, vote));
+            ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
         }
         return true;
-    }, CMnVotePerCycle{propId, 1, mnId});
+    }, CMnVotePerCycle{propId, cycle, mnId});
 
     return ret;
 }
@@ -497,9 +525,6 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     auto prop = view.GetProp(propId);
     if (!prop) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
-    }
-    if (prop->status != CPropStatusType::Voting) {
-        return propToJSON(propId, *prop, view);
     }
 
     int targetHeight;
@@ -545,7 +570,8 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     auto approvalThreshold = view.GetApprovalThresholdFromAttributes(type);
     auto quorum = view.GetQuorumFromAttributes(type, emergency);
     auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
-    auto valid = allVotes > (quorum / 10000.f);
+    auto valid = allVotes > quorum;
+    LogPrintf("DIEGO: valid: %d, allVotes: %d, quorum: %d, approvalThreshold: %d \n", valid, allVotes, quorum, approvalThreshold);
 
     if (valid) {
         votes = lround(voteYes * 10000.f / voters);
@@ -600,9 +626,7 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                         {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                     "cfp/voc/all (default = all)"},
                         {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "voting/rejected/completed/all (default = all)"},
-                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                    "cycle: 0 (show all cycles), cycle: N (show N cycle with N >= 1) (default = 0)"},
+                                    "voting/rejected/completed/all (default = all)"}
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with proposals information\n"
@@ -627,7 +651,7 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         }
     }
 
-    uint8_t status = 0;
+    uint8_t status{0};
     if (request.params.size() > 1) {
         auto str = request.params[1].get_str();
         if (str == "voting") {
@@ -641,14 +665,6 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         }
     }
 
-    int cycle=0;
-    if (request.params.size() > 2) {
-        cycle = request.params[2].get_int();
-        if(cycle<0){
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cycle can't be a negative integer");
-        }
-    }
-
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
@@ -657,9 +673,6 @@ UniValue listgovproposals(const JSONRPCRequest& request)
             return false;
         }
         if (type && type != uint8_t(prop.type)) {
-            return true;
-        }
-        if(cycle != 0 && prop.cycle != cycle){
             return true;
         }
         ret.push_back(propToJSON(propId, prop, view));
