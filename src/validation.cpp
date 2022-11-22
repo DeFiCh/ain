@@ -2161,6 +2161,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                                     LogPrint(BCLog::ACCOUNTCHANGE, "AccountChange: txid=%s fund=%s change=%s\n", tx.GetHash().ToString(), GetCommunityAccountName(CommunityAccountType::Unallocated), (CBalances{{{{0}, subsidy}}}.ToString()));
                             }
 
+                            nonUtxoTotal += subsidy;
+
                             continue;
                         }
                     }
