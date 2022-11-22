@@ -431,7 +431,7 @@ UniValue listgovvotes(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
 
@@ -686,7 +686,7 @@ static const CRPCCommand commands[] =
     {"proposals",   "creategovcfp",          &creategovcfp,          {"data", "inputs"} },
     {"proposals",   "creategovvoc",          &creategovvoc,          {"data", "inputs"} },
     {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
-    {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode"} },
+    {"proposals",   "listgovvotes",          &listgovvotes,          {"proposalId", "masternode", "cycle"} },
     {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },
     {"proposals",   "listgovproposals",      &listgovproposals,      {"type", "status"} },
 };
