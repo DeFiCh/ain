@@ -291,7 +291,7 @@ public:
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
 
         // Destination for unused emission
-        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("8Hw9iMi5u4qhfdb4ziod8gf7hHeMaexz8T", *this));
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("df1qlwvtdrh4a4zln3k56rqnx8chu8t0sqx36syaea", *this));
 
         genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
