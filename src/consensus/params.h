@@ -107,6 +107,8 @@ struct Params {
     CScript burnAddress;
     /** Previous burn address to transfer tokens from */
     CScript retiredBurnAddress;
+    /** Address to hold unused emission */
+    CScript unusedEmission;
 
     /** Struct to hold percentages for coinbase distribution.
      *  Percentages are calculated out of 10000 */

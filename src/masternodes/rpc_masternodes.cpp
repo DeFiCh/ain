@@ -480,6 +480,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
                },
     }.Check(request);
 
+    SyncWithValidationInterfaceQueue();
+
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     bool verbose = true;
