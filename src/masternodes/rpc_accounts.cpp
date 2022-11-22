@@ -2095,7 +2095,7 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
                        {"dusdIn", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of dusd to send in"},
-                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "locktime in months can be 12 or 24"},
+                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "locktime in months (currently possible are 12 or 24)"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2639,6 +2639,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
     {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
     {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
+    {"accounts",   "lockdusd",                 &lockDUSD,                  {"address", "amount", "locktime", "inputs"}},
     {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 

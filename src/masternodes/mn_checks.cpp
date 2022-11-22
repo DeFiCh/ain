@@ -2054,7 +2054,7 @@ public:
             return Res::Err("Transaction must have at least one input from owner");
         }
 
-        if (static_cast<int>(height) >= consensus.GrandCentralHeight) {
+        if (static_cast<int>(height) < consensus.GrandCentralHeight) {
             return Res::Err("LockDUSD only available after Grand Central");
         }
 
@@ -2065,6 +2065,7 @@ public:
 
         const auto paramID = ParamIDs::DFIP2211D;
 
+        //TODO: refactor to have lockperiods in gov "dfip2211d/locklimit/<months>", if key is there, locking is active with given limit
         CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
         CDataStructureV0 limit12Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_12_Limit};
         CDataStructureV0 limit24Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_24_Limit};
@@ -2082,8 +2083,7 @@ public:
         if(obj.lockTime != 12 || obj.lockTime != 24) {
             return Res::Err("Can only lock for 12 or 24 months");
         }
-        bool isLock1 = obj.lockTime == 12;
-        auto lockToken = mnview.GetToken(isLock1 ? "DUSDLOCK1" : "DUSDLOCK2");
+        auto lockToken = mnview.GetToken(strprintf("DUSDL%i",obj.lockTime));
         if(!lockToken) {
             return Res::Err("Could not find lock token");
         }
@@ -2098,7 +2098,7 @@ public:
             return contractAddressValue;
         }
 
-        auto limit = attributes->GetValue(isLock1 ? limit12Key : limit24Key, CAmount{0});
+        auto limit = attributes->GetValue(obj.lockTime == 12 ? limit12Key : limit24Key, CAmount{0});
         auto resultedMint= SafeAdd(lockToken->second->minted, obj.dusdIn);
         if (!resultedMint)
             return (std::move(resultedMint));

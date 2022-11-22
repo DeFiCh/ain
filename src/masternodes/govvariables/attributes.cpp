@@ -606,8 +606,8 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::CFPPayout,               VerifyBool},
                 {DFIPKeys::EmissionUnusedFund,      VerifyBool},
-                {DFIPKeys::LOCK_12_Limit,           VerifyInt64},
-                {DFIPKeys::LOCK_24_Limit,           VerifyInt64},
+                {DFIPKeys::LOCK_12_Limit,           VerifyUInt32},
+                {DFIPKeys::LOCK_24_Limit,           VerifyUInt32},
             }
         },
         {
@@ -1559,6 +1559,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                         return Res::Err("Cannot be set before FortCanningRoadHeight");
                     }
+                } else if (attrV0->typeId == ParamIDs::DFIP2211D) {
+                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
+                        return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
@@ -1803,8 +1807,16 @@ Res ATTRIBUTES::Apply(CCustomCSView & mnview, const uint32_t height)
                         return Res::Err("Cannot set block period while DFIP2206F is active");
                     }
                 }
-            }
+            } else if (attrV0->typeId == ParamIDs::DFIP2211D) {
+                if (attrV0->key == DFIPKeys::Active) {
 
+                    const auto value = std::get_if<bool>(&attribute.second);
+                    if (!value) {
+                        return Res::Err("Unexpected type");
+                    }
+
+                } 
+            }
         } else if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
             const auto value = std::get_if<OracleSplits>(&attribute.second);
             if (!value) {
