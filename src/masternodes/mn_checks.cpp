@@ -2061,25 +2061,33 @@ public:
 
         const auto paramID = ParamIDs::DFIP2211D;
 
-//TODO: refactor to have lockperiods in gov "dfip2211d/<months>/token/<tokenId>" and "dfip2211d/<months>/limit", if both keys are there, locking is active with given limit
+        if(obj.lockTime <= 0) {
+            return Res::Err("locktime must be positive");
+        }
+
         CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
-        CDataStructureV0 limit12Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_12_Limit};
-        CDataStructureV0 limit24Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_24_Limit};
-        if (!attributes->GetValue(activeKey, false) ||
-            !attributes->CheckKey(limit12Key) ||
-            !attributes->CheckKey(limit24Key)) {
+        CDataStructureV0 limitKey{AttributeTypes::Param, paramID, DFIPKeys::Limit, obj.lockTime};
+        CDataStructureV0 tokenKey{AttributeTypes::Param, paramID, DFIPKeys::LockToken, obj.lockTime};
+        if (!attributes->GetValue(activeKey, false)){
             return Res::Err("DFIP2211D not currently active");
+
+        }
+        if(!attributes->CheckKey(limitKey) ||
+            !attributes->CheckKey(tokenKey)) {
+            return Res::Err("This locktime is currently not available");
         }
 
         if (obj.dusdIn <= 0) {
-            return Res::Err("Source amount must be more than zero");
+            return Res::Err("Source amount must be positive");
         }
 
-        //check locktime. must be 12 or 24
-        if(obj.lockTime != 12 || obj.lockTime != 24) {
-            return Res::Err("Can only lock for 12 or 24 months");
+        auto tokenId= attributes->GetValue(tokenKey, (uint32_t)0);
+        auto limit = attributes->GetValue(limitKey,(uint32_t)0)*COIN;
+        if(tokenId == 0) {
+            return Res::Err("missing lock token");
         }
-        auto lockToken = mnview.GetToken(strprintf("DUSDL%i",obj.lockTime));
+        auto lockTokenId = DCT_ID{tokenId};
+        auto lockToken = mnview.GetToken(lockTokenId);
         if(!lockToken) {
             return Res::Err("Could not find lock token");
         }
@@ -2089,13 +2097,13 @@ public:
             return Res::Err("Could not find dusd token");
         }
 
-        auto dusdhalf= DivideAmounts(obj.dusdIn,CAmount{2});
+        auto dusdhalf= obj.dusdIn/2;
         auto lockedhalf= obj.dusdIn - dusdhalf;
-        if(dusdhalf <= 0 || lockedhalf <= 0) {
+        
+        if(dusdhalf == 0 || lockedhalf == 0) {
             return Res::Err("amount too small.");
         }
-        auto limit = attributes->GetValue(obj.lockTime == 12 ? limit12Key : limit24Key, CAmount{0});
-        auto resultedMint= SafeAdd(lockToken->second->minted, lockedhalf);
+        auto resultedMint= SafeAdd(lockToken->minted, lockedhalf);
         if (!resultedMint)
             return (std::move(resultedMint));
 
@@ -2110,16 +2118,17 @@ public:
         
         //half DUSD "swapped" to the lock token. (lockToken is minted, DUSD minted gets reduced)
         //remaining half + DUSDLOCK added to pool
+        //TODO: @core-devs: how is the Logging policy in general? I think there should be some logging happen in here?
 
         res = mnview.SubMintedTokens(dusdToken->first, lockedhalf);
         if (!res)
             return res;
         
-        res = mnview.AddMintedTokens(lockToken->first, lockedhalf);
+        res = mnview.AddMintedTokens(lockTokenId, lockedhalf);
         if (!res)
             return res;
         
-        auto pair = mnview.GetPoolPair(lockToken->first,dusdToken->first);
+        auto pair = mnview.GetPoolPair(lockTokenId,dusdToken->first);
         if (!pair) {
             return Res::Err("lock pool not found");
         }

@@ -200,8 +200,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"members",                     DFIPKeys::Members},
                 {"gov-payout",                  DFIPKeys::CFPPayout},
                 {"emission-unused-fund",        DFIPKeys::EmissionUnusedFund},
-                {"lock_12_limit",               DFIPKeys::LOCK_12_Limit},
-                {"lock_24_limit",               DFIPKeys::LOCK_24_Limit},
+                {"limit",                       DFIPKeys::Limit},
+                {"token",                       DFIPKeys::LockToken},
             }
         },
         {
@@ -280,8 +280,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::Members,                 "members"},
                 {DFIPKeys::CFPPayout,               "gov-payout"},
                 {DFIPKeys::EmissionUnusedFund,      "emission-unused-fund"},
-                {DFIPKeys::LOCK_12_Limit,           "lock_12_limit"},
-                {DFIPKeys::LOCK_24_Limit,           "lock_24_limit"},
+                {DFIPKeys::Limit,                   "limit"},
+                {DFIPKeys::LockToken,               "token"},
             }
         },
         {
@@ -606,8 +606,8 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::ConsortiumEnabled,       VerifyBool},
                 {DFIPKeys::CFPPayout,               VerifyBool},
                 {DFIPKeys::EmissionUnusedFund,      VerifyBool},
-                {DFIPKeys::LOCK_12_Limit,           VerifyUInt32},
-                {DFIPKeys::LOCK_24_Limit,           VerifyUInt32},
+                {DFIPKeys::Limit,                   VerifyUInt32},
+                {DFIPKeys::LockToken,               VerifyUInt32},
             }
         },
         {
@@ -826,11 +826,11 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
                 }
 
             } else if (typeId == ParamIDs::DFIP2211D) {
-                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::LOCK_12_Limit &&
-                    typeKey != DFIPKeys::LOCK_24_Limit) {
+
+                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::Limit &&
+                    typeKey != DFIPKeys::LockToken) {
                     return Res::Err("Unsupported type for DFIP2211D {%d}", typeKey);
                 }
-
             } else if (typeId == ParamIDs::Feature) {
                 if (typeKey != DFIPKeys::GovUnset &&
                     typeKey != DFIPKeys::GovFoundation &&
@@ -1562,6 +1562,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView & view) const
                 } else if (attrV0->typeId == ParamIDs::DFIP2211D) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
+                    }
+
+                    if (attrV0->key == DFIPKeys::LockToken) {
+                        const auto token = std::get_if<uint32_t>(&value);
+                        if (!token || !view.GetToken(DCT_ID{*token})) {
+                            return Res::Err("No such token");
+                        }
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");

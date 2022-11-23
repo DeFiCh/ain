@@ -86,8 +86,8 @@ enum DFIPKeys : uint8_t  {
     GovernanceEnabled       = 'q',
     CFPPayout               = 'r',
     EmissionUnusedFund      = 's',
-    LOCK_12_Limit           = 't',
-    LOCK_24_Limit           = 'u',
+    Limit                   = 't',
+    LockToken               = 'u',
 };
 
 enum GovernanceKeys : uint8_t  {
@@ -157,9 +157,12 @@ struct CDataStructureV0 {
     }
 
     bool IsExtendedSize() const {
-        return type == AttributeTypes::Token
-            && (key == TokenKeys::LoanPayback
-            ||  key == TokenKeys::LoanPaybackFeePCT);
+        return (type == AttributeTypes::Token
+                && (key == TokenKeys::LoanPayback
+                    ||  key == TokenKeys::LoanPaybackFeePCT))
+            || (type == AttributeTypes::Param 
+                && (key == DFIPKeys::Limit 
+                    || key == DFIPKeys::LockToken));
     }
 
     bool operator<(const CDataStructureV0& o) const {
