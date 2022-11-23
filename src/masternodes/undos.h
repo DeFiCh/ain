@@ -5,21 +5,22 @@
 #ifndef DEFI_MASTERNODES_UNDOS_H
 #define DEFI_MASTERNODES_UNDOS_H
 
-#include <masternodes/undo.h>
 #include <flushablestorage.h>
 #include <masternodes/res.h>
+#include <masternodes/undo.h>
 
 class CUndosView : public virtual CStorageView {
-public:
-    void ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<CUndo>)> callback, UndoKey const & start = {});
+   public:
+    void ForEachUndo(std::function<bool(const UndoKey &, CLazySerialize<CUndo>)> callback, const UndoKey &start = {});
 
-    std::optional<CUndo> GetUndo(UndoKey const & key) const;
-    Res SetUndo(UndoKey const & key, CUndo const & undo);
-    Res DelUndo(UndoKey const & key);
+    std::optional<CUndo> GetUndo(const UndoKey &key) const;
+    Res SetUndo(const UndoKey &key, const CUndo &undo);
+    Res DelUndo(const UndoKey &key);
 
     // tags
-    struct ByUndoKey { static constexpr uint8_t prefix() { return 'u'; } };
+    struct ByUndoKey {
+        static constexpr uint8_t prefix() { return 'u'; }
+    };
 };
 
-
-#endif //DEFI_MASTERNODES_UNDOS_H
+#endif  // DEFI_MASTERNODES_UNDOS_H

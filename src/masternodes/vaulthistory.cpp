@@ -2,33 +2,31 @@
 
 #include <chain.h>
 
-void CVaultHistoryView::ForEachVaultHistory(std::function<bool(VaultHistoryKey const &, CLazySerialize<VaultHistoryValue>)> callback, VaultHistoryKey const & start)
-{
+void CVaultHistoryView::ForEachVaultHistory(
+    std::function<bool(const VaultHistoryKey &, CLazySerialize<VaultHistoryValue>)> callback,
+    const VaultHistoryKey &start) {
     ForEach<ByVaultHistoryKey, VaultHistoryKey, VaultHistoryValue>(callback, start);
 }
 
-void CVaultHistoryView::WriteVaultHistory(VaultHistoryKey const & key, VaultHistoryValue const & value) {
+void CVaultHistoryView::WriteVaultHistory(const VaultHistoryKey &key, const VaultHistoryValue &value) {
     WriteBy<ByVaultHistoryKey>(key, value);
 }
 
-void CVaultHistoryView::WriteVaultScheme(VaultSchemeKey const & key, const VaultSchemeValue& value)
-{
+void CVaultHistoryView::WriteVaultScheme(const VaultSchemeKey &key, const VaultSchemeValue &value) {
     WriteBy<ByVaultSchemeKey>(key, value);
 }
 
-void CVaultHistoryView::WriteGlobalScheme(VaultGlobalSchemeKey const & key, const VaultGlobalSchemeValue& value)
-{
+void CVaultHistoryView::WriteGlobalScheme(const VaultGlobalSchemeKey &key, const VaultGlobalSchemeValue &value) {
     WriteBy<ByVaultGlobalSchemeKey>(key, value);
 }
 
-void CVaultHistoryView::EraseVaultHistory(const uint32_t height)
-{
+void CVaultHistoryView::EraseVaultHistory(const uint32_t height) {
     std::vector<VaultHistoryKey> keys;
     auto historyIt = LowerBound<ByVaultHistoryKey>(VaultHistoryKey{height});
     for (; historyIt.Valid() && historyIt.Key().blockHeight == height; historyIt.Next()) {
         keys.push_back(historyIt.Key());
     }
-    for (auto& key : keys) {
+    for (auto &key : keys) {
         EraseBy<ByVaultHistoryKey>(key);
         const auto stateKey = VaultStateKey{key.vaultID, key.blockHeight};
         EraseBy<ByVaultStateKey>(stateKey);
@@ -40,28 +38,33 @@ void CVaultHistoryView::EraseVaultHistory(const uint32_t height)
     for (; schemeIt.Valid() && schemeIt.Key().blockHeight == height; schemeIt.Next()) {
         schemeKeys.push_back(schemeIt.Key());
     }
-    for (auto& key : schemeKeys) {
+    for (auto &key : schemeKeys) {
         EraseGlobalScheme(key);
     }
 }
 
-void CVaultHistoryView::ForEachVaultScheme(std::function<bool(VaultSchemeKey const &, CLazySerialize<VaultSchemeValue>)> callback, VaultSchemeKey const & start)
-{
+void CVaultHistoryView::ForEachVaultScheme(
+    std::function<bool(const VaultSchemeKey &, CLazySerialize<VaultSchemeValue>)> callback,
+    const VaultSchemeKey &start) {
     ForEach<ByVaultSchemeKey, VaultSchemeKey, VaultSchemeValue>(callback, start);
 }
 
-void CVaultHistoryView::ForEachVaultState(std::function<bool(VaultStateKey const &, CLazySerialize<VaultStateValue>)> callback, VaultStateKey const & start)
-{
+void CVaultHistoryView::ForEachVaultState(
+    std::function<bool(const VaultStateKey &, CLazySerialize<VaultStateValue>)> callback,
+    const VaultStateKey &start) {
     ForEach<ByVaultStateKey, VaultStateKey, VaultStateValue>(callback, start);
 }
 
-void CVaultHistoryView::ForEachGlobalScheme(std::function<bool(VaultGlobalSchemeKey const &, CLazySerialize<VaultGlobalSchemeValue>)> callback, VaultGlobalSchemeKey const & start)
-{
+void CVaultHistoryView::ForEachGlobalScheme(
+    std::function<bool(const VaultGlobalSchemeKey &, CLazySerialize<VaultGlobalSchemeValue>)> callback,
+    const VaultGlobalSchemeKey &start) {
     ForEach<ByVaultGlobalSchemeKey, VaultGlobalSchemeKey, VaultGlobalSchemeValue>(callback, start);
 }
 
-void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex& pindex, const uint256& vaultID, const uint32_t ratio)
-{
+void CVaultHistoryView::WriteVaultState(CCustomCSView &mnview,
+                                        const CBlockIndex &pindex,
+                                        const uint256 &vaultID,
+                                        const uint32_t ratio) {
     const auto vault = mnview.GetVault(vaultID);
     assert(vault);
 
@@ -71,7 +74,8 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
     }
 
     bool useNextPrice = false, requireLivePrice = false;
-    auto rate = mnview.GetLoanCollaterals(vaultID, *collaterals, pindex.nHeight, pindex.nTime, useNextPrice, requireLivePrice);
+    auto rate =
+        mnview.GetLoanCollaterals(vaultID, *collaterals, pindex.nHeight, pindex.nTime, useNextPrice, requireLivePrice);
 
     CCollateralLoans collateralLoans{0, 0, {}, {}};
     if (rate) {
@@ -91,14 +95,11 @@ void CVaultHistoryView::WriteVaultState(CCustomCSView& mnview, const CBlockIndex
     WriteBy<ByVaultStateKey>(VaultStateKey{vaultID, static_cast<uint32_t>(pindex.nHeight)}, value);
 }
 
-void CVaultHistoryView::EraseGlobalScheme(const VaultGlobalSchemeKey& key)
-{
+void CVaultHistoryView::EraseGlobalScheme(const VaultGlobalSchemeKey &key) {
     EraseBy<ByVaultGlobalSchemeKey>(key);
 }
 
-CVaultHistoryStorage::CVaultHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
-        : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe))
-{
-}
+CVaultHistoryStorage::CVaultHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
+    : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe)) {}
 
 std::unique_ptr<CVaultHistoryStorage> pvaultHistoryDB;

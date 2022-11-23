@@ -12,19 +12,19 @@
 #include <serialize.h>
 #include <uint256.h>
 
-using CPropId = uint256;
-constexpr const uint8_t VOC_CYCLES = 2;
-constexpr const uint8_t MAX_CYCLES = 100;
-constexpr const uint16_t MAX_PROP_TITLE_SIZE = 128;
+using CPropId                                  = uint256;
+constexpr const uint8_t VOC_CYCLES             = 2;
+constexpr const uint8_t MAX_CYCLES             = 100;
+constexpr const uint16_t MAX_PROP_TITLE_SIZE   = 128;
 constexpr const uint16_t MAX_PROP_CONTEXT_SIZE = 512;
 
 enum CPropType : uint8_t {
-    CommunityFundProposal   = 0x01,
-    VoteOfConfidence        = 0x02,
+    CommunityFundProposal = 0x01,
+    VoteOfConfidence      = 0x02,
 };
 
 enum CPropOption : uint8_t {
-    Emergency   = 0x01,
+    Emergency = 0x01,
 };
 
 enum CPropStatusType : uint8_t {
@@ -57,8 +57,7 @@ struct CCreatePropMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(type);
         READWRITE(address);
         READWRITE(nAmount);
@@ -78,8 +77,7 @@ struct CPropVoteMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(propId);
         READWRITE(masternodeId);
         READWRITE(vote);
@@ -88,7 +86,8 @@ struct CPropVoteMessage {
 
 struct CPropObject : public CCreatePropMessage {
     CPropObject() = default;
-    explicit CPropObject(const CCreatePropMessage& other) : CCreatePropMessage(other) {}
+    explicit CPropObject(const CCreatePropMessage &other)
+        : CCreatePropMessage(other) {}
 
     uint32_t creationHeight{};
     uint32_t proposalEndHeight{};
@@ -105,8 +104,7 @@ struct CPropObject : public CCreatePropMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CCreatePropMessage, *this);
         READWRITE(creationHeight);
         READWRITE(proposalEndHeight);
@@ -124,8 +122,7 @@ struct CMnVotePerCycle {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(propId);
         READWRITE(cycle);
         READWRITE(masternodeId);
@@ -133,32 +130,41 @@ struct CMnVotePerCycle {
 };
 
 /// View for managing proposals and their data
-class CPropsView : public virtual CStorageView
-{
-public:
+class CPropsView : public virtual CStorageView {
+   public:
+    Res CreateProp(const CPropId &propId, uint32_t height, const CCreatePropMessage &prop, const CAmount fee);
+    std::optional<CPropObject> GetProp(const CPropId &propId);
+    Res UpdatePropCycle(const CPropId &propId, uint8_t cycle);
+    Res UpdatePropStatus(const CPropId &propId, uint32_t height, CPropStatusType status);
+    Res AddPropVote(const CPropId &propId, const uint256 &masternodeId, CPropVoteType vote);
+    std::optional<CPropVoteType> GetPropVote(const CPropId &propId, uint8_t cycle, const uint256 &masternodeId);
 
-    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop, const CAmount fee);
-    std::optional<CPropObject> GetProp(const CPropId& propId);
-    Res UpdatePropCycle(const CPropId& propId, uint8_t cycle);
-    Res UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status);
-    Res AddPropVote(const CPropId& propId, const uint256& masternodeId, CPropVoteType vote);
-    std::optional<CPropVoteType> GetPropVote(const CPropId& propId, uint8_t cycle, const uint256& masternodeId);
+    void ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status = 0);
+    void ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,
+                         const CMnVotePerCycle &start = {});
+    void ForEachCycleProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint32_t height);
 
-    void ForEachProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint8_t status = 0);
-    void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
-    void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
+    virtual uint32_t GetVotingPeriodFromAttributes() const                                       = 0;
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType &type) const               = 0;
+    virtual CAmount GetApprovalThresholdFromAttributes(const CPropType &type) const              = 0;
+    virtual CAmount GetQuorumFromAttributes(const CPropType &type, bool emergency = false) const = 0;
+    virtual CAmount GetFeeBurnPctFromAttributes() const                                          = 0;
 
-    virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const CPropType& type) const = 0;
-    virtual CAmount GetApprovalThresholdFromAttributes(const CPropType& type) const = 0;
-    virtual CAmount GetQuorumFromAttributes(const CPropType& type, bool emergency = false) const = 0;
-    virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
-
-    struct ByType   { static constexpr uint8_t prefix() { return 0x2B; } };
-    struct ByCycle  { static constexpr uint8_t prefix() { return 0x2C; } };
-    struct ByMnVote { static constexpr uint8_t prefix() { return 0x2D; } };
-    struct ByStatus { static constexpr uint8_t prefix() { return 0x2E; } };
-    struct ByVoting { static constexpr uint8_t prefix() { return 0x2F; } };
+    struct ByType {
+        static constexpr uint8_t prefix() { return 0x2B; }
+    };
+    struct ByCycle {
+        static constexpr uint8_t prefix() { return 0x2C; }
+    };
+    struct ByMnVote {
+        static constexpr uint8_t prefix() { return 0x2D; }
+    };
+    struct ByStatus {
+        static constexpr uint8_t prefix() { return 0x2E; }
+    };
+    struct ByVoting {
+        static constexpr uint8_t prefix() { return 0x2F; }
+    };
 };
 
-#endif // DEFI_MASTERNODES_PROPOSALS_H
+#endif  // DEFI_MASTERNODES_PROPOSALS_H

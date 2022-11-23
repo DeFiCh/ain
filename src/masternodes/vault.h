@@ -19,8 +19,7 @@ struct CVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(ownerAddress);
         READWRITE(schemeId);
     }
@@ -32,8 +31,7 @@ struct CVaultData : public CVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CVaultMessage, *this);
         READWRITE(isUnderLiquidation);
     }
@@ -46,8 +44,7 @@ struct CCloseVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(vaultId);
         READWRITE(to);
     }
@@ -61,8 +58,7 @@ struct CUpdateVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(vaultId);
         READWRITE(ownerAddress);
         READWRITE(schemeId);
@@ -77,8 +73,7 @@ struct CDepositToVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(vaultId);
         READWRITE(from);
         READWRITE(amount);
@@ -93,8 +88,7 @@ struct CWithdrawFromVaultMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(vaultId);
         READWRITE(to);
         READWRITE(amount);
@@ -110,8 +104,7 @@ struct CAuctionBidMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(vaultId);
         READWRITE(index);
         READWRITE(from);
@@ -121,14 +114,13 @@ struct CAuctionBidMessage {
 
 struct CAuctionData {
     uint32_t batchCount;
-    uint32_t liquidationHeight; // temporary
+    uint32_t liquidationHeight;  // temporary
     CAmount liquidationPenalty;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(batchCount);
         READWRITE(liquidationPenalty);
     }
@@ -142,51 +134,65 @@ struct CAuctionBatch {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(collaterals);
         READWRITE(loanAmount);
         READWRITE(loanInterest);
     }
 };
 
-class CVaultView : public virtual CStorageView
-{
-public:
+class CVaultView : public virtual CStorageView {
+   public:
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
-    using AuctionStoreKey = std::pair<CVaultId, uint32_t>;
+    using AuctionStoreKey   = std::pair<CVaultId, uint32_t>;
 
-    Res StoreVault(const CVaultId&, const CVaultData&);
-    Res EraseVault(const CVaultId&);
-    std::optional<CVaultData> GetVault(const CVaultId&) const;
-    Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
-    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
+    Res StoreVault(const CVaultId &, const CVaultData &);
+    Res EraseVault(const CVaultId &);
+    std::optional<CVaultData> GetVault(const CVaultId &) const;
+    Res UpdateVault(const CVaultId &vaultId, const CVaultMessage &newVault);
+    void ForEachVault(std::function<bool(const CVaultId &, const CVaultData &)> callback,
+                      const CVaultId &start       = {},
+                      const CScript &ownerAddress = {});
 
-    Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
-    Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
-    std::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
-    void ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback);
+    Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
+    Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
+    std::optional<CBalances> GetVaultCollaterals(const CVaultId &vaultId);
+    void ForEachVaultCollateral(std::function<bool(const CVaultId &, const CBalances &)> callback);
 
-    Res StoreAuction(const CVaultId& vaultId, const CAuctionData& data);
-    Res EraseAuction(const CVaultId& vaultId, uint32_t height);
-    std::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
-    Res StoreAuctionBatch(const AuctionStoreKey& key, const CAuctionBatch& batch);
-    Res EraseAuctionBatch(const AuctionStoreKey& key);
-    std::optional<CAuctionBatch> GetAuctionBatch(const AuctionStoreKey& vaultId);
-    void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId = {});
-    void ForEachAuctionBatch(std::function<bool(const AuctionStoreKey&, const CAuctionBatch&)> callback);
+    Res StoreAuction(const CVaultId &vaultId, const CAuctionData &data);
+    Res EraseAuction(const CVaultId &vaultId, uint32_t height);
+    std::optional<CAuctionData> GetAuction(const CVaultId &vaultId, uint32_t height);
+    Res StoreAuctionBatch(const AuctionStoreKey &key, const CAuctionBatch &batch);
+    Res EraseAuctionBatch(const AuctionStoreKey &key);
+    std::optional<CAuctionBatch> GetAuctionBatch(const AuctionStoreKey &vaultId);
+    void ForEachVaultAuction(std::function<bool(const CVaultId &, const CAuctionData &)> callback,
+                             uint32_t height,
+                             const CVaultId &vaultId = {});
+    void ForEachAuctionBatch(std::function<bool(const AuctionStoreKey &, const CAuctionBatch &)> callback);
 
-    Res StoreAuctionBid(const AuctionStoreKey& key, COwnerTokenAmount amount);
-    Res EraseAuctionBid(const AuctionStoreKey& key);
-    std::optional<COwnerTokenAmount> GetAuctionBid(const AuctionStoreKey& key);
-    void ForEachAuctionBid(std::function<bool(const AuctionStoreKey& key, const COwnerTokenAmount& amount)> callback);
+    Res StoreAuctionBid(const AuctionStoreKey &key, COwnerTokenAmount amount);
+    Res EraseAuctionBid(const AuctionStoreKey &key);
+    std::optional<COwnerTokenAmount> GetAuctionBid(const AuctionStoreKey &key);
+    void ForEachAuctionBid(std::function<bool(const AuctionStoreKey &key, const COwnerTokenAmount &amount)> callback);
 
-    struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
-    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x21; } };
-    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x22; } };
-    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x23; } };
-    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x24; } };
-    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x25; } };
+    struct VaultKey {
+        static constexpr uint8_t prefix() { return 0x20; }
+    };
+    struct OwnerVaultKey {
+        static constexpr uint8_t prefix() { return 0x21; }
+    };
+    struct CollateralKey {
+        static constexpr uint8_t prefix() { return 0x22; }
+    };
+    struct AuctionBatchKey {
+        static constexpr uint8_t prefix() { return 0x23; }
+    };
+    struct AuctionHeightKey {
+        static constexpr uint8_t prefix() { return 0x24; }
+    };
+    struct AuctionBidKey {
+        static constexpr uint8_t prefix() { return 0x25; }
+    };
 };
 
-#endif // DEFI_MASTERNODES_VAULT_H
+#endif  // DEFI_MASTERNODES_VAULT_H

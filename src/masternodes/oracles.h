@@ -19,11 +19,11 @@
 class CTokenImplementation;
 class CLoanSetLoanTokenImplementation;
 
-using COracleId = uint256;
-using CPriceTimePair = std::pair<CAmount, int64_t>;
+using COracleId          = uint256;
+using CPriceTimePair     = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
-using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
-using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
+using CTokenPrices       = std::map<std::string, std::map<std::string, CAmount>>;
+using CTokenPricePoints  = std::map<std::string, std::map<std::string, CPriceTimePair>>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -33,8 +33,7 @@ struct CAppointOracleMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(oracleAddress);
         READWRITE(weightage);
         READWRITE(availablePairs);
@@ -47,8 +46,7 @@ struct CRemoveOracleAppointMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(oracleId);
     }
 };
@@ -60,8 +58,7 @@ struct CUpdateOracleAppointMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(oracleId);
         READWRITE(newOracleAppoint);
     }
@@ -75,8 +72,7 @@ struct CSetOracleDataMessage {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(oracleId);
         READWRITE(timestamp);
         READWRITE(tokenPrices);
@@ -87,71 +83,70 @@ struct CSetOracleDataMessage {
 struct COracle : public CAppointOracleMessage {
     CTokenPricePoints tokenPrices;
 
-    bool SupportsPair(const std::string& token, const std::string& currency) const;
-    Res SetTokenPrice(const std::string& token, const std::string& currency, CAmount amount, int64_t timestamp);
-    ResVal<CAmount> GetTokenPrice(const std::string& token, const std::string& currency);
+    bool SupportsPair(const std::string &token, const std::string &currency) const;
+    Res SetTokenPrice(const std::string &token, const std::string &currency, CAmount amount, int64_t timestamp);
+    ResVal<CAmount> GetTokenPrice(const std::string &token, const std::string &currency);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CAppointOracleMessage, *this);
         READWRITE(tokenPrices);
     }
 };
 
-struct CFixedIntervalPrice
-{
+struct CFixedIntervalPrice {
     CTokenCurrencyPair priceFeedId;
     int64_t timestamp;
-    std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
+    std::vector<CAmount> priceRecord{0, 0};  // priceHistory[0] = active price, priceHistory[1] = next price
     bool isLive(const CAmount deviationThreshold) const;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(priceFeedId);
         READWRITE(timestamp);
         READWRITE(priceRecord);
     }
 };
 
-struct CFuturesPrice
-{
+struct CFuturesPrice {
     CAmount discount;
     CAmount premium;
 };
 
 /// View for managing oracles and their data
-class COracleView : public virtual CStorageView
-{
-public:
+class COracleView : public virtual CStorageView {
+   public:
     ~COracleView() override = default;
 
     /// register new oracle instance
-    Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
+    Res AppointOracle(const COracleId &oracleId, const COracle &oracle);
 
     /// updates oracle info
-    Res UpdateOracle(const COracleId& oracleId, COracle&& newOracle);
+    Res UpdateOracle(const COracleId &oracleId, COracle &&newOracle);
 
     /// remove oracle instancefrom database
-    Res RemoveOracle(const COracleId& oracleId);
+    Res RemoveOracle(const COracleId &oracleId);
 
     /// store registered oracle data
-    Res SetOracleData(const COracleId& oracleId, int64_t timestamp, const CTokenPrices& tokenPrices);
+    Res SetOracleData(const COracleId &oracleId, int64_t timestamp, const CTokenPrices &tokenPrices);
 
     /// deserialize oracle instance from database
-    ResVal<COracle> GetOracleData(const COracleId& oracleId) const;
+    ResVal<COracle> GetOracleData(const COracleId &oracleId) const;
 
-    void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
+    void ForEachOracle(std::function<bool(const COracleId &, CLazySerialize<COracle>)> callback,
+                       const COracleId &start = {});
 
-    Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
+    Res SetFixedIntervalPrice(const CFixedIntervalPrice &PriceFeed);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair &priceFeedId);
 
-    void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
+    void ForEachFixedIntervalPrice(
+        std::function<bool(const CTokenCurrencyPair &, CLazySerialize<CFixedIntervalPrice>)> callback,
+        const CTokenCurrencyPair &start = {});
 
     Res SetPriceDeviation(const uint32_t deviation);
     Res ErasePriceDeviation();
@@ -161,14 +156,23 @@ public:
     Res EraseIntervalBlock();
     uint32_t GetIntervalBlock() const;
 
-    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t>& tokenIds) const = 0;
-    [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
-    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const & id) const = 0;
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const                          = 0;
+    [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string &str,
+                                                                              DCT_ID &id) const                   = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const &id) const = 0;
 
-    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
-    struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };
-    struct FixedIntervalBlockKey { static constexpr uint8_t prefix() { return 'z'; } };
-    struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
+    struct ByName {
+        static constexpr uint8_t prefix() { return 'O'; }
+    };
+    struct PriceDeviation {
+        static constexpr uint8_t prefix() { return 'Y'; }
+    };
+    struct FixedIntervalBlockKey {
+        static constexpr uint8_t prefix() { return 'z'; }
+    };
+    struct FixedIntervalPriceKey {
+        static constexpr uint8_t prefix() { return 'y'; }
+    };
 };
 
-#endif // DEFI_MASTERNODES_ORACLES_H
+#endif  // DEFI_MASTERNODES_ORACLES_H
