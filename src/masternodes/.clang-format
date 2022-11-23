@@ -1,7 +1,8 @@
 ---
 Language:        Cpp
 # BasedOnStyle:  Chromium
-AccessModifierOffset: -1
+# With changes on 
+AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures: Left
 AlignConsecutiveMacros: false
