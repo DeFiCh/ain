@@ -13,7 +13,8 @@
 # ignored
 
 export LC_ALL=C
-UNTERMINATED_LOGS=$(git grep --extended-regexp "LogPrintf?\(" -- "*.cpp" | \
+UNTERMINATED_LOGS=$(git grep --extended-regexp "LogPrintf\(" -- "*.cpp" | \
+    git grep --extended-regexp "LogPrint\(.*, ?\"" -- "*.cpp" | \
     grep -v '\\n"' | \
     grep -v "/\* Continued \*/" | \
     grep -v "LogPrint()" | \
