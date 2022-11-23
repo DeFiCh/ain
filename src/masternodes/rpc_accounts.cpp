@@ -2085,7 +2085,6 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
-//TODO: @coredevs: added it here since futureswap is here too, but not sure if this is the right place
 UniValue lockDUSD(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 

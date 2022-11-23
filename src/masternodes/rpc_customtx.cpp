@@ -200,13 +200,13 @@ public:
     void operator()(const CLockDUSDMessage& obj) const {
         CTxDestination dest;
         if (ExtractDestination(obj.owner, dest)) {
-            rpcInfo.pushKV("owner", EncodeDestination(dest));
+            rpcInfo.pushKV("address", EncodeDestination(dest));
         } else {
-            rpcInfo.pushKV("owner", "Invalid destination");
+            rpcInfo.pushKV("address", "Invalid destination");
         }
 
-        rpcInfo.pushKV("dusdIn", GetDecimaleString(obj.dusdIn));
-        rpcInfo.pushKV("lockTime", std::to_string(obj.lockTime));
+        rpcInfo.pushKV("dusdIn", ValueFromAmount(obj.dusdIn));
+        rpcInfo.pushKV("lockTime", (int)obj.lockTime);
     }
 
     void operator()(const CCreatePoolPairMessage& obj) const {

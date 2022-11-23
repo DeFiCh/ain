@@ -244,8 +244,8 @@ struct CFutureSwapMessage {
 
 struct CLockDUSDMessage {
     CScript owner;
-    CAmount dusdIn{};
-    uint8_t lockTime{}; // in months
+    CAmount dusdIn;
+    uint8_t lockTime; // in months
 
     ADD_SERIALIZE_METHODS;
 

@@ -2054,10 +2054,6 @@ public:
             return Res::Err("Transaction must have at least one input from owner");
         }
 
-        if (static_cast<int>(height) < consensus.GrandCentralHeight) {
-            return Res::Err("LockDUSD only available after Grand Central");
-        }
-
         const auto attributes = mnview.GetAttributes();
         if (!attributes) {
             return Res::Err("Attributes unavailable");
@@ -2065,7 +2061,7 @@ public:
 
         const auto paramID = ParamIDs::DFIP2211D;
 
-        //TODO: refactor to have lockperiods in gov "dfip2211d/locklimit/<months>", if key is there, locking is active with given limit
+//TODO: refactor to have lockperiods in gov "dfip2211d/<months>/token/<tokenId>" and "dfip2211d/<months>/limit", if both keys are there, locking is active with given limit
         CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
         CDataStructureV0 limit12Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_12_Limit};
         CDataStructureV0 limit24Key{AttributeTypes::Param, paramID, DFIPKeys::LOCK_24_Limit};
@@ -2093,13 +2089,13 @@ public:
             return Res::Err("Could not find dusd token");
         }
 
-        const auto contractAddressValue = GetFutureSwapContractAddress(SMART_CONTRACT_DFIP2211D);
-        if (!contractAddressValue) {
-            return contractAddressValue;
+        auto dusdhalf= DivideAmounts(obj.dusdIn,CAmount{2});
+        auto lockedhalf= obj.dusdIn - dusdhalf;
+        if(dusdhalf <= 0 || lockedhalf <= 0) {
+            return Res::Err("amount too small.");
         }
-
         auto limit = attributes->GetValue(obj.lockTime == 12 ? limit12Key : limit24Key, CAmount{0});
-        auto resultedMint= SafeAdd(lockToken->second->minted, obj.dusdIn);
+        auto resultedMint= SafeAdd(lockToken->second->minted, lockedhalf);
         if (!resultedMint)
             return (std::move(resultedMint));
 
@@ -2107,20 +2103,19 @@ public:
             return Res::Err("Limit reached for this lock token");
         }
 
-        //do we need CalculateOwnerRewards here?
+        CalculateOwnerRewards(obj.owner);
         res = mnview.SubBalance(obj.owner, CTokenAmount{dusdToken->first, obj.dusdIn});
         if (!res)
             return res;
         
-        auto half= DivideAmounts(obj.dusdIn,CAmount{2});
-        //half DUSD are burned, that amount DUSDLOCK is minted
+        //half DUSD "swapped" to the lock token. (lockToken is minted, DUSD minted gets reduced)
         //remaining half + DUSDLOCK added to pool
-        //sub minted or burn?
-        res = mnview.SubMintedTokens(dusdToken->first, half);
+
+        res = mnview.SubMintedTokens(dusdToken->first, lockedhalf);
         if (!res)
             return res;
         
-        res = mnview.AddMintedTokens(lockToken->first, half);
+        res = mnview.AddMintedTokens(lockToken->first, lockedhalf);
         if (!res)
             return res;
         
@@ -2130,7 +2125,7 @@ public:
         }
         const auto& lpTokenID = pair->first;
         auto& pool = pair->second;
-        res = pool.AddLiquidity(half, half, [&] /*onMint*/(CAmount liqAmount) {
+        res = pool.AddLiquidity(lockedhalf, dusdhalf, [&] /*onMint*/(CAmount liqAmount) {
 
             CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
             return AddBalanceSetShares(obj.owner, balance);
