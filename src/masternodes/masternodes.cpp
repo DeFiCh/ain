@@ -1303,7 +1303,7 @@ uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CPropType &type) 
     assert(attributes);
 
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
-    return attributes->GetValue(VOCKey, uint32_t{8640});
+    return attributes->GetValue(VOCKey, Params().GetConsensus().props.emergencyPeriod);
 }
 
 CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type) const {
@@ -1344,5 +1344,5 @@ CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
 
     CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
-    return attributes->GetValue(feeBurnPctKey, COIN / 2);
+    return attributes->GetValue(feeBurnPctKey, Params().GetConsensus().props.feeBurnPct);
 }
