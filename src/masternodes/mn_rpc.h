@@ -49,7 +49,7 @@ class CWalletCoinsUnlocker {
     std::shared_ptr<CWallet> pwallet;
     std::vector<COutPoint> coins;
 
-   public:
+public:
     explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
     CWalletCoinsUnlocker(const CWalletCoinsUnlocker &) = delete;
     CWalletCoinsUnlocker(CWalletCoinsUnlocker &&)      = default;

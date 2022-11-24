@@ -12,7 +12,7 @@
 #include <script/script.h>
 
 class CLoanSetCollateralToken {
-   public:
+public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
     CTokenCurrencyPair fixedIntervalPriceId;
@@ -30,7 +30,7 @@ class CLoanSetCollateralToken {
 };
 
 class CLoanSetCollateralTokenImplementation : public CLoanSetCollateralToken {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -55,7 +55,7 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
 };
 
 class CLoanSetLoanToken {
-   public:
+public:
     std::string symbol;
     std::string name;
     CTokenCurrencyPair fixedIntervalPriceId;
@@ -75,7 +75,7 @@ class CLoanSetLoanToken {
 };
 
 class CLoanSetLoanTokenImplementation : public CLoanSetLoanToken {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -341,7 +341,7 @@ base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenIntere
 CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
 
 class CLoanTakeLoanMessage {
-   public:
+public:
     CVaultId vaultId;
     CScript to;
     CBalances amounts;
@@ -357,7 +357,7 @@ class CLoanTakeLoanMessage {
 };
 
 class CLoanPaybackLoanMessage {
-   public:
+public:
     CVaultId vaultId;
     CScript from;
     CBalances amounts;
@@ -373,7 +373,7 @@ class CLoanPaybackLoanMessage {
 };
 
 class CLoanPaybackLoanV2Message {
-   public:
+public:
     CVaultId vaultId;
     CScript from;
     std::map<DCT_ID, CBalances> loans;
@@ -400,7 +400,7 @@ struct CPaybackWithCollateralMessage {
 };
 
 class CLoanView : public virtual CStorageView {
-   public:
+public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl       = CLoanSetLoanTokenImplementation;
 

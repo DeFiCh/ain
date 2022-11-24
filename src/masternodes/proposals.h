@@ -131,7 +131,7 @@ struct CMnVotePerCycle {
 
 /// View for managing proposals and their data
 class CPropsView : public virtual CStorageView {
-   public:
+public:
     Res CreateProp(const CPropId &propId, uint32_t height, const CCreatePropMessage &prop, const CAmount fee);
     std::optional<CPropObject> GetProp(const CPropId &propId);
     Res UpdatePropCycle(const CPropId &propId, uint8_t cycle);

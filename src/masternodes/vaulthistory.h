@@ -152,7 +152,7 @@ struct VaultGlobalSchemeValue {
 };
 
 class CVaultHistoryView : public virtual CStorageView {
-   public:
+public:
     void WriteVaultHistory(const VaultHistoryKey &key, const VaultHistoryValue &value);
     void WriteVaultScheme(const VaultSchemeKey &key, const VaultSchemeValue &value);
     void WriteVaultState(CCustomCSView &mnview,
@@ -191,7 +191,7 @@ class CVaultHistoryView : public virtual CStorageView {
 };
 
 class CVaultHistoryStorage : public CVaultHistoryView {
-   public:
+public:
     CVaultHistoryStorage(CVaultHistoryStorage &vaultHistory)
         : CStorageView(new CFlushableStorageKV(vaultHistory.DB())) {}
     CVaultHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);

@@ -64,7 +64,7 @@ class CCustomTxRpcVisitor {
         return info;
     }
 
-   public:
+public:
     CCustomTxRpcVisitor(const CTransaction &tx, uint32_t height, CCustomCSView &mnview, UniValue &rpcInfo)
         : height(height),
           rpcInfo(rpcInfo),

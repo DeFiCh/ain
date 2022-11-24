@@ -119,7 +119,7 @@ struct CFuturesPrice {
 
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView {
-   public:
+public:
     ~COracleView() override = default;
 
     /// register new oracle instance

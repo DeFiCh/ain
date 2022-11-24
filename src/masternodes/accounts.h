@@ -54,7 +54,7 @@ struct CFuturesUserValue {
 };
 
 class CAccountsView : public virtual CStorageView {
-   public:
+public:
     void ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start = {});
     void ForEachBalance(std::function<bool(const CScript &, const CTokenAmount &)> callback,
                         const BalanceKey &start = {});
@@ -97,7 +97,7 @@ class CAccountsView : public virtual CStorageView {
         static constexpr uint8_t prefix() { return 'm'; }
     };
 
-   private:
+private:
     Res SetBalance(const CScript &owner, CTokenAmount amount);
 };
 

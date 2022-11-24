@@ -56,7 +56,7 @@ struct AccountHistoryValue {
 };
 
 class CAccountsHistoryView : public virtual CStorageView {
-   public:
+public:
     void CreateMultiIndexIfNeeded();
     Res EraseAccountHistoryHeight(uint32_t height);
     [[nodiscard]] std::optional<AccountHistoryValue> ReadAccountHistory(const AccountHistoryKey &key) const;
@@ -77,14 +77,14 @@ class CAccountsHistoryView : public virtual CStorageView {
 };
 
 class CAccountHistoryStorage : public CAccountsHistoryView, public CAuctionHistoryView {
-   public:
+public:
     CAccountHistoryStorage(CAccountHistoryStorage &accountHistory)
         : CStorageView(new CFlushableStorageKV(accountHistory.DB())) {}
     CAccountHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
 class CBurnHistoryStorage : public CAccountsHistoryView {
-   public:
+public:
     CBurnHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
@@ -95,7 +95,7 @@ class CHistoryWriters {
     std::map<CScript, TAmounts> burnDiffs;
     std::map<uint256, std::map<CScript, TAmounts>> vaultDiffs;
 
-   public:
+public:
     CVaultHistoryStorage *vaultView{};
     CLoanSchemeCreation globalLoanScheme;
     std::string schemeID;
@@ -123,7 +123,7 @@ class CAccountsHistoryWriter : public CCustomCSView {
     const uint8_t type;
     CHistoryWriters *writers{};
 
-   public:
+public:
     uint256 vaultID;
 
     CAccountsHistoryWriter(CCustomCSView &storage,

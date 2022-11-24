@@ -9,7 +9,7 @@
 #include <masternodes/gv.h>
 
 class ORACLE_BLOCK_INTERVAL : public GovVariable, public AutoRegistrator<GovVariable, ORACLE_BLOCK_INTERVAL> {
-   public:
+public:
     virtual ~ORACLE_BLOCK_INTERVAL() override {}
 
     std::string GetName() const override { return TypeName(); }

@@ -10,7 +10,7 @@
 #include <masternodes/undo.h>
 
 class CUndosView : public virtual CStorageView {
-   public:
+public:
     void ForEachUndo(std::function<bool(const UndoKey &, CLazySerialize<CUndo>)> callback, const UndoKey &start = {});
 
     std::optional<CUndo> GetUndo(const UndoKey &key) const;

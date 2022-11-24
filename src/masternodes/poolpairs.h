@@ -99,7 +99,7 @@ struct CPoolPairMessage {
 };
 
 class CPoolPair : public CPoolPairMessage {
-   public:
+public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE   = 1000;
     static const uint32_t PRECISION        = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
@@ -139,7 +139,7 @@ class CPoolPair : public CPoolPairMessage {
              std::function<Res(const CTokenAmount &, const CTokenAmount &)> onTransfer,
              int height = INT_MAX);
 
-   private:
+private:
     CAmount slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, int height);
 
     inline void ioProofer()
@@ -150,7 +150,7 @@ class CPoolPair : public CPoolPairMessage {
         }
     }
 
-   public:
+public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -213,7 +213,7 @@ std::string RewardToString(RewardType type);
 std::string RewardTypeToString(RewardType type);
 
 class CPoolPairView : public virtual CStorageView {
-   public:
+public:
     Res SetPoolPair(const DCT_ID &poolId, uint32_t height, const CPoolPair &pool);
     Res UpdatePoolPair(DCT_ID const &poolId,
                        uint32_t height,

@@ -15,7 +15,7 @@ class CCustomCSView;
 
 template <typename T>
 class GvOptional : public std::optional<T> {
-   public:
+public:
     using std::optional<T>::optional;
     using std::optional<T>::operator bool;
 
@@ -32,7 +32,7 @@ class GvOptional : public std::optional<T> {
 };
 
 class GovVariable {
-   public:
+public:
     static std::shared_ptr<GovVariable> Create(const std::string &name) {
         return std::shared_ptr<GovVariable>(Factory<GovVariable>::Create(name));
     }
@@ -56,7 +56,7 @@ class GovVariable {
 };
 
 class CGovView : public virtual CStorageView {
-   public:
+public:
     Res SetVariable(const GovVariable &var);
     std::shared_ptr<GovVariable> GetVariable(const std::string &govKey) const;
 

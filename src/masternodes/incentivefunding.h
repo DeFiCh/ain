@@ -38,7 +38,7 @@ inline const char *GetCommunityAccountName(CommunityAccountType t) {
 }
 
 class CCommunityBalancesView : public virtual CStorageView {
-   public:
+public:
     CAmount GetCommunityBalance(CommunityAccountType account) const;
     Res SetCommunityBalance(CommunityAccountType account, CAmount amount);
 

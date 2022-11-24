@@ -9,7 +9,7 @@
 #include <masternodes/gv.h>
 
 class LP_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_SPLITS> {
-   public:
+public:
     virtual ~LP_SPLITS() override {}
 
     std::string GetName() const override { return TypeName(); }

@@ -64,7 +64,7 @@ struct CAnchorData {
 class CAnchorAuthMessage : public CAnchorData {
     using Signature = std::vector<unsigned char>;
 
-   public:
+public:
     CAnchorAuthMessage(const CAnchorData &base = CAnchorData())
         : CAnchorData(base),
           signature() {}
@@ -89,7 +89,7 @@ class CAnchorAuthMessage : public CAnchorData {
     struct ByKey {};        // composite, by height and GetSignHash for anchor creation
     struct ByVote {};       // composite, by GetSignHash and signer, helps detect doublesigning
 
-   private:
+private:
     Signature signature;
 };
 
@@ -97,7 +97,7 @@ class CAnchor : public CAnchorData {
     using Signature = std::vector<unsigned char>;
     using CTeam     = CAnchorData::CTeam;
 
-   public:
+public:
     std::vector<Signature> sigs;
     CKeyID rewardKeyID;
     char rewardKeyType;
@@ -127,7 +127,7 @@ using namespace boost::multi_index;
 class CAnchorAuthIndex {
     using CTeam = CAnchorData::CTeam;
 
-   public:
+public:
     using Auth = CAnchorAuthMessage;
 
     typedef boost::multi_index_container<
@@ -162,16 +162,16 @@ class CAnchorAuthIndex {
     void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
     void PruneOlderThan(THeight height);
 
-   private:
+private:
     Auths auths;
 };
 
 class CAnchorIndex {
-   private:
+private:
     std::unique_ptr<CDBWrapper> db;
     std::unique_ptr<CDBBatch> batch;
 
-   public:
+public:
     using Signature = std::vector<unsigned char>;
     using CTeam     = CAnchorData::CTeam;
 
@@ -245,13 +245,13 @@ class CAnchorIndex {
 
     const AnchorRec *GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
 
-   private:
+private:
     AnchorIndexImpl anchors;
     const AnchorRec *top      = nullptr;
     bool possibleReActivation = false;
     uint32_t spvLastHeight    = 0;
 
-   private:
+private:
     template <typename Key, typename Value>
     bool IterateTable(char prefix, std::function<void(const Key &, Value &)> callback) {
         std::unique_ptr<CDBIterator> pcursor(const_cast<CDBWrapper *>(&*db)->NewIterator());
@@ -362,7 +362,7 @@ struct CAnchorConfirmDataPlus : public CAnchorConfirmData {
 
 // single confirmation message
 class CAnchorConfirmMessage : public CAnchorConfirmDataPlus {
-   public:
+public:
     using Signature = std::vector<unsigned char>;
 
     // (base data + single sign)
@@ -418,7 +418,7 @@ class CAnchorAwaitingConfirms {
     using ConfirmMessageHash = uint256;
     using AnchorTxHash       = uint256;
 
-   private:
+private:
     using Confirm = CAnchorConfirmMessage;
 
     typedef boost::multi_index_container<
@@ -447,7 +447,7 @@ class CAnchorAwaitingConfirms {
 
     Confirms confirms;
 
-   public:
+public:
     bool EraseAnchor(const AnchorTxHash &txHash);
     const CAnchorConfirmMessage *GetConfirm(const ConfirmMessageHash &msgHash) const;
     bool Add(const CAnchorConfirmMessage &newConfirmMessage);

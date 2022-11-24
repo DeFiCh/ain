@@ -9,7 +9,7 @@
 #include <masternodes/gv.h>
 
 class ORACLE_DEVIATION : public GovVariable, public AutoRegistrator<GovVariable, ORACLE_DEVIATION> {
-   public:
+public:
     virtual ~ORACLE_DEVIATION() override {}
 
     std::string GetName() const override { return TypeName(); }

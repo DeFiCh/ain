@@ -10,7 +10,7 @@
 
 template <typename TBaseType>
 class Factory {
-   public:
+public:
     typedef TBaseType *(*Creator)();  // creator function
 
     Factory()  = delete;
@@ -30,7 +30,7 @@ class Factory {
         return creator->second();
     }
 
-   private:
+private:
     typedef std::map<std::string, Creator> TCreators;
     static TCreators m_creators;
 

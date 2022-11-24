@@ -9,7 +9,7 @@
 #include <masternodes/gv.h>
 
 class LP_LOAN_TOKEN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_TOKEN_SPLITS> {
-   public:
+public:
     virtual ~LP_LOAN_TOKEN_SPLITS() override {}
 
     std::string GetName() const override { return TypeName(); }

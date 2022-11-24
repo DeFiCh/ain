@@ -322,7 +322,7 @@ enum GovVarsFilter {
 };
 
 class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRIBUTES> {
-   public:
+public:
     virtual ~ATTRIBUTES() override {}
 
     std::string GetName() const override { return TypeName(); }
@@ -425,7 +425,7 @@ class ATTRIBUTES : public GovVariable, public AutoRegistrator<GovVariable, ATTRI
                                const uint32_t height,
                                const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 
-   private:
+private:
     friend class CGovView;
     bool futureUpdated{};
     bool futureDUSDUpdated{};

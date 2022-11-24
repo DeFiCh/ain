@@ -9,7 +9,7 @@
 #include <masternodes/gv.h>
 
 class LOAN_LIQUIDATION_PENALTY : public GovVariable, public AutoRegistrator<GovVariable, LOAN_LIQUIDATION_PENALTY> {
-   public:
+public:
     virtual ~LOAN_LIQUIDATION_PENALTY() override {}
 
     std::string GetName() const override { return TypeName(); }

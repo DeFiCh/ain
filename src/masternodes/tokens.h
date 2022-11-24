@@ -17,7 +17,7 @@ class CTransaction;
 class UniValue;
 
 class CToken {
-   public:
+public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH     = 128;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH   = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
@@ -70,7 +70,7 @@ class CToken {
 };
 
 class CTokenImplementation : public CToken {
-   public:
+public:
     //! tx related properties
     CAmount minted;
     uint256 creationTx;
@@ -109,7 +109,7 @@ class CTokenImplementation : public CToken {
 };
 
 class CTokensView : public virtual CStorageView {
-   public:
+public:
     static const DCT_ID DCT_ID_START;            // = 128;
     static const unsigned char DB_TOKEN_LASTID;  // = 'L';
 
@@ -145,7 +145,7 @@ class CTokensView : public virtual CStorageView {
         static constexpr uint8_t prefix() { return 'L'; }
     };
 
-   private:
+private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
     std::optional<DCT_ID> ReadLastDctId() const;

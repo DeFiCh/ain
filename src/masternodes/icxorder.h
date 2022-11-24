@@ -12,7 +12,7 @@
 #include <masternodes/res.h>
 
 class CICXOrder {
-   public:
+public:
     static const uint32_t DEFAULT_EXPIRY;  // default period in blocks after order automatically expires
     static const uint8_t TYPE_INTERNAL;    // type for DFI/BTC orders
     static const uint8_t TYPE_EXTERNAL;    // type for BTC/DFI orders
@@ -48,7 +48,7 @@ class CICXOrder {
 };
 
 class CICXOrderImplemetation : public CICXOrder {
-   public:
+public:
     uint256 creationTx;
     uint256 closeTx;
     int32_t creationHeight = -1;
@@ -77,7 +77,7 @@ struct CICXCreateOrderMessage : public CICXOrder {
 };
 
 class CICXMakeOffer {
-   public:
+public:
     static const uint32_t DEFAULT_EXPIRY;  // default period in blocks after offer automatically expires
     static const uint32_t EUNOSPAYA_DEFAULT_EXPIRY;
     static const uint32_t MAKER_DEPOSIT_REFUND_TIMEOUT;  // minimum period in DFC blocks in which 2nd HTLC must be
@@ -108,7 +108,7 @@ class CICXMakeOffer {
 };
 
 class CICXMakeOfferImplemetation : public CICXMakeOffer {
-   public:
+public:
     uint256 creationTx;
     uint256 closeTx;
     int32_t creationHeight = -1;
@@ -137,7 +137,7 @@ struct CICXMakeOfferMessage : public CICXMakeOffer {
 };
 
 class CICXSubmitDFCHTLC {
-   public:
+public:
     static const uint32_t MINIMUM_TIMEOUT;  // minimum period in blocks after htlc automatically timeouts and funds are
                                             // returned to owner when it is first htlc
     static const uint32_t EUNOSPAYA_MINIMUM_TIMEOUT;
@@ -168,7 +168,7 @@ class CICXSubmitDFCHTLC {
 };
 
 class CICXSubmitDFCHTLCImplemetation : public CICXSubmitDFCHTLC {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -193,7 +193,7 @@ struct CICXSubmitDFCHTLCMessage : public CICXSubmitDFCHTLC {
 };
 
 class CICXSubmitEXTHTLC {
-   public:
+public:
     static const uint32_t MINIMUM_TIMEOUT;  // default period in blocks after htlc timeouts when it is first htlc
     static const uint32_t EUNOSPAYA_MINIMUM_TIMEOUT;
     static const uint32_t MINIMUM_2ND_TIMEOUT;  // default period in blocks after htlc timeouts when it is second htlc
@@ -227,7 +227,7 @@ class CICXSubmitEXTHTLC {
 };
 
 class CICXSubmitEXTHTLCImplemetation : public CICXSubmitEXTHTLC {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -252,7 +252,7 @@ struct CICXSubmitEXTHTLCMessage : public CICXSubmitEXTHTLC {
 };
 
 class CICXClaimDFCHTLC {
-   public:
+public:
     uint256 dfchtlcTx;                // txid of claiming DFC HTLC
     std::vector<unsigned char> seed;  // secret for the hash to claim htlc
 
@@ -266,7 +266,7 @@ class CICXClaimDFCHTLC {
 };
 
 class CICXClaimDFCHTLCImplemetation : public CICXClaimDFCHTLC {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -291,7 +291,7 @@ struct CICXClaimDFCHTLCMessage : public CICXClaimDFCHTLC {
 };
 
 class CICXCloseOrder {
-   public:
+public:
     uint256 orderTx;  // txid of order which will be closed
 
     ADD_SERIALIZE_METHODS;
@@ -303,7 +303,7 @@ class CICXCloseOrder {
 };
 
 class CICXCloseOrderImplemetation : public CICXCloseOrder {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -328,7 +328,7 @@ struct CICXCloseOrderMessage : public CICXCloseOrder {
 };
 
 class CICXCloseOffer {
-   public:
+public:
     uint256 offerTx;  // txid of offer which will be closed
 
     ADD_SERIALIZE_METHODS;
@@ -340,7 +340,7 @@ class CICXCloseOffer {
 };
 
 class CICXCloseOfferImplemetation : public CICXCloseOffer {
-   public:
+public:
     uint256 creationTx;
     int32_t creationHeight = -1;
 
@@ -365,7 +365,7 @@ struct CICXCloseOfferMessage : public CICXCloseOffer {
 };
 
 class CICXOrderView : public virtual CStorageView {
-   public:
+public:
     static const CAmount DEFAULT_DFI_BTC_PRICE;
 
     using OrderKey    = std::pair<DCT_ID, uint256>;

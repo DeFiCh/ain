@@ -49,7 +49,7 @@ struct AuctionHistoryValue {
 };
 
 class CAuctionHistoryView : public virtual CStorageView {
-   public:
+public:
     Res WriteAuctionHistory(const AuctionHistoryKey &key, const AuctionHistoryValue &value);
     Res EraseAuctionHistory(const AuctionHistoryKey &key);
     Res EraseAuctionHistoryHeight(uint32_t height);

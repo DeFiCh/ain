@@ -56,7 +56,7 @@ enum class UpdateMasternodeType : uint8_t {
 constexpr uint8_t SUBNODE_COUNT{4};
 
 class CMasternode {
-   public:
+public:
     enum State {
         PRE_ENABLED,
         ENABLED,
@@ -195,7 +195,7 @@ struct MNNewOwnerHeightValue {
 class CMasternodesView : public virtual CStorageView {
     std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
 
-   public:
+public:
     std::optional<CMasternode> GetMasternode(const uint256 &id) const;
     std::optional<uint256> GetMasternodeIdByOperator(const CKeyID &id) const;
     std::optional<uint256> GetMasternodeIdByOwner(const CKeyID &id) const;
@@ -296,7 +296,7 @@ class CMasternodesView : public virtual CStorageView {
 };
 
 class CLastHeightView : public virtual CStorageView {
-   public:
+public:
     int GetLastHeight() const;
     void SetLastHeight(int height);
 
@@ -306,7 +306,7 @@ class CLastHeightView : public virtual CStorageView {
 };
 
 class CFoundationsDebtView : public virtual CStorageView {
-   public:
+public:
     CAmount GetFoundationsDebt() const;
     void SetFoundationsDebt(CAmount debt);
 
@@ -316,7 +316,7 @@ class CFoundationsDebtView : public virtual CStorageView {
 };
 
 class CTeamView : public virtual CStorageView {
-   public:
+public:
     using CTeam = CAnchorData::CTeam;
 
     void SetTeam(const CTeam &newTeam);
@@ -338,7 +338,7 @@ class CTeamView : public virtual CStorageView {
 };
 
 class CAnchorRewardsView : public virtual CStorageView {
-   public:
+public:
     using RewardTxHash = uint256;
     using AnchorTxHash = uint256;
 
@@ -354,7 +354,7 @@ class CAnchorRewardsView : public virtual CStorageView {
 };
 
 class CAnchorConfirmsView : public virtual CStorageView {
-   public:
+public:
     using AnchorTxHash = uint256;
 
     std::vector<CAnchorConfirmDataPlus> GetAnchorConfirmData();
@@ -370,7 +370,7 @@ class CAnchorConfirmsView : public virtual CStorageView {
 };
 
 class CSettingsView : public virtual CStorageView {
-   public:
+public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
     const std::string DEX_STATS_ENABLED     = "DexStatsEnabled";
 
@@ -388,7 +388,7 @@ class CCollateralLoans {  // in USD
 
     double calcRatio(uint64_t maxRatio) const;
 
-   public:
+public:
     uint64_t totalCollaterals;
     uint64_t totalLoans;
     std::vector<CTokenAmount> collaterals;
@@ -436,8 +436,7 @@ class CCustomCSView : public CMasternodesView,
                       public CVaultView,
                       public CSettingsView,
                       public CPropsView {
-
-// clang-format off
+    // clang-format off
     void CheckPrefixes()
     {
         CheckPrefix<
@@ -471,9 +470,9 @@ class CCustomCSView : public CMasternodesView,
             CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
         >();
     }
-// clang-format on
+    // clang-format on
 
-   private:
+private:
     Res PopulateLoansData(CCollateralLoans &result,
                           const CVaultId &vaultId,
                           uint32_t height,
@@ -491,7 +490,7 @@ class CCustomCSView : public CMasternodesView,
     std::unique_ptr<CAccountHistoryStorage> accHistoryStore;
     std::unique_ptr<CVaultHistoryStorage> vauHistoryStore;
 
-   public:
+public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 

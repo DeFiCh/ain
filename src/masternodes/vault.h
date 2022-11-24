@@ -142,7 +142,7 @@ struct CAuctionBatch {
 };
 
 class CVaultView : public virtual CStorageView {
-   public:
+public:
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
     using AuctionStoreKey   = std::pair<CVaultId, uint32_t>;
 

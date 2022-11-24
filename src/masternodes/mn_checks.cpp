@@ -388,7 +388,7 @@ class CCustomMetadataParseVisitor {
         return Res::Ok();
     }
 
-   public:
+public:
     CCustomMetadataParseVisitor(uint32_t height,
                                 const Consensus::Params &consensus,
                                 const std::vector<unsigned char> &metadata)
@@ -1049,7 +1049,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
 
-   public:
+public:
     CCustomTxApplyVisitor(const CTransaction &tx,
                           uint32_t height,
                           const CCoinsViewCache &coins,

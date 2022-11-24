@@ -21,21 +21,21 @@ class CCoinsViewCache;
 class CCustomCSView;
 class CAccountsHistoryView;
 class CCustomTxVisitor {
-   protected:
+protected:
     uint32_t height;
     CCustomCSView &mnview;
     const CTransaction &tx;
     const CCoinsViewCache &coins;
     const Consensus::Params &consensus;
 
-   public:
+public:
     CCustomTxVisitor(const CTransaction &tx,
                      uint32_t height,
                      const CCoinsViewCache &coins,
                      CCustomCSView &mnview,
                      const Consensus::Params &consensus);
 
-   protected:
+protected:
     bool HasAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
@@ -589,7 +589,7 @@ class CPoolSwap {
     CAmount result{0};
     DCT_ID currentID;
 
-   public:
+public:
     std::vector<std::pair<std::string, std::string>> errors;
 
     CPoolSwap(const CPoolSwapMessage &obj, uint32_t height)

@@ -5,7 +5,7 @@
 #include <masternodes/gv.h>
 
 class ICX_TAKERFEE_PER_BTC : public GovVariable, public AutoRegistrator<GovVariable, ICX_TAKERFEE_PER_BTC> {
-   public:
+public:
     virtual ~ICX_TAKERFEE_PER_BTC() override {}
 
     std::string GetName() const override { return TypeName(); }
