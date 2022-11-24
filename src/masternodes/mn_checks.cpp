@@ -1442,10 +1442,6 @@ public:
             if (!HasAuth(obj.from))
                 return Res::Err("tx must have at least one input from account owner");
 
-            auto subMinted = mnview.SubMintedTokens(tokenId, amount);
-            if (!subMinted)
-                return subMinted;
-
             if (obj.burnType != CBurnTokensMessage::BurnType::TokenBurn)
                 return Res::Err("Currently only burn type 0 - TokenBurn is supported!");
 
