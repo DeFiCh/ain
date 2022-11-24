@@ -20,8 +20,7 @@ struct AuctionHistoryKey {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         if (ser_action.ForRead()) {
             READWRITE(WrapBigEndian(blockHeight));
             blockHeight = ~blockHeight;
@@ -43,23 +42,25 @@ struct AuctionHistoryValue {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(bidAmount);
         READWRITE(collaterals);
     }
 };
 
-class CAuctionHistoryView : public virtual CStorageView
-{
+class CAuctionHistoryView : public virtual CStorageView {
 public:
-    Res WriteAuctionHistory(AuctionHistoryKey const & key, AuctionHistoryValue const & value);
-    Res EraseAuctionHistory(AuctionHistoryKey const & key);
+    Res WriteAuctionHistory(const AuctionHistoryKey &key, const AuctionHistoryValue &value);
+    Res EraseAuctionHistory(const AuctionHistoryKey &key);
     Res EraseAuctionHistoryHeight(uint32_t height);
-    void ForEachAuctionHistory(std::function<bool(AuctionHistoryKey const &, CLazySerialize<AuctionHistoryValue>)> callback, AuctionHistoryKey const & start = {});
+    void ForEachAuctionHistory(
+        std::function<bool(const AuctionHistoryKey &, CLazySerialize<AuctionHistoryValue>)> callback,
+        const AuctionHistoryKey &start = {});
 
     // tags
-    struct ByAuctionHistoryKey { static constexpr uint8_t prefix() { return 'a'; } };
+    struct ByAuctionHistoryKey {
+        static constexpr uint8_t prefix() { return 'a'; }
+    };
 };
 
-
-#endif //DEFI_MASTERNODES_AUCTIONHISTORY_H
+#endif  // DEFI_MASTERNODES_AUCTIONHISTORY_H
