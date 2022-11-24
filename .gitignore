@@ -10,6 +10,12 @@ build
 *.tmp
 .DS_Store
 
+# Codegen
+libain_rpc.cpp
+libain_rpc.h
+libmc.cpp
+libmc.h
+
 # Build directory.
 build/
 out/

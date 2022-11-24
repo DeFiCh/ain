@@ -16,6 +16,7 @@
 #include <consensus/validation.h>
 #include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
+#include <dmc_handler.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -3088,6 +3089,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (!pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
         setDirtyBlockIndex.insert(pindex);
+    }
+
+    if (pindex->nHeight >= chainparams.GetConsensus().DMCGenesisHeight) {
+        // FIXME: What if failure occurs in native chain after connecting block at DMC?
+        auto dmcRes = ConnectDmcBlock(block);
+        if (!dmcRes.ok) {
+            return error("DMC ConnectBlock failed: %s", dmcRes.msg);
+        }
     }
 
     assert(pindex->phashBlock);

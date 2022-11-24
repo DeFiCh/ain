@@ -145,6 +145,8 @@ enum class CustomTxType : uint8_t {
     CreateVoc                 = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
+    // Metachain
+    MetachainBridge = '|',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -203,6 +205,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
+        case CustomTxType::MetachainBridge:
         case CustomTxType::Reject:
         case CustomTxType::CreateCfp:
         case CustomTxType::ProposalFeeRedistribution:
@@ -321,6 +324,29 @@ struct CMintTokensMessage : public CBalances {
     }
 };
 
+struct CMetachainMessage {
+    enum Direction: uint8_t
+    {
+        ToMetachain = 0,
+        FromMetachain = 1,
+    };
+
+    CScript from;
+    CScript to;
+    Direction direction;
+    CAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(from);
+        READWRITE(to);
+        READWRITE(amount);
+        READWRITE(static_cast<uint8_t>(direction));
+    }
+};
+
 struct CBurnTokensMessage {
     enum BurnType : uint8_t {
         TokenBurn = 0,
@@ -428,7 +454,8 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
                                       CCreatePropMessage,
-                                      CPropVoteMessage>;
+                                      CPropVoteMessage,
+                                      CMetachainMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);

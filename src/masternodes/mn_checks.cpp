@@ -139,6 +139,8 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
+        case CustomTxType::MetachainBridge:
+            return "MetachainBridge";
         case CustomTxType::None:
             return "None";
     }
@@ -302,6 +304,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
+        case CustomTxType::MetachainBridge:
+            return CMetachainMessage{};
         case CustomTxType::None:
             return CCustomTxMessageNone{};
     }
@@ -374,6 +378,13 @@ class CCustomMetadataParseVisitor {
     Res isPostGrandCentralFork() const {
         if (static_cast<int>(height) < consensus.GrandCentralHeight) {
             return Res::Err("called before GrandCentral height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostDmcGenesisFork() const {
+        if (static_cast<int>(height) < consensus.DMCGenesisHeight) {
+            return Res::Err("called before DMC Genesis height");
         }
         return Res::Ok();
     }
@@ -718,6 +729,11 @@ public:
 
     Res operator()(CGovernanceUnsetMessage &obj) const {
         auto res = isPostGrandCentralFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CMetachainMessage &obj) const {
+        auto res = isPostDmcGenesisFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1888,6 +1904,25 @@ public:
         // transfer
         auto res = SubBalanceDelShares(obj.from, SumAllTransfers(obj.to));
         return !res ? res : AddBalancesSetShares(obj.to);
+    }
+
+    Res operator()(const CMetachainMessage &obj) const {
+        // NOTE: Do we need any check for funds coming from metachain?
+        if (obj.direction == CMetachainMessage::Direction::ToMetachain && !HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from account owner");
+        }
+
+        CBalances balance;
+        auto res = balance.Add(CTokenAmount{DCT_ID{0}, obj.amount});
+        if (!res) {
+            return res;
+        }
+
+        auto lockAddr = Params().GetConsensus().lockAddress;
+        auto send     = obj.direction == CMetachainMessage::Direction::ToMetachain ? obj.from : lockAddr;
+        auto recv     = obj.direction == CMetachainMessage::Direction::ToMetachain ? lockAddr : obj.to;
+        res           = SubBalanceDelShares(send, balance);
+        return !res ? res : AddBalanceSetShares(recv, balance);
     }
 
     Res HandleDFIP2201Contract(const CSmartContractMessage &obj) const {

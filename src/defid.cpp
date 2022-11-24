@@ -10,9 +10,11 @@
 #include <chainparams.h>
 #include <clientversion.h>
 #include <compat.h>
+#include <dmc_handler.h>
 #include <fs.h>
 #include <init.h>
 #include <interfaces/chain.h>
+#include <libain_rpc.h>
 #include <noui.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -64,12 +66,23 @@ static bool AppInit(int argc, char* argv[])
     bool fRet = false;
 
     util::ThreadRename("init");
+    init_runtime();
 
     //
     // Parameters
     //
     // If Qt is used, parameters/defi.conf are parsed in qt/defi.cpp's main()
     SetupServerArgs();
+    bool isMetaEmbedded = false;
+    auto mcRes = InitMetachain(&argc, argv, isMetaEmbedded);
+    if (isMetaEmbedded) {
+        if (mcRes.is_help || !mcRes.daemon) {
+            return true;
+        }
+        if (!mcRes.success) {
+            return InitError("Failed to initialize metachain\n");
+        }
+    }
     std::string error;
     if (!gArgs.ParseParameters(argc, argv, error)) {
         return InitError(strprintf("Error parsing command line arguments: %s\n", error));
@@ -93,8 +106,14 @@ static bool AppInit(int argc, char* argv[])
         return true;
     }
 
+    bool hasRpc;
     try
     {
+        hasRpc = SetupMetachainHandler();
+        if (!isMetaEmbedded && !hasRpc) {
+            return InitError("Expected one of '-meta' or '-meta_rpc' parameters to initialize metachain");
+        }
+
         if (!CheckDataDirOption()) {
             return InitError(strprintf("Specified data directory \"%s\" does not exist.\n", gArgs.GetArg("-datadir", "")));
         }
@@ -176,6 +195,14 @@ static bool AppInit(int argc, char* argv[])
         WaitForShutdown();
     }
     Shutdown(interfaces);
+    if (!hasRpc) { // send signal only if we use embedded node
+        try {
+            interrupt_dmc();
+        } catch (const std::exception& e) {
+            PrintExceptionContinue(&e, "interrupt_dmc");
+        }
+    }
+    stop_runtime();
 
     return fRet;
 }

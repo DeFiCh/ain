@@ -139,6 +139,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
+        consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -293,6 +294,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("8defichainBurnAddressXXXXXXXdRQkSm", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("df1qlwvtdrh4a4zln3k56rqnx8chu8t0sqx36syaea", *this));
@@ -394,6 +396,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
+        consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -528,6 +531,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
@@ -605,6 +609,7 @@ public:
         consensus.FortCanningGreatWorldHeight = std::numeric_limits<int>::max();
         consensus.FortCanningEpilogueHeight = std::numeric_limits<int>::max();
         consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.DMCGenesisHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -733,6 +738,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
@@ -807,6 +813,7 @@ public:
         consensus.FortCanningGreatWorldHeight = 10000000;
         consensus.FortCanningEpilogueHeight = 10000000;
         consensus.GrandCentralHeight = 10000000;
+        consensus.DMCGenesisHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -942,6 +949,7 @@ public:
         // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("2N9HiV9k2smL1953raxC4PxqN6kmN28c53D", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ", *this)); // cUUj4d9tkgJGwGBF7VwFvCpcFMuEpC8tYbduaCDexKMx8A8ntL7C
@@ -1048,6 +1056,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
+    UpdateHeightValidation("DMC Genesis", "-dmcgenesisheight", consensus.DMCGenesisHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

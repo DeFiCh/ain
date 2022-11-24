@@ -58,7 +58,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, *, chain, rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False):
+    def __init__(self, i, datadir, *, chain, rpchost, timewait, defid, defi_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False, metachain_rpc=None):
         """
         Kwargs:
             start_perf (bool): If True, begin profiling the node with `perf` as soon as
@@ -99,6 +99,20 @@ class TestNode():
             "-dummypos=1",
             "-txnotokens=1",
         ]
+        if metachain_rpc is None:  # override if RPC URL is set
+            self.metachain_args = [
+                "-meta",
+                "--sealing", "manual",
+                "--tmp",
+                "--force-authoring",
+                "--rpc-cors", "all",
+                "--no-telemetry",
+                "--no-prometheus",
+                "--no-grandpa",
+                "--chain", "local",
+            ]
+        else:
+            self.metachain_args = [f"-meta_rpc={metachain_rpc}"]
         if use_valgrind:
             default_suppressions_file = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
@@ -244,7 +258,7 @@ class TestNode():
         # add environment variable LIBC_FATAL_STDERR_=1 so that libc errors are written to stderr and not the terminal
         subp_env = dict(os.environ, LIBC_FATAL_STDERR_="1")
 
-        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
+        self.process = subprocess.Popen(self.args + extra_args + self.metachain_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
 
         self.running = True
         self.log.debug("defid started, waiting for RPC to come up")

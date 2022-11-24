@@ -14,6 +14,7 @@
 #include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <dmc_handler.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -260,6 +261,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
     }
 
+    if (nHeight >= chainparams.GetConsensus().DMCGenesisHeight) {
+        // Add incoming transactions from DMC (if any)
+        auto res = AddNativeTx(*pblock, pblocktemplate, txVersion, nHeight);
+        if (!res.ok) {
+            throw std::runtime_error(strprintf("Failed to get native txs from DMC: %s", res.msg));
+        }
+    }
+
     int64_t nTime1 = GetTimeMicros();
 
     m_last_block_num_txs = nBlockTx;
@@ -356,6 +365,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
+    }
+
+    if (nHeight >= chainparams.GetConsensus().DMCGenesisHeight) {
+        auto res = MintDmcBlock(*pblock, nHeight);
+        if (!res.ok) {
+            throw std::runtime_error(strprintf("Failed to mint DMC block: %s", res.msg));
+        }
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));

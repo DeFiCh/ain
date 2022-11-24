@@ -100,6 +100,7 @@ struct Params {
     int FortCanningGreatWorldHeight;
     int FortCanningEpilogueHeight;
     int GrandCentralHeight;
+    int DMCGenesisHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
@@ -109,6 +110,8 @@ struct Params {
     CScript retiredBurnAddress;
     /** Address to hold unused emission */
     CScript unusedEmission;
+    /** Address for locking assets for Metachain bridge */
+    CScript lockAddress;
 
     /** Struct to hold percentages for coinbase distribution.
      *  Percentages are calculated out of 10000 */

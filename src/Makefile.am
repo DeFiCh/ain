@@ -372,6 +372,12 @@ libdefi_server_a_SOURCES = \
   index/txindex.cpp \
   interfaces/chain.cpp \
   init.cpp \
+  libain_rpc.h \
+  libain_rpc.cpp \
+  libmc.h \
+  libmc.cpp \
+  dmc_handler.h \
+  dmc_handler.cpp \
   dbwrapper.cpp \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
@@ -672,9 +678,20 @@ nodist_libdefi_util_a_SOURCES = $(srcdir)/obj/build.h
 defid_SOURCES = defid.cpp
 defid_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 defid_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+# FIXME(wafflespeanut): Allowing multiple definitions because symbols conflict across Rust static libs
 defid_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+if TARGET_DARWIN
+defid_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
+endif
+if BUILD_NOT_DARWIN
+defid_LDFLAGS += -Wl,--allow-multiple-definition
+endif
+if TARGET_NOT_WINDOWS
+defid_LDFLAGS += -lain_grpc -lmetachain -ldl
+endif
 
 if TARGET_WINDOWS
+defid_LDFLAGS += -luserenv -lbcrypt
 defid_SOURCES += defid-res.rc
 endif
 
@@ -683,7 +700,6 @@ endif
 defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_WALLET) \
-  $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBDEFI_SPV) \
@@ -695,7 +711,7 @@ defid_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+defid_LDADD +=$(AIN_GRPC_LIBS) $(METACHAIN_LIBS) $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp

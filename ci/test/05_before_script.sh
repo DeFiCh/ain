@@ -25,3 +25,5 @@ fi
 if [ -z "$NO_DEPENDS" ]; then
   DOCKER_EXEC CONFIG_SHELL= make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
 fi
+
+TARGET=${HOST} ./make.sh patch_codegen

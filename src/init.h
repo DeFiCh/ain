@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <libmc.h>
 #include <util/system.h>
 
 namespace interfaces {
@@ -34,6 +35,8 @@ void Shutdown(InitInterfaces& interfaces);
 void InitLogging();
 //!Parameter interaction: change current parameters depending on various rules
 void InitParameterInteraction();
+//!Initialize metachain using the arguments
+ExecResult InitMetachain(int* argc, const char* const argv[], bool &embedded);
 
 /** Initialize DeFi Blockchain: Basic context setup.
  *  @note This can be done before daemonization. Do not call Shutdown() if this function fails.

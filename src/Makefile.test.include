@@ -195,8 +195,20 @@ test_test_defi_LDADD += $(LIBDEFI_SERVER) $(LIBDEFI_CLI) $(LIBDEFI_COMMON) $(LIB
   $(LIBDEFI_SPV) $(LIBLEVELDB) $(LIBMEMENV) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
 test_test_defi_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
-test_test_defi_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS)
+test_test_defi_LDADD += $(AIN_GRPC_LIBS) $(METACHAIN_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(RAPIDCHECK_LIBS)
 test_test_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+if TARGET_DARWIN
+test_test_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
+endif
+if BUILD_NOT_DARWIN
+test_test_defi_LDFLAGS += -Wl,--allow-multiple-definition
+endif
+if TARGET_NOT_WINDOWS
+test_test_defi_LDFLAGS += -lain_grpc -lmetachain -ldl
+endif
+if TARGET_WINDOWS
+test_test_defi_LDFLAGS += -luserenv -lbcrypt
+endif
 
 if ENABLE_ZMQ
 test_test_defi_LDADD += $(LIBDEFI_ZMQ) $(ZMQ_LIBS)
