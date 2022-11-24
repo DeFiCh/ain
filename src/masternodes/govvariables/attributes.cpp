@@ -202,6 +202,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>>& ATTRIBUTES::allowedKeys
                 {"emission-unused-fund",        DFIPKeys::EmissionUnusedFund},
                 {"limit",                       DFIPKeys::Limit},
                 {"token",                       DFIPKeys::LockToken},
+                {"withdraw-height",             DFIPKeys::WithdrawHeight},
             }
         },
         {
@@ -282,6 +283,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>>& ATTRIBUTES::displayKeys
                 {DFIPKeys::EmissionUnusedFund,      "emission-unused-fund"},
                 {DFIPKeys::Limit,                   "limit"},
                 {DFIPKeys::LockToken,               "token"},
+                {DFIPKeys::WithdrawHeight,          "withdraw-height"},
             }
         },
         {
@@ -608,6 +610,7 @@ const std::map<uint8_t, std::map<uint8_t,
                 {DFIPKeys::EmissionUnusedFund,      VerifyBool},
                 {DFIPKeys::Limit,                   VerifyUInt32},
                 {DFIPKeys::LockToken,               VerifyUInt32},
+                {DFIPKeys::WithdrawHeight,          VerifyUInt32},
             }
         },
         {
@@ -827,8 +830,10 @@ Res ATTRIBUTES::ProcessVariable(const std::string& key, const std::optional<UniV
 
             } else if (typeId == ParamIDs::DFIP2211D) {
 
-                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::Limit &&
-                    typeKey != DFIPKeys::LockToken) {
+                if (typeKey != DFIPKeys::Active && 
+                    typeKey != DFIPKeys::Limit &&
+                    typeKey != DFIPKeys::LockToken &&
+                    typeKey != DFIPKeys::WithdrawHeight) {
                     return Res::Err("Unsupported type for DFIP2211D {%d}", typeKey);
                 }
             } else if (typeId == ParamIDs::Feature) {

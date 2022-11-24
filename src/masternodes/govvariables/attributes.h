@@ -88,6 +88,7 @@ enum DFIPKeys : uint8_t  {
     EmissionUnusedFund      = 's',
     Limit                   = 't',
     LockToken               = 'u',
+    WithdrawHeight          = 'v',
 };
 
 enum GovernanceKeys : uint8_t  {
@@ -162,7 +163,8 @@ struct CDataStructureV0 {
                     ||  key == TokenKeys::LoanPaybackFeePCT))
             || (type == AttributeTypes::Param 
                 && (key == DFIPKeys::Limit 
-                    || key == DFIPKeys::LockToken));
+                    || key == DFIPKeys::LockToken
+                    || key == DFIPKeys::WithdrawHeight));
     }
 
     bool operator<(const CDataStructureV0& o) const {

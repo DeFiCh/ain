@@ -205,8 +205,8 @@ public:
             rpcInfo.pushKV("address", "Invalid destination");
         }
 
-        rpcInfo.pushKV("dusdIn", ValueFromAmount(obj.dusdIn));
-        rpcInfo.pushKV("lockTime", (int)obj.lockTime);
+        rpcInfo.pushKV("amount", obj.source.ToString());
+        rpcInfo.pushKV("lockTime", (int)obj.batchId);
     }
 
     void operator()(const CCreatePoolPairMessage& obj) const {

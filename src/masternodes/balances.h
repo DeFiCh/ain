@@ -244,16 +244,16 @@ struct CFutureSwapMessage {
 
 struct CLockDUSDMessage {
     CScript owner;
-    CAmount dusdIn;
-    uint8_t lockTime; // in months
+    CTokenAmount source; 
+    uint8_t batchId;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(owner);
-        READWRITE(dusdIn);
-        READWRITE(lockTime);
+        READWRITE(source);
+        READWRITE(batchId);
     }
 };
 

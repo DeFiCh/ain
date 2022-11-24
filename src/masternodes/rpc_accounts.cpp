@@ -2093,8 +2093,8 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
-                       {"dusdIn", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of dusd to send in"},
-                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "locktime in months (currently possible are 12 or 24)"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount to send to the smart contract. format amount@token. Sending in the lockToken is only possible when withdrawal is active for this batch."},
+                       {"lockTime", RPCArg::Type::STR, RPCArg::Optional::NO, "batch id to be used"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -2111,8 +2111,8 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000 12")
-                       + HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123 24")
+                       HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD 1")
+                       + HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123@DUSD 0")
                },
     }.Check(request);
 
@@ -2129,8 +2129,8 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
     CLockDUSDMessage msg{};
     msg.owner = GetScriptForDestination(dest);
     
-    msg.dusdIn = AmountFromValue(request.params[1]);
-    msg.lockTime = request.params[2].get_int();
+    msg.source =  DecodeAmount(pwallet->chain(), request.params[1], "");
+    msg.batchId = request.params[2].get_int();
     
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
