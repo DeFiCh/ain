@@ -96,7 +96,7 @@ zmq_packages_$(NO_ZMQ) = $(zmq_packages)
 
 rapidcheck_packages_$(RAPIDCHECK) = $(rapidcheck_packages)
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(wallet_packages_) $(upnp_packages_)
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(wallet_packages_) $(upnp_packages_) $(libmc_packages) $(libain_packages)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages)
 
 ifneq ($(zmq_packages_),)

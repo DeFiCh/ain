@@ -539,6 +539,13 @@ public:
     }
 
     void operator()(const CCustomTxMessageNone &) const {}
+
+    void operator()(const CMetachainMessage& obj) const {
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+        rpcInfo.pushKV("direction", obj.direction == CMetachainMessage::Direction::FromMetachain ? "incoming" : "outgoing");
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
+    }
 };
 
 Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniValue &results) {

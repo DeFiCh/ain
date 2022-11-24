@@ -504,6 +504,8 @@ case $host in
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(libshlwapi missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(libiphlpapi missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(libcrypt32 missing))
+     AC_CHECK_LIB([bcrypt],      [main],, AC_MSG_ERROR(libbcrypt missing))
+     AC_CHECK_LIB([userenv],      [main],, AC_MSG_ERROR(libuserenv missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -619,6 +621,9 @@ case $host in
      AC_MSG_ERROR(Cannot build leveldb for $host. Please file a bug report.)
      ;;
 esac
+
+AC_CHECK_LIB([ain_grpc],[main],AIN_GRPC_LIBS=-lain_grpc,AC_MSG_ERROR(libain_grpc missing))
+AC_CHECK_LIB([metachain],[main],METACHAIN_LIBS=-lmetachain,AC_MSG_ERROR(libmetachain missing))
 
 if test x$use_pkgconfig = xyes; then
   m4_ifndef([PKG_PROG_PKG_CONFIG], [AC_MSG_ERROR(PKG_PROG_PKG_CONFIG macro not found. Please install pkg-config and re-run autogen.sh.)])
@@ -1417,7 +1422,9 @@ fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
+AM_CONDITIONAL([BUILD_NOT_DARWIN], [test x$BUILD_OS != xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([TARGET_NOT_WINDOWS], [test x$TARGET_OS != xwindows])
 AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet = xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$BUILD_TEST = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ],[test x$enable_fuzz = xyes])
@@ -1487,6 +1494,8 @@ AC_SUBST(MINIUPNPC_CPPFLAGS)
 AC_SUBST(MINIUPNPC_LIBS)
 AC_SUBST(EVENT_LIBS)
 AC_SUBST(EVENT_PTHREADS_LIBS)
+AC_SUBST(AIN_GRPC_LIBS)
+AC_SUBST(METACHAIN_LIBS)
 AC_SUBST(ZMQ_LIBS)
 AC_SUBST(QR_LIBS)
 AC_SUBST(HAVE_GMTIME_R)

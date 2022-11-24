@@ -2533,6 +2533,84 @@ UniValue getpendingdusdswaps(const JSONRPCRequest& request) {
 }
 
 
+UniValue accounttometachain(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"accounttometachain",
+               "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the specfied metachain address.\n"
+               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "The metachain address of receiver"},
+                    {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.1"},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                       HelpExampleCli("accounttometachain", "sender_address 3.14")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    CMetachainMessage msg{};
+    msg.direction = CMetachainMessage::Direction::ToMetachain;
+    msg.from = DecodeScript(request.params[0].get_str());
+    msg.to = DecodeMetachainAddress(request.params[1].get_str());
+    CTokenAmount const tokenAmount = DecodeAmount(pwallet->chain(), request.params[2], request.params[0].get_str()); // don't support multiple tokens
+    msg.amount = tokenAmount.nValue;
+
+    // Mostly following accounttoaccount RPC
+
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::MetachainBridge)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue const & txInputs = request.params[2];
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{msg.from};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    CTxDestination dest;
+    ExtractDestination(msg.from, dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category       name                     actor (function)        params
@@ -2558,6 +2636,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
     {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
     {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
+    {"accounts",   "accounttometachain",       &accounttometachain,        {"from", "to", "amount"}},
     {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 

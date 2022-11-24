@@ -16,6 +16,7 @@
 #include <chainparams.h>
 #include <compat/sanity.h>
 #include <consensus/validation.h>
+#include <dmc_handler.h>
 #include <fs.h>
 #include <httprpc.h>
 #include <httpserver.h>
@@ -23,6 +24,8 @@
 #include <index/txindex.h>
 #include <key.h>
 #include <key_io.h>
+#include <libain_rpc.h>
+#include <libmc.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
@@ -39,9 +42,9 @@
 #include <policy/settings.h>
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
-#include <rpc/stats.h>
 #include <rpc/resultcache.h>
 #include <rpc/server.h>
+#include <rpc/stats.h>
 #include <rpc/util.h>
 #include <scheduler.h>
 #include <script/sigcache.h>
@@ -60,8 +63,8 @@
 #include <util/validation.h>
 #include <validation.h>
 #include <validationinterface.h>
-#include <walletinitinterface.h>
 #include <wallet/wallet.h>
+#include <walletinitinterface.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -375,6 +378,26 @@ static void OnRPCStopped()
     LogPrint(BCLog::RPC, "RPC stopped.\n");
 }
 
+ExecResult InitMetachain(int* argc, const char* const argv[], bool &embedded)
+{
+    bool found = false;
+    std::vector<std::string> new_argv;
+    int len = *argc;
+    for (int i = 1; i < len; i++) {
+        std::string key(argv[i]);
+        if (key == "-meta" && !found) {
+            *argc = i; // Copy the rest (including `-meta`) and ignore them here
+            found = true;
+        }
+        if (found) new_argv.push_back(key);
+    }
+
+    embedded = found;
+    if (!found) return ExecResult{};
+
+    return parse_args_and_run(new_argv);
+}
+
 void SetupServerArgs()
 {
     SetupHelpOptions(gArgs);
@@ -505,6 +528,7 @@ void SetupServerArgs()
     gArgs.AddArg("-greatworldheight", "Alias for Fort Canning Great World fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-dmcgenesisheight", "DMC Genesis fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -627,6 +651,8 @@ void SetupServerArgs()
     gArgs.AddArg("-consolidaterewards=<token-or-pool-symbol>", "Consolidate rewards on startup. Accepted multiple times for each token symbol", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-rpccache=<0/1/2>", "Cache rpc results - uses additional memory to hold on to the last results per block, but faster (0=none, 1=all, 2=smart)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-negativeinterest", "(experimental) Track negative interest values", ArgsManager::ALLOW_ANY, OptionsCategory::HIDDEN);
+    gArgs.AddArg("-meta", "(experimental) Metachain options (any and all succeeding arguments will be passed to metachain, pass -help for more information)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-meta_rpc", "Metachain RPC URL (regtest only)", ArgsManager::ALLOW_STRING, OptionsCategory::OPTIONS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);

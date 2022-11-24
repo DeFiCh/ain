@@ -103,6 +103,7 @@ class CBlock : public CBlockHeader
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
+    std::vector<uint8_t> dmc_payload;
 
     // memory only
     mutable bool fChecked;
@@ -124,12 +125,14 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
+        READWRITE(dmc_payload);
     }
 
     void SetNull()
     {
         CBlockHeader::SetNull();
         vtx.clear();
+        dmc_payload.clear();
         fChecked = false;
     }
 

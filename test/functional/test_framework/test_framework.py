@@ -445,6 +445,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         assert_equal(len(extra_confs), num_nodes)
         assert_equal(len(extra_args), num_nodes)
         assert_equal(len(binary), num_nodes)
+        metachain_rpc = None
+        if hasattr(self, "metachain_rpc"):
+            metachain_rpc = self.metachain_rpc
         for i in range(num_nodes):
             self.nodes.append(TestNode(
                 i,
@@ -461,6 +464,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 use_cli=self.options.usecli,
                 start_perf=self.options.perf,
                 use_valgrind=self.options.valgrind,
+                metachain_rpc=metachain_rpc,
             ))
 
     def start_node(self, i, *args, **kwargs):

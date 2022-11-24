@@ -74,8 +74,20 @@ bench_bench_defi_SOURCES += bench/coin_selection.cpp
 bench_bench_defi_SOURCES += bench/wallet_balance.cpp
 endif
 
-bench_bench_defi_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS)
+bench_bench_defi_LDADD += $(AIN_GRPC_LIBS) $(METACHAIN_LIBS) $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS)
 bench_bench_defi_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+if TARGET_DARWIN
+bench_bench_defi_LDFLAGS += -framework Security -framework SystemConfiguration -framework CoreFoundation
+endif
+if BUILD_NOT_DARWIN
+bench_bench_defi_LDFLAGS += -Wl,--allow-multiple-definition
+endif
+if TARGET_NOT_WINDOWS
+bench_bench_defi_LDFLAGS += -lain_grpc -lmetachain -ldl
+endif
+if TARGET_WINDOWS
+bench_bench_defi_LDFLAGS += -luserenv -lbcrypt
+endif
 
 CLEAN_DEFI_BENCH = bench/*.gcda bench/*.gcno $(GENERATED_BENCH_FILES)
 

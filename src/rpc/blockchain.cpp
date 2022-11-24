@@ -215,6 +215,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+
+    result.pushKV("dmcblock", HexStr(block.dmc_payload.begin(), block.dmc_payload.end()));
     return result;
 }
 

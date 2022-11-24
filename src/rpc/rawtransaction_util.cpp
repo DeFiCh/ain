@@ -159,6 +159,19 @@ CAccounts DecodeRecipients(interfaces::Chain const & chain, UniValue const& send
     return recipients;
 }
 
+CScript DecodeMetachainAddress(std::string const& str)
+{
+    // FIXME: Ensure that recipient address is a valid metachain address
+    if (IsHex(str)) {
+        const auto raw = ParseHex(str);
+        // NOTE: We're using CScript only for encoding/decoding hex, this address is not
+        // (nor it's supposed to be) used by defichain for any purpose other than passing
+        // it to metachain
+        return CScript{raw.begin(), raw.end()};
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to a valid metachain address");
+}
+
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain & chain)
 {
     if (inputs_in.isNull() || outputs_in.isNull())

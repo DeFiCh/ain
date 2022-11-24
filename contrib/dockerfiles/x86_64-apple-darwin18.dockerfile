@@ -14,9 +14,21 @@ RUN apt update && apt dist-upgrade -y
 RUN apt install -y software-properties-common build-essential git libtool autotools-dev automake \
 pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
 libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-libminiupnpc-dev libzmq3-dev libqrencode-dev \
-curl cmake \
+libminiupnpc-dev libzmq3-dev libqrencode-dev curl cmake unzip \
 python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
+
+# install protobuf
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protoc-3.20.0-linux-x86_64.zip
+RUN unzip -o protoc-3.20.0-linux-x86_64.zip -d ./proto
+RUN chmod 755 -R ./proto/bin
+RUN cp ./proto/bin/protoc /usr/local/bin/
+RUN cp -R ./proto/include/* /usr/local/include/
+
+# install rustlang
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup target add x86_64-apple-darwin
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
@@ -43,6 +55,7 @@ WORKDIR /work
 COPY --from=depends-builder /work/depends ./depends
 COPY . .
 
+RUN ./make.sh patch_codegen ${TARGET}
 RUN ./autogen.sh
 
 # XREF: #make-configure

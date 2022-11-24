@@ -112,6 +112,21 @@ build_deps() {
     popd >/dev/null
 }
 
+patch_codegen() {
+    local target=${1:-${TARGET}}
+    # Required for patching C++ glue emitted from Rust build
+    printf "#ifndef DEFI_RUST_RPC_H\n#define DEFI_RUST_RPC_H\n\n" > "$(pwd)/src/libain_rpc.h"
+    cat "$(pwd)/depends/${target}/include/libain_rpc.hpp" >> "$(pwd)/src/libain_rpc.h"
+    printf "\n#endif // DEFI_RUST_RPC_H" >> "$(pwd)/src/libain_rpc.h"
+    printf "#include <libain_rpc.h>\n" > "$(pwd)/src/libain_rpc.cpp"
+    cat "$(pwd)/depends/${target}/libain_rpc.cpp" >> "$(pwd)/src/libain_rpc.cpp"
+    printf "#ifndef DEFI_METACHAIN_H\n#define DEFI_METACHAIN_H\n\n" > "$(pwd)/src/libmc.h"
+    cat "$(pwd)/depends/${target}/include/libmc.hpp" >> "$(pwd)/src/libmc.h"
+    printf "\n#endif // DEFI_METACHAIN_H" >> "$(pwd)/src/libmc.h"
+    printf "#include <libmc.h>\n" > "$(pwd)/src/libmc.cpp"
+    cat "$(pwd)/depends/${target}/libmc.cpp" >> "$(pwd)/src/libmc.cpp"
+}
+
 build_conf() {
     local target=${1:-${TARGET}}
     local make_conf_opts=${MAKE_CONF_ARGS:-}
@@ -138,6 +153,7 @@ build_make() {
 
 build() {
     build_deps "$@"
+    patch_codegen "$@"
     build_conf "$@"
     build_make "$@"
 }
@@ -389,7 +405,7 @@ pkg_install_deps_x86_64() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake
+        curl cmake unzip
 }
 
 pkg_install_llvm() {

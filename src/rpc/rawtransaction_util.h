@@ -31,6 +31,7 @@ CScript DecodeScript(std::string const& str);
 CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name);
 CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name);
 CAccounts DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo);
+CScript DecodeMetachainAddress(std::string const& str);
 
 /**
  * Sign a transaction with the given keystore and previous transactions
