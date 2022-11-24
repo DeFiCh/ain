@@ -11,7 +11,9 @@ setup_vars() {
   # Files and directories
   DATADIR=${DATADIR:-".defi"}
   DEBUG_FILE="$DATADIR/debug.log"
+  CONF_FILE="$DATADIR/defi.conf"
   TMP_LOG=debug-tmp-$STOP_BLOCK.log
+  BASE_REF=${BASE_REF:-"master"}
   BASE_PATH=https://storage.googleapis.com
   BUCKET=team-drop
   REF_LOG=debug-$STOP_BLOCK.log
@@ -28,6 +30,36 @@ setup_vars() {
   MAX_ATTEMPTS=10
   MAX_NODE_RESTARTS=5
   NODE_RESTARTS=0
+}
+
+print_info() {
+  echo "======== Sync Test Info ==========
+  - Block range: $START_BLOCK - $STOP_BLOCK
+
+  - Reference log:
+    $REF_LOG_PATH
+
+  - snapshot:
+    https://storage.googleapis.com/team-drop/$BASE_REF-datadir/datadir-$START_BLOCK.tar.gz
+
+  - defid:
+    $DEFID_CMD
+
+  - defi-cli:
+    $DEFI_CLI_CMD
+
+  - Create log commands:
+    $GREP \"AccountChange:\" \"$DEBUG_FILE\" | cut -d\" \" -f2-
+    $DEFI_CLI_CMD logaccountbalances
+    $DEFI_CLI_CMD spv_listanchors
+    $DEFI_CLI_CMD logstoredinterests
+    $DEFI_CLI_CMD listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
+    $DEFI_CLI_CMD listtokens '{\"limit\":1000000}'
+    $DEFI_CLI_CMD getburninfo
+
+  - defi.conf:
+    $(cat "$CONF_FILE")
+  "
 }
 
 create_log_file () {
@@ -52,9 +84,8 @@ start_node () {
 
 main() {
   setup_vars
+  print_info
   start_node
-
-  $DEFI_CLI_CMD clearbanned || true
 
   # Sync to target block height
   while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
@@ -97,6 +128,3 @@ main() {
 }
 
 main "$@"
-
-
-

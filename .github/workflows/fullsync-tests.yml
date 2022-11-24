@@ -89,6 +89,7 @@ jobs:
       DEFID_BIN: ./defid
       DEFI_CLI_BIN: ./defi-cli
       REF_LOG_DIR: ${{github.base_ref}}-datadir/log
+      BASE_REF: ${{github.base_ref}}
     timeout-minutes: 4320
 
     steps:
