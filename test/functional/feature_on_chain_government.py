@@ -154,6 +154,7 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].listgovproposals()
         assert_equal(len(result), 1)
         assert_equal(result[0]["proposalId"], tx)
+        assert_equal(result[0]["creationHeight"], creationHeight)
         assert_equal(result[0]["title"], title)
         assert_equal(result[0]["context"], context)
         assert_equal(result[0]["type"], "CommunityFundProposal")
@@ -279,9 +280,10 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
+        assert_equal(result["creationHeight"], creationHeight)
         assert_equal(result["context"], context)
         assert_equal(result["type"], "VoteOfConfidence")
-        assert_equal(result["status"], "Approved")
+        assert_equal(result["status"], "Completed")
         assert_equal(result["votes"], "75.00 of 66.67%")
         assert_equal(result["contextHash"], "")
         assert_equal(result["currentCycle"], 1)
@@ -309,6 +311,7 @@ class ChainGornmentTest(DefiTestFramework):
 
         # Create CFP
         propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 50, "cycles": 2, "payoutAddress": address})
+        self.nodes[0].generate(1)
         creationHeight = self.nodes[0].getblockcount()
 
         # Fund addresses
@@ -346,6 +349,7 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].listgovproposals("cfp","voting")
         assert_equal(result[0]["proposalId"], propId)
         assert_equal(result[0]["title"], title)
+        assert_equal(result[0]["creationHeight"], creationHeight)
         assert_equal(result[0]["context"], context)
         assert_equal(result[0]["type"], "CommunityFundProposal")
         assert_equal(result[0]["status"], "Voting")
@@ -459,8 +463,8 @@ class ChainGornmentTest(DefiTestFramework):
         context = "Test context"
         tx = self.nodes[0].creategovvoc({"title": title, "context": context, "emergency": True})
         self.nodes[0].generate(1)
-        self.sync_blocks()
         creationHeight = self.nodes[0].getblockcount()
+        self.sync_blocks()
 
         # Check burn fee increment
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('23.750000000'))
@@ -488,9 +492,10 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
         assert_equal(result["title"], title)
+        assert_equal(result["creationHeight"], creationHeight)
         assert_equal(result["context"], context)
         assert_equal(result["type"], "VoteOfConfidence")
-        assert_equal(result["status"], "Approved")
+        assert_equal(result["status"], "Completed")
         assert_equal(result["votes"], "50.00 of 49.99%")
         assert_equal(result["contextHash"], "")
         assert_equal(result["currentCycle"], 1)

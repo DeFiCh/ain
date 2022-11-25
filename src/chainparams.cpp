@@ -200,6 +200,8 @@ public:
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
@@ -451,6 +453,9 @@ public:
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
+
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -655,6 +660,8 @@ public:
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 100; // tally votes every 1K blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -851,6 +858,8 @@ public:
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70; // tally votes every 70 blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.vaultCreationFee = 1 * COIN;
 

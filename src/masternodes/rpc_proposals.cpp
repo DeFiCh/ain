@@ -13,6 +13,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop, CCustomCSVie
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop.title);
+    ret.pushKV("creationHeight", static_cast<int32_t>(prop.creationHeight));
     ret.pushKV("context", prop.context);
     ret.pushKV("contextHash", prop.contextHash);
     ret.pushKV("type", CPropTypeToString(type));
@@ -577,11 +578,12 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("title", prop->title);
+    ret.pushKV("creationHeight", static_cast<int32_t>(prop->creationHeight));
     ret.pushKV("context", prop->context);
     ret.pushKV("contextHash", prop->contextHash);
     ret.pushKV("type", CPropTypeToString(type));
     if (valid && votes >= approvalThreshold) {
-        ret.pushKV("status", "Approved");
+        ret.pushKV("status", "Completed");
     } else {
         ret.pushKV("status", "Rejected");
     }
