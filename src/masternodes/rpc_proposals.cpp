@@ -583,7 +583,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     ret.pushKV("contextHash", prop->contextHash);
     ret.pushKV("type", CPropTypeToString(type));
     if (valid && votes >= approvalThreshold) {
-        ret.pushKV("status", "Approved");
+        ret.pushKV("status", "Completed");
     } else {
         ret.pushKV("status", "Rejected");
     }

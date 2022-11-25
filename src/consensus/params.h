@@ -211,7 +211,9 @@ struct Params {
             CAmount approvalThreshold;
         } cfp, brp, voc;
         uint32_t votingPeriod;
+        uint32_t emergencyPeriod;
         CAmount quorum;
+        CAmount feeBurnPct;
     };
     CPropsParams props;
 
