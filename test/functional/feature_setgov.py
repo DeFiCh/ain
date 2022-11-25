@@ -790,7 +790,7 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                                                 "ownerAddress": owner,
                                                                                                                                                                 "backingId":"blablabla",
                                                                                                                                                                 "mintLimit": "10.00000000",
-                                                                                                                                                                "dailyMintLimit": "1.0000000"}}}})
+                                                                                                                                                                "mintLimitDaily": "1.0000000"}}}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/params/feature/consortium':'true'}})
         assert_raises_rpc_error(-32600, "ATTRIBUTES: Cannot be set before GrandCentral", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/mint_limit':'1000000000'}})
 
@@ -896,14 +896,14 @@ class GovsetTest (DefiTestFramework):
                                                                                                                                            "ownerAddress": owner,
                                                                                                                                            "backingId":"blablabla",
                                                                                                                                            "mintLimit":10.00000000,
-                                                                                                                                           "dailyMintLimit":-10.00000000}}}})
+                                                                                                                                           "mintLimitDaily":-10.00000000}}}})
         assert_raises_rpc_error(-5, "Status must be a positive number", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test",
                                                                                                                                                         "ownerAddress": owner,
                                                                                                                                                         "backingId":"blablabla",
                                                                                                                                                         "mintLimit":10.00000000,
-                                                                                                                                                        "dailyMintLimit":1.00000000,
+                                                                                                                                                        "mintLimitDaily":1.00000000,
                                                                                                                                                         "status":-1}}}})
-        assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test", "ownerAddress": owner, "backingId":"blablabla", "mintLimit":10.00000000, "dailyMintLimit":1.00000000, "status":2}}}})
+        assert_raises_rpc_error(-5, "Status can be either 0 or 1", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/4/members' : {"01":{"name":"test", "ownerAddress": owner, "backingId":"blablabla", "mintLimit":10.00000000, "mintLimitDaily":1.00000000, "status":2}}}})
 
         self.nodes[0].setgov({"ATTRIBUTES":{'v0/consortium/4/mint_limit' : '10', 'v0/consortium/4/mint_limit_daily' : '1'}})
         self.nodes[0].generate(1)
@@ -912,17 +912,16 @@ class GovsetTest (DefiTestFramework):
                                                                             "ownerAddress": owner,
                                                                             "backingId":"blablabla",
                                                                             "mintLimit": 10,
-                                                                            "dailyMintLimit": 1}}}})
+                                                                            "mintLimitDaily": 1}}}})
         self.nodes[0].generate(1)
 
         # Check result
         result = self.nodes[0].getgov('ATTRIBUTES')['ATTRIBUTES']
-        print(result['v0/consortium/4/members'])
         assert_equal(result['v0/consortium/4/members'], {"01":{"name":"test",
                                                                "ownerAddress": owner,
                                                                "backingId":"blablabla",
                                                                "mintLimit": Decimal('10.00000000'),
-                                                               "dailyMintLimit": Decimal('1.00000000'),
+                                                               "mintLimitDaily": Decimal('1.00000000'),
                                                                "status": 0}})
 
         assert_raises_rpc_error(-5, "Percentage exceeds 100%", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/gov/proposals/fee_burn_pct':'1.23'}})
