@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     {   // do not pay foundation reward at all
         CCustomCSView mnview(*pcustomcsview.get());
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height, 0, consensus);
-        printf("%d\n", GetBlockSubsidy(height, consensus));
+        printf("DEBUG:: res: %s, subsidy: %d\n", res.ok ? "true" : "false", GetBlockSubsidy(height, consensus));
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly less than expected
