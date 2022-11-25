@@ -507,7 +507,7 @@ static ResVal<CAttributeValue> VerifyConsortiumMember(const UniValue &values) {
             return Res::Err("Mint limit is an invalid amount");
         }
 
-        if (!AmountFromValue(value["dailyMintLimit"], member.dailyMintLimit) || !member.dailyMintLimit) {
+        if (!AmountFromValue(value["mintLimitDaily"], member.dailyMintLimit) || !member.dailyMintLimit) {
             return Res::Err("Daily mint limit is an invalid amount");
         }
 
@@ -1219,7 +1219,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     elem.pushKV("ownerAddress", ScriptToString(member.ownerAddress));
                     elem.pushKV("backingId", member.backingId);
                     elem.pushKV("mintLimit", ValueFromAmount(member.mintLimit));
-                    elem.pushKV("dailyMintLimit", ValueFromAmount(member.dailyMintLimit));
+                    elem.pushKV("mintLimitDaily", ValueFromAmount(member.dailyMintLimit));
                     elem.pushKV("status", member.status);
                     result.pushKV(id, elem);
                 }
