@@ -2094,21 +2094,25 @@ public:
         if (!pair) {
             return Res::Err("lock pool not found");
         }
+        auto& pool = pair->second;
+        const auto& lpTokenID = pair->first;
         
         if(obj.source.nTokenId != dusdToken->first && 
             obj.source.nTokenId != lockTokenId && 
-            obj.source.nTokenId != pair->first) {
+            obj.source.nTokenId != lpTokenID) {
             return Res::Err("Invalid token for this batch. Need to send DUSD to deposit, or the lockToken or LP-Token to withdraw.");
         }
 
         CalculateOwnerRewards(obj.owner);
-        res = mnview.SubBalance(obj.owner, obj.source);
-        if (!res)
-            return res;
 
 
         if (obj.source.nTokenId == dusdToken->first) {
             // case of locking DUSD: "swap" half to locktoken, add to pool and send LP token to user
+
+            res = mnview.SubBalance(obj.owner, obj.source);
+            if (!res)
+                return res;
+
             auto dusdhalf = obj.source.nValue / 2;
             auto lockedhalf = obj.source.nValue - dusdhalf;
 
@@ -2135,8 +2139,6 @@ public:
             if (!res)
                 return res;
 
-            const auto& lpTokenID = pair->first;
-            auto& pool = pair->second;
             res = pool.AddLiquidity(
                 lockedhalf, dusdhalf, [&] /*onMint*/ (CAmount liqAmount) {
                     CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
@@ -2149,21 +2151,44 @@ public:
             // withdrawal case: allow locktToken or LP token of the pair to be sent in.
             // convert back to DUSD and sent that back.
             // only allowed if height > withdrawal-height for this batch
-            
-            CDataStructureV0 withdrawKey{AttributeTypes::Param, paramID, DFIPKeys::WithdrawHeight, obj.batchId};            
-            auto withdrawHeight= attributes->GetValue(withdrawKey, (uint32_t)0);
-            if(withdrawHeight == 0 || withdrawHeight > height){
+
+            CDataStructureV0 withdrawKey{AttributeTypes::Param, paramID, DFIPKeys::WithdrawHeight, obj.batchId};
+            auto withdrawHeight = attributes->GetValue(withdrawKey, (uint32_t)0);
+            if (withdrawHeight == 0 || withdrawHeight > height) {
                 return Res::Err("This batch is not open for withdrawal yet.");
             }
 
             CAmount lockTokenToSwap = obj.source.nValue;
-            CTokenAmount dusdToSend = CTokenAmount{dusdToken->first,0};
-            if(obj.source.nTokenId == pair->first) {
-                //remove LP token first
-                //TODO: remove from LM Pool
-                lockTokenToSwap= 0;//result from remove from pool
-                dusdToSend.Add(0);//result from remove from pool
-            } 
+            if (obj.source.nTokenId == lpTokenID) {
+                // remove LP token first
+                //  subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
+                {
+                    CBalances balance{TAmounts{{obj.source.nTokenId, obj.source.nValue}}};
+                    auto res = SubBalanceDelShares(obj.owner, balance);
+                    if (!res) {
+                        return res;
+                    }
+                }
+                // both go directly to the owner, lockToken will be swapped afterwards
+                auto res = pool.RemoveLiquidity(obj.source.nValue, [&](CAmount amountA, CAmount amountB) {
+                    CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
+                    lockTokenToSwap = amountA;
+                    return mnview.AddBalances(obj.owner, balances);
+                });
+
+                if (!res) {
+                    return res;
+                }
+
+                res = mnview.SetPoolPair(lpTokenID, height, pool);
+                if (!res) {
+                    return res;
+                }
+            }
+
+            res = mnview.SubBalance(obj.owner, {lockTokenId, lockTokenToSwap});
+            if (!res)
+                return res;
 
             res = mnview.SubMintedTokens(lockTokenId, lockTokenToSwap);
             if (!res)
@@ -2172,9 +2197,8 @@ public:
             res = mnview.AddMintedTokens(dusdToken->first, lockTokenToSwap);
             if (!res)
                 return res;
-            dusdToSend.Add(lockTokenToSwap);
 
-            return mnview.SubBalance(obj.owner, dusdToSend);
+            return mnview.AddBalance(obj.owner, {dusdToken->first, lockTokenToSwap});
         }
     }
 
