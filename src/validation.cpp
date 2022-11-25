@@ -4280,8 +4280,7 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             return true;
         }
 
-        auto approvalThreshold = cache.GetApprovalThresholdFromAttributes(type) / 10000;
-
+        auto approvalThreshold = cache.GetApprovalThresholdFromAttributes(type);
         if (lround(voteYes * 10000.f / voters.size()) <= approvalThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
