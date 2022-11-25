@@ -66,11 +66,17 @@ create_log_file () {
     echo "Output log to $TMP_LOG file"
     {
     $GREP "AccountChange:" "$DEBUG_FILE" | cut -d" " -f2-
+    echo "-- logaccountbalances --"
     $DEFI_CLI_CMD logaccountbalances
+    echo "-- spv_listanchors --"
     $DEFI_CLI_CMD spv_listanchors
+    echo "-- logstoredinterests --"
     $DEFI_CLI_CMD logstoredinterests
+    echo "-- listvaults --"
     $DEFI_CLI_CMD listvaults '{"verbose": true}' '{"limit":1000000}'
+    echo "-- listtokens --"
     $DEFI_CLI_CMD listtokens '{"limit":1000000}'
+    echo "-- getburninfo --"
     $DEFI_CLI_CMD getburninfo
     } >> "$TMP_LOG"
 }

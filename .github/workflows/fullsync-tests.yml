@@ -86,6 +86,7 @@ jobs:
     env:
       DATADIR : datadir-${{matrix.blocks.start}}
       STOP_BLOCK: ${{matrix.blocks.stop}}
+      START_BLOCK: ${{matrix.blocks.start}}
       DEFID_BIN: ./defid
       DEFI_CLI_BIN: ./defi-cli
       REF_LOG_DIR: ${{github.base_ref}}-datadir/log

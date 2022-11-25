@@ -172,7 +172,8 @@ class PoolPairTestPoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         account = self.nodes[0].getaccount(self.account0)
-        assert_equal(account[2], f'{amountSwapped}@{self.symbolDUSD}')
+        [amountDUSD] = [x for x in account if "DUSD" in x]
+        assert_equal(amountDUSD, f'{amountSwapped}@{self.symbolDUSD}')
 
     def test_testpoolswap_no_fee(self, swap_fn, tokenFrom, path):
         self.assert_testpoolswap_amount(swap_fn, tokenFrom, path)
