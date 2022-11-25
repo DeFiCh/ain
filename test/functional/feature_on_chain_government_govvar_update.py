@@ -95,7 +95,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 
-    def test_cfp_update_minimum_vote(self):
+    def test_cfp_update_quorum(self):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -112,6 +112,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
         self.sync_blocks(timeout=120)
+
+        # Update quorum during first cycle.
+        # 80% of masternodes should vote
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/quorum':'80%'}})
+        self.nodes[0].generate(1)
 
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
@@ -133,10 +138,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Voting')
 
-        # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/quorum':'0.8'}})
-        self.nodes[0].generate(1)
-
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
         self.nodes[0].generate(1)
@@ -151,6 +152,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].generate(VOTING_PERIOD)
         self.sync_blocks(timeout=120)
 
+        # Quorum should be updated between cycles
         # Proposal should be rejected as only 75% of masternodes voted
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Rejected')
@@ -175,6 +177,11 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks(timeout=120)
 
+        # Update majority threshold during first cycle
+        # 80% of masternodes should approve a CFP
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'80%'}})
+        self.nodes[0].generate(1)
+
         # Vote during first cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
         self.nodes[0].generate(1)
@@ -197,10 +204,6 @@ class CFPFeeDistributionTest(DefiTestFramework):
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Voting')
 
-        # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'0.8'}})
-        self.nodes[0].generate(1)
-
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
         self.nodes[0].generate(1)
@@ -218,6 +221,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.nodes[0].generate(VOTING_PERIOD)
         self.sync_blocks(timeout=120)
 
+        # Majority threshold should be updated between cycles
         # Proposal should be rejected as only 75% of masternodes voted yes
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Rejected')
@@ -523,7 +527,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         self.setup()
 
         self.test_cfp_update_automatic_payout()
-        self.test_cfp_update_minimum_vote()
+        self.test_cfp_update_quorum()
         self.test_cfp_update_majority_threshold()
         self.test_cfp_update_fee_redistribution()
         self.test_cfp_update_cfp_fee()
