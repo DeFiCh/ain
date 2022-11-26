@@ -10,7 +10,10 @@ struct VotingInfo {
 };
 
 UniValue
-proposalToJSON(const CPropId &propId, const CPropObject &prop, const CCustomCSView &view, const std::optional<VotingInfo> votingInfo) {
+proposalToJSON(const CPropId &propId, 
+    const CPropObject &prop, 
+    const CCustomCSView &view, 
+    const std::optional<VotingInfo> votingInfo) {
 
     auto proposalId = propId.GetHex();
     auto creationHeight = static_cast<int32_t>(prop.creationHeight);
@@ -62,8 +65,8 @@ proposalToJSON(const CPropId &propId, const CPropObject &prop, const CCustomCSVi
             statusString = "Rejected";
         }
 
-        votesPresentPctString = strprintf("%d.%02d", votesPresentPct / 100, votesPresentPct % 100);
-        votesYesPctString = strprintf("%d.%02d", votesYesPct / 100, votesYesPct % 100);
+        votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
+        votesYesPctString = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
     }
 
     UniValue ret(UniValue::VOBJ);

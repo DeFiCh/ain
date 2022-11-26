@@ -299,9 +299,9 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["quorum"], "1.00%")
         assert_equal(result["votesPossible"], Decimal("4"))
         assert_equal(result["votesPresent"], Decimal("4"))
-        assert_equal(result["votesPresentPct"], "100.00") # TODO %
+        assert_equal(result["votesPresentPct"], "100.00%")
         assert_equal(result["votesYes"], Decimal("3"))
-        assert_equal(result["votesYesPct"], "75.00") # TODO %
+        assert_equal(result["votesYesPct"], "75.00%")
         assert_equal(result["votesYesRequired"], "66.67%")
         assert_equal(result["feeTotal"], Decimal("5"))
         assert_equal(result["feeBurn"], Decimal("2.5"))
@@ -323,7 +323,11 @@ class OnChainGovernanceTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
 
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 50, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp({"title": title, 
+            "context": context, 
+            "amount": 50, 
+            "cycles": 2, 
+            "payoutAddress": address})
         self.nodes[0].generate(1)
         creationHeight = self.nodes[0].getblockcount()
 
@@ -359,21 +363,26 @@ class OnChainGovernanceTest(DefiTestFramework):
         proposalEndHeight = cycle1 + votingPeriod
 
         # Check proposal and votes
-        result = self.nodes[0].listgovproposals("cfp","voting")
-        assert_equal(result[0]["proposalId"], propId)
-        assert_equal(result[0]["title"], title)
-        assert_equal(result[0]["creationHeight"], creationHeight)
-        assert_equal(result[0]["context"], context)
-        assert_equal(result[0]["type"], "CommunityFundProposal")
-        assert_equal(result[0]["status"], "Voting")
-        assert_equal(result[0]["amount"], Decimal("50"))
-        assert_equal(result[0]["currentCycle"], 1)
-        assert_equal(result[0]["totalCycles"], 2)
-        assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
-        assert_equal(result[0]["cycleEndHeight"], cycle1)
-        assert_equal(result[0]["approvalThreshold"], "50.00%")
-        assert_equal(result[0]["quorum"], "1.00%")
+        results = self.nodes[0].listgovproposals("cfp","voting")
+        result = results[0]
+        assert_equal(result["proposalId"], propId)
+        assert_equal(result["creationHeight"], creationHeight)
+        assert_equal(result["title"], title)
+        assert_equal(result["context"], context)
+        assert_equal(result["contextHash"], "")
+        assert_equal(result["status"], "Voting")
+        assert_equal(result["type"], "CommunityFundProposal")
+        assert_equal(result["amount"], Decimal("50"))
+        assert_equal(result["payoutAddress"], address)
+        assert_equal(result["currentCycle"], 1)
+        assert_equal(result["totalCycles"], 2)
+        assert_equal(result["cycleEndHeight"], cycle1)
+        assert_equal(result["proposalEndHeight"], proposalEndHeight)
+        assert_equal(result["votingPeriod"], votingPeriod)
+        assert_equal(result["quorum"], "1.00%")
+        assert_equal(result["votesYesRequired"], "50.00%")
+        assert_equal(result["feeTotal"], Decimal("12.5"))
+        assert_equal(result["feeBurn"], Decimal("6.25"))
 
         # Check individual MN votes
         results = self.nodes[1].listgovproposalvotes(propId, mn0)
@@ -456,8 +465,8 @@ class OnChainGovernanceTest(DefiTestFramework):
 
         # No proposals pending
         assert_equal(self.nodes[0].listgovproposals("all", "voting"), [])
-        assert_equal(self.nodes[0].listgovproposals("all", "completed"), [])
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 2)
 
         emergencyPeriod = 25
         title = 'Emergency VOC'
