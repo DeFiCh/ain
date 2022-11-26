@@ -85,11 +85,14 @@ CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreatePropMes
     CAmount cfpFee;
     switch (type) {
         case CPropType::CommunityFundProposal:
+        {
             cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
-            return 10 * COIN > cfpFee ? 10 * COIN : cfpFee;
+            auto minimumFee = Params().GetConsensus().props.cfp.minimumFee;
+            return minimumFee > cfpFee ? minimumFee : cfpFee;
+        }
         case CPropType::VoteOfConfidence:
             if (emergency)
-                return attributes->GetValue(VOCEmergencyKey, 10000 * COIN);
+                return attributes->GetValue(VOCEmergencyKey, Params().GetConsensus().props.voc.emergencyFee);
             else
                 return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
     }
