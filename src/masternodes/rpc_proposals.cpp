@@ -616,10 +616,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
             if (pId != propId || cycle != prop->cycle) {
                 return false;
             }
-            // Note: This is still unnecessarily inefficient. We cna populate the yes voters and yes votes first
-            // and then kick out all invalids in another iter with O(N) than this if we group them into a better
-            // data structure.
-            if (activeMasternodes.find(mnId) != activeMasternodes.end()) {
+            if (activeMasternodes.count(mnId)) {
                 ++voters;
                 if (vote == CPropVoteType::VoteYes) {
                     ++voteYes;
