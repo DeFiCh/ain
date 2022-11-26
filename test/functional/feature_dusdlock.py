@@ -49,8 +49,8 @@ class LockDUSDTest(DefiTestFramework):
                     almost_equal(Decimal(self.nodes[0].gettoken(key)[key]['minted']), wantedMints[key], 0.00000001)
                 else:
                     assert_equal(Decimal(self.nodes[0].gettoken(key)[key]['minted']), wantedMints[key])
-        if "address" in targetObj:
-            addresses = targetObj['address']
+        if "addresses" in targetObj:
+            addresses = targetObj['addresses']
             for address in addresses:
                 result = self.nodes[0].getaccount(address)
                 assert_equal(result, addresses[address])
