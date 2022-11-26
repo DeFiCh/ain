@@ -30,8 +30,8 @@ proposalToJSON(const CPropId &propId,
     auto proposalEndHeight = static_cast<int32_t>(prop.proposalEndHeight);
     auto votingPeriod = static_cast<int32_t>(prop.votingPeriod);
     bool isEmergency = prop.options & CPropOption::Emergency;
-    auto quorum = view.GetQuorumFromAttributes(type, isEmergency);
-    auto approvalThreshold = view.GetApprovalThresholdFromAttributes(type);
+    auto quorum = prop.quorum;
+    auto approvalThreshold = prop.approvalThreshold;
     auto status = static_cast<CPropStatusType>(prop.status);
     auto statusString = CPropStatusToString(status);
     auto feeTotalValue =  ValueFromAmount(prop.fee);

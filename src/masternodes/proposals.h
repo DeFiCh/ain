@@ -93,6 +93,8 @@ struct CPropObject : public CCreatePropMessage {
     uint32_t proposalEndHeight{};
 
     uint32_t votingPeriod;
+    CAmount approvalThreshold;
+    CAmount quorum;
     CAmount fee;
     CAmount feeBurnAmount;
 
@@ -109,6 +111,8 @@ struct CPropObject : public CCreatePropMessage {
         READWRITE(creationHeight);
         READWRITE(proposalEndHeight);
         READWRITE(votingPeriod);
+        READWRITE(approvalThreshold);
+        READWRITE(quorum);
         READWRITE(fee);
         READWRITE(feeBurnAmount);
     }
