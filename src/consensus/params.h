@@ -208,10 +208,14 @@ struct Params {
     struct CPropsParams {
         struct CPropsSpecs {
             CAmount fee;
+            CAmount minimumFee;
+            CAmount emergencyFee;
             CAmount approvalThreshold;
         } cfp, brp, voc;
         uint32_t votingPeriod;
+        uint32_t emergencyPeriod;
         CAmount quorum;
+        CAmount feeBurnPct;
     };
     CPropsParams props;
 

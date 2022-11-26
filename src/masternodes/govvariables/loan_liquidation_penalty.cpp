@@ -4,28 +4,24 @@
 
 #include <masternodes/govvariables/loan_liquidation_penalty.h>
 
-#include <core_io.h> /// ValueFromAmount
-#include <masternodes/masternodes.h> /// CCustomCSView
-#include <rpc/util.h> /// AmountFromValue
+#include <core_io.h>                  /// ValueFromAmount
+#include <masternodes/masternodes.h>  /// CCustomCSView
+#include <rpc/util.h>                 /// AmountFromValue
 
-bool LOAN_LIQUIDATION_PENALTY::IsEmpty() const
-{
+bool LOAN_LIQUIDATION_PENALTY::IsEmpty() const {
     return !penalty.has_value();
 }
 
-Res LOAN_LIQUIDATION_PENALTY::Import(const UniValue & val)
-{
+Res LOAN_LIQUIDATION_PENALTY::Import(const UniValue &val) {
     penalty = AmountFromValue(val);
     return Res::Ok();
 }
 
-UniValue LOAN_LIQUIDATION_PENALTY::Export() const
-{
+UniValue LOAN_LIQUIDATION_PENALTY::Export() const {
     return ValueFromAmount(penalty.value_or(0));
 }
 
-Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView & view) const
-{
+Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView &view) const {
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
 
@@ -35,13 +31,11 @@ Res LOAN_LIQUIDATION_PENALTY::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res LOAN_LIQUIDATION_PENALTY::Apply(CCustomCSView & mnview, uint32_t height)
-{
+Res LOAN_LIQUIDATION_PENALTY::Apply(CCustomCSView &mnview, uint32_t height) {
     return mnview.SetLoanLiquidationPenalty(penalty.value_or(0));
 }
 
-Res LOAN_LIQUIDATION_PENALTY::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const &)
-{
+Res LOAN_LIQUIDATION_PENALTY::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::string> &) {
     penalty.reset();
     return mnview.EraseLoanLiquidationPenalty();
 }

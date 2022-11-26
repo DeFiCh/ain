@@ -4,25 +4,22 @@
 
 #include <masternodes/undos.h>
 
-void CUndosView::ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<CUndo>)> callback, UndoKey const & start)
-{
+void CUndosView::ForEachUndo(std::function<bool(const UndoKey &, CLazySerialize<CUndo>)> callback,
+                             const UndoKey &start) {
     ForEach<ByUndoKey, UndoKey, CUndo>(callback, start);
 }
 
-Res CUndosView::SetUndo(UndoKey const & key, CUndo const & undo)
-{
+Res CUndosView::SetUndo(const UndoKey &key, const CUndo &undo) {
     WriteBy<ByUndoKey>(key, undo);
     return Res::Ok();
 }
 
-Res CUndosView::DelUndo(UndoKey const & key)
-{
+Res CUndosView::DelUndo(const UndoKey &key) {
     EraseBy<ByUndoKey>(key);
     return Res::Ok();
 }
 
-std::optional<CUndo> CUndosView::GetUndo(UndoKey const & key) const
-{
+std::optional<CUndo> CUndosView::GetUndo(const UndoKey &key) const {
     CUndo val;
     bool ok = ReadBy<ByUndoKey>(key, val);
     if (ok) {

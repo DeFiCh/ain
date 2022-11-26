@@ -4,17 +4,15 @@
 
 #include <masternodes/govvariables/oracle_block_interval.h>
 
-#include <core_io.h> /// ValueFromAmount
-#include <masternodes/masternodes.h> /// CCustomCSView
-#include <rpc/util.h> /// AmountFromValue
+#include <core_io.h>                  /// ValueFromAmount
+#include <masternodes/masternodes.h>  /// CCustomCSView
+#include <rpc/util.h>                 /// AmountFromValue
 
-bool ORACLE_BLOCK_INTERVAL::IsEmpty() const
-{
+bool ORACLE_BLOCK_INTERVAL::IsEmpty() const {
     return !blockInterval.has_value();
 }
 
-Res ORACLE_BLOCK_INTERVAL::Import(const UniValue & val)
-{
+Res ORACLE_BLOCK_INTERVAL::Import(const UniValue &val) {
     if (!val.isNum())
         throw JSONRPCError(RPC_TYPE_ERROR, "Block interval amount is not a number");
 
@@ -22,13 +20,11 @@ Res ORACLE_BLOCK_INTERVAL::Import(const UniValue & val)
     return Res::Ok();
 }
 
-UniValue ORACLE_BLOCK_INTERVAL::Export() const
-{
+UniValue ORACLE_BLOCK_INTERVAL::Export() const {
     return static_cast<uint64_t>(blockInterval.value_or(0));
 }
 
-Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
-{
+Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView &view) const {
     if (view.GetLastHeight() < Params().GetConsensus().FortCanningHeight)
         return Res::Err("Cannot be set before FortCanning");
 
@@ -38,13 +34,11 @@ Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView & mnview, uint32_t height)
-{
+Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView &mnview, uint32_t height) {
     return mnview.SetIntervalBlock(blockInterval.value_or(0));
 }
 
-Res ORACLE_BLOCK_INTERVAL::Erase(CCustomCSView & mnview, uint32_t, std::vector<std::string> const &)
-{
+Res ORACLE_BLOCK_INTERVAL::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::string> &) {
     blockInterval.reset();
     return mnview.EraseIntervalBlock();
 }

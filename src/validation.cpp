@@ -4270,19 +4270,14 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        auto type = static_cast<CPropType>(prop.type);
-        bool emergency = prop.options & CPropOption::Emergency;
 
-        auto quorum = cache.GetQuorumFromAttributes(type, emergency);
-
-        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= quorum) {
+        if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= prop.quorum) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
 
-        auto approvalThreshold = cache.GetApprovalThresholdFromAttributes(type) / 10000;
 
-        if (lround(voteYes * 10000.f / voters.size()) <= approvalThreshold) {
+        if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }

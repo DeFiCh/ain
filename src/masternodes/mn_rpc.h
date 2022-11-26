@@ -12,8 +12,8 @@
 #include <masternodes/mn_checks.h>
 
 #include <rpc/rawtransaction_util.h>
-#include <rpc/server.h>
 #include <rpc/resultcache.h>
+#include <rpc/server.h>
 #include <rpc/util.h>
 
 //#ifdef ENABLE_WALLET
@@ -36,27 +36,28 @@ typedef enum {
 } AccountSelectionMode;
 
 enum class AmountFormat : uint8_t {
-        Unknown,
-        // amount@0
-        Id,
-        // amount@DFI
-        Symbol,
-        // amount@0#DFI
-        Combined,
+    Unknown,
+    // amount@0
+    Id,
+    // amount@DFI
+    Symbol,
+    // amount@0#DFI
+    Combined,
 };
 
 class CWalletCoinsUnlocker {
     std::shared_ptr<CWallet> pwallet;
     std::vector<COutPoint> coins;
+
 public:
     explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
-    CWalletCoinsUnlocker(const CWalletCoinsUnlocker&) = delete;
-    CWalletCoinsUnlocker(CWalletCoinsUnlocker&&) = default;
+    CWalletCoinsUnlocker(const CWalletCoinsUnlocker &) = delete;
+    CWalletCoinsUnlocker(CWalletCoinsUnlocker &&)      = default;
     ~CWalletCoinsUnlocker();
-    CWallet* operator->();
-    CWallet& operator*();
-    operator CWallet*();
-    void AddLockedCoin(const COutPoint& coin);
+    CWallet *operator->();
+    CWallet &operator*();
+    operator CWallet *();
+    void AddLockedCoin(const COutPoint &coin);
 };
 
 struct FutureSwapHeightInfo {
@@ -65,19 +66,29 @@ struct FutureSwapHeightInfo {
 };
 
 // common functions
-bool IsSkippedTx(const uint256& hash);
-int chainHeight(interfaces::Chain::Lock& locked_chain);
-CMutableTransaction fund(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);
-CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx);
-CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request);
-std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
-std::string ScriptToString(CScript const& script);
-CAccounts GetAllMineAccounts(CWallet* const pwallet);
-CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
-void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx = {});
-CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
+bool IsSkippedTx(const uint256 &hash);
+int chainHeight(interfaces::Chain::Lock &locked_chain);
+CMutableTransaction fund(CMutableTransaction &mtx,
+                         CWalletCoinsUnlocker &pwallet,
+                         CTransactionRef optAuthTx,
+                         CCoinControl *coin_control = nullptr);
+CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
+CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
+                                      int32_t txVersion,
+                                      std::set<CScript> &auths,
+                                      bool needFounderAuth,
+                                      CTransactionRef &optAuthTx,
+                                      const UniValue &explicitInputs);
+std::string ScriptToString(const CScript &script);
+CAccounts GetAllMineAccounts(CWallet *const pwallet);
+CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,
+                                         const CBalances &targetBalances,
+                                         AccountSelectionMode selectionMode);
+void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuthTx = {});
+CScript CreateScriptForHTLC(const JSONRPCRequest &request, uint32_t &blocks, std::vector<unsigned char> &image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CScript> AmIFounder(CWallet* const pwallet);
+std::optional<CScript> AmIFounder(CWallet *const pwallet);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
 
-#endif // DEFI_MASTERNODES_MN_RPC_H
+#endif  // DEFI_MASTERNODES_MN_RPC_H

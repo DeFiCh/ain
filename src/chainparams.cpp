@@ -138,7 +138,7 @@ public:
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -195,11 +195,15 @@ public:
         consensus.vaultCreationFee = 2 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
         consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
-        consensus.props.voc.fee = 50 * COIN;
+        consensus.props.voc.fee = 100 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
@@ -390,7 +394,7 @@ public:
         consensus.FortCanningSpringHeight = 1086000;
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = 1366000;
+        consensus.GrandCentralHeight = 1402000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -447,11 +451,16 @@ public:
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
-        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50%
         consensus.props.voc.fee = 50 * COIN;
-        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67%
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
+
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -652,11 +661,15 @@ public:
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
         consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 100; // tally votes every 1K blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
@@ -849,11 +862,15 @@ public:
         consensus.spv.minConfirmations = 6;
 
         consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
         consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
         consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
         consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
         consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
         consensus.props.votingPeriod = 70; // tally votes every 70 blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
 
         consensus.vaultCreationFee = 1 * COIN;
 

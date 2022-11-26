@@ -14,9 +14,7 @@ from test_framework.util import (
 
 from decimal import Decimal
 
-
-
-class ChainGornmentTest(DefiTestFramework):
+class OnChainGovernanceTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -154,18 +152,22 @@ class ChainGornmentTest(DefiTestFramework):
         result = self.nodes[0].listgovproposals()
         assert_equal(len(result), 1)
         assert_equal(result[0]["proposalId"], tx)
+        assert_equal(result[0]["creationHeight"], creationHeight)
         assert_equal(result[0]["title"], title)
         assert_equal(result[0]["context"], context)
-        assert_equal(result[0]["type"], "CommunityFundProposal")
+        assert_equal(result[0]["contextHash"], "")
         assert_equal(result[0]["status"], "Voting")
+        assert_equal(result[0]["type"], "CommunityFundProposal")
         assert_equal(result[0]["amount"], Decimal("100"))
+        assert_equal(result[0]["payoutAddress"], address)
         assert_equal(result[0]["currentCycle"], 1)
         assert_equal(result[0]["totalCycles"], 2)
-        assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
         assert_equal(result[0]["cycleEndHeight"], cycle1)
-        assert_equal(result[0]["approvalThreshold"], "50.00%")
+        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
+        assert_equal(result[0]["votingPeriod"], votingPeriod)
         assert_equal(result[0]["quorum"], "1.00%")
+        assert_equal(result[0]["approvalThreshold"], "50.00%")
+        assert_equal(result[0]["fee"], Decimal("10"))
 
         # Check individual MN votes
         results = self.nodes[1].listgovproposalvotes(tx, mn0)
@@ -274,22 +276,29 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_blocks()
 
         cycle1 = creationHeight + (votingPeriod - creationHeight % votingPeriod) + votingPeriod
-        proposalEndHeight = cycle1 + votingPeriod
+        proposalEndHeight = cycle1
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
+        assert_equal(result["creationHeight"], creationHeight)
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
-        assert_equal(result["type"], "VoteOfConfidence")
-        assert_equal(result["status"], "Approved")
-        assert_equal(result["votes"], "75.00 of 66.67%")
         assert_equal(result["contextHash"], "")
+        assert_equal(result["status"], "Completed")
+        assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
+        assert_equal(result["totalCycles"], 1)
         assert_equal(result["cycleEndHeight"], cycle1)
-        assert_equal(result["payoutAddress"], '')
-        assert_equal(result["totalCycles"], 2)
-        assert_equal(result["votingPercent"], "100.00 of 1.00%")
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
+        assert_equal(result["votingPeriod"], votingPeriod)
+        assert_equal(result["quorum"], "1.00%")
+        assert_equal(result["votesPossible"], Decimal("4"))
+        assert_equal(result["votesPresent"], Decimal("4"))
+        assert_equal(result["votesPresentPct"], "100.00%")
+        assert_equal(result["votesYes"], Decimal("3"))
+        assert_equal(result["votesYesPct"], "75.00%")
+        assert_equal(result["approvalThreshold"], "66.67%")
+        assert_equal(result["fee"], Decimal("5"))
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
         assert_equal(self.nodes[0].listgovproposals("all", "completed"), [])
@@ -308,7 +317,12 @@ class ChainGornmentTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
 
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, "context": context, "amount": 50, "cycles": 2, "payoutAddress": address})
+        propId = self.nodes[0].creategovcfp({"title": title,
+            "context": context,
+            "amount": 50,
+            "cycles": 2,
+            "payoutAddress": address})
+        self.nodes[0].generate(1)
         creationHeight = self.nodes[0].getblockcount()
 
         # Fund addresses
@@ -343,20 +357,25 @@ class ChainGornmentTest(DefiTestFramework):
         proposalEndHeight = cycle1 + votingPeriod
 
         # Check proposal and votes
-        result = self.nodes[0].listgovproposals("cfp","voting")
-        assert_equal(result[0]["proposalId"], propId)
-        assert_equal(result[0]["title"], title)
-        assert_equal(result[0]["context"], context)
-        assert_equal(result[0]["type"], "CommunityFundProposal")
-        assert_equal(result[0]["status"], "Voting")
-        assert_equal(result[0]["amount"], Decimal("50"))
-        assert_equal(result[0]["currentCycle"], 1)
-        assert_equal(result[0]["totalCycles"], 2)
-        assert_equal(result[0]["payoutAddress"], address)
-        assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
-        assert_equal(result[0]["cycleEndHeight"], cycle1)
-        assert_equal(result[0]["approvalThreshold"], "50.00%")
-        assert_equal(result[0]["quorum"], "1.00%")
+        results = self.nodes[0].listgovproposals("cfp","voting")
+        result = results[0]
+        assert_equal(result["proposalId"], propId)
+        assert_equal(result["creationHeight"], creationHeight)
+        assert_equal(result["title"], title)
+        assert_equal(result["context"], context)
+        assert_equal(result["contextHash"], "")
+        assert_equal(result["status"], "Voting")
+        assert_equal(result["type"], "CommunityFundProposal")
+        assert_equal(result["amount"], Decimal("50"))
+        assert_equal(result["payoutAddress"], address)
+        assert_equal(result["currentCycle"], 1)
+        assert_equal(result["totalCycles"], 2)
+        assert_equal(result["cycleEndHeight"], cycle1)
+        assert_equal(result["proposalEndHeight"], proposalEndHeight)
+        assert_equal(result["votingPeriod"], votingPeriod)
+        assert_equal(result["quorum"], "1.00%")
+        assert_equal(result["approvalThreshold"], "50.00%")
+        assert_equal(result["fee"], Decimal("12.5"))
 
         # Check individual MN votes
         results = self.nodes[1].listgovproposalvotes(propId, mn0)
@@ -439,8 +458,8 @@ class ChainGornmentTest(DefiTestFramework):
 
         # No proposals pending
         assert_equal(self.nodes[0].listgovproposals("all", "voting"), [])
-        assert_equal(self.nodes[0].listgovproposals("all", "completed"), [])
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 2)
 
         emergencyPeriod = 25
         title = 'Emergency VOC'
@@ -449,7 +468,7 @@ class ChainGornmentTest(DefiTestFramework):
             'v0/params/feature/gov-payout':'true',
             'v0/gov/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/gov/proposals/voc_emergency_fee':'20.00000000',
-            'v0/gov/proposals/voc_required_votes':'49.99%'
+            'v0/gov/proposals/voc_approval_threshold':'50.00%'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -459,8 +478,8 @@ class ChainGornmentTest(DefiTestFramework):
         context = "Test context"
         tx = self.nodes[0].creategovvoc({"title": title, "context": context, "emergency": True})
         self.nodes[0].generate(1)
-        self.sync_blocks()
         creationHeight = self.nodes[0].getblockcount()
+        self.sync_blocks()
 
         # Check burn fee increment
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('23.750000000'))
@@ -487,25 +506,30 @@ class ChainGornmentTest(DefiTestFramework):
         # Check results
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["proposalId"], tx)
+        assert_equal(result["creationHeight"], creationHeight)
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
-        assert_equal(result["type"], "VoteOfConfidence")
-        assert_equal(result["status"], "Approved")
-        assert_equal(result["votes"], "50.00 of 49.99%")
         assert_equal(result["contextHash"], "")
+        assert_equal(result["status"], "Rejected")
+        assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
-        assert_equal(result["cycleEndHeight"], cycle1)
-        assert_equal(result["payoutAddress"], '')
         assert_equal(result["totalCycles"], 1)
-        assert_equal(result["votingPercent"], "100.00 of 10.00%")
-        assert_equal(result["options"], ["Emergency"])
+        assert_equal(result["cycleEndHeight"], cycle1)
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
-        assert_equal(result["approvalThreshold"], "49.99%")
+        assert_equal(result["votingPeriod"], emergencyPeriod)
         assert_equal(result["quorum"], "10.00%")
+        assert_equal(result["votesPossible"], Decimal("4"))
+        assert_equal(result["votesPresent"], Decimal("4"))
+        assert_equal(result["votesPresentPct"], "100.00%")
+        assert_equal(result["votesYes"], Decimal("2"))
+        assert_equal(result["votesYesPct"], "50.00%")
+        assert_equal(result["approvalThreshold"], "50.00%")
+        assert_equal(result["fee"], Decimal("20"))
+        assert_equal(result["options"], ["emergency"])
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 0)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 2)
 
         # Test emergency quorum
         self.nodes[0].setgov({"ATTRIBUTES":{
@@ -543,4 +567,4 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
 if __name__ == '__main__':
-    ChainGornmentTest().main ()
+    OnChainGovernanceTest().main ()
