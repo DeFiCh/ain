@@ -511,10 +511,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Vote and move to next cycle
         self.nodes[3].votegov(propId, self.mn3, "no")
-        self.nodes[3].generate(VOTING_PERIOD * 2)
+        self.nodes[3].generate(VOTING_PERIOD)
         self.sync_blocks(timeout=120)
 
-        # First cycle should be approved
+        # First cycle should be completed
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Completed')
 
