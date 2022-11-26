@@ -1310,8 +1310,8 @@ CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CPropType &type)
     auto attributes = GetAttributes();
     assert(attributes);
 
-    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMajority};
-    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCMajority};
+    CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPApprovalThreshold};
+    CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCApprovalThreshold};
 
     switch (type) {
         case CPropType::CommunityFundProposal:

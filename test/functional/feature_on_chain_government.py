@@ -468,7 +468,7 @@ class OnChainGovernanceTest(DefiTestFramework):
             'v0/params/feature/gov-payout':'true',
             'v0/gov/proposals/voc_emergency_period': f'{emergencyPeriod}',
             'v0/gov/proposals/voc_emergency_fee':'20.00000000',
-            'v0/gov/proposals/voc_required_votes':'50.00%'
+            'v0/gov/proposals/voc_approval_threshold':'50.00%'
         }})
         self.nodes[0].generate(1)
         self.sync_blocks()

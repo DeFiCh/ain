@@ -197,12 +197,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"fee_redistribution", GovernanceKeys::FeeRedistribution},
              {"fee_burn_pct", GovernanceKeys::FeeBurnPct},
              {"cfp_fee", GovernanceKeys::CFPFee},
-             {"cfp_required_votes", GovernanceKeys::CFPMajority},
+             {"cfp_approval_threshold", GovernanceKeys::CFPApprovalThreshold},
              {"voc_fee", GovernanceKeys::VOCFee},
              {"voc_emergency_fee", GovernanceKeys::VOCEmergencyFee},
              {"voc_emergency_period", GovernanceKeys::VOCEmergencyPeriod},
              {"voc_emergency_quorum", GovernanceKeys::VOCEmergencyQuorum},
-             {"voc_required_votes", GovernanceKeys::VOCMajority},
+             {"voc_approval_threshold", GovernanceKeys::VOCApprovalThreshold},
              {"quorum", GovernanceKeys::Quorum},
              {"voting_period", GovernanceKeys::VotingPeriod},
          }},
@@ -289,12 +289,12 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {GovernanceKeys::FeeRedistribution, "fee_redistribution"},
              {GovernanceKeys::FeeBurnPct, "fee_burn_pct"},
              {GovernanceKeys::CFPFee, "cfp_fee"},
-             {GovernanceKeys::CFPMajority, "cfp_required_votes"},
+             {GovernanceKeys::CFPApprovalThreshold, "cfp_approval_threshold"},
              {GovernanceKeys::VOCFee, "voc_fee"},
              {GovernanceKeys::VOCEmergencyFee, "voc_emergency_fee"},
              {GovernanceKeys::VOCEmergencyPeriod, "voc_emergency_period"},
              {GovernanceKeys::VOCEmergencyQuorum, "voc_emergency_quorum"},
-             {GovernanceKeys::VOCMajority, "voc_required_votes"},
+             {GovernanceKeys::VOCApprovalThreshold, "voc_approval_threshold"},
              {GovernanceKeys::Quorum, "quorum"},
              {GovernanceKeys::VotingPeriod, "voting_period"},
          }},
@@ -599,12 +599,12 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {GovernanceKeys::FeeRedistribution, VerifyBool},
                  {GovernanceKeys::FeeBurnPct, VerifyPct},
                  {GovernanceKeys::CFPFee, VerifyPct},
-                 {GovernanceKeys::CFPMajority, VerifyPct},
+                 {GovernanceKeys::CFPApprovalThreshold, VerifyPct},
                  {GovernanceKeys::VOCFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyPeriod, VerifyUInt32},
                  {GovernanceKeys::VOCEmergencyQuorum, VerifyPct},
-                 {GovernanceKeys::VOCMajority, VerifyPct},
+                 {GovernanceKeys::VOCApprovalThreshold, VerifyPct},
                  {GovernanceKeys::Quorum, VerifyPct},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
              }},
@@ -815,8 +815,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         } else if (type == AttributeTypes::Governance) {
             if (typeId == GovernanceIDs::Proposals) {
                 if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::FeeBurnPct &&
-                    typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPMajority &&
-                    typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCMajority &&
+                    typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPApprovalThreshold &&
+                    typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
                     typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
                     typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
                     typeKey != GovernanceKeys::VotingPeriod)

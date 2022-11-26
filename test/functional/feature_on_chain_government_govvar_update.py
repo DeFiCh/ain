@@ -157,7 +157,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 
-    def test_cfp_update_majority_threshold(self):
+    def test_cfp_update_approval_threshold(self):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -198,7 +198,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         assert_equal(proposal['status'], 'Voting')
 
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'0.8'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'0.8'}})
         self.nodes[0].generate(1)
 
         # Vote during second cycle
@@ -524,7 +524,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.test_cfp_update_automatic_payout()
         self.test_cfp_update_minimum_vote()
-        self.test_cfp_update_majority_threshold()
+        self.test_cfp_update_approval_threshold()
         self.test_cfp_update_fee_redistribution()
         self.test_cfp_update_cfp_fee()
         self.test_cfp_update_voting_period()
