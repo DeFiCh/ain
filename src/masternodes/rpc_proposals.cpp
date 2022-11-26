@@ -10,9 +10,9 @@ struct VotingInfo {
 };
 
 UniValue
-proposalToJSON(const CPropId &propId, 
-    const CPropObject &prop, 
-    const CCustomCSView &view, 
+proposalToJSON(const CPropId &propId,
+    const CPropObject &prop,
+    const CCustomCSView &view,
     const std::optional<VotingInfo> votingInfo) {
 
     auto proposalId = propId.GetHex();
@@ -53,7 +53,7 @@ proposalToJSON(const CPropId &propId,
         votesPresent = votingInfo->votesPresent;
         votesYes = votingInfo->votesYes;
         votesPossible = votingInfo->votesPossible;
-        
+
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
         auto valid = votesPresentPct > quorum;
         if (valid) {
@@ -109,7 +109,7 @@ proposalToJSON(const CPropId &propId,
     return ret;
 }
 
-UniValue propVoteToJSON(const CPropId &propId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
+UniValue proposalVoteToJSON(const CPropId &propId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("masternodeId", mnId.GetHex());
@@ -554,10 +554,10 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                 auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                                       : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
                 if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
-                    ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
+                    ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                 }
             } else if (mnId.IsNull() || mnId == id) {
-                ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
+                ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
             }
             return true;
         },
