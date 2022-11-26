@@ -88,7 +88,7 @@ proposalToJSON(const CPropId &propId,
     ret.pushKV("proposalEndHeight", proposalEndHeight);
     ret.pushKV("votingPeriod", votingPeriod);
     ret.pushKV("quorum", quorumString);
-    if (votingInfo.has_value()) {
+    if (isVotingInfoAvailable) {
         ret.pushKV("votesPossible", votesPossible);
         ret.pushKV("votesPresent", votesPresent);
         ret.pushKV("votesPresentPct", votesPresentPctString);
