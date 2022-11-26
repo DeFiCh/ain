@@ -38,7 +38,7 @@ proposalToJSON(const CPropId &propId,
     auto feeBurnValue = ValueFromAmount(prop.feeBurnAmount);
 
     auto quorumString = strprintf("%d.%02d%%", quorum / 100, quorum % 100);
-    auto votesYesRequiredString = strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100);
+    auto approvalThresholdString = strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100);
 
     auto votesPossible = -1;
     auto votesPresent = -1;
@@ -95,7 +95,7 @@ proposalToJSON(const CPropId &propId,
         ret.pushKV("votesYes", votesYes);
         ret.pushKV("votesYesPct", votesYesPctString);
     }
-    ret.pushKV("votesYesRequired", votesYesRequiredString);
+    ret.pushKV("approvalThreshold", approvalThresholdString);
     ret.pushKV("fee", feeTotalValue);
     // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options)

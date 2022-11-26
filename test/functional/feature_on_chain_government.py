@@ -166,7 +166,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result[0]["proposalEndHeight"], proposalEndHeight)
         assert_equal(result[0]["votingPeriod"], votingPeriod)
         assert_equal(result[0]["quorum"], "1.00%")
-        assert_equal(result[0]["votesYesRequired"], "50.00%")
+        assert_equal(result[0]["approvalThreshold"], "50.00%")
         assert_equal(result[0]["fee"], Decimal("10"))
 
         # Check individual MN votes
@@ -297,7 +297,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["votesPresentPct"], "100.00%")
         assert_equal(result["votesYes"], Decimal("3"))
         assert_equal(result["votesYesPct"], "75.00%")
-        assert_equal(result["votesYesRequired"], "66.67%")
+        assert_equal(result["approvalThreshold"], "66.67%")
         assert_equal(result["fee"], Decimal("5"))
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
@@ -317,10 +317,10 @@ class OnChainGovernanceTest(DefiTestFramework):
         title = "Create test community fund request proposal without automatic payout"
 
         # Create CFP
-        propId = self.nodes[0].creategovcfp({"title": title, 
-            "context": context, 
-            "amount": 50, 
-            "cycles": 2, 
+        propId = self.nodes[0].creategovcfp({"title": title,
+            "context": context,
+            "amount": 50,
+            "cycles": 2,
             "payoutAddress": address})
         self.nodes[0].generate(1)
         creationHeight = self.nodes[0].getblockcount()
@@ -374,7 +374,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["proposalEndHeight"], proposalEndHeight)
         assert_equal(result["votingPeriod"], votingPeriod)
         assert_equal(result["quorum"], "1.00%")
-        assert_equal(result["votesYesRequired"], "50.00%")
+        assert_equal(result["approvalThreshold"], "50.00%")
         assert_equal(result["fee"], Decimal("12.5"))
 
         # Check individual MN votes
@@ -523,7 +523,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["votesPresentPct"], "100.00%")
         assert_equal(result["votesYes"], Decimal("2"))
         assert_equal(result["votesYesPct"], "50.00%")
-        assert_equal(result["votesYesRequired"], "50.00%")
+        assert_equal(result["approvalThreshold"], "50.00%")
         assert_equal(result["fee"], Decimal("20"))
         assert_equal(result["options"], ["emergency"])
 
