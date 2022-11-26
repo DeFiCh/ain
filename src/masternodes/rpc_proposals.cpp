@@ -3,37 +3,105 @@
 
 #include <functional>
 
-UniValue propToJSON(CPropId const& propId, CPropObject const& prop, CCustomCSView const& view)
-{
+struct VotingInfo {
+    int32_t votesPossible;
+    int32_t votesPresent;
+    int32_t votesYes;
+};
+
+UniValue
+proposalToJSON(const CPropId &propId,
+    const CPropObject &prop,
+    const CCustomCSView &view,
+    const std::optional<VotingInfo> votingInfo) {
+
+    auto proposalId = propId.GetHex();
+    auto creationHeight = static_cast<int32_t>(prop.creationHeight);
+    auto title = prop.title;
+    auto context = prop.context;
+    auto contextHash = prop.contextHash;
     auto type = static_cast<CPropType>(prop.type);
-    bool emergency = prop.options & CPropOption::Emergency;
-    auto approvalThreshold = view.GetApprovalThresholdFromAttributes(type);
-    auto quorum = view.GetQuorumFromAttributes(type, emergency);
+    auto typeString = CPropTypeToString(type);
+    auto amountValue = ValueFromAmount(prop.nAmount);
+    auto payoutAddress = ScriptToString(prop.address);
+    auto currentCycle   = static_cast<int32_t>(prop.cycle);
+    auto totalCycles = static_cast<int32_t>(prop.nCycles);
+    auto cycleEndHeight = static_cast<int32_t>(prop.cycleEndHeight);
+    auto proposalEndHeight = static_cast<int32_t>(prop.proposalEndHeight);
+    auto votingPeriod = static_cast<int32_t>(prop.votingPeriod);
+    bool isEmergency = prop.options & CPropOption::Emergency;
+    auto quorum = prop.quorum;
+    auto approvalThreshold = prop.approvalThreshold;
+    auto status = static_cast<CPropStatusType>(prop.status);
+    auto statusString = CPropStatusToString(status);
+    auto feeTotalValue =  ValueFromAmount(prop.fee);
+    auto feeBurnValue = ValueFromAmount(prop.feeBurnAmount);
+
+    auto quorumString = strprintf("%d.%02d%%", quorum / 100, quorum % 100);
+    auto approvalThresholdString = strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100);
+
+    auto votesPossible = -1;
+    auto votesPresent = -1;
+    auto votesPresentPct = -1;
+    auto votesYes = -1;
+    auto votesYesPct = -1;
+    std::string votesPresentPctString = "-1";
+    std::string votesYesPctString = "-1";
+
+    auto isVotingInfoAvailable = votingInfo.has_value();
+    if (isVotingInfoAvailable) {
+        votesPresent = votingInfo->votesPresent;
+        votesYes = votingInfo->votesYes;
+        votesPossible = votingInfo->votesPossible;
+
+        votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
+        auto valid = votesPresentPct > quorum;
+        if (valid) {
+            votesYesPct = lround(votesYes * 10000.f / votesPresent);
+        }
+        if (valid && votesYesPct > approvalThreshold) {
+            statusString = "Completed";
+        } else {
+            statusString = "Rejected";
+        }
+
+        votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
+        votesYesPctString = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
+    }
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("proposalId", propId.GetHex());
-    ret.pushKV("title", prop.title);
-    ret.pushKV("creationHeight", static_cast<int32_t>(prop.creationHeight));
-    ret.pushKV("context", prop.context);
-    ret.pushKV("contextHash", prop.contextHash);
-    ret.pushKV("type", CPropTypeToString(type));
-    auto status = static_cast<CPropStatusType>(prop.status);
-    ret.pushKV("status", CPropStatusToString(status));
-    ret.pushKV("amount", ValueFromAmount(prop.nAmount));
-    ret.pushKV("currentCycle", static_cast<int32_t>(prop.cycle));
-    ret.pushKV("totalCycles", static_cast<int32_t>(prop.nCycles));
-    ret.pushKV("cycleEndHeight", static_cast<int32_t>(prop.cycleEndHeight));
-    ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop.proposalEndHeight));
-    ret.pushKV("payoutAddress", ScriptToString(prop.address));
-    ret.pushKV("votingPeriod", static_cast<int32_t>(prop.votingPeriod));
-    ret.pushKV("approvalThreshold", strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100));
-    ret.pushKV("quorum", strprintf("%d.%02d%%", quorum / 100, quorum % 100));
-    ret.pushKV("fee", ValueFromAmount(prop.fee));
-    ret.pushKV("feeBurnAmount", ValueFromAmount(prop.feeBurnAmount));
+
+    ret.pushKV("proposalId", proposalId);
+    ret.pushKV("creationHeight", creationHeight);
+    ret.pushKV("title", title);
+    ret.pushKV("context", context);
+    ret.pushKV("contextHash", contextHash);
+    ret.pushKV("status", statusString);
+    ret.pushKV("type", typeString);
+    if (type != CPropType::VoteOfConfidence) {
+        ret.pushKV("amount", amountValue);
+        ret.pushKV("payoutAddress", payoutAddress);
+    }
+    ret.pushKV("currentCycle", currentCycle);
+    ret.pushKV("totalCycles", totalCycles);
+    ret.pushKV("cycleEndHeight", cycleEndHeight);
+    ret.pushKV("proposalEndHeight", proposalEndHeight);
+    ret.pushKV("votingPeriod", votingPeriod);
+    ret.pushKV("quorum", quorumString);
+    if (isVotingInfoAvailable) {
+        ret.pushKV("votesPossible", votesPossible);
+        ret.pushKV("votesPresent", votesPresent);
+        ret.pushKV("votesPresentPct", votesPresentPctString);
+        ret.pushKV("votesYes", votesYes);
+        ret.pushKV("votesYesPct", votesYesPctString);
+    }
+    ret.pushKV("approvalThreshold", approvalThresholdString);
+    ret.pushKV("fee", feeTotalValue);
+    // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options)
     {
         UniValue opt = UniValue(UniValue::VARR);
-        if (prop.options & CPropOption::Emergency)
+        if (isEmergency)
             opt.push_back("emergency");
 
         ret.pushKV("options", opt);
@@ -41,8 +109,7 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop, CCustomCSVie
     return ret;
 }
 
-UniValue propVoteToJSON(CPropId const& propId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote)
-{
+UniValue proposalVoteToJSON(const CPropId &propId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("masternodeId", mnId.GetHex());
@@ -136,7 +203,7 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<payoutAddress> is required");
     }
 
-    auto const address = DecodeDestination(addressStr);
+    const auto address = DecodeDestination(addressStr);
     // check type if a supported script
     if (!IsValidDestination(address)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Address (" + addressStr + ") is of an unknown type");
@@ -415,7 +482,6 @@ UniValue votegov(const JSONRPCRequest& request)
 UniValue listgovproposalvotes(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
-
     RPCHelpMan{"listgovproposalvotes",
                "\nReturns information about proposal votes.\n",
                {
@@ -470,31 +536,32 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VARR);
 
-    view.ForEachPropVote([&](CPropId const & pId, uint8_t propCycle, uint256 const & id, CPropVoteType vote) {
-
-        if (pId != propId) {
-            return false;
-        }
-
-        if(inputCycle != -1 && cycle != propCycle){
-            return false;
-        }
-
-        if (isMine) {
-            auto node = view.GetMasternode(id);
-            if (!node) {
-                return true;
+    view.ForEachPropVote(
+        [&](const CPropId &pId, uint8_t propCycle, const uint256 &id, CPropVoteType vote) {
+            if (pId != propId) {
+                return false;
             }
-            auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                                  : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
-            if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
-                ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
+
+            if (inputCycle != -1 && cycle != propCycle) {
+                return false;
             }
-        } else if (mnId.IsNull() || mnId == id) {
-            ret.push_back(propVoteToJSON(propId, propCycle, id, vote));
-        }
-        return true;
-    }, CMnVotePerCycle{propId, cycle, mnId});
+
+            if (isMine) {
+                auto node = view.GetMasternode(id);
+                if (!node) {
+                    return true;
+                }
+                auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                                      : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+                if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
+                    ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+                }
+            } else if (mnId.IsNull() || mnId == id) {
+                ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+            }
+            return true;
+        },
+        CMnVotePerCycle{propId, cycle, mnId});
 
     return ret;
 }
@@ -518,9 +585,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VSTR}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-
     CCustomCSView view(*pcustomcsview);
-
     auto prop = view.GetProp(propId);
     if (!prop) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
@@ -534,7 +599,7 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     }
 
     std::set<uint256> activeMasternodes;
-    view.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+    view.ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
         if (node.IsActive(targetHeight, view) && node.mintedBlocks) {
             activeMasternodes.insert(mnId);
         }
@@ -542,79 +607,35 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     });
 
     if (activeMasternodes.empty()) {
-        return propToJSON(propId, *prop, view);
+        return proposalToJSON(propId, *prop, view, std::nullopt);
     }
 
     uint32_t voteYes = 0, voters = 0;
-    view.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
-        if (pId != propId || cycle != prop->cycle) {
-            return false;
-        }
-        if (activeMasternodes.count(mnId)) {
-            ++voters;
-            if (vote == CPropVoteType::VoteYes) {
-                ++voteYes;
+    view.ForEachPropVote(
+        [&](const CPropId &pId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
+            if (pId != propId || cycle != prop->cycle) {
+                return false;
             }
-        }
-        return true;
-    }, CMnVotePerCycle{propId, prop->cycle});
+            if (activeMasternodes.count(mnId)) {
+                ++voters;
+                if (vote == CPropVoteType::VoteYes) {
+                    ++voteYes;
+                }
+            }
+            return true;
+        },
+        CMnVotePerCycle{propId, prop->cycle});
 
     if (!voters) {
-        return propToJSON(propId, *prop, view);
+        return proposalToJSON(propId, *prop, view, std::nullopt);
     }
 
-    uint32_t votes = 0;
-    auto type = static_cast<CPropType>(prop->type);
-    bool emergency = prop->options & CPropOption::Emergency;
-    auto approvalThreshold = view.GetApprovalThresholdFromAttributes(type);
-    auto quorum = view.GetQuorumFromAttributes(type, emergency);
-    auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
-    auto valid = allVotes > quorum;
+    VotingInfo info;
+    info.votesPossible = activeMasternodes.size();
+    info.votesPresent = voters;
+    info.votesYes = voteYes;
 
-    if (valid) {
-        votes = lround(voteYes * 10000.f / voters);
-    }
-
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("proposalId", propId.GetHex());
-    ret.pushKV("title", prop->title);
-    ret.pushKV("creationHeight", static_cast<int32_t>(prop->creationHeight));
-    ret.pushKV("context", prop->context);
-    ret.pushKV("contextHash", prop->contextHash);
-    ret.pushKV("type", CPropTypeToString(type));
-    if (valid && votes >= approvalThreshold) {
-        ret.pushKV("status", "Completed");
-    } else {
-        ret.pushKV("status", "Rejected");
-    }
-    ret.pushKV("currentCycle", static_cast<int32_t>(prop->cycle));
-    ret.pushKV("totalCycles", static_cast<int32_t>(prop->nCycles));
-    ret.pushKV("cycleEndHeight", static_cast<int32_t>(prop->cycleEndHeight));
-    ret.pushKV("proposalEndHeight", static_cast<int32_t>(prop->proposalEndHeight));
-    ret.pushKV("payoutAddress", ScriptToString(prop->address));
-    ret.pushKV("votingPeriod", static_cast<int32_t>(prop->votingPeriod));
-    ret.pushKV("approvalThreshold", strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100));
-    ret.pushKV("quorum", strprintf("%d.%02d%%", quorum / 100, quorum % 100));
-    ret.pushKV("fee", ValueFromAmount(prop->fee));
-    ret.pushKV("feeBurnAmount", ValueFromAmount(prop->feeBurnAmount));
-
-    if (prop->options)
-    {
-        UniValue array = UniValue(UniValue::VARR);
-        uint8_t opt=1;
-        while (opt <= prop->options)
-        {
-            if (prop->options & opt) array.push_back(CPropOptionToString(static_cast<CPropOption>(opt)));
-            opt <<= 1;
-        }
-        ret.pushKV("options", array);
-    }
-
-    ret.pushKV("votes", strprintf("%d.%02d of %d.%02d%%", votes / 100, votes % 100, approvalThreshold / 100, approvalThreshold % 100));
-    ret.pushKV("votingPercent", strprintf("%d.%02d of %d.%02d%%", allVotes / 100, allVotes % 100, quorum / 100, quorum % 100));
-
-
-    return ret;
+    return proposalToJSON(propId, *prop, view, info);
 }
 
 UniValue listgovproposals(const JSONRPCRequest& request)
@@ -667,16 +688,18 @@ UniValue listgovproposals(const JSONRPCRequest& request)
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
-    view.ForEachProp([&](CPropId const& propId, CPropObject const& prop) {
-        if (status && status != uint8_t(prop.status)) {
-            return false;
-        }
-        if (type && type != uint8_t(prop.type)) {
+    view.ForEachProp(
+        [&](const CPropId &propId, const CPropObject &prop) {
+            if (status && status != uint8_t(prop.status)) {
+                return false;
+            }
+            if (type && type != uint8_t(prop.type)) {
+                return true;
+            }
+            ret.push_back(proposalToJSON(propId, prop, view, std::nullopt));
             return true;
-        }
-        ret.push_back(propToJSON(propId, prop, view));
-        return true;
-    }, status);
+        },
+        status);
 
     return ret;
 }
