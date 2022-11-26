@@ -136,7 +136,7 @@ BASE_SCRIPTS = [
     'feature_setgov.py',
     'feature_rpcstats.py',
     'feature_futures.py',
-    'feature_lockdusd.py',
+    'feature_dusdlock.py',
     'interface_zmq.py',
     'feature_restore_utxo.py',
     'interface_defi_cli.py',

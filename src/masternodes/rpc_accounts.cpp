@@ -2085,11 +2085,11 @@ UniValue executesmartcontract(const JSONRPCRequest& request) {
     return NullUniValue;
 }
 
-UniValue lockDUSD(const JSONRPCRequest& request) {
+UniValue dUSDlock(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"lockdusd",
-               "\nCreates and submits to the network a request to lock DUSD" +
+    RPCHelpMan{"dusdlock",
+               "\nCreates and submits to the network a request to send to the DUSDLock" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to fund contract and receive resulting token"},
@@ -2111,8 +2111,8 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD 1")
-                       + HelpExampleCli("lockdusd", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123@DUSD 0")
+                       HelpExampleCli("dusdlock", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1000@DUSD 1")
+                       + HelpExampleCli("dusdlock", "dLb2jq51qkaUbVkLyCiVQCoEHzRSzRPEsJ 1123@DUSD 2")
                },
     }.Check(request);
 
@@ -2126,7 +2126,7 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    CLockDUSDMessage msg{};
+    CDUSDLockMessage msg{};
     msg.owner = GetScriptForDestination(dest);
     
     msg.source =  DecodeAmount(pwallet->chain(), request.params[1], "");
@@ -2134,7 +2134,7 @@ UniValue lockDUSD(const JSONRPCRequest& request) {
     
     // Encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::LockDUSD)
+    metadata << static_cast<unsigned char>(CustomTxType::DUSDLock)
              << msg;
 
     CScript scriptMeta;
@@ -2638,7 +2638,7 @@ static const CRPCCommand commands[] =
     {"accounts",   "getpendingfutureswaps",    &getpendingfutureswaps,     {"address"}},
     {"accounts",   "listpendingdusdswaps",     &listpendingdusdswaps,      {}},
     {"accounts",   "getpendingdusdswaps",      &getpendingdusdswaps,       {"address"}},
-    {"accounts",   "lockdusd",                 &lockDUSD,                  {"address", "amount", "locktime", "inputs"}},
+    {"accounts",   "dusdlock",                 &dUSDlock,                  {"address", "source", "batchId", "inputs"}},
     {"hidden",     "logaccountbalances",       &logaccountbalances,        {"logfile", "rpcresult"}},
 };
 

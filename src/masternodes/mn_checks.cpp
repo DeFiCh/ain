@@ -40,7 +40,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SmartContract:           return "SmartContract";
         case CustomTxType::FutureSwap:              return "DFIP2203";
-        case CustomTxType::LockDUSD:                return "LockDUSD";
+        case CustomTxType::DUSDLock:                return "DUSDLock";
         case CustomTxType::SetGovVariable:          return "SetGovVariable";
         case CustomTxType::SetGovVariableHeight:    return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:           return "AppointOracle";
@@ -145,7 +145,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SmartContract:           return CSmartContractMessage{};
         case CustomTxType::FutureSwap:              return CFutureSwapMessage{};
-        case CustomTxType::LockDUSD:                return CLockDUSDMessage{};
+        case CustomTxType::DUSDLock:                return CDUSDLockMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
         case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
@@ -364,7 +364,7 @@ public:
         return !res ? res : serialize(obj);
     }
 
-    Res operator()(CLockDUSDMessage& obj) const {
+    Res operator()(CDUSDLockMessage& obj) const {
         auto res = isPostGrandCentralFork();
         return !res ? res : serialize(obj);
     }
@@ -2045,7 +2045,7 @@ public:
     }
 
     
-    Res operator()(const CLockDUSDMessage& obj) const {
+    Res operator()(const CDUSDLockMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
             return res;

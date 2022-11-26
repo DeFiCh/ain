@@ -102,7 +102,7 @@ enum class CustomTxType : uint8_t
     AnyAccountsToAccounts  = 'a',
     SmartContract          = 'K',
     FutureSwap             = 'Q',
-    LockDUSD               = 'f', //@core devs: is there any logic to these?
+    DUSDLock               = 'f', //@core devs: is there any logic to these?
     //set governance variable
     SetGovVariable         = 'G',
     SetGovVariableHeight   = 'j',
@@ -173,7 +173,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SmartContract:
         case CustomTxType::FutureSwap:
-        case CustomTxType::LockDUSD:
+        case CustomTxType::DUSDLock:
         case CustomTxType::SetGovVariable:
         case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
@@ -404,7 +404,7 @@ using CCustomTxMessage = std::variant<
     CAnyAccountsToAccountsMessage,
     CSmartContractMessage,
     CFutureSwapMessage,
-    CLockDUSDMessage,
+    CDUSDLockMessage,
     CGovernanceMessage,
     CGovernanceUnsetMessage,
     CGovernanceHeightMessage,

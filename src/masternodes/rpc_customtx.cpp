@@ -197,7 +197,7 @@ public:
     }
     
 
-    void operator()(const CLockDUSDMessage& obj) const {
+    void operator()(const CDUSDLockMessage& obj) const {
         CTxDestination dest;
         if (ExtractDestination(obj.owner, dest)) {
             rpcInfo.pushKV("address", EncodeDestination(dest));

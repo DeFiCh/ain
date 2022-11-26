@@ -242,7 +242,7 @@ struct CFutureSwapMessage {
 };
 
 
-struct CLockDUSDMessage {
+struct CDUSDLockMessage {
     CScript owner;
     CTokenAmount source; 
     uint8_t batchId;
