@@ -78,8 +78,10 @@ proposalToJSON(const CPropId &propId,
     ret.pushKV("contextHash", contextHash);
     ret.pushKV("status", statusString);
     ret.pushKV("type", typeString);
-    ret.pushKV("amount", amountValue);
-    ret.pushKV("payoutAddress", payoutAddress);
+    if (type != CPropType::VoteOfConfidence) {
+        ret.pushKV("amount", amountValue);
+        ret.pushKV("payoutAddress", payoutAddress);
+    }
     ret.pushKV("currentCycle", currentCycle);
     ret.pushKV("totalCycles", totalCycles);
     ret.pushKV("cycleEndHeight", cycleEndHeight);
@@ -94,8 +96,8 @@ proposalToJSON(const CPropId &propId,
         ret.pushKV("votesYesPct", votesYesPctString);
     }
     ret.pushKV("votesYesRequired", votesYesRequiredString);
-    ret.pushKV("feeTotal", feeTotalValue);
-    ret.pushKV("feeBurn", feeBurnValue);
+    ret.pushKV("fee", feeTotalValue);
+    // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options)
     {
         UniValue opt = UniValue(UniValue::VARR);
