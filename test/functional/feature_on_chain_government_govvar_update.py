@@ -159,7 +159,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.rollback_to(height, nodes=[0, 1, 2, 3])
 
-    def test_cfp_update_majority_threshold(self):
+    def test_cfp_update_approval_threshold(self):
         height = self.nodes[0].getblockcount()
 
         # Create address for CFP
@@ -179,7 +179,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update majority threshold during first cycle
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
         self.nodes[0].generate(1)
 
         # Vote during first cycle
@@ -203,6 +203,10 @@ class CFPFeeDistributionTest(DefiTestFramework):
         # First cycle should be approved
         proposal = self.nodes[0].getgovproposal(propId)
         assert_equal(proposal['status'], 'Voting')
+
+        # 80% of masternodes should approve a CFP
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'0.8'}})
+        self.nodes[0].generate(1)
 
         # Vote during second cycle
         self.nodes[0].votegov(propId, self.mn0, "yes")
@@ -520,7 +524,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update quorum after end of proposal.
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
         self.nodes[0].generate(1)
 
         # Attributes change should not impact state of resolved proposals
@@ -577,7 +581,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         self.test_cfp_update_automatic_payout()
         self.test_cfp_update_quorum()
-        self.test_cfp_update_majority_threshold()
+        self.test_cfp_update_approval_threshold()
         self.test_cfp_update_fee_redistribution()
         self.test_cfp_update_cfp_fee()
         self.test_cfp_update_voting_period()

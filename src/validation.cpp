@@ -4270,13 +4270,12 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
             }
         }
 
-        auto type = static_cast<CPropType>(prop.type);
-        bool emergency = prop.options & CPropOption::Emergency;
 
         if (lround(voters.size() * 10000.f / activeMasternodes.size()) <= prop.quorum) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
             return true;
         }
+
 
         if (lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
