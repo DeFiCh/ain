@@ -13,7 +13,7 @@
 #include <uint256.h>
 
 using CPropId                                  = uint256;
-constexpr const uint8_t VOC_CYCLES             = 2;
+constexpr const uint8_t VOC_CYCLES             = 1;
 constexpr const uint8_t MAX_CYCLES             = 100;
 constexpr const uint16_t MAX_PROP_TITLE_SIZE   = 128;
 constexpr const uint16_t MAX_PROP_CONTEXT_SIZE = 512;
