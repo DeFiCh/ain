@@ -179,7 +179,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update majority threshold during first cycle
         # 80% of masternodes should approve a CFP
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
         self.nodes[0].generate(1)
 
         # Vote during first cycle
@@ -524,7 +524,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
 
         # Update quorum after end of proposal.
         # 80% of masternodes should vote
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_required_votes':'80%'}})
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/gov/proposals/cfp_approval_threshold':'80%'}})
         self.nodes[0].generate(1)
 
         # Attributes change should not impact state of resolved proposals
