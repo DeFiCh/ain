@@ -14,8 +14,6 @@ from test_framework.util import (
 
 from decimal import Decimal
 
-
-
 class OnChainGovernanceTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -512,7 +510,7 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["title"], title)
         assert_equal(result["context"], context)
         assert_equal(result["contextHash"], "")
-        assert_equal(result["status"], "Completed")
+        assert_equal(result["status"], "Rejected")
         assert_equal(result["type"], "VoteOfConfidence")
         assert_equal(result["currentCycle"], 1)
         assert_equal(result["totalCycles"], 1)
@@ -528,11 +526,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["votesYesRequired"], "50.00%")
         assert_equal(result["fee"], Decimal("20"))
         assert_equal(result["options"], ["emergency"])
-
-
-        # assert_equal(result["votes"], "50.00 of 49.99%")
-        # assert_equal(result["votingPercent"], "100.00 of 10.00%")
-
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
@@ -570,8 +563,8 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["status"], "Rejected")
 
         assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 0)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 2)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 3)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
+        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()

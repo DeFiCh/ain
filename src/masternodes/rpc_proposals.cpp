@@ -59,7 +59,7 @@ proposalToJSON(const CPropId &propId,
         if (valid) {
             votesYesPct = lround(votesYes * 10000.f / votesPresent);
         }
-        if (valid && votesYesPct >= approvalThreshold) {
+        if (valid && votesYesPct > approvalThreshold) {
             statusString = "Completed";
         } else {
             statusString = "Rejected";
