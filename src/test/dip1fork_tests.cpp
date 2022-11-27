@@ -99,6 +99,10 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     {   // do not pay foundation reward at all
         CCustomCSView mnview(*pcustomcsview.get());
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height, 0, consensus);
+        printf("DEBUG:: res: %s, msg: %s subsidy: %d\n", 
+            res.ok ? "true" : "false",
+            res.dbgMsg.c_str(),
+            GetBlockSubsidy(height, consensus));
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly less than expected
@@ -109,6 +113,10 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
         tx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community) - 1;
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
+        printf("DEBUG:: res: %s, msg: %s subsidy: %d\n", 
+            res.ok ? "true" : "false",
+            res.dbgMsg.c_str(),
+            GetBlockSubsidy(height, consensus));
         BOOST_CHECK(!res.ok && res.dbgMsg == "bad-cb-foundation-reward");
     }
     {   // try to pay foundation reward slightly more than expected
