@@ -2191,9 +2191,7 @@ public:
         }
 
         const auto attributes = mnview.GetAttributes();
-        if (!attributes) {
-            return Res::Err("Attributes unavailable");
-        }
+        assert(attributes);
 
         const auto paramID = ParamIDs::DFIP2211D;
 
@@ -2216,7 +2214,7 @@ public:
 
 
         auto tokenId= attributes->GetValue(tokenKey, (uint32_t)0);
-        auto limit = attributes->GetValue(limitKey,(uint32_t)0)*COIN;
+        auto limit = attributes->GetValue(limitKey,(uint32_t)0);
         if(tokenId == 0) {
             return Res::Err("missing lock token");
         }
@@ -2298,13 +2296,13 @@ public:
             if (obj.source.nTokenId == lpTokenID) {
                 // remove LP token first
                 //  subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
-                {
-                    CBalances balance{TAmounts{{obj.source.nTokenId, obj.source.nValue}}};
-                    auto res = SubBalanceDelShares(obj.owner, balance);
-                    if (!res) {
-                        return res;
-                    }
+                
+                CBalances balance{TAmounts{{obj.source.nTokenId, obj.source.nValue}}};
+                auto res = SubBalanceDelShares(obj.owner, balance);
+                if (!res) {
+                    return res;
                 }
+                
                 // both go directly to the owner, lockToken will be swapped afterwards
                 auto res = pool.RemoveLiquidity(obj.source.nValue, [&](CAmount amountA, CAmount amountB) {
                     CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
