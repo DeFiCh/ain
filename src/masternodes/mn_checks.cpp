@@ -2298,7 +2298,7 @@ public:
                 //  subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
                 
                 CBalances balance{TAmounts{{obj.source.nTokenId, obj.source.nValue}}};
-                auto res = SubBalanceDelShares(obj.owner, balance);
+                res = SubBalanceDelShares(obj.owner, balance);
                 if (!res) {
                     return res;
                 }
