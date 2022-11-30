@@ -116,6 +116,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
+        # Check total DUSD loan amount
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'2000.00000000@{symboldUSD}'])
+
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
         # create pool DUSD-DFI
         self.nodes[0].createpoolpair({
@@ -146,7 +150,7 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': "1@DFI"
         })
 
-        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: locks, oracles, params, poolpairs, token,',
+        assert_raises_rpc_error(-5, 'Unrecognised type argument provided, valid types are: consortium, gov, locks, oracles, params, poolpairs, token,',
                                 self.nodes[0].setgov, {"ATTRIBUTES":{'v0/live/economy/dfi_payback_tokens':'1'}})
 
         # Disable loan payback
@@ -174,6 +178,10 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': "1@DFI"
         })
         self.nodes[0].generate(1)
+
+        # Check total DUSD reduced by 10 DUSD - interest
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'1990.11141553@{symboldUSD}'])
 
         info = self.nodes[0].getburninfo()
         assert_equal(info['dfipaybackfee'], Decimal('0.01000000'))
@@ -245,8 +253,11 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(10)
 
+        # Check total DUSD loan amount is just the new loan amount
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'2000.00000000@{symboldUSD}'])
+
         vaultBefore = self.nodes[0].getvault(vaultId)
-        [amountBefore, _] = vaultBefore['loanAmounts'][0].split('@')
         [balanceDFIBefore, _] = self.nodes[0].getaccount(account0)[0].split('@')
 
         self.nodes[0].paybackloan({
@@ -314,7 +325,10 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        vaultBefore = self.nodes[0].getvault(vaultId6)
+        # Check total DUSD loan amount is just the new loan amount
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'100.00000000@{symboldUSD}'])
+
         [balanceDFIBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[0].split('@')
         [balanceDUSDBefore, _] = self.nodes[0].getaccount(addr_DFI_DUSD)[1].split('@')
         assert_equal(balanceDUSDBefore, '71.00000000')
@@ -339,6 +353,10 @@ class PaybackDFILoanTest (DefiTestFramework):
             'amounts': ["70@DUSD", "10@DFI"]
         })
         self.nodes[0].generate(1)
+
+        # Check total DUSD loan amount is now empty
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [])
 
         vaultAfter = self.nodes[0].getvault(vaultId6)
         assert_equal(vaultAfter["loanAmounts"], [])
@@ -500,12 +518,20 @@ class PaybackDFILoanTest (DefiTestFramework):
         })
         self.nodes[0].generate(10)
 
+        # Check total DUSD loan amount is just the new loan amount
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'100.00000000@{symboldUSD}'])
+
         self.nodes[0].paybackloan({
             'vaultId': vaultId2,
             'from': account0,
             'amounts': ["10@DUSD"]
         })
         self.nodes[0].generate(1)
+
+        # Check total DUSD loan amount is less 10 DUSD less interest
+        attributes = self.nodes[0].getgov("ATTRIBUTES")['ATTRIBUTES']
+        assert_equal(attributes['v0/live/economy/loans'], [f'90.00114156@{symboldUSD}'])
 
         burn_after = self.nodes[0].getburninfo()['paybackburn']
 

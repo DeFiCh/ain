@@ -158,6 +158,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::FUTURESWAP, "futureswap"},
     {BCLog::TOKENSPLIT, "tokensplit"},
     {BCLog::RPCCACHE, "rpccache"},
+    {BCLog::CUSTOMTXBENCH, "customtxbench"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };

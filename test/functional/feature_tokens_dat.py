@@ -43,6 +43,9 @@ class TokensBasicTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
+        node2 = self.nodes[2].getnewaddress("", "legacy")
+        self.nodes[0].sendtoaddress(node2, 1)
+
         # 1 Creating DAT token
         self.nodes[0].createtoken({
             "symbol": "PT",
@@ -104,7 +107,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[2].updatetoken("GOLD#128", {"isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Need foundation member authorization" in errorString)
+        assert("tx not from foundation member" in errorString)
 
         # 4.1 Trying to set smth else
         try:

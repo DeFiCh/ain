@@ -6,26 +6,11 @@ ARG TARGET
 LABEL org.defichain.name="defichain-builder-base"
 LABEL org.defichain.arch=${TARGET}
 
-RUN apt update && apt dist-upgrade -y
+WORKDIR /work
+COPY ./make.sh .
 
-# Setup DeFiChain build dependencies. Refer to depends/README.md and doc/build-unix.md
-# from the source root for info on the builder setup
-
-RUN apt-get install -y apt-transport-https
-
-RUN apt install -y software-properties-common build-essential git libtool autotools-dev automake \
-pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
-curl cmake
-
-# install clang 11
-RUN wget https://apt.llvm.org/llvm.sh
-RUN chmod +x llvm.sh
-RUN ./llvm.sh 11 0
-
-# For Berkeley DB - but we don't need as we do a depends build.
-# RUN apt install -y libdb-dev
+RUN apt update && apt install -y apt-transport-https
+RUN export DEBIAN_FRONTEND=noninteractive && ./make.sh pkg-install-deps-x86_64
 
 # -----------
 FROM builder-base as depends-builder
@@ -33,30 +18,28 @@ ARG TARGET
 LABEL org.defichain.name="defichain-depends-builder"
 LABEL org.defichain.arch=${TARGET}
 
-WORKDIR /work/depends
-COPY ./depends .
-# XREF: #make-deps
-RUN make HOST=${TARGET} -j $(nproc)
+WORKDIR /work
+COPY ./depends ./depends
+
+RUN ./make.sh clean-depends && ./make.sh build-deps
 
 # -----------
 FROM builder-base as builder
 ARG TARGET
+ARG BUILD_VERSION=
+
 LABEL org.defichain.name="defichain-builder"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 
-COPY --from=depends-builder /work/depends ./depends
 COPY . .
+RUN ./make.sh purge && rm -rf ./depends
+COPY --from=depends-builder /work/depends ./depends
 
-RUN ./autogen.sh
+RUN export MAKE_COMPILER="CC=gcc CXX=g++" && \
+    ./make.sh build-conf && ./make.sh build-make
 
-# XREF: #make-configure
-RUN ./configure CC=clang-11 CXX=clang++-11 --prefix=`pwd`/depends/${TARGET} ${MAKE_CONF_ARGS}
-
-ARG BUILD_VERSION=
-
-RUN make -j $(nproc)
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------

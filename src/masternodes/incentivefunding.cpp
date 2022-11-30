@@ -4,8 +4,7 @@
 
 #include <masternodes/incentivefunding.h>
 
-CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account) const
-{
+CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account) const {
     CAmount val;
     bool ok = ReadBy<ById>(static_cast<unsigned char>(account), val);
     if (ok) {
@@ -14,24 +13,23 @@ CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account
     return 0;
 }
 
-Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CAmount amount)
-{
+Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CAmount amount) {
     // deny negative values on db level!
     Require(amount >= 0, "negative amount");
     WriteBy<ById>(static_cast<unsigned char>(account), amount);
     return Res::Ok();
 }
 
-void CCommunityBalancesView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CLazySerialize<CAmount>)> callback)
-{
-    ForEach<ById, unsigned char, CAmount>([&callback] (unsigned char const & key, CLazySerialize<CAmount> val) {
-        return callback(CommunityAccountCodeToType(key), val);
-    }, '\0');
-
+void CCommunityBalancesView::ForEachCommunityBalance(
+    std::function<bool(CommunityAccountType, CLazySerialize<CAmount>)> callback) {
+    ForEach<ById, unsigned char, CAmount>(
+        [&callback](const unsigned char &key, CLazySerialize<CAmount> val) {
+            return callback(CommunityAccountCodeToType(key), val);
+        },
+        '\0');
 }
 
-Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CAmount amount)
-{
+Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CAmount amount) {
     if (amount == 0) {
         return Res::Ok();
     }
@@ -40,8 +38,7 @@ Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CA
     return SetCommunityBalance(account, sum);
 }
 
-Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount)
-{
+Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount) {
     if (amount == 0) {
         return Res::Ok();
     }

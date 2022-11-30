@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: Resolve shellcheck errors
-
 export LC_ALL=C
 set -Eeuo pipefail
 
@@ -13,18 +11,17 @@ setup_vars() {
   # Files and directories
   DATADIR=${DATADIR:-".defi"}
   DEBUG_FILE="$DATADIR/debug.log"
+  CONF_FILE="$DATADIR/defi.conf"
   TMP_LOG=debug-tmp-$STOP_BLOCK.log
+  BASE_REF=${BASE_REF:-"master"}
   BASE_PATH=https://storage.googleapis.com
   BUCKET=team-drop
-  REF_LOG_DIR=master-logs-full
   REF_LOG=debug-$STOP_BLOCK.log
   REF_LOG_PATH=$BASE_PATH/$BUCKET/$REF_LOG_DIR/$REF_LOG
 
   # Commands
-  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange"
+  DEFID_CMD="$DEFID_BIN -datadir=$DATADIR -daemon -debug=accountchange -spv"
   DEFI_CLI_CMD="$DEFI_CLI_BIN -datadir=$DATADIR"
-  ACCOUNT_BALANCES_CMD="$DEFI_CLI_CMD logaccountbalances"
-  LIST_ANCHORS_CMD="$DEFI_CLI_CMD spv_listanchors"
   FETCH="wget -q"
   GREP="grep"
 
@@ -33,6 +30,55 @@ setup_vars() {
   MAX_ATTEMPTS=10
   MAX_NODE_RESTARTS=5
   NODE_RESTARTS=0
+}
+
+print_info() {
+  echo "======== Sync Test Info ==========
+  - Block range: $START_BLOCK - $STOP_BLOCK
+
+  - Reference log:
+    $REF_LOG_PATH
+
+  - snapshot:
+    https://storage.googleapis.com/team-drop/$BASE_REF-datadir/datadir-$START_BLOCK.tar.gz
+
+  - defid:
+    $DEFID_CMD
+
+  - defi-cli:
+    $DEFI_CLI_CMD
+
+  - Create log commands:
+    $GREP \"AccountChange:\" \"$DEBUG_FILE\" | cut -d\" \" -f2-
+    $DEFI_CLI_CMD logaccountbalances
+    $DEFI_CLI_CMD spv_listanchors
+    $DEFI_CLI_CMD logstoredinterests
+    $DEFI_CLI_CMD listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
+    $DEFI_CLI_CMD listtokens '{\"limit\":1000000}'
+    $DEFI_CLI_CMD getburninfo
+
+  - defi.conf:
+    $(cat "$CONF_FILE")
+  "
+}
+
+create_log_file () {
+    echo "Output log to $TMP_LOG file"
+    {
+    $GREP "AccountChange:" "$DEBUG_FILE" | cut -d" " -f2-
+    echo "-- logaccountbalances --"
+    $DEFI_CLI_CMD logaccountbalances
+    echo "-- spv_listanchors --"
+    $DEFI_CLI_CMD spv_listanchors
+    echo "-- logstoredinterests --"
+    $DEFI_CLI_CMD logstoredinterests
+    echo "-- listvaults --"
+    $DEFI_CLI_CMD listvaults '{"verbose": true}' '{"limit":1000000}'
+    echo "-- listtokens --"
+    $DEFI_CLI_CMD listtokens '{"limit":1000000}'
+    echo "-- getburninfo --"
+    $DEFI_CLI_CMD getburninfo
+    } >> "$TMP_LOG"
 }
 
 # Start defid
@@ -44,9 +90,8 @@ start_node () {
 
 main() {
   setup_vars
+  print_info
   start_node
-
-  $DEFI_CLI_CMD clearbanned || true
 
   # Sync to target block height
   while [ "$BLOCK" -lt "$STOP_BLOCK" ]; do
@@ -65,6 +110,9 @@ main() {
     CUR_BLOCK=$($DEFI_CLI_CMD getblockcount || echo $BLOCK)
     if [ "$CUR_BLOCK" -eq "$BLOCK" ]; then
       ATTEMPTS=$((ATTEMPTS + 1))
+
+      # Handle odd case where node get stuck on previously invalidated block
+      $DEFI_CLI_CMD reconsiderblock "$($DEFI_CLI_CMD getbestblockhash)" || true
     else
       ATTEMPTS=0
     fi
@@ -74,20 +122,15 @@ main() {
   done
 
   # Create temporary log file
-  $GREP "AccountChange:" $DEBUG_FILE | cut -d" " -f2- > $TMP_LOG
-  $ACCOUNT_BALANCES_CMD >> $TMP_LOG
-  $LIST_ANCHORS_CMD >> $TMP_LOG
+  create_log_file
 
   $DEFI_CLI_CMD stop
   # Download reference log file
   echo "Downloading reference log file : $REF_LOG_PATH"
-  $FETCH $REF_LOG_PATH
+  $FETCH "$REF_LOG_PATH"
 
   echo "diff $TMP_LOG $REF_LOG"
-  diff $TMP_LOG $REF_LOG
+  diff "$TMP_LOG" "$REF_LOG"
 }
 
 main "$@"
-
-
-
