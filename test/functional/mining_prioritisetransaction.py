@@ -17,6 +17,7 @@ class PrioritiseTransactionTest(DefiTestFramework):
         self.extra_args = [[
             "-printpriority=1",
             "-acceptnonstdtxn=1",
+            "-blockfeeordering=1",
         ]] * self.num_nodes
 
     def skip_test_if_missing_module(self):
