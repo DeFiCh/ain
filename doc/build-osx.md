@@ -111,7 +111,7 @@ curl https://sh.rustup.rs -sSf | bash -s -- --default-toolchain stable -y
 curl https://sh.rustup.rs -sSf | bash 
 
 PATH=~/.cargo/bin/cargo:$PATH
-rustup target add x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
 ```
 
 ## Installing the protobuf compiler
