@@ -524,7 +524,6 @@ public:
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
         auto proposalEndHeight = height;
-        bool emergency         = obj.options & CPropOption::Emergency;
         if (auto prop = mnview.GetProp(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
