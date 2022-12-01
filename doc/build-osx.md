@@ -103,6 +103,29 @@ You can monitor the download process by looking at the debug.log file:
 tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 ```
 
+## Installing the rust toolchain (MacOS M1)
+```shell
+# default installation
+curl https://sh.rustup.rs -sSf | bash -s -- --default-toolchain stable -y
+# custom installation
+curl https://sh.rustup.rs -sSf | bash 
+
+PATH=~/.cargo/bin/cargo:$PATH
+rustup target add x86_64-apple-darwin
+```
+
+## Installing the protobuf compiler
+```shell
+PROTOC_ZIP=protoc-3.20.0-osx-x86_64.zip
+curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/$PROTOC_ZIP
+sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+rm -f $PROTOC_ZIP
+
+# ensure installation was successful by running 
+protoc --version
+```
+
 ## Other commands:
 ```shell
 ./src/defid -daemon      # Starts the defi daemon.
@@ -112,7 +135,7 @@ tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 
 ## Notes
 * Tested on OS X 10.10 Yosemite through macOS 10.14 Mojave on 64-bit Intel
-processors only.
+  processors only.
 
 ## Deterministic macOS DMG Notes
 Working macOS DMGs are created in Linux by combining a recent `clang`, the Apple
