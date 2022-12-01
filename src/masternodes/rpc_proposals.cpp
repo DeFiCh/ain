@@ -646,7 +646,9 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                         {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                     "cfp/voc/all (default = all)"},
                         {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "voting/rejected/completed/all (default = all)"}
+                                    "voting/rejected/completed/all (default = all)"},
+                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                    "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"}
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with proposals information\n"
@@ -685,8 +687,62 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         }
     }
 
-    UniValue ret(UniValue::VARR);
+    int cycle{0};
+    if (request.params.size() > 2) {
+        cycle = request.params[2].get_int();
+        if (cycle < -1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                    "Incorrect cycle value (0 -> all cycles, -1 -> previous cycle, N -> nth cycle");
+        }    
+    }
+
+    UniValue ret{UniValue::VARR};
+    UniValue retMap(UniValue::VOBJ);
     CCustomCSView view(*pcustomcsview);
+
+    using IdPropPair = std::pair<CPropId, CPropObject>;
+    using CycleEndHeightInt = int; 
+    using PropBatchesMap = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
+
+    PropBatchesMap propBatches;
+
+    if(cycle != 0){
+        // populate map
+        view.ForEachProp(
+            [&](const CPropId &propId, const CPropObject &prop) {
+                auto batch = propBatches.find(prop.cycleEndHeight);
+                auto propPair = std::make_pair(propId, prop);
+                // if batch is not found create it
+                if (batch == propBatches.end()) {
+                    propBatches.insert({prop.cycleEndHeight, std::vector<IdPropPair>{propPair}});
+                } else { // else insert to prop vector
+                    batch->second.push_back(propPair);
+                }
+                return true;
+            }, 0);
+
+        auto batch = propBatches.rbegin();
+        if(cycle != -1){
+            if(cycle > propBatches.size()) 
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find cycle");
+            for(uint i=1; i <= (propBatches.size() - cycle); i++){
+                batch++;
+            }
+        } else {
+            batch++;
+        }
+        // Filter batch
+        for (auto const &prop: batch->second){
+            if(status && status != uint8_t(prop.second.status)){
+                continue;
+            }
+            if(type && type != uint8_t(prop.second.type)){
+                continue;
+            }
+            ret.push_back(proposalToJSON(prop.first, prop.second, view, std::nullopt));
+        }
+        return ret;
+    }
 
     view.ForEachProp(
         [&](const CPropId &propId, const CPropObject &prop) {
@@ -713,7 +769,7 @@ static const CRPCCommand commands[] =
     {"proposals",   "votegov",               &votegov,               {"proposalId", "masternodeId", "decision", "inputs"} },
     {"proposals",   "listgovproposalvotes",  &listgovproposalvotes,  {"proposalId", "masternode", "cycle"} },
     {"proposals",   "getgovproposal",        &getgovproposal,        {"proposalId"} },
-    {"proposals",   "listgovproposals",      &listgovproposals,      {"type", "status"} },
+    {"proposals",   "listgovproposals",      &listgovproposals,      {"type", "status", "cycle"} },
 };
 
 void RegisterProposalRPCCommands(CRPCTable& tableRPC) {
