@@ -697,7 +697,6 @@ UniValue listgovproposals(const JSONRPCRequest& request)
     }
 
     UniValue ret{UniValue::VARR};
-    UniValue retMap(UniValue::VOBJ);
     CCustomCSView view(*pcustomcsview);
 
     using IdPropPair = std::pair<CPropId, CPropObject>;
