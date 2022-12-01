@@ -9,7 +9,7 @@ define $(package)_fetch_cmds
 		ln -s $(LIBMC_PATH) $$($(package)_extract_dir); \
 	else \
 		echo "Cloning from Git repository for metachain"; \
-		git clone --single-branch --branch libmc $$($(package)_git_path) $$($(package)_extract_dir); \
+		git clone --single-branch --branch main $$($(package)_git_path) $$($(package)_extract_dir); \
 	fi
 endef
 
