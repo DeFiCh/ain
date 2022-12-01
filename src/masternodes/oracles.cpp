@@ -81,11 +81,10 @@ Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, con
             const auto &currency = price.first;
             Require(oracle.SetTokenPrice(token, currency, price.second, timestamp));
         }
-
-        Require(WriteBy<ByName>(oracleId, oracle), "failed to store oracle %s to database", oracleId.GetHex());
-
-        return Res::Ok();
     }
+
+    Require(WriteBy<ByName>(oracleId, oracle), "failed to store oracle %s to database", oracleId.GetHex());
+    return Res::Ok();
 }
 
 ResVal<COracle> COracleView::GetOracleData(const COracleId &oracleId) const {
