@@ -1,9 +1,10 @@
 #ifndef DEFI_MASTERNODES_RES_H
 #define DEFI_MASTERNODES_RES_H
 
-#include <tinyformat.h>
+#include <functional>
 #include <optional>
 #include <string>
+#include <tinyformat.h>
 
 struct Res {
     bool ok;
