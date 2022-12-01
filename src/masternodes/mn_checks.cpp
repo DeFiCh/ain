@@ -698,7 +698,10 @@ Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
-    return HasAuth(auth.out.scriptPubKey);
+    if (!HasAuth(auth.out.scriptPubKey)) {
+        return Res::Err("tx must have at least one input from the owner");
+    }
+    return Res::Ok();
 }
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
