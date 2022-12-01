@@ -648,7 +648,7 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                         {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                     "voting/rejected/completed/all (default = all)"},
                         {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                    "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"}
+                                    "cycle: 0 (all), cycle: N (show cycle N), cycle: -1 (show previous cycle) (default = 0)"}
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with proposals information\n"
