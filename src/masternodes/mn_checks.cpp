@@ -2214,7 +2214,7 @@ public:
 
 
         auto tokenId= attributes->GetValue(tokenKey, (uint32_t)0);
-        auto limit = attributes->GetValue(limitKey,(uint32_t)0);
+        auto limit = attributes->GetValue(limitKey,CAmount{0});
         if(tokenId == 0) {
             return Res::Err("missing lock token");
         }
@@ -2253,14 +2253,6 @@ public:
             if (dusdhalf == 0 || lockedhalf == 0) {
                 return Res::Err("amount too small.");
             }
-            auto resultedMint = SafeAdd(lockToken->minted, lockedhalf);
-            if (!resultedMint)
-                return (std::move(resultedMint));
-
-            if (*resultedMint.val > limit) {
-                return Res::Err("Limit reached for this lock token");
-            }
-
 
             // half DUSD "swapped" to the lock token. (lockToken is minted, DUSD minted gets reduced)
             // remaining half + DUSDLOCK added to pool
@@ -2272,6 +2264,11 @@ public:
             res = mnview.AddMintedTokens(lockTokenId, lockedhalf);
             if (!res)
                 return res;
+            //refresh token to get updated minted
+            lockToken = mnview.GetToken(lockTokenId);
+            if (limit >= 0 && lockToken->minted > limit) {
+                return Res::Err("Limit reached for this lock token");
+            }
 
             res = pool.AddLiquidity(
                 lockedhalf, dusdhalf, [&] /*onMint*/ (CAmount liqAmount) {

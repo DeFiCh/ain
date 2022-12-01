@@ -593,7 +593,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::ConsortiumEnabled, VerifyBool},
                  {DFIPKeys::CFPPayout, VerifyBool},
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
-                 {DFIPKeys::Limit,                   VerifyPositiveFloat},
+                 {DFIPKeys::Limit,                   VerifyPositiveOrMinusOneFloat },
                  {DFIPKeys::LockToken,               VerifyUInt32},
                  {DFIPKeys::WithdrawHeight,          VerifyUInt32},
              }},
