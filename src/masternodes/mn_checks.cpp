@@ -698,9 +698,7 @@ Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
-    if (!HasAuth(auth.out.scriptPubKey)) {
-        return Res::Err("tx must have at least one input from the owner");
-    }
+    Require(HasAuth(auth.out.scriptPubKey), "tx must have at least one input from the owner");
     return Res::Ok();
 }
 
@@ -2355,7 +2353,7 @@ public:
 
         } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
             // check auth
-            Require(HasAuth(offer->ownerAddress));
+            Require(HasAuth(offer->ownerAddress), "tx must have at least one input from offer owner");
 
             srcAddr = offer->ownerAddress;
             CalculateOwnerRewards(offer->ownerAddress);
@@ -2416,7 +2414,7 @@ public:
         Require(!mnview.HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx), "ext htlc already submitted!");
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL) {
-            Require(HasAuth(offer->ownerAddress));
+            Require(HasAuth(offer->ownerAddress), "tx must have at least one input from offer owner");
 
             auto dfchtlc = mnview.HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx);
             Require(dfchtlc,
@@ -2634,7 +2632,7 @@ public:
         Require(order, "order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
         // check auth
-        Require(HasAuth(offer->ownerAddress));
+        Require(HasAuth(offer->ownerAddress), "tx must have at least one input from offer owner");
 
         offer->closeTx     = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
@@ -2945,7 +2943,7 @@ public:
 
     Res operator()(const CDefaultLoanSchemeMessage &obj) const {
         Require(CheckCustomTx());
-        Require(HasFoundationAuth());
+        Require(HasFoundationAuth(), "tx not from foundation member!");
 
         Require(!obj.identifier.empty() && obj.identifier.length() <= 8,
                 "id cannot be empty or more than 8 chars long");
@@ -2954,8 +2952,8 @@ public:
         if (auto currentID = mnview.GetDefaultLoanScheme())
             Require(*currentID != obj.identifier, "Loan scheme with id %s is already set as default", obj.identifier);
 
-        Require(
-            !mnview.GetDestroyLoanScheme(obj.identifier), "Cannot set %s as default, set to destroyed", obj.identifier);
+        const auto height = mnview.GetDestroyLoanScheme(obj.identifier);
+        Require(!height, "Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height);
         return mnview.StoreDefaultLoanScheme(obj.identifier);
     }
 
@@ -3026,7 +3024,7 @@ public:
         Require(!vault->isUnderLiquidation, "Cannot close vault under liquidation");
 
         // owner auth
-        Require(HasAuth(vault->ownerAddress), "tx must have at least one input from vault owner");
+        Require(HasAuth(vault->ownerAddress), "tx must have at least one input from token owner");
 
         if (const auto loans = mnview.GetLoanTokens(obj.vaultId)) {
             for (const auto &[tokenId, amount] : loans->balances) {
