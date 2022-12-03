@@ -4416,13 +4416,10 @@ static Res GetTokenSuffix(const CCustomCSView& view, const ATTRIBUTES& attribute
     if (attributes.CheckKey(ascendantKey)) {
         const auto& [previousID, str] = attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
         auto previousToken = view.GetToken(DCT_ID{previousID});
-        if (!previousToken) {
-            return Res::Err("Previous token %d not found\n", id);
-        }
+        Require(previousToken, "Previous token %d not found\n", id);
+
         const auto found = previousToken->symbol.find(newSuffix);
-        if (found == std::string::npos) {
-            return Res::Err("Previous token name not valid: %s\n", previousToken->symbol);
-        }
+        Require(found != std::string::npos, "Previous token name not valid: %s\n", previousToken->symbol);
 
         const auto versionNumber  = previousToken->symbol.substr(found + newSuffix.size());
         uint32_t previousVersion{};
@@ -4850,17 +4847,12 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         });
     }
 
-    if (failedVault != CVaultId{}) {
-        return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
-    }
+    Require(failedVault == CVaultId{}, "Failed to get vault data for: %s", failedVault.ToString());
 
     attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
     attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
-    auto res = attributes.Apply(view, height);
-    if (!res) {
-        return res;
-    }
+    Require(attributes.Apply(view, height));
     view.SetVariable(attributes);
 
     for (const auto& [vaultId, amount] : loanTokenAmounts) {
@@ -4872,10 +4864,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n",
             vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
 
-        res = view.AddLoanToken(vaultId, newTokenAmount);
-        if (!res) {
-            return res;
-        }
+        Require(view.AddLoanToken(vaultId, newTokenAmount));
 
         if (view.GetVaultHistoryStore()) {
             if (const auto vault = view.GetVault(vaultId)) {
@@ -4891,9 +4880,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
     }
 
     const auto loanToken = view.GetLoanTokenByID(newTokenId);
-    if (!loanToken) {
-        return Res::Err("Failed to get loan token.");
-    }
+    Require(loanToken, "Failed to get loan token.");
 
     // Pre-populate to save repeated calls to get loan scheme
     std::map<std::string, CAmount> loanSchemes;
