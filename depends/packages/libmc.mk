@@ -17,20 +17,10 @@ define $(package)_extract_cmds
 echo "Skipping extraction for metachain source"
 endef
 
+
 # Perform target substitutions for Rust
 LIBMC_TARGET := $(HOST)
-ifeq ($(LIBMC_TARGET),x86_64-pc-linux-gnu)
-	LIBMC_TARGET=x86_64-unknown-linux-gnu
-endif
-ifeq ($(LIBMC_TARGET),arm-linux-gnueabihf)
-	LIBMC_TARGET=arm-unknown-linux-gnueabihf
-endif
-ifeq ($(LIBMC_TARGET),x86_64-apple-darwin18)
-	LIBMC_TARGET=aarch64-apple-darwin
-endif
-ifeq ($(LIBMC_TARGET),x86_64-w64-mingw32)
-	LIBMC_TARGET=x86_64-pc-windows-gnu
-endif
+LIBMC_TARGET := $(shell ./depends/libmc_target.sh $(LIBMC_TARGET) )
 
 define $(package)_build_cmds
 	$(MAKE) build-native-pkg TARGET=$(LIBMC_TARGET)
