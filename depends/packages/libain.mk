@@ -19,18 +19,7 @@ endef
 
 # Perform target substitutions for Rust
 LIBAIN_TARGET := $(HOST)
-ifeq ($(LIBAIN_TARGET),x86_64-pc-linux-gnu)
-	LIBAIN_TARGET=x86_64-unknown-linux-gnu
-endif
-ifeq ($(LIBAIN_TARGET),arm-linux-gnueabihf)
-	LIBAIN_TARGET=arm-unknown-linux-gnueabihf
-endif
-ifeq ($(LIBAIN_TARGET),x86_64-apple-darwin18)
-	LIBAIN_TARGET=aarch64-apple-darwin
-endif
-ifeq ($(LIBAIN_TARGET),x86_64-w64-mingw32)
-	LIBAIN_TARGET=x86_64-pc-windows-gnu
-endif
+LIBAIN_TARGET := $(shell ./depends/rust_target.sh $(LIBAIN_TARGET) )
 
 define $(package)_build_cmds
 	$(MAKE) build-grpc-pkg TARGET=$(LIBAIN_TARGET)
