@@ -294,7 +294,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("8defichainBurnAddressXXXXXXXdRQkSm", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
-        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("<TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("df1qlwvtdrh4a4zln3k56rqnx8chu8t0sqx36syaea", *this));
@@ -531,7 +531,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
-        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("<TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
@@ -738,7 +738,7 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
-        consensus.lockAddress = GetScriptForDestination(DecodeDestination("TODO: DECIDE ON ADDRESS>", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("<TODO: DECIDE ON ADDRESS>", *this));
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
@@ -949,7 +949,7 @@ public:
         // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
-        consensus.lockAddress = GetScriptForDestination(DecodeDestination("2N9HiV9k2smL1953raxC4PxqN6kmN28c53D", *this));
+        consensus.lockAddress = GetScriptForDestination(DecodeDestination("2N9HiV9k2smL1953raxC4PxqN6kmN28c53D", *this)); // here
 
         // Destination for unused emission
         consensus.unusedEmission = GetScriptForDestination(DecodeDestination("mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ", *this)); // cUUj4d9tkgJGwGBF7VwFvCpcFMuEpC8tYbduaCDexKMx8A8ntL7C
