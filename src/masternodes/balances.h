@@ -18,10 +18,7 @@ struct CBalances {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        auto res     = current.Add(amount.nValue);
-        if (!res.ok) {
-            return res;
-        }
+        Require(current.Add(amount.nValue));
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
@@ -29,15 +26,14 @@ struct CBalances {
         }
         return Res::Ok();
     }
+
     Res Sub(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return Res::Ok();
         }
         auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
-        auto res     = current.Sub(amount.nValue);
-        if (!res.ok) {
-            return res;
-        }
+        Require(current.Sub(amount.nValue));
+
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
         } else {
@@ -45,6 +41,7 @@ struct CBalances {
         }
         return Res::Ok();
     }
+
     CTokenAmount SubWithRemainder(CTokenAmount amount) {
         if (amount.nValue == 0) {
             return CTokenAmount{amount.nTokenId, 0};
@@ -58,15 +55,14 @@ struct CBalances {
         }
         return CTokenAmount{amount.nTokenId, remainder};
     }
+
     Res SubBalances(const TAmounts &other) {
-        for (const auto &kv : other) {
-            auto res = Sub(CTokenAmount{kv.first, kv.second});
-            if (!res.ok) {
-                return res;
-            }
-        }
+        for (const auto &[tokenId, amount] : other)
+            Require(Sub(CTokenAmount{tokenId, amount}));
+
         return Res::Ok();
     }
+
     CBalances SubBalancesWithRemainder(const TAmounts &other) {
         CBalances remainderBalances;
         for (const auto &kv : other) {
@@ -77,13 +73,11 @@ struct CBalances {
         }
         return remainderBalances;
     }
+
     Res AddBalances(const TAmounts &other) {
-        for (const auto &kv : other) {
-            auto res = Add(CTokenAmount{kv.first, kv.second});
-            if (!res.ok) {
-                return res;
-            }
-        }
+        for (const auto &[tokenId, amount] : other)
+            Require(Add(CTokenAmount{tokenId, amount}));
+
         return Res::Ok();
     }
 
