@@ -586,5 +586,8 @@ class OnChainGovernanceTest(DefiTestFramework):
             len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 0})),
             3)
 
+        # should respect filters
+        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, mn1, -1, {"start": 0})), 0)
+
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()

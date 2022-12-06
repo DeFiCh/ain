@@ -581,12 +581,6 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
 
     view.ForEachPropVote(
         [&](const CPropId &pId, uint8_t propCycle, const uint256 &id, CPropVoteType vote) {
-            // skip entries until we reach start index
-            if (start != 0) {
-                --start;
-                return true;
-            }
-
             if (pId != propId) {
                 return false;
             }
@@ -600,6 +594,13 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                 if (!node) {
                     return true;
                 }
+
+                // skip entries until we reach start index
+                if (start != 0) {
+                    --start;
+                    return true;
+                }
+
                 auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                                       : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
                 if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
@@ -607,6 +608,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                     limit--;
                 }
             } else if (mnId.IsNull() || mnId == id) {
+                // skip entries until we reach start index
+                if (start != 0) {
+                    --start;
+                    return true;
+                }
+
                 ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
                 limit--;
             }
