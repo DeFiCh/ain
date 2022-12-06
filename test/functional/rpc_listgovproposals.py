@@ -6,7 +6,6 @@
 """Test on chain government behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error
@@ -44,7 +43,7 @@ class ListGovProposalsTest(DefiTestFramework):
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
-        
+
         # mine at least one block with each mn to be able to vote
         self.nodes[1].generate(1)
         self.nodes[2].generate(1)
@@ -103,7 +102,7 @@ class ListGovProposalsTest(DefiTestFramework):
 
     def create_20_proposals_go_to_end_cycle_1(self):
         tmp_proposals = self.create_proposals(num_props=20)
-        
+
         # check all inside same cycle
         tmp_end_cycle_height = tmp_proposals[0]["cycleEndHeight"]
         for prop in tmp_proposals:
@@ -118,7 +117,7 @@ class ListGovProposalsTest(DefiTestFramework):
 
     def create_10_proposals_go_to_end_cycle_2(self):
         tmp_proposals = self.create_proposals(num_props=10, cycles=2)
-        
+
         # check all inside same cycle
         tmp_end_cycle_height = tmp_proposals[0]["cycleEndHeight"]
         for prop in tmp_proposals:
@@ -188,7 +187,7 @@ class ListGovProposalsTest(DefiTestFramework):
 
     def create_10_proposals_and_aprove_half(self):
         tmp_proposals = self.create_proposals(num_props=10, cycles=2)
-        
+
         # check all inside same cycle
         tmp_end_cycle_height = tmp_proposals[0]["cycleEndHeight"]
         for prop in tmp_proposals:
@@ -261,7 +260,7 @@ class ListGovProposalsTest(DefiTestFramework):
         assert_equal(len(prop_list), 5)
         prop_list = self.nodes[0].listgovproposals("cfp", "completed", 3)
         assert_equal(len(prop_list), 0)
-        
+
         # check voting CFPs are in second cycle
         prop_list = self.nodes[0].listgovproposals("all", "all", 4)
         for prop in prop_list:
