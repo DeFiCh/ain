@@ -501,7 +501,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                     {"start",
                      RPCArg::Type::NUM,
                      RPCArg::Optional::OMITTED,
-                     "Optional first key to iterate from, in lexicographical order."
+                     "Vote index to iterate from."
                      "Typically it's set to last ID from previous request."},
                     {"including_start",
                      RPCArg::Type::BOOL,
@@ -510,7 +510,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                     {"limit",
                      RPCArg::Type::NUM,
                      RPCArg::Optional::OMITTED,
-                     "Maximum number of orders to return, 100 by default"},
+                     "Maximum number of votes to return, 100 by default"},
                 },
             }, },
         RPCResult{"{id:{...},...}     (array) Json object with proposal vote information\n"},
