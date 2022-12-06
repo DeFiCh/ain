@@ -660,19 +660,21 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("pairSymbol is larger than %d", symbolLength));
     }
 
-    CPoolPairMessage poolPairMsg;
+    CCreatePoolPairMessage poolPairMsg;
     poolPairMsg.idTokenA     = idtokenA;
     poolPairMsg.idTokenB     = idtokenB;
     poolPairMsg.commission   = commission;
     poolPairMsg.status       = status;
     poolPairMsg.ownerAddress = ownerAddress;
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair) << poolPairMsg << pairSymbol;
+    poolPairMsg.pairSymbol = pairSymbol;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
-        metadata << rewards;
+        poolPairMsg.rewards = rewards;
     }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
+             << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -691,6 +693,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
 
     // Set change to selected foundation address
     CTxDestination dest;
+
     ExtractDestination(*auths.cbegin(), dest);
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;

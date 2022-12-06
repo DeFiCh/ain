@@ -36,10 +36,7 @@ Res CAccountsView::AddBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    auto res     = balance.Add(amount.nValue);
-    if (!res.ok) {
-        return res;
-    }
+    Require(balance.Add(amount.nValue));
     return SetBalance(owner, balance);
 }
 
@@ -48,30 +45,21 @@ Res CAccountsView::SubBalance(const CScript &owner, CTokenAmount amount) {
         return Res::Ok();
     }
     auto balance = GetBalance(owner, amount.nTokenId);
-    auto res     = balance.Sub(amount.nValue);
-    if (!res.ok) {
-        return res;
-    }
+    Require(balance.Sub(amount.nValue));
     return SetBalance(owner, balance);
 }
 
 Res CAccountsView::AddBalances(const CScript &owner, const CBalances &balances) {
-    for (const auto &kv : balances.balances) {
-        auto res = AddBalance(owner, CTokenAmount{kv.first, kv.second});
-        if (!res.ok) {
-            return res;
-        }
-    }
+    for (const auto &kv : balances.balances)
+        Require(AddBalance(owner, CTokenAmount{kv.first, kv.second}));
+
     return Res::Ok();
 }
 
 Res CAccountsView::SubBalances(const CScript &owner, const CBalances &balances) {
-    for (const auto &kv : balances.balances) {
-        auto res = SubBalance(owner, CTokenAmount{kv.first, kv.second});
-        if (!res.ok) {
-            return res;
-        }
-    }
+    for (const auto &kv : balances.balances)
+        Require(SubBalance(owner, CTokenAmount{kv.first, kv.second}));
+
     return Res::Ok();
 }
 
@@ -92,10 +80,7 @@ uint32_t CAccountsView::GetBalancesHeight(const CScript &owner) {
 }
 
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey &key, const CFuturesUserValue &futures) {
-    if (!WriteBy<ByFuturesSwapKey>(key, futures)) {
-        return Res::Err("Failed to store futures");
-    }
-
+    Require(WriteBy<ByFuturesSwapKey>(key, futures), "Failed to store futures");
     return Res::Ok();
 }
 
@@ -106,18 +91,12 @@ void CAccountsView::ForEachFuturesUserValues(
 }
 
 Res CAccountsView::EraseFuturesUserValues(const CFuturesUserKey &key) {
-    if (!EraseBy<ByFuturesSwapKey>(key)) {
-        return Res::Err("Failed to erase futures");
-    }
-
+    Require(EraseBy<ByFuturesSwapKey>(key), "Failed to erase futures");
     return Res::Ok();
 }
 
 Res CAccountsView::StoreFuturesDUSD(const CFuturesUserKey &key, const CAmount &amount) {
-    if (!WriteBy<ByFuturesDUSDKey>(key, amount)) {
-        return Res::Err("Failed to store futures");
-    }
-
+    Require(WriteBy<ByFuturesDUSDKey>(key, amount), "Failed to store futures");
     return Res::Ok();
 }
 
@@ -127,9 +106,6 @@ void CAccountsView::ForEachFuturesDUSD(std::function<bool(const CFuturesUserKey 
 }
 
 Res CAccountsView::EraseFuturesDUSD(const CFuturesUserKey &key) {
-    if (!EraseBy<ByFuturesDUSDKey>(key)) {
-        return Res::Err("Failed to erase futures");
-    }
-
+    Require(EraseBy<ByFuturesDUSDKey>(key), "Failed to erase futures");
     return Res::Ok();
 }
