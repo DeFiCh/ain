@@ -4,13 +4,9 @@
 
 #include <consensus/tx_check.h>
 
+#include <masternodes/customtx.h>
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
-
-const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
-const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
-const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
-const std::vector<unsigned char> DfTokenSplitMarker = {'D', 'f', 'T', 'S'};
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {

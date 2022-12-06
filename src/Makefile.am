@@ -156,6 +156,19 @@ DEFI_CORE_H = \
   masternodes/auctionhistory.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
+  masternodes/consensus/accounts.h \
+  masternodes/consensus/governance.h \
+  masternodes/consensus/icxorders.h \
+  masternodes/consensus/loans.h \
+  masternodes/consensus/masternodes.h \
+  masternodes/consensus/oracles.h \
+  masternodes/consensus/poolpairs.h \
+  masternodes/consensus/proposals.cpp \
+  masternodes/consensus/smartcontracts.h \
+  masternodes/consensus/tokens.h \
+  masternodes/consensus/txvisitor.h \
+  masternodes/consensus/vaults.h \
+  masternodes/customtx.h \
   masternodes/factory.h \
   masternodes/govvariables/attributes.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
@@ -377,6 +390,18 @@ libdefi_server_a_SOURCES = \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/auctionhistory.cpp \
+  masternodes/consensus/accounts.cpp \
+  masternodes/consensus/governance.cpp \
+  masternodes/consensus/icxorders.cpp \
+  masternodes/consensus/loans.cpp \
+  masternodes/consensus/masternodes.cpp \
+  masternodes/consensus/oracles.cpp \
+  masternodes/consensus/poolpairs.cpp \
+  masternodes/consensus/proposals.cpp \
+  masternodes/consensus/smartcontracts.cpp \
+  masternodes/consensus/tokens.cpp \
+  masternodes/consensus/txvisitor.cpp \
+  masternodes/consensus/vaults.cpp \
   masternodes/oracles.cpp \
   masternodes/govvariables/attributes.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
@@ -596,6 +621,7 @@ libdefi_common_a_SOURCES = \
   core_write.cpp \
   key.cpp \
   key_io.cpp \
+  masternodes/customtx.cpp \
   merkleblock.cpp \
   netaddress.cpp \
   netbase.cpp \

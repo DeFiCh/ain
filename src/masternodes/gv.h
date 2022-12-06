@@ -55,6 +55,52 @@ public:
     virtual void Unserialize(CDataStream &s)     = 0;
 };
 
+struct CGovernanceMessage {
+    std::unordered_map<std::string, std::shared_ptr<GovVariable>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        std::string name;
+        while(!s.empty()) {
+            s >> name;
+            auto& gov = govs[name];
+            auto var = GovVariable::Create(name);
+            if (!var) break;
+            s >> *var;
+            gov = std::move(var);
+        }
+    }
+};
+
+struct CGovernanceHeightMessage {
+    std::string govName;
+    std::shared_ptr<GovVariable> govVar;
+    uint32_t startHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!s.empty()) {
+            s >> govName;
+            if ((govVar = GovVariable::Create(govName))) {
+                s >> *govVar;
+                s >> startHeight;
+            }
+        }
+    }
+};
+
+struct CGovernanceUnsetMessage {
+    std::map<std::string, std::vector<std::string>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(govs);
+    }
+};
+
 class CGovView : public virtual CStorageView {
 public:
     Res SetVariable(const GovVariable &var);

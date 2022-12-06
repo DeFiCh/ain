@@ -656,6 +656,26 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     mnview.SetVariable(*attributes);
 }
 
+Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
+}
+
 Res ATTRIBUTES::ProcessVariable(const std::string &key,
                                 const std::optional<UniValue> &value,
                                 std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable) {
@@ -1645,7 +1665,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     lock.startHeight = startHeight;
                     lock.govVar      = govVar;
 
-                    Require(storeGovVars(lock, mnview));
+                    Require(StoreGovVars(lock, mnview));
                 } else {
                     // Less than a day's worth of blocks, apply instant lock
                     SetValue(lockKey, true);

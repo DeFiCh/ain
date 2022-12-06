@@ -14,11 +14,6 @@
 
 #include <vector>
 
-extern const std::vector<unsigned char> DfTxMarker;
-extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
-extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
-extern const std::vector<unsigned char> DfTokenSplitMarker;
-
 class CScript;
 class CTransaction;
 class CValidationState;

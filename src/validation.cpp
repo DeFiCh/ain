@@ -397,10 +397,10 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
     // Iterate disconnectpool in reverse, so that we add transactions
     // back to the mempool starting with the earliest transaction that had
     // been previously seen in a block.
+    TBytes dummy;
     bool possibleMintTokenAffected{false};
     auto it = disconnectpool.queuedTx.get<insertion_order>().rbegin();
     while (it != disconnectpool.queuedTx.get<insertion_order>().rend()) {
-        TBytes dummy;
         if (GuessCustomTxType(**it, dummy) == CustomTxType::CreateToken) // regardless of fAddToMempool and prooven CreateTokenTx
             possibleMintTokenAffected = true;
 
@@ -425,7 +425,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
         std::vector<uint256> mintTokensToRemove; // not sure about tx refs safety while recursive deletion, so hashes
         for (const CTxMemPoolEntry& e : mempool.mapTx) {
             auto tx = e.GetTx();
-            if (IsMintTokenTx(tx)) {
+            if (GuessCustomTxType(tx, dummy) == CustomTxType::MintToken) {
                 auto values = tx.GetValuesOut();
                 for (auto const & pair : values) {
                     if (pair.first == DCT_ID{0})

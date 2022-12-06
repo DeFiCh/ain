@@ -6,6 +6,7 @@
 #define DEFI_MASTERNODES_TOKENS_H
 
 #include <amount.h>
+#include <masternodes/balances.h>
 #include <flushablestorage.h>
 #include <masternodes/res.h>
 #include <script/script.h>
@@ -65,6 +66,70 @@ public:
         READWRITE(decimal);
         READWRITE(limit);
         READWRITE(flags);
+    }
+};
+
+struct CCreateTokenMessage : public CToken {
+    using CToken::CToken;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITEAS(CToken, *this);
+    }
+};
+
+struct CUpdateTokenPreAMKMessage {
+    uint256 tokenTx;
+    bool isDAT;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(isDAT);
+    }
+};
+
+struct CUpdateTokenMessage {
+    uint256 tokenTx;
+    CToken token;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(tokenTx);
+        READWRITE(token);
+    }
+};
+
+struct CMintTokensMessage : public CBalances {
+    using CBalances::CBalances;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITEAS(CBalances, *this);
+    }
+};
+
+struct CBurnTokensMessage {
+    enum BurnType : uint8_t {
+        TokenBurn = 0,
+    };
+
+    CBalances amounts;
+    CScript from;
+    BurnType burnType;
+    std::variant<CScript> context;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(amounts);
+        READWRITE(from);
+        READWRITE(static_cast<uint8_t>(burnType));
+        READWRITE(context);
     }
 };
 
