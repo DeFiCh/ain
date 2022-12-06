@@ -424,12 +424,12 @@ public:
                 CBurnTokensMessage,
                 CCreatePropMessage,
                 CPropVoteMessage,
-                CGovernanceUnsetMessage>())
+                CGovernanceUnsetMessage,
+                CDUSDLockMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
         else if constexpr (IsOneOf<T,
                 CCreateMasterNodeMessage,
-                CResignMasterNodeMessage>,
-                CDUSDLockMessage())
+                CResignMasterNodeMessage>())
             return Res::Ok();
         else
             static_assert(FalseType<T>, "Unhandled type");
