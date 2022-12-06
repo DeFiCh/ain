@@ -130,9 +130,9 @@ class EstimateFeeTest(DefiTestFramework):
         # mine non-standard txs (e.g. txs with "dust" outputs)
         # Force fSendTrickle to true (via whitelist)
         self.extra_args = [
-            ["-acceptnonstdtxn", "-whitelist=127.0.0.1", "-blockfeeordering=1"],
-            ["-acceptnonstdtxn", "-whitelist=127.0.0.1", "-blockmaxweight=68000", "-blockfeeordering=1"],
-            ["-acceptnonstdtxn", "-whitelist=127.0.0.1", "-blockmaxweight=32000", "-blockfeeordering=1"],
+            ["-acceptnonstdtxn", "-whitelist=127.0.0.1"],
+            ["-acceptnonstdtxn", "-whitelist=127.0.0.1", "-blockmaxweight=68000"],
+            ["-acceptnonstdtxn", "-whitelist=127.0.0.1", "-blockmaxweight=32000"],
         ]
 
     def skip_test_if_missing_module(self):

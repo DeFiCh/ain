@@ -979,7 +979,7 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
-    } else if (!gArgs.GetBoolArg("-blockfeeordering", DEFAULT_FEE_ORDERING)) {
+    } else if (gArgs.GetBoolArg("-blocktimeordering", DEFAULT_FEE_ORDERING)) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
         errors.push_back("Insufficient data or no feerate found");
