@@ -566,5 +566,25 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
+        # Test pagination, total number of votes is 3
+        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0})), 2)
+        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True})), 3)
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 2})),
+            2)
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 1})),
+            1)
+
+        # should be empty if start > number of entries
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 10, "including_start": True, "limit": 1})),
+            0)
+
+        # should return all entries if limit is 0
+        assert_equal(
+            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 0})),
+            3)
+
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()

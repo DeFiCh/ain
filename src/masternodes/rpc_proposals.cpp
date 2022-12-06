@@ -482,23 +482,43 @@ UniValue votegov(const JSONRPCRequest& request)
 UniValue listgovproposalvotes(const JSONRPCRequest& request)
 {
     auto pwallet = GetWallet(request);
-    RPCHelpMan{"listgovproposalvotes",
-               "\nReturns information about proposal votes.\n",
-               {
-                        {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
-                        {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
-                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"}
-               },
-               RPCResult{
-                       "{id:{...},...}     (array) Json object with proposal vote information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listgovproposalvotes", "txid")
-                       + HelpExampleRpc("listgovproposalvotes", "txid")
-               },
-    }.Check(request);
+    RPCHelpMan{
+        "listgovproposalvotes",
+        "\nReturns information about proposal votes.\n",
+        {
+          {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
+          {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
+          {"cycle",
+             RPCArg::Type::NUM,
+             RPCArg::Optional::OMITTED,
+             "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"},
+          {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 100 by default"},
+                },
+            }, },
+        RPCResult{"{id:{...},...}     (array) Json object with proposal vote information\n"},
+        RPCExamples{HelpExampleCli("listgovproposalvotes", "txid") + HelpExampleRpc("listgovproposalvotes", "txid")},
+    }
+        .Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
 
@@ -534,10 +554,39 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
     }
 
+    size_t limit         = 100;
+    size_t start         = 0;
+    bool including_start = true;
+    if (request.params.size() > 3) {
+        UniValue paginationObj = request.params[3].get_obj();
+        if (!paginationObj["limit"].isNull()) {
+            limit = (size_t)paginationObj["limit"].get_int64();
+        }
+        if (!paginationObj["start"].isNull()) {
+            including_start = false;
+            start           = (size_t)paginationObj["start"].get_int();
+        }
+        if (!paginationObj["including_start"].isNull()) {
+            including_start = paginationObj["including_start"].getBool();
+        }
+        if (!including_start) {
+            ++start;
+        }
+    }
+    if (limit == 0) {
+        limit = std::numeric_limits<decltype(limit)>::max();
+    }
+
     UniValue ret(UniValue::VARR);
 
     view.ForEachPropVote(
         [&](const CPropId &pId, uint8_t propCycle, const uint256 &id, CPropVoteType vote) {
+            // skip entries until we reach start index
+            if (start != 0) {
+                --start;
+                return true;
+            }
+
             if (pId != propId) {
                 return false;
             }
@@ -555,11 +604,14 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
                                                       : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
                 if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
                     ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+                    limit--;
                 }
             } else if (mnId.IsNull() || mnId == id) {
                 ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote));
+                limit--;
             }
-            return true;
+
+            return limit != 0;
         },
         CMnVotePerCycle{propId, cycle, mnId});
 
