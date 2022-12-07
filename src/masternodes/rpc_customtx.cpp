@@ -502,17 +502,17 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
-    void operator()(const CCreatePropMessage &obj) const {
+    void operator()(const CCreateProposalMessage &obj) const {
         auto propId = tx.GetHash();
         rpcInfo.pushKV("proposalId", propId.GetHex());
-        auto type = static_cast<CPropType>(obj.type);
-        rpcInfo.pushKV("type", CPropTypeToString(type));
+        auto type = static_cast<CProposalType>(obj.type);
+        rpcInfo.pushKV("type", CProposalTypeToString(type));
         rpcInfo.pushKV("title", obj.title);
         rpcInfo.pushKV("context", obj.context);
         rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
         rpcInfo.pushKV("cycles", int(obj.nCycles));
         auto proposalEndHeight = height;
-        if (auto prop = mnview.GetProp(propId)) {
+        if (auto prop = mnview.GetProposal(propId)) {
             proposalEndHeight = prop->proposalEndHeight;
         } else {
             auto votingPeriod = prop->votingPeriod;
@@ -525,18 +525,18 @@ public:
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);
-            if (obj.options & CPropOption::Emergency)
+            if (obj.options & CProposalOption::Emergency)
                 opt.push_back("emergency");
 
             rpcInfo.pushKV("options", opt);
         }
     }
 
-    void operator()(const CPropVoteMessage &obj) const {
+    void operator()(const CProposalVoteMessage &obj) const {
         rpcInfo.pushKV("proposalId", obj.propId.GetHex());
         rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
-        auto vote = static_cast<CPropVoteType>(obj.vote);
-        rpcInfo.pushKV("vote", CPropVoteToString(vote));
+        auto vote = static_cast<CProposalVoteType>(obj.vote);
+        rpcInfo.pushKV("vote", CProposalVoteToString(vote));
     }
 
     void operator()(const CCustomTxMessageNone &) const {}

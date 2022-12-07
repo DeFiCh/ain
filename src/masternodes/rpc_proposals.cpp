@@ -10,8 +10,8 @@ struct VotingInfo {
 };
 
 UniValue
-proposalToJSON(const CPropId &propId,
-    const CPropObject &prop,
+proposalToJSON(const CProposalId &propId,
+    const CProposalObject &prop,
     const CCustomCSView &view,
     const std::optional<VotingInfo> votingInfo) {
 
@@ -20,8 +20,8 @@ proposalToJSON(const CPropId &propId,
     auto title = prop.title;
     auto context = prop.context;
     auto contextHash = prop.contextHash;
-    auto type = static_cast<CPropType>(prop.type);
-    auto typeString = CPropTypeToString(type);
+    auto type = static_cast<CProposalType>(prop.type);
+    auto typeString = CProposalTypeToString(type);
     auto amountValue = ValueFromAmount(prop.nAmount);
     auto payoutAddress = ScriptToString(prop.address);
     auto currentCycle   = static_cast<int32_t>(prop.cycle);
@@ -29,11 +29,11 @@ proposalToJSON(const CPropId &propId,
     auto cycleEndHeight = static_cast<int32_t>(prop.cycleEndHeight);
     auto proposalEndHeight = static_cast<int32_t>(prop.proposalEndHeight);
     auto votingPeriod = static_cast<int32_t>(prop.votingPeriod);
-    bool isEmergency = prop.options & CPropOption::Emergency;
+    bool isEmergency = prop.options & CProposalOption::Emergency;
     auto quorum = prop.quorum;
     auto approvalThreshold = prop.approvalThreshold;
-    auto status = static_cast<CPropStatusType>(prop.status);
-    auto statusString = CPropStatusToString(status);
+    auto status = static_cast<CProposalStatusType>(prop.status);
+    auto statusString = CProposalStatusToString(status);
     auto feeTotalValue =  ValueFromAmount(prop.fee);
     auto feeBurnValue = ValueFromAmount(prop.feeBurnAmount);
 
@@ -78,7 +78,7 @@ proposalToJSON(const CPropId &propId,
     ret.pushKV("contextHash", contextHash);
     ret.pushKV("status", statusString);
     ret.pushKV("type", typeString);
-    if (type != CPropType::VoteOfConfidence) {
+    if (type != CProposalType::VoteOfConfidence) {
         ret.pushKV("amount", amountValue);
         ret.pushKV("payoutAddress", payoutAddress);
     }
@@ -109,12 +109,12 @@ proposalToJSON(const CPropId &propId,
     return ret;
 }
 
-UniValue proposalVoteToJSON(const CPropId &propId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
+UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("masternodeId", mnId.GetHex());
     ret.pushKV("cycle", int(cycle));
-    ret.pushKV("vote", CPropVoteToString(vote));
+    ret.pushKV("vote", CProposalVoteToString(vote));
     return ret;
 }
 
@@ -209,8 +209,8 @@ UniValue creategovcfp(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Address (" + addressStr + ") is of an unknown type");
     }
 
-    CCreatePropMessage pm;
-    pm.type = CPropType::CommunityFundProposal;
+    CCreateProposalMessage pm;
+    pm.type = CProposalType::CommunityFund;
     pm.address = GetScriptForDestination(address);
     pm.nAmount = amount;
     pm.nCycles = cycles;
@@ -325,14 +325,14 @@ UniValue creategovvoc(const JSONRPCRequest& request)
         emergency = data["emergency"].get_bool();
     }
 
-    CCreatePropMessage pm;
-    pm.type = CPropType::VoteOfConfidence;
+    CCreateProposalMessage pm;
+    pm.type = CProposalType::VoteOfConfidence;
     pm.nAmount = 0;
     pm.nCycles = (emergency ? 1 : VOC_CYCLES);
     pm.title = title;
     pm.context = context;
     pm.contextHash = contextHash;
-    pm.options = (emergency ? CPropOption::Emergency : 0);
+    pm.options = (emergency ? CProposalOption::Emergency : 0);
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -412,13 +412,13 @@ UniValue votegov(const JSONRPCRequest& request)
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
     auto mnId = ParseHashV(request.params[1].get_str(), "masternodeId");
-    auto vote = CPropVoteType::VoteNeutral;
+    auto vote = CProposalVoteType::VoteNeutral;
 
     auto voteStr = ToLower(request.params[2].get_str());
     if (voteStr == "no") {
-        vote = CPropVoteType::VoteNo;
+        vote = CProposalVoteType::VoteNo;
     } else if (voteStr == "yes") {
-        vote = CPropVoteType::VoteYes;
+        vote = CProposalVoteType::VoteYes;
     } else if (voteStr != "neutral") {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
     }
@@ -428,11 +428,11 @@ UniValue votegov(const JSONRPCRequest& request)
     {
         CCustomCSView view(*pcustomcsview);
 
-        auto prop = view.GetProp(propId);
+        auto prop = view.GetProposal(propId);
         if (!prop) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
         }
-        if (prop->status != CPropStatusType::Voting) {
+        if (prop->status != CProposalStatusType::Voting) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
         }
         auto node = view.GetMasternode(mnId);
@@ -444,7 +444,7 @@ UniValue votegov(const JSONRPCRequest& request)
         targetHeight = view.GetLastHeight() + 1;
     }
 
-    CPropVoteMessage msg;
+    CProposalVoteMessage msg;
     msg.propId = propId;
     msg.masternodeId = mnId;
     msg.vote = vote;
@@ -521,7 +521,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
         inputCycle = request.params[2].get_int();
     }
     if (inputCycle==0){
-        auto prop = view.GetProp(propId);
+        auto prop = view.GetProposal(propId);
         if (!prop){
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
         }
@@ -536,8 +536,8 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VARR);
 
-    view.ForEachPropVote(
-        [&](const CPropId &pId, uint8_t propCycle, const uint256 &id, CPropVoteType vote) {
+    view.ForEachProposalVote(
+        [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
             if (pId != propId) {
                 return false;
             }
@@ -586,13 +586,13 @@ UniValue getgovproposal(const JSONRPCRequest& request)
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
     CCustomCSView view(*pcustomcsview);
-    auto prop = view.GetProp(propId);
+    auto prop = view.GetProposal(propId);
     if (!prop) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
     }
 
     int targetHeight;
-    if (prop->status == CPropStatusType::Voting) {
+    if (prop->status == CProposalStatusType::Voting) {
         targetHeight = view.GetLastHeight() + 1;
     } else {
         targetHeight = prop->cycleEndHeight;
@@ -611,14 +611,14 @@ UniValue getgovproposal(const JSONRPCRequest& request)
     }
 
     uint32_t voteYes = 0, voters = 0;
-    view.ForEachPropVote(
-        [&](const CPropId &pId, uint8_t cycle, const uint256 &mnId, CPropVoteType vote) {
+    view.ForEachProposalVote(
+        [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop->cycle) {
                 return false;
             }
             if (activeMasternodes.count(mnId)) {
                 ++voters;
-                if (vote == CPropVoteType::VoteYes) {
+                if (vote == CProposalVoteType::VoteYes) {
                     ++voteYes;
                 }
             }
@@ -663,9 +663,9 @@ UniValue listgovproposals(const JSONRPCRequest& request)
     if (request.params.size() > 0) {
         auto str = request.params[0].get_str();
         if (str == "cfp") {
-            type = uint8_t(CPropType::CommunityFundProposal);
+            type = uint8_t(CProposalType::CommunityFund);
         } else if (str == "voc") {
-            type = uint8_t(CPropType::VoteOfConfidence);
+            type = uint8_t(CProposalType::VoteOfConfidence);
         } else if (str != "all") {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/voc/all");
         }
@@ -675,11 +675,11 @@ UniValue listgovproposals(const JSONRPCRequest& request)
     if (request.params.size() > 1) {
         auto str = request.params[1].get_str();
         if (str == "voting") {
-            status = uint8_t(CPropStatusType::Voting);
+            status = uint8_t(CProposalStatusType::Voting);
         } else if (str == "rejected") {
-            status = uint8_t(CPropStatusType::Rejected);
+            status = uint8_t(CProposalStatusType::Rejected);
         } else if (str == "completed") {
-            status = uint8_t(CPropStatusType::Completed);
+            status = uint8_t(CProposalStatusType::Completed);
         } else if (str != "all") {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "status supports voting/rejected/completed/all");
         }
@@ -688,8 +688,8 @@ UniValue listgovproposals(const JSONRPCRequest& request)
     UniValue ret(UniValue::VARR);
     CCustomCSView view(*pcustomcsview);
 
-    view.ForEachProp(
-        [&](const CPropId &propId, const CPropObject &prop) {
+    view.ForEachProposal(
+        [&](const CProposalId &propId, const CProposalObject &prop) {
             if (status && status != uint8_t(prop.status)) {
                 return false;
             }

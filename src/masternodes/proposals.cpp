@@ -6,52 +6,52 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/proposals.h>
 
-std::string CPropTypeToString(const CPropType status) {
+std::string CProposalTypeToString(const CProposalType status) {
     switch (status) {
-        case CPropType::CommunityFundProposal:
+        case CProposalType::CommunityFund:
             return "CommunityFundProposal";
-        case CPropType::VoteOfConfidence:
+        case CProposalType::VoteOfConfidence:
             return "VoteOfConfidence";
     }
     return "Unknown";
 }
 
-std::string CPropOptionToString(const CPropOption option) {
+std::string CProposalOptionToString(const CProposalOption option) {
     switch (option) {
-        case CPropOption::Emergency:
+        case CProposalOption::Emergency:
             return "Emergency";
     }
     return "Unknown";
 }
 
-std::string CPropStatusToString(const CPropStatusType status) {
+std::string CProposalStatusToString(const CProposalStatusType status) {
     switch (status) {
-        case CPropStatusType::Voting:
+        case CProposalStatusType::Voting:
             return "Voting";
-        case CPropStatusType::Rejected:
+        case CProposalStatusType::Rejected:
             return "Rejected";
-        case CPropStatusType::Completed:
+        case CProposalStatusType::Completed:
             return "Completed";
     }
     return "Unknown";
 }
 
-std::string CPropVoteToString(const CPropVoteType vote) {
+std::string CProposalVoteToString(const CProposalVoteType vote) {
     switch (vote) {
-        case CPropVoteType::VoteNo:
+        case CProposalVoteType::VoteNo:
             return "NO";
-        case CPropVoteType::VoteYes:
+        case CProposalVoteType::VoteYes:
             return "YES";
-        case CPropVoteType::VoteNeutral:
+        case CProposalVoteType::VoteNeutral:
             return "NEUTRAL";
     }
     return "Unknown";
 }
 
-Res CPropsView::CreateProp(const CPropId &propId, uint32_t height, const CCreatePropMessage &msg, const CAmount fee) {
-    CPropObject prop{msg};
-    bool emergency = prop.options & CPropOption::Emergency;
-    auto type      = static_cast<CPropType>(prop.type);
+Res CProposalView::CreateProposal(const CProposalId &propId, uint32_t height, const CCreateProposalMessage &msg, const CAmount fee) {
+    CProposalObject prop{msg};
+    bool emergency = prop.options & CProposalOption::Emergency;
+    auto type      = static_cast<CProposalType>(prop.type);
 
     prop.creationHeight     = height;
     prop.votingPeriod       = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
@@ -60,7 +60,7 @@ Res CPropsView::CreateProp(const CPropId &propId, uint32_t height, const CCreate
     prop.fee                = fee;
     prop.feeBurnAmount      = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
-    auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
+    auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
     if (emergency) {
         height += prop.votingPeriod;
@@ -78,12 +78,12 @@ Res CPropsView::CreateProp(const CPropId &propId, uint32_t height, const CCreate
     return Res::Ok();
 }
 
-std::optional<CPropObject> CPropsView::GetProp(const CPropId &propId) {
-    auto prop = ReadBy<ByType, CPropObject>(propId);
+std::optional<CProposalObject> CProposalView::GetProposal(const CProposalId &propId) {
+    auto prop = ReadBy<ByType, CProposalObject>(propId);
     if (!prop)
         return prop;
 
-    auto guessStatus = [&](CPropStatusType status) {
+    auto guessStatus = [&](CProposalStatusType status) {
         auto key = std::make_pair(uint8_t(status), propId);
         if (auto cycle = ReadBy<ByStatus, uint8_t>(key)) {
             prop->cycle          = *cycle;
@@ -95,16 +95,16 @@ std::optional<CPropObject> CPropsView::GetProp(const CPropId &propId) {
         }
         return false;
     };
-    guessStatus(CPropStatusType::Voting) || guessStatus(CPropStatusType::Rejected) ||
-        guessStatus(CPropStatusType::Completed);
+    guessStatus(CProposalStatusType::Voting) || guessStatus(CProposalStatusType::Rejected) ||
+        guessStatus(CProposalStatusType::Completed);
     return prop;
 }
 
-Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
+Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle) {
     if (cycle < 1 || cycle > MAX_CYCLES)
         return Res::Err("Cycle out of range");
 
-    auto key    = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
+    auto key    = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
     if (!pcycle)
         Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
@@ -115,10 +115,10 @@ Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
     WriteBy<ByStatus>(key, cycle);
 
     // Update values from attributes on each cycle
-    auto prop = GetProp(propId);
+    auto prop = GetProposal(propId);
     assert(prop);
-    bool emergency = prop->options & CPropOption::Emergency;
-    auto type      = static_cast<CPropType>(prop->type);
+    bool emergency = prop->options & CProposalOption::Emergency;
+    auto type      = static_cast<CProposalType>(prop->type);
 
     prop->approvalThreshold  = GetApprovalThresholdFromAttributes(type);
     prop->quorum             = GetQuorumFromAttributes(type, emergency);
@@ -127,13 +127,13 @@ Res CPropsView::UpdatePropCycle(const CPropId &propId, uint8_t cycle) {
     return Res::Ok();
 }
 
-Res CPropsView::UpdatePropStatus(const CPropId &propId, uint32_t height, CPropStatusType status) {
-    auto key  = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
+Res CProposalView::UpdateProposalStatus(const CProposalId &propId, uint32_t height, CProposalStatusType status) {
+    auto key  = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto stat = ReadBy<ByStatus, uint8_t>(key);
     if (!stat)
         return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
 
-    if (status == CPropStatusType::Voting)
+    if (status == CProposalStatusType::Voting)
         return Res::Err("Proposal <%s> is already in voting period", propId.GetHex());
 
     EraseBy<ByStatus>(key);
@@ -141,7 +141,7 @@ Res CPropsView::UpdatePropStatus(const CPropId &propId, uint32_t height, CPropSt
     key = std::make_pair(uint8_t(status), propId);
     WriteBy<ByStatus>(key, *stat);
 
-    auto p_prop = GetProp(propId);
+    auto p_prop = GetProposal(propId);
     assert(p_prop);
 
     uint8_t i   = 0;
@@ -161,8 +161,8 @@ Res CPropsView::UpdatePropStatus(const CPropId &propId, uint32_t height, CPropSt
     return Res::Ok();
 }
 
-Res CPropsView::AddPropVote(const CPropId &propId, const uint256 &masternodeId, CPropVoteType vote) {
-    auto cycle = ReadBy<ByStatus, uint8_t>(std::make_pair(uint8_t(CPropStatusType::Voting), propId));
+Res CProposalView::AddProposalVote(const CProposalId &propId, const uint256 &masternodeId, CProposalVoteType vote) {
+    auto cycle = ReadBy<ByStatus, uint8_t>(std::make_pair(uint8_t(CProposalStatusType::Voting), propId));
     if (!cycle)
         return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
 
@@ -171,43 +171,43 @@ Res CPropsView::AddPropVote(const CPropId &propId, const uint256 &masternodeId, 
     return Res::Ok();
 }
 
-std::optional<CPropVoteType> CPropsView::GetPropVote(const CPropId &propId,
+std::optional<CProposalVoteType> CProposalView::GetProposalVote(const CProposalId &propId,
                                                      uint8_t cycle,
                                                      const uint256 &masternodeId) {
     CMnVotePerCycle key{propId, cycle, masternodeId};
     auto vote = ReadBy<ByMnVote, uint8_t>(key);
     if (!vote)
         return {};
-    return static_cast<CPropVoteType>(*vote);
+    return static_cast<CProposalVoteType>(*vote);
 }
 
-void CPropsView::ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status) {
+void CProposalView::ForEachProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback, uint8_t status) {
     ForEach<ByStatus, std::pair<uint8_t, uint256>, uint8_t>(
         [&](const std::pair<uint8_t, uint256> &key, uint8_t i) {
-            auto prop = GetProp(key.second);
+            auto prop = GetProposal(key.second);
             assert(prop);
             return callback(key.second, *prop);
         },
         std::make_pair(status, uint256{}));
 }
 
-void CPropsView::ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,
+void CProposalView::ForEachProposalVote(std::function<bool(const CProposalId &, uint8_t, const uint256 &, CProposalVoteType)> callback,
                                  const CMnVotePerCycle &start) {
     ForEach<ByMnVote, CMnVotePerCycle, uint8_t>(
         [&](const CMnVotePerCycle &key, uint8_t vote) {
-            return callback(key.propId, key.cycle, key.masternodeId, static_cast<CPropVoteType>(vote));
+            return callback(key.propId, key.cycle, key.masternodeId, static_cast<CProposalVoteType>(vote));
         },
         start);
 }
 
-void CPropsView::ForEachCycleProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint32_t height) {
+void CProposalView::ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback, uint32_t height) {
     ForEach<ByCycle, std::pair<uint32_t, uint256>, uint8_t>(
         [&](const std::pair<uint32_t, uint256> &key, uint8_t i) {
             // limited to exact height
             if (key.first != height)
                 return false;
 
-            auto prop = GetProp(key.second);
+            auto prop = GetProposal(key.second);
             assert(prop);
             return callback(key.second, *prop);
         },

@@ -40,7 +40,7 @@ protected:
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
     Res CheckMasternodeCreationTx() const;
-    Res CheckProposalTx(const CCreatePropMessage &msg) const;
+    Res CheckProposalTx(const CCreateProposalMessage &msg) const;
     Res CheckTokenCreationTx() const;
     Res CheckCustomTx() const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const;
@@ -440,8 +440,8 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CLoanPaybackLoanMessage,
                                       CLoanPaybackLoanV2Message,
                                       CAuctionBidMessage,
-                                      CCreatePropMessage,
-                                      CPropVoteMessage>;
+                                      CCreateProposalMessage,
+                                      CProposalVoteMessage>;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
