@@ -97,7 +97,7 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(DefaultLoanScheme);
         CustomTxTypeString(DestroyLoanScheme);
         CustomTxTypeString(DepositToVault);
-        CustomTxTypeString(FutureSwap);
+        CustomTxType2Strings(FutureSwap, DFIP2203);
         CustomTxTypeString(FutureSwapExecution);
         CustomTxTypeString(FutureSwapRefund);
         CustomTxTypeString(ICXClaimDFCHTLC);
