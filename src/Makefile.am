@@ -163,7 +163,7 @@ DEFI_CORE_H = \
   masternodes/consensus/masternodes.h \
   masternodes/consensus/oracles.h \
   masternodes/consensus/poolpairs.h \
-  masternodes/consensus/proposals.cpp \
+  masternodes/consensus/proposals.h \
   masternodes/consensus/smartcontracts.h \
   masternodes/consensus/tokens.h \
   masternodes/consensus/txvisitor.h \
