@@ -666,15 +666,14 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     poolPairMsg.commission   = commission;
     poolPairMsg.status       = status;
     poolPairMsg.ownerAddress = ownerAddress;
-    poolPairMsg.pairSymbol = pairSymbol;
+    poolPairMsg.pairSymbol   = pairSymbol;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
         poolPairMsg.rewards = rewards;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg;
+    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair) << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);

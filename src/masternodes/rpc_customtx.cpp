@@ -252,7 +252,7 @@ public:
 
     void operator()(const CGovernanceMessage &obj) const {
         for (const auto &gov : obj.govs) {
-            auto& var = gov.second;
+            auto &var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }

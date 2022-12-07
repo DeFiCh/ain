@@ -346,13 +346,14 @@ struct CGovernanceMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         std::string name;
-        while(!s.empty()) {
+        while (!s.empty()) {
             s >> name;
-            auto& gov = govs[name];
-            auto var = GovVariable::Create(name);
-            if (!var) break;
+            auto &gov = govs[name];
+            auto var  = GovVariable::Create(name);
+            if (!var)
+                break;
             s >> *var;
             gov = std::move(var);
         }
@@ -366,7 +367,7 @@ struct CGovernanceHeightMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         if (!s.empty()) {
             s >> govName;
             if ((govVar = GovVariable::Create(govName))) {

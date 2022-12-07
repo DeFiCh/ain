@@ -48,17 +48,20 @@ std::string CProposalVoteToString(const CProposalVoteType vote) {
     return "Unknown";
 }
 
-Res CProposalView::CreateProposal(const CProposalId &propId, uint32_t height, const CCreateProposalMessage &msg, const CAmount fee) {
+Res CProposalView::CreateProposal(const CProposalId &propId,
+                                  uint32_t height,
+                                  const CCreateProposalMessage &msg,
+                                  const CAmount fee) {
     CProposalObject prop{msg};
     bool emergency = prop.options & CProposalOption::Emergency;
     auto type      = static_cast<CProposalType>(prop.type);
 
-    prop.creationHeight     = height;
-    prop.votingPeriod       = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
-    prop.approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop.quorum             = GetQuorumFromAttributes(type, emergency);
-    prop.fee                = fee;
-    prop.feeBurnAmount      = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
+    prop.creationHeight    = height;
+    prop.votingPeriod      = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
+    prop.approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop.quorum            = GetQuorumFromAttributes(type, emergency);
+    prop.fee               = fee;
+    prop.feeBurnAmount     = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
     auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
@@ -120,8 +123,8 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
     bool emergency = prop->options & CProposalOption::Emergency;
     auto type      = static_cast<CProposalType>(prop->type);
 
-    prop->approvalThreshold  = GetApprovalThresholdFromAttributes(type);
-    prop->quorum             = GetQuorumFromAttributes(type, emergency);
+    prop->approvalThreshold = GetApprovalThresholdFromAttributes(type);
+    prop->quorum            = GetQuorumFromAttributes(type, emergency);
     WriteBy<ByType>(propId, *prop);
 
     return Res::Ok();
@@ -172,8 +175,8 @@ Res CProposalView::AddProposalVote(const CProposalId &propId, const uint256 &mas
 }
 
 std::optional<CProposalVoteType> CProposalView::GetProposalVote(const CProposalId &propId,
-                                                     uint8_t cycle,
-                                                     const uint256 &masternodeId) {
+                                                                uint8_t cycle,
+                                                                const uint256 &masternodeId) {
     CMnVotePerCycle key{propId, cycle, masternodeId};
     auto vote = ReadBy<ByMnVote, uint8_t>(key);
     if (!vote)
@@ -181,7 +184,8 @@ std::optional<CProposalVoteType> CProposalView::GetProposalVote(const CProposalI
     return static_cast<CProposalVoteType>(*vote);
 }
 
-void CProposalView::ForEachProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback, uint8_t status) {
+void CProposalView::ForEachProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
+                                    uint8_t status) {
     ForEach<ByStatus, std::pair<uint8_t, uint256>, uint8_t>(
         [&](const std::pair<uint8_t, uint256> &key, uint8_t i) {
             auto prop = GetProposal(key.second);
@@ -191,8 +195,9 @@ void CProposalView::ForEachProposal(std::function<bool(const CProposalId &, cons
         std::make_pair(status, uint256{}));
 }
 
-void CProposalView::ForEachProposalVote(std::function<bool(const CProposalId &, uint8_t, const uint256 &, CProposalVoteType)> callback,
-                                 const CMnVotePerCycle &start) {
+void CProposalView::ForEachProposalVote(
+    std::function<bool(const CProposalId &, uint8_t, const uint256 &, CProposalVoteType)> callback,
+    const CMnVotePerCycle &start) {
     ForEach<ByMnVote, CMnVotePerCycle, uint8_t>(
         [&](const CMnVotePerCycle &key, uint8_t vote) {
             return callback(key.propId, key.cycle, key.masternodeId, static_cast<CProposalVoteType>(vote));
@@ -200,7 +205,8 @@ void CProposalView::ForEachProposalVote(std::function<bool(const CProposalId &, 
         start);
 }
 
-void CProposalView::ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback, uint32_t height) {
+void CProposalView::ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
+                                         uint32_t height) {
     ForEach<ByCycle, std::pair<uint32_t, uint256>, uint8_t>(
         [&](const std::pair<uint32_t, uint256> &key, uint8_t i) {
             // limited to exact height

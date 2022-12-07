@@ -104,7 +104,7 @@ struct CCreatePoolPairMessage : public CPoolPairMessageBase {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(pairSymbol);
         if (!s.empty())
@@ -121,7 +121,7 @@ struct CUpdatePoolPairMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(poolId.v);
         READWRITE(status);
         READWRITE(commission);

@@ -304,15 +304,15 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
 
 extern std::string ScriptToString(const CScript &script);
 
-template <typename ...T>
+template <typename... T>
 constexpr bool FalseType = false;
 
-template<typename T>
+template <typename T>
 constexpr bool IsOneOf() {
     return false;
 }
 
-template<typename T, typename T1, typename ...Args>
+template <typename T, typename T1, typename... Args>
 constexpr bool IsOneOf() {
     return std::is_same_v<T, T1> || IsOneOf<T, Args...>();
 }
@@ -324,16 +324,16 @@ class CCustomMetadataParseVisitor {
 
     Res IsHardforkEnabled(int startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
-                { consensus.AMKHeight,                    "called before AMK height" },
-                { consensus.BayfrontHeight,               "called before Bayfront height" },
-                { consensus.BayfrontGardensHeight,        "called before Bayfront Gardens height" },
-                { consensus.EunosHeight,                  "called before Eunos height" },
-                { consensus.EunosPayaHeight,              "called before EunosPaya height" },
-                { consensus.FortCanningHeight,            "called before FortCanning height" },
-                { consensus.FortCanningHillHeight,        "called before FortCanningHill height" },
-                { consensus.FortCanningRoadHeight,        "called before FortCanningRoad height" },
-                { consensus.FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
-                { consensus.GrandCentralHeight,           "called before GrandCentral height" },
+            {consensus.AMKHeight,                 "called before AMK height"                },
+            {consensus.BayfrontHeight,            "called before Bayfront height"           },
+            {consensus.BayfrontGardensHeight,     "called before Bayfront Gardens height"   },
+            {consensus.EunosHeight,               "called before Eunos height"              },
+            {consensus.EunosPayaHeight,           "called before EunosPaya height"          },
+            {consensus.FortCanningHeight,         "called before FortCanning height"        },
+            {consensus.FortCanningHillHeight,     "called before FortCanningHill height"    },
+            {consensus.FortCanningRoadHeight,     "called before FortCanningRoad height"    },
+            {consensus.FortCanningEpilogueHeight, "called before FortCanningEpilogue height"},
+            {consensus.GrandCentralHeight,        "called before GrandCentral height"       },
         };
         if (startHeight && int(height) < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -352,85 +352,78 @@ public:
           consensus(consensus),
           metadata(metadata) {}
 
-    template<typename T>
+    template <typename T>
     Res EnabledAfter() const {
         if constexpr (IsOneOf<T,
-                CCreateTokenMessage,
-                CUpdateTokenPreAMKMessage,
-                CUtxosToAccountMessage,
-                CAccountToUtxosMessage,
-                CAccountToAccountMessage,
-                CMintTokensMessage>())
+                              CCreateTokenMessage,
+                              CUpdateTokenPreAMKMessage,
+                              CUtxosToAccountMessage,
+                              CAccountToUtxosMessage,
+                              CAccountToAccountMessage,
+                              CMintTokensMessage>())
             return IsHardforkEnabled(consensus.AMKHeight);
         else if constexpr (IsOneOf<T,
-                CUpdateTokenMessage,
-                CPoolSwapMessage,
-                CLiquidityMessage,
-                CRemoveLiquidityMessage,
-                CCreatePoolPairMessage,
-                CUpdatePoolPairMessage,
-                CGovernanceMessage>())
+                                   CUpdateTokenMessage,
+                                   CPoolSwapMessage,
+                                   CLiquidityMessage,
+                                   CRemoveLiquidityMessage,
+                                   CCreatePoolPairMessage,
+                                   CUpdatePoolPairMessage,
+                                   CGovernanceMessage>())
             return IsHardforkEnabled(consensus.BayfrontHeight);
         else if constexpr (IsOneOf<T,
-                CAppointOracleMessage,
-                CRemoveOracleAppointMessage,
-                CUpdateOracleAppointMessage,
-                CSetOracleDataMessage,
-                CICXCreateOrderMessage,
-                CICXMakeOfferMessage,
-                CICXSubmitDFCHTLCMessage,
-                CICXSubmitEXTHTLCMessage,
-                CICXClaimDFCHTLCMessage,
-                CICXCloseOrderMessage,
-                CICXCloseOfferMessage>())
+                                   CAppointOracleMessage,
+                                   CRemoveOracleAppointMessage,
+                                   CUpdateOracleAppointMessage,
+                                   CSetOracleDataMessage,
+                                   CICXCreateOrderMessage,
+                                   CICXMakeOfferMessage,
+                                   CICXSubmitDFCHTLCMessage,
+                                   CICXSubmitEXTHTLCMessage,
+                                   CICXClaimDFCHTLCMessage,
+                                   CICXCloseOrderMessage,
+                                   CICXCloseOfferMessage>())
             return IsHardforkEnabled(consensus.EunosHeight);
         else if constexpr (IsOneOf<T,
-                CPoolSwapMessageV2,
-                CLoanSetCollateralTokenMessage,
-                CLoanSetLoanTokenMessage,
-                CLoanUpdateLoanTokenMessage,
-                CLoanSchemeMessage,
-                CDefaultLoanSchemeMessage,
-                CDestroyLoanSchemeMessage,
-                CVaultMessage,
-                CCloseVaultMessage,
-                CUpdateVaultMessage,
-                CDepositToVaultMessage,
-                CWithdrawFromVaultMessage,
-                CLoanTakeLoanMessage,
-                CLoanPaybackLoanMessage,
-                CAuctionBidMessage,
-                CGovernanceHeightMessage>())
+                                   CPoolSwapMessageV2,
+                                   CLoanSetCollateralTokenMessage,
+                                   CLoanSetLoanTokenMessage,
+                                   CLoanUpdateLoanTokenMessage,
+                                   CLoanSchemeMessage,
+                                   CDefaultLoanSchemeMessage,
+                                   CDestroyLoanSchemeMessage,
+                                   CVaultMessage,
+                                   CCloseVaultMessage,
+                                   CUpdateVaultMessage,
+                                   CDepositToVaultMessage,
+                                   CWithdrawFromVaultMessage,
+                                   CLoanTakeLoanMessage,
+                                   CLoanPaybackLoanMessage,
+                                   CAuctionBidMessage,
+                                   CGovernanceHeightMessage>())
             return IsHardforkEnabled(consensus.FortCanningHeight);
-        else if constexpr (IsOneOf<T,
-                CAnyAccountsToAccountsMessage>())
+        else if constexpr (IsOneOf<T, CAnyAccountsToAccountsMessage>())
             return IsHardforkEnabled(consensus.BayfrontGardensHeight);
-        else if constexpr (IsOneOf<T,
-                CSmartContractMessage>())
+        else if constexpr (IsOneOf<T, CSmartContractMessage>())
             return IsHardforkEnabled(consensus.FortCanningHillHeight);
-        else if constexpr (IsOneOf<T,
-                CLoanPaybackLoanV2Message,
-                CFutureSwapMessage>())
+        else if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message, CFutureSwapMessage>())
             return IsHardforkEnabled(consensus.FortCanningRoadHeight);
-        else if constexpr (IsOneOf<T,
-                CPaybackWithCollateralMessage>())
+        else if constexpr (IsOneOf<T, CPaybackWithCollateralMessage>())
             return IsHardforkEnabled(consensus.FortCanningEpilogueHeight);
         else if constexpr (IsOneOf<T,
-                CUpdateMasterNodeMessage,
-                CBurnTokensMessage,
-                CCreateProposalMessage,
-                CProposalVoteMessage,
-                CGovernanceUnsetMessage>())
+                                   CUpdateMasterNodeMessage,
+                                   CBurnTokensMessage,
+                                   CCreateProposalMessage,
+                                   CProposalVoteMessage,
+                                   CGovernanceUnsetMessage>())
             return IsHardforkEnabled(consensus.GrandCentralHeight);
-        else if constexpr (IsOneOf<T,
-                CCreateMasterNodeMessage,
-                CResignMasterNodeMessage>())
+        else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>())
             return Res::Ok();
         else
             static_assert(FalseType<T>, "Unhandled type");
     }
 
-    template<typename T>
+    template <typename T>
     Res DisabledAfter() const {
         if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
             return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
@@ -438,8 +431,8 @@ public:
         return Res::Ok();
     }
 
-    template<typename T>
-    Res operator()(T& obj) const {
+    template <typename T>
+    Res operator()(T &obj) const {
         auto res = EnabledAfter<T>();
         if (!res)
             return res;
@@ -1323,11 +1316,11 @@ public:
 
         /// @todo ownerAddress validity checked only in rpc. is it enough?
         CPoolPair poolPair{};
-        static_cast<CPoolPairMessageBase&>(poolPair) = obj;
-        auto pairSymbol         = obj.pairSymbol;
-        poolPair.creationTx     = tx.GetHash();
-        poolPair.creationHeight = height;
-        auto &rewards           = poolPair.rewards;
+        static_cast<CPoolPairMessageBase &>(poolPair) = obj;
+        auto pairSymbol                               = obj.pairSymbol;
+        poolPair.creationTx                           = tx.GetHash();
+        poolPair.creationHeight                       = height;
+        auto &rewards                                 = poolPair.rewards;
 
         auto tokenA = mnview.GetToken(poolPair.idTokenA);
         Require(tokenA, "token %s does not exist!", poolPair.idTokenA.ToString());
