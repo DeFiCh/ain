@@ -7,11 +7,6 @@
 #include <masternodes/accounts.h>
 #include <masternodes/customtx.h>
 
-const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
-const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
-const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
-const std::vector<unsigned char> DfTokenSplitMarker = {'D', 'f', 'T', 'S'};
-
 CustomTxType CustomTxCodeToType(uint8_t ch) {
     auto type = static_cast<CustomTxType>(ch);
     switch (type) {

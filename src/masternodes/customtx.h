@@ -94,11 +94,6 @@ enum class CustomTxType : uint8_t {
     UnsetGovVariable          = 'Z',
 };
 
-extern const std::vector<unsigned char> DfTxMarker;
-extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
-extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
-extern const std::vector<unsigned char> DfTokenSplitMarker;
-
 CustomTxType GuessCustomTxType(const CTransaction &tx, std::vector<unsigned char> &metadata, bool metadataValidation = false);
 TAmounts GetNonMintedValuesOut(const CTransaction &tx);
 CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID);

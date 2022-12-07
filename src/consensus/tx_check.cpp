@@ -8,6 +8,11 @@
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
 
+const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};
+const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
+const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
+const std::vector<unsigned char> DfTokenSplitMarker = {'D', 'f', 'T', 'S'};
+
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
     /// @note we don't check minted token's outputs nor auth here!
