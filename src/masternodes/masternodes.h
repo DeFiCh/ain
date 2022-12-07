@@ -43,7 +43,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetPropsCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
+CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
 
 enum class UpdateMasternodeType : uint8_t {
     None             = 0x00,

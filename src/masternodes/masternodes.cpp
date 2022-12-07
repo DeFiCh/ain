@@ -70,7 +70,7 @@ CAmount GetTokenCreationFee(int) {
     return Params().GetConsensus().token.creationFee;
 }
 
-CAmount GetPropsCreationFee(int, const CCustomCSView &view, const CCreateProposalMessage &msg) {
+CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProposalMessage &msg) {
     auto type       = static_cast<CProposalType>(msg.type);
     auto options    = static_cast<CProposalOption>(msg.options);
     auto attributes = view.GetAttributes();

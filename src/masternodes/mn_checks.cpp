@@ -533,7 +533,7 @@ Res CCustomTxVisitor::CheckCustomTx() const {
 }
 
 Res CCustomTxVisitor::CheckProposalTx(const CCreateProposalMessage &msg) const {
-    if (tx.vout[0].nValue != GetPropsCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0})
+    if (tx.vout[0].nValue != GetProposalCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0})
         return Res::Err("malformed tx vouts (wrong creation fee)");
 
     return Res::Ok();
