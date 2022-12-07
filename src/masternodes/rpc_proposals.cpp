@@ -486,12 +486,16 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
         "listgovproposalvotes",
         "\nReturns information about proposal votes.\n",
         {
-          {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
-          {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
-          {"cycle",
-             RPCArg::Type::NUM,
-             RPCArg::Optional::OMITTED,
-             "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"},
+          {"options",
+             RPCArg::Type::OBJ,
+             RPCArg::Optional::NO,
+             "",
+             {{"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
+              {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
+              {"cycle",
+               RPCArg::Type::NUM,
+               RPCArg::Optional::OMITTED,
+               "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"}}},
           {
                 "pagination",
                 RPCArg::Type::OBJ,
@@ -518,47 +522,52 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
     }
         .Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VOBJ}, true);
 
-    auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-
-    uint256 mnId;
-    bool isMine = true;
-    if (request.params.size() > 1) {
-        auto str = request.params[1].get_str();
-        if (str == "all") {
-            isMine = false;
-        } else if (str != "mine") {
-            isMine = false;
-            mnId = ParseHashV(str, "masternode");
-        }
-    }
     CCustomCSView view(*pcustomcsview);
 
+    uint256 mnId;
+    uint256 propId;
+    bool isMine = true;
     uint8_t cycle{1};
     int8_t inputCycle{0};
-    if (request.params.size() > 2) {
-        inputCycle = request.params[2].get_int();
-    }
-    if (inputCycle==0){
-        auto prop = view.GetProp(propId);
-        if (!prop){
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
+    if (request.params.size() > 0) {
+        auto optionsObj = request.params[0].get_obj();
+        propId          = ParseHashV(optionsObj["proposalId"].get_str(), "proposalId");
+
+        if (!optionsObj["masternode"].isNull()) {
+            if (optionsObj["masternode"].get_str() == "all") {
+                isMine = false;
+            } else if (optionsObj["masternode"].get_str() != "mine") {
+                isMine = false;
+                mnId   = ParseHashV(optionsObj["masternode"].get_str(), "masternode");
+            }
         }
-        cycle = prop->cycle;
-    } else if (inputCycle > 0){
-        cycle = inputCycle;
-    } else if (inputCycle == -1){
-        cycle = 1;
-    } else {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+
+        if (!optionsObj["cycle"].isNull()) {
+            inputCycle = optionsObj["cycle"].get_int();
+            if (inputCycle == 0) {
+                auto prop = view.GetProp(propId);
+                if (!prop) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                       strprintf("Proposal <%s> does not exist", propId.GetHex()));
+                }
+                cycle = prop->cycle;
+            } else if (inputCycle > 0) {
+                cycle = inputCycle;
+            } else if (inputCycle == -1) {
+                cycle = 1;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Incorrect cycle value");
+            }
+        }
     }
 
     size_t limit         = 100;
     size_t start         = 0;
     bool including_start = true;
-    if (request.params.size() > 3) {
-        UniValue paginationObj = request.params[3].get_obj();
+    if (request.params.size() > 1) {
+        UniValue paginationObj = request.params[1].get_obj();
         if (!paginationObj["limit"].isNull()) {
             limit = (size_t)paginationObj["limit"].get_int64();
         }

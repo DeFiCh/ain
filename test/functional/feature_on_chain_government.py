@@ -170,23 +170,23 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result[0]["fee"], Decimal("10"))
 
         # Check individual MN votes
-        results = self.nodes[1].listgovproposalvotes(tx, mn0)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn0})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = self.nodes[1].listgovproposalvotes(tx, mn1)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn1})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = self.nodes[1].listgovproposalvotes(tx, mn2)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn2})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
         # Check total votes
-        result = self.nodes[1].listgovproposalvotes(tx, "all")
+        result = self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all"})
         assert_equal(len(result), 3)
 
         # Move to just before cycle payout
@@ -378,23 +378,23 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["fee"], Decimal("12.5"))
 
         # Check individual MN votes
-        results = self.nodes[1].listgovproposalvotes(propId, mn0)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": propId,  "masternode": mn0})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
-        results = self.nodes[1].listgovproposalvotes(propId, mn1)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": propId,  "masternode": mn1})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'NO')
 
-        results = self.nodes[1].listgovproposalvotes(propId, mn2)
+        results = self.nodes[1].listgovproposalvotes({"proposalId": propId,  "masternode": mn2})
         assert_equal(len(results), 1)
         result = results[0]
         assert_equal(result['vote'], 'YES')
 
         # Check total votes
-        result = self.nodes[1].listgovproposalvotes(propId, "all")
+        result = self.nodes[1].listgovproposalvotes({"proposalId": propId,  "masternode": "all"})
         assert_equal(len(result), 3)
 
         # Move to just before cycle payout
@@ -422,19 +422,19 @@ class OnChainGovernanceTest(DefiTestFramework):
         self.nodes[0].votegov(propId, mn0, "no")
         self.nodes[0].generate(1)
 
-        listvotes = self.nodes[0].listgovproposalvotes(propId)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId})
         assert_equal(len(listvotes), 1)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, 'all', 0)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": "all", "cycle": 0})
         assert_equal(len(listvotes), 1)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, 'all', -1)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": "all", "cycle": -1})
         assert_equal(len(listvotes), 4)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, 'all', 1)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": "all", "cycle": 1})
         assert_equal(len(listvotes), 3)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, mn0, -1)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": mn0, "cycle": -1})
         assert_equal(len(listvotes), 2)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, mn0, 2)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": mn0, "cycle": 2})
         assert_equal(len(listvotes), 1)
-        listvotes = self.nodes[0].listgovproposalvotes(propId, 'all', 2)
+        listvotes = self.nodes[0].listgovproposalvotes({"proposalId": propId,  "masternode": "all", "cycle": 2})
         assert_equal(len(listvotes), 1)
 
 
@@ -567,27 +567,27 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
 
         # Test pagination, total number of votes is 3
-        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0})), 2)
-        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True})), 3)
+        assert_equal(len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 0})), 2)
+        assert_equal(len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 0, "including_start": True})), 3)
         assert_equal(
-            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 2})),
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 0, "including_start": True, "limit": 2})),
             2)
         assert_equal(
-            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 1})),
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 0, "including_start": True, "limit": 1})),
             1)
 
         # should be empty if start > number of entries
         assert_equal(
-            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 10, "including_start": True, "limit": 1})),
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 10, "including_start": True, "limit": 1})),
             0)
 
         # should return all entries if limit is 0
         assert_equal(
-            len(self.nodes[1].listgovproposalvotes(tx, "all", -1, {"start": 0, "including_start": True, "limit": 0})),
+            len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": "all", "cycle": -1}, {"start": 0, "including_start": True, "limit": 0})),
             3)
 
         # should respect filters
-        assert_equal(len(self.nodes[1].listgovproposalvotes(tx, mn1, -1, {"start": 0})), 0)
+        assert_equal(len(self.nodes[1].listgovproposalvotes({"proposalId": tx,  "masternode": mn1, "cycle": -1}, {"start": 0})), 0)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
