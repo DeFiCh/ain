@@ -1075,6 +1075,7 @@ void CMainParams::UpdateActivationParametersFromArgs() {
         consensus.pos.nTargetSpacing = nMockBlockTimeSecs;
         consensus.pos.nTargetTimespanV2 = 10 * consensus.pos.nTargetSpacing;
         consensus.pos.allowMintingWithoutPeers = true;
+        consensus.pos.fNoRetargeting = true;
 
         LogPrintf("mocknet: block-time: %s secs\n", consensus.pos.nTargetSpacing);
 
