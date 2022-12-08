@@ -132,8 +132,10 @@ class OnChainGovernanceTest(DefiTestFramework):
         # Vote on proposal
         self.nodes[0].votegov(tx, mn0, "yes")
         self.nodes[0].generate(1)
+        self.sync_blocks()
         self.nodes[1].votegov(tx, mn1, "no")
         self.nodes[1].generate(1)
+        self.sync_blocks()
         self.nodes[2].votegov(tx, mn2, "yes")
         self.nodes[2].generate(1)
         self.sync_blocks()
