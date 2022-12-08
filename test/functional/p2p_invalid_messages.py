@@ -67,8 +67,8 @@ class InvalidMessagesTest(DefiTestFramework):
 
         self.log.info("Sending a bunch of large, junk messages to test memory exhaustion. May take a bit...")
 
-        # Run a bunch of times to test for memory exhaustion. DeFi reduced to 40, was 80 before.
-        for _ in range(40):
+        # Run a bunch of times to test for memory exhaustion.
+        for _ in range(80):
             node.p2p.send_message(msg_at_size)
 
         # Check that, even though the node is being hammered by nonsense from one
