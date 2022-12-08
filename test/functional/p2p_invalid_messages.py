@@ -142,7 +142,7 @@ class InvalidMessagesTest(DefiTestFramework):
         # Node is still up.
         conn = node.add_p2p_connection(P2PDataStore())
         conn.sync_with_ping()
-        assert(False)
+
     def test_magic_bytes(self):
         conn = self.nodes[0].add_p2p_connection(P2PDataStore())
 
