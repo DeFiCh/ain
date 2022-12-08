@@ -5,8 +5,9 @@
 #ifndef DEFI_MASTERNODES_TOKENS_H
 #define DEFI_MASTERNODES_TOKENS_H
 
-#include <amount.h>
 #include <flushablestorage.h>
+
+#include <amount.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 #include <serialize.h>
@@ -74,8 +75,8 @@ public:
     CAmount minted;
     uint256 creationTx;
     uint256 destructionTx;
-    int32_t creationHeight;  // @todo use unsigned integers, because serialization
-                             // of signed integers isn't fulled defined
+    int32_t
+        creationHeight;  // @todo use unsigned integers, because serialization of signed integers isn't fulled defined
     int32_t destructionHeight;
 
     CTokenImplementation()

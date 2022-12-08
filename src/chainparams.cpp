@@ -1155,7 +1155,9 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
+    if (!file.good()) {
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
+    }
 
     ClearCheckpoints(params);
 
@@ -1167,13 +1169,19 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", trimmed);
+        }
 
         uint256 hash;
-        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
 
         int32_t height;
-        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
+        if (!ParseInt32(heightStr, &height)) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }
