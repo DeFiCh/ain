@@ -1010,6 +1010,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                      RPCArg::Type::NUM,
                      RPCArg::Optional::OMITTED,
                      "Maximum number of records to return, 100 by default"},
+                    {"start",
+                    RPCArg::Type::NUM,
+                    RPCArg::Optional::OMITTED,
+                    "Number of entries to skip"},
+                    {"including_start",
+                    RPCArg::Type::BOOL,
+                    RPCArg::Optional::OMITTED,
+                    "If true, then iterate including starting position. False by default"},
                     {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Order in block, unlimited by default"},
                     {"format",
                      RPCArg::Type::STR,
@@ -1042,6 +1050,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     uint32_t limit = 100;
     std::set<CustomTxType> txTypes{};
     bool hasTxFilter = false;
+    uint32_t start{0};
+    bool includingStart = true;
     uint32_t txn = std::numeric_limits<uint32_t>::max();
     AmountFormat format = AmountFormat::Symbol;
 
@@ -1056,6 +1066,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"txtype", UniValueType(UniValue::VSTR)},
                 {"txtypes", UniValueType(UniValue::VARR)},
                 {"limit", UniValueType(UniValue::VNUM)},
+                {"start", UniValueType(UniValue::VNUM)},
+                {"including_start", UniValueType(UniValue::VBOOL)},
                 {"txn", UniValueType(UniValue::VNUM)},
                 {"format", UniValueType(UniValue::VSTR)}
             }, true, true);
@@ -1101,6 +1113,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!optionsObj["limit"].isNull()) {
             limit = (uint32_t) optionsObj["limit"].get_int64();
         }
+        if (!optionsObj["start"].isNull()) {
+            start = (uint32_t) optionsObj["start"].get_int64();
+            includingStart = false;
+        }
+        if (!optionsObj["including_start"].isNull()) {
+            includingStart = (uint32_t) optionsObj["including_start"].get_bool();
+        }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
@@ -1121,6 +1140,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_REQUEST, "format must be one of the following: \"id\", \"symbol\"");
             }
         }
+
+        if (!includingStart)
+            start++;
     }
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
@@ -1220,6 +1242,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
+            if (start != 0) {
+                --start;
+                return true;
+            }
+
             auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
             array.push_back(accounthistoryToJSON(key, value, format));
             if (shouldSearchInWallet) {
@@ -1232,6 +1259,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
+                        if (start != 0) {
+                            --start;
+                            return;
+                        }
+
                         auto& array = ret.emplace(height, UniValue::VARR).first->second;
                         array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
                         count ? --count : 0;
@@ -1272,6 +1304,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 uint32_t height = index->nHeight;
                 uint32_t nIndex = pwtx->nIndex;
                 if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn ) {
+                    return true;
+                }
+                if (start != 0) {
+                    --start;
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
