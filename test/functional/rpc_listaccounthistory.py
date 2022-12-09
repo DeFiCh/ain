@@ -17,9 +17,9 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-grandcentralheight=51'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-grandcentralheight=51'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-grandcentralheight=51'],
         ]
 
     def run_test(self):
@@ -116,10 +116,37 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         assert_equal(self.nodes[0].listaccounthistory('all', {"txtype": "MintToken"}), self.nodes[0].listaccounthistory('all', {"txtype": "M"}))
 
+        # test multiple transaction type filter
+        self.nodes[0].burntokens({
+            'amounts': "1@" + token_a,
+            'from': collateral_a,
+        })
+        self.nodes[0].generate(1)
+
+        self.nodes[0].burntokens({
+            'amounts': "1@" + token_a,
+            'from': collateral_a,
+        })
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].listaccounthistory(collateral_a, {"txtypes": ["MintToken", "BurnToken"]}),
+                     self.nodes[0].listaccounthistory(collateral_a, {"txtype": "BurnToken"}) +
+                     self.nodes[0].listaccounthistory(collateral_a, {"txtype": "MintToken"}))
+
+        # test pagination
+        res0 = self.nodes[0].listaccounthistory(collateral_a, {"start": 0, "including_start": True})
+        res1 = self.nodes[0].listaccounthistory(collateral_a, {"start": 1, "including_start": True})
+        res2 = self.nodes[0].listaccounthistory(collateral_a, {"start": 1, "including_start": False})
+        res3 = self.nodes[0].listaccounthistory(collateral_a, {"start": 2, "including_start": False})
+
+        assert_equal(len(res0) + 1, len(res1))
+        assert_equal(len(res0) + 2, len(res2))
+        assert_equal(len(res0) + 3, len(res3))
+
         # REVERTING:
         #========================
         self.start_node(2)
-        self.nodes[2].generate(2)
+        self.nodes[2].generate(4)
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
