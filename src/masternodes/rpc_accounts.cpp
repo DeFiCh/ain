@@ -963,41 +963,66 @@ public:
 UniValue listaccounthistory(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"listaccounthistory",
-               "\nReturns information about account history.\n",
-               {
-                        {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
-                        {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                            {
-                                 {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Optional height to iterate from (downto genesis block), (default = chaintip)."},
-                                 {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum depth, from the genesis block is the default"},
-                                 {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                  "Filter out rewards"},
-                                 {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Filter by token"},
-                                 {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Filter by transaction type, supported letter from {CustomTxType}"},
-                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum number of records to return, 100 by default"},
-                                 {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Order in block, unlimited by default"},
-                                 {"format", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
+    RPCHelpMan{
+        "listaccounthistory",
+        "\nReturns information about account history.\n",
+        {
+          {"owner",
+             RPCArg::Type::STR,
+             RPCArg::Optional::OMITTED,
+             "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned "
+             "accounts or \"all\" to list whole DB (default = \"mine\")."},
+          {
+                "options",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"maxBlockHeight",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Optional height to iterate from (downto genesis block), (default = chaintip)."},
+                    {"depth",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum depth, from the genesis block is the default"},
+                    {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
+                    {
+                        "txtype",
+                        RPCArg::Type::STR,
+                        RPCArg::Optional::OMITTED,
+                        "Filter by transaction type, supported letter from {CustomTxType}",
+                    },
+                    {"txtypes",
+                     RPCArg::Type::ARR,
+                     RPCArg::Optional::OMITTED,
+                     "Filter multiple transaction types, supported letter from {CustomTxType}",
+                     {
+                         {
+                             "Transaction Type",
+                             RPCArg::Type::STR,
+                             RPCArg::Optional::OMITTED,
+                             "letter from {CustomTxType}",
+                         },
+                     }},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of records to return, 100 by default"},
+                    {"txn", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Order in block, unlimited by default"},
+                    {"format",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "Return amounts with the following: 'id' -> <amount>@id; (default)'symbol' -> <amount>@symbol"},
 
-                            },
-                        },
-               },
-               RPCResult{
-                       "[{},{}...]     (array) Objects with account history information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listaccounthistory", "address false")
-               },
-    }.Check(request);
+                },
+            }, },
+        RPCResult{"[{},{}...]     (array) Objects with account history information\n"},
+        RPCExamples{HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'") +
+                    HelpExampleRpc("listaccounthistory", "address false")},
+    }
+        .Check(request);
 
     std::string accounts = "mine";
     if (request.params.size() > 0) {
@@ -1015,7 +1040,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     bool noRewards = false;
     std::string tokenFilter;
     uint32_t limit = 100;
-    auto txType = CustomTxType::None;
+    std::set<CustomTxType> txTypes{};
+    bool hasTxFilter = false;
     uint32_t txn = std::numeric_limits<uint32_t>::max();
     AmountFormat format = AmountFormat::Symbol;
 
@@ -1028,6 +1054,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
+                {"txtypes", UniValueType(UniValue::VARR)},
                 {"limit", UniValueType(UniValue::VNUM)},
                 {"txn", UniValueType(UniValue::VNUM)},
                 {"format", UniValueType(UniValue::VSTR)}
@@ -1049,11 +1076,26 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (!optionsObj["txtype"].isNull()) {
+            hasTxFilter = true;
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
-                txType = CustomTxCodeToType(str[0]);
+                txTypes.insert(CustomTxCodeToType(str[0]));
             } else {
-                txType = FromString(str);
+                txTypes.insert(FromString(str));
+            }
+        }
+        if (!optionsObj["txtypes"].isNull()) {
+            hasTxFilter = true;
+            const auto types = optionsObj["txtypes"].get_array().getValues();
+            if (!types.empty()) {
+                for (const auto& type: types) {
+                    auto str = type.get_str();
+                    if (str.size() == 1) {
+                        txTypes.insert(CustomTxCodeToType(str[0]));
+                    } else {
+                        txTypes.insert(FromString(str));
+                    }
+                }
             }
         }
         if (!optionsObj["limit"].isNull()) {
@@ -1100,7 +1142,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     std::set<uint256> txs;
-    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -1157,7 +1199,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+        if(hasTxFilter && txTypes.find(CustomTxCodeToType(value.category)) == txTypes.end()) {
             return true;
         }
 
