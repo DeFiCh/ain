@@ -184,6 +184,10 @@ UniValue creategovcfp(const JSONRPCRequest& request)
 
     const UniValue& data = request.params[0].get_obj();
 
+    RPCTypeCheckObj(data,
+        {{"title", UniValue::VSTR}, {"context", UniValue::VSTR}, {"contextHash", UniValue::VSTR}, {"cycles", UniValue::VNUM}, {"amount", UniValueType()}, {"payoutAddress", UniValue::VSTR}},
+        true, true);
+
     if (!data["title"].isNull()) {
         title = data["title"].get_str();
     } else {
@@ -326,6 +330,10 @@ UniValue creategovvoc(const JSONRPCRequest& request)
     bool emergency = false;
 
     const UniValue& data = request.params[0].get_obj();
+
+    RPCTypeCheckObj(data,
+        {{"title", UniValue::VSTR}, {"context", UniValue::VSTR}, {"contextHash", UniValue::VSTR}, {"emergency", UniValue::VBOOL}},
+        true, true);
 
     if (!data["title"].isNull()) {
         title = data["title"].get_str();
