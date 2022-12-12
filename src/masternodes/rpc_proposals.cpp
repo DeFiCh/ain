@@ -642,65 +642,122 @@ UniValue listgovproposals(const JSONRPCRequest& request)
 {
     RPCHelpMan{"listgovproposals",
                "\nReturns information about proposals.\n",
-               {
-                        {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "cfp/voc/all (default = all)"},
-                        {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                    "voting/rejected/completed/all (default = all)"},
-                        {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                    "cycle: 0 (all), cycle: N (show cycle N), cycle: -1 (show previous cycle) (default = 0)"}
-               },
-               RPCResult{
-                       "{id:{...},...}     (array) Json object with proposals information\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listgovproposals", "")
-                       + HelpExampleRpc("listgovproposals", "")
-               },
+                {
+                    {"type", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "cfp/voc/all (default = all)"},
+                    {"status", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "voting/rejected/completed/all (default = all)"},
+                    {"cycle", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "cycle: 0 (all), cycle: N (show cycle N), cycle: -1 (show previous cycle) (default = 0)"}
+                },
+                RPCResult{
+                        "{id:{...},...}     (array) Json object with proposals information\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("listgovproposals", "")
+                        + HelpExampleRpc("listgovproposals", "")
+                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, true);
+    if (request.params[0].isObject())
+        RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
+    else
+        RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, true);
 
-    uint8_t type = 0;
-    if (request.params.size() > 0) {
-        auto str = request.params[0].get_str();
-        if (str == "cfp") {
-            type = uint8_t(CPropType::CommunityFundProposal);
-        } else if (str == "voc") {
-            type = uint8_t(CPropType::VoteOfConfidence);
-        } else if (str != "all") {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/voc/all");
-        }
-    }
-
-    uint8_t status{0};
-    if (request.params.size() > 1) {
-        auto str = request.params[1].get_str();
-        if (str == "voting") {
-            status = uint8_t(CPropStatusType::Voting);
-        } else if (str == "rejected") {
-            status = uint8_t(CPropStatusType::Rejected);
-        } else if (str == "completed") {
-            status = uint8_t(CPropStatusType::Completed);
-        } else if (str != "all") {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "status supports voting/rejected/completed/all");
-        }
-    }
-
+    uint8_t type{0}, status{0};
     int cycle{0};
-    if (request.params.size() > 2) {
-        cycle = request.params[2].get_int();
-        if (cycle < -1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                    "Incorrect cycle value (0 -> all cycles, -1 -> previous cycle, N -> nth cycle");
-        }    
+    size_t limit = 100;
+    CPropId start = {};
+    bool including_start = true;
+
+    if (request.params[0].isObject() > 0) {
+        auto optionsObj = request.params[0].get_obj();
+
+        if (optionsObj.exists("type")) {
+            auto str = optionsObj["type"].get_str();
+            if (str == "cfp") {
+                type = CPropType::CommunityFundProposal;
+            } else if (str == "voc") {
+                type = CPropType::VoteOfConfidence;
+            } else if (str != "all") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/voc/all");
+            }
+        }
+
+        if (optionsObj.exists("status")) {
+            auto str = optionsObj["status"].get_str();
+            if (str == "voting") {
+                status = CPropStatusType::Voting;
+            } else if (str == "rejected") {
+                status = CPropStatusType::Rejected;
+            } else if (str == "completed") {
+                status = CPropStatusType::Completed;
+            } else if (str != "all") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "status supports voting/rejected/completed/all");
+            }
+        }
+
+        if (optionsObj.exists("cycle")) {
+            cycle = optionsObj["cycle"].get_int();
+            if (cycle < -1) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                        "Incorrect cycle value (0 -> all cycles, -1 -> previous cycle, N -> nth cycle");
+            }
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            limit = (size_t) optionsObj["limit"].get_int64();
+        }
+        if (!optionsObj["start"].isNull()) {
+            including_start = false;
+            start = ParseHashV(optionsObj["start"], "start");
+        }
+        if (!optionsObj["including_start"].isNull()) {
+            including_start = optionsObj["including_start"].getBool();
+        }
+    } else {
+        if (request.params.size() > 0) {
+            auto str = request.params[0].get_str();
+            if (str == "cfp") {
+                type = uint8_t(CPropType::CommunityFundProposal);
+            } else if (str == "voc") {
+                type = uint8_t(CPropType::VoteOfConfidence);
+            } else if (str != "all") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "type supports cfp/voc/all");
+            }
+        }
+
+        if (request.params.size() > 1) {
+            auto str = request.params[1].get_str();
+            if (str == "voting") {
+                status = uint8_t(CPropStatusType::Voting);
+            } else if (str == "rejected") {
+                status = uint8_t(CPropStatusType::Rejected);
+            } else if (str == "completed") {
+                status = uint8_t(CPropStatusType::Completed);
+            } else if (str != "all") {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "status supports voting/rejected/completed/all");
+            }
+        }
+
+        if (request.params.size() > 2) {
+            cycle = request.params[2].get_int();
+            if (cycle < -1) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                        "Incorrect cycle value (0 -> all cycles, -1 -> previous cycle, N -> nth cycle");
+            }
+        }
+    }
+
+    if (limit == 0) {
+        limit = std::numeric_limits<decltype(limit)>::max();
     }
 
     UniValue ret{UniValue::VARR};
     CCustomCSView view(*pcustomcsview);
 
     using IdPropPair = std::pair<CPropId, CPropObject>;
-    using CycleEndHeightInt = int; 
+    using CycleEndHeightInt = int;
     using PropBatchesMap = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
 
     PropBatchesMap propBatches;
@@ -718,11 +775,11 @@ UniValue listgovproposals(const JSONRPCRequest& request)
                     batch->second.push_back(propPair);
                 }
                 return true;
-            }, 0);
+            }, static_cast<CPropStatusType>(0), start);
 
         auto batch = propBatches.rbegin();
         if(cycle != -1){
-            if(cycle > propBatches.size()) 
+            if(cycle > propBatches.size())
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find cycle");
             for(unsigned int i=1; i <= (propBatches.size() - cycle); i++){
                 batch++;
@@ -732,29 +789,38 @@ UniValue listgovproposals(const JSONRPCRequest& request)
         }
         // Filter batch
         for (auto const &prop: batch->second){
-            if(status && status != uint8_t(prop.second.status)){
+            if(status && status != prop.second.status){
                 continue;
             }
-            if(type && type != uint8_t(prop.second.type)){
+            if(type && type != prop.second.type){
                 continue;
             }
+            limit--;
             ret.push_back(proposalToJSON(prop.first, prop.second, view, std::nullopt));
+            if (!limit)
+                break;
         }
         return ret;
     }
 
     view.ForEachProp(
         [&](const CPropId &propId, const CPropObject &prop) {
-            if (status && status != uint8_t(prop.status)) {
+            if (!including_start)
+            {
+                including_start = true;
+                return (true);
+            }
+            if (status && status != prop.status) {
                 return false;
             }
-            if (type && type != uint8_t(prop.type)) {
+            if (type && type != prop.type) {
                 return true;
             }
+            limit--;
             ret.push_back(proposalToJSON(propId, prop, view, std::nullopt));
-            return true;
+            return limit != 0;
         },
-        status);
+        static_cast<CPropStatusType>(status), start);
 
     return ret;
 }
