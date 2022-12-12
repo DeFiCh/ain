@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
+import time
 
 class ConsortiumTest (DefiTestFramework):
     def set_test_params(self):
@@ -524,6 +525,56 @@ class ConsortiumTest (DefiTestFramework):
         # Throw error for invalid values
         assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
+
+        # Price feeds
+        price_feed = [
+            {"currency": "USD", "token": "TSLA"},
+        ]
+
+        # Appoint oracle
+        oracle_address = self.nodes[0].getnewaddress("", "legacy")
+        self.oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
+        self.nodes[0].generate(1)
+
+        # Set Oracle prices
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": "1@TSLA"},
+        ]
+        self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
+        self.nodes[0].generate(10)
+
+        # Create loan token
+        self.nodes[0].setloantoken({
+            'symbol': "TSLA",
+            'name': "TSLA",
+            'fixedIntervalPriceId': "TSLA/USD",
+            "isDAT": True,
+            'interest': 0
+        })
+        self.nodes[0].generate(1)
+
+        # Get TSLA ID
+        idTSLA = list(self.nodes[0].gettoken("TSLA").keys())[0]
+
+        # Try and set consortium value for DFI and loan token
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/' + idTSLA + '/mint_limit': '10'}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/' + idTSLA + '/mint_limit_daily': '10'}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/0/mint_limit': '10'}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {
+            "ATTRIBUTES": {'v0/consortium/0/mint_limit_daily': '10'}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/' + idTSLA + '/members' : {"01":{"name":"account2BTC",
+                                                                                                                                                                        "ownerAddress": account2,
+                                                                                                                                                                        "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                                                                                                        "mintLimitDaily":1.00000000,
+                                                                                                                                                                        "mintLimit":1.00000000}}}})
+        assert_raises_rpc_error(-32600, "Cannot set consortium on DFI or loan tokens", self.nodes[0].setgov, {"ATTRIBUTES":{'v0/consortium/0/members' : {"01":{"name":"account2BTC",
+                                                                                                                                                                         "ownerAddress": account2,
+                                                                                                                                                                         "backingId":"ebf634ef7143bc5466995a385b842649b2037ea89d04d469bfa5ec29daf7d1cf",
+                                                                                                                                                                         "mintLimitDaily":1.00000000,
+                                                                                                                                                                         "mintLimit":1.00000000}}}})
 
 if __name__ == '__main__':
     ConsortiumTest().main()
