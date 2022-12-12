@@ -116,11 +116,7 @@ rustup target add aarch64-apple-darwin
 
 ## Installing the protobuf compiler
 ```shell
-PROTOC_ZIP=protoc-3.20.0-osx-x86_64.zip
-curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/$PROTOC_ZIP
-sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
-sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
-rm -f $PROTOC_ZIP
+brew install protobuf@3.20
 
 # ensure installation was successful by running 
 protoc --version
