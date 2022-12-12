@@ -106,9 +106,9 @@ tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 ## Installing the rust toolchain (MacOS M1)
 ```shell
 # default installation
-curl https://sh.rustup.rs -sSf | bash -s -- --default-toolchain stable -y
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
 # custom installation
-curl https://sh.rustup.rs -sSf | bash 
+curl https://sh.rustup.rs -sSf | sh 
 
 PATH=~/.cargo/bin/cargo:$PATH
 rustup target add aarch64-apple-darwin
