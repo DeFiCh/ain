@@ -19,7 +19,7 @@ endef
 
 # Perform target substitutions for Rust
 LIBAIN_TARGET := $(HOST)
-LIBAIN_TARGET := $(shell ./depends/rust_target.sh $(LIBAIN_TARGET) )
+LIBAIN_TARGET := $(shell ../depends/rust_target.sh $(LIBAIN_TARGET) )
 
 define $(package)_build_cmds
 	$(MAKE) build-grpc-pkg TARGET=$(LIBAIN_TARGET)

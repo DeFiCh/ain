@@ -20,7 +20,7 @@ endef
 
 # Perform target substitutions for Rust
 LIBMC_TARGET := $(HOST)
-LIBMC_TARGET := $(shell ./depends/rust_target.sh $(LIBMC_TARGET) )
+LIBMC_TARGET := $(shell ../depends/rust_target.sh $(LIBMC_TARGET) )
 
 define $(package)_build_cmds
 	$(MAKE) build-native-pkg TARGET=$(LIBMC_TARGET)
