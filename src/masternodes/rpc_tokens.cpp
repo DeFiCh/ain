@@ -706,7 +706,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
             to = DecodeScript(request.params[2].get_str());
     }
 
-    CMintTokensMessage mintTokensMessage{minted};
+    CMintTokensMessage mintTokensMessage;
+    mintTokensMessage.balances = minted.balances;
     if (!to.empty())
         mintTokensMessage.to = to;
 

@@ -311,14 +311,14 @@ struct CUpdateTokenMessage {
     }
 };
 
-struct CMintTokensMessage {
-    CBalances mint;
+struct CMintTokensMessage : public CBalances {
+    using CBalances::CBalances;
     CScript to;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(mint);
+        READWRITEAS(CBalances, *this);
         READWRITE(to);
     }
 };

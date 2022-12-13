@@ -118,7 +118,7 @@ public:
     void operator()(const CUpdateTokenMessage &obj) const { tokenInfo(obj.token); }
 
     void operator()(const CMintTokensMessage &obj) const {
-        rpcInfo.pushKVs(tokenBalances(obj.mint));
+        rpcInfo.pushKVs(tokenBalances(obj));
         rpcInfo.pushKV("to", ScriptToString(obj.to));
     }
 

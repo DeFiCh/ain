@@ -1310,7 +1310,7 @@ public:
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
 
         // check auth and increase balance of token's owner
-        for (const auto &[tokenId, amount] : obj.mint.balances) {
+        for (const auto &[tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= fortCanningCrunchHeight &&
                 mnview.GetLoanTokenByID(tokenId)) {
                 return Res::Err("Loan tokens cannot be minted");
