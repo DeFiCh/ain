@@ -70,7 +70,7 @@ class CFPFeeDistributionTest(DefiTestFramework):
         finalHeight = cycle1 + (cycle1 % 70) + 70
 
         # Check total votes
-        result = self.nodes[0].listgovproposalvotes({"proposalId": propId, "masternode": "all"})
+        result = self.nodes[0].listgovproposalvotes(propId, "all")
         assert_equal(len(result), 3)
 
         # Move to final height
