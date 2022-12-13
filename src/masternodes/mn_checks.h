@@ -346,27 +346,40 @@ struct CBurnTokensMessage {
     }
 };
 
-struct CCreatePoolPairMessage {
-    CPoolPairMessage poolPair;
-    std::string pairSymbol;
-    CBalances rewards;
-};
-
-struct CUpdatePoolPairMessage {
-    DCT_ID poolId;
-    bool status;
-    CAmount commission;
-    CScript ownerAddress;
-    CBalances rewards;
-};
-
 struct CGovernanceMessage {
-    std::set<std::shared_ptr<GovVariable>> govs;
+    std::unordered_map<std::string, std::shared_ptr<GovVariable>> govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        std::string name;
+        while(!s.empty()) {
+            s >> name;
+            auto& gov = govs[name];
+            auto var = GovVariable::Create(name);
+            if (!var) break;
+            s >> *var;
+            gov = std::move(var);
+        }
+    }
 };
 
 struct CGovernanceHeightMessage {
+    std::string govName;
     std::shared_ptr<GovVariable> govVar;
     uint32_t startHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!s.empty()) {
+            s >> govName;
+            if ((govVar = GovVariable::Create(govName))) {
+                s >> *govVar;
+                s >> startHeight;
+            }
+        }
+    }
 };
 
 struct CGovernanceUnsetMessage {
