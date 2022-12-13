@@ -527,7 +527,7 @@ class ConsortiumTest (DefiTestFramework):
 
         # Mint to an address
         newAddress = self.nodes[0].getnewaddress("", "bech32")
-        self.nodes[0].minttokens(["2@" + symbolBTC], newAddress)
+        self.nodes[0].minttokens({"amounts": ["2@" + symbolBTC], "to": newAddress})
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
 

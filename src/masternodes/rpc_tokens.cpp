@@ -651,7 +651,6 @@ UniValue minttokens(const JSONRPCRequest& request) {
              RPCArg::Type::STR,
              RPCArg::Optional::NO,
              "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
-                          {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to mint tokens to"},
                           {
                 "inputs",
                 RPCArg::Type::ARR,
@@ -669,11 +668,13 @@ UniValue minttokens(const JSONRPCRequest& request) {
                         },
                     },
                 },
-            }, },
+            }, {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to mint tokens to"},
+                          },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("minttokens", "10@symbol") +
-                    HelpExampleCli("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'") +
-                    HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")},
+                    HelpExampleCli("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')") +
+                    HelpExampleCli("minttokens", R"(10@symbol '[{"txid":"id","vout":0}] address')") +
+                    HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")},
     }
         .Check(request);
 
@@ -683,14 +684,31 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
-    UniValue const & txInputs = request.params[2];
+    CBalances minted;
+    UniValue txInputs;
+    CScript to;
+
+    if (request.params[0].isObject()) {
+        auto optionsObj = request.params[0].get_obj();
+        minted = DecodeAmounts(pwallet->chain(), optionsObj["amounts"].get_array(), "");
+
+        if (optionsObj.exists("inputs"))
+            txInputs = optionsObj["inputs"].get_array();
+
+        if (optionsObj.exists("to"))
+            to = DecodeScript(optionsObj["to"].get_str());
+    }
+    else {
+        minted   = DecodeAmounts(pwallet->chain(), request.params[0], "");
+        txInputs = request.params[1];
+
+        if (request.params.size() > 2)
+            to = DecodeScript(request.params[2].get_str());
+    }
 
     CMintTokensMessage mintTokensMessage{minted};
-    if (request.params.size() > 1) {
-        const CScript to = DecodeScript(request.params[1].get_str());
+    if (!to.empty())
         mintTokensMessage.to = to;
-    }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
