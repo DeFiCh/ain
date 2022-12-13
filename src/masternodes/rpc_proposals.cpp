@@ -684,7 +684,6 @@ UniValue listgovproposalvotes(const JSONRPCRequest& request)
     return ret;
 }
 
-
 UniValue getgovproposal(const JSONRPCRequest& request)
 {
     RPCHelpMan{"getgovproposal",
