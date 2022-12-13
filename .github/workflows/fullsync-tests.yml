@@ -1,16 +1,14 @@
 name: Full Sync Tests
 on:
-  pull_request:
-    branches:
-      - master
-      - epic/*
-    types: [labeled, opened, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      block_ranges:
+        description: 'Optionally restrict to specific block ranges. Should be formatted as multiple start block, such as "350000 50000 750000"'
+        required: false
 
 jobs:
   build-binaries:
-    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
     runs-on: [self-hosted, linux, x64, server-2]
-    # runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v3
       with:
@@ -43,7 +41,6 @@ jobs:
           ci/parallel_sync/sync_then_diff.sh
 
   generate-matrix:
-      if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
       runs-on: [self-hosted, linux, x64]
 
       # Add "id-token" with the intended permissions.
@@ -68,16 +65,20 @@ jobs:
           uses: 'google-github-actions/setup-gcloud@v0'
 
         - id: set-matrix
+          name: 'Set matrix output'
           run: |
-            SNAPSHOTS=$(gsutil ls gs://team-drop/${{github.base_ref}}-datadir)
-            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n | head -n -1)
-            JSON=$(jq -n -c -M --arg blocks "$BLOCKS" '{blocks: ($blocks | split("\n") | .[] |= tonumber | to_entries | map({start: .value , stop: (.value + 50000)}))}')
-            echo "::set-output name=matrix::$JSON"
+            if [ -n "${{ inputs.block_ranges }}" ]; then
+              BLOCKS=$(echo ${{ inputs.block_ranges }} | tr ' ' '\n')
+            else
+              SNAPSHOTS=$(gsutil ls gs://team-drop/master-datadir)
+              BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n | head -n -1)
+            fi
+            MATRIX_JSON=$(jq -n -c -M --arg blocks "$BLOCKS" '{blocks: ($blocks | split("\n") | .[] |= tonumber | to_entries | map({start: .value , stop: (.value + 50000)}))}')
+            echo "MATRIX=$MATRIX_JSON" >> $GITHUB_OUTPUT
 
   sync:
     runs-on: [self-hosted, linux, x64]
     needs: [build-binaries, generate-matrix]
-    if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
 
     strategy:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
@@ -89,8 +90,8 @@ jobs:
       START_BLOCK: ${{matrix.blocks.start}}
       DEFID_BIN: ./defid
       DEFI_CLI_BIN: ./defi-cli
-      REF_LOG_DIR: ${{github.base_ref}}-datadir/log
-      BASE_REF: ${{github.base_ref}}
+      REF_LOG_DIR: master-datadir/log
+      BASE_REF: master
     timeout-minutes: 4320
 
     steps:
@@ -100,7 +101,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y wget
 
     - name: Download Snapshot
-      run: wget https://storage.googleapis.com/team-drop/${{github.base_ref}}-datadir/datadir-${{matrix.blocks.start}}.tar.gz
+      run: wget https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz
 
     - name: Create datadir
       run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz
