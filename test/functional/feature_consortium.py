@@ -525,5 +525,12 @@ class ConsortiumTest (DefiTestFramework):
         assert_raises_rpc_error(-5, "Amount must be positive or -1", self.nodes[0].setgov, {
             "ATTRIBUTES": {'v0/consortium/' + idBTC + '/mint_limit': '-2'}})
 
+        # Mint to an address
+        newAddress = self.nodes[0].getnewaddress("", "bech32")
+        self.nodes[0].minttokens(["2@" + symbolBTC], newAddress)
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
+
+
 if __name__ == '__main__':
     ConsortiumTest().main()

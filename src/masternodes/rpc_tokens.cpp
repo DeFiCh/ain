@@ -639,36 +639,43 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 UniValue minttokens(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"minttokens",
-               "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
-                    },
-                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+    RPCHelpMan{
+        "minttokens",
+        "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or "
+        "UTXOs). \n"
+        "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must "
+        "belong to the token's owner (collateral) address" +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+                          {"amounts",
+             RPCArg::Type::STR,
+             RPCArg::Optional::NO,
+             "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
+                          {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to mint tokens to"},
+                          {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
                         {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                },
-                            },
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                         },
                     },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("minttokens", "10@symbol")
-                       + HelpExampleCli("minttokens",
-                                      "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
-                       + HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
-               },
-    }.Check(request);
+                },
+            }, },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("minttokens", "10@symbol") +
+                    HelpExampleCli("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'") +
+                    HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")},
+    }
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -677,7 +684,13 @@ UniValue minttokens(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
-    UniValue const & txInputs = request.params[1];
+    UniValue const & txInputs = request.params[2];
+
+    CMintTokensMessage mintTokensMessage{minted};
+    if (request.params.size() > 1) {
+        const CScript to = DecodeScript(request.params[1].get_str());
+        mintTokensMessage.to = to;
+    }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -731,8 +744,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
-             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
+    metadata << static_cast<unsigned char>(CustomTxType::MintToken) << mintTokensMessage;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
