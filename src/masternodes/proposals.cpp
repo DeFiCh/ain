@@ -181,14 +181,14 @@ std::optional<CPropVoteType> CPropsView::GetPropVote(const CPropId &propId,
     return static_cast<CPropVoteType>(*vote);
 }
 
-void CPropsView::ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, uint8_t status) {
+void CPropsView::ForEachProp(std::function<bool(const CPropId &, const CPropObject &)> callback, const CPropStatusType status, const CPropId start) {
     ForEach<ByStatus, std::pair<uint8_t, uint256>, uint8_t>(
         [&](const std::pair<uint8_t, uint256> &key, uint8_t i) {
             auto prop = GetProp(key.second);
             assert(prop);
             return callback(key.second, *prop);
         },
-        std::make_pair(status, uint256{}));
+        std::make_pair(status, start));
 }
 
 void CPropsView::ForEachPropVote(std::function<bool(const CPropId &, uint8_t, const uint256 &, CPropVoteType)> callback,

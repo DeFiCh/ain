@@ -562,9 +562,14 @@ class OnChainGovernanceTest(DefiTestFramework):
         result = self.nodes[0].getgovproposal(tx)
         assert_equal(result["status"], "Rejected")
 
-        assert_equal(len(self.nodes[0].listgovproposals("all", "voting")), 0)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "completed")), 1)
-        assert_equal(len(self.nodes[0].listgovproposals("all", "rejected")), 4)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"voting"})), 0)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"completed"})), 1)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected"})), 4)
+
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "limit":1})), 1)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "limit":0})), 4)
+        assert_equal(len(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "limit":10})), 4)
+        assert_equal(self.nodes[0].listgovproposals({"type":"all", "status":"rejected", "start": tx, "including_start": True})[0]["proposalId"], tx)
 
 if __name__ == '__main__':
     OnChainGovernanceTest().main ()
