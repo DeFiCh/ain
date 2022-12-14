@@ -7,10 +7,11 @@
 
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
-#endif //HAVE_CONFIG_H
+#endif  // HAVE_CONFIG_H
 
 // Check that required client information is defined
-#if !defined(CLIENT_VERSION_MAJOR) || !defined(CLIENT_VERSION_MINOR) || !defined(CLIENT_VERSION_REVISION) || !defined(CLIENT_VERSION_BUILD) || !defined(CLIENT_VERSION_IS_RELEASE) || !defined(COPYRIGHT_YEAR)
+#if !defined(CLIENT_VERSION_MAJOR) || !defined(CLIENT_VERSION_MINOR) || !defined(CLIENT_VERSION_REVISION) || \
+    !defined(CLIENT_VERSION_BUILD) || !defined(CLIENT_VERSION_IS_RELEASE) || !defined(COPYRIGHT_YEAR)
 #error Client version information missing: version is not defined by defi-config.h or in any other way
 #endif
 
@@ -35,11 +36,8 @@
 #include <string>
 #include <vector>
 
-static const int CLIENT_VERSION =
-        1000000 * CLIENT_VERSION_MAJOR
-        +   10000 * CLIENT_VERSION_MINOR
-        +     100 * CLIENT_VERSION_REVISION
-        +       1 * CLIENT_VERSION_BUILD;
+static const int CLIENT_VERSION = 1000000 * CLIENT_VERSION_MAJOR + 10000 * CLIENT_VERSION_MINOR +
+                                  100 * CLIENT_VERSION_REVISION + 1 * CLIENT_VERSION_BUILD;
 
 extern const std::string CLIENT_NAME;
 extern const std::string CLIENT_BUILD;
@@ -47,8 +45,10 @@ extern const std::string CLIENT_BUILD;
 std::string FormatVersion(int nVersion);
 std::string FormatVersionAndSuffix();
 std::string FormatVersionSuffixTail();
-std::string FormatUserAgentString(const std::string& name, int nClientVersion, const std::vector<std::string>& comments);
+std::string FormatUserAgentString(const std::string &name,
+                                  int nClientVersion,
+                                  const std::vector<std::string> &comments);
 
-#endif // WINDRES_PREPROC
+#endif  // WINDRES_PREPROC
 
-#endif // DEFI_CLIENTVERSION_H
+#endif  // DEFI_CLIENTVERSION_H
