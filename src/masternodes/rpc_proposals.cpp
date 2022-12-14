@@ -57,11 +57,6 @@ UniValue proposalToJSON(const CPropId &propId,
         if (valid) {
             votesYesPct = lround(votesYes * 10000.f / votesPresent);
         }
-        if (valid && votesYesPct > approvalThreshold) {
-            statusString = "Completed";
-        } else {
-            statusString = "Rejected";
-        }
 
         votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
         votesYesPctString     = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
