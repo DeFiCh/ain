@@ -229,12 +229,25 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
             mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
         }
 
-        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        Require(collaterals, "Cannot withdraw all collaterals as there are still active loans in this vault");
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
+            const auto scheme = mnview.GetLoanScheme(vault->schemeId);
+            for (int i = 0; i < 2; i++) {
+                // check collaterals for active and next price
+                bool useNextPrice = i > 0, requireLivePrice = true;
+                auto collateralsLoans = mnview.GetLoanCollaterals(
+                        obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+                Require(collateralsLoans);
 
-        auto scheme = mnview.GetLoanScheme(vault->schemeId);
-        const auto res = CheckNextCollateralRatio(obj.vaultId, *scheme, *collaterals, hasDUSDLoans);
-        return !res ? res : mnview.AddBalance(obj.to, obj.amount);
+                Require(collateralsLoans.val->ratio() >= scheme->ratio,
+                        "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
+                        collateralsLoans.val->ratio(),
+                        scheme->ratio);
+
+                Require(CollateralPctCheck(hasDUSDLoans, collateralsLoans, scheme->ratio));
+            }
+        } else {
+            return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
+        }
     }
 
     return mnview.AddBalance(obj.to, obj.amount);
