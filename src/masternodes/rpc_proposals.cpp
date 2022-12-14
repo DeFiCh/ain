@@ -53,10 +53,7 @@ UniValue proposalToJSON(const CPropId &propId,
         votesPossible = votingInfo->votesPossible;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
-        auto valid      = votesPresentPct > quorum;
-        if (valid) {
-            votesYesPct = lround(votesYes * 10000.f / votesPresent);
-        }
+        votesYesPct     = lround(votesYes * 10000.f / votesPresent);
 
         votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
         votesYesPctString     = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
