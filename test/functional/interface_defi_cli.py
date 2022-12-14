@@ -54,6 +54,9 @@ class TestDefiCli(DefiTestFramework):
             wallet_info = self.nodes[0].getwalletinfo()
         network_info = self.nodes[0].getnetworkinfo()
         blockchain_info = self.nodes[0].getblockchaininfo()
+        version_info = self.nodes[0].getversioninfo()
+        version_suffix = '-'.join(version_info["fullVersion"].split('-')[1:])
+        assert_equal(version_suffix, version_info["versionSuffix"])
 
         assert_equal(cli_get_info['version'], network_info['version'])
         assert_equal(cli_get_info['protocolversion'], network_info['protocolversion'])
