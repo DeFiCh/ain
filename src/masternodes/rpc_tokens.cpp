@@ -639,44 +639,41 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 UniValue minttokens(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{
-        "minttokens",
-        "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or "
-        "UTXOs). \n"
-        "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must "
-        "belong to the token's owner (collateral) address" +
-            HelpRequiringPassphrase(pwallet) + "\n",
-        {
-                          {"amounts",
-             RPCArg::Type::STR,
-             RPCArg::Optional::NO,
-             "Amount as json string, or array. Example: '[ \"amount@token\" ]'"},
-                          {
-                "inputs",
-                RPCArg::Type::ARR,
-                RPCArg::Optional::OMITTED_NAMED_ARG,
-                "A json array of json objects. Provide it if you want to spent specific UTXOs",
-                {
-                    {
-                        "",
-                        RPCArg::Type::OBJ,
-                        RPCArg::Optional::OMITTED,
-                        "",
+    RPCHelpMan{"minttokens",
+               "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
                         {
-                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
                         },
                     },
-                },
-            }, {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to mint tokens to"},
-                          },
-        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
-        RPCExamples{HelpExampleCli("minttokens", "10@symbol") +
-                    HelpExampleCli("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')") +
-                    HelpExampleCli("minttokens", R"(10@symbol '[{"txid":"id","vout":0}] address')") +
-                    HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")},
-    }
-        .Check(request);
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Address to mint tokens to"
+                    },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("minttokens", "10@symbol")
+                       + HelpExampleCli("minttokens",
+                                      R"(10@symbol '[{"txid":"id","vout":0}]')")
+                       + HelpExampleCli("minttokens",
+                                           R"(10@symbol '[{"txid":"id","vout":0}]' address)")
+                       + HelpExampleRpc("minttokens", R"(10@symbol '[{"txid":"id","vout":0}]')")
+               },
+    }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
