@@ -1328,14 +1328,12 @@ public:
                 if (!minted)
                     return minted;
 
-                CalculateOwnerRewards(*mintable.val);
                 CScript mintTo{*mintable.val};
-
                 if (!obj.to.empty()) {
                     mintTo = obj.to;
-                    CalculateOwnerRewards(mintTo);
                 }
 
+                CalculateOwnerRewards(mintTo);
                 auto res = mnview.AddBalance(mintTo, CTokenAmount{tokenId, amount});
                 if (!res)
                     return res;
