@@ -319,7 +319,10 @@ struct CMintTokensMessage : public CBalances {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CBalances, *this);
-        READWRITE(to);
+
+        if (!s.eof()) {
+            READWRITE(to);
+        }
     }
 };
 
