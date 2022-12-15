@@ -107,6 +107,8 @@ struct Params {
     CScript burnAddress;
     /** Previous burn address to transfer tokens from */
     CScript retiredBurnAddress;
+    /** Address to hold unused emission */
+    CScript unusedEmission;
 
     /** Struct to hold percentages for coinbase distribution.
      *  Percentages are calculated out of 10000 */
@@ -202,6 +204,20 @@ struct Params {
     SpvParams spv;
 
     CAmount vaultCreationFee;
+
+    struct CPropsParams {
+        struct CPropsSpecs {
+            CAmount fee;
+            CAmount minimumFee;
+            CAmount emergencyFee;
+            CAmount approvalThreshold;
+        } cfp, brp, voc;
+        uint32_t votingPeriod;
+        uint32_t emergencyPeriod;
+        CAmount quorum;
+        CAmount feeBurnPct;
+    };
+    CPropsParams props;
 
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;

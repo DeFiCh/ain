@@ -1,12 +1,11 @@
 
-#include <algorithm>
 #include <chainparams.h>
+#include <uint256.h>
+#include <algorithm>
 #include <string>
 #include <vector>
-#include <uint256.h>
 
-bool IsSkippedTx(const uint256& hash) {
-
+bool IsSkippedTx(const uint256 &hash) {
     static const std::vector<std::string> skipped_txs_mainnet = {
         "ffcafd71820269ffe9cbecc12619154a3c5b272f1437d4e0242ff73d2bf09e4e",
         "4218d310d9a67b5e9a93d2a9ecf17bd70bda7a3670191efbc755b05c5fb8a6a4",
@@ -369,7 +368,7 @@ bool IsSkippedTx(const uint256& hash) {
         "e30ad732c4ec80946a9aef649e3eef521bf408f29539c0ff254b67272cc908ea",
     };
 
-    static const auto& skipped_txs = Params().NetworkIDString() == "main" ? skipped_txs_mainnet : skipped_txs_testnet;
+    static const auto &skipped_txs = Params().NetworkIDString() == "main" ? skipped_txs_mainnet : skipped_txs_testnet;
 
     return std::find(skipped_txs.begin(), skipped_txs.end(), hash.GetHex()) != skipped_txs.end();
 }

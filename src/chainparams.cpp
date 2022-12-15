@@ -138,7 +138,7 @@ public:
         consensus.FortCanningSpringHeight = 2033000; // July 6, 2022.
         consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
         consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -194,6 +194,17 @@ public:
 
         consensus.vaultCreationFee = 2 * COIN;
 
+        consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
+        consensus.props.voc.fee = 100 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 130000; // tally votes every 130K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
@@ -211,6 +222,7 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -281,6 +293,9 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("8defichainBurnAddressXXXXXXXdRQkSm", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
+
+        // Destination for unused emission
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("df1qlwvtdrh4a4zln3k56rqnx8chu8t0sqx36syaea", *this));
 
         genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -378,7 +393,7 @@ public:
         consensus.FortCanningSpringHeight = 1086000;
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = std::numeric_limits<int>::max();
+        consensus.GrandCentralHeight = 1366000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -434,6 +449,18 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
+        consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50%
+        consensus.props.voc.fee = 50 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67%
+        consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+        consensus.props.emergencyPeriod = 8640;
+        consensus.props.feeBurnPct = COIN / 2;
+
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -451,6 +478,7 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -500,6 +528,9 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
+
+        // Destination for unused emission
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
 
         genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -627,6 +658,17 @@ public:
 
         consensus.vaultCreationFee = 1 * COIN;
 
+        consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
+        consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 100; // tally votes every 1K blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -644,6 +686,7 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -690,6 +733,9 @@ public:
 
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
+
+        // Destination for unused emission
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq", *this));
 
         genesis = CreateGenesisBlock(1585132338, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -812,6 +858,17 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
 
+        consensus.props.cfp.fee = COIN / 100; // 1%
+        consensus.props.cfp.minimumFee = 10 * COIN; // 10 DFI
+        consensus.props.cfp.approvalThreshold = COIN / 2; // vote pass with over 50% majority
+        consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.emergencyFee = 10000 * COIN;
+        consensus.props.voc.approvalThreshold = 66670000; // vote pass with over 66.67% majority
+        consensus.props.quorum = COIN / 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 70; // tally votes every 70 blocks
+        consensus.props.emergencyPeriod = 50;
+        consensus.props.feeBurnPct = COIN / 2;
+
         consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
@@ -831,6 +888,7 @@ public:
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::CommunityDevFunds, consensus.dist.community);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
@@ -884,6 +942,9 @@ public:
         // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
+
+        // Destination for unused emission
+        consensus.unusedEmission = GetScriptForDestination(DecodeDestination("mkzZWPwBVgdnwLSmXKW5SuUFMpm6C5ZPcJ", *this)); // cUUj4d9tkgJGwGBF7VwFvCpcFMuEpC8tYbduaCDexKMx8A8ntL7C
 
         if (isJellyfish) {
             std::vector<CTxOut> initdist;
@@ -1094,9 +1155,7 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    if (!file.good()) {
-        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
-    }
+    Require(file.good(), "Could not read %s. Ensure it exists and has read permissions", fileName);
 
     ClearCheckpoints(params);
 
@@ -1108,19 +1167,13 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        if (!(iss >> heightStr >> hashStr)) {
-            return Res::Err("Error parsing line %s", trimmed);
-        }
+        Require((iss >> heightStr >> hashStr), "Error parsing line %s", trimmed);
 
         uint256 hash;
-        if (!ParseHashStr(hashStr, hash)) {
-            return Res::Err("Invalid hash: %s", hashStr);
-        }
+        Require(ParseHashStr(hashStr, hash), "Invalid hash: %s", hashStr);
 
         int32_t height;
-        if (!ParseInt32(heightStr, &height)) {
-            return Res::Err("Invalid height: %s", heightStr);
-        }
+        Require(ParseInt32(heightStr, &height), "Invalid height: %s", heightStr);
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }

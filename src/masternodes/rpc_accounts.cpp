@@ -1842,6 +1842,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     CAmount burnt{0};
 
     CBalances burntTokens;
+    CBalances consortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackfees;
     CBalances paybackFee;
@@ -1900,7 +1901,9 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         // Fee burn
         if (value.category == uint8_t(CustomTxType::CreateMasternode)
         || value.category == uint8_t(CustomTxType::CreateToken)
-        || value.category == uint8_t(CustomTxType::Vault)) {
+        || value.category == uint8_t(CustomTxType::Vault)
+        || value.category == uint8_t(CustomTxType::CreateCfp)
+        || value.category == uint8_t(CustomTxType::CreateVoc)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
             }
@@ -1930,6 +1933,16 @@ UniValue getburninfo(const JSONRPCRequest& request) {
             }
             return true;
         }
+
+        // token burn with burnToken tx
+        if (value.category == uint8_t(CustomTxType::BurnToken))
+        {
+            for (auto const & diff : value.diff) {
+                consortiumTokens.Add({diff.first, diff.second});
+            }
+            return true;
+        }
+
         // Token burn
         for (auto const & diff : value.diff) {
             burntTokens.Add({diff.first, diff.second});
@@ -1944,6 +1957,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("amount", ValueFromAmount(burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(burntTokens.balances));
+    result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(burntFee));
     result.pushKV("auctionburn", ValueFromAmount(auctionFee));
     result.pushKV("paybackburn", AmountsToJSON(paybackFee.balances));

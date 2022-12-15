@@ -203,7 +203,7 @@ static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : 
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) :
     pwallet(std::move(pwallet)) {
 }
 
@@ -274,7 +274,16 @@ static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
 }
 
 std::optional<CScript> AmIFounder(CWallet* const pwallet) {
-    for(auto const & script : Params().GetConsensus().foundationMembers) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = pcustomcsview->GetAttributes();
+    assert(attributes);
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
+    }
+
+    for (auto const & script : members) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
     }
@@ -348,7 +357,16 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScr
 }
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
-    for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = pcustomcsview->GetAttributes();
+    assert(attributes);
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        if (const auto databaseMembers = attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{}); !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
+    }
+
+    for (auto const & founderScript : members) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
             if (ExtractDestination(founderScript, destination)) {
@@ -389,12 +407,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txV
     // Look for founder's auth. minttoken may already have an auth in result.
     if (needFounderAuth && result.empty()) {
         auto anyFounder = AmIFounder(pwallet);
-        if (!anyFounder) {
-            // Called from minttokens if auth not empty here which can use collateralAddress
-            if (auths.empty()) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
-            }
-        } else {
+        if (anyFounder) {
             auths.insert(anyFounder.value());
             auto authInput = GetAnyFoundationAuthInput(pwallet);
             if (authInput) {
@@ -820,7 +833,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
         } else if (prefix == "attrs") {
             mode = GovVarsFilter::AttributesOnly;
         } else if (prefix == "v/2.7") {
-            // Undocumented. Make be removed or deprecated without notice. 
+            // Undocumented. Make be removed or deprecated without notice.
             // Only here for unforeseen compatibility concern downstream
             // for transitions.
             mode = GovVarsFilter::Version2Dot7;
@@ -860,7 +873,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                     val = a->ExportFiltered(mode, prefix);
                 }
             } else {
-                if (mode == GovVarsFilter::LiveAttributes || 
+                if (mode == GovVarsFilter::LiveAttributes ||
                     mode == GovVarsFilter::PrefixedAttributes ||
                     mode == GovVarsFilter::AttributesOnly){
                     continue;

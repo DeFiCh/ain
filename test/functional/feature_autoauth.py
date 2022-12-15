@@ -10,15 +10,14 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 
 class TokensAutoAuthTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-regtest-minttoken-simulate-mainnet=1']]
 
     # Move all coins to new address and change address to test auto auth
     def clear_auth_utxos(self):
@@ -43,13 +42,7 @@ class TokensAutoAuthTest (DefiTestFramework):
 
         assert_equal(len(n0.listmasternodes()), 9)
         assert_equal(len(n0.getrawmempool()), 0)
-        try:
-            n0.resignmasternode(mnId, [ n0.listunspent()[0] ])
-            assert (False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from the owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from the owner", n0.resignmasternode, mnId, [n0.listunspent()[0]])
 
         n0.resignmasternode(mnId)
         assert_equal(len(n0.getrawmempool()), 2)
@@ -61,18 +54,12 @@ class TokensAutoAuthTest (DefiTestFramework):
         #==== Tokens auth:
         # RPC 'createtoken'
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
-        try:
-            n0.createtoken({
-                "symbol": "GOLD",
-                "name": "shiny gold",
-                "isDAT": True,
-                "collateralAddress": collateralGold
-            }, [ n0.listunspent()[0] ])
-            assert (False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx not from foundation member" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx not from foundation member", n0.createtoken, {
+            "symbol": "GOLD",
+            "name": "shiny gold",
+            "isDAT": True,
+            "collateralAddress": collateralGold
+        }, [n0.listunspent()[0]])
 
         n0.createtoken({
             "symbol": "GOLD",
@@ -89,13 +76,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         self.clear_auth_utxos()
 
         # RPC 'updatetoken'
-        try:
-            n0.updatetoken("GOLD", {"isDAT": False}, [ n0.listunspent()[0] ])
-            assert (False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from the owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from the owner", n0.updatetoken, "GOLD", {"isDAT": False}, [n0.listunspent()[0]])
 
         n0.updatetoken(
             "GOLD", {"isDAT": False}
@@ -123,12 +104,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         # Clear auth UTXOs
         self.clear_auth_utxos()
 
-        try:
-            n0.minttokens(["1000@GOLD#1", "1000@SILVER"], [ n0.listunspent()[0] ])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from token owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from token owner", n0.minttokens, ["1000@GOLD#1", "1000@SILVER"], [n0.listunspent()[0]])
 
         n0.minttokens(["1000@GOLD#1", "5000@SILVER"])
         assert_equal(len(n0.getrawmempool()), 2)
@@ -141,20 +117,14 @@ class TokensAutoAuthTest (DefiTestFramework):
         #==== Liquidity Pools auth:
         # RPC 'createpoolpair'
         poolOwner = n0.getnewaddress("", "legacy")
-        try:
-            n0.createpoolpair({
-                "tokenA": "GOLD#1",
-                "tokenB": "SILVER",
-                "comission": 0.001,
-                "status": True,
-                "ownerAddress": poolOwner,
-                "pairSymbol": "GS"
-            }, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx not from foundation member" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx not from foundation member", n0.createpoolpair, {
+            "tokenA": "GOLD#1",
+            "tokenB": "SILVER",
+            "comission": 0.001,
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "GS"
+        }, [n0.listunspent()[0]])
 
         n0.createpoolpair({
             "tokenA": "GOLD#1",
@@ -173,15 +143,9 @@ class TokensAutoAuthTest (DefiTestFramework):
 
         # RPC 'addpoolliquidity'
         poolShare = n0.getnewaddress("", "legacy")
-        try:
-            n0.addpoolliquidity({
-                collateralGold: "100@GOLD#1", collateralSilver: "500@SILVER"
-            }, poolShare, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from account owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from account owner", n0.addpoolliquidity, {
+            collateralGold: "100@GOLD#1", collateralSilver: "500@SILVER"
+        }, poolShare, [n0.listunspent()[0]])
 
         n0.addpoolliquidity({
             collateralGold: "100@GOLD#1", collateralSilver: "500@SILVER"
@@ -194,19 +158,13 @@ class TokensAutoAuthTest (DefiTestFramework):
 
         # RPC 'poolswap'
         swapped = n0.getnewaddress("", "legacy")
-        try:
-            n0.poolswap({
-                "from": collateralGold,
-                "tokenFrom": "GOLD#1",
-                "amountFrom": 10,
-                "to": swapped,
-                "tokenTo": "SILVER"
-            }, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from account owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from account owner", n0.poolswap, {
+            "from": collateralGold,
+            "tokenFrom": "GOLD#1",
+            "amountFrom": 10,
+            "to": swapped,
+            "tokenTo": "SILVER"
+        }, [n0.listunspent()[0]])
 
         n0.poolswap({
             "from": collateralGold,
@@ -224,15 +182,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         self.clear_auth_utxos()
 
         # RPC 'removepoolliquidity'
-        try:
-            n0.removepoolliquidity(
-                poolShare, "200@GS", [ n0.listunspent()[0] ]
-            )
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from account owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from account owner", n0.removepoolliquidity, poolShare, "200@GS", [n0.listunspent()[0]])
 
         n0.removepoolliquidity(poolShare, "200@GS")
         assert_equal(len(n0.getrawmempool()), 2)
@@ -245,16 +195,10 @@ class TokensAutoAuthTest (DefiTestFramework):
 
 
         # RPC 'updatepoolpair'
-        try:
-            self.nodes[0].updatepoolpair({
-                "pool": "GS",
-                "status": False
-            }, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx not from foundation member" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx not from foundation member", n0.updatepoolpair, {
+            "pool": "GS",
+            "status": False
+        }, [n0.listunspent()[0]])
 
         self.nodes[0].updatepoolpair({
             "pool": "GS",
@@ -269,13 +213,7 @@ class TokensAutoAuthTest (DefiTestFramework):
 
 
         # RPC 'setgov'
-        try:
-            n0.setgov({ "LP_DAILY_DFI_REWARD": 35.5 }, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx not from foundation member" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx not from foundation member", n0.setgov, { "LP_DAILY_DFI_REWARD": 35.5 }, [n0.listunspent()[0]])
 
         n0.setgov({ "LP_DAILY_DFI_REWARD": 35.5 })
 
@@ -286,13 +224,7 @@ class TokensAutoAuthTest (DefiTestFramework):
 
         #==== Transfer auths:
         # RPC 'accounttoaccount'
-        try:
-            n0.accounttoaccount(poolShare, {swapped: "1@GS"}, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from account owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from account owner", n0.accounttoaccount, poolShare, {swapped: "1@GS"}, [n0.listunspent()[0]])
 
         n0.accounttoaccount(poolShare, {swapped: "10@GS"})
         assert_equal(len(n0.getrawmempool()), 2)
@@ -315,13 +247,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         # RPC 'accounttoutxos'
         n0.utxostoaccount({swapped: "1@DFI"})
         n0.generate(1, 1000000, coinbase)
-        try:
-            self.nodes[0].accounttoutxos(swapped, {swapped: "0.2"}, [ n0.listunspent()[0] ])
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("tx must have at least one input from account owner" in errorString)
-        errorString = ""
+        assert_raises_rpc_error(-32600, "tx must have at least one input from account owner", n0.accounttoutxos, swapped, {swapped: "0.2"}, [n0.listunspent()[0]])
 
         n0.accounttoutxos(swapped, {swapped: "0.2"})
         assert_equal(len(n0.getrawmempool()), 2)

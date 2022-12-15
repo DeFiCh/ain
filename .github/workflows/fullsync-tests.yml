@@ -43,6 +43,7 @@ jobs:
           ci/parallel_sync/sync_then_diff.sh
 
   generate-matrix:
+      if: contains(github.event.pull_request.labels.*.name, 'ci/sync')
       runs-on: [self-hosted, linux, x64]
 
       # Add "id-token" with the intended permissions.
@@ -69,7 +70,7 @@ jobs:
         - id: set-matrix
           run: |
             SNAPSHOTS=$(gsutil ls gs://team-drop/${{github.base_ref}}-datadir)
-            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n)
+            BLOCKS=$(echo "$SNAPSHOTS" | sed -e 's/.*\-\(.*\)\.tar.*/\1/' | grep -v gs | sort -n | head -n -1)
             JSON=$(jq -n -c -M --arg blocks "$BLOCKS" '{blocks: ($blocks | split("\n") | .[] |= tonumber | to_entries | map({start: .value , stop: (.value + 50000)}))}')
             echo "::set-output name=matrix::$JSON"
 
@@ -85,15 +86,12 @@ jobs:
     env:
       DATADIR : datadir-${{matrix.blocks.start}}
       STOP_BLOCK: ${{matrix.blocks.stop}}
+      START_BLOCK: ${{matrix.blocks.start}}
       DEFID_BIN: ./defid
       DEFI_CLI_BIN: ./defi-cli
       REF_LOG_DIR: ${{github.base_ref}}-datadir/log
+      BASE_REF: ${{github.base_ref}}
     timeout-minutes: 4320
-
-    # Add "id-token" with the intended permissions.
-    permissions:
-      contents: 'read'
-      id-token: 'write'
 
     steps:
     - uses: actions/checkout@v3
@@ -126,6 +124,10 @@ jobs:
     - name: Sync and Diff
       run: ./sync_then_diff.sh
 
-    - name: Show Debug Log
+    - name: Show debug.log
       run: cat $DATADIR/debug.log
+      if: ${{ failure() ||  success() }}
+
+    - name: Show log file
+      run: cat debug-tmp-$STOP_BLOCK.log
       if: ${{ failure() ||  success() }}

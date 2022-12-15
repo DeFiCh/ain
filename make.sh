@@ -13,6 +13,7 @@ setup_vars() {
     IMAGE_VERSION=${IMAGE_VERSION:-"latest"}
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
+    DOCKERFILE=${DOCKERFILE:-""}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
@@ -31,7 +32,7 @@ setup_vars() {
     local default_compiler_flags=""
     if [[ "${TARGET}" == "x86_64-pc-linux-gnu" || \
         "${TARGET}" == "x86_64-apple-darwin11" ]]; then
-        default_compiler_flags="CC=clang-11 CXX=clang++-11"
+        default_compiler_flags="CC=clang-14 CXX=clang++-14"
     fi
 
     if [[ "${OSTYPE}" == "darwin"* ]]; then
@@ -120,9 +121,9 @@ build_conf() {
 
     ./autogen.sh
     # XREF: #make-configure
-    # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu"
+    # ./configure --prefix="$(pwd)/depends/x86_64-pc-linux-gnu" ${make_conf_opts}
     # shellcheck disable=SC2086
-    ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
+    CONFIG_SITE="$(pwd)/depends/${target}/share/config.site" ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
 }
 
 build_make() {
@@ -206,8 +207,8 @@ docker_build() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
-    local dockerfiles_dir="${DOCKERFILES_DIR}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_file="${DOCKERFILES_DIR}/${DOCKERFILE:-"${target}"}.dockerfile"
 
     echo "> docker-build";
 
@@ -216,7 +217,6 @@ docker_build() {
     fi
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
-    local docker_file="${dockerfiles_dir}/${target}.dockerfile"
     echo "> docker build: ${img}"
     docker build -f "${docker_file}" -t "${img}" "${docker_context}"
 }
@@ -382,19 +382,28 @@ git_version() {
     fi
 }
 
-pkg_install_deps() {
-    apt update && apt install -y \
-        software-properties-common build-essential libtool autotools-dev automake \
+pkg_install_deps_x86_64() {
+    apt install -y \
+        software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
+        libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake
 }
 
 pkg_install_llvm() {
-    wget https://apt.llvm.org/llvm.sh
-    chmod +x llvm.sh
-    ./llvm.sh 11
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
+}
+
+pkg_install_llvm_ubuntu_18_04() {
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+    wget -O - "https://apt.llvm.org/llvm.sh" | bash -s 14
+}
+
+pkg_install_deps_mac() {
+    apt install -y \
+    python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 }
 
 pkg_ensure_mac_sdk() {
@@ -407,7 +416,7 @@ pkg_ensure_mac_sdk() {
     pushd ./depends/SDKs >/dev/null
     if [[ ! -d "$sdk_name" ]]; then
         if [[ ! -f "${pkg}" ]]; then
-            wget https://bitcoincore.org/depends-sources/sdks/Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers.tar.gz
+            wget https://bitcoincore.org/depends-sources/sdks/${pkg}
         fi
         tar -zxvf "${pkg}"
     fi

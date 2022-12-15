@@ -4,62 +4,56 @@
 
 #include <masternodes/govvariables/lp_splits.h>
 
-#include <core_io.h> /// ValueFromAmount
-#include <masternodes/masternodes.h> /// CCustomCSView
-#include <rpc/util.h> /// AmountFromValue
+#include <core_io.h>                  /// ValueFromAmount
+#include <masternodes/masternodes.h>  /// CCustomCSView
+#include <rpc/util.h>                 /// AmountFromValue
 
-bool LP_SPLITS::IsEmpty() const
-{
+bool LP_SPLITS::IsEmpty() const {
     return splits.empty();
 }
 
-Res LP_SPLITS::Import(const UniValue & val)
-{
-    if (!val.isObject())
-        return Res::Err("object of {poolId: rate,... } expected"); /// throw here? cause "AmountFromValue" can throw!
+Res LP_SPLITS::Import(const UniValue &val) {
+    Require(val.isObject(),
+            "object of {poolId: rate,... } expected");  /// throw here? cause "AmountFromValue" can throw!
 
-    for (const std::string& key : val.getKeys()) {
-        const auto id = DCT_ID::FromString(key);
-        if (!id)
-            return std::move(id);
-        splits.emplace(*id.val, AmountFromValue(val[key]));//todo: AmountFromValue
+    for (const std::string &key : val.getKeys()) {
+        auto id = DCT_ID::FromString(key);
+        Require(id);
+        splits.emplace(*id.val, AmountFromValue(val[key]));  // todo: AmountFromValue
     }
     return Res::Ok();
 }
 
-UniValue LP_SPLITS::Export() const
-{
+UniValue LP_SPLITS::Export() const {
     UniValue res(UniValue::VOBJ);
-    for (auto const & kv : splits) {
+    for (const auto &kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
     }
     return res;
 }
 
-Res LP_SPLITS::Validate(const CCustomCSView & mnview) const
-{
+Res LP_SPLITS::Validate(const CCustomCSView &mnview) const {
     CAmount total{0};
-    for (auto const & kv : splits) {
-        if (!mnview.HasPoolPair(kv.first))
-            return Res::Err("pool with id=%s not found", kv.first.ToString());
+    for (const auto &[poolId, amount] : splits) {
+        Require(mnview.HasPoolPair(poolId), "pool with id=%s not found", poolId.ToString());
 
-        if (kv.second < 0 || kv.second > COIN)
-            return Res::Err("wrong percentage for pool with id=%s, value = %s", kv.first.ToString(), std::to_string(kv.second));
+        Require(amount >= 0 && amount <= COIN,
+                "wrong percentage for pool with id=%s, value = %s",
+                poolId.ToString(),
+                std::to_string(amount));
 
-        total += kv.second;
+        total += amount;
     }
-    if (total != COIN)
-        return Res::Err("total = %d vs expected %d", total, COIN);
+    Require(total == COIN, "total = %d vs expected %d", total, COIN);
 
     return Res::Ok();
 }
 
-Res LP_SPLITS::Apply(CCustomCSView & mnview, uint32_t height)
-{
-    mnview.ForEachPoolId([&] (DCT_ID poolId) {
+Res LP_SPLITS::Apply(CCustomCSView &mnview, uint32_t height) {
+    mnview.ForEachPoolId([&](DCT_ID poolId) {
         // we ought to reset previous value:
         CAmount rewardPct = 0;
-        auto it = splits.find(poolId);
+        auto it           = splits.find(poolId);
         if (it != splits.end())
             rewardPct = it->second;
 
@@ -69,9 +63,8 @@ Res LP_SPLITS::Apply(CCustomCSView & mnview, uint32_t height)
     return Res::Ok();
 }
 
-Res LP_SPLITS::Erase(CCustomCSView & mnview, uint32_t height, std::vector<std::string> const & keys)
-{
-    for (const auto& key : keys) {
+Res LP_SPLITS::Erase(CCustomCSView &mnview, uint32_t height, const std::vector<std::string> &keys) {
+    for (const auto &key : keys) {
         auto res = DCT_ID::FromString(key);
         if (!res)
             return std::move(res);

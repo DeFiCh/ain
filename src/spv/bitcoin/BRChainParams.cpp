@@ -27,14 +27,15 @@
 
 #include "BRChainParams.h"
 
-static const char *BRMainNetDNSSeeds[] = {
-    "seed.breadwallet.com.", "seed.bitcoin.sipa.be.", "dnsseed.bluematt.me.", "dnsseed.bitcoin.dashjr.org.",
-    "seed.bitcoinstats.com.", "bitseed.xf2.org.", "seed.bitcoin.jonasschnelli.ch.", NULL
+static const char* BRMainNetDNSSeeds[] = {
+    "seed.bitcoin.sipa.be.", "dnsseed.bluematt.me.", "dnsseed.bitcoin.dashjr.org.", "seed.bitcoinstats.com.",
+    "seed.bitcoin.jonasschnelli.ch.", "seed.btc.petertodd.org.", "seed.bitcoin.sprovoost.nl.",
+    "dnsseed.emzy.de.", "seed.bitcoin.wiz.biz.", NULL
 };
 
-static const char *BRTestNetDNSSeeds[] = {
-    "testnet-seed.breadwallet.com.", "testnet-seed.bitcoin.petertodd.org.", "testnet-seed.bluematt.me.",
-    "testnet-seed.bitcoin.schildbach.de.", NULL
+static const char* BRTestNetDNSSeeds[] = {
+    "testnet-seed.bitcoin.jonasschnelli.ch.", "seed.tbtc.petertodd.org.", "seed.testnet.bitcoin.sprovoost.nl.",
+    "testnet-seed.bluematt.me.", NULL
 };
 
 // blockchain checkpoints - these are also used as starting points for partial chain downloads, so they must be at
