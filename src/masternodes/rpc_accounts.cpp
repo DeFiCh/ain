@@ -1920,10 +1920,11 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     burnView->ForEachAccountHistory(calculateBurnAmounts);
 
+    CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
+
     for (auto const & token: nonConsortiumTokens.balances)
     {
-        CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-        auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
         TAmounts amount;
         amount[token.first] = balances[token.first].burnt;
         consortiumTokens.AddBalances(amount);
