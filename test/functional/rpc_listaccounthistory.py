@@ -139,9 +139,15 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         res2 = self.nodes[0].listaccounthistory(collateral_a, {"start": 1, "including_start": False})
         res3 = self.nodes[0].listaccounthistory(collateral_a, {"start": 2, "including_start": False})
 
-        assert_equal(len(res0) + 1, len(res1))
-        assert_equal(len(res0) + 2, len(res2))
-        assert_equal(len(res0) + 3, len(res3))
+        # check if entries line up
+        assert_equal(res0[1], res1[0])
+        assert_equal(res0[2], res2[0])
+        assert_equal(res0[3], res3[0])
+
+        # check if lengths add up
+        assert_equal(len(res0), len(res1) + 1)
+        assert_equal(len(res0), len(res2) + 2)
+        assert_equal(len(res0), len(res3) + 3)
 
         # REVERTING:
         #========================

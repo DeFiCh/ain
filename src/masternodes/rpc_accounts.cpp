@@ -1191,7 +1191,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     CScript lastOwner;
-    auto count = limit;
+    auto count = limit + start;
     auto lastHeight = maxBlockHeight;
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
@@ -1242,11 +1242,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
-            if (start != 0) {
-                --start;
-                return true;
-            }
-
             auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
             array.push_back(accounthistoryToJSON(key, value, format));
             if (shouldSearchInWallet) {
@@ -1259,11 +1254,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
-                        if (start != 0) {
-                            --start;
-                            return;
-                        }
-
                         auto& array = ret.emplace(height, UniValue::VARR).first->second;
                         array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
                         count ? --count : 0;
@@ -1294,7 +1284,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
 
     if (shouldSearchInWallet) {
-        count = limit;
+        count = limit + start;
         searchInWallet(pwallet, account, filter,
             [&](CBlockIndex const * index, CWalletTx const * pwtx) {
                 uint32_t height = index->nHeight;
@@ -1304,10 +1294,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 uint32_t height = index->nHeight;
                 uint32_t nIndex = pwtx->nIndex;
                 if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn ) {
-                    return true;
-                }
-                if (start != 0) {
-                    --start;
                     return true;
                 }
                 auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
@@ -1321,6 +1307,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
         const auto& array = it->second.get_array();
         for (size_t i = 0; limit != 0 && i < array.size(); ++i) {
+            if (start != 0) {
+                --start;
+                continue;
+            }
             slice.push_back(array[i]);
             --limit;
         }
