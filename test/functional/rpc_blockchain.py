@@ -141,6 +141,7 @@ class BlockchainTest(DefiTestFramework):
             'fortcanninggreatworld': {'type': 'buried', 'active': False, 'height': 10000000},
             'fortcanningepilogue': {'type': 'buried', 'active': False, 'height': 10000000},
             'grandcentral': {'type': 'buried', 'active': False, 'height': 10000000},
+            'grandcentralnext': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
