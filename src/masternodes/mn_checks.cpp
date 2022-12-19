@@ -1091,6 +1091,7 @@ public:
         const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
+        const auto grandCentralNextHeight   = static_cast<uint32_t>(consensus.GrandCentralNextHeight);
 
         // check auth and increase balance of token's owner
         for (const auto &[tokenId, amount] : obj.balances) {
@@ -1112,7 +1113,7 @@ public:
                     return minted;
 
                 CScript mintTo{*mintable.val};
-                if (!obj.to.empty()) {
+                if (height >= grandCentralNextHeight && !obj.to.empty()) {
                     mintTo = obj.to;
                 }
 
