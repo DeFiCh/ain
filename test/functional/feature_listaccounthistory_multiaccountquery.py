@@ -6,11 +6,7 @@
 """Test multi-account listaccounthistory query."""
 
 from test_framework.test_framework import DefiTestFramework
-
-from test_framework.util import (
-    assert_equal,
-    connect_nodes_bi
-)
+from test_framework.util import assert_equal
 
 
 class MultiAccountListAccountHistory(DefiTestFramework):
@@ -71,6 +67,7 @@ class MultiAccountListAccountHistory(DefiTestFramework):
         b = self.nodes[0].listaccounthistory([collateral_b])
 
         assert_equal(len(combined), len(a) + len(b))
+
 
 if __name__ == '__main__':
     MultiAccountListAccountHistory().main()
