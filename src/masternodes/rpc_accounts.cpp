@@ -1032,11 +1032,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
         .Check(request);
 
-    std::string accounts = "mine";
-    if (request.params.size() > 0) {
-        accounts = request.params[0].getValStr();
-    }
-
     if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
@@ -1149,18 +1144,29 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         return true;
     };
 
-    CScript account;
+    std::string accounts = "mine";
+    if (request.params.size() > 0) {
+        accounts = request.params[0].getValStr();
+    }
+
     bool isMine = false;
     isminetype filter = ISMINE_ALL;
+
+    std::set<CScript> accountSet{CScript{}};
 
     if (accounts == "mine") {
         isMine = true;
         filter = ISMINE_SPENDABLE;
     } else if (accounts != "all") {
-        account = DecodeScript(accounts);
-        isMatchOwner = [&account](CScript const & owner) {
-            return owner == account;
-        };
+        if (request.params[0].isArray()) {
+            accountSet.clear();
+            for (const auto &acc : request.params[0].get_array().getValues()) {
+                accountSet.emplace(DecodeScript(acc.get_str()));
+            }
+        } else {
+            accountSet.clear();
+            accountSet.emplace(DecodeScript(accounts));
+        }
     }
 
     std::set<uint256> txs;
@@ -1185,122 +1191,135 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
     depth = std::min(depth, maxBlockHeight);
 
-    const auto startBlock = maxBlockHeight - depth;
-    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
-        return startBlock > blockHeight || blockHeight > maxBlockHeight;
-    };
+    for (auto& account: accountSet) {
+        const auto startBlock = maxBlockHeight - depth;
+        auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+            return startBlock > blockHeight || blockHeight > maxBlockHeight;
+        };
 
-    CScript lastOwner;
-    auto count = limit + start;
-    auto lastHeight = maxBlockHeight;
+        CScript lastOwner;
+        auto count = limit + start;
+        auto lastHeight = maxBlockHeight;
 
-    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue value) -> bool {
-        if (!isMatchOwner(key.owner)) {
-            return false;
-        }
+        isMatchOwner = [&account](const CScript &owner) { return owner == account; };
 
-        std::unique_ptr<CScopeAccountReverter> reverter;
-        if (!noRewards) {
-            reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
-        }
-
-        bool accountRecord = true;
-        auto workingHeight = key.blockHeight;
-
-        if (shouldSkipBlock(key.blockHeight)) {
-            // show rewards in interval [startBlock, lastHeight)
-            if (!noRewards && startBlock > workingHeight) {
-                accountRecord = false;
-                workingHeight = startBlock;
-            } else {
-                return true;
-            }
-        }
-
-        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
-            return true;
-        }
-
-        if(hasTxFilter && txTypes.find(CustomTxCodeToType(value.category)) == txTypes.end()) {
-            return true;
-        }
-
-        if (isMine) {
-            // starts new account owned by the wallet
-            if (lastOwner != key.owner) {
-                count = limit;
-            } else if (count == 0) {
-                return true;
-            }
-        }
-
-        // starting new account
-        if (account.empty() && lastOwner != key.owner) {
-            view.Discard();
-            lastOwner = key.owner;
-            lastHeight = maxBlockHeight;
-        }
-
-        if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
-            auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
-            array.push_back(accounthistoryToJSON(key, value, format));
-            if (shouldSearchInWallet) {
-                txs.insert(value.txid);
-            }
-            --count;
-        }
-
-        if (!noRewards && count && lastHeight > workingHeight) {
-            onPoolRewards(view, key.owner, workingHeight, lastHeight,
-                [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
-                    if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
-                        auto& array = ret.emplace(height, UniValue::VARR).first->second;
-                        array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
-                        count ? --count : 0;
-                    }
-                }
-            );
-        }
-
-        lastHeight = workingHeight;
-
-        return count != 0 || isMine;
-    };
-
-    if (!noRewards && !account.empty()) {
-        // revert previous tx to restore account balances to maxBlockHeight
-        paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
-            if (maxBlockHeight > key.blockHeight) {
-                return false;
-            }
+        auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
             if (!isMatchOwner(key.owner)) {
                 return false;
             }
-            CScopeAccountReverter(view, key.owner, value.diff);
-            return true;
-        }, account);
-    }
 
-    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
+            std::unique_ptr<CScopeAccountReverter> reverter;
+            if (!noRewards) {
+                reverter = std::make_unique<CScopeAccountReverter>(view, key.owner, value.diff);
+            }
 
-    if (shouldSearchInWallet) {
-        count = limit + start;
-        searchInWallet(pwallet, account, filter,
-            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
-                uint32_t height = index->nHeight;
-                return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
-            },
-            [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
-                uint32_t height = index->nHeight;
-                uint32_t nIndex = pwtx->nIndex;
-                if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn ) {
+            bool accountRecord = true;
+            auto workingHeight = key.blockHeight;
+
+            if (shouldSkipBlock(key.blockHeight)) {
+                // show rewards in interval [startBlock, lastHeight)
+                if (!noRewards && startBlock > workingHeight) {
+                    accountRecord = false;
+                    workingHeight = startBlock;
+                } else {
                     return true;
                 }
-                auto& array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(entry, index, pwtx, format));
-                return --count != 0;
             }
-        );
+
+            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+                return true;
+            }
+
+            if (hasTxFilter && txTypes.find(CustomTxCodeToType(value.category)) == txTypes.end()) {
+                return true;
+            }
+
+            if (isMine) {
+                // starts new account owned by the wallet
+                if (lastOwner != key.owner) {
+                    count = limit;
+                } else if (count == 0) {
+                    return true;
+                }
+            }
+
+            // starting new account
+            if (account.empty() && lastOwner != key.owner) {
+                view.Discard();
+                lastOwner  = key.owner;
+                lastHeight = maxBlockHeight;
+            }
+
+            if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
+                auto &array = ret.emplace(workingHeight, UniValue::VARR).first->second;
+                array.push_back(accounthistoryToJSON(key, value, format));
+                if (shouldSearchInWallet) {
+                    txs.insert(value.txid);
+                }
+                --count;
+            }
+
+            if (!noRewards && count && lastHeight > workingHeight) {
+                onPoolRewards(
+                    view,
+                    key.owner,
+                    workingHeight,
+                    lastHeight,
+                    [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
+                        if (tokenFilter.empty() || hasToken({
+                                                       {amount.nTokenId, amount.nValue}
+                        })) {
+                            auto &array = ret.emplace(height, UniValue::VARR).first->second;
+                            array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount, format));
+                            count ? --count : 0;
+                        }
+                    });
+            }
+
+            lastHeight = workingHeight;
+
+            return count != 0 || isMine;
+        };
+
+        if (!noRewards && !account.empty()) {
+            // revert previous tx to restore account balances to maxBlockHeight
+            paccountHistoryDB->ForEachAccountHistory(
+                [&](AccountHistoryKey const &key, AccountHistoryValue const &value) {
+                    if (maxBlockHeight > key.blockHeight) {
+                        return false;
+                    }
+                    if (!isMatchOwner(key.owner)) {
+                        return false;
+                    }
+                    CScopeAccountReverter(view, key.owner, value.diff);
+                    return true;
+                },
+                account);
+        }
+
+        paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
+
+        if (shouldSearchInWallet) {
+            count = limit + start;
+            searchInWallet(
+                pwallet,
+                account,
+                filter,
+                [&](CBlockIndex const *index, CWalletTx const *pwtx) {
+                    uint32_t height = index->nHeight;
+                    return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
+                },
+                [&](COutputEntry const &entry, CBlockIndex const *index, CWalletTx const *pwtx) {
+                    uint32_t height = index->nHeight;
+                    uint32_t nIndex = pwtx->nIndex;
+                    if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn) {
+                        return true;
+                    }
+                    auto &array = ret.emplace(index->nHeight, UniValue::VARR).first->second;
+                    array.push_back(outputEntryToJSON(entry, index, pwtx, format));
+                    return --count != 0;
+                });
+        }
     }
 
     UniValue slice(UniValue::VARR);

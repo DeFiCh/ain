@@ -272,6 +272,7 @@ BASE_SCRIPTS = [
     'feature_filelock.py',
     'p2p_unrequested_blocks.py',
     'rpc_listaccounthistory.py',
+    'feature_listaccounthistory_multiaccountquery.py',
     'rpc_getaccounthistory.py',
     'feature_includeconf.py',
     'rpc_deriveaddresses.py',
