@@ -1201,7 +1201,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         auto count = limit + start;
         auto lastHeight = maxBlockHeight;
 
-        isMatchOwner = [&account](const CScript &owner) { return owner == account; };
+        if (!account.empty())
+            isMatchOwner = [&account](const CScript &owner) { return owner == account; };
+        else
+            isMatchOwner = [](const CScript &owner) { return true; };
 
         auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const &key, AccountHistoryValue value) -> bool {
             if (!isMatchOwner(key.owner)) {
