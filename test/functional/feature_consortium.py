@@ -531,6 +531,9 @@ class ConsortiumTest (DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getaccount(newAddress), ['2.00000000@BTC'])
 
+        assert_raises_rpc_error(-5, "recipient (NOTANADDRESS) does not refer to any valid address",
+                                self.nodes[0].minttokens, {"amounts": ["2@" + symbolBTC], "to": "NOTANADDRESS"})
+
 
 if __name__ == '__main__':
     ConsortiumTest().main()

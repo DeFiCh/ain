@@ -1093,6 +1093,9 @@ public:
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
         const auto grandCentralNextHeight   = static_cast<uint32_t>(consensus.GrandCentralNextHeight);
 
+        if (height < grandCentralNextHeight && !obj.to.empty())
+            return Res::Err("Recipient provided before Grand Central Next");
+
         // check auth and increase balance of token's owner
         for (const auto &[tokenId, amount] : obj.balances) {
             if (Params().NetworkIDString() == CBaseChainParams::MAIN && height >= fortCanningCrunchHeight &&
@@ -1113,8 +1116,10 @@ public:
                     return minted;
 
                 CScript mintTo{*mintable.val};
-                if (height >= grandCentralNextHeight && !obj.to.empty()) {
-                    mintTo = obj.to;
+                if (!obj.to.empty()) {
+                    CTxDestination destination;
+                    if (ExtractDestination(obj.to, destination) && IsValidDestination(destination))
+                        mintTo = obj.to;
                 }
 
                 CalculateOwnerRewards(mintTo);
