@@ -992,7 +992,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                         "txtype",
                         RPCArg::Type::STR,
                         RPCArg::Optional::OMITTED,
-                        "Filter by transaction type, supported letter from {CustomTxType}",
+                        "Filter by transaction type, supported letter from {CustomTxType}. Ignored if txtypes is provided",
                     },
                     {"txtypes",
                      RPCArg::Type::ARR,
@@ -1081,16 +1081,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!optionsObj["token"].isNull()) {
             tokenFilter = optionsObj["token"].get_str();
         }
-
-        if (!optionsObj["txtype"].isNull()) {
-            hasTxFilter = true;
-            const auto str = optionsObj["txtype"].get_str();
-            if (str.size() == 1) {
-                txTypes.insert(CustomTxCodeToType(str[0]));
-            } else {
-                txTypes.insert(FromString(str));
-            }
-        }
         if (!optionsObj["txtypes"].isNull()) {
             hasTxFilter = true;
             const auto types = optionsObj["txtypes"].get_array().getValues();
@@ -1103,6 +1093,15 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                         txTypes.insert(FromString(str));
                     }
                 }
+            }
+        }
+        else if (!optionsObj["txtype"].isNull()) {
+            hasTxFilter = true;
+            const auto str = optionsObj["txtype"].get_str();
+            if (str.size() == 1) {
+                txTypes.insert(CustomTxCodeToType(str[0]));
+            } else {
+                txTypes.insert(FromString(str));
             }
         }
         if (!optionsObj["limit"].isNull()) {
