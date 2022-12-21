@@ -1239,7 +1239,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (isMine) {
                 // starts new account owned by the wallet
                 if (lastOwner != key.owner) {
-                    count = limit;
+                    count = limit + start;
                 } else if (count == 0) {
                     return true;
                 }
