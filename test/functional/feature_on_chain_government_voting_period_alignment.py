@@ -35,9 +35,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         mn1 = self.nodes[1].getmininginfo()['masternodes'][0]['id']
         mn2 = self.nodes[2].getmininginfo()['masternodes'][0]['id']
 
-        # voting period
-        votingPeriod = 70
-
         # Generate chain
         self.nodes[0].generate(100)
         self.sync_blocks()
@@ -59,9 +56,12 @@ class OnChainGovernanceTest(DefiTestFramework):
         context = "<Git issue url>"
 
         # activate on-chain governance
-        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true'}}, )
+        self.nodes[0].setgov({"ATTRIBUTES":{'v0/params/feature/gov':'true',
+                                            'v0/gov/proposals/voting_period':'40'}}, )
         self.nodes[0].generate(1)
         self.sync_blocks()
+        # voting period
+        votingPeriod = 40
 
         # Create CFP
         tx = self.nodes[0].creategovcfp({"title": "Single cycle CFP (70)", "context": context, "amount": 100, "cycles": 1, "payoutAddress": address})
@@ -124,11 +124,11 @@ class OnChainGovernanceTest(DefiTestFramework):
         assert_equal(result["fee"], Decimal("10"))
 
         # Change voting period at height - 1 when voting period ends
-        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/gov/proposals/voting_period':'200'}}, cycleAlignemnt - 1)
+        self.nodes[0].setgovheight({"ATTRIBUTES":{'v0/gov/proposals/voting_period':'130'}}, cycleAlignemnt - 1)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        votingPeriod1 = 200
+        votingPeriod1 = 130
 
         # Move to voting period end
         self.nodes[0].generate(cycleAlignemnt - self.nodes[0].getblockcount())
