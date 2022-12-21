@@ -6,10 +6,8 @@
 """Test on chain government behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error
 )
 
 from decimal import Decimal
@@ -36,8 +34,6 @@ class OnChainGovernanceTest(DefiTestFramework):
         mn0 = self.nodes[0].getmininginfo()['masternodes'][0]['id']
         mn1 = self.nodes[1].getmininginfo()['masternodes'][0]['id']
         mn2 = self.nodes[2].getmininginfo()['masternodes'][0]['id']
-        mn3 = self.nodes[3].getmininginfo()['masternodes'][0]['id']
-
 
         # voting period
         votingPeriod = 70
