@@ -147,7 +147,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     bool newDifficultyAdjust{nHeight > params.EunosHeight};
 
     // Restore previous difficulty adjust on testnet after FC
-    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+    if ((Params().NetworkIDString() == CBaseChainParams::TESTNET || Params().NetworkIDString() == CBaseChainParams::DEVNET) && nHeight >= params.FortCanningHeight) {
         newDifficultyAdjust = false;
     }
 
