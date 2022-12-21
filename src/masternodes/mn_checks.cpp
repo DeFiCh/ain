@@ -1120,6 +1120,8 @@ public:
                     CTxDestination destination;
                     if (ExtractDestination(obj.to, destination) && IsValidDestination(destination))
                         mintTo = obj.to;
+                    else
+                        return Res::Err("Invalid \'to\' address provided");
                 }
 
                 CalculateOwnerRewards(mintTo);
