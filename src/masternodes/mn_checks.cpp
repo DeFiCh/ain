@@ -972,7 +972,7 @@ public:
                     }
                 } else {
                     if (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType) {
-                        return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                        return Res::Err("Reward address must be P2SH, P2PKH or P2WPKH type");
                     }
                 }
 
