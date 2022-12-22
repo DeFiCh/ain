@@ -833,7 +833,7 @@ UniValue burntokens(const JSONRPCRequest& request) {
             }
         }
         if (burnedTokens.from.empty())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"from\" must not be null");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "No valid addresses could be found, use the \"from\" argument to set address to burn from");
     } else {
         if (!metaObj["from"].isNull())
             burnedTokens.from = DecodeScript(metaObj["from"].getValStr());
