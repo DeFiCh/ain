@@ -947,7 +947,7 @@ public:
                 }
                 operatorType = true;
 
-                if (addressType != 1 && addressType != 4) {
+                if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Operator address must be P2PKH or P2WPKH type");
                 }
 
@@ -966,8 +966,14 @@ public:
                 }
                 rewardType = true;
 
-                if (addressType != 1 && addressType != 4) {
-                    return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                if (height < static_cast<uint32_t>(consensus.GrandCentralNextHeight)) {
+                    if (addressType != PKHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                    }
+                } else {
+                    if (addressType != PKHashType && addressType != ScriptHashType && addressType != WitV0KeyHashType) {
+                        return Res::Err("Reward address must be P2PKH or P2WPKH type");
+                    }
                 }
 
                 const auto keyID = CKeyID(uint160(rawAddress));

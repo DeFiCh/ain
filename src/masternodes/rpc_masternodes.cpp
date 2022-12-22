@@ -19,9 +19,19 @@ UniValue mnToJSON(CCustomCSView& view, uint256 const & nodeId, CMasternode const
                                       CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
         if (node.rewardAddressType != 0) {
-            obj.pushKV("rewardAddress", EncodeDestination(
-                node.rewardAddressType == 1 ? CTxDestination(PKHash(node.rewardAddress)) : CTxDestination(
-                        WitnessV0KeyHash(node.rewardAddress))));
+            std::string rewardAddress;
+            switch(node.rewardAddressType) {
+                case PKHashType:
+                    rewardAddress = EncodeDestination(CTxDestination(PKHash(node.rewardAddress)));
+                    break;
+                case ScriptHashType:
+                    rewardAddress = EncodeDestination(CTxDestination(ScriptHash(node.rewardAddress)));
+                    break;
+                case WitV0KeyHashType:
+                    rewardAddress = EncodeDestination(CTxDestination(WitnessV0KeyHash(node.rewardAddress)));
+                    break;
+            }
+            obj.pushKV("rewardAddress", rewardAddress);
         }
         else {
             obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));

@@ -4250,10 +4250,17 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(mn->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(mn->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(mn->rewardAddress))
-                    );
+                    switch(mn->rewardAddressType) {
+                        case PKHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(PKHash(mn->rewardAddress)));
+                            break;
+                        case ScriptHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(ScriptHash(mn->rewardAddress)));
+                            break;
+                        case WitV0KeyHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(mn->rewardAddress)));
+                            break;
+                    }
                 } else {
                     scriptPubKey = GetScriptForDestination(mn->ownerType == PKHashType ?
                         CTxDestination(PKHash(mn->ownerAuthAddress)) :
@@ -6578,10 +6585,18 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
-            CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
-                CTxDestination(PKHash(node->rewardAddress)) :
-                CTxDestination(WitnessV0KeyHash(node->rewardAddress))
-            );
+            CScript rewardScriptPubKey;
+            switch(node->rewardAddressType) {
+                case PKHashType:
+                    rewardScriptPubKey = GetScriptForDestination(CTxDestination(PKHash(node->rewardAddress)));
+                    break;
+                case ScriptHashType:
+                    rewardScriptPubKey = GetScriptForDestination(CTxDestination(ScriptHash(node->rewardAddress)));
+                    break;
+                case WitV0KeyHashType:
+                    rewardScriptPubKey = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(node->rewardAddress)));
+                    break;
+            }
             if (block.vtx[0]->vout[0].scriptPubKey != rewardScriptPubKey) {
                 return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-rewardaddress", "proof of stake failed");
             }

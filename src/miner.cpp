@@ -749,12 +749,19 @@ namespace pos {
             }
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
-                // this is safe cause MN was found
+                // this is safe because MN was found
                 if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
-                    );
+                    switch(nodePtr->rewardAddressType) {
+                        case PKHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(PKHash(nodePtr->rewardAddress)));
+                            break;
+                        case ScriptHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(ScriptHash(nodePtr->rewardAddress)));
+                            break;
+                        case WitV0KeyHashType:
+                            scriptPubKey = GetScriptForDestination(CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress)));
+                            break;
+                    }
                 }
                 else {
                     scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
