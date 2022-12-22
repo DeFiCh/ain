@@ -28,6 +28,7 @@
 #include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <masternodes/vaulthistory.h>
 #include <policy/fees.h>
 #include <policy/policy.h>

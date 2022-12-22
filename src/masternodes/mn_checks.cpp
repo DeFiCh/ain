@@ -5,6 +5,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/params.h>
 #include <masternodes/vaulthistory.h>
 
 #include <core_io.h>
@@ -1566,7 +1567,8 @@ public:
 
         const auto totalDFI = MultiplyAmounts(DivideAmounts(btcPrice, *resVal.val), amount);
 
-        Require(mnview.SubBalance(Params().GetConsensus().smartContracts.begin()->second, {{0}, totalDFI}));
+        assert(DeFiParams().GetConsensus().smartContracts.count(SMART_CONTRACT_DFIP_2201));
+        Require(mnview.SubBalance(DeFiParams().GetConsensus().smartContracts.at(SMART_CONTRACT_DFIP_2201), {{0}, totalDFI}));
 
         Require(mnview.AddBalance(script, {{0}, totalDFI}));
 
@@ -1575,7 +1577,7 @@ public:
 
     Res operator()(const CSmartContractMessage &obj) const {
         Require(!obj.accounts.empty(), "Contract account parameters missing");
-        auto contracts = Params().GetConsensus().smartContracts;
+        auto contracts = DeFiParams().GetConsensus().smartContracts;
 
         auto contract = contracts.find(obj.name);
         Require(contract != contracts.end(), "Specified smart contract not found");

@@ -173,6 +173,7 @@ DEFI_CORE_H = \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
+  masternodes/params.h \
   masternodes/res.h \
   masternodes/oracles.h \
   masternodes/poolpairs.h \
@@ -394,6 +395,7 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/params.cpp \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \

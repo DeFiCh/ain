@@ -59,7 +59,6 @@ struct Params {
     uint32_t foundationShare;
     std::set<CScript> foundationMembers;
     std::set<CScript> accountDestruction;
-    std::map<std::string, CScript> smartContracts;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */

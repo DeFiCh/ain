@@ -1,6 +1,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
+#include <masternodes/params.h>
 
 std::string tokenAmountString(CTokenAmount const& amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
@@ -2027,7 +2028,7 @@ UniValue HandleSendDFIP2201BTCInput(const JSONRPCRequest& request, CWalletCoinsU
 }
 
 UniValue HandleSendDFIP2201(const JSONRPCRequest& request, CWalletCoinsUnlocker pwallet) {
-    auto contracts = Params().GetConsensus().smartContracts;
+    auto contracts = DeFiParams().GetConsensus().smartContracts;
     const auto& contractPair = contracts.find(SMART_CONTRACT_DFIP_2201);
     assert(contractPair != contracts.end());
 

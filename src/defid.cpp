@@ -13,6 +13,7 @@
 #include <fs.h>
 #include <init.h>
 #include <interfaces/chain.h>
+#include <masternodes/params.h>
 #include <noui.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -104,6 +105,7 @@ static bool AppInit(int argc, char* argv[])
         // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
         try {
             SelectParams(gArgs.GetChainName());
+            SelectDeFiParams(gArgs.GetChainName());
         } catch (const std::exception& e) {
             return InitError(strprintf("%s\n", e.what()));
         }
