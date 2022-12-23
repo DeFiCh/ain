@@ -1411,7 +1411,6 @@ public:
         const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
         const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
         const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
-        const auto grandCentralNextHeight   = static_cast<uint32_t>(consensus.GrandCentralEpilogueHeight);
 
         CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
         const auto attributes = mnview.GetAttributes();
